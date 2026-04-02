@@ -172,6 +172,13 @@ python scripts/inspect_neo4j_state.py --managed-only
 - `plan_revision`
 - `failure_summary`
 - `healing_summary`
+- `last_event`
+- `event_count`
+
+如果需要完整时间线，直接读取：
+
+- `runs/<run_id>/audit.jsonl`
+- `GET /api/v2/runs/{run_id}/audit`
 
 ### artifact 未生成
 

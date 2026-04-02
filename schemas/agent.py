@@ -97,6 +97,18 @@ class RunArtifactMeta(BaseModel):
     size_bytes: int
 
 
+class RunEvent(BaseModel):
+    timestamp: str
+    kind: str
+    phase: RunPhase
+    message: str
+    plan_revision: int = 0
+    progress: int = 0
+    attempt_no: int = 0
+    current_step: Optional[int] = None
+    details: Dict[str, Any] = Field(default_factory=dict)
+
+
 class RunCreateRequest(BaseModel):
     job_type: JobType
     trigger: RunTrigger
@@ -122,6 +134,7 @@ class RunStatus(BaseModel):
     log_path: Optional[str] = None
     plan_path: Optional[str] = None
     validation_path: Optional[str] = None
+    audit_path: Optional[str] = None
     artifact: Optional[RunArtifactMeta] = None
     repair_records: List[RepairRecord] = Field(default_factory=list)
     current_step: Optional[int] = None
@@ -129,6 +142,8 @@ class RunStatus(BaseModel):
     healing_summary: Dict[str, Any] = Field(default_factory=dict)
     failure_summary: Optional[str] = None
     plan_revision: int = 0
+    event_count: int = 0
+    last_event: Optional[RunEvent] = None
     created_at: str
     started_at: Optional[str] = None
     finished_at: Optional[str] = None
@@ -137,3 +152,8 @@ class RunStatus(BaseModel):
 class RunPlanResponse(BaseModel):
     run_id: str
     plan: WorkflowPlan
+
+
+class RunAuditResponse(BaseModel):
+    run_id: str
+    events: List[RunEvent] = Field(default_factory=list)

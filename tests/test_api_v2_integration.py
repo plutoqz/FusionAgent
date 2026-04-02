@@ -117,6 +117,13 @@ def test_v2_run_building_integration(tmp_path: Path, client: TestClient) -> None
     assert plan["tasks"]
     assert isinstance(plan["tasks"][0]["kg_validated"], bool)
 
+    audit_resp = client.get(f"/api/v2/runs/{run_id}/audit")
+    assert audit_resp.status_code == 200
+    audit = audit_resp.json()
+    assert audit["run_id"] == run_id
+    assert audit["events"]
+    assert audit["events"][-1]["kind"] == "run_succeeded"
+
     artifact_resp = client.get(f"/api/v2/runs/{run_id}/artifact")
     assert artifact_resp.status_code == 200
     assert artifact_resp.content

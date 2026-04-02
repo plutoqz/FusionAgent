@@ -20,6 +20,7 @@ from kg.repository import KGRepository
 from llm.factory import create_llm_provider
 from schemas.agent import (
     RepairRecord,
+    RunEvent,
     RunArtifactMeta,
     RunCreateRequest,
     RunPhase,
@@ -38,6 +39,15 @@ def _as_bool(value: str | None, default: bool = False) -> bool:
     if value is None:
         return default
     return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _as_int(value: str | None, default: int) -> int:
+    if value is None:
+        return default
+    try:
+        return int(value.strip())
+    except Exception:  # noqa: BLE001
+        return default
 
 
 class AgentRunService:
@@ -60,6 +70,8 @@ class AgentRunService:
         self.executor = WorkflowExecutor(self.kg_repo, planner=self.planner)
 
         self.dispatch_eager = _as_bool(os.getenv("GEOFUSION_CELERY_EAGER", "1"), default=True)
+        # Total plan revisions allowed for a single run, including the initial revision.
+        self.max_plan_revisions = max(1, _as_int(os.getenv("GEOFUSION_MAX_PLAN_REVISIONS"), default=2))
 
     def shutdown(self) -> None:
         self._pool.shutdown(wait=True)
@@ -102,6 +114,7 @@ class AgentRunService:
             log_path=str(log_dir / "run.log"),
             plan_path=None,
             validation_path=None,
+            audit_path=str(run_dir / "audit.jsonl"),
             artifact=None,
             repair_records=[],
             current_step=None,
@@ -109,11 +122,31 @@ class AgentRunService:
             healing_summary={},
             failure_summary=None,
             plan_revision=0,
+            event_count=0,
+            last_event=None,
             created_at=_utc_now(),
             started_at=None,
             finished_at=None,
         )
         with self._lock:
+            self._append_audit_event(
+                status,
+                RunEvent(
+                    timestamp=_utc_now(),
+                    kind="run_created",
+                    phase=RunPhase.queued,
+                    message="Run created and input bundles persisted.",
+                    plan_revision=0,
+                    progress=0,
+                    attempt_no=0,
+                    current_step=None,
+                    details={
+                        "request_path": str(run_dir / "request.json"),
+                        "osm_zip_name": osm_zip_path.name,
+                        "ref_zip_name": ref_zip_path.name,
+                    },
+                ),
+            )
             self._runs[run_id] = status
             self._persist_status(status)
 
@@ -162,6 +195,8 @@ class AgentRunService:
                 error=None,
                 failure_summary=None,
                 current_step=0,
+                event_kind="run_started",
+                event_message=f"Run started for job_type={request.job_type.value}.",
             )
             logger.info("Run started: %s (%s)", run_id, request.job_type.value)
 
@@ -171,15 +206,86 @@ class AgentRunService:
             plan = self.run_validation_stage(run_id=run_id, plan=plan)
             logger.info("Validation stage completed; valid=%s", getattr(plan.validation, "valid", None))
 
-            fused_shp, repair_records = self.run_execution_stage(
-                run_id=run_id,
-                request=request,
-                plan=plan,
-                osm_zip_path=osm_zip_path,
-                ref_zip_path=ref_zip_path,
-                intermediate_dir=intermediate_dir,
-                output_dir=output_dir,
-            )
+            while True:
+                try:
+                    fused_shp, repair_records = self.run_execution_stage(
+                        run_id=run_id,
+                        request=request,
+                        plan=plan,
+                        osm_zip_path=osm_zip_path,
+                        ref_zip_path=ref_zip_path,
+                        intermediate_dir=intermediate_dir,
+                        output_dir=output_dir,
+                        repair_records=repair_records,
+                    )
+                    break
+                except Exception as exec_error:  # noqa: BLE001
+                    failed_step = self._infer_failed_step(repair_records)
+                    current_revision = self._extract_plan_revision(plan)
+                    if failed_step is None:
+                        raise
+                    if current_revision >= self.max_plan_revisions:
+                        raise RuntimeError(
+                            "Execution failed after exhausting repair strategies and "
+                            f"reaching max plan revisions ({self.max_plan_revisions}): {exec_error}"
+                        ) from exec_error
+
+                    failure_message = f"{type(exec_error).__name__}: {exec_error}"
+                    self._update_status(
+                        run_id,
+                        RunPhase.healing,
+                        progress=60,
+                        repair_records=repair_records,
+                        current_step=failed_step,
+                        attempt_no=self._max_attempt_no(repair_records),
+                        healing_summary=self._build_healing_summary(repair_records),
+                        failure_summary=self._build_failure_summary(failure_message, repair_records),
+                        plan_revision=current_revision,
+                        event_kind="replan_requested",
+                        event_message="Execution failed after exhausting repair strategies; requesting replanning.",
+                        event_details={"failed_step": failed_step, "error": failure_message},
+                    )
+                    logger.warning(
+                        "Execution failed on revision=%s step=%s; attempting replan: %s",
+                        current_revision,
+                        failed_step,
+                        failure_message,
+                    )
+
+                    replanned = self.planner.replan_from_error(
+                        run_id=run_id,
+                        job_type=request.job_type,
+                        trigger=request.trigger,
+                        previous_plan=plan,
+                        failed_step=failed_step,
+                        error_message=failure_message,
+                    )
+                    replanned_revision = self._extract_plan_revision(replanned)
+                    if replanned_revision <= current_revision:
+                        raise RuntimeError(
+                            "Replan did not produce a newer plan revision after execution failure."
+                        ) from exec_error
+
+                    plan = replanned
+                    plan_path = self._plan_path(run_id)
+                    self._persist_plan(plan_path, plan)
+                    self._update_status(
+                        run_id,
+                        RunPhase.healing,
+                        progress=65,
+                        plan_path=str(plan_path),
+                        repair_records=repair_records,
+                        current_step=failed_step,
+                        attempt_no=self._max_attempt_no(repair_records),
+                        healing_summary=self._build_healing_summary(repair_records),
+                        failure_summary=self._build_failure_summary(failure_message, repair_records),
+                        plan_revision=replanned_revision,
+                        event_kind="replan_applied",
+                        event_message=f"Applied replanned workflow revision {replanned_revision}.",
+                        event_details={"failed_step": failed_step, "previous_revision": current_revision},
+                    )
+                    plan = self.run_validation_stage(run_id=run_id, plan=plan)
+                    logger.info("Healing replan completed with revision=%s", self._extract_plan_revision(plan))
             logger.info("Execution stage completed: %s", fused_shp)
 
             artifact = self.run_writeback_stage(
@@ -204,6 +310,8 @@ class AgentRunService:
                 failure_summary=None,
                 error=None,
                 plan_revision=self._extract_plan_revision(plan),
+                event_kind="run_succeeded",
+                event_message="Run completed successfully and artifact is ready.",
             )
             logger.info("Run succeeded.")
         except Exception as exc:  # noqa: BLE001
@@ -222,6 +330,9 @@ class AgentRunService:
                 error=err,
                 current_step=self._infer_failed_step(repair_records),
                 plan_revision=self._extract_plan_revision(plan),
+                event_kind="run_failed",
+                event_message="Run failed.",
+                event_details={"error": err},
             )
             if plan is not None:
                 self._record_feedback(
@@ -247,6 +358,9 @@ class AgentRunService:
             progress=25,
             plan_path=str(plan_path),
             plan_revision=self._extract_plan_revision(plan),
+            event_kind="plan_created",
+            event_message=f"Workflow plan revision {self._extract_plan_revision(plan)} created.",
+            event_details={"workflow_id": plan.workflow_id},
         )
         return plan
 
@@ -263,6 +377,12 @@ class AgentRunService:
             plan_path=str(plan_path),
             validation_path=str(validation_path),
             plan_revision=self._extract_plan_revision(validated),
+            event_kind="plan_validated",
+            event_message=f"Workflow plan revision {self._extract_plan_revision(validated)} validated.",
+            event_details={
+                "valid": bool(getattr(validated.validation, "valid", False)),
+                "inserted_transform_steps": int(getattr(validated.validation, "inserted_transform_steps", 0)),
+            },
         )
         return validated
 
@@ -275,13 +395,14 @@ class AgentRunService:
         ref_zip_path: Path,
         intermediate_dir: Path,
         output_dir: Path,
+        repair_records: Optional[List[RepairRecord]] = None,
     ) -> tuple[Path, List[RepairRecord]]:
         osm_extract = intermediate_dir / "osm"
         ref_extract = intermediate_dir / "ref"
         osm_shp = validate_zip_has_shapefile(osm_zip_path, osm_extract)
         ref_shp = validate_zip_has_shapefile(ref_zip_path, ref_extract)
 
-        repair_records: List[RepairRecord] = []
+        repair_records = repair_records if repair_records is not None else []
         context = ExecutionContext(
             run_id=run_id,
             job_type=request.job_type,
@@ -303,6 +424,9 @@ class AgentRunService:
             attempt_no=self._max_attempt_no(repair_records),
             healing_summary=self._build_healing_summary(repair_records),
             plan_revision=self._extract_plan_revision(plan),
+            event_kind="execution_completed",
+            event_message="Execution stage completed and produced an output artifact.",
+            event_details={"repair_count": len(repair_records)},
         )
         self._persist_plan(self._plan_path(run_id), plan)
         return fused_shp, repair_records
@@ -351,6 +475,18 @@ class AgentRunService:
         if not status or not status.artifact:
             return None
         return Path(status.artifact.path)
+
+    def get_audit_events(self, run_id: str) -> List[RunEvent]:
+        path = self._audit_path(run_id)
+        if not path.exists():
+            return []
+        events: List[RunEvent] = []
+        for line in path.read_text(encoding="utf-8").splitlines():
+            raw = line.strip()
+            if not raw:
+                continue
+            events.append(RunEvent.model_validate(json.loads(raw)))
+        return events
 
     def _dispatch_run(
         self,
@@ -430,12 +566,16 @@ class AgentRunService:
         healing_summary: Optional[Dict[str, object]] = None,
         failure_summary: Optional[str] = None,
         plan_revision: Optional[int] = None,
+        event_kind: Optional[str] = None,
+        event_message: Optional[str] = None,
+        event_details: Optional[Dict[str, object]] = None,
     ) -> None:
         current = self.get_run(run_id)
         if current is None:
             raise KeyError(run_id)
         with self._lock:
             current = self._runs[run_id]
+            previous_phase = current.phase
             current.phase = phase
             if progress is not None:
                 current.progress = progress
@@ -463,6 +603,19 @@ class AgentRunService:
                 current.failure_summary = failure_summary
             if plan_revision is not None:
                 current.plan_revision = plan_revision
+            if event_kind or phase != previous_phase:
+                event = RunEvent(
+                    timestamp=_utc_now(),
+                    kind=event_kind or "status_updated",
+                    phase=current.phase,
+                    message=event_message or f"Run phase updated to {current.phase.value}.",
+                    plan_revision=current.plan_revision,
+                    progress=current.progress,
+                    attempt_no=current.attempt_no,
+                    current_step=current.current_step,
+                    details=dict(event_details or {}),
+                )
+                self._append_audit_event(current, event)
             self._runs[run_id] = current
             self._persist_status(current)
 
@@ -500,6 +653,19 @@ class AgentRunService:
 
     def _validation_path(self, run_id: str) -> Path:
         return self.base_dir / run_id / "validation.json"
+
+    def _audit_path(self, run_id: str) -> Path:
+        return self.base_dir / run_id / "audit.jsonl"
+
+    def _append_audit_event(self, status: RunStatus, event: RunEvent) -> None:
+        path = Path(status.audit_path) if status.audit_path else self._audit_path(status.run_id)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with path.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(event.model_dump(mode="json"), ensure_ascii=False))
+            handle.write("\n")
+        status.audit_path = str(path)
+        status.event_count += 1
+        status.last_event = event
 
     @staticmethod
     def _extract_plan_revision(plan: Optional[WorkflowPlan]) -> int:

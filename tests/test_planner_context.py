@@ -114,3 +114,4 @@ def test_replan_increments_plan_revision() -> None:
     assert replanned.context["plan_revision"] == 2
     assert replanned.context["selection_reason"] == "replanned_after_failure"
     assert replanned.context["failed_step"] == 1
+    assert "algo.fusion.road.safe" in replanned.tasks[0].alternatives

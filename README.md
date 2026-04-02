@@ -134,6 +134,7 @@ docker compose up --build
 - `POST /api/v2/runs`
 - `GET /api/v2/runs/{run_id}`
 - `GET /api/v2/runs/{run_id}/plan`
+- `GET /api/v2/runs/{run_id}/audit`
 - `GET /api/v2/runs/{run_id}/artifact`
 
 示例：
@@ -175,7 +176,7 @@ python -m pytest tests/test_live_smoke_v2.py -q
 如需展示，优先使用：
 
 - FastAPI `/docs`
-- `runs/<run_id>/run.json`、`plan.json`、artifact
+- `runs/<run_id>/run.json`、`plan.json`、`validation.json`、`audit.jsonl`、artifact
 - 轻量只读页面或脚本输出
 
 ## 相关文档

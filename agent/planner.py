@@ -48,16 +48,7 @@ class WorkflowPlanner:
             top_pattern = self.kg_repo.get_candidate_patterns(job_type=job_type, disaster_type=trigger.disaster_type, limit=1)[0]
             plan = self._build_skeleton_plan(top_pattern, trigger=trigger)
 
-        # Fill alternatives from KG to support healing.
-        patched_tasks: List[WorkflowTask] = []
-        for task in plan.tasks:
-            alternatives = [a.algo_id for a in self.kg_repo.get_alternative_algorithms(task.algorithm_id, limit=3)]
-            task.alternatives = list(dict.fromkeys([*task.alternatives, *alternatives]))
-            patched_tasks.append(task)
-        plan.tasks = patched_tasks
-
-        if not plan.workflow_id:
-            plan.workflow_id = f"wf_{uuid.uuid4().hex}"
+        plan = self._finalize_plan(plan)
         plan.context = self._normalize_plan_context(
             planning_context=planning_context,
             selection_reason=selection_reason,
@@ -81,7 +72,10 @@ class WorkflowPlanner:
         try:
             payload = self.llm_provider.generate_workflow_plan(SYSTEM_PROMPT, planning_context)
             plan = WorkflowPlan.model_validate(payload)
+            if not plan.tasks:
+                raise ValueError("LLM returned plan with no tasks.")
             plan.trigger = trigger
+            plan = self._finalize_plan(plan, fallback_workflow_id=previous_plan.workflow_id)
             revision = int(previous_plan.context.get("plan_revision", 1)) + 1
             plan.context = self._normalize_plan_context(
                 planning_context=planning_context,
@@ -154,6 +148,18 @@ class WorkflowPlanner:
         }
         # Roundtrip for stronger schema normalization.
         return WorkflowPlan.model_validate(json.loads(json.dumps(payload)))
+
+    def _finalize_plan(self, plan: WorkflowPlan, fallback_workflow_id: Optional[str] = None) -> WorkflowPlan:
+        patched_tasks: List[WorkflowTask] = []
+        for task in plan.tasks:
+            alternatives = [a.algo_id for a in self.kg_repo.get_alternative_algorithms(task.algorithm_id, limit=3)]
+            task.alternatives = list(dict.fromkeys([*task.alternatives, *alternatives]))
+            patched_tasks.append(task)
+        plan.tasks = patched_tasks
+
+        if not plan.workflow_id:
+            plan.workflow_id = fallback_workflow_id or f"wf_{uuid.uuid4().hex}"
+        return plan
 
     def _normalize_plan_context(
         self,

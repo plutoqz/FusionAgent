@@ -7,6 +7,7 @@ from fastapi import APIRouter, File, Form, HTTPException, UploadFile
 from fastapi.responses import FileResponse
 
 from schemas.agent import (
+    RunAuditResponse,
     RunCreateRequest,
     RunCreateResponse,
     RunPhase,
@@ -112,6 +113,14 @@ async def get_run_plan(run_id: str) -> RunPlanResponse:
             raise HTTPException(status_code=409, detail=f"Plan not ready yet: {status.phase.value}")
         raise HTTPException(status_code=404, detail="Plan not found")
     return RunPlanResponse(run_id=run_id, plan=plan)
+
+
+@router.get("/runs/{run_id}/audit", response_model=RunAuditResponse)
+async def get_run_audit(run_id: str) -> RunAuditResponse:
+    status = agent_run_service.get_run(run_id)
+    if status is None:
+        raise HTTPException(status_code=404, detail=f"Run not found: {run_id}")
+    return RunAuditResponse(run_id=run_id, events=agent_run_service.get_audit_events(run_id))
 
 
 @router.get("/runs/{run_id}/artifact")
