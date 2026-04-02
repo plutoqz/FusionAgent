@@ -1,0 +1,26 @@
+{
+  "case_id": "road_disaster_earthquake",
+  "job_type": "road",
+  "trigger": {
+    "type": "disaster_event",
+    "content": "earthquake road fusion",
+    "disaster_type": "earthquake"
+  },
+  "osm_zip": "input/osm.zip",
+  "ref_zip": "input/ref.zip",
+  "expected_plan_checks": {
+    "pattern_hint": "wp.flood.road",
+    "required_algorithms": [
+      "algo.fusion.road.v1",
+      "algo.fusion.road.safe"
+    ],
+    "required_output_type": "dt.road.fused"
+  },
+  "artifact_checks": {
+    "required_suffixes": [
+      ".shp",
+      ".shx",
+      ".dbf"
+    ]
+  }
+}

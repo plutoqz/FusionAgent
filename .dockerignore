@@ -1,0 +1,10 @@
+.git
+.pytest_cache
+.wheelhouse
+__pycache__
+*.pyc
+*.pyo
+*.pyd
+jobs
+runs
+tests/__pycache__

@@ -1,0 +1,36 @@
+name: ci
+
+on:
+  push:
+  pull_request:
+
+jobs:
+  mock-inmemory-tests:
+    runs-on: ubuntu-latest
+    env:
+      GEOFUSION_KG_BACKEND: memory
+      GEOFUSION_LLM_PROVIDER: mock
+      GEOFUSION_CELERY_EAGER: "1"
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Install baseline test dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install pydantic==2.7.4 pytest==8.3.5
+      - name: Run mock/in-memory test suite
+        run: |
+          python -m pytest \
+            tests/test_kg_repository.py \
+            tests/test_repair_strategy.py \
+            tests/test_workflow_validator.py \
+            tests/test_kg_repository_enhancements.py \
+            tests/test_planner_context.py \
+            tests/test_repair_audit.py \
+            tests/test_agent_run_service_enhancements.py \
+            tests/test_worker_orchestration.py \
+            tests/test_neo4j_bootstrap.py \
+            tests/test_openai_provider_defaults.py \
+            -q

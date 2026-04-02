@@ -1,0 +1,26 @@
+{
+  "case_id": "building_disaster_flood",
+  "job_type": "building",
+  "trigger": {
+    "type": "disaster_event",
+    "content": "flood building fusion",
+    "disaster_type": "flood"
+  },
+  "osm_zip": "input/osm.zip",
+  "ref_zip": "input/ref.zip",
+  "expected_plan_checks": {
+    "pattern_hint": "wp.flood.building.default",
+    "required_algorithms": [
+      "algo.fusion.building.v1",
+      "algo.fusion.building.safe"
+    ],
+    "required_output_type": "dt.building.fused"
+  },
+  "artifact_checks": {
+    "required_suffixes": [
+      ".shp",
+      ".shx",
+      ".dbf"
+    ]
+  }
+}

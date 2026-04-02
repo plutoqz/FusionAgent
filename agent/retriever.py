@@ -1,0 +1,131 @@
+from __future__ import annotations
+
+from typing import Any, Dict, List, Tuple
+
+from kg.models import AlgorithmNode, DataSourceNode, KGContext, WorkflowPatternNode
+from kg.repository import KGRepository
+from schemas.agent import RunTrigger
+from schemas.fusion import JobType
+
+
+class PlanningContextBuilder:
+    def __init__(self, kg_repo: KGRepository) -> None:
+        self.kg_repo = kg_repo
+
+    def build(self, job_type: JobType, trigger: RunTrigger) -> Tuple[Dict[str, Any], str]:
+        kg_context = self.kg_repo.build_context(job_type=job_type, disaster_type=trigger.disaster_type)
+        selection_reason = self._select_reason(kg_context.patterns)
+        return (
+            {
+                "intent": self._extract_intent(job_type, trigger),
+                "retrieval": self._build_retrieval_payload(job_type, trigger, kg_context),
+                "constraints": self._build_constraints(job_type),
+                "execution_hints": self._build_execution_hints(kg_context),
+            },
+            selection_reason,
+        )
+
+    @staticmethod
+    def _extract_intent(job_type: JobType, trigger: RunTrigger) -> Dict[str, Any]:
+        return {
+            "job_type": job_type.value,
+            "trigger": trigger.model_dump(),
+            "expected_output_type": f"dt.{job_type.value}.fused",
+            "spatial_extent": trigger.spatial_extent,
+            "temporal_start": trigger.temporal_start,
+            "temporal_end": trigger.temporal_end,
+        }
+
+    def _build_retrieval_payload(
+        self,
+        job_type: JobType,
+        trigger: RunTrigger,
+        kg_context: KGContext,
+    ) -> Dict[str, Any]:
+        required_types = sorted({step.input_data_type for pattern in kg_context.patterns for step in pattern.steps})
+        transform_paths = {
+            required_type: self.kg_repo.find_transform_path("dt.raw.vector", required_type, max_depth=3)
+            for required_type in required_types
+        }
+        search_query = " ".join(
+            token
+            for token in [job_type.value, trigger.disaster_type or "", trigger.content]
+            if token
+        )
+        return {
+            "candidate_patterns": [self._pattern_to_dict(pattern) for pattern in kg_context.patterns],
+            "algorithms": {algo_id: self._algo_to_dict(algo) for algo_id, algo in kg_context.algorithms.items()},
+            "data_sources": [self._data_source_to_dict(source) for source in kg_context.data_sources],
+            "transform_paths": transform_paths,
+            "knowledge_hits": self.kg_repo.search_knowledge(search_query, limit=5),
+        }
+
+    @staticmethod
+    def _build_constraints(job_type: JobType) -> Dict[str, Any]:
+        return {
+            "allowed_job_types": ["building", "road"],
+            "required_output_type": f"dt.{job_type.value}.fused",
+            "must_use_registered_algorithms": True,
+            "must_keep_json_schema": True,
+        }
+
+    @staticmethod
+    def _build_execution_hints(kg_context: KGContext) -> Dict[str, Any]:
+        return {
+            "preferred_pattern_id": kg_context.patterns[0].pattern_id if kg_context.patterns else None,
+            "fallback_pattern_ids": [pattern.pattern_id for pattern in kg_context.patterns[1:]],
+            "available_data_source_ids": [source.source_id for source in kg_context.data_sources],
+        }
+
+    @staticmethod
+    def _select_reason(patterns: List[WorkflowPatternNode]) -> str:
+        if not patterns:
+            return "no_pattern_available"
+        return f"preferred_{patterns[0].pattern_id}_by_success_rate"
+
+    @staticmethod
+    def _algo_to_dict(algo: AlgorithmNode) -> Dict[str, Any]:
+        return {
+            "algo_id": algo.algo_id,
+            "algo_name": algo.algo_name,
+            "input_types": algo.input_types,
+            "output_type": algo.output_type,
+            "task_type": algo.task_type,
+            "tool_ref": algo.tool_ref,
+            "success_rate": algo.success_rate,
+            "alternatives": algo.alternatives,
+        }
+
+    @staticmethod
+    def _data_source_to_dict(source: DataSourceNode) -> Dict[str, Any]:
+        return {
+            "source_id": source.source_id,
+            "source_name": source.source_name,
+            "supported_types": source.supported_types,
+            "disaster_types": source.disaster_types,
+            "quality_score": source.quality_score,
+            "metadata": source.metadata,
+        }
+
+    @staticmethod
+    def _pattern_to_dict(pattern: WorkflowPatternNode) -> Dict[str, Any]:
+        return {
+            "pattern_id": pattern.pattern_id,
+            "pattern_name": pattern.pattern_name,
+            "job_type": pattern.job_type.value,
+            "disaster_types": pattern.disaster_types,
+            "success_rate": pattern.success_rate,
+            "steps": [
+                {
+                    "order": step.order,
+                    "name": step.name,
+                    "algorithm_id": step.algorithm_id,
+                    "input_data_type": step.input_data_type,
+                    "output_data_type": step.output_data_type,
+                    "data_source_id": step.data_source_id,
+                    "depends_on": step.depends_on,
+                    "is_optional": step.is_optional,
+                }
+                for step in pattern.steps
+            ],
+        }

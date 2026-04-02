@@ -1,0 +1,25 @@
+{
+  "case_id": "building_user_query",
+  "job_type": "building",
+  "trigger": {
+    "type": "user_query",
+    "content": "fuse building layers"
+  },
+  "osm_zip": "input/osm.zip",
+  "ref_zip": "input/ref.zip",
+  "expected_plan_checks": {
+    "pattern_hint": "wp.flood.building",
+    "required_algorithms": [
+      "algo.fusion.building.v1",
+      "algo.fusion.building.safe"
+    ],
+    "required_output_type": "dt.building.fused"
+  },
+  "artifact_checks": {
+    "required_suffixes": [
+      ".shp",
+      ".shx",
+      ".dbf"
+    ]
+  }
+}
