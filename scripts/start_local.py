@@ -12,15 +12,20 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from kg.bootstrap import ensure_bootstrap_data
+from kg.bootstrap import prepare_local_neo4j
 from utils.local_runtime import apply_local_dependency_defaults, find_missing_runtime_dependencies
 
 
 def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Start GeoFusion locally with real Redis/Neo4j/LLM defaults.")
+    parser = argparse.ArgumentParser(description="Start FusionAgent locally with Redis/Neo4j/LLM defaults.")
     parser.add_argument("--port", type=int, default=8000, help="API port.")
     parser.add_argument("--install-deps", action="store_true", help="Install missing Python dependencies automatically.")
     parser.add_argument("--check-only", action="store_true", help="Only validate dependencies and bootstrap Neo4j.")
+    parser.add_argument(
+        "--reset-managed-graph",
+        action="store_true",
+        help="Delete only FusionAgent-managed Neo4j nodes before reseeding.",
+    )
     return parser
 
 
@@ -41,15 +46,32 @@ def _build_env(port: int) -> dict[str, str]:
     return env
 
 
-def _ensure_bootstrap(env: dict[str, str]) -> bool:
+def _prepare_neo4j(env: dict[str, str], *, reset_managed_graph: bool = False) -> dict[str, object]:
     if env.get("GEOFUSION_KG_BACKEND", "neo4j").strip().lower() == "memory":
-        return False
-    return ensure_bootstrap_data(
+        return {
+            "edition": None,
+            "isolation_mode": "memory",
+            "database_used": None,
+            "notes": [],
+            "bootstrap_applied": False,
+            "managed_nodes_deleted": 0,
+            "managed_inventory": {"label_counts": [], "relationship_counts": [], "node_count": 0},
+            "foreign_labels": [],
+        }
+
+    summary = prepare_local_neo4j(
         uri=env["GEOFUSION_NEO4J_URI"],
         user=env["GEOFUSION_NEO4J_USER"],
         password=env["GEOFUSION_NEO4J_PASSWORD"],
         database=env.get("GEOFUSION_NEO4J_DATABASE") or None,
+        reset_managed=reset_managed_graph,
     )
+    database_used = summary.get("database_used")
+    if database_used:
+        env["GEOFUSION_NEO4J_DATABASE"] = str(database_used)
+    else:
+        env.pop("GEOFUSION_NEO4J_DATABASE", None)
+    return summary
 
 
 def _start_process(name: str, command: list[str], env: dict[str, str], log_dir: Path) -> subprocess.Popen:
@@ -104,8 +126,22 @@ def main(argv: list[str] | None = None) -> int:
         _install_dependencies()
 
     env = _build_env(args.port)
-    changed = _ensure_bootstrap(env)
-    print(f"Neo4j bootstrap: {'applied' if changed else 'already seeded'}")
+    neo4j_summary = _prepare_neo4j(env, reset_managed_graph=args.reset_managed_graph)
+    if neo4j_summary["isolation_mode"] != "memory":
+        print(f"Neo4j edition: {neo4j_summary['edition']}")
+        print(f"Neo4j isolation: {neo4j_summary['isolation_mode']}")
+        if neo4j_summary.get("database_used"):
+            print(f"Neo4j database: {neo4j_summary['database_used']}")
+        print(f"Neo4j bootstrap: {'applied' if neo4j_summary['bootstrap_applied'] else 'already seeded'}")
+        if neo4j_summary.get("managed_nodes_deleted"):
+            print(f"Neo4j managed cleanup: deleted {neo4j_summary['managed_nodes_deleted']} nodes")
+        notes = neo4j_summary.get("notes") or []
+        for note in notes:
+            print(f"Neo4j note: {note}")
+        foreign_labels = neo4j_summary.get("foreign_labels") or []
+        if foreign_labels:
+            preview = ", ".join(f"{item['label']}({item['count']})" for item in foreign_labels[:6])
+            print(f"Neo4j foreign labels detected outside FusionAgent-managed graph: {preview}")
 
     if args.check_only:
         print("Local runtime check passed.")

@@ -16,6 +16,7 @@ env/
 !.env.example
 依赖.txt
 !依赖.txt.example
+文档/Proposal.pdf
 
 .wheelhouse/
 celerybeat-schedule*

@@ -1,5 +1,52 @@
 # GeoFusion 知识图谱本体模式层设计方案
 
+## 文档定位与实现状态（2026-04）
+
+这份文档描述的是 **GeoFusion / FusionAgent 的目标态本体设计**，不是“当前仓库所有代码均已落地”的实现说明。为了避免将研究设计与工程现状混淆，先明确当前边界：
+
+### 当前已经落地的 KG 子集
+
+当前代码、seed、Neo4j bootstrap 与查询逻辑真实依赖的核心实体主要是：
+
+- `WorkflowPattern`
+- `StepTemplate`
+- `Algorithm`
+- `DataSource`
+- `DataType`
+- `WorkflowInstance`
+
+这些实体已经进入当前工程的 planner / validator / executor / feedback 链路，属于 **当前已实现的 MVP 子集**。
+
+### 当前部分落地但尚未形成完整闭环
+
+- `WorkflowInstance` 已写入 Neo4j
+- 执行反馈已存在工程写回入口
+- 有限修复策略已实现：`alternative_source`、`alternative_algorithm`、`transform_insert`
+
+但以下能力仍未形成完整工程闭环：
+
+- 真正的 `replan`
+- 完整经验学习写回
+- 面向所有设计类的系统化查询与约束校验
+- 动态外部数据源接入
+
+### 本文档中仍属于目标态的内容
+
+文档中的以下类、关系和章节仍应理解为 **研究目标 / 未来扩展方向**，而不是“当前代码已完整实现”：
+
+- `ExecutionLog`
+- `RepairRecord`
+- `DataArtifact`
+- 更完整的 `Scenario Layer`
+- 大规模 OWL / SHACL 约束体系
+- 面向 RAG 的完整查询模板集
+- 本体演进与自动经验学习机制
+
+### 阅读建议
+
+- 如果目标是理解“当前仓库能跑到什么程度”，优先看 [README.md](/E:/vscode/fusionAgent/README.md)、[docs/local-direct-run.md](/E:/vscode/fusionAgent/docs/local-direct-run.md)、[docs/v2-operations.md](/E:/vscode/fusionAgent/docs/v2-operations.md)。
+- 如果目标是理解“最终想构建成什么”，再继续阅读本文后续章节。
+
 ## "灾害 – 数据 – 算法"三元协同本体模型
 
 ---

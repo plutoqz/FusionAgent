@@ -49,6 +49,7 @@ def test_read_local_dependency_config_maps_dependency_txt_fields(tmp_path: Path)
                 "",
                 "Neo4j用户名:neo4j",
                 "Neo4j密码:systemneo4j",
+                "Neo4j数据库:neo4j",
                 "",
                 "api-key:sk-test",
                 'base_url="https://www.dmxapi.cn/v1"',
@@ -62,12 +63,13 @@ def test_read_local_dependency_config_maps_dependency_txt_fields(tmp_path: Path)
     assert config.redis_port == 6380
     assert config.neo4j_user == "neo4j"
     assert config.neo4j_password == "systemneo4j"
+    assert config.neo4j_database == "neo4j"
     assert config.llm_api_key == "sk-test"
     assert config.llm_base_url == "https://www.dmxapi.cn/v1"
     assert config.llm_model == "qwen3.5-397b-a17b"
     assert config.as_env_defaults()["GEOFUSION_CELERY_BROKER"] == "redis://localhost:6380/0"
     assert config.as_env_defaults()["GEOFUSION_NEO4J_URI"] == "bolt://localhost:7687"
-    assert "GEOFUSION_NEO4J_DATABASE" not in config.as_env_defaults()
+    assert config.as_env_defaults()["GEOFUSION_NEO4J_DATABASE"] == "neo4j"
 
 
 def test_apply_local_dependency_defaults_does_not_override_existing_env(

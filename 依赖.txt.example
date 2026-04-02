@@ -2,6 +2,8 @@ Redis端口:6380
 
 Neo4j用户名:neo4j
 Neo4j密码:change-me
+# 可选；留空时本地脚本会自动探测当前 Neo4j home database
+Neo4j数据库:
 
 api-key:your-api-key
 base_url="https://api.example.com/v1"

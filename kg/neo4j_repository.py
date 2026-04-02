@@ -5,6 +5,7 @@ from typing import Dict, List, Optional
 
 from schemas.fusion import JobType
 
+from kg.bootstrap import MANAGED_LABEL, resolve_graph_target
 from kg.models import AlgorithmNode, DataSourceNode, ExecutionFeedback, KGContext, PatternStep, WorkflowPatternNode
 from kg.repository import KGRepository
 
@@ -34,15 +35,14 @@ class Neo4jKGRepository(KGRepository):
         database = os.getenv("GEOFUSION_NEO4J_DATABASE")
         if not uri or not user or not password:
             return None
-        return cls(uri=uri, user=user, password=password, database=database)
+        resolved = resolve_graph_target(uri=uri, user=user, password=password, database=database)
+        return cls(uri=uri, user=user, password=password, database=resolved["database_used"])
 
     def close(self) -> None:
         self._driver.close()
 
     def _execute(self, cypher: str, **params: object) -> List[Dict[str, object]]:
         with self._driver.session(database=self.database) as session:
-            # Pass Neo4j parameters as a dedicated dict so keys like "query"
-            # do not collide with the driver's run(query, ...) signature.
             result = session.run(cypher, params)
             return [dict(record) for record in result]
 
@@ -53,11 +53,11 @@ class Neo4jKGRepository(KGRepository):
         limit: int = 3,
     ) -> List[WorkflowPatternNode]:
         rows = self._execute(
-            """
-            MATCH (wp:WorkflowPattern)
+            f"""
+            MATCH (wp:WorkflowPattern:{MANAGED_LABEL})
             WHERE wp.jobType = $job_type
               AND ($disaster_type IS NULL OR $disaster_type IN wp.disasterTypes OR "generic" IN wp.disasterTypes)
-            OPTIONAL MATCH (wp)-[hs:HAS_STEP]->(st:StepTemplate)
+            OPTIONAL MATCH (wp)-[hs:HAS_STEP]->(st:StepTemplate:{MANAGED_LABEL})
             WITH wp, st, hs ORDER BY hs.order ASC
             RETURN wp, collect(st) AS steps
             ORDER BY wp.successRate DESC
@@ -95,16 +95,16 @@ class Neo4jKGRepository(KGRepository):
                     disaster_types=list(wp.get("disasterTypes", ["generic"])),
                     steps=steps,
                     success_rate=float(wp.get("successRate", 0.0)),
-                    metadata={"source": "neo4j"},
+                    metadata={"source": "neo4j", "managed_label": MANAGED_LABEL},
                 )
             )
         return patterns
 
     def get_algorithm(self, algo_id: str) -> Optional[AlgorithmNode]:
         rows = self._execute(
-            """
-            MATCH (a:Algorithm {algoId: $algo_id})
-            OPTIONAL MATCH (a)-[:ALTERNATIVE_TO]->(alt:Algorithm)
+            f"""
+            MATCH (a:Algorithm:{MANAGED_LABEL} {{algoId: $algo_id}})
+            OPTIONAL MATCH (a)-[:ALTERNATIVE_TO]->(alt:Algorithm:{MANAGED_LABEL})
             RETURN a AS algo, collect(alt.algoId) AS alternatives
             LIMIT 1
             """,
@@ -127,8 +127,8 @@ class Neo4jKGRepository(KGRepository):
 
     def get_alternative_algorithms(self, algo_id: str, limit: int = 3) -> List[AlgorithmNode]:
         rows = self._execute(
-            """
-            MATCH (:Algorithm {algoId: $algo_id})-[:ALTERNATIVE_TO]->(alt:Algorithm)
+            f"""
+            MATCH (:Algorithm:{MANAGED_LABEL} {{algoId: $algo_id}})-[:ALTERNATIVE_TO]->(alt:Algorithm:{MANAGED_LABEL})
             RETURN alt
             ORDER BY alt.successRate DESC
             LIMIT $limit
@@ -160,7 +160,7 @@ class Neo4jKGRepository(KGRepository):
         rows = self._execute(
             f"""
             MATCH p = shortestPath(
-              (s:DataType {{typeId: $from_type}})-[:CAN_TRANSFORM_TO*..{depth}]->(t:DataType {{typeId: $to_type}})
+              (s:DataType:{MANAGED_LABEL} {{typeId: $from_type}})-[:CAN_TRANSFORM_TO*..{depth}]->(t:DataType:{MANAGED_LABEL} {{typeId: $to_type}})
             )
             RETURN [n IN nodes(p) | n.typeId] AS path
             LIMIT 1
@@ -180,8 +180,8 @@ class Neo4jKGRepository(KGRepository):
         limit: int = 3,
     ) -> List[DataSourceNode]:
         rows = self._execute(
-            """
-            MATCH (ds:DataSource)
+            f"""
+            MATCH (ds:DataSource:{MANAGED_LABEL})
             WHERE $required_type IN ds.supportedTypes
               AND ($disaster_type IS NULL OR $disaster_type IN ds.disasterTypes OR "generic" IN ds.disasterTypes)
             RETURN ds
@@ -200,48 +200,54 @@ class Neo4jKGRepository(KGRepository):
                 supported_types=list(row["ds"].get("supportedTypes", [])),
                 disaster_types=list(row["ds"].get("disasterTypes", [])),
                 quality_score=float(row["ds"].get("qualityScore", 0.0)),
-                metadata={"source": "neo4j"},
+                metadata={"source": "neo4j", "managed_label": MANAGED_LABEL},
             )
             for row in rows
         ]
 
     def search_knowledge(self, query: str, limit: int = 5) -> List[Dict[str, object]]:
         rows = self._execute(
-            """
-            CALL {
+            f"""
+            CALL {{
               CALL db.index.fulltext.queryNodes("algo_search", $query) YIELD node, score
+              WITH node, score WHERE $managed_label IN labels(node)
               RETURN "algorithm" AS kind, node.algoId AS id, node.algoName AS label, score
               UNION
               CALL db.index.fulltext.queryNodes("wp_search", $query) YIELD node, score
+              WITH node, score WHERE $managed_label IN labels(node)
               RETURN "pattern" AS kind, node.patternId AS id, node.patternName AS label, score
               UNION
               CALL db.index.fulltext.queryNodes("ds_search", $query) YIELD node, score
+              WITH node, score WHERE $managed_label IN labels(node)
               RETURN "data_source" AS kind, node.sourceId AS id, node.sourceName AS label, score
-            }
+            }}
             RETURN kind, id, label, score
             ORDER BY score DESC
             LIMIT $limit
             """,
             query=query,
             limit=limit,
+            managed_label=MANAGED_LABEL,
         )
         return rows
 
     def record_execution_feedback(self, feedback: ExecutionFeedback) -> None:
         self._execute(
-            """
-            MERGE (run:WorkflowInstance {instanceId: $run_id})
+            f"""
+            MERGE (run:WorkflowInstance {{instanceId: $run_id}})
+            SET run:{MANAGED_LABEL}
             SET run.jobType = $job_type,
                 run.disasterType = $disaster_type,
                 run.triggerType = $trigger_type,
                 run.success = $success,
                 run.repaired = $repaired,
                 run.repairCount = $repair_count,
-                run.failureReason = $failure_reason
+                run.failureReason = $failure_reason,
+                run.graphNamespace = "fusionagent"
             WITH run
-            OPTIONAL MATCH (wp:WorkflowPattern {patternId: $pattern_id})
-            OPTIONAL MATCH (algo:Algorithm {algoId: $algorithm_id})
-            OPTIONAL MATCH (ds:DataSource {sourceId: $selected_data_source})
+            OPTIONAL MATCH (wp:WorkflowPattern:{MANAGED_LABEL} {{patternId: $pattern_id}})
+            OPTIONAL MATCH (algo:Algorithm:{MANAGED_LABEL} {{algoId: $algorithm_id}})
+            OPTIONAL MATCH (ds:DataSource:{MANAGED_LABEL} {{sourceId: $selected_data_source}})
             FOREACH (_ IN CASE WHEN wp IS NULL THEN [] ELSE [1] END | MERGE (run)-[:INSTANTIATES]->(wp))
             FOREACH (_ IN CASE WHEN algo IS NULL THEN [] ELSE [1] END | MERGE (run)-[:USED_ALGORITHM]->(algo))
             FOREACH (_ IN CASE WHEN ds IS NULL THEN [] ELSE [1] END | MERGE (run)-[:USED_SOURCE]->(ds))
