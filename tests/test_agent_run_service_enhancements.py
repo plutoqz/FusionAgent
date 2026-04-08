@@ -150,6 +150,49 @@ def test_agent_run_service_updates_status_and_records_feedback(tmp_path: Path, m
     assert service.kg_repo.feedback_history[-1].pattern_id == "wp.flood.building.default"
 
 
+def test_saved_plan_contains_bound_effective_parameters(tmp_path: Path, monkeypatch) -> None:
+    service = AgentRunService(base_dir=tmp_path / "runs")
+    initial_plan = _build_plan(workflow_id="wf_initial", revision=1)
+    initial_plan.tasks[0].input.parameters = {
+        "match_similarity_threshold": 0.52,
+        "one_to_one_min_overlap_similarity": 0.31,
+    }
+
+    monkeypatch.setattr("services.agent_run_service.validate_zip_has_shapefile", lambda *_args, **_kwargs: tmp_path / "osm.shp")
+    monkeypatch.setattr(service.planner, "create_plan", lambda **_kwargs: initial_plan.model_copy(deep=True))
+    monkeypatch.setattr(service.validator, "validate_and_repair", lambda input_plan: input_plan)
+    monkeypatch.setattr(service.executor, "execute_plan", lambda **_kwargs: tmp_path / "fused.shp")
+    monkeypatch.setattr("services.agent_run_service.zip_shapefile_bundle", lambda *_args, **_kwargs: tmp_path / "artifact.zip")
+
+    (tmp_path / "osm.shp").write_text("x", encoding="utf-8")
+    (tmp_path / "ref.shp").write_text("x", encoding="utf-8")
+    (tmp_path / "fused.shp").write_text("x", encoding="utf-8")
+    (tmp_path / "artifact.zip").write_bytes(b"zip")
+
+    status = service.create_run(
+        request=RunCreateRequest(
+            job_type=JobType.building,
+            trigger=RunTrigger(type=RunTriggerType.user_query, content="building"),
+            target_crs="EPSG:32643",
+            field_mapping={},
+            debug=False,
+        ),
+        osm_zip_name="osm.zip",
+        osm_zip_bytes=_write_dummy_zip(tmp_path / "osm.zip"),
+        ref_zip_name="ref.zip",
+        ref_zip_bytes=_write_dummy_zip(tmp_path / "ref.zip"),
+    )
+
+    saved = service.get_plan(status.run_id)
+    assert saved is not None
+    assert saved.tasks[0].input.parameters["match_similarity_threshold"] == 0.52
+    assert saved.tasks[0].input.parameters["one_to_one_min_overlap_similarity"] == 0.31
+    audit_events = service.get_audit_events(status.run_id)
+    plan_created = next(event for event in audit_events if event.kind == "plan_created")
+    assert plan_created.details["effective_parameters"]["1"]["match_similarity_threshold"] == 0.52
+    assert plan_created.details["effective_parameters"]["1"]["one_to_one_min_overlap_similarity"] == 0.31
+
+
 def test_agent_run_service_replans_after_execution_failure(tmp_path: Path, monkeypatch) -> None:
     service = AgentRunService(base_dir=tmp_path / "runs")
     service.max_plan_revisions = 2

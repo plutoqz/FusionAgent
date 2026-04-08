@@ -360,7 +360,14 @@ class AgentRunService:
             plan_revision=self._extract_plan_revision(plan),
             event_kind="plan_created",
             event_message=f"Workflow plan revision {self._extract_plan_revision(plan)} created.",
-            event_details={"workflow_id": plan.workflow_id},
+            event_details={
+                "workflow_id": plan.workflow_id,
+                "effective_parameters": {
+                    task.step: dict(task.input.parameters or {})
+                    for task in plan.tasks
+                    if not task.is_transform
+                },
+            },
         )
         return plan
 
