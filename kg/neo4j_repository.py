@@ -6,7 +6,15 @@ from typing import Dict, List, Optional
 from schemas.fusion import JobType
 
 from kg.bootstrap import MANAGED_LABEL, resolve_graph_target
-from kg.models import AlgorithmNode, DataSourceNode, ExecutionFeedback, KGContext, PatternStep, WorkflowPatternNode
+from kg.models import (
+    AlgorithmNode,
+    AlgorithmParameterSpec,
+    DataSourceNode,
+    ExecutionFeedback,
+    KGContext,
+    PatternStep,
+    WorkflowPatternNode,
+)
 from kg.repository import KGRepository
 
 
@@ -124,6 +132,39 @@ class Neo4jKGRepository(KGRepository):
             success_rate=float(algo.get("successRate", 0.0)),
             alternatives=[a for a in row.get("alternatives", []) if a],
         )
+
+    def get_parameter_specs(self, algo_id: str) -> List[AlgorithmParameterSpec]:
+        rows = self._execute(
+            f"""
+            MATCH (a:Algorithm:{MANAGED_LABEL} {{algoId: $algo_id}})-[:HAS_PARAMETER]->(p:ParameterSpec:{MANAGED_LABEL})
+            RETURN p
+            ORDER BY coalesce(p.order, 0) ASC, p.key ASC
+            """,
+            algo_id=algo_id,
+        )
+        specs: List[AlgorithmParameterSpec] = []
+        for row in rows:
+            node = row.get("p")
+            if node is None:
+                continue
+            specs.append(
+                AlgorithmParameterSpec(
+                    spec_id=str(node.get("specId", "")),
+                    algo_id=str(node.get("algoId", algo_id)),
+                    key=str(node.get("key", "")),
+                    label=str(node.get("label", node.get("key", ""))),
+                    param_type=str(node.get("paramType", "string")),
+                    default=node.get("default"),
+                    min_value=float(node["minValue"]) if node.get("minValue") is not None else None,
+                    max_value=float(node["maxValue"]) if node.get("maxValue") is not None else None,
+                    unit=str(node["unit"]) if node.get("unit") is not None else None,
+                    description=str(node.get("description", "")),
+                    required=bool(node.get("required", False)),
+                    choices=list(node["choices"]) if node.get("choices") is not None else None,
+                    order=int(node.get("order", 0)),
+                )
+            )
+        return specs
 
     def get_alternative_algorithms(self, algo_id: str, limit: int = 3) -> List[AlgorithmNode]:
         rows = self._execute(

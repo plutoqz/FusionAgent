@@ -3,6 +3,10 @@ from __future__ import annotations
 from kg.neo4j_repository import Neo4jKGRepository
 
 
+def test_neo4j_repository_is_not_left_abstract_after_repository_contract_changes() -> None:
+    assert "get_parameter_specs" not in Neo4jKGRepository.__abstractmethods__
+
+
 def test_execute_passes_parameters_dict_without_keyword_collision() -> None:
     captured: list[tuple[str, object]] = []
 
