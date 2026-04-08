@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict
 
@@ -16,10 +17,51 @@ ROOT = Path(__file__).resolve().parents[1]
 ROAD_ALGO_PATH = ROOT / "Algorithm" / "line.py"
 
 
+@dataclass(frozen=True)
+class RoadFusionParameters:
+    angle_threshold_deg: int = 135
+    snap_tolerance_m: float = 1.0
+    match_buffer_m: float = 20.0
+    max_hausdorff_m: float = 15.0
+    dedupe_buffer_m: float = 15.0
+
+
 def _to_target_crs(gdf: gpd.GeoDataFrame, target_crs: str) -> gpd.GeoDataFrame:
     if gdf.crs is None:
         gdf = gdf.set_crs(target_crs)
     return gdf.to_crs(target_crs)
+
+
+def _as_float(value: object, default: float) -> float:
+    try:
+        return float(value)
+    except Exception:  # noqa: BLE001
+        return default
+
+
+def _as_int(value: object, default: int) -> int:
+    try:
+        return int(float(value))
+    except Exception:  # noqa: BLE001
+        return default
+
+
+def _resolve_road_parameters(parameters: Dict[str, object] | None) -> RoadFusionParameters:
+    parameters = parameters or {}
+    return RoadFusionParameters(
+        angle_threshold_deg=_as_int(parameters.get("angle_threshold_deg"), 135),
+        snap_tolerance_m=_as_float(parameters.get("snap_tolerance_m"), 1.0),
+        match_buffer_m=_as_float(parameters.get("match_buffer_m"), 20.0),
+        max_hausdorff_m=_as_float(parameters.get("max_hausdorff_m"), 15.0),
+        dedupe_buffer_m=_as_float(parameters.get("dedupe_buffer_m"), 15.0),
+    )
+
+
+def _apply_road_parameters(legacy_line: object, params: RoadFusionParameters) -> None:
+    setattr(legacy_line, "ANGLE_THRESHOLD", params.angle_threshold_deg)
+    setattr(legacy_line, "SNAP_TOLERANCE", params.snap_tolerance_m)
+    setattr(legacy_line, "BUFFER_DIST", params.match_buffer_m)
+    setattr(legacy_line, "MAX_HAUSDORFF", params.max_hausdorff_m)
 
 
 def _prepare_osm_road(
@@ -58,8 +100,11 @@ def run_road_fusion(
     target_crs: str = "EPSG:32643",
     field_mapping: Dict[str, Dict[str, str]] | None = None,
     debug: bool = False,
+    parameters: Dict[str, object] | None = None,
 ) -> Path:
     legacy_line = load_legacy_module("legacy_line", str(ROAD_ALGO_PATH))
+    resolved_parameters = _resolve_road_parameters(parameters)
+    _apply_road_parameters(legacy_line, resolved_parameters)
 
     osm_raw = gpd.read_file(osm_shp)
     ref_raw = gpd.read_file(ref_shp)
@@ -86,13 +131,19 @@ def run_road_fusion(
     if "centroid" in osm_processed.columns:
         osm_processed = osm_processed.drop(columns=["centroid"], errors="ignore")
     osm_processed = osm_processed.set_geometry("geometry")
-    osm_split = legacy_line.split_features_in_gdf(osm_processed, angle_threshold=legacy_line.ANGLE_THRESHOLD)
+    osm_split = legacy_line.split_features_in_gdf(
+        osm_processed,
+        angle_threshold=resolved_parameters.angle_threshold_deg,
+    )
 
     ref_processed = legacy_line.process_msft_data(ref_data)
     if "centroid" in ref_processed.columns:
         ref_processed = ref_processed.drop(columns=["centroid"], errors="ignore")
     ref_processed = ref_processed.set_geometry("geometry")
-    ref_split = legacy_line.split_features_in_gdf(ref_processed, angle_threshold=legacy_line.ANGLE_THRESHOLD)
+    ref_split = legacy_line.split_features_in_gdf(
+        ref_processed,
+        angle_threshold=resolved_parameters.angle_threshold_deg,
+    )
 
     rtree_idx = index.Index()
     fused_roads, _, _, _ = legacy_line.match_and_fuse(osm_split, ref_split, rtree_idx)
@@ -106,7 +157,7 @@ def run_road_fusion(
     legacy_line.process_roads(
         input_path=str(fused_raw_path),
         output_path=str(dedup_path),
-        buffer_distance=15,
+        buffer_distance=resolved_parameters.dedupe_buffer_m,
     )
 
     final_output = output_dir / "fused_roads.shp"

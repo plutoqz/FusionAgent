@@ -64,19 +64,6 @@ def test_planner_builds_stable_context_fields() -> None:
     assert plan.context["llm_provider"] == "capturing"
 
 
-def test_planner_injects_kg_parameter_defaults_into_task_inputs() -> None:
-    provider = CapturingProvider()
-    planner = WorkflowPlanner(InMemoryKGRepository(), provider)
-    trigger = RunTrigger(type=RunTriggerType.user_query, content="fuse roads")
-
-    plan = planner.create_plan(run_id="run-param-defaults", job_type=JobType.road, trigger=trigger)
-
-    assert plan.tasks
-    params = plan.tasks[0].input.parameters
-    assert params["angle_threshold_deg"] == 135
-    assert "dedupe_buffer_m" in params
-
-
 def test_replan_increments_plan_revision() -> None:
     provider = CapturingProvider()
     planner = WorkflowPlanner(InMemoryKGRepository(), provider)

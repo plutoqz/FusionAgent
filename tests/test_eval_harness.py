@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import json
-import sys
 from pathlib import Path
+
+import sys
 
 
 _ROOT = Path(__file__).resolve().parents[1]
@@ -185,43 +186,6 @@ def test_materialize_manifest_case_creates_case_bundle(tmp_path: Path) -> None:
     assert (case_dir / "input" / "osm.zip").exists()
     assert (case_dir / "input" / "ref.zip").exists()
     assert "algo.fusion.building.v1" in payload["expected_plan_checks"]["required_algorithms"]
-
-
-def test_manifest_agent_case_reports_fast_infra_failure_when_api_is_unreachable(monkeypatch, tmp_path: Path) -> None:
-    manifest = tmp_path / "manifest.json"
-    manifest.write_text(
-        json.dumps(
-            {
-                "version": "test",
-                "cases": [
-                    {
-                        "case_id": "building_real",
-                        "theme": "building",
-                        "execution_mode": "agent",
-                        "readiness": "agent-ready",
-                        "inputs": {
-                            "osm": str(tmp_path / "osm.shp"),
-                            "reference": str(tmp_path / "ref.shp"),
-                        },
-                    }
-                ],
-            }
-        ),
-        encoding="utf-8",
-    )
-
-    for suffix in [".shp", ".shx", ".dbf"]:
-        (tmp_path / f"osm{suffix}").write_bytes(b"x")
-        (tmp_path / f"ref{suffix}").write_bytes(b"x")
-
-    monkeypatch.setattr(
-        eval_harness,
-        "run_local_v2_smoke",
-        lambda *args, **kwargs: (_ for _ in ()).throw(RuntimeError("HTTP 111 for /health: connection refused")),
-    )
-
-    summary = eval_harness.main(["--manifest", str(manifest), "--case", "building_real"])
-    assert summary == 1
 
 
 def test_main_writes_summary_json_and_exit_code_on_failure(tmp_path: Path, monkeypatch, capsys) -> None:

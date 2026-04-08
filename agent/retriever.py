@@ -1,16 +1,19 @@
 from __future__ import annotations
 
+import re
 from typing import Any, Dict, List, Tuple
 
 from kg.models import AlgorithmNode, DataSourceNode, KGContext, WorkflowPatternNode
 from kg.repository import KGRepository
 from schemas.agent import RunTrigger
 from schemas.fusion import JobType
+from services.artifact_registry import ArtifactLookupRequest, ArtifactRegistry, ArtifactRecord
 
 
 class PlanningContextBuilder:
-    def __init__(self, kg_repo: KGRepository) -> None:
+    def __init__(self, kg_repo: KGRepository, artifact_registry: ArtifactRegistry | None = None) -> None:
         self.kg_repo = kg_repo
+        self.artifact_registry = artifact_registry
 
     def build(self, job_type: JobType, trigger: RunTrigger) -> Tuple[Dict[str, Any], str]:
         kg_context = self.kg_repo.build_context(job_type=job_type, disaster_type=trigger.disaster_type)
@@ -52,18 +55,67 @@ class PlanningContextBuilder:
             for token in [job_type.value, trigger.disaster_type or "", trigger.content]
             if token
         )
-        return {
+        payload: Dict[str, Any] = {
             "candidate_patterns": [self._pattern_to_dict(pattern) for pattern in kg_context.patterns],
             "algorithms": {algo_id: self._algo_to_dict(algo) for algo_id, algo in kg_context.algorithms.items()},
             "data_sources": [self._data_source_to_dict(source) for source in kg_context.data_sources],
             "transform_paths": transform_paths,
             "knowledge_hits": self.kg_repo.search_knowledge(search_query, limit=5),
         }
+        reusable = self._find_reusable_artifacts(job_type=job_type, trigger=trigger, limit=3)
+        if reusable:
+            payload["reusable_artifacts"] = [self._artifact_to_dict(item) for item in reusable]
+        return payload
+
+    def _find_reusable_artifacts(self, *, job_type: JobType, trigger: RunTrigger, limit: int) -> List[ArtifactRecord]:
+        if not self.artifact_registry:
+            return []
+        bbox = self._parse_bbox(trigger.spatial_extent)
+        request = ArtifactLookupRequest(
+            job_type=job_type.value,
+            disaster_type=trigger.disaster_type,
+            # Keep it simple and conservative: only consider fairly recent artifacts.
+            max_age_seconds=7 * 24 * 60 * 60,
+            required_fields=[],
+            bbox=bbox,
+        )
+        try:
+            return self.artifact_registry.list_reusable(request, limit=limit)
+        except Exception:  # noqa: BLE001
+            # Planner context enrichment should never block planning.
+            return []
+
+    @staticmethod
+    def _parse_bbox(value: str | None):
+        if not value:
+            return None
+        # Expected form used throughout this repo/tests: bbox(minx,miny,maxx,maxy)
+        match = re.match(r"^bbox\(\s*([-\d.]+)\s*,\s*([-\d.]+)\s*,\s*([-\d.]+)\s*,\s*([-\d.]+)\s*\)\s*$", value)
+        if not match:
+            return None
+        try:
+            return (float(match.group(1)), float(match.group(2)), float(match.group(3)), float(match.group(4)))
+        except Exception:  # noqa: BLE001
+            return None
+
+    @staticmethod
+    def _artifact_to_dict(record: ArtifactRecord) -> Dict[str, Any]:
+        return {
+            "artifact_id": record.artifact_id,
+            "artifact_path": record.artifact_path,
+            "job_type": record.job_type,
+            "disaster_type": record.disaster_type,
+            "created_at": record.created_at,
+            "output_fields": record.output_fields,
+            "bbox": record.bbox,
+            "meta": record.meta,
+        }
 
     @staticmethod
     def _build_constraints(job_type: JobType) -> Dict[str, Any]:
         return {
-            "allowed_job_types": ["building", "road"],
+            # Derived from the enum to avoid drift as JobType evolves.
+            "allowed_job_types": [jt.value for jt in JobType],
             "required_output_type": f"dt.{job_type.value}.fused",
             "must_use_registered_algorithms": True,
             "must_keep_json_schema": True,
@@ -81,7 +133,8 @@ class PlanningContextBuilder:
     def _select_reason(patterns: List[WorkflowPatternNode]) -> str:
         if not patterns:
             return "no_pattern_available"
-        return f"preferred_{patterns[0].pattern_id}_by_success_rate"
+        # Patterns are already ordered by upstream context building/ranking.
+        return f"preferred_{patterns[0].pattern_id}_by_context_order"
 
     @staticmethod
     def _algo_to_dict(algo: AlgorithmNode) -> Dict[str, Any]:

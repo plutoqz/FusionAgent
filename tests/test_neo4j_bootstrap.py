@@ -17,11 +17,14 @@ def test_bootstrap_cypher_contains_schema_and_seed_entities() -> None:
 
     assert "workflow_pattern_pattern_id" in cypher
     assert "algorithm_algo_id" in cypher
+    assert "algorithm_parameter_spec_spec_id" in cypher
     assert "datasource_source_id" in cypher
     assert "CREATE FULLTEXT INDEX wp_search" in cypher
     assert f":{MANAGED_LABEL}" in cypher
     assert "MERGE (wp:WorkflowPattern" in cypher
     assert "MERGE (algo:Algorithm" in cypher
+    assert "MERGE (ps:AlgorithmParameterSpec" in cypher
+    assert "HAS_PARAMETER_SPEC" in cypher
     assert "MERGE (ds:DataSource" in cypher
     assert "MERGE (dt:DataType" in cypher
     assert f"SET wp:{MANAGED_LABEL}" in cypher

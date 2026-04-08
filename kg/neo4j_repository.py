@@ -136,32 +136,58 @@ class Neo4jKGRepository(KGRepository):
     def get_parameter_specs(self, algo_id: str) -> List[AlgorithmParameterSpec]:
         rows = self._execute(
             f"""
-            MATCH (a:Algorithm:{MANAGED_LABEL} {{algoId: $algo_id}})-[:HAS_PARAMETER]->(p:ParameterSpec:{MANAGED_LABEL})
-            RETURN p
-            ORDER BY coalesce(p.order, 0) ASC, p.key ASC
+            MATCH (algo:Algorithm:{MANAGED_LABEL} {{algoId: $algo_id}})
+            OPTIONAL MATCH (algo)-[hs:HAS_PARAMETER_SPEC]->(ps:AlgorithmParameterSpec:{MANAGED_LABEL})
+            RETURN ps, hs
+            ORDER BY coalesce(hs.order, ps.order, 0) ASC, ps.key ASC
             """,
             algo_id=algo_id,
         )
         specs: List[AlgorithmParameterSpec] = []
         for row in rows:
-            node = row.get("p")
-            if node is None:
+            ps = row.get("ps")
+            if not ps:
                 continue
+            hs = row.get("hs") or {}
+
+            min_value = ps.get("minValue", None)
+            max_value = ps.get("maxValue", None)
+            min_value = float(min_value) if min_value is not None else None
+            max_value = float(max_value) if max_value is not None else None
+
+            choices_raw = ps.get("choices", None)
+            if choices_raw is None:
+                choices = None
+            elif isinstance(choices_raw, list):
+                choices = choices_raw
+            else:
+                choices = [choices_raw]
+
+            key = str(ps.get("key", ""))
+            spec_id = ps.get("specId") or f"ps.{algo_id}.{key}"
+
+            order = hs.get("order", None)
+            if order is None:
+                order = ps.get("order", 0)
+
+            unit_raw = ps.get("unit", None)
+            unit = None if unit_raw is None else str(unit_raw)
+
             specs.append(
                 AlgorithmParameterSpec(
-                    spec_id=str(node.get("specId", "")),
-                    algo_id=str(node.get("algoId", algo_id)),
-                    key=str(node.get("key", "")),
-                    label=str(node.get("label", node.get("key", ""))),
-                    param_type=str(node.get("paramType", "string")),
-                    default=node.get("default"),
-                    min_value=float(node["minValue"]) if node.get("minValue") is not None else None,
-                    max_value=float(node["maxValue"]) if node.get("maxValue") is not None else None,
-                    unit=str(node["unit"]) if node.get("unit") is not None else None,
-                    description=str(node.get("description", "")),
-                    required=bool(node.get("required", False)),
-                    choices=list(node["choices"]) if node.get("choices") is not None else None,
-                    order=int(node.get("order", 0)),
+                    spec_id=str(spec_id),
+                    algo_id=str(ps.get("algoId", algo_id)),
+                    key=key,
+                    label=str(ps.get("label", key)),
+                    param_type=str(ps.get("paramType", "")),
+                    default=ps.get("default", None),
+                    min_value=min_value,
+                    max_value=max_value,
+                    unit=unit,
+                    description=str(ps.get("description", "")),
+                    required=bool(ps.get("required", False)),
+                    choices=choices,
+                    order=int(order),
                 )
             )
         return specs

@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import logging
 import os
+import re
 import traceback
 import uuid
 from concurrent.futures import ThreadPoolExecutor
@@ -11,6 +12,7 @@ from pathlib import Path
 from threading import Lock
 from typing import Dict, List, Optional
 
+from agent.policy import CandidateScoreInput, PolicyEngine
 from agent.executor import ExecutionContext, WorkflowExecutor
 from agent.planner import WorkflowPlanner
 from agent.validator import WorkflowValidator
@@ -19,6 +21,8 @@ from kg.models import ExecutionFeedback
 from kg.repository import KGRepository
 from llm.factory import create_llm_provider
 from schemas.agent import (
+    ArtifactReuseDecision,
+    DecisionRecord,
     RepairRecord,
     RunEvent,
     RunArtifactMeta,
@@ -27,6 +31,7 @@ from schemas.agent import (
     RunStatus,
     WorkflowPlan,
 )
+from services.artifact_registry import ArtifactRecord, ArtifactRegistry
 from utils.crs import normalize_target_crs
 from utils.shp_zip import validate_zip_has_shapefile, zip_shapefile_bundle
 
@@ -65,9 +70,11 @@ class AgentRunService:
 
         self.kg_repo = kg_repo or self._create_kg_repo()
         self.llm_provider = create_llm_provider()
-        self.planner = WorkflowPlanner(self.kg_repo, self.llm_provider)
+        self.artifact_registry = ArtifactRegistry(index_path=self.base_dir / "artifact_registry.json")
+        self.planner = WorkflowPlanner(self.kg_repo, self.llm_provider, artifact_registry=self.artifact_registry)
         self.validator = WorkflowValidator(self.kg_repo)
         self.executor = WorkflowExecutor(self.kg_repo, planner=self.planner)
+        self.policy_engine = PolicyEngine(policy_version="v2")
 
         self.dispatch_eager = _as_bool(os.getenv("GEOFUSION_CELERY_EAGER", "1"), default=True)
         # Total plan revisions allowed for a single run, including the initial revision.
@@ -116,6 +123,8 @@ class AgentRunService:
             validation_path=None,
             audit_path=str(run_dir / "audit.jsonl"),
             artifact=None,
+            decision_records=[],
+            artifact_reuse=None,
             repair_records=[],
             current_step=None,
             attempt_no=0,
@@ -222,15 +231,42 @@ class AgentRunService:
                 except Exception as exec_error:  # noqa: BLE001
                     failed_step = self._infer_failed_step(repair_records)
                     current_revision = self._extract_plan_revision(plan)
-                    if failed_step is None:
-                        raise
-                    if current_revision >= self.max_plan_revisions:
+                    failure_message = f"{type(exec_error).__name__}: {exec_error}"
+                    can_replan = failed_step is not None and current_revision < self.max_plan_revisions
+                    replan_decision = self._build_replan_decision(
+                        can_replan=can_replan,
+                        failed_step=failed_step,
+                        current_revision=current_revision,
+                        failure_message=failure_message,
+                    )
+
+                    if not can_replan:
+                        self._update_status(
+                            run_id,
+                            RunPhase.healing,
+                            progress=60,
+                            repair_records=repair_records,
+                            current_step=failed_step,
+                            attempt_no=self._max_attempt_no(repair_records),
+                            healing_summary=self._build_healing_summary(repair_records),
+                            failure_summary=self._build_failure_summary(failure_message, repair_records),
+                            plan_revision=current_revision,
+                            append_decision_record=replan_decision,
+                            event_kind="replan_rejected",
+                            event_message="Execution failed and policy selected fail (replan unavailable).",
+                            event_details={
+                                "selected_action": replan_decision.selected_id,
+                                "failed_step": failed_step,
+                                "error": failure_message,
+                            },
+                        )
+                        if failed_step is None:
+                            raise
                         raise RuntimeError(
                             "Execution failed after exhausting repair strategies and "
                             f"reaching max plan revisions ({self.max_plan_revisions}): {exec_error}"
                         ) from exec_error
 
-                    failure_message = f"{type(exec_error).__name__}: {exec_error}"
                     self._update_status(
                         run_id,
                         RunPhase.healing,
@@ -241,9 +277,14 @@ class AgentRunService:
                         healing_summary=self._build_healing_summary(repair_records),
                         failure_summary=self._build_failure_summary(failure_message, repair_records),
                         plan_revision=current_revision,
+                        append_decision_record=replan_decision,
                         event_kind="replan_requested",
                         event_message="Execution failed after exhausting repair strategies; requesting replanning.",
-                        event_details={"failed_step": failed_step, "error": failure_message},
+                        event_details={
+                            "selected_action": replan_decision.selected_id,
+                            "failed_step": failed_step,
+                            "error": failure_message,
+                        },
                     )
                     logger.warning(
                         "Execution failed on revision=%s step=%s; attempting replan: %s",
@@ -350,24 +391,25 @@ class AgentRunService:
 
     def run_planning_stage(self, run_id: str, request: RunCreateRequest) -> WorkflowPlan:
         plan = self.planner.create_plan(run_id=run_id, job_type=request.job_type, trigger=request.trigger)
+        pattern_decision = self._build_pattern_selection_decision(plan)
+        artifact_reuse = self._build_artifact_reuse_decision(plan)
         plan_path = self._plan_path(run_id)
         self._persist_plan(plan_path, plan)
+        event_details = {"workflow_id": plan.workflow_id}
+        if pattern_decision is not None:
+            event_details["selected_pattern"] = pattern_decision.selected_id
+        event_details["artifact_reuse"] = artifact_reuse.model_dump(mode="json")
         self._update_status(
             run_id,
             RunPhase.validating,
             progress=25,
             plan_path=str(plan_path),
             plan_revision=self._extract_plan_revision(plan),
+            decision_records=[pattern_decision] if pattern_decision is not None else [],
+            artifact_reuse=artifact_reuse,
             event_kind="plan_created",
             event_message=f"Workflow plan revision {self._extract_plan_revision(plan)} created.",
-            event_details={
-                "workflow_id": plan.workflow_id,
-                "effective_parameters": {
-                    task.step: dict(task.input.parameters or {})
-                    for task in plan.tasks
-                    if not task.is_transform
-                },
-            },
+            event_details=event_details,
         )
         return plan
 
@@ -461,7 +503,62 @@ class AgentRunService:
             success=True,
             failure_reason=None,
         )
+        self._register_artifact(run_id=run_id, request=request, plan=plan, artifact=artifact, repair_records=repair_records)
         return artifact
+
+    def _register_artifact(
+        self,
+        *,
+        run_id: str,
+        request: RunCreateRequest,
+        plan: WorkflowPlan,
+        artifact: RunArtifactMeta,
+        repair_records: List[RepairRecord],
+    ) -> None:
+        # Artifact registry writeback is best-effort; it should not fail a successful run.
+        try:
+            created_at = _utc_now()
+            output_fields: List[str] = []
+            if request.field_mapping:
+                found = set()
+                for mapping in request.field_mapping.values():
+                    if isinstance(mapping, dict):
+                        found.update(str(key) for key in mapping.keys() if str(key))
+                output_fields = sorted(found)
+
+            record = ArtifactRecord(
+                artifact_id=run_id,
+                artifact_path=artifact.path,
+                job_type=request.job_type.value,
+                disaster_type=request.trigger.disaster_type,
+                created_at=created_at,
+                output_fields=output_fields,
+                bbox=self._parse_bbox(request.trigger.spatial_extent),
+                meta={
+                    "run_id": run_id,
+                    "workflow_id": plan.workflow_id,
+                    "plan_revision": plan.context.get("plan_revision"),
+                    "pattern_id": self._extract_pattern_id(plan),
+                    "algorithm_id": self._extract_algorithm_id(plan, repair_records=repair_records),
+                    "selected_data_source": self._extract_selected_data_source(plan),
+                    "trigger_type": request.trigger.type.value,
+                },
+            )
+            self.artifact_registry.register(record)
+        except Exception as exc:  # noqa: BLE001
+            logging.getLogger("geofusion.run").warning("Failed to register artifact for reuse: %s", exc)
+
+    @staticmethod
+    def _parse_bbox(value: str | None):
+        if not value:
+            return None
+        match = re.match(r"^bbox\(\s*([-\d.]+)\s*,\s*([-\d.]+)\s*,\s*([-\d.]+)\s*,\s*([-\d.]+)\s*\)\s*$", value)
+        if not match:
+            return None
+        try:
+            return (float(match.group(1)), float(match.group(2)), float(match.group(3)), float(match.group(4)))
+        except Exception:  # noqa: BLE001
+            return None
 
     def get_run(self, run_id: str) -> Optional[RunStatus]:
         path = self.base_dir / run_id / "run.json"
@@ -567,6 +664,9 @@ class AgentRunService:
         artifact: Optional[RunArtifactMeta] = None,
         plan_path: Optional[str] = None,
         validation_path: Optional[str] = None,
+        decision_records: Optional[List[DecisionRecord]] = None,
+        append_decision_record: Optional[DecisionRecord] = None,
+        artifact_reuse: Optional[ArtifactReuseDecision] = None,
         repair_records: Optional[List[RepairRecord]] = None,
         current_step: Optional[int] = None,
         attempt_no: Optional[int] = None,
@@ -598,6 +698,12 @@ class AgentRunService:
                 current.plan_path = plan_path
             if validation_path is not None:
                 current.validation_path = validation_path
+            if decision_records is not None:
+                current.decision_records = decision_records
+            if append_decision_record is not None:
+                current.decision_records = [*current.decision_records, append_decision_record]
+            if artifact_reuse is not None:
+                current.artifact_reuse = artifact_reuse
             if repair_records is not None:
                 current.repair_records = repair_records
             if current_step is not None:
@@ -725,6 +831,134 @@ class AgentRunService:
                 ordered.append(source_id)
         return ordered
 
+    def _build_pattern_selection_decision(self, plan: WorkflowPlan) -> Optional[DecisionRecord]:
+        retrieval = plan.context.get("retrieval", {})
+        raw_patterns = retrieval.get("candidate_patterns", []) if isinstance(retrieval, dict) else []
+        candidates: List[CandidateScoreInput] = []
+        for raw in raw_patterns:
+            if not isinstance(raw, dict):
+                continue
+            pattern_id = str(raw.get("pattern_id") or "").strip()
+            if not pattern_id:
+                continue
+            success_rate = self._to_unit_interval(raw.get("success_rate"))
+            candidates.append(
+                CandidateScoreInput(
+                    candidate_id=pattern_id,
+                    success_rate=success_rate,
+                    accuracy=success_rate,
+                )
+            )
+        if not candidates:
+            fallback_pattern_id = self._extract_pattern_id(plan)
+            if fallback_pattern_id:
+                candidates.append(
+                    CandidateScoreInput(candidate_id=fallback_pattern_id, success_rate=1.0, accuracy=1.0)
+                )
+        if not candidates:
+            return None
+        decision = self.policy_engine.select("pattern_selection", candidates)
+        return decision.model_copy(
+            update={"evidence_refs": ["context.retrieval.candidate_patterns", "policy:deterministic_weighted_sum"]}
+        )
+
+    def _build_artifact_reuse_decision(self, plan: WorkflowPlan) -> ArtifactReuseDecision:
+        retrieval = plan.context.get("retrieval", {})
+        raw_candidates = retrieval.get("reusable_artifacts", []) if isinstance(retrieval, dict) else []
+        if raw_candidates:
+            first = raw_candidates[0] if isinstance(raw_candidates[0], dict) else {}
+            first_id = first.get("artifact_id")
+            rationale = (
+                f"Planner found {len(raw_candidates)} reusable artifact candidate(s)"
+                + (f" (top={first_id})." if first_id else ".")
+                + " This run does not short-circuit execution with artifact reuse yet, so a fresh artifact is produced."
+            )
+            return ArtifactReuseDecision(
+                reused=False,
+                freshness_status="candidate_available",
+                rationale=rationale,
+            )
+        return ArtifactReuseDecision(
+            reused=False,
+            freshness_status="not_available",
+            rationale="No reusable artifact candidates were found in planner retrieval context.",
+        )
+
+    def _build_replan_decision(
+        self,
+        *,
+        can_replan: bool,
+        failed_step: Optional[int],
+        current_revision: int,
+        failure_message: str,
+    ) -> DecisionRecord:
+        if can_replan:
+            candidates = [
+                CandidateScoreInput(
+                    candidate_id="replan",
+                    success_rate=0.95,
+                    accuracy=0.95,
+                    data_quality=0.70,
+                    stability=0.75,
+                    freshness=0.60,
+                    reuse=0.40,
+                ),
+                CandidateScoreInput(
+                    candidate_id="fail",
+                    success_rate=0.05,
+                    accuracy=0.05,
+                    data_quality=0.90,
+                    stability=0.95,
+                    freshness=0.80,
+                    reuse=0.80,
+                ),
+            ]
+        else:
+            candidates = [
+                CandidateScoreInput(
+                    candidate_id="replan",
+                    success_rate=0.05,
+                    accuracy=0.05,
+                    data_quality=0.20,
+                    stability=0.20,
+                    freshness=0.50,
+                    reuse=0.40,
+                ),
+                CandidateScoreInput(
+                    candidate_id="fail",
+                    success_rate=0.95,
+                    accuracy=0.95,
+                    data_quality=0.90,
+                    stability=0.95,
+                    freshness=0.80,
+                    reuse=0.80,
+                ),
+            ]
+        decision = self.policy_engine.select("replan_or_fail", candidates)
+        rationale = (
+            f"{decision.rationale} failure_step={failed_step}; "
+            f"current_revision={current_revision}; max_revisions={self.max_plan_revisions}; "
+            f"error={failure_message}"
+        )
+        return decision.model_copy(
+            update={
+                "rationale": rationale,
+                "evidence_refs": ["repair_records", "plan_revision_limit", "policy:deterministic_weighted_sum"],
+            }
+        )
+
+    @staticmethod
+    def _to_unit_interval(value: object) -> Optional[float]:
+        try:
+            numeric = float(value)
+        except Exception:  # noqa: BLE001
+            return None
+        if numeric < 0.0:
+            return 0.0
+        if numeric > 1.0:
+            return 1.0
+        return numeric
+
     @staticmethod
     def _count_executable_steps(plan: WorkflowPlan) -> int:
         return sum(1 for task in plan.tasks if not task.is_transform)
@@ -774,7 +1008,6 @@ class AgentRunService:
             return logger
 
         formatter = logging.Formatter("%(asctime)s | %(levelname)s | %(message)s")
-        log_path.parent.mkdir(parents=True, exist_ok=True)
         file_handler = logging.FileHandler(log_path, encoding="utf-8")
         file_handler.setFormatter(formatter)
         logger.addHandler(file_handler)

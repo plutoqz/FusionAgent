@@ -1,0 +1,94 @@
+{
+  "version": "2026-04-07",
+  "generated_from_repo_state": true,
+  "cases": [
+    {
+      "case_id": "building_gitega_osm_vs_google_agent",
+      "theme": "building",
+      "readiness": "agent-ready",
+      "execution_mode": "agent",
+      "priority": "P0",
+      "inputs": {
+        "osm": "E:/vscode/fusionAgent/Data/buildings/OSM/吉特加建筑物.shp",
+        "reference": "E:/vscode/fusionAgent/Data/buildings/Google/Google吉特加clip.shp"
+      },
+      "notes": [
+        "Best first real end-to-end benchmark.",
+        "No extra clipping step required."
+      ]
+    },
+    {
+      "case_id": "building_gitega_osm_vs_msft_clipped_agent",
+      "theme": "building",
+      "readiness": "agent-ready-with-prep",
+      "execution_mode": "agent",
+      "priority": "P0",
+      "inputs": {
+        "osm": "E:/vscode/fusionAgent/Data/buildings/OSM/吉特加建筑物.shp",
+        "reference": "E:/vscode/fusionAgent/Data/buildings/Microsoft/微软建筑物面矢量.shp"
+      },
+      "blockers": [
+        "Needs clipping to the same Gitega AOI before first-wave evaluation."
+      ]
+    },
+    {
+      "case_id": "poi_burundi_gns_osm_script_replay",
+      "theme": "poi",
+      "readiness": "script-ready",
+      "execution_mode": "legacy-script",
+      "priority": "P1",
+      "inputs": {
+        "gns_xlsx": "E:/vscode/fusionAgent/Data/POI/布隆迪/GNS.xlsx",
+        "gns_to_rh_xlsx": "E:/vscode/fusionAgent/Data/POI/布隆迪/GNS_to_RH.xlsx",
+        "osm_xlsx": "E:/vscode/fusionAgent/Data/POI/布隆迪/OSM.xlsx",
+        "label_xlsx": "E:/vscode/fusionAgent/Data/POI/CengCi_Label_End_mm.xlsx"
+      },
+      "outputs_present": {
+        "rh_xlsx": "E:/vscode/fusionAgent/Data/POI/布隆迪/RH.xlsx",
+        "rh_shp": "E:/vscode/fusionAgent/Data/POI/布隆迪/RH.shp"
+      },
+      "notes": [
+        "Use first as replay/reproducibility benchmark, not as runtime-agent benchmark."
+      ]
+    },
+    {
+      "case_id": "water_line_burundi_osm_vs_bdi_script",
+      "theme": "water_line",
+      "readiness": "script-ready",
+      "execution_mode": "legacy-script",
+      "priority": "P1",
+      "inputs": {
+        "reference_line": "E:/vscode/fusionAgent/Data/water/BDI.shp",
+        "mask_polygon": "E:/vscode/fusionAgent/Data/water/布隆迪湖泊.shp",
+        "osm_bundle_root": "E:/vscode/fusionAgent/Data/burundi-260127-free.shp"
+      },
+      "notes": [
+        "OSM waterway line source should be extracted from the Burundi free bundle."
+      ]
+    },
+    {
+      "case_id": "water_polygon_burundi_osm_vs_lakes_script",
+      "theme": "water_polygon",
+      "readiness": "script-ready",
+      "execution_mode": "legacy-script",
+      "priority": "P1",
+      "inputs": {
+        "reference_polygon": "E:/vscode/fusionAgent/Data/water/布隆迪湖泊.shp",
+        "osm_bundle_root": "E:/vscode/fusionAgent/Data/burundi-260127-free.shp"
+      }
+    },
+    {
+      "case_id": "road_gitega_real_fusion_agent",
+      "theme": "road",
+      "readiness": "blocked",
+      "execution_mode": "agent",
+      "priority": "deferred",
+      "inputs": {
+        "osm": "E:/vscode/fusionAgent/Data/roads/OSM/clip_road2.shp"
+      },
+      "blockers": [
+        "Second road reference dataset is not present in the current Data/roads snapshot."
+      ]
+    }
+  ]
+}

@@ -3,7 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
 from kg.repository import KGRepository
 from schemas.agent import RepairRecord, WorkflowPlan, WorkflowTask
@@ -25,6 +25,9 @@ class ExecutionContext:
     field_mapping: Dict[str, Dict[str, str]] = field(default_factory=dict)
     debug: bool = False
     alternative_data_sources: List[str] = field(default_factory=list)
+    # Bound at execution time for the currently active step.
+    active_step: Optional[int] = None
+    step_parameters: Dict[str, Any] = field(default_factory=dict)
 
 
 class WorkflowExecutor:
@@ -54,6 +57,10 @@ class WorkflowExecutor:
         for task in sorted(plan.tasks, key=lambda t: t.step):
             if task.is_transform or task.algorithm_id.startswith("algo.transform."):
                 continue
+
+            # Bind the step-scoped parameters so handlers/adapters can consume them.
+            context.active_step = task.step
+            context.step_parameters = dict(task.input.parameters or {})
 
             try:
                 last_output = self._execute_algorithm(task.algorithm_id, context)
@@ -205,6 +212,7 @@ class WorkflowExecutor:
             target_crs=context.target_crs,
             field_mapping=context.field_mapping,
             debug=context.debug,
+            parameters=dict(context.step_parameters or {}),
         )
 
     @staticmethod
@@ -218,4 +226,5 @@ class WorkflowExecutor:
             target_crs=context.target_crs,
             field_mapping=context.field_mapping,
             debug=context.debug,
+            parameters=dict(context.step_parameters or {}),
         )

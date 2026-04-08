@@ -52,6 +52,7 @@ class InMemoryKGRepository(KGRepository):
 
     def get_parameter_specs(self, algo_id: str) -> List[AlgorithmParameterSpec]:
         specs = self.parameter_specs.get(algo_id, [])
+        # Return a stable order for UI/display and tests.
         return sorted(list(specs), key=lambda s: int(getattr(s, "order", 0)))
 
     def get_alternative_algorithms(self, algo_id: str, limit: int = 3) -> List[AlgorithmNode]:

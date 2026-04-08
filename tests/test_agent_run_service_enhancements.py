@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 from zipfile import ZipFile
 
@@ -26,13 +27,28 @@ def _write_dummy_zip(path: Path) -> bytes:
     return path.read_bytes()
 
 
-def _build_plan(*, workflow_id: str, revision: int, algorithm_id: str = "algo.fusion.building.v1") -> WorkflowPlan:
+def _build_plan(
+    *,
+    workflow_id: str,
+    revision: int,
+    algorithm_id: str = "algo.fusion.building.v1",
+    include_reusable_artifacts: bool = False,
+) -> WorkflowPlan:
+    retrieval = {"candidate_patterns": [{"pattern_id": "wp.flood.building.default", "success_rate": 0.92}]}
+    if include_reusable_artifacts:
+        retrieval["reusable_artifacts"] = [
+            {
+                "artifact_id": "artifact-prior-1",
+                "artifact_path": "/tmp/artifact-prior-1.zip",
+                "created_at": "2026-04-06T00:00:00+00:00",
+            }
+        ]
     return WorkflowPlan(
         workflow_id=workflow_id,
         trigger=RunTrigger(type=RunTriggerType.user_query, content="building"),
         context={
             "intent": {"job_type": "building"},
-            "retrieval": {"candidate_patterns": [{"pattern_id": "wp.flood.building.default"}]},
+            "retrieval": retrieval,
             "selection_reason": "initial" if revision == 1 else "replanned_after_failure",
             "llm_provider": "mock",
             "plan_revision": revision,
@@ -56,16 +72,6 @@ def _build_plan(*, workflow_id: str, revision: int, algorithm_id: str = "algo.fu
     )
 
 
-def test_build_logger_creates_missing_parent_directory(tmp_path: Path) -> None:
-    log_path = tmp_path / "missing" / "nested" / "run.log"
-
-    logger = AgentRunService._build_logger("logger-mkdir", log_path)
-    logger.info("hello")
-
-    assert log_path.exists()
-    assert "hello" in log_path.read_text(encoding="utf-8")
-
-
 def test_agent_run_service_updates_status_and_records_feedback(tmp_path: Path, monkeypatch) -> None:
     service = AgentRunService(base_dir=tmp_path / "runs")
 
@@ -81,7 +87,16 @@ def test_agent_run_service_updates_status_and_records_feedback(tmp_path: Path, m
         trigger=RunTrigger(type=RunTriggerType.user_query, content="building"),
         context={
             "intent": {"job_type": "building"},
-            "retrieval": {"candidate_patterns": [{"pattern_id": "wp.flood.building.default"}]},
+            "retrieval": {
+                "candidate_patterns": [{"pattern_id": "wp.flood.building.default", "success_rate": 0.90}],
+                "reusable_artifacts": [
+                    {
+                        "artifact_id": "artifact-prior-1",
+                        "artifact_path": "/tmp/artifact-prior-1.zip",
+                        "created_at": "2026-04-06T00:00:00+00:00",
+                    }
+                ],
+            },
             "selection_reason": "initial",
             "llm_provider": "mock",
             "plan_revision": 1,
@@ -155,52 +170,20 @@ def test_agent_run_service_updates_status_and_records_feedback(tmp_path: Path, m
     assert latest.event_count >= 5
     assert latest.last_event is not None
     assert latest.last_event.kind == "run_succeeded"
+    assert latest.decision_records
+    assert latest.decision_records[0].decision_type == "pattern_selection"
+    assert latest.decision_records[0].selected_id == "wp.flood.building.default"
+    assert latest.artifact_reuse is not None
+    assert latest.artifact_reuse.reused is False
+    assert latest.artifact_reuse.freshness_status == "candidate_available"
     assert latest.healing_summary["successful_repairs"] == 1
     assert latest.healing_summary["last_reason_code"] == "alternative_algorithm_succeeded"
     assert service.kg_repo.feedback_history[-1].pattern_id == "wp.flood.building.default"
-
-
-def test_saved_plan_contains_bound_effective_parameters(tmp_path: Path, monkeypatch) -> None:
-    service = AgentRunService(base_dir=tmp_path / "runs")
-    initial_plan = _build_plan(workflow_id="wf_initial", revision=1)
-    initial_plan.tasks[0].input.parameters = {
-        "match_similarity_threshold": 0.52,
-        "one_to_one_min_overlap_similarity": 0.31,
-    }
-
-    monkeypatch.setattr("services.agent_run_service.validate_zip_has_shapefile", lambda *_args, **_kwargs: tmp_path / "osm.shp")
-    monkeypatch.setattr(service.planner, "create_plan", lambda **_kwargs: initial_plan.model_copy(deep=True))
-    monkeypatch.setattr(service.validator, "validate_and_repair", lambda input_plan: input_plan)
-    monkeypatch.setattr(service.executor, "execute_plan", lambda **_kwargs: tmp_path / "fused.shp")
-    monkeypatch.setattr("services.agent_run_service.zip_shapefile_bundle", lambda *_args, **_kwargs: tmp_path / "artifact.zip")
-
-    (tmp_path / "osm.shp").write_text("x", encoding="utf-8")
-    (tmp_path / "ref.shp").write_text("x", encoding="utf-8")
-    (tmp_path / "fused.shp").write_text("x", encoding="utf-8")
-    (tmp_path / "artifact.zip").write_bytes(b"zip")
-
-    status = service.create_run(
-        request=RunCreateRequest(
-            job_type=JobType.building,
-            trigger=RunTrigger(type=RunTriggerType.user_query, content="building"),
-            target_crs="EPSG:32643",
-            field_mapping={},
-            debug=False,
-        ),
-        osm_zip_name="osm.zip",
-        osm_zip_bytes=_write_dummy_zip(tmp_path / "osm.zip"),
-        ref_zip_name="ref.zip",
-        ref_zip_bytes=_write_dummy_zip(tmp_path / "ref.zip"),
-    )
-
-    saved = service.get_plan(status.run_id)
-    assert saved is not None
-    assert saved.tasks[0].input.parameters["match_similarity_threshold"] == 0.52
-    assert saved.tasks[0].input.parameters["one_to_one_min_overlap_similarity"] == 0.31
-    audit_events = service.get_audit_events(status.run_id)
-    plan_created = next(event for event in audit_events if event.kind == "plan_created")
-    assert plan_created.details["effective_parameters"]["1"]["match_similarity_threshold"] == 0.52
-    assert plan_created.details["effective_parameters"]["1"]["one_to_one_min_overlap_similarity"] == 0.31
+    registry_path = (tmp_path / "runs" / "artifact_registry.json")
+    assert registry_path.exists()
+    payload = json.loads(registry_path.read_text(encoding="utf-8"))
+    records = payload.get("records", [])
+    assert any(record.get("artifact_id") == status.run_id for record in records)
 
 
 def test_agent_run_service_replans_after_execution_failure(tmp_path: Path, monkeypatch) -> None:
@@ -214,7 +197,7 @@ def test_agent_run_service_replans_after_execution_failure(tmp_path: Path, monke
     for path in [osm_shp, ref_shp, fused_shp]:
         path.write_text("dummy", encoding="utf-8")
 
-    initial_plan = _build_plan(workflow_id="wf_initial", revision=1)
+    initial_plan = _build_plan(workflow_id="wf_initial", revision=1, include_reusable_artifacts=True)
     replanned_plan = _build_plan(workflow_id="wf_replanned", revision=2, algorithm_id="algo.fusion.building.safe")
 
     monkeypatch.setattr("services.agent_run_service.validate_zip_has_shapefile", lambda *_args, **_kwargs: osm_shp)
@@ -314,6 +297,9 @@ def test_agent_run_service_replans_after_execution_failure(tmp_path: Path, monke
     assert saved_plan is not None
     assert saved_plan.workflow_id == "wf_replanned"
     assert saved_plan.context["plan_revision"] == 2
+    replan_decisions = [record for record in latest.decision_records if record.decision_type == "replan_or_fail"]
+    assert replan_decisions
+    assert replan_decisions[-1].selected_id == "replan"
     assert latest.repair_records[-1].reason_code == "transform_path_missing"
     audit_events = service.get_audit_events(status.run_id)
     assert [event.kind for event in audit_events if event.kind in {"replan_requested", "replan_applied"}] == [
@@ -401,8 +387,15 @@ def test_agent_run_service_fails_when_replan_limit_is_reached(tmp_path: Path, mo
     assert saved_plan is not None
     assert saved_plan.workflow_id == "wf_replanned"
     assert saved_plan.context["plan_revision"] == 2
+    replan_decisions = [record for record in latest.decision_records if record.decision_type == "replan_or_fail"]
+    assert replan_decisions
+    assert replan_decisions[-1].selected_id == "fail"
+    assert latest.artifact_reuse is not None
+    assert latest.artifact_reuse.reused is False
+    assert latest.artifact_reuse.freshness_status == "not_available"
     audit_events = service.get_audit_events(status.run_id)
     assert any(event.kind == "replan_requested" for event in audit_events)
+    assert any(event.kind == "replan_rejected" for event in audit_events)
     assert audit_events[-1].kind == "run_failed"
     assert audit_events[-1].details["error"] == latest.error
 

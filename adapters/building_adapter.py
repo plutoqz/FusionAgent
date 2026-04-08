@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Dict, List
 
@@ -15,10 +16,68 @@ ROOT = Path(__file__).resolve().parents[1]
 BUILD_ALGO_PATH = ROOT / "Algorithm" / "build.py"
 
 
+@dataclass(frozen=True)
+class BuildingFusionParameters:
+    match_similarity_threshold: float = 0.3
+    one_to_one_min_area_similarity: float = 0.3
+    one_to_one_min_shape_similarity: float = 0.3
+    one_to_one_min_overlap_similarity: float = 0.3
+
+
 def _to_target_crs(gdf: gpd.GeoDataFrame, target_crs: str) -> gpd.GeoDataFrame:
     if gdf.crs is None:
         gdf = gdf.set_crs(target_crs)
     return gdf.to_crs(target_crs)
+
+
+def _as_float(value: object, default: float) -> float:
+    try:
+        return float(value)
+    except Exception:  # noqa: BLE001
+        return default
+
+
+def _resolve_building_parameters(parameters: Dict[str, object] | None) -> BuildingFusionParameters:
+    parameters = parameters or {}
+    return BuildingFusionParameters(
+        match_similarity_threshold=_as_float(parameters.get("match_similarity_threshold"), 0.3),
+        one_to_one_min_area_similarity=_as_float(parameters.get("one_to_one_min_area_similarity"), 0.3),
+        one_to_one_min_shape_similarity=_as_float(parameters.get("one_to_one_min_shape_similarity"), 0.3),
+        one_to_one_min_overlap_similarity=_as_float(parameters.get("one_to_one_min_overlap_similarity"), 0.3),
+    )
+
+
+def _label_building_matches(
+    similarity_gdf: gpd.GeoDataFrame,
+    *,
+    match_similarity_threshold: float,
+) -> gpd.GeoDataFrame:
+    if similarity_gdf.empty:
+        similarity_gdf = similarity_gdf.copy()
+        similarity_gdf["label"] = pd.Series(dtype=str)
+        return similarity_gdf
+
+    labeled = similarity_gdf.copy()
+    labeled["label"] = pd.Series(pd.NA, index=labeled.index, dtype="object")
+    labeled.loc[labeled["similarity"] > match_similarity_threshold, "label"] = "1"
+    return labeled
+
+
+def _split_building_one_to_one_by_thresholds(
+    gdf_1to1_result: gpd.GeoDataFrame,
+    params: BuildingFusionParameters,
+) -> tuple[gpd.GeoDataFrame, gpd.GeoDataFrame]:
+    filtered = gdf_1to1_result[
+        (gdf_1to1_result["sim_area"] < params.one_to_one_min_area_similarity)
+        | (gdf_1to1_result["sim_shape"] < params.one_to_one_min_shape_similarity)
+        | (gdf_1to1_result["sim_overlap"] < params.one_to_one_min_overlap_similarity)
+    ].copy()
+    accepted = gdf_1to1_result[
+        (gdf_1to1_result["sim_area"] >= params.one_to_one_min_area_similarity)
+        & (gdf_1to1_result["sim_shape"] >= params.one_to_one_min_shape_similarity)
+        & (gdf_1to1_result["sim_overlap"] >= params.one_to_one_min_overlap_similarity)
+    ].copy()
+    return filtered, accepted
 
 
 def _prepare_osm_building(
@@ -62,7 +121,7 @@ def _prepare_ref_building(
     else:
         gdf["area_in_me"] = gdf["area_in_me"].fillna(gdf.geometry.area)
 
-    centroid_ll = gdf.to_crs("EPSG:4326").geometry.centroid
+    centroid_ll = gpd.GeoSeries(gdf.geometry.centroid, crs=target_crs).to_crs("EPSG:4326")
     if "longitude" not in gdf.columns:
         gdf["longitude"] = centroid_ll.x
     else:
@@ -104,8 +163,10 @@ def run_building_fusion(
     target_crs: str = "EPSG:32643",
     field_mapping: Dict[str, Dict[str, str]] | None = None,
     debug: bool = False,
+    parameters: Dict[str, object] | None = None,
 ) -> Path:
     legacy_build = load_legacy_module("legacy_build", str(BUILD_ALGO_PATH))
+    resolved_parameters = _resolve_building_parameters(parameters)
 
     osm_raw = gpd.read_file(osm_shp)
     ref_raw = gpd.read_file(ref_shp)
@@ -129,8 +190,9 @@ def run_building_fusion(
 
     if ref_data.empty:
         fallback = osm_data.copy()
-        fallback["longitude"] = fallback.geometry.centroid.to_crs("EPSG:4326").x
-        fallback["latitude"] = fallback.geometry.centroid.to_crs("EPSG:4326").y
+        centroid_ll = gpd.GeoSeries(fallback.geometry.centroid, crs=target_crs).to_crs("EPSG:4326")
+        fallback["longitude"] = centroid_ll.x
+        fallback["latitude"] = centroid_ll.y
         fallback["area_in_me"] = fallback.geometry.area
         fallback["confidence"] = 1.0
         fallback.to_file(output_shp)
@@ -144,11 +206,15 @@ def run_building_fusion(
     new_osm_gdf = legacy_build.find_non_intersecting_buildings(gdf1_idx, gdf2_idx1)
 
     _, similarity_gdf = legacy_build.calculate_similarity(gdf1_idx, gdf2_idx1)
-    if similarity_gdf.empty:
-        similarity_gdf["label"] = pd.Series(dtype=str)
-    else:
-        similarity_gdf.loc[similarity_gdf["similarity"] > 0.3, "label"] = "1"
-    matched_gdf = similarity_gdf.loc[similarity_gdf.get("label") == "1"].copy() if "label" in similarity_gdf.columns else similarity_gdf.iloc[0:0].copy()
+    similarity_gdf = _label_building_matches(
+        similarity_gdf,
+        match_similarity_threshold=resolved_parameters.match_similarity_threshold,
+    )
+    matched_gdf = (
+        similarity_gdf.loc[similarity_gdf.get("label") == "1"].copy()
+        if "label" in similarity_gdf.columns
+        else similarity_gdf.iloc[0:0].copy()
+    )
 
     merged_gdf = gdf1_idx.merge(matched_gdf, on="idx", how="outer")
     merged_gdf = merged_gdf.merge(gdf2_idx1, on="idx1", how="outer")
@@ -189,16 +255,10 @@ def run_building_fusion(
                     "area_in_me",
                 ]
             ]
-            filter_1to1_gdf = gdf_1to1_result[
-                (gdf_1to1_result["sim_area"] < 0.3)
-                | (gdf_1to1_result["sim_shape"] < 0.3)
-                | (gdf_1to1_result["sim_overlap"] < 0.3)
-            ]
-            gdf_1to1_result1 = gdf_1to1_result[
-                (gdf_1to1_result["sim_area"] >= 0.3)
-                & (gdf_1to1_result["sim_shape"] >= 0.3)
-                & (gdf_1to1_result["sim_overlap"] >= 0.3)
-            ]
+            filter_1to1_gdf, gdf_1to1_result1 = _split_building_one_to_one_by_thresholds(
+                gdf_1to1_result,
+                resolved_parameters,
+            )
             if not gdf_1to1_result1.empty:
                 gdf_1to1_result2 = legacy_build.attribute_fusion1(gdf_1to1_result1)
             if not filter_1to1_gdf.empty:
@@ -237,4 +297,3 @@ def run_building_fusion(
 
     combined.to_file(output_shp)
     return output_shp
-

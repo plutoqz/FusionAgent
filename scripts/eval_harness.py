@@ -61,13 +61,10 @@ def evaluate_cases(
     *,
     base_url: str,
     timeout_sec: float,
-    request_builder: RequestBuilder | None = None,
-    runner: Runner | None = None,
-    validator: Validator | None = None,
+    request_builder: RequestBuilder = build_run_request_from_case,
+    runner: Runner = run_local_v2_smoke,
+    validator: Validator = validate_smoke_result,
 ) -> dict[str, Any]:
-    request_builder = build_run_request_from_case if request_builder is None else request_builder
-    runner = run_local_v2_smoke if runner is None else runner
-    validator = validate_smoke_result if validator is None else validator
     results: list[dict[str, Any]] = []
     for case_dir in case_dirs:
         results.append(
@@ -101,11 +98,9 @@ def evaluate_manifest_cases(
     *,
     base_url: str,
     timeout_sec: float,
-    runner: Runner | None = None,
-    validator: Validator | None = None,
+    runner: Runner = run_local_v2_smoke,
+    validator: Validator = validate_smoke_result,
 ) -> dict[str, Any]:
-    runner = run_local_v2_smoke if runner is None else runner
-    validator = validate_smoke_result if validator is None else validator
     results: list[dict[str, Any]] = []
     for case in cases:
         execution_mode = str(case.get("execution_mode") or "")
@@ -214,11 +209,7 @@ def _evaluate_single_manifest_case(
         artifact_size = result.get("artifact_size")
     except Exception as exc:  # noqa: BLE001
         status = "failed"
-        message = f"{type(exc).__name__}: {exc}"
-        if "connection refused" in message.lower() or "/health" in message.lower():
-            error = f"infra_unavailable: {message}"
-        else:
-            error = message
+        error = f"{type(exc).__name__}: {exc}"
         run_id = None
         artifact_size = None
 

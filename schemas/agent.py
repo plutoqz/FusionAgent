@@ -1,9 +1,10 @@
 from __future__ import annotations
 
 from enum import Enum
+import math
 from typing import Any, Dict, List, Optional
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 from schemas.fusion import JobType
 
@@ -91,6 +92,49 @@ class RepairRecord(BaseModel):
     to_algorithm: Optional[str] = None
 
 
+class DecisionCandidate(BaseModel):
+    candidate_id: str
+    score: float
+    reason: str
+
+
+class DecisionRecord(BaseModel):
+    decision_type: str
+    selected_id: str
+    selected_score: float
+    rationale: str
+    candidates: List[DecisionCandidate] = Field(default_factory=list)
+    policy_version: str = "v2"
+    evidence_refs: List[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def ensure_selected_candidate_consistency(self) -> "DecisionRecord":
+        candidates = self.candidates or []
+        if candidates:
+            if not any(
+                cand.candidate_id == self.selected_id
+                and math.isclose(
+                    cand.score, self.selected_score, rel_tol=1e-9, abs_tol=1e-9
+                )
+                for cand in candidates
+            ):
+                raise ValueError("A candidate must match the selected_id and selected_score.")
+        return self
+
+
+class ArtifactReuseDecision(BaseModel):
+    reused: bool
+    artifact_id: Optional[str] = None
+    freshness_status: str
+    rationale: str
+
+    @model_validator(mode="after")
+    def ensure_artifact_id_when_reused(self) -> "ArtifactReuseDecision":
+        if self.reused and not self.artifact_id:
+            raise ValueError("artifact_id is required when reused is True.")
+        return self
+
+
 class RunArtifactMeta(BaseModel):
     filename: str
     path: str
@@ -136,6 +180,8 @@ class RunStatus(BaseModel):
     validation_path: Optional[str] = None
     audit_path: Optional[str] = None
     artifact: Optional[RunArtifactMeta] = None
+    decision_records: List[DecisionRecord] = Field(default_factory=list)
+    artifact_reuse: Optional[ArtifactReuseDecision] = None
     repair_records: List[RepairRecord] = Field(default_factory=list)
     current_step: Optional[int] = None
     attempt_no: int = 0

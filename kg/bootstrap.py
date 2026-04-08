@@ -7,7 +7,7 @@ import re
 from pathlib import Path
 from typing import Any, Iterable, List
 
-from kg.seed import ALGORITHMS, CAN_TRANSFORM_TO, DATA_SOURCES, DATA_TYPES, WORKFLOW_PATTERNS
+from kg.seed import ALGORITHMS, CAN_TRANSFORM_TO, DATA_SOURCES, DATA_TYPES, PARAMETER_SPECS, WORKFLOW_PATTERNS
 from utils.local_runtime import apply_local_dependency_defaults
 
 
@@ -37,6 +37,7 @@ def build_bootstrap_cypher() -> str:
         _build_schema_section(),
         _build_datatype_section(),
         _build_algorithm_section(),
+        _build_parameter_spec_section(),
         _build_datasource_section(),
         _build_pattern_section(),
         _build_transform_section(),
@@ -57,6 +58,8 @@ def _build_schema_section() -> str:
             "FOR (wp:WorkflowPattern) REQUIRE wp.patternId IS UNIQUE;",
             "CREATE CONSTRAINT algorithm_algo_id IF NOT EXISTS",
             "FOR (algo:Algorithm) REQUIRE algo.algoId IS UNIQUE;",
+            "CREATE CONSTRAINT algorithm_parameter_spec_spec_id IF NOT EXISTS",
+            "FOR (ps:AlgorithmParameterSpec) REQUIRE ps.specId IS UNIQUE;",
             "CREATE CONSTRAINT datasource_source_id IF NOT EXISTS",
             "FOR (ds:DataSource) REQUIRE ds.sourceId IS UNIQUE;",
             "CREATE CONSTRAINT datatype_type_id IF NOT EXISTS",
@@ -110,6 +113,39 @@ def _build_algorithm_section() -> str:
                 f"MATCH (src:Algorithm:{MANAGED_LABEL} {{algoId: {_cypher_literal(algorithm.algo_id)}}}), "
                 f"(dst:Algorithm:{MANAGED_LABEL} {{algoId: {_cypher_literal(alternative)}}}) "
                 "MERGE (src)-[:ALTERNATIVE_TO]->(dst);"
+            )
+    return _statement_lines(lines)
+
+
+def _build_parameter_spec_section() -> str:
+    lines = ["// Seed AlgorithmParameterSpec nodes"]
+    for algo_id, specs in PARAMETER_SPECS.items():
+        for spec in specs:
+            properties = {
+                "specId": spec.spec_id,
+                "algoId": spec.algo_id,
+                "key": spec.key,
+                "label": spec.label,
+                "paramType": spec.param_type,
+                "default": spec.default,
+                "minValue": spec.min_value,
+                "maxValue": spec.max_value,
+                "unit": spec.unit,
+                "description": spec.description,
+                "required": spec.required,
+                "choices": spec.choices,
+                "order": spec.order,
+                "graphNamespace": GRAPH_NAMESPACE,
+            }
+            lines.append(
+                f"MERGE (ps:AlgorithmParameterSpec {{{_merge_properties({'specId': spec.spec_id})}}}) "
+                f"SET ps:{MANAGED_LABEL} "
+                f"SET ps += {{{_merge_properties(properties)}}};"
+            )
+            lines.append(
+                f"MATCH (algo:Algorithm:{MANAGED_LABEL} {{algoId: {_cypher_literal(algo_id)}}}), "
+                f"(ps:AlgorithmParameterSpec:{MANAGED_LABEL} {{specId: {_cypher_literal(spec.spec_id)}}}) "
+                f"MERGE (algo)-[:HAS_PARAMETER_SPEC {{order: {spec.order}}}]->(ps);"
             )
     return _statement_lines(lines)
 
