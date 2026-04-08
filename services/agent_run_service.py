@@ -774,6 +774,7 @@ class AgentRunService:
             return logger
 
         formatter = logging.Formatter("%(asctime)s | %(levelname)s | %(message)s")
+        log_path.parent.mkdir(parents=True, exist_ok=True)
         file_handler = logging.FileHandler(log_path, encoding="utf-8")
         file_handler.setFormatter(formatter)
         logger.addHandler(file_handler)

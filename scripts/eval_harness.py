@@ -61,10 +61,13 @@ def evaluate_cases(
     *,
     base_url: str,
     timeout_sec: float,
-    request_builder: RequestBuilder = build_run_request_from_case,
-    runner: Runner = run_local_v2_smoke,
-    validator: Validator = validate_smoke_result,
+    request_builder: RequestBuilder | None = None,
+    runner: Runner | None = None,
+    validator: Validator | None = None,
 ) -> dict[str, Any]:
+    request_builder = build_run_request_from_case if request_builder is None else request_builder
+    runner = run_local_v2_smoke if runner is None else runner
+    validator = validate_smoke_result if validator is None else validator
     results: list[dict[str, Any]] = []
     for case_dir in case_dirs:
         results.append(
@@ -98,9 +101,11 @@ def evaluate_manifest_cases(
     *,
     base_url: str,
     timeout_sec: float,
-    runner: Runner = run_local_v2_smoke,
-    validator: Validator = validate_smoke_result,
+    runner: Runner | None = None,
+    validator: Validator | None = None,
 ) -> dict[str, Any]:
+    runner = run_local_v2_smoke if runner is None else runner
+    validator = validate_smoke_result if validator is None else validator
     results: list[dict[str, Any]] = []
     for case in cases:
         execution_mode = str(case.get("execution_mode") or "")

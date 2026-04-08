@@ -56,6 +56,16 @@ def _build_plan(*, workflow_id: str, revision: int, algorithm_id: str = "algo.fu
     )
 
 
+def test_build_logger_creates_missing_parent_directory(tmp_path: Path) -> None:
+    log_path = tmp_path / "missing" / "nested" / "run.log"
+
+    logger = AgentRunService._build_logger("logger-mkdir", log_path)
+    logger.info("hello")
+
+    assert log_path.exists()
+    assert "hello" in log_path.read_text(encoding="utf-8")
+
+
 def test_agent_run_service_updates_status_and_records_feedback(tmp_path: Path, monkeypatch) -> None:
     service = AgentRunService(base_dir=tmp_path / "runs")
 

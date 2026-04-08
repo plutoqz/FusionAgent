@@ -1,21 +1,21 @@
 {
-  "generated_at": "2026-04-08T04:15:18Z",
+  "generated_at": "2026-04-08T08:25:10Z",
   "totals": {
     "total": 1,
-    "passed": 0,
-    "failed": 1,
+    "passed": 1,
+    "failed": 0,
     "skipped": 0
   },
-  "all_passed": false,
+  "all_passed": true,
   "cases": [
     {
       "case_id": "building_gitega_osm_vs_google_agent",
       "case_dir": null,
-      "status": "failed",
-      "duration_ms": 191090,
-      "run_id": null,
-      "artifact_size": null,
-      "error": "TimeoutError: Timed out waiting for local smoke run: 57e88999357149d2a48f3164a409aa2c"
+      "status": "passed",
+      "duration_ms": 565720,
+      "run_id": "769d9740741b45b98dbb28f89c8586d0",
+      "artifact_size": 28698170,
+      "error": null
     }
   ],
   "manifest": "E:\\vscode\\fusionAgent\\docs\\superpowers\\specs\\2026-04-07-real-data-eval-manifest.json",
