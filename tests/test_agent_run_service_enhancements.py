@@ -107,7 +107,14 @@ def test_agent_run_service_updates_status_and_records_feedback(tmp_path: Path, m
                 name="building_fusion",
                 description="building fusion",
                 algorithm_id="algo.fusion.building.v1",
-                input=WorkflowTaskInput(data_type_id="dt.building.bundle", data_source_id="upload.bundle", parameters={}),
+                input=WorkflowTaskInput(
+                    data_type_id="dt.building.bundle",
+                    data_source_id="upload.bundle",
+                    parameters={
+                        "match_similarity_threshold": 0.5,
+                        "one_to_one_min_overlap_similarity": 0.3,
+                    },
+                ),
                 output=WorkflowTaskOutput(data_type_id="dt.building.fused", description=""),
                 depends_on=[],
                 is_transform=False,
@@ -179,11 +186,58 @@ def test_agent_run_service_updates_status_and_records_feedback(tmp_path: Path, m
     assert latest.healing_summary["successful_repairs"] == 1
     assert latest.healing_summary["last_reason_code"] == "alternative_algorithm_succeeded"
     assert service.kg_repo.feedback_history[-1].pattern_id == "wp.flood.building.default"
+    audit_events = service.get_audit_events(status.run_id)
+    plan_created = next(event for event in audit_events if event.kind == "plan_created")
+    assert plan_created.details["effective_parameters"]["1"]["match_similarity_threshold"] == 0.5
+    assert plan_created.details["effective_parameters"]["1"]["one_to_one_min_overlap_similarity"] == 0.3
     registry_path = (tmp_path / "runs" / "artifact_registry.json")
     assert registry_path.exists()
     payload = json.loads(registry_path.read_text(encoding="utf-8"))
     records = payload.get("records", [])
     assert any(record.get("artifact_id") == status.run_id for record in records)
+
+
+def test_saved_plan_contains_bound_effective_parameters(tmp_path: Path, monkeypatch) -> None:
+    service = AgentRunService(base_dir=tmp_path / "runs")
+    initial_plan = _build_plan(workflow_id="wf_initial", revision=1)
+    initial_plan.tasks[0].input.parameters = {
+        "match_similarity_threshold": 0.52,
+        "one_to_one_min_overlap_similarity": 0.31,
+    }
+
+    monkeypatch.setattr("services.agent_run_service.validate_zip_has_shapefile", lambda *_args, **_kwargs: tmp_path / "osm.shp")
+    monkeypatch.setattr(service.planner, "create_plan", lambda **_kwargs: initial_plan.model_copy(deep=True))
+    monkeypatch.setattr(service.validator, "validate_and_repair", lambda input_plan: input_plan)
+    monkeypatch.setattr(service.executor, "execute_plan", lambda **_kwargs: tmp_path / "fused.shp")
+    monkeypatch.setattr("services.agent_run_service.zip_shapefile_bundle", lambda *_args, **_kwargs: tmp_path / "artifact.zip")
+
+    (tmp_path / "osm.shp").write_text("x", encoding="utf-8")
+    (tmp_path / "ref.shp").write_text("x", encoding="utf-8")
+    (tmp_path / "fused.shp").write_text("x", encoding="utf-8")
+    (tmp_path / "artifact.zip").write_bytes(b"zip")
+
+    status = service.create_run(
+        request=RunCreateRequest(
+            job_type=JobType.building,
+            trigger=RunTrigger(type=RunTriggerType.user_query, content="building"),
+            target_crs="EPSG:32643",
+            field_mapping={},
+            debug=False,
+        ),
+        osm_zip_name="osm.zip",
+        osm_zip_bytes=_write_dummy_zip(tmp_path / "osm.zip"),
+        ref_zip_name="ref.zip",
+        ref_zip_bytes=_write_dummy_zip(tmp_path / "ref.zip"),
+    )
+
+    saved = service.get_plan(status.run_id)
+    assert saved is not None
+    assert saved.tasks[0].input.parameters["match_similarity_threshold"] == 0.52
+    assert saved.tasks[0].input.parameters["one_to_one_min_overlap_similarity"] == 0.31
+    audit_events = service.get_audit_events(status.run_id)
+    plan_created = next(event for event in audit_events if event.kind == "plan_created")
+    assert plan_created.details["effective_parameters"]["1"]["match_similarity_threshold"] == 0.52
+    assert plan_created.details["effective_parameters"]["1"]["one_to_one_min_overlap_similarity"] == 0.31
 
 
 def test_agent_run_service_replans_after_execution_failure(tmp_path: Path, monkeypatch) -> None:

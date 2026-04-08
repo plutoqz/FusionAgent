@@ -395,7 +395,10 @@ class AgentRunService:
         artifact_reuse = self._build_artifact_reuse_decision(plan)
         plan_path = self._plan_path(run_id)
         self._persist_plan(plan_path, plan)
-        event_details = {"workflow_id": plan.workflow_id}
+        event_details = {
+            "workflow_id": plan.workflow_id,
+            "effective_parameters": self._extract_effective_parameters(plan),
+        }
         if pattern_decision is not None:
             event_details["selected_pattern"] = pattern_decision.selected_id
         event_details["artifact_reuse"] = artifact_reuse.model_dump(mode="json")
@@ -789,6 +792,14 @@ class AgentRunService:
             return int(value)
         except Exception:  # noqa: BLE001
             return 0
+
+    @staticmethod
+    def _extract_effective_parameters(plan: WorkflowPlan) -> Dict[str, Dict[str, object]]:
+        return {
+            str(task.step): dict(task.input.parameters or {})
+            for task in plan.tasks
+            if not task.is_transform
+        }
 
     @staticmethod
     def _extract_pattern_id(plan: WorkflowPlan) -> Optional[str]:
