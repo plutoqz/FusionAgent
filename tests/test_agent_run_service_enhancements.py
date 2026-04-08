@@ -2,6 +2,9 @@ import json
 from pathlib import Path
 from zipfile import ZipFile
 
+import geopandas as gpd
+from shapely.geometry import box
+
 from schemas.agent import (
     RepairRecord,
     RunCreateRequest,
@@ -16,6 +19,7 @@ from schemas.agent import (
     WorkflowTaskOutput,
 )
 from schemas.fusion import JobType
+from services.artifact_registry import ArtifactRecord
 from services.agent_run_service import AgentRunService
 
 
@@ -25,6 +29,19 @@ def _write_dummy_zip(path: Path) -> bytes:
         zf.writestr("dummy.shx", b"shx")
         zf.writestr("dummy.dbf", b"dbf")
     return path.read_bytes()
+
+
+def _write_polygon_bundle_zip(path: Path, geometries: list, *, crs: str = "EPSG:4326") -> Path:
+    bundle_dir = path.parent / path.stem
+    bundle_dir.mkdir(parents=True, exist_ok=True)
+    shp_path = bundle_dir / "artifact.shp"
+    gdf = gpd.GeoDataFrame({"feature_id": list(range(1, len(geometries) + 1))}, geometry=geometries, crs=crs)
+    gdf.to_file(shp_path)
+    with ZipFile(path, "w") as zf:
+        for file in bundle_dir.iterdir():
+            if file.is_file():
+                zf.write(file, arcname=file.name)
+    return path
 
 
 def _build_plan(
@@ -195,6 +212,245 @@ def test_agent_run_service_updates_status_and_records_feedback(tmp_path: Path, m
     payload = json.loads(registry_path.read_text(encoding="utf-8"))
     records = payload.get("records", [])
     assert any(record.get("artifact_id") == status.run_id for record in records)
+
+
+def test_agent_run_service_directly_reuses_existing_artifact(tmp_path: Path, monkeypatch) -> None:
+    service = AgentRunService(base_dir=tmp_path / "runs")
+    osm_shp = tmp_path / "osm.shp"
+    ref_shp = tmp_path / "ref.shp"
+    for path in [osm_shp, ref_shp]:
+        path.write_text("dummy", encoding="utf-8")
+
+    source_artifact = _write_polygon_bundle_zip(tmp_path / "artifact-source.zip", [box(0, 0, 1, 1)])
+    service.artifact_registry.register(
+        ArtifactRecord(
+            artifact_id="artifact-source",
+            artifact_path=str(source_artifact),
+            job_type="building",
+            disaster_type="flood",
+            created_at="2026-04-08T00:00:00+00:00",
+            output_fields=[],
+            bbox=(0.0, 0.0, 1.0, 1.0),
+            meta={"note": "direct"},
+        )
+    )
+
+    plan = _build_plan(workflow_id="wf_direct", revision=1)
+    plan.context["retrieval"]["reusable_artifacts"] = [
+        {
+            "artifact_id": "artifact-source",
+            "artifact_path": str(source_artifact),
+            "created_at": "2026-04-08T00:00:00+00:00",
+            "bbox": [0.0, 0.0, 1.0, 1.0],
+        }
+    ]
+
+    monkeypatch.setattr("services.agent_run_service.validate_zip_has_shapefile", lambda *_args, **_kwargs: osm_shp)
+    monkeypatch.setattr(service.planner, "create_plan", lambda **_kwargs: plan.model_copy(deep=True))
+    monkeypatch.setattr(service.validator, "validate_and_repair", lambda input_plan: input_plan)
+
+    def fail_execute_plan(**_kwargs):
+        raise AssertionError("executor should not run when direct reuse succeeds")
+
+    monkeypatch.setattr(service.executor, "execute_plan", fail_execute_plan)
+
+    status = service.create_run(
+        request=RunCreateRequest(
+            job_type=JobType.building,
+            trigger=RunTrigger(
+                type=RunTriggerType.disaster_event,
+                content="building",
+                disaster_type="flood",
+                spatial_extent="bbox(0,0,1,1)",
+            ),
+            target_crs="EPSG:32643",
+            field_mapping={},
+            debug=False,
+        ),
+        osm_zip_name="osm.zip",
+        osm_zip_bytes=_write_dummy_zip(tmp_path / "osm.zip"),
+        ref_zip_name="ref.zip",
+        ref_zip_bytes=_write_dummy_zip(tmp_path / "ref.zip"),
+    )
+
+    latest = service.get_run(status.run_id)
+    assert latest is not None
+    assert latest.phase == RunPhase.succeeded
+    assert latest.artifact is not None
+    assert Path(latest.artifact.path).exists()
+    assert Path(latest.artifact.path).parent.name == "output"
+    assert latest.artifact_reuse is not None
+    assert latest.artifact_reuse.reused is True
+    assert latest.artifact_reuse.artifact_id == "artifact-source"
+    assert latest.artifact_reuse.freshness_status == "direct_reused"
+    audit_events = service.get_audit_events(status.run_id)
+    plan_created = next(event for event in audit_events if event.kind == "plan_created")
+    assert "effective_parameters" in plan_created.details
+    reuse_event = next(event for event in audit_events if event.kind == "artifact_reuse_applied")
+    assert reuse_event.details["reuse_mode"] == "direct"
+    assert reuse_event.details["source_artifact_id"] == "artifact-source"
+
+
+def test_agent_run_service_clips_reused_artifact_when_request_bbox_is_smaller(tmp_path: Path, monkeypatch) -> None:
+    service = AgentRunService(base_dir=tmp_path / "runs")
+    osm_shp = tmp_path / "osm.shp"
+    ref_shp = tmp_path / "ref.shp"
+    for path in [osm_shp, ref_shp]:
+        path.write_text("dummy", encoding="utf-8")
+
+    source_artifact = _write_polygon_bundle_zip(tmp_path / "artifact-clip-source.zip", [box(0, 0, 4, 4)])
+    service.artifact_registry.register(
+        ArtifactRecord(
+            artifact_id="artifact-clip-source",
+            artifact_path=str(source_artifact),
+            job_type="building",
+            disaster_type="flood",
+            created_at="2026-04-08T00:00:00+00:00",
+            output_fields=[],
+            bbox=(0.0, 0.0, 4.0, 4.0),
+            meta={"note": "clip"},
+        )
+    )
+
+    plan = _build_plan(workflow_id="wf_clip", revision=1)
+    plan.context["retrieval"]["reusable_artifacts"] = [
+        {
+            "artifact_id": "artifact-clip-source",
+            "artifact_path": str(source_artifact),
+            "created_at": "2026-04-08T00:00:00+00:00",
+            "bbox": [0.0, 0.0, 4.0, 4.0],
+        }
+    ]
+
+    monkeypatch.setattr("services.agent_run_service.validate_zip_has_shapefile", lambda *_args, **_kwargs: osm_shp)
+    monkeypatch.setattr(service.planner, "create_plan", lambda **_kwargs: plan.model_copy(deep=True))
+    monkeypatch.setattr(service.validator, "validate_and_repair", lambda input_plan: input_plan)
+
+    def fail_execute_plan(**_kwargs):
+        raise AssertionError("executor should not run when clip reuse succeeds")
+
+    monkeypatch.setattr(service.executor, "execute_plan", fail_execute_plan)
+
+    status = service.create_run(
+        request=RunCreateRequest(
+            job_type=JobType.building,
+            trigger=RunTrigger(
+                type=RunTriggerType.disaster_event,
+                content="building",
+                disaster_type="flood",
+                spatial_extent="bbox(1,1,2,2)",
+            ),
+            target_crs="EPSG:32643",
+            field_mapping={},
+            debug=False,
+        ),
+        osm_zip_name="osm.zip",
+        osm_zip_bytes=_write_dummy_zip(tmp_path / "osm.zip"),
+        ref_zip_name="ref.zip",
+        ref_zip_bytes=_write_dummy_zip(tmp_path / "ref.zip"),
+    )
+
+    latest = service.get_run(status.run_id)
+    assert latest is not None
+    assert latest.phase == RunPhase.succeeded
+    assert latest.artifact is not None
+    clipped_zip = Path(latest.artifact.path)
+    assert clipped_zip.exists()
+    clipped_extract = tmp_path / "clipped_extract"
+    with ZipFile(clipped_zip, "r") as zf:
+        zf.extractall(clipped_extract)
+    clipped_gdf = gpd.read_file(clipped_extract / "artifact.shp")
+    bounds = clipped_gdf.total_bounds.tolist()
+    assert bounds == [1.0, 1.0, 2.0, 2.0]
+    assert latest.artifact_reuse is not None
+    assert latest.artifact_reuse.reused is True
+    assert latest.artifact_reuse.artifact_id == "artifact-clip-source"
+    assert latest.artifact_reuse.freshness_status == "clip_reused"
+    audit_events = service.get_audit_events(status.run_id)
+    reuse_event = next(event for event in audit_events if event.kind == "artifact_reuse_applied")
+    assert reuse_event.details["reuse_mode"] == "clip"
+    assert reuse_event.details["source_artifact_id"] == "artifact-clip-source"
+
+
+def test_agent_run_service_falls_back_to_fresh_execution_when_clip_reuse_materialization_fails(
+    tmp_path: Path, monkeypatch
+) -> None:
+    service = AgentRunService(base_dir=tmp_path / "runs")
+    osm_shp = tmp_path / "osm.shp"
+    ref_shp = tmp_path / "ref.shp"
+    fused_shp = tmp_path / "fresh-fused.shp"
+    artifact_zip = tmp_path / "artifact.zip"
+    for path in [osm_shp, ref_shp, fused_shp]:
+        path.write_text("dummy", encoding="utf-8")
+    artifact_zip.write_bytes(b"zip")
+
+    # Deliberately lie in the registry bbox so candidate selection passes but clipping fails.
+    source_artifact = _write_polygon_bundle_zip(tmp_path / "artifact-fallback-source.zip", [box(0, 0, 1, 1)])
+    service.artifact_registry.register(
+        ArtifactRecord(
+            artifact_id="artifact-fallback-source",
+            artifact_path=str(source_artifact),
+            job_type="building",
+            disaster_type="flood",
+            created_at="2026-04-08T00:00:00+00:00",
+            output_fields=[],
+            bbox=(0.0, 0.0, 4.0, 4.0),
+            meta={"note": "fallback"},
+        )
+    )
+
+    plan = _build_plan(workflow_id="wf_fallback", revision=1)
+    plan.context["retrieval"]["reusable_artifacts"] = [
+        {
+            "artifact_id": "artifact-fallback-source",
+            "artifact_path": str(source_artifact),
+            "created_at": "2026-04-08T00:00:00+00:00",
+            "bbox": [0.0, 0.0, 4.0, 4.0],
+        }
+    ]
+
+    monkeypatch.setattr("services.agent_run_service.validate_zip_has_shapefile", lambda *_args, **_kwargs: osm_shp)
+    monkeypatch.setattr(service.planner, "create_plan", lambda **_kwargs: plan.model_copy(deep=True))
+    monkeypatch.setattr(service.validator, "validate_and_repair", lambda input_plan: input_plan)
+
+    execute_calls = {"count": 0}
+
+    def fake_execute_plan(**_kwargs):
+        execute_calls["count"] += 1
+        return fused_shp
+
+    monkeypatch.setattr(service.executor, "execute_plan", fake_execute_plan)
+    monkeypatch.setattr("services.agent_run_service.zip_shapefile_bundle", lambda *_args, **_kwargs: artifact_zip)
+
+    status = service.create_run(
+        request=RunCreateRequest(
+            job_type=JobType.building,
+            trigger=RunTrigger(
+                type=RunTriggerType.disaster_event,
+                content="building",
+                disaster_type="flood",
+                spatial_extent="bbox(3,3,4,4)",
+            ),
+            target_crs="EPSG:32643",
+            field_mapping={},
+            debug=False,
+        ),
+        osm_zip_name="osm.zip",
+        osm_zip_bytes=_write_dummy_zip(tmp_path / "osm.zip"),
+        ref_zip_name="ref.zip",
+        ref_zip_bytes=_write_dummy_zip(tmp_path / "ref.zip"),
+    )
+
+    latest = service.get_run(status.run_id)
+    assert latest is not None
+    assert latest.phase == RunPhase.succeeded
+    assert execute_calls["count"] == 1
+    assert latest.artifact_reuse is not None
+    assert latest.artifact_reuse.reused is False
+    assert latest.artifact_reuse.freshness_status == "candidate_available"
+    audit_events = service.get_audit_events(status.run_id)
+    fallback_event = next(event for event in audit_events if event.kind == "artifact_reuse_fallback")
+    assert "clip produced no features" in fallback_event.details["error"]
 
 
 def test_saved_plan_contains_bound_effective_parameters(tmp_path: Path, monkeypatch) -> None:

@@ -32,6 +32,7 @@ from schemas.agent import (
     WorkflowPlan,
 )
 from services.artifact_registry import ArtifactRecord, ArtifactRegistry
+from services.artifact_reuse_service import ArtifactReuseService, ReuseResult
 from utils.crs import normalize_target_crs
 from utils.shp_zip import validate_zip_has_shapefile, zip_shapefile_bundle
 
@@ -71,6 +72,7 @@ class AgentRunService:
         self.kg_repo = kg_repo or self._create_kg_repo()
         self.llm_provider = create_llm_provider()
         self.artifact_registry = ArtifactRegistry(index_path=self.base_dir / "artifact_registry.json")
+        self.artifact_reuse_service = ArtifactReuseService(self.artifact_registry)
         self.planner = WorkflowPlanner(self.kg_repo, self.llm_provider, artifact_registry=self.artifact_registry)
         self.validator = WorkflowValidator(self.kg_repo)
         self.executor = WorkflowExecutor(self.kg_repo, planner=self.planner)
@@ -214,6 +216,56 @@ class AgentRunService:
 
             plan = self.run_validation_stage(run_id=run_id, plan=plan)
             logger.info("Validation stage completed; valid=%s", getattr(plan.validation, "valid", None))
+
+            reuse_result = self._attempt_artifact_reuse(
+                run_id=run_id,
+                request=request,
+                plan=plan,
+                output_dir=output_dir,
+            )
+            if reuse_result is not None:
+                artifact = reuse_result.artifact
+                self._record_feedback(
+                    run_id=run_id,
+                    request=request,
+                    plan=plan,
+                    repair_records=repair_records,
+                    success=True,
+                    failure_reason=None,
+                )
+                self._register_artifact(
+                    run_id=run_id,
+                    request=request,
+                    plan=plan,
+                    artifact=artifact,
+                    repair_records=repair_records,
+                    extra_meta={
+                        "reuse_mode": reuse_result.mode,
+                        "parent_artifact_id": reuse_result.source_record.artifact_id,
+                    },
+                )
+                self._update_status(
+                    run_id,
+                    RunPhase.succeeded,
+                    progress=100,
+                    finished_at=_utc_now(),
+                    artifact=artifact,
+                    repair_records=repair_records,
+                    current_step=0,
+                    attempt_no=self._max_attempt_no(repair_records),
+                    healing_summary=self._build_healing_summary(repair_records),
+                    failure_summary=None,
+                    error=None,
+                    plan_revision=self._extract_plan_revision(plan),
+                    event_kind="run_succeeded",
+                    event_message=f"Run completed successfully via {reuse_result.mode} artifact reuse.",
+                )
+                logger.info(
+                    "Artifact reuse applied: mode=%s source=%s",
+                    reuse_result.mode,
+                    reuse_result.source_record.artifact_id,
+                )
+                return
 
             while True:
                 try:
@@ -517,6 +569,7 @@ class AgentRunService:
         plan: WorkflowPlan,
         artifact: RunArtifactMeta,
         repair_records: List[RepairRecord],
+        extra_meta: Optional[Dict[str, object]] = None,
     ) -> None:
         # Artifact registry writeback is best-effort; it should not fail a successful run.
         try:
@@ -529,6 +582,18 @@ class AgentRunService:
                         found.update(str(key) for key in mapping.keys() if str(key))
                 output_fields = sorted(found)
 
+            meta: Dict[str, object] = {
+                "run_id": run_id,
+                "workflow_id": plan.workflow_id,
+                "plan_revision": plan.context.get("plan_revision"),
+                "pattern_id": self._extract_pattern_id(plan),
+                "algorithm_id": self._extract_algorithm_id(plan, repair_records=repair_records),
+                "selected_data_source": self._extract_selected_data_source(plan),
+                "trigger_type": request.trigger.type.value,
+            }
+            if extra_meta:
+                meta.update(extra_meta)
+
             record = ArtifactRecord(
                 artifact_id=run_id,
                 artifact_path=artifact.path,
@@ -537,15 +602,7 @@ class AgentRunService:
                 created_at=created_at,
                 output_fields=output_fields,
                 bbox=self._parse_bbox(request.trigger.spatial_extent),
-                meta={
-                    "run_id": run_id,
-                    "workflow_id": plan.workflow_id,
-                    "plan_revision": plan.context.get("plan_revision"),
-                    "pattern_id": self._extract_pattern_id(plan),
-                    "algorithm_id": self._extract_algorithm_id(plan, repair_records=repair_records),
-                    "selected_data_source": self._extract_selected_data_source(plan),
-                    "trigger_type": request.trigger.type.value,
-                },
+                meta=meta,
             )
             self.artifact_registry.register(record)
         except Exception as exc:  # noqa: BLE001
@@ -894,6 +951,56 @@ class AgentRunService:
             freshness_status="not_available",
             rationale="No reusable artifact candidates were found in planner retrieval context.",
         )
+
+    def _attempt_artifact_reuse(
+        self,
+        *,
+        run_id: str,
+        request: RunCreateRequest,
+        plan: WorkflowPlan,
+        output_dir: Path,
+    ) -> Optional[ReuseResult]:
+        try:
+            reuse_result = self.artifact_reuse_service.try_reuse(request=request, plan=plan, output_dir=output_dir)
+        except Exception as exc:  # noqa: BLE001
+            self._update_status(
+                run_id,
+                RunPhase.running,
+                progress=45,
+                plan_revision=self._extract_plan_revision(plan),
+                event_kind="artifact_reuse_fallback",
+                event_message="Artifact reuse candidate was available but reuse materialization failed; falling back to fresh execution.",
+                event_details={"error": f"{type(exc).__name__}: {exc}"},
+            )
+            return None
+
+        if reuse_result is None:
+            return None
+
+        decision = ArtifactReuseDecision(
+            reused=True,
+            artifact_id=reuse_result.source_record.artifact_id,
+            freshness_status=f"{reuse_result.mode}_reused",
+            rationale=(
+                f"Reused artifact {reuse_result.source_record.artifact_id} via "
+                f"{reuse_result.mode} materialization."
+            ),
+        )
+        self._update_status(
+            run_id,
+            RunPhase.running,
+            progress=75,
+            artifact_reuse=decision,
+            plan_revision=self._extract_plan_revision(plan),
+            event_kind="artifact_reuse_applied",
+            event_message=f"Applied {reuse_result.mode} artifact reuse and skipped fresh execution.",
+            event_details={
+                "reuse_mode": reuse_result.mode,
+                "source_artifact_id": reuse_result.source_record.artifact_id,
+                "source_artifact_path": reuse_result.source_record.artifact_path,
+            },
+        )
+        return reuse_result
 
     def _build_replan_decision(
         self,
