@@ -5,6 +5,7 @@ import logging
 import uuid
 from typing import Any, Dict, List, Optional
 
+from agent.parameter_binding import bind_plan_parameters
 from agent.retriever import PlanningContextBuilder
 from kg.models import WorkflowPatternNode
 from kg.repository import KGRepository
@@ -49,6 +50,7 @@ class WorkflowPlanner:
             plan = self._build_skeleton_plan(top_pattern, trigger=trigger)
 
         plan = self._finalize_plan(plan)
+        plan = bind_plan_parameters(plan, self.kg_repo)
         plan.context = self._normalize_plan_context(
             planning_context=planning_context,
             selection_reason=selection_reason,
@@ -76,6 +78,7 @@ class WorkflowPlanner:
                 raise ValueError("LLM returned plan with no tasks.")
             plan.trigger = trigger
             plan = self._finalize_plan(plan, fallback_workflow_id=previous_plan.workflow_id)
+            plan = bind_plan_parameters(plan, self.kg_repo)
             revision = int(previous_plan.context.get("plan_revision", 1)) + 1
             plan.context = self._normalize_plan_context(
                 planning_context=planning_context,
