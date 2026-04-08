@@ -4,7 +4,7 @@ from typing import Dict, List
 
 from schemas.fusion import JobType
 
-from kg.models import AlgorithmNode, DataSourceNode, DataTypeNode, PatternStep, WorkflowPatternNode
+from kg.models import AlgorithmNode, AlgorithmParameterSpec, DataSourceNode, DataTypeNode, PatternStep, WorkflowPatternNode
 
 
 DATA_TYPES: Dict[str, DataTypeNode] = {
@@ -100,6 +100,69 @@ ALGORITHMS: Dict[str, AlgorithmNode] = {
         tool_ref="builtin:transform",
         success_rate=0.98,
     ),
+}
+
+PARAMETER_SPECS: Dict[str, List[AlgorithmParameterSpec]] = {
+    "algo.fusion.building.v1": [
+        AlgorithmParameterSpec(
+            spec_id="ps.algo.fusion.building.v1.match_similarity_threshold",
+            algo_id="algo.fusion.building.v1",
+            key="match_similarity_threshold",
+            label="Match Similarity Threshold",
+            param_type="float",
+            default=0.3,
+            min_value=0.0,
+            max_value=1.0,
+            unit="ratio",
+            description="Pairs with similarity > this value are treated as matched.",
+            required=False,
+            order=10,
+        ),
+        AlgorithmParameterSpec(
+            spec_id="ps.algo.fusion.building.v1.one_to_one_min_overlap_similarity",
+            algo_id="algo.fusion.building.v1",
+            key="one_to_one_min_overlap_similarity",
+            label="One-to-One Min Overlap Similarity",
+            param_type="float",
+            default=0.3,
+            min_value=0.0,
+            max_value=1.0,
+            unit="ratio",
+            description="For 1:1 matches, sim_overlap must be >= this value.",
+            required=False,
+            order=20,
+        ),
+    ],
+    "algo.fusion.road.safe": [
+        AlgorithmParameterSpec(
+            spec_id="ps.algo.fusion.road.safe.max_hausdorff_m",
+            algo_id="algo.fusion.road.safe",
+            key="max_hausdorff_m",
+            label="Max Hausdorff Distance",
+            param_type="float",
+            default=10.0,
+            min_value=0.0,
+            max_value=100.0,
+            unit="m",
+            description="Conservative Hausdorff threshold for safe mode.",
+            required=False,
+            order=10,
+        ),
+        AlgorithmParameterSpec(
+            spec_id="ps.algo.fusion.road.safe.dedupe_buffer_m",
+            algo_id="algo.fusion.road.safe",
+            key="dedupe_buffer_m",
+            label="Dedupe Buffer Distance",
+            param_type="float",
+            default=12.0,
+            min_value=0.0,
+            max_value=100.0,
+            unit="m",
+            description="Conservative dedupe buffer for safe mode.",
+            required=False,
+            order=20,
+        ),
+    ],
 }
 
 

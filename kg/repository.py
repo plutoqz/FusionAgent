@@ -5,7 +5,7 @@ from typing import Dict, List, Optional
 
 from schemas.fusion import JobType
 
-from kg.models import AlgorithmNode, DataSourceNode, ExecutionFeedback, KGContext, WorkflowPatternNode
+from kg.models import AlgorithmNode, AlgorithmParameterSpec, DataSourceNode, ExecutionFeedback, KGContext, WorkflowPatternNode
 
 
 class KGRepository(ABC):
@@ -20,6 +20,10 @@ class KGRepository(ABC):
 
     @abstractmethod
     def get_algorithm(self, algo_id: str) -> Optional[AlgorithmNode]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_parameter_specs(self, algo_id: str) -> List[AlgorithmParameterSpec]:
         raise NotImplementedError
 
     @abstractmethod

@@ -27,6 +27,23 @@ class AlgorithmNode:
 
 
 @dataclass
+class AlgorithmParameterSpec:
+    spec_id: str
+    algo_id: str
+    key: str
+    label: str
+    param_type: str
+    default: Optional[Any] = None
+    min_value: Optional[float] = None
+    max_value: Optional[float] = None
+    unit: Optional[str] = None
+    description: str = ""
+    required: bool = False
+    choices: Optional[List[Any]] = None
+    order: int = 0
+
+
+@dataclass
 class DataSourceNode:
     source_id: str
     source_name: str

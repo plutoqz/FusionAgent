@@ -5,9 +5,9 @@ from typing import Dict, List, Optional, Set
 
 from schemas.fusion import JobType
 
-from kg.models import AlgorithmNode, DataSourceNode, ExecutionFeedback, KGContext, WorkflowPatternNode
+from kg.models import AlgorithmNode, AlgorithmParameterSpec, DataSourceNode, ExecutionFeedback, KGContext, WorkflowPatternNode
 from kg.repository import KGRepository
-from kg.seed import ALGORITHMS, CAN_TRANSFORM_TO, DATA_SOURCES, WORKFLOW_PATTERNS
+from kg.seed import ALGORITHMS, CAN_TRANSFORM_TO, DATA_SOURCES, PARAMETER_SPECS, WORKFLOW_PATTERNS
 
 
 class InMemoryKGRepository(KGRepository):
@@ -17,11 +17,13 @@ class InMemoryKGRepository(KGRepository):
         patterns: Optional[List[WorkflowPatternNode]] = None,
         can_transform_to: Optional[Dict[str, List[str]]] = None,
         data_sources: Optional[List[DataSourceNode]] = None,
+        parameter_specs: Optional[Dict[str, List[AlgorithmParameterSpec]]] = None,
     ) -> None:
-        self.algorithms = algorithms or ALGORITHMS
-        self.patterns = patterns or WORKFLOW_PATTERNS
-        self.can_transform_to = can_transform_to or CAN_TRANSFORM_TO
-        self.data_sources = data_sources or DATA_SOURCES
+        self.algorithms = ALGORITHMS if algorithms is None else algorithms
+        self.patterns = WORKFLOW_PATTERNS if patterns is None else patterns
+        self.can_transform_to = CAN_TRANSFORM_TO if can_transform_to is None else can_transform_to
+        self.data_sources = DATA_SOURCES if data_sources is None else data_sources
+        self.parameter_specs = PARAMETER_SPECS if parameter_specs is None else parameter_specs
         self.feedback_history: List[ExecutionFeedback] = []
         self._pattern_scores: Dict[str, float] = {}
         self._algorithm_scores: Dict[str, float] = {}
@@ -47,6 +49,10 @@ class InMemoryKGRepository(KGRepository):
 
     def get_algorithm(self, algo_id: str) -> Optional[AlgorithmNode]:
         return self.algorithms.get(algo_id)
+
+    def get_parameter_specs(self, algo_id: str) -> List[AlgorithmParameterSpec]:
+        specs = self.parameter_specs.get(algo_id, [])
+        return sorted(list(specs), key=lambda s: int(getattr(s, "order", 0)))
 
     def get_alternative_algorithms(self, algo_id: str, limit: int = 3) -> List[AlgorithmNode]:
         algo = self.get_algorithm(algo_id)
