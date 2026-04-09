@@ -197,6 +197,17 @@ def test_agent_run_service_updates_status_and_records_feedback(tmp_path: Path, m
     assert latest.decision_records
     assert latest.decision_records[0].decision_type == "pattern_selection"
     assert latest.decision_records[0].selected_id == "wp.flood.building.default"
+    decision_types = {record.decision_type for record in latest.decision_records}
+    assert {
+        "pattern_selection",
+        "data_source_selection",
+        "artifact_reuse_selection",
+        "parameter_strategy",
+        "output_schema_policy",
+    } <= decision_types
+    for record in latest.decision_records:
+        assert record.candidates
+        assert set(record.candidates[0].evidence.keys()) == {"metrics", "meta"}
     assert latest.artifact_reuse is not None
     assert latest.artifact_reuse.reused is False
     assert latest.artifact_reuse.freshness_status == "candidate_available"

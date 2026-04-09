@@ -17,7 +17,12 @@ from schemas.fusion import JobType
 
 def test_run_status_accepts_decision_and_reuse_states() -> None:
     trigger = RunTrigger(type=RunTriggerType.user_query, content="verify schema")
-    candidate = DecisionCandidate(candidate_id="candidate-1", score=0.42, reason="heuristic")
+    candidate = DecisionCandidate(
+        candidate_id="candidate-1",
+        score=0.42,
+        reason="heuristic",
+        evidence={"metrics": {"success_rate": 0.42}, "meta": {"source": "test"}},
+    )
     decision = DecisionRecord(
         decision_type="artifact_selection",
         selected_id=candidate.candidate_id,
@@ -48,6 +53,7 @@ def test_run_status_accepts_decision_and_reuse_states() -> None:
     assert record.selected_score == 0.42
     assert record.policy_version == "v2"
     assert record.evidence_refs == []
+    assert record.candidates[0].evidence["meta"]["source"] == "test"
     assert status.artifact_reuse and status.artifact_reuse.reused
 
     round_trip = RunStatus.model_validate(status.model_dump())
@@ -55,7 +61,7 @@ def test_run_status_accepts_decision_and_reuse_states() -> None:
 
 
 def test_decision_validators_reject_inconsistencies() -> None:
-    candidate = DecisionCandidate(candidate_id="candidate-1", score=0.5, reason="heuristic")
+    candidate = DecisionCandidate(candidate_id="candidate-1", score=0.5, reason="heuristic", evidence={})
     with pytest.raises(ValidationError):
         DecisionRecord(
             decision_type="artifact_selection",
@@ -65,7 +71,7 @@ def test_decision_validators_reject_inconsistencies() -> None:
             candidates=[candidate],
         )
 def test_score_tolerance_allows_close_matches() -> None:
-    candidate = DecisionCandidate(candidate_id="candidate-2", score=0.1 + 0.2, reason="float math")
+    candidate = DecisionCandidate(candidate_id="candidate-2", score=0.1 + 0.2, reason="float math", evidence={})
     record = DecisionRecord(
         decision_type="artifact_selection",
         selected_id=candidate.candidate_id,

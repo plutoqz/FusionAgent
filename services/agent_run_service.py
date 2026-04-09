@@ -443,14 +443,18 @@ class AgentRunService:
 
     def run_planning_stage(self, run_id: str, request: RunCreateRequest) -> WorkflowPlan:
         plan = self.planner.create_plan(run_id=run_id, job_type=request.job_type, trigger=request.trigger)
-        pattern_decision = self._build_pattern_selection_decision(plan)
+        planning_decisions = self._build_planning_decisions(plan)
         artifact_reuse = self._build_artifact_reuse_decision(plan)
         plan_path = self._plan_path(run_id)
         self._persist_plan(plan_path, plan)
         event_details = {
             "workflow_id": plan.workflow_id,
             "effective_parameters": self._extract_effective_parameters(plan),
+            "selected_decisions": {
+                decision.decision_type: decision.selected_id for decision in planning_decisions
+            },
         }
+        pattern_decision = next((item for item in planning_decisions if item.decision_type == "pattern_selection"), None)
         if pattern_decision is not None:
             event_details["selected_pattern"] = pattern_decision.selected_id
         event_details["artifact_reuse"] = artifact_reuse.model_dump(mode="json")
@@ -460,7 +464,7 @@ class AgentRunService:
             progress=25,
             plan_path=str(plan_path),
             plan_revision=self._extract_plan_revision(plan),
-            decision_records=[pattern_decision] if pattern_decision is not None else [],
+            decision_records=planning_decisions,
             artifact_reuse=artifact_reuse,
             event_kind="plan_created",
             event_message=f"Workflow plan revision {self._extract_plan_revision(plan)} created.",
@@ -899,6 +903,20 @@ class AgentRunService:
                 ordered.append(source_id)
         return ordered
 
+    def _build_planning_decisions(self, plan: WorkflowPlan) -> List[DecisionRecord]:
+        decisions: List[DecisionRecord] = []
+        for builder in (
+            self._build_pattern_selection_decision,
+            self._build_data_source_selection_decision,
+            self._build_artifact_reuse_selection_decision,
+            self._build_parameter_strategy_decision,
+            self._build_output_schema_policy_decision,
+        ):
+            decision = builder(plan)
+            if decision is not None:
+                decisions.append(decision)
+        return decisions
+
     def _build_pattern_selection_decision(self, plan: WorkflowPlan) -> Optional[DecisionRecord]:
         retrieval = plan.context.get("retrieval", {})
         raw_patterns = retrieval.get("candidate_patterns", []) if isinstance(retrieval, dict) else []
@@ -930,6 +948,184 @@ class AgentRunService:
             update={"evidence_refs": ["context.retrieval.candidate_patterns", "policy:deterministic_weighted_sum"]}
         )
 
+    def _build_data_source_selection_decision(self, plan: WorkflowPlan) -> Optional[DecisionRecord]:
+        retrieval = plan.context.get("retrieval", {})
+        raw_sources = retrieval.get("data_sources", []) if isinstance(retrieval, dict) else []
+        candidates: List[CandidateScoreInput] = []
+        for raw in raw_sources:
+            if not isinstance(raw, dict):
+                continue
+            source_id = str(raw.get("source_id") or "").strip()
+            if not source_id:
+                continue
+            candidates.append(
+                CandidateScoreInput(
+                    candidate_id=source_id,
+                    data_quality=self._to_unit_interval(raw.get("quality_score")),
+                    freshness=self._to_unit_interval(raw.get("freshness_score")),
+                    meta={
+                        "source_name": raw.get("source_name"),
+                        "source_kind": raw.get("source_kind"),
+                        "quality_tier": raw.get("quality_tier"),
+                        "freshness_category": raw.get("freshness_category"),
+                        "supported_types": raw.get("supported_types", []),
+                    },
+                )
+            )
+        if not candidates:
+            fallback_source_id = self._extract_selected_data_source(plan)
+            if not fallback_source_id:
+                return None
+            candidates.append(
+                CandidateScoreInput(
+                    candidate_id=fallback_source_id,
+                    data_quality=1.0,
+                    freshness=1.0,
+                    meta={"selection_source": "task_input"},
+                )
+            )
+        decision = self.policy_engine.select("data_source_selection", candidates).model_copy(
+            update={"evidence_refs": ["context.retrieval.data_sources", "policy:deterministic_weighted_sum"]}
+        )
+        for task in plan.tasks:
+            if not task.is_transform:
+                task.input.data_source_id = decision.selected_id
+        return decision
+
+    def _build_artifact_reuse_selection_decision(self, plan: WorkflowPlan) -> Optional[DecisionRecord]:
+        retrieval = plan.context.get("retrieval", {})
+        raw_candidates = retrieval.get("reusable_artifacts", []) if isinstance(retrieval, dict) else []
+        candidates: List[CandidateScoreInput] = [
+            CandidateScoreInput(
+                candidate_id="fresh_execution",
+                freshness=0.5,
+                reuse=0.0,
+                stability=0.8,
+                meta={"selection_source": "fallback_when_no_safe_reuse_candidate"},
+            )
+        ]
+        for raw in raw_candidates:
+            if not isinstance(raw, dict):
+                continue
+            artifact_id = str(raw.get("artifact_id") or "").strip()
+            if not artifact_id:
+                continue
+            candidates.append(
+                CandidateScoreInput(
+                    candidate_id=artifact_id,
+                    freshness=0.9,
+                    reuse=1.0,
+                    stability=0.85,
+                    meta={
+                        "artifact_path": raw.get("artifact_path"),
+                        "created_at": raw.get("created_at"),
+                        "bbox": raw.get("bbox"),
+                    },
+                )
+            )
+        decision = self.policy_engine.select("artifact_reuse_selection", candidates)
+        return decision.model_copy(
+            update={"evidence_refs": ["context.retrieval.reusable_artifacts", "policy:deterministic_weighted_sum"]}
+        )
+
+    def _build_parameter_strategy_decision(self, plan: WorkflowPlan) -> Optional[DecisionRecord]:
+        task_summaries: List[Dict[str, object]] = []
+        total_specs = 0
+        total_bound = 0
+        overridden_keys: List[str] = []
+        for task in sorted(plan.tasks, key=lambda item: item.step):
+            if task.is_transform:
+                continue
+            specs = self.kg_repo.get_parameter_specs(task.algorithm_id)
+            defaults = {spec.key: spec.default for spec in specs}
+            bound = dict(task.input.parameters or {})
+            total_specs += len(specs)
+            total_bound += sum(1 for spec in specs if spec.key in bound and bound.get(spec.key) is not None)
+            overridden = sorted(
+                key for key, value in bound.items()
+                if key in defaults and defaults.get(key) is not None and defaults.get(key) != value
+            )
+            overridden_keys.extend(overridden)
+            task_summaries.append(
+                {
+                    "step": task.step,
+                    "algorithm_id": task.algorithm_id,
+                    "parameter_keys": sorted(bound.keys()),
+                    "overridden_keys": overridden,
+                }
+            )
+        if not task_summaries:
+            return None
+        completeness = 1.0 if total_specs == 0 else min(1.0, total_bound / total_specs)
+        strategy = "kg_defaults_with_overrides" if overridden_keys else "kg_defaults_only"
+        decision = self.policy_engine.select(
+            "parameter_strategy",
+            [
+                CandidateScoreInput(
+                    candidate_id=strategy,
+                    success_rate=completeness,
+                    stability=1.0 if completeness == 1.0 else 0.3,
+                    meta={
+                        "steps": task_summaries,
+                        "overridden_keys": sorted(dict.fromkeys(overridden_keys)),
+                        "total_specs": total_specs,
+                        "total_bound": total_bound,
+                    },
+                )
+            ],
+        )
+        return decision.model_copy(
+            update={"evidence_refs": ["plan.tasks.input.parameters", "kg.parameter_specs", "policy:deterministic_weighted_sum"]}
+        )
+
+    def _build_output_schema_policy_decision(self, plan: WorkflowPlan) -> Optional[DecisionRecord]:
+        retrieval = plan.context.get("retrieval", {})
+        raw_policies = retrieval.get("output_schema_policies", {}) if isinstance(retrieval, dict) else {}
+        if not isinstance(raw_policies, dict):
+            raw_policies = {}
+        if not raw_policies:
+            for task in plan.tasks:
+                if task.is_transform:
+                    continue
+                policy = self.kg_repo.get_output_schema_policy(task.output.data_type_id)
+                if policy is None:
+                    continue
+                raw_policies[task.output.data_type_id] = {
+                    "policy_id": policy.policy_id,
+                    "output_type": policy.output_type,
+                    "job_type": policy.job_type.value,
+                    "retention_mode": policy.retention_mode,
+                    "required_fields": policy.required_fields,
+                    "optional_fields": policy.optional_fields,
+                    "rename_hints": policy.rename_hints,
+                    "compatibility_basis": policy.compatibility_basis,
+                }
+        candidates: List[CandidateScoreInput] = []
+        for output_type, raw in raw_policies.items():
+            if not isinstance(raw, dict):
+                continue
+            policy_id = str(raw.get("policy_id") or output_type).strip()
+            candidates.append(
+                CandidateScoreInput(
+                    candidate_id=policy_id,
+                    stability=1.0,
+                    meta={
+                        "output_type": output_type,
+                        "retention_mode": raw.get("retention_mode"),
+                        "required_fields": raw.get("required_fields", []),
+                        "optional_fields": raw.get("optional_fields", []),
+                        "rename_hints": raw.get("rename_hints", {}),
+                        "compatibility_basis": raw.get("compatibility_basis"),
+                    },
+                )
+            )
+        if not candidates:
+            return None
+        decision = self.policy_engine.select("output_schema_policy", candidates)
+        return decision.model_copy(
+            update={"evidence_refs": ["context.retrieval.output_schema_policies", "policy:deterministic_weighted_sum"]}
+        )
+
     def _build_artifact_reuse_decision(self, plan: WorkflowPlan) -> ArtifactReuseDecision:
         retrieval = plan.context.get("retrieval", {})
         raw_candidates = retrieval.get("reusable_artifacts", []) if isinstance(retrieval, dict) else []
@@ -939,7 +1135,7 @@ class AgentRunService:
             rationale = (
                 f"Planner found {len(raw_candidates)} reusable artifact candidate(s)"
                 + (f" (top={first_id})." if first_id else ".")
-                + " This run does not short-circuit execution with artifact reuse yet, so a fresh artifact is produced."
+                + " Runtime will attempt reuse before falling back to fresh execution."
             )
             return ArtifactReuseDecision(
                 reused=False,

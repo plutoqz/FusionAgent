@@ -141,6 +141,8 @@ V2 之后的系统需要完整覆盖以下组件：
 
 这部分不应继续散落在 prompt 文本和 repair 分支里。
 
+Current implementation note (`2026-04-09`): current runtime now persists explicit `pattern_selection`, `data_source_selection`, `artifact_reuse_selection`, `parameter_strategy`, `output_schema_policy`, and `replan_or_fail` decisions, and every candidate is recorded with a stable `metrics + meta` evidence shape so `run.json` and audit-backed status views can explain why a choice was made.
+
 ## Search Space Expansion Model
 
 “搜索空间变大”不是简单添加更多算法，而是把可决策自由度结构化。V2 推荐扩展五个轴：

@@ -291,28 +291,30 @@ Phase 2 note: candidate breadth now includes earthquake-specific building patter
 
 ### Task 3.1: Add Explicit Decision Types
 
-- [ ] Add `data_source_selection` decision support.
-- [ ] Add `artifact_reuse_selection` decision support.
-- [ ] Add `parameter_strategy` or equivalent decision support for parameter-level choices that are policy driven rather than static defaults.
-- [ ] Add `output_schema_policy` decision support if output compatibility policy becomes executable in this phase.
+- [x] Add `data_source_selection` decision support.
+- [x] Add `artifact_reuse_selection` decision support.
+- [x] Add `parameter_strategy` or equivalent decision support for parameter-level choices that are policy driven rather than static defaults.
+- [x] Add `output_schema_policy` decision support if output compatibility policy becomes executable in this phase.
 
 ### Task 3.2: Standardize Candidate Evidence
 
-- [ ] Define one stable candidate evidence shape so every decision type can emit comparable traces.
-- [ ] Keep rationale strings concise but evidence-backed.
-- [ ] Prefer additive schema evolution in `schemas/agent.py`.
+- [x] Define one stable candidate evidence shape so every decision type can emit comparable traces.
+- [x] Keep rationale strings concise but evidence-backed.
+- [x] Prefer additive schema evolution in `schemas/agent.py`.
 
 ### Task 3.3: Wire Policy Decisions Into Runtime Status
 
-- [ ] Ensure new decision types are persisted into `RunStatus` and audit events.
-- [ ] Ensure failure and fallback paths still preserve prior decision history instead of overwriting it.
-- [ ] Add tests that multiple decision types can coexist in the same run.
+- [x] Ensure new decision types are persisted into `RunStatus` and audit events.
+- [x] Ensure failure and fallback paths still preserve prior decision history instead of overwriting it.
+- [x] Add tests that multiple decision types can coexist in the same run.
 
 ### Phase 3 Verification
 
-- [ ] Run `python -m pytest -q tests/test_policy_engine.py tests/test_agent_run_service_enhancements.py`
-- [ ] Run at least one end-to-end run and inspect `audit.jsonl` and `run.json`
-- [ ] Add a short summary here of which decision types are now explicit
+- [x] Run `python -m pytest -q tests/test_policy_engine.py tests/test_agent_run_service_enhancements.py`
+- [x] Run at least one end-to-end run and inspect `audit.jsonl` and `run.json`
+- [x] Add a short summary here of which decision types are now explicit
+
+Phase 3 note: explicit runtime decision coverage now includes `pattern_selection`, `data_source_selection`, `artifact_reuse_selection`, `parameter_strategy`, `output_schema_policy`, and `replan_or_fail`, with every candidate carrying the same `metrics + meta` evidence shape in both `run.json` and audit-backed status updates.
 
 ---
 
@@ -464,7 +466,8 @@ These are the next items to work in order.
 - [x] Phase 2 Task 2.3: enrich data source metadata and expose it stably in retrieval context
 - [x] Phase 2 Task 2.4: strengthen parameter spec coverage for current supported algorithms
 - [x] Phase 2 Task 2.5: add output schema policy metadata
-- [ ] Phase 3 Task 3.1: add explicit decision types beyond pattern selection and replan/fail
+- [x] Phase 3 Task 3.1: add explicit decision types beyond pattern selection and replan/fail
+- [ ] Phase 4 Task 4.1: improve artifact reuse compatibility checks
 - [ ] Revisit whether benchmark evidence should be copied out of `tmp/eval/` into a more durable tracked note or summary
 
 ## Progress Log
@@ -486,6 +489,8 @@ These are the next items to work in order.
 - `2026-04-09`: Phase 2 verification for Tasks 2.2 and 2.3 passed in `codex/phase2-task2-2-2-3` with `python -m pytest -q tests/test_kg_parameter_specs.py tests/test_kg_repository.py tests/test_kg_repository_enhancements.py` and `python -m pytest -q tests/test_planner_context.py tests/test_policy_engine.py`
 - `2026-04-09`: Phase 2 Tasks 2.4 and 2.5 completed in `codex/phase2-task2-2-2-3`; safe-mode building/road algorithms now have full current adapter parameter coverage, `AlgorithmParameterSpec` carries `tunable` and `optimization_tags`, and KG output schema policy metadata is exposed to planner retrieval without changing runtime output behavior
 - `2026-04-09`: Phase 2 completed in `codex/phase2-task2-2-2-3`; verification passed with `python -m pytest -q tests/test_kg_parameter_specs.py tests/test_kg_repository.py tests/test_kg_repository_enhancements.py`, `python -m pytest -q tests/test_planner_context.py tests/test_policy_engine.py`, and `python -m pytest -q tests/test_parameter_binding.py`
+- `2026-04-09`: Phase 3 Tasks 3.1 to 3.3 completed in `codex/phase3-task3-1`; planning now emits explicit `data_source_selection`, `artifact_reuse_selection`, `parameter_strategy`, and `output_schema_policy` decisions alongside existing `pattern_selection` and `replan_or_fail`, and every decision candidate now persists a stable `metrics + meta` evidence shape
+- `2026-04-09`: Phase 3 completed in `codex/phase3-task3-1`; verification passed with `python -m pytest -q tests/test_agent_state_models.py tests/test_policy_engine.py tests/test_agent_run_service_enhancements.py`, `python -m pytest -q tests/test_planner_context.py`, and the end-to-end audit/run inspection embedded in `tests/test_agent_run_service_enhancements.py::test_agent_run_service_updates_status_and_records_feedback`
 
 ## Self-Review
 
