@@ -32,6 +32,7 @@ from schemas.agent import (
     WorkflowPlan,
 )
 from services.artifact_registry import ArtifactRecord, ArtifactRegistry
+from services.artifact_reuse_policy import get_artifact_reuse_max_age_seconds
 from services.artifact_reuse_service import ArtifactReuseService, ReuseResult
 from utils.crs import normalize_target_crs
 from utils.shp_zip import validate_zip_has_shapefile, zip_shapefile_bundle
@@ -585,6 +586,12 @@ class AgentRunService:
                     if isinstance(mapping, dict):
                         found.update(str(key) for key in mapping.keys() if str(key))
                 output_fields = sorted(found)
+            if "geometry" not in output_fields:
+                output_fields.insert(0, "geometry")
+
+            output_data_type = self._extract_output_data_type(plan)
+            target_crs = normalize_target_crs(request.target_crs)
+            schema_policy = self.kg_repo.get_output_schema_policy(output_data_type) if output_data_type else None
 
             meta: Dict[str, object] = {
                 "run_id": run_id,
@@ -594,6 +601,11 @@ class AgentRunService:
                 "algorithm_id": self._extract_algorithm_id(plan, repair_records=repair_records),
                 "selected_data_source": self._extract_selected_data_source(plan),
                 "trigger_type": request.trigger.type.value,
+                "output_data_type": output_data_type,
+                "target_crs": target_crs,
+                "schema_policy_id": schema_policy.policy_id if schema_policy else None,
+                "compatibility_basis": schema_policy.compatibility_basis if schema_policy else None,
+                "freshness_policy_seconds": get_artifact_reuse_max_age_seconds(request.job_type),
             }
             if extra_meta:
                 meta.update(extra_meta)
@@ -605,6 +617,10 @@ class AgentRunService:
                 disaster_type=request.trigger.disaster_type,
                 created_at=created_at,
                 output_fields=output_fields,
+                output_data_type=output_data_type,
+                target_crs=target_crs,
+                schema_policy_id=schema_policy.policy_id if schema_policy else None,
+                compatibility_basis=schema_policy.compatibility_basis if schema_policy else None,
                 bbox=self._parse_bbox(request.trigger.spatial_extent),
                 meta=meta,
             )
@@ -891,6 +907,15 @@ class AgentRunService:
         return None
 
     @staticmethod
+    def _extract_output_data_type(plan: WorkflowPlan) -> Optional[str]:
+        ordered_tasks = sorted(plan.tasks, key=lambda item: item.step)
+        for task in reversed(ordered_tasks):
+            output_type = str(task.output.data_type_id or "").strip()
+            if output_type:
+                return output_type
+        return None
+
+    @staticmethod
     def _extract_alternative_sources(plan: WorkflowPlan) -> List[str]:
         retrieval = plan.context.get("retrieval", {})
         candidates = retrieval.get("data_sources", []) if isinstance(retrieval, dict) else []
@@ -1020,6 +1045,10 @@ class AgentRunService:
                         "artifact_path": raw.get("artifact_path"),
                         "created_at": raw.get("created_at"),
                         "bbox": raw.get("bbox"),
+                        "output_data_type": raw.get("output_data_type"),
+                        "target_crs": raw.get("target_crs"),
+                        "schema_policy_id": raw.get("schema_policy_id"),
+                        "compatibility_basis": raw.get("compatibility_basis"),
                     },
                 )
             )

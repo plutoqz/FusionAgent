@@ -217,6 +217,8 @@ Current implementation note (`2026-04-09`): the KG now exposes metadata-only out
 
 实现状态说明：当前主线已经有第一版 runtime `direct reuse` / `clip reuse` 执行短路，并在复用物化失败时回退 fresh execution。下面这部分描述的是把现有 fast path 强化成兼容性、freshness 和 policy 更完整的 reuse 子系统，而不是从零开始补做 reuse。
 
+Current implementation note (`2026-04-09`): runtime artifact reuse now rejects unsafe candidates unless `output_data_type` and `target_crs` are compatible, stores reuse provenance (`schema_policy_id`, `compatibility_basis`, freshness window, selected source lineage) in registry metadata, applies explicit job-type freshness windows (`building=3d`, `road=1d`), and validates clip outputs for CRS, required fields, and bbox safety before skipping fresh execution.
+
 V2 应支持：
 
 - 注册每次输出 artifact 的空间范围、时间戳、job_type、schema 摘要
