@@ -235,28 +235,28 @@ Follow-on issues uncovered in Phase 1:
 
 ### Task 2.2: Enrich Algorithm Metadata
 
-- [ ] Add richer per-algorithm metadata for expected accuracy, stability, and intended usage mode where the data is trustworthy enough to encode.
-- [ ] Keep metadata deterministic and explicit in seed or repository-backed records.
-- [ ] Do not invent fake precision; if a metric is unknown, leave it absent rather than pretending.
-- [ ] Add tests that policy inputs can be assembled from this richer metadata without breaking old behavior.
+- [x] Add richer per-algorithm metadata for expected accuracy, stability, and intended usage mode where the data is trustworthy enough to encode.
+- [x] Keep metadata deterministic and explicit in seed or repository-backed records.
+- [x] Do not invent fake precision; if a metric is unknown, leave it absent rather than pretending.
+- [x] Add tests that policy inputs can be assembled from this richer metadata without breaking old behavior.
 
 ### Task 2.3: Enrich Data Source Metadata
 
-- [ ] Expand `DataSource` coverage to include clearer freshness, quality, and supported-type signals.
-- [ ] Add tests that retriever context exposes the richer source metadata in a stable shape.
-- [ ] Decide on one conservative schema for source quality metadata and keep it consistent across in-memory and Neo4j backends.
+- [x] Expand `DataSource` coverage to include clearer freshness, quality, and supported-type signals.
+- [x] Add tests that retriever context exposes the richer source metadata in a stable shape.
+- [x] Decide on one conservative schema for source quality metadata and keep it consistent across in-memory and Neo4j backends.
 
 ### Task 2.4: Strengthen Parameter Spec Coverage
 
-- [ ] Review current KG parameter specs and fill obvious missing defaults for current supported algorithms.
-- [ ] Add spec metadata that supports future policy reasoning without forcing speculative tuning now.
-- [ ] Keep parameter binding deterministic; the planner should not guess missing defaults that belong in KG metadata.
+- [x] Review current KG parameter specs and fill obvious missing defaults for current supported algorithms.
+- [x] Add spec metadata that supports future policy reasoning without forcing speculative tuning now.
+- [x] Keep parameter binding deterministic; the planner should not guess missing defaults that belong in KG metadata.
 
 ### Task 2.5: Add Output Schema Policy Metadata
 
-- [ ] Introduce metadata needed to reason about output-field retention, renaming, or compatibility policy.
-- [ ] Keep this as metadata first; do not bury it inside adapters as implicit one-off logic.
-- [ ] Add tests that planner or retriever context can expose this metadata without changing runtime output behavior yet.
+- [x] Introduce metadata needed to reason about output-field retention, renaming, or compatibility policy.
+- [x] Keep this as metadata first; do not bury it inside adapters as implicit one-off logic.
+- [x] Add tests that planner or retriever context can expose this metadata without changing runtime output behavior yet.
 
 ### Phase 2 Verification
 
@@ -264,7 +264,7 @@ Follow-on issues uncovered in Phase 1:
 - [x] Run `python -m pytest -q tests/test_planner_context.py tests/test_policy_engine.py`
 - [x] Add one short note here summarizing how candidate breadth changed
 
-Phase 2 note: candidate breadth now includes earthquake-specific building patterns and typhoon-specific road patterns, with retrieval metadata exposing which options are real runtime candidates rather than placeholder target-state ideas.
+Phase 2 note: candidate breadth now includes earthquake-specific building patterns and typhoon-specific road patterns; KG now exposes richer algorithm/data-source metadata, full current safe-mode parameter spec coverage with `tunable` and `optimization_tags`, and metadata-only output schema policies through in-memory retrieval, planner context, and Neo4j bootstrap output.
 
 ---
 
@@ -460,8 +460,11 @@ Phase 2 note: candidate breadth now includes earthquake-specific building patter
 These are the next items to work in order.
 
 - [x] Phase 2 Task 2.1: expand disaster and pattern coverage within current `building` and `road` themes
-- [ ] Phase 2 Task 2.2: enrich algorithm metadata beyond bare success rate and alternatives
-- [ ] Phase 2 Task 2.3: enrich data source metadata and expose it stably in retrieval context
+- [x] Phase 2 Task 2.2: enrich algorithm metadata beyond bare success rate and alternatives
+- [x] Phase 2 Task 2.3: enrich data source metadata and expose it stably in retrieval context
+- [x] Phase 2 Task 2.4: strengthen parameter spec coverage for current supported algorithms
+- [x] Phase 2 Task 2.5: add output schema policy metadata
+- [ ] Phase 3 Task 3.1: add explicit decision types beyond pattern selection and replan/fail
 - [ ] Revisit whether benchmark evidence should be copied out of `tmp/eval/` into a more durable tracked note or summary
 
 ## Progress Log
@@ -479,6 +482,10 @@ These are the next items to work in order.
 - `2026-04-09`: Phase 1 completed in `codex/phase1-task1-1`; local data was restored, `utils/local_smoke.py` was fixed to honor case-level timeouts end-to-end, and the documented real-evidence command succeeded for `building_gitega_osm_vs_google_agent`
 - `2026-04-09`: Phase 2 Task 2.1 completed in `codex/phase1-task1-1`; KG seeds now include additional disaster-specific `building` and `road` runtime candidates, planner retrieval exposes pattern metadata, and retrieval tests confirm multiple candidate patterns are visible where policy choice should matter
 - `2026-04-09`: Phase 2 verification for Task 2.1 passed in `codex/phase1-task1-1` with `python -m pytest -q tests/test_kg_parameter_specs.py tests/test_kg_repository.py tests/test_kg_repository_enhancements.py` and `python -m pytest -q tests/test_planner_context.py tests/test_policy_engine.py`
+- `2026-04-09`: Phase 2 Tasks 2.2 and 2.3 completed in `codex/phase2-task2-2-2-3`; KG algorithms now carry explicit `accuracy_score`, `stability_score`, and `usage_mode`, data sources now expose stable freshness/quality/type signals plus broader earthquake-building and typhoon-road catalog coverage, and planner retrieval plus `CandidateScoreInput` can consume the richer metadata without changing old call shapes
+- `2026-04-09`: Phase 2 verification for Tasks 2.2 and 2.3 passed in `codex/phase2-task2-2-2-3` with `python -m pytest -q tests/test_kg_parameter_specs.py tests/test_kg_repository.py tests/test_kg_repository_enhancements.py` and `python -m pytest -q tests/test_planner_context.py tests/test_policy_engine.py`
+- `2026-04-09`: Phase 2 Tasks 2.4 and 2.5 completed in `codex/phase2-task2-2-2-3`; safe-mode building/road algorithms now have full current adapter parameter coverage, `AlgorithmParameterSpec` carries `tunable` and `optimization_tags`, and KG output schema policy metadata is exposed to planner retrieval without changing runtime output behavior
+- `2026-04-09`: Phase 2 completed in `codex/phase2-task2-2-2-3`; verification passed with `python -m pytest -q tests/test_kg_parameter_specs.py tests/test_kg_repository.py tests/test_kg_repository_enhancements.py`, `python -m pytest -q tests/test_planner_context.py tests/test_policy_engine.py`, and `python -m pytest -q tests/test_parameter_binding.py`
 
 ## Self-Review
 

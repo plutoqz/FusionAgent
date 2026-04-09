@@ -5,9 +5,17 @@ from typing import Dict, List, Optional, Set
 
 from schemas.fusion import JobType
 
-from kg.models import AlgorithmNode, AlgorithmParameterSpec, DataSourceNode, ExecutionFeedback, KGContext, WorkflowPatternNode
+from kg.models import (
+    AlgorithmNode,
+    AlgorithmParameterSpec,
+    DataSourceNode,
+    ExecutionFeedback,
+    KGContext,
+    OutputSchemaPolicy,
+    WorkflowPatternNode,
+)
 from kg.repository import KGRepository
-from kg.seed import ALGORITHMS, CAN_TRANSFORM_TO, DATA_SOURCES, PARAMETER_SPECS, WORKFLOW_PATTERNS
+from kg.seed import ALGORITHMS, CAN_TRANSFORM_TO, DATA_SOURCES, OUTPUT_SCHEMA_POLICIES, PARAMETER_SPECS, WORKFLOW_PATTERNS
 
 
 class InMemoryKGRepository(KGRepository):
@@ -18,12 +26,14 @@ class InMemoryKGRepository(KGRepository):
         can_transform_to: Optional[Dict[str, List[str]]] = None,
         data_sources: Optional[List[DataSourceNode]] = None,
         parameter_specs: Optional[Dict[str, List[AlgorithmParameterSpec]]] = None,
+        output_schema_policies: Optional[Dict[str, OutputSchemaPolicy]] = None,
     ) -> None:
         self.algorithms = ALGORITHMS if algorithms is None else algorithms
         self.patterns = WORKFLOW_PATTERNS if patterns is None else patterns
         self.can_transform_to = CAN_TRANSFORM_TO if can_transform_to is None else can_transform_to
         self.data_sources = DATA_SOURCES if data_sources is None else data_sources
         self.parameter_specs = PARAMETER_SPECS if parameter_specs is None else parameter_specs
+        self.output_schema_policies = OUTPUT_SCHEMA_POLICIES if output_schema_policies is None else output_schema_policies
         self.feedback_history: List[ExecutionFeedback] = []
         self._pattern_scores: Dict[str, float] = {}
         self._algorithm_scores: Dict[str, float] = {}
@@ -104,6 +114,9 @@ class InMemoryKGRepository(KGRepository):
         )
         return matches[:limit]
 
+    def get_output_schema_policy(self, output_type: str) -> Optional[OutputSchemaPolicy]:
+        return self.output_schema_policies.get(output_type)
+
     def search_knowledge(self, query: str, limit: int = 5) -> List[Dict[str, object]]:
         tokens = [token for token in query.lower().split() if token]
         hits: List[Dict[str, object]] = []
@@ -143,7 +156,9 @@ class InMemoryKGRepository(KGRepository):
         patterns = self.get_candidate_patterns(job_type=job_type, disaster_type=disaster_type, limit=3)
         algo_ids = {step.algorithm_id for p in patterns for step in p.steps}
         algorithms = {aid: self.algorithms[aid] for aid in algo_ids if aid in self.algorithms}
+        parameter_specs = {algo_id: self.get_parameter_specs(algo_id) for algo_id in sorted(algorithms)}
         required_types = {step.input_data_type for pattern in patterns for step in pattern.steps}
+        output_types = {step.output_data_type for pattern in patterns for step in pattern.steps}
         sources: Dict[str, DataSourceNode] = {}
         for required_type in sorted(required_types):
             for source in self.get_candidate_data_sources(
@@ -153,9 +168,16 @@ class InMemoryKGRepository(KGRepository):
                 limit=3,
             ):
                 sources[source.source_id] = source
+        output_schema_policies = {
+            output_type: policy
+            for output_type in sorted(output_types)
+            if (policy := self.get_output_schema_policy(output_type)) is not None
+        }
         return KGContext(
             patterns=patterns,
             algorithms=algorithms,
+            parameter_specs=parameter_specs,
             data_sources=list(sources.values()),
+            output_schema_policies=output_schema_policies,
             disaster_type=disaster_type,
         )

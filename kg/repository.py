@@ -5,7 +5,15 @@ from typing import Dict, List, Optional
 
 from schemas.fusion import JobType
 
-from kg.models import AlgorithmNode, AlgorithmParameterSpec, DataSourceNode, ExecutionFeedback, KGContext, WorkflowPatternNode
+from kg.models import (
+    AlgorithmNode,
+    AlgorithmParameterSpec,
+    DataSourceNode,
+    ExecutionFeedback,
+    KGContext,
+    OutputSchemaPolicy,
+    WorkflowPatternNode,
+)
 
 
 class KGRepository(ABC):
@@ -42,6 +50,10 @@ class KGRepository(ABC):
         required_type: str,
         limit: int = 3,
     ) -> List[DataSourceNode]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_output_schema_policy(self, output_type: str) -> Optional[OutputSchemaPolicy]:
         raise NotImplementedError
 
     @abstractmethod
