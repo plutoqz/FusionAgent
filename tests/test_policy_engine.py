@@ -186,3 +186,23 @@ def test_policy_candidate_input_can_be_built_from_algorithm_and_source_metadata(
     assert source_candidate.data_quality == source.quality_score
     assert source_candidate.freshness == source.freshness_score
     assert source_candidate.meta["quality_tier"] == "curated"
+
+
+def test_policy_engine_emits_stable_candidate_evidence_shape() -> None:
+    record = PolicyEngine().select(
+        "data_source_selection",
+        [
+            CandidateScoreInput(
+                candidate_id="upload.bundle",
+                data_quality=1.0,
+                freshness=1.0,
+                meta={"source_kind": "local_upload"},
+            )
+        ],
+    )
+
+    candidate = record.candidates[0]
+    assert set(candidate.evidence.keys()) == {"metrics", "meta"}
+    assert candidate.evidence["metrics"]["data_quality"] == 1.0
+    assert candidate.evidence["metrics"]["freshness"] == 1.0
+    assert candidate.evidence["meta"]["source_kind"] == "local_upload"

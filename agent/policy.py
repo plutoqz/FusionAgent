@@ -135,7 +135,12 @@ class PolicyEngine:
         winner, winner_score, _ = scored_sorted[0]
 
         decision_candidates = [
-            DecisionCandidate(candidate_id=c.candidate_id, score=s, reason=r)
+            DecisionCandidate(
+                candidate_id=c.candidate_id,
+                score=s,
+                reason=r,
+                evidence=self._candidate_evidence(c),
+            )
             for (c, s, r) in scored_sorted
         ]
 
@@ -238,3 +243,19 @@ class PolicyEngine:
             )
 
         return " ".join(parts)
+
+    @staticmethod
+    def _candidate_evidence(candidate: CandidateScoreInput) -> Dict[str, object]:
+        return {
+            "metrics": {
+                "success_rate": candidate.success_rate,
+                "accuracy": candidate.accuracy,
+                "data_quality": candidate.data_quality,
+                "stability": candidate.stability,
+                "freshness": candidate.freshness,
+                "reuse": candidate.reuse,
+                "speed": candidate.speed,
+                "cost": candidate.cost,
+            },
+            "meta": dict(candidate.meta),
+        }

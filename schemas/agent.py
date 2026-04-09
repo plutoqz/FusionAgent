@@ -96,6 +96,7 @@ class DecisionCandidate(BaseModel):
     candidate_id: str
     score: float
     reason: str
+    evidence: Dict[str, Any] = Field(default_factory=dict)
 
 
 class DecisionRecord(BaseModel):
