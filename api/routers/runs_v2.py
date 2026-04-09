@@ -10,6 +10,9 @@ from schemas.agent import (
     RunAuditResponse,
     RunCreateRequest,
     RunCreateResponse,
+    RunComparisonResponse,
+    RunInspectionArtifact,
+    RunInspectionResponse,
     RunPhase,
     RunPlanResponse,
     RunStatus,
@@ -33,6 +36,29 @@ def _parse_field_mapping(raw_json: str) -> FieldMapping:
         return FieldMapping(**payload)
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=422, detail=f"Invalid field_mapping structure: {exc}") from exc
+
+
+def _build_run_inspection_response(run_id: str, status: RunStatus) -> RunInspectionResponse:
+    plan = agent_run_service.get_plan(run_id)
+    audit_events = agent_run_service.get_audit_events(run_id)
+    artifact_path = agent_run_service.get_artifact_path(run_id)
+    artifact = RunInspectionArtifact(
+        available=bool(artifact_path and artifact_path.exists()),
+        filename=(artifact_path.name if artifact_path and artifact_path.exists() else None),
+        path=(str(artifact_path) if artifact_path and artifact_path.exists() else None),
+        size_bytes=(artifact_path.stat().st_size if artifact_path and artifact_path.exists() else None),
+        download_path=(f"/api/v2/runs/{run_id}/artifact" if artifact_path and artifact_path.exists() else None),
+    )
+    return RunInspectionResponse(
+        run=status,
+        plan=plan,
+        audit_events=audit_events,
+        artifact=artifact,
+    )
+
+
+def _selected_decisions(status: RunStatus) -> dict[str, str]:
+    return {record.decision_type: record.selected_id for record in status.decision_records}
 
 
 @router.post("/runs", response_model=RunCreateResponse)
@@ -121,6 +147,40 @@ async def get_run_audit(run_id: str) -> RunAuditResponse:
     if status is None:
         raise HTTPException(status_code=404, detail=f"Run not found: {run_id}")
     return RunAuditResponse(run_id=run_id, events=agent_run_service.get_audit_events(run_id))
+
+
+@router.get("/runs/{run_id}/inspection", response_model=RunInspectionResponse)
+async def get_run_inspection(run_id: str) -> RunInspectionResponse:
+    status = agent_run_service.get_run(run_id)
+    if status is None:
+        raise HTTPException(status_code=404, detail=f"Run not found: {run_id}")
+    return _build_run_inspection_response(run_id, status)
+
+
+@router.get("/runs/{left_run_id}/compare/{right_run_id}", response_model=RunComparisonResponse)
+async def compare_runs(left_run_id: str, right_run_id: str) -> RunComparisonResponse:
+    left = agent_run_service.get_run(left_run_id)
+    if left is None:
+        raise HTTPException(status_code=404, detail=f"Run not found: {left_run_id}")
+    right = agent_run_service.get_run(right_run_id)
+    if right is None:
+        raise HTTPException(status_code=404, detail=f"Run not found: {right_run_id}")
+
+    left_decisions = _selected_decisions(left)
+    right_decisions = _selected_decisions(right)
+    differing_decisions = {
+        decision_type: {
+            "left": left_decisions.get(decision_type),
+            "right": right_decisions.get(decision_type),
+        }
+        for decision_type in sorted(set(left_decisions) | set(right_decisions))
+        if left_decisions.get(decision_type) != right_decisions.get(decision_type)
+    }
+    return RunComparisonResponse(
+        left=_build_run_inspection_response(left_run_id, left),
+        right=_build_run_inspection_response(right_run_id, right),
+        differing_decisions=differing_decisions,
+    )
 
 
 @router.get("/runs/{run_id}/artifact")

@@ -434,22 +434,24 @@ Phase 5 note: every run now writes a compact `DurableLearningRecord` summary sep
 
 ### Task 6.1: Operator Inspection Flow
 
-- [ ] Design a run inspection flow that surfaces status, plan, audit, and artifact in one place.
-- [ ] Keep the first version narrow and operational, not flashy.
+- [x] Design a run inspection flow that surfaces status, plan, audit, and artifact in one place.
+- [x] Keep the first version narrow and operational, not flashy.
 
 ### Task 6.2: Run Comparison And Audit Review
 
-- [ ] Add a way to compare runs or benchmark outputs at the product layer.
-- [ ] Preserve access to raw evidence instead of replacing it with summary-only UI.
+- [x] Add a way to compare runs or benchmark outputs at the product layer.
+- [x] Preserve access to raw evidence instead of replacing it with summary-only UI.
 
 ### Task 6.3: Deployment And Runtime Hygiene
 
-- [ ] Harden startup, logging, retention, and local versus managed runtime conventions.
-- [ ] Document production-like runtime expectations separately from quick local development mode.
+- [x] Harden startup, logging, retention, and local versus managed runtime conventions.
+- [x] Document production-like runtime expectations separately from quick local development mode.
 
 ### Phase 6 Verification
 
-- [ ] Define product-layer acceptance checks once the phase becomes active
+- [x] Define product-layer acceptance checks once the phase becomes active
+
+Phase 6 note: the v2 API now exposes a one-shot inspection endpoint and a side-by-side compare endpoint for run review, while `docs/v2-operations.md` now documents operator flows plus local-vs-managed runtime conventions without hiding the raw evidence files behind summary-only UI.
 
 ---
 
@@ -473,7 +475,7 @@ These are the next items to work in order.
 - [x] Phase 3 Task 3.1: add explicit decision types beyond pattern selection and replan/fail
 - [x] Phase 4 Task 4.1: improve artifact reuse compatibility checks
 - [x] Phase 5 Task 5.1: define durable learning records
-- [ ] Phase 6 Task 6.1: design operator inspection flow
+- [x] Phase 6 Task 6.1: design operator inspection flow
 - [ ] Revisit whether benchmark evidence should be copied out of `tmp/eval/` into a more durable tracked note or summary
 
 ## Progress Log
@@ -501,6 +503,8 @@ These are the next items to work in order.
 - `2026-04-09`: Phase 4 completed in `codex/phase4-task4-1`; verification passed with `python -m pytest -q tests/test_artifact_registry.py tests/test_planner_artifact_reuse.py tests/test_agent_run_service_enhancements.py` and `python -m pytest -q tests/test_planner_context.py`, while the direct-reuse and clip-reuse happy-path evidence remains covered by `tests/test_agent_run_service_enhancements.py`
 - `2026-04-09`: Phase 5 Tasks 5.1 to 5.3 completed in `codex/phase5-task5-1`; runtime now writes compact durable learning summaries per run, repositories can aggregate them into pattern/algorithm/source evidence by disaster slice, and planner retrieval exposes those summaries in a stable shape
 - `2026-04-09`: Phase 5 completed in `codex/phase5-task5-1`; verification passed with `python -m pytest -q tests/test_kg_repository_enhancements.py tests/test_neo4j_repository.py tests/test_planner_context.py tests/test_agent_run_service_enhancements.py`
+- `2026-04-09`: Phase 6 Tasks 6.1 to 6.3 completed in `codex/phase6-task6-1`; the v2 API now exposes `/inspection` and `/compare` operator views, and `docs/v2-operations.md` was rewritten into a clean current-state runtime guide covering inspection, comparison, and local-vs-managed conventions
+- `2026-04-09`: Phase 6 completed in `codex/phase6-task6-1`; verification passed with `python -m pytest -q tests/test_api_v2_integration.py`
 
 ## Self-Review
 
