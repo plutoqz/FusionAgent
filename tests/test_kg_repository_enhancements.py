@@ -65,3 +65,44 @@ def test_repository_exposes_multiple_disaster_specific_pattern_candidates() -> N
     assert any(pattern.pattern_id == "wp.earthquake.building.safe" for pattern in building_patterns)
     assert any(pattern.pattern_id == "wp.typhoon.road.default" for pattern in road_patterns)
     assert any(pattern.pattern_id == "wp.typhoon.road.safe" for pattern in road_patterns)
+
+
+def test_repository_exposes_richer_data_source_signals_for_current_themes() -> None:
+    repo = InMemoryKGRepository()
+
+    building_sources = repo.get_candidate_data_sources(
+        job_type=JobType.building,
+        disaster_type="earthquake",
+        required_type="dt.building.bundle",
+        limit=4,
+    )
+    road_sources = repo.get_candidate_data_sources(
+        job_type=JobType.road,
+        disaster_type="typhoon",
+        required_type="dt.road.bundle",
+        limit=4,
+    )
+
+    building_ids = {source.source_id for source in building_sources}
+    road_ids = {source.source_id for source in road_sources}
+
+    assert "catalog.earthquake.building" in building_ids
+    assert "catalog.typhoon.road" in road_ids
+
+    earthquake_building = next(source for source in building_sources if source.source_id == "catalog.earthquake.building")
+    typhoon_road = next(source for source in road_sources if source.source_id == "catalog.typhoon.road")
+
+    assert earthquake_building.source_kind == "catalog"
+    assert earthquake_building.quality_tier == "curated"
+    assert earthquake_building.freshness_category == "event_snapshot"
+    assert earthquake_building.freshness_hours == 96
+    assert earthquake_building.freshness_score == 0.71
+    assert earthquake_building.supported_job_types == ["building"]
+    assert earthquake_building.supported_geometry_types == ["polygon"]
+
+    assert typhoon_road.source_kind == "catalog"
+    assert typhoon_road.quality_tier == "curated"
+    assert typhoon_road.freshness_category == "event_snapshot"
+    assert typhoon_road.freshness_hours == 48
+    assert typhoon_road.supported_job_types == ["road"]
+    assert typhoon_road.supported_geometry_types == ["line"]

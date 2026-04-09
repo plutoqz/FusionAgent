@@ -136,3 +136,60 @@ def test_planner_context_surfaces_multiple_pattern_candidates_when_policy_choice
     assert "wp.earthquake.building.default" in pattern_ids
     assert "wp.earthquake.building.safe" in pattern_ids
     assert any(item["metadata"].get("runtime_status") == "runtime_candidate" for item in patterns)
+
+
+def test_planner_context_exposes_richer_algorithm_and_data_source_metadata() -> None:
+    provider = CapturingProvider()
+    planner = WorkflowPlanner(InMemoryKGRepository(), provider)
+    trigger = RunTrigger(
+        type=RunTriggerType.disaster_event,
+        content="earthquake building fusion with source choice",
+        disaster_type="earthquake",
+    )
+
+    _plan = planner.create_plan(run_id="run-metadata", job_type=JobType.building, trigger=trigger)
+
+    assert provider.last_context is not None
+    algorithms = provider.last_context["retrieval"]["algorithms"]
+    building_algo = algorithms["algo.fusion.building.v1"]
+    assert building_algo["accuracy_score"] == 0.89
+    assert building_algo["stability_score"] == 0.74
+    assert building_algo["usage_mode"] == "throughput"
+    assert building_algo["metadata"]["selection_profile"] == "primary"
+
+    data_sources = provider.last_context["retrieval"]["data_sources"]
+    source = next(item for item in data_sources if item["source_id"] == "catalog.earthquake.building")
+    assert source["source_kind"] == "catalog"
+    assert source["quality_tier"] == "curated"
+    assert source["freshness_category"] == "event_snapshot"
+    assert source["freshness_hours"] == 96
+    assert source["freshness_score"] == 0.71
+    assert source["supported_job_types"] == ["building"]
+    assert source["supported_geometry_types"] == ["polygon"]
+
+
+def test_planner_context_exposes_parameter_specs_and_output_schema_policy_metadata() -> None:
+    provider = CapturingProvider()
+    planner = WorkflowPlanner(InMemoryKGRepository(), provider)
+    trigger = RunTrigger(
+        type=RunTriggerType.disaster_event,
+        content="flood building fusion with schema expectations",
+        disaster_type="flood",
+    )
+
+    _plan = planner.create_plan(run_id="run-schema-metadata", job_type=JobType.building, trigger=trigger)
+
+    assert provider.last_context is not None
+    parameter_specs = provider.last_context["retrieval"]["parameter_specs"]
+    output_schema_policies = provider.last_context["retrieval"]["output_schema_policies"]
+
+    building_safe_specs = parameter_specs["algo.fusion.building.safe"]
+    match_spec = next(item for item in building_safe_specs if item["key"] == "match_similarity_threshold")
+    assert match_spec["tunable"] is True
+    assert "precision" in match_spec["optimization_tags"]
+
+    building_output_policy = output_schema_policies["dt.building.fused"]
+    assert building_output_policy["retention_mode"] == "preserve_listed"
+    assert "geometry" in building_output_policy["required_fields"]
+    assert "confidence" in building_output_policy["optional_fields"]
+    assert building_output_policy["rename_hints"]["geometry_x"] == "geometry"

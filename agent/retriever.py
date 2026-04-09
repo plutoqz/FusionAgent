@@ -3,7 +3,7 @@ from __future__ import annotations
 import re
 from typing import Any, Dict, List, Tuple
 
-from kg.models import AlgorithmNode, DataSourceNode, KGContext, WorkflowPatternNode
+from kg.models import AlgorithmNode, AlgorithmParameterSpec, DataSourceNode, KGContext, OutputSchemaPolicy, WorkflowPatternNode
 from kg.repository import KGRepository
 from schemas.agent import RunTrigger
 from schemas.fusion import JobType
@@ -58,7 +58,15 @@ class PlanningContextBuilder:
         payload: Dict[str, Any] = {
             "candidate_patterns": [self._pattern_to_dict(pattern) for pattern in kg_context.patterns],
             "algorithms": {algo_id: self._algo_to_dict(algo) for algo_id, algo in kg_context.algorithms.items()},
+            "parameter_specs": {
+                algo_id: [self._parameter_spec_to_dict(spec) for spec in specs]
+                for algo_id, specs in kg_context.parameter_specs.items()
+            },
             "data_sources": [self._data_source_to_dict(source) for source in kg_context.data_sources],
+            "output_schema_policies": {
+                output_type: self._output_schema_policy_to_dict(policy)
+                for output_type, policy in kg_context.output_schema_policies.items()
+            },
             "transform_paths": transform_paths,
             "knowledge_hits": self.kg_repo.search_knowledge(search_query, limit=5),
         }
@@ -146,6 +154,10 @@ class PlanningContextBuilder:
             "task_type": algo.task_type,
             "tool_ref": algo.tool_ref,
             "success_rate": algo.success_rate,
+            "accuracy_score": algo.accuracy_score,
+            "stability_score": algo.stability_score,
+            "usage_mode": algo.usage_mode,
+            "metadata": algo.metadata,
             "alternatives": algo.alternatives,
         }
 
@@ -157,7 +169,48 @@ class PlanningContextBuilder:
             "supported_types": source.supported_types,
             "disaster_types": source.disaster_types,
             "quality_score": source.quality_score,
+            "source_kind": source.source_kind,
+            "quality_tier": source.quality_tier,
+            "freshness_category": source.freshness_category,
+            "freshness_hours": source.freshness_hours,
+            "freshness_score": source.freshness_score,
+            "supported_job_types": source.supported_job_types,
+            "supported_geometry_types": source.supported_geometry_types,
             "metadata": source.metadata,
+        }
+
+    @staticmethod
+    def _parameter_spec_to_dict(spec: AlgorithmParameterSpec) -> Dict[str, Any]:
+        return {
+            "spec_id": spec.spec_id,
+            "algo_id": spec.algo_id,
+            "key": spec.key,
+            "label": spec.label,
+            "param_type": spec.param_type,
+            "default": spec.default,
+            "min_value": spec.min_value,
+            "max_value": spec.max_value,
+            "unit": spec.unit,
+            "description": spec.description,
+            "required": spec.required,
+            "choices": spec.choices,
+            "tunable": spec.tunable,
+            "optimization_tags": spec.optimization_tags,
+            "order": spec.order,
+        }
+
+    @staticmethod
+    def _output_schema_policy_to_dict(policy: OutputSchemaPolicy) -> Dict[str, Any]:
+        return {
+            "policy_id": policy.policy_id,
+            "output_type": policy.output_type,
+            "job_type": policy.job_type.value,
+            "retention_mode": policy.retention_mode,
+            "required_fields": policy.required_fields,
+            "optional_fields": policy.optional_fields,
+            "rename_hints": policy.rename_hints,
+            "compatibility_basis": policy.compatibility_basis,
+            "metadata": policy.metadata,
         }
 
     @staticmethod

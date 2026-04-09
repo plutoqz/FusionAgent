@@ -7,7 +7,15 @@ import re
 from pathlib import Path
 from typing import Any, Iterable, List
 
-from kg.seed import ALGORITHMS, CAN_TRANSFORM_TO, DATA_SOURCES, DATA_TYPES, PARAMETER_SPECS, WORKFLOW_PATTERNS
+from kg.seed import (
+    ALGORITHMS,
+    CAN_TRANSFORM_TO,
+    DATA_SOURCES,
+    DATA_TYPES,
+    OUTPUT_SCHEMA_POLICIES,
+    PARAMETER_SPECS,
+    WORKFLOW_PATTERNS,
+)
 from utils.local_runtime import apply_local_dependency_defaults
 
 
@@ -39,6 +47,7 @@ def build_bootstrap_cypher() -> str:
         _build_algorithm_section(),
         _build_parameter_spec_section(),
         _build_datasource_section(),
+        _build_output_schema_policy_section(),
         _build_pattern_section(),
         _build_transform_section(),
     ]
@@ -62,6 +71,8 @@ def _build_schema_section() -> str:
             "FOR (ps:AlgorithmParameterSpec) REQUIRE ps.specId IS UNIQUE;",
             "CREATE CONSTRAINT datasource_source_id IF NOT EXISTS",
             "FOR (ds:DataSource) REQUIRE ds.sourceId IS UNIQUE;",
+            "CREATE CONSTRAINT output_schema_policy_policy_id IF NOT EXISTS",
+            "FOR (osp:OutputSchemaPolicy) REQUIRE osp.policyId IS UNIQUE;",
             "CREATE CONSTRAINT datatype_type_id IF NOT EXISTS",
             "FOR (dt:DataType) REQUIRE dt.typeId IS UNIQUE;",
             "CREATE CONSTRAINT step_template_step_key IF NOT EXISTS",
@@ -100,6 +111,10 @@ def _build_algorithm_section() -> str:
             "taskType": algorithm.task_type,
             "toolRef": algorithm.tool_ref,
             "successRate": algorithm.success_rate,
+            "accuracyScore": algorithm.accuracy_score,
+            "stabilityScore": algorithm.stability_score,
+            "usageMode": algorithm.usage_mode,
+            "metadataJson": json.dumps(algorithm.metadata, ensure_ascii=False),
             "graphNamespace": GRAPH_NAMESPACE,
         }
         lines.append(
@@ -134,6 +149,8 @@ def _build_parameter_spec_section() -> str:
                 "description": spec.description,
                 "required": spec.required,
                 "choices": spec.choices,
+                "tunable": spec.tunable,
+                "optimizationTags": spec.optimization_tags,
                 "order": spec.order,
                 "graphNamespace": GRAPH_NAMESPACE,
             }
@@ -159,6 +176,13 @@ def _build_datasource_section() -> str:
             "supportedTypes": source.supported_types,
             "disasterTypes": source.disaster_types,
             "qualityScore": source.quality_score,
+            "sourceKind": source.source_kind,
+            "qualityTier": source.quality_tier,
+            "freshnessCategory": source.freshness_category,
+            "freshnessHours": source.freshness_hours,
+            "freshnessScore": source.freshness_score,
+            "supportedJobTypes": source.supported_job_types,
+            "supportedGeometryTypes": source.supported_geometry_types,
             "metadataJson": json.dumps(source.metadata, ensure_ascii=False),
             "graphNamespace": GRAPH_NAMESPACE,
         }
@@ -166,6 +190,34 @@ def _build_datasource_section() -> str:
             f"MERGE (ds:DataSource {{{_merge_properties({'sourceId': source.source_id})}}}) "
             f"SET ds:{MANAGED_LABEL} "
             f"SET ds += {{{_merge_properties(properties)}}};"
+        )
+    return _statement_lines(lines)
+
+
+def _build_output_schema_policy_section() -> str:
+    lines = ["// Seed OutputSchemaPolicy nodes"]
+    for policy in OUTPUT_SCHEMA_POLICIES.values():
+        properties = {
+            "policyId": policy.policy_id,
+            "outputType": policy.output_type,
+            "jobType": policy.job_type.value,
+            "retentionMode": policy.retention_mode,
+            "requiredFields": policy.required_fields,
+            "optionalFields": policy.optional_fields,
+            "renameHintsJson": json.dumps(policy.rename_hints, ensure_ascii=False),
+            "compatibilityBasis": policy.compatibility_basis,
+            "metadataJson": json.dumps(policy.metadata, ensure_ascii=False),
+            "graphNamespace": GRAPH_NAMESPACE,
+        }
+        lines.append(
+            f"MERGE (osp:OutputSchemaPolicy {{{_merge_properties({'policyId': policy.policy_id})}}}) "
+            f"SET osp:{MANAGED_LABEL} "
+            f"SET osp += {{{_merge_properties(properties)}}};"
+        )
+        lines.append(
+            f"MATCH (osp:OutputSchemaPolicy:{MANAGED_LABEL} {{policyId: {_cypher_literal(policy.policy_id)}}}), "
+            f"(dt:DataType:{MANAGED_LABEL} {{typeId: {_cypher_literal(policy.output_type)}}}) "
+            "MERGE (osp)-[:APPLIES_TO_OUTPUT_TYPE]->(dt);"
         )
     return _statement_lines(lines)
 

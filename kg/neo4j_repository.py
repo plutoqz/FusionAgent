@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 from typing import Dict, List, Optional
 
@@ -12,6 +13,7 @@ from kg.models import (
     DataSourceNode,
     ExecutionFeedback,
     KGContext,
+    OutputSchemaPolicy,
     PatternStep,
     WorkflowPatternNode,
 )
@@ -53,6 +55,20 @@ class Neo4jKGRepository(KGRepository):
         with self._driver.session(database=self.database) as session:
             result = session.run(cypher, params)
             return [dict(record) for record in result]
+
+    @staticmethod
+    def _parse_metadata_json(raw: object) -> Dict[str, object]:
+        if raw is None:
+            return {}
+        if isinstance(raw, dict):
+            return dict(raw)
+        if isinstance(raw, str):
+            try:
+                payload = json.loads(raw)
+            except json.JSONDecodeError:
+                return {}
+            return payload if isinstance(payload, dict) else {}
+        return {}
 
     def get_candidate_patterns(
         self,
@@ -103,7 +119,7 @@ class Neo4jKGRepository(KGRepository):
                     disaster_types=list(wp.get("disasterTypes", ["generic"])),
                     steps=steps,
                     success_rate=float(wp.get("successRate", 0.0)),
-                    metadata={"source": "neo4j", "managed_label": MANAGED_LABEL},
+                    metadata=self._parse_metadata_json(wp.get("metadataJson")),
                 )
             )
         return patterns
@@ -130,6 +146,10 @@ class Neo4jKGRepository(KGRepository):
             task_type=str(algo.get("taskType", "")),
             tool_ref=str(algo.get("toolRef", "")),
             success_rate=float(algo.get("successRate", 0.0)),
+            accuracy_score=float(algo.get("accuracyScore")) if algo.get("accuracyScore") is not None else None,
+            stability_score=float(algo.get("stabilityScore")) if algo.get("stabilityScore") is not None else None,
+            usage_mode=str(algo.get("usageMode", "balanced")),
+            metadata=self._parse_metadata_json(algo.get("metadataJson")),
             alternatives=[a for a in row.get("alternatives", []) if a],
         )
 
@@ -187,6 +207,8 @@ class Neo4jKGRepository(KGRepository):
                     description=str(ps.get("description", "")),
                     required=bool(ps.get("required", False)),
                     choices=choices,
+                    tunable=bool(ps.get("tunable", False)),
+                    optimization_tags=list(ps.get("optimizationTags", [])),
                     order=int(order),
                 )
             )
@@ -215,6 +237,10 @@ class Neo4jKGRepository(KGRepository):
                     task_type=str(alt.get("taskType", "")),
                     tool_ref=str(alt.get("toolRef", "")),
                     success_rate=float(alt.get("successRate", 0.0)),
+                    accuracy_score=float(alt.get("accuracyScore")) if alt.get("accuracyScore") is not None else None,
+                    stability_score=float(alt.get("stabilityScore")) if alt.get("stabilityScore") is not None else None,
+                    usage_mode=str(alt.get("usageMode", "balanced")),
+                    metadata=self._parse_metadata_json(alt.get("metadataJson")),
                     alternatives=[],
                 )
             )
@@ -267,10 +293,43 @@ class Neo4jKGRepository(KGRepository):
                 supported_types=list(row["ds"].get("supportedTypes", [])),
                 disaster_types=list(row["ds"].get("disasterTypes", [])),
                 quality_score=float(row["ds"].get("qualityScore", 0.0)),
-                metadata={"source": "neo4j", "managed_label": MANAGED_LABEL},
+                source_kind=str(row["ds"].get("sourceKind", "catalog")),
+                quality_tier=str(row["ds"].get("qualityTier", "standard")),
+                freshness_category=str(row["ds"].get("freshnessCategory", "static")),
+                freshness_hours=int(row["ds"].get("freshnessHours")) if row["ds"].get("freshnessHours") is not None else None,
+                freshness_score=(
+                    float(row["ds"].get("freshnessScore")) if row["ds"].get("freshnessScore") is not None else None
+                ),
+                supported_job_types=list(row["ds"].get("supportedJobTypes", [])),
+                supported_geometry_types=list(row["ds"].get("supportedGeometryTypes", [])),
+                metadata=self._parse_metadata_json(row["ds"].get("metadataJson")),
             )
             for row in rows
         ]
+
+    def get_output_schema_policy(self, output_type: str) -> Optional[OutputSchemaPolicy]:
+        rows = self._execute(
+            f"""
+            MATCH (osp:OutputSchemaPolicy:{MANAGED_LABEL})-[:APPLIES_TO_OUTPUT_TYPE]->(dt:DataType:{MANAGED_LABEL} {{typeId: $output_type}})
+            RETURN osp
+            LIMIT 1
+            """,
+            output_type=output_type,
+        )
+        if not rows:
+            return None
+        osp = rows[0]["osp"]
+        return OutputSchemaPolicy(
+            policy_id=str(osp.get("policyId")),
+            output_type=str(osp.get("outputType", output_type)),
+            job_type=JobType(str(osp.get("jobType"))),
+            retention_mode=str(osp.get("retentionMode", "preserve_listed")),
+            required_fields=list(osp.get("requiredFields", [])),
+            optional_fields=list(osp.get("optionalFields", [])),
+            rename_hints=self._parse_metadata_json(osp.get("renameHintsJson")),
+            compatibility_basis=str(osp.get("compatibilityBasis", "field_names")),
+            metadata=self._parse_metadata_json(osp.get("metadataJson")),
+        )
 
     def search_knowledge(self, query: str, limit: int = 5) -> List[Dict[str, object]]:
         rows = self._execute(
@@ -340,14 +399,23 @@ class Neo4jKGRepository(KGRepository):
                 algo = self.get_algorithm(step.algorithm_id)
                 if algo:
                     algorithms[algo.algo_id] = algo
+        parameter_specs = {algo_id: self.get_parameter_specs(algo_id) for algo_id in sorted(algorithms)}
         required_types = {step.input_data_type for pattern in patterns for step in pattern.steps}
+        output_types = {step.output_data_type for pattern in patterns for step in pattern.steps}
         sources: Dict[str, DataSourceNode] = {}
         for required_type in required_types:
             for source in self.get_candidate_data_sources(job_type, disaster_type, required_type, limit=3):
                 sources[source.source_id] = source
+        output_schema_policies = {
+            output_type: policy
+            for output_type in sorted(output_types)
+            if (policy := self.get_output_schema_policy(output_type)) is not None
+        }
         return KGContext(
             patterns=patterns,
             algorithms=algorithms,
+            parameter_specs=parameter_specs,
             data_sources=list(sources.values()),
+            output_schema_policies=output_schema_policies,
             disaster_type=disaster_type,
         )

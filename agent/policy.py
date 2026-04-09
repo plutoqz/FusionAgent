@@ -1,11 +1,14 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Dict, Iterable, List, Optional, Tuple
+from typing import Dict, Iterable, List, Optional, Tuple, TYPE_CHECKING
 
 from pydantic import BaseModel, Field, model_validator
 
 from schemas.agent import DecisionCandidate, DecisionRecord
+
+if TYPE_CHECKING:
+    from kg.models import AlgorithmNode, DataSourceNode
 
 
 class CandidateScoreInput(BaseModel):
@@ -38,6 +41,39 @@ class CandidateScoreInput(BaseModel):
 
     # Free-form, not used by scoring; useful for callers.
     meta: Dict[str, object] = Field(default_factory=dict)
+
+    @classmethod
+    def from_algorithm_node(cls, algorithm: "AlgorithmNode") -> "CandidateScoreInput":
+        return cls(
+            candidate_id=algorithm.algo_id,
+            success_rate=algorithm.success_rate,
+            accuracy=algorithm.accuracy_score,
+            stability=algorithm.stability_score,
+            meta={
+                "algo_name": algorithm.algo_name,
+                "usage_mode": algorithm.usage_mode,
+                "metadata": algorithm.metadata,
+            },
+        )
+
+    @classmethod
+    def from_data_source_node(cls, source: "DataSourceNode") -> "CandidateScoreInput":
+        return cls(
+            candidate_id=source.source_id,
+            data_quality=source.quality_score,
+            freshness=source.freshness_score,
+            meta={
+                "source_name": source.source_name,
+                "source_kind": source.source_kind,
+                "quality_tier": source.quality_tier,
+                "freshness_category": source.freshness_category,
+                "freshness_hours": source.freshness_hours,
+                "supported_types": list(source.supported_types),
+                "supported_job_types": list(source.supported_job_types),
+                "supported_geometry_types": list(source.supported_geometry_types),
+                "metadata": source.metadata,
+            },
+        )
 
     @model_validator(mode="after")
     def _validate_ranges(self) -> "CandidateScoreInput":

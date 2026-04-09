@@ -1,6 +1,8 @@
 import pytest
 
 from agent.policy import CandidateScoreInput, PolicyEngine
+from kg.inmemory_repository import InMemoryKGRepository
+from schemas.fusion import JobType
 
 
 def test_policy_engine_selects_better_candidate_and_emits_rationale_and_candidates():
@@ -149,3 +151,38 @@ def test_policy_engine_speed_cost_are_low_priority_tie_shapers_and_accepted():
 
     record = engine.select("algorithm_selection", candidates)
     assert record.selected_id == "HIGH_SUCCESS_SLOW"
+
+
+def test_policy_candidate_input_can_be_built_from_algorithm_and_source_metadata() -> None:
+    repo = InMemoryKGRepository()
+
+    default_algo = repo.get_algorithm("algo.fusion.building.v1")
+    safe_algo = repo.get_algorithm("algo.fusion.building.safe")
+    assert default_algo is not None
+    assert safe_algo is not None
+
+    default_candidate = CandidateScoreInput.from_algorithm_node(default_algo)
+    safe_candidate = CandidateScoreInput.from_algorithm_node(safe_algo)
+
+    assert default_candidate.accuracy == default_algo.accuracy_score
+    assert default_candidate.stability == default_algo.stability_score
+    assert default_candidate.meta["usage_mode"] == "throughput"
+    assert safe_candidate.meta["usage_mode"] == "conservative"
+
+    record = PolicyEngine().select("algorithm_selection", [safe_candidate, default_candidate])
+    assert record.selected_id == "algo.fusion.building.v1"
+
+    source = next(
+        item
+        for item in repo.get_candidate_data_sources(
+            job_type=JobType.building,
+            disaster_type="flood",
+            required_type="dt.building.bundle",
+            limit=3,
+        )
+        if item.source_id == "catalog.flood.building"
+    )
+    source_candidate = CandidateScoreInput.from_data_source_node(source)
+    assert source_candidate.data_quality == source.quality_score
+    assert source_candidate.freshness == source.freshness_score
+    assert source_candidate.meta["quality_tier"] == "curated"
