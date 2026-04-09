@@ -9,6 +9,7 @@ from kg.models import (
     AlgorithmNode,
     AlgorithmParameterSpec,
     DataSourceNode,
+    DurableLearningRecord,
     ExecutionFeedback,
     KGContext,
     OutputSchemaPolicy,
@@ -35,6 +36,7 @@ class InMemoryKGRepository(KGRepository):
         self.parameter_specs = PARAMETER_SPECS if parameter_specs is None else parameter_specs
         self.output_schema_policies = OUTPUT_SCHEMA_POLICIES if output_schema_policies is None else output_schema_policies
         self.feedback_history: List[ExecutionFeedback] = []
+        self.durable_learning_records: List[DurableLearningRecord] = []
         self._pattern_scores: Dict[str, float] = {}
         self._algorithm_scores: Dict[str, float] = {}
         self._data_source_scores: Dict[str, float] = {}
@@ -152,6 +154,36 @@ class InMemoryKGRepository(KGRepository):
                 self._data_source_scores.get(feedback.selected_data_source, 0.0) + source_delta
             )
 
+    def record_durable_learning_record(self, record: DurableLearningRecord) -> None:
+        updated: List[DurableLearningRecord] = []
+        replaced = False
+        for existing in self.durable_learning_records:
+            if existing.record_id == record.record_id:
+                updated.append(record)
+                replaced = True
+            else:
+                updated.append(existing)
+        if not replaced:
+            updated.append(record)
+        updated.sort(key=lambda item: ((item.created_at or ""), item.record_id), reverse=True)
+        self.durable_learning_records = updated
+
+    def list_durable_learning_records(
+        self,
+        *,
+        job_type: Optional[JobType] = None,
+        success: Optional[bool] = None,
+        limit: int = 20,
+    ) -> List[DurableLearningRecord]:
+        if limit <= 0:
+            return []
+        records = self.durable_learning_records
+        if job_type is not None:
+            records = [record for record in records if record.job_type == job_type]
+        if success is not None:
+            records = [record for record in records if record.success is success]
+        return list(records[:limit])
+
     def build_context(self, job_type: JobType, disaster_type: Optional[str]) -> KGContext:
         patterns = self.get_candidate_patterns(job_type=job_type, disaster_type=disaster_type, limit=3)
         algo_ids = {step.algorithm_id for p in patterns for step in p.steps}
@@ -179,5 +211,10 @@ class InMemoryKGRepository(KGRepository):
             parameter_specs=parameter_specs,
             data_sources=list(sources.values()),
             output_schema_policies=output_schema_policies,
+            durable_learning_summaries=self.summarize_durable_learning_records(
+                job_type=job_type,
+                disaster_type=disaster_type,
+                limit=5,
+            ),
             disaster_type=disaster_type,
         )

@@ -389,26 +389,28 @@ Phase 4 note: artifact reuse now requires compatible `output_data_type` and `tar
 
 ### Task 5.1: Define Durable Learning Records
 
-- [ ] Define the minimal durable evidence entities needed for future planning and policy.
-- [ ] Keep them separate from verbose audit logs.
-- [ ] Add tests for storing and reading them across backends.
+- [x] Define the minimal durable evidence entities needed for future planning and policy.
+- [x] Keep them separate from verbose audit logs.
+- [x] Add tests for storing and reading them across backends.
 
 ### Task 5.2: Aggregate Run Outcomes
 
-- [ ] Add a path to aggregate repeated run outcomes by pattern, algorithm, and scenario slice.
-- [ ] Keep writeback deterministic and append-only where possible.
-- [ ] Avoid premature auto-tuning; start by storing evidence cleanly.
+- [x] Add a path to aggregate repeated run outcomes by pattern, algorithm, and scenario slice.
+- [x] Keep writeback deterministic and append-only where possible.
+- [x] Avoid premature auto-tuning; start by storing evidence cleanly.
 
 ### Task 5.3: Expose Durable Evidence To Retrieval
 
-- [ ] Feed aggregated evidence into planner or policy retrieval only after the storage shape is stable.
-- [ ] Add tests that retrieval can surface the evidence without breaking existing context contracts.
+- [x] Feed aggregated evidence into planner or policy retrieval only after the storage shape is stable.
+- [x] Add tests that retrieval can surface the evidence without breaking existing context contracts.
 
 ### Phase 5 Verification
 
-- [ ] Run repository enhancement tests
-- [ ] Run targeted planner or retriever tests
-- [ ] Add one note here describing what evidence is now durable
+- [x] Run repository enhancement tests
+- [x] Run targeted planner or retriever tests
+- [x] Add one note here describing what evidence is now durable
+
+Phase 5 note: every run now writes a compact `DurableLearningRecord` summary separate from audit logs, repositories can aggregate those records into pattern/algorithm/data-source outcome summaries by scenario slice, and planner retrieval now surfaces that durable evidence without replaying raw `audit.jsonl`.
 
 ---
 
@@ -470,7 +472,8 @@ These are the next items to work in order.
 - [x] Phase 2 Task 2.5: add output schema policy metadata
 - [x] Phase 3 Task 3.1: add explicit decision types beyond pattern selection and replan/fail
 - [x] Phase 4 Task 4.1: improve artifact reuse compatibility checks
-- [ ] Phase 5 Task 5.1: define durable learning records
+- [x] Phase 5 Task 5.1: define durable learning records
+- [ ] Phase 6 Task 6.1: design operator inspection flow
 - [ ] Revisit whether benchmark evidence should be copied out of `tmp/eval/` into a more durable tracked note or summary
 
 ## Progress Log
@@ -496,6 +499,8 @@ These are the next items to work in order.
 - `2026-04-09`: Phase 3 completed in `codex/phase3-task3-1`; verification passed with `python -m pytest -q tests/test_agent_state_models.py tests/test_policy_engine.py tests/test_agent_run_service_enhancements.py`, `python -m pytest -q tests/test_planner_context.py`, and the end-to-end audit/run inspection embedded in `tests/test_agent_run_service_enhancements.py::test_agent_run_service_updates_status_and_records_feedback`
 - `2026-04-09`: Phase 4 Tasks 4.1 to 4.3 completed in `codex/phase4-task4-1`; artifact reuse now filters on explicit `output_data_type` plus `target_crs`, records reuse provenance metadata in the registry, applies job-type freshness windows, and validates clip outputs before allowing short-circuit reuse
 - `2026-04-09`: Phase 4 completed in `codex/phase4-task4-1`; verification passed with `python -m pytest -q tests/test_artifact_registry.py tests/test_planner_artifact_reuse.py tests/test_agent_run_service_enhancements.py` and `python -m pytest -q tests/test_planner_context.py`, while the direct-reuse and clip-reuse happy-path evidence remains covered by `tests/test_agent_run_service_enhancements.py`
+- `2026-04-09`: Phase 5 Tasks 5.1 to 5.3 completed in `codex/phase5-task5-1`; runtime now writes compact durable learning summaries per run, repositories can aggregate them into pattern/algorithm/source evidence by disaster slice, and planner retrieval exposes those summaries in a stable shape
+- `2026-04-09`: Phase 5 completed in `codex/phase5-task5-1`; verification passed with `python -m pytest -q tests/test_kg_repository_enhancements.py tests/test_neo4j_repository.py tests/test_planner_context.py tests/test_agent_run_service_enhancements.py`
 
 ## Self-Review
 

@@ -18,6 +18,7 @@ from agent.planner import WorkflowPlanner
 from agent.validator import WorkflowValidator
 from kg.factory import create_kg_repository
 from kg.models import ExecutionFeedback
+from kg.models import DurableLearningRecord
 from kg.repository import KGRepository
 from llm.factory import create_llm_provider
 from schemas.agent import (
@@ -716,6 +717,7 @@ class AgentRunService:
         failure_reason: Optional[str],
     ) -> None:
         try:
+            output_data_type = self._extract_output_data_type(plan)
             feedback = ExecutionFeedback(
                 run_id=run_id,
                 job_type=request.job_type,
@@ -730,6 +732,25 @@ class AgentRunService:
                 failure_reason=failure_reason,
             )
             self.kg_repo.record_execution_feedback(feedback)
+            durable_record = DurableLearningRecord(
+                record_id=f"dlr.{run_id}",
+                run_id=run_id,
+                job_type=request.job_type,
+                trigger_type=request.trigger.type.value,
+                success=success,
+                disaster_type=request.trigger.disaster_type,
+                pattern_id=feedback.pattern_id,
+                algorithm_id=feedback.algorithm_id,
+                selected_data_source=feedback.selected_data_source,
+                output_data_type=output_data_type,
+                target_crs=normalize_target_crs(request.target_crs),
+                repaired=bool(repair_records),
+                repair_count=len(repair_records),
+                failure_reason=failure_reason,
+                plan_revision=self._extract_plan_revision(plan),
+                created_at=_utc_now(),
+            )
+            self.kg_repo.record_durable_learning_record(durable_record)
         except Exception as exc:  # noqa: BLE001
             logging.getLogger("geofusion.run").warning("Failed to record execution feedback: %s", exc)
 
