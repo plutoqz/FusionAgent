@@ -124,6 +124,15 @@ def test_v2_run_building_integration(tmp_path: Path, client: TestClient) -> None
     assert audit["events"]
     assert audit["events"][-1]["kind"] == "run_succeeded"
 
+    inspection_resp = client.get(f"/api/v2/runs/{run_id}/inspection")
+    assert inspection_resp.status_code == 200
+    inspection = inspection_resp.json()
+    assert inspection["run"]["run_id"] == run_id
+    assert inspection["plan"]["workflow_id"] == plan["workflow_id"]
+    assert inspection["audit_events"][-1]["kind"] == "run_succeeded"
+    assert inspection["artifact"]["available"] is True
+    assert inspection["artifact"]["download_path"] == f"/api/v2/runs/{run_id}/artifact"
+
     artifact_resp = client.get(f"/api/v2/runs/{run_id}/artifact")
     assert artifact_resp.status_code == 200
     assert artifact_resp.content
@@ -155,3 +164,46 @@ def test_v2_run_scheduled_trigger(tmp_path: Path, client: TestClient) -> None:
     status = _wait_run(client, run_id)
     assert status["phase"] == "succeeded", status.get("error")
     assert status["trigger"]["type"] == "scheduled"
+
+
+def test_v2_compare_runs_exposes_both_inspections(tmp_path: Path, client: TestClient) -> None:
+    osm_shp, ref_shp = _build_building_sample(tmp_path)
+    osm_zip = _zip_bundle(osm_shp, tmp_path / "osm_compare.zip")
+    ref_zip = _zip_bundle(ref_shp, tmp_path / "ref_compare.zip")
+
+    run_ids: list[str] = []
+    for trigger_type, trigger_content in [("user_query", "compare left"), ("scheduled", "compare right")]:
+        with osm_zip.open("rb") as f1, ref_zip.open("rb") as f2:
+            resp = client.post(
+                "/api/v2/runs",
+                files={
+                    "osm_zip": ("osm_compare.zip", f1.read(), "application/zip"),
+                    "ref_zip": ("ref_compare.zip", f2.read(), "application/zip"),
+                },
+                data={
+                    "job_type": "building",
+                    "trigger_type": trigger_type,
+                    "trigger_content": trigger_content,
+                    "target_crs": "EPSG:32643",
+                    "field_mapping": "{}",
+                    "debug": "false",
+                },
+            )
+        assert resp.status_code == 200, resp.text
+        run_ids.append(resp.json()["run_id"])
+
+    left_run_id, right_run_id = run_ids
+    left_status = _wait_run(client, left_run_id)
+    right_status = _wait_run(client, right_run_id)
+    assert left_status["phase"] == "succeeded", left_status.get("error")
+    assert right_status["phase"] == "succeeded", right_status.get("error")
+
+    compare_resp = client.get(f"/api/v2/runs/{left_run_id}/compare/{right_run_id}")
+    assert compare_resp.status_code == 200
+    compare = compare_resp.json()
+    assert compare["left"]["run"]["run_id"] == left_run_id
+    assert compare["right"]["run"]["run_id"] == right_run_id
+    assert compare["left"]["artifact"]["available"] is True
+    assert compare["right"]["artifact"]["available"] is True
+    assert compare["left"]["audit_events"][-1]["kind"] == "run_succeeded"
+    assert compare["right"]["audit_events"][-1]["kind"] == "run_succeeded"

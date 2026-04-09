@@ -121,6 +121,8 @@ V2 之后的系统需要完整覆盖以下组件：
 7. `writeback` 写 artifact、feedback、decision trace 与 durable learning summaries。
 8. `Harness` 使用同一批 case 做离线评测和回归。
 
+Current implementation note (`2026-04-09`): the operator-facing v2 API now exposes `GET /api/v2/runs/{run_id}/inspection` for a one-shot operational view of status, plan, audit, and artifact metadata, plus `GET /api/v2/runs/{left_run_id}/compare/{right_run_id}` for side-by-side run review without hiding the raw evidence endpoints.
+
 ### 3. Policy Responsibilities
 
 显式 policy 至少要管理五类决策：

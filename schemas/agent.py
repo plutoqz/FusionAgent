@@ -204,3 +204,24 @@ class RunPlanResponse(BaseModel):
 class RunAuditResponse(BaseModel):
     run_id: str
     events: List[RunEvent] = Field(default_factory=list)
+
+
+class RunInspectionArtifact(BaseModel):
+    available: bool = False
+    filename: Optional[str] = None
+    path: Optional[str] = None
+    size_bytes: Optional[int] = None
+    download_path: Optional[str] = None
+
+
+class RunInspectionResponse(BaseModel):
+    run: RunStatus
+    plan: Optional[WorkflowPlan] = None
+    audit_events: List[RunEvent] = Field(default_factory=list)
+    artifact: RunInspectionArtifact = Field(default_factory=RunInspectionArtifact)
+
+
+class RunComparisonResponse(BaseModel):
+    left: RunInspectionResponse
+    right: RunInspectionResponse
+    differing_decisions: Dict[str, Dict[str, Optional[str]]] = Field(default_factory=dict)
