@@ -214,6 +214,9 @@ def test_agent_run_service_updates_status_and_records_feedback(tmp_path: Path, m
     assert latest.healing_summary["successful_repairs"] == 1
     assert latest.healing_summary["last_reason_code"] == "alternative_algorithm_succeeded"
     assert service.kg_repo.feedback_history[-1].pattern_id == "wp.flood.building.default"
+    assert service.kg_repo.durable_learning_records[-1].run_id == status.run_id
+    assert service.kg_repo.durable_learning_records[-1].success is True
+    assert service.kg_repo.durable_learning_records[-1].output_data_type == "dt.building.fused"
     audit_events = service.get_audit_events(status.run_id)
     plan_created = next(event for event in audit_events if event.kind == "plan_created")
     assert plan_created.details["effective_parameters"]["1"]["match_similarity_threshold"] == 0.5

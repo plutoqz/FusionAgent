@@ -1,5 +1,5 @@
 from kg.inmemory_repository import InMemoryKGRepository
-from kg.models import ExecutionFeedback
+from kg.models import DurableLearningRecord, DurableLearningSummary, ExecutionFeedback
 from schemas.fusion import JobType
 
 
@@ -106,3 +106,118 @@ def test_repository_exposes_richer_data_source_signals_for_current_themes() -> N
     assert typhoon_road.freshness_hours == 48
     assert typhoon_road.supported_job_types == ["road"]
     assert typhoon_road.supported_geometry_types == ["line"]
+
+
+def test_inmemory_repository_persists_and_filters_durable_learning_records() -> None:
+    repo = InMemoryKGRepository()
+
+    repo.record_durable_learning_record(
+        DurableLearningRecord(
+            record_id="dlr-building-success",
+            run_id="run-building-success",
+            job_type=JobType.building,
+            trigger_type="disaster_event",
+            success=True,
+            disaster_type="flood",
+            pattern_id="wp.flood.building.default",
+            algorithm_id="algo.fusion.building.v1",
+            selected_data_source="upload.bundle",
+            output_data_type="dt.building.fused",
+            target_crs="EPSG:32643",
+            repaired=False,
+            repair_count=0,
+            plan_revision=1,
+            created_at="2026-04-09T01:00:00+00:00",
+        )
+    )
+    repo.record_durable_learning_record(
+        DurableLearningRecord(
+            record_id="dlr-road-failure",
+            run_id="run-road-failure",
+            job_type=JobType.road,
+            trigger_type="disaster_event",
+            success=False,
+            disaster_type="flood",
+            pattern_id="wp.flood.road.default",
+            algorithm_id="algo.fusion.road.v1",
+            selected_data_source="catalog.typhoon.road",
+            output_data_type="dt.road.fused",
+            target_crs="EPSG:32643",
+            repaired=True,
+            repair_count=2,
+            failure_reason="RuntimeError: still failing",
+            plan_revision=2,
+            created_at="2026-04-09T02:00:00+00:00",
+        )
+    )
+
+    building_records = repo.list_durable_learning_records(job_type=JobType.building, limit=5)
+    assert [record.record_id for record in building_records] == ["dlr-building-success"]
+    assert building_records[0].output_data_type == "dt.building.fused"
+
+    failed_records = repo.list_durable_learning_records(success=False, limit=5)
+    assert [record.record_id for record in failed_records] == ["dlr-road-failure"]
+    assert failed_records[0].failure_reason == "RuntimeError: still failing"
+
+
+def test_repository_aggregates_durable_learning_records_for_retrieval() -> None:
+    repo = InMemoryKGRepository()
+
+    repo.record_durable_learning_record(
+        DurableLearningRecord(
+            record_id="dlr-1",
+            run_id="run-1",
+            job_type=JobType.building,
+            trigger_type="disaster_event",
+            success=True,
+            disaster_type="flood",
+            pattern_id="wp.flood.building.default",
+            algorithm_id="algo.fusion.building.v1",
+            selected_data_source="upload.bundle",
+            output_data_type="dt.building.fused",
+            target_crs="EPSG:32643",
+            repaired=False,
+            repair_count=0,
+            plan_revision=1,
+            created_at="2026-04-09T01:00:00+00:00",
+        )
+    )
+    repo.record_durable_learning_record(
+        DurableLearningRecord(
+            record_id="dlr-2",
+            run_id="run-2",
+            job_type=JobType.building,
+            trigger_type="disaster_event",
+            success=False,
+            disaster_type="flood",
+            pattern_id="wp.flood.building.default",
+            algorithm_id="algo.fusion.building.v1",
+            selected_data_source="upload.bundle",
+            output_data_type="dt.building.fused",
+            target_crs="EPSG:32643",
+            repaired=True,
+            repair_count=2,
+            failure_reason="RuntimeError: failed",
+            plan_revision=2,
+            created_at="2026-04-09T02:00:00+00:00",
+        )
+    )
+
+    summary = repo.summarize_durable_learning_records(job_type=JobType.building, disaster_type="flood", limit=5)
+
+    assert summary["patterns"] == [
+        DurableLearningSummary(
+            entity_kind="pattern",
+            entity_id="wp.flood.building.default",
+            job_type=JobType.building,
+            disaster_type="flood",
+            total_runs=2,
+            success_count=1,
+            failure_count=1,
+            repaired_count=1,
+            last_run_at="2026-04-09T02:00:00+00:00",
+            last_failure_reason="RuntimeError: failed",
+        )
+    ]
+    assert summary["algorithms"][0].entity_id == "algo.fusion.building.v1"
+    assert summary["data_sources"][0].entity_id == "upload.bundle"

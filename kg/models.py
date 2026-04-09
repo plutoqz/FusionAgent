@@ -118,10 +118,45 @@ class ExecutionFeedback:
 
 
 @dataclass
+class DurableLearningRecord:
+    record_id: str
+    run_id: str
+    job_type: JobType
+    trigger_type: str
+    success: bool
+    disaster_type: Optional[str] = None
+    pattern_id: Optional[str] = None
+    algorithm_id: Optional[str] = None
+    selected_data_source: Optional[str] = None
+    output_data_type: Optional[str] = None
+    target_crs: Optional[str] = None
+    repaired: bool = False
+    repair_count: int = 0
+    failure_reason: Optional[str] = None
+    plan_revision: int = 0
+    created_at: Optional[str] = None
+
+
+@dataclass
+class DurableLearningSummary:
+    entity_kind: str
+    entity_id: str
+    job_type: JobType
+    disaster_type: Optional[str] = None
+    total_runs: int = 0
+    success_count: int = 0
+    failure_count: int = 0
+    repaired_count: int = 0
+    last_run_at: Optional[str] = None
+    last_failure_reason: Optional[str] = None
+
+
+@dataclass
 class KGContext:
     patterns: List[WorkflowPatternNode]
     algorithms: Dict[str, AlgorithmNode]
     parameter_specs: Dict[str, List[AlgorithmParameterSpec]] = field(default_factory=dict)
     data_sources: List[DataSourceNode] = field(default_factory=list)
     output_schema_policies: Dict[str, OutputSchemaPolicy] = field(default_factory=dict)
+    durable_learning_summaries: Dict[str, List[DurableLearningSummary]] = field(default_factory=dict)
     disaster_type: Optional[str] = None

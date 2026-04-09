@@ -11,6 +11,7 @@ from kg.models import (
     AlgorithmNode,
     AlgorithmParameterSpec,
     DataSourceNode,
+    DurableLearningRecord,
     ExecutionFeedback,
     KGContext,
     OutputSchemaPolicy,
@@ -391,6 +392,103 @@ class Neo4jKGRepository(KGRepository):
             selected_data_source=feedback.selected_data_source,
         )
 
+    def record_durable_learning_record(self, record: DurableLearningRecord) -> None:
+        self._execute(
+            f"""
+            MERGE (run:WorkflowInstance {{instanceId: $run_id}})
+            SET run:{MANAGED_LABEL}
+            MERGE (dlr:DurableLearningRecord {{recordId: $record_id}})
+            SET dlr:{MANAGED_LABEL}
+            SET dlr.runId = $run_id,
+                dlr.jobType = $job_type,
+                dlr.triggerType = $trigger_type,
+                dlr.success = $success,
+                dlr.disasterType = $disaster_type,
+                dlr.patternId = $pattern_id,
+                dlr.algorithmId = $algorithm_id,
+                dlr.selectedDataSource = $selected_data_source,
+                dlr.outputDataType = $output_data_type,
+                dlr.targetCrs = $target_crs,
+                dlr.repaired = $repaired,
+                dlr.repairCount = $repair_count,
+                dlr.failureReason = $failure_reason,
+                dlr.planRevision = $plan_revision,
+                dlr.createdAt = $created_at,
+                dlr.graphNamespace = "fusionagent"
+            MERGE (run)-[:HAS_DURABLE_LEARNING]->(dlr)
+            WITH dlr
+            OPTIONAL MATCH (wp:WorkflowPattern:{MANAGED_LABEL} {{patternId: $pattern_id}})
+            OPTIONAL MATCH (algo:Algorithm:{MANAGED_LABEL} {{algoId: $algorithm_id}})
+            OPTIONAL MATCH (ds:DataSource:{MANAGED_LABEL} {{sourceId: $selected_data_source}})
+            FOREACH (_ IN CASE WHEN wp IS NULL THEN [] ELSE [1] END | MERGE (dlr)-[:SUMMARIZES_PATTERN]->(wp))
+            FOREACH (_ IN CASE WHEN algo IS NULL THEN [] ELSE [1] END | MERGE (dlr)-[:SUMMARIZES_ALGORITHM]->(algo))
+            FOREACH (_ IN CASE WHEN ds IS NULL THEN [] ELSE [1] END | MERGE (dlr)-[:SUMMARIZES_SOURCE]->(ds))
+            """,
+            record_id=record.record_id,
+            run_id=record.run_id,
+            job_type=record.job_type.value,
+            trigger_type=record.trigger_type,
+            success=record.success,
+            disaster_type=record.disaster_type,
+            pattern_id=record.pattern_id,
+            algorithm_id=record.algorithm_id,
+            selected_data_source=record.selected_data_source,
+            output_data_type=record.output_data_type,
+            target_crs=record.target_crs,
+            repaired=record.repaired,
+            repair_count=record.repair_count,
+            failure_reason=record.failure_reason,
+            plan_revision=record.plan_revision,
+            created_at=record.created_at,
+        )
+
+    def list_durable_learning_records(
+        self,
+        *,
+        job_type: Optional[JobType] = None,
+        success: Optional[bool] = None,
+        limit: int = 20,
+    ) -> List[DurableLearningRecord]:
+        rows = self._execute(
+            f"""
+            MATCH (dlr:DurableLearningRecord:{MANAGED_LABEL})
+            WHERE ($job_type IS NULL OR dlr.jobType = $job_type)
+              AND ($success IS NULL OR dlr.success = $success)
+            RETURN dlr
+            ORDER BY coalesce(dlr.createdAt, "") DESC, dlr.recordId DESC
+            LIMIT $limit
+            """,
+            job_type=(job_type.value if job_type is not None else None),
+            success=success,
+            limit=limit,
+        )
+        result: List[DurableLearningRecord] = []
+        for row in rows:
+            dlr = row["dlr"]
+            result.append(
+                DurableLearningRecord(
+                    record_id=str(dlr.get("recordId")),
+                    run_id=str(dlr.get("runId")),
+                    job_type=JobType(str(dlr.get("jobType"))),
+                    trigger_type=str(dlr.get("triggerType", "")),
+                    success=bool(dlr.get("success", False)),
+                    disaster_type=(str(dlr.get("disasterType")) if dlr.get("disasterType") is not None else None),
+                    pattern_id=(str(dlr.get("patternId")) if dlr.get("patternId") is not None else None),
+                    algorithm_id=(str(dlr.get("algorithmId")) if dlr.get("algorithmId") is not None else None),
+                    selected_data_source=(
+                        str(dlr.get("selectedDataSource")) if dlr.get("selectedDataSource") is not None else None
+                    ),
+                    output_data_type=(str(dlr.get("outputDataType")) if dlr.get("outputDataType") is not None else None),
+                    target_crs=(str(dlr.get("targetCrs")) if dlr.get("targetCrs") is not None else None),
+                    repaired=bool(dlr.get("repaired", False)),
+                    repair_count=int(dlr.get("repairCount", 0)),
+                    failure_reason=(str(dlr.get("failureReason")) if dlr.get("failureReason") is not None else None),
+                    plan_revision=int(dlr.get("planRevision", 0)),
+                    created_at=(str(dlr.get("createdAt")) if dlr.get("createdAt") is not None else None),
+                )
+            )
+        return result
+
     def build_context(self, job_type: JobType, disaster_type: Optional[str]) -> KGContext:
         patterns = self.get_candidate_patterns(job_type=job_type, disaster_type=disaster_type, limit=3)
         algorithms: Dict[str, AlgorithmNode] = {}
@@ -417,5 +515,10 @@ class Neo4jKGRepository(KGRepository):
             parameter_specs=parameter_specs,
             data_sources=list(sources.values()),
             output_schema_policies=output_schema_policies,
+            durable_learning_summaries=self.summarize_durable_learning_records(
+                job_type=job_type,
+                disaster_type=disaster_type,
+                limit=5,
+            ),
             disaster_type=disaster_type,
         )

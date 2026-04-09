@@ -2,6 +2,7 @@ from typing import Any, Dict
 
 from agent.planner import WorkflowPlanner
 from kg.inmemory_repository import InMemoryKGRepository
+from kg.models import DurableLearningRecord
 from llm.providers.base import LLMProvider
 from schemas.agent import RunTrigger, RunTriggerType, WorkflowPlan
 from schemas.fusion import JobType
@@ -193,3 +194,42 @@ def test_planner_context_exposes_parameter_specs_and_output_schema_policy_metada
     assert "geometry" in building_output_policy["required_fields"]
     assert "confidence" in building_output_policy["optional_fields"]
     assert building_output_policy["rename_hints"]["geometry_x"] == "geometry"
+
+
+def test_planner_context_exposes_durable_learning_summaries() -> None:
+    repo = InMemoryKGRepository()
+    repo.record_durable_learning_record(
+        DurableLearningRecord(
+            record_id="dlr-summary-1",
+            run_id="run-summary-1",
+            job_type=JobType.building,
+            trigger_type="disaster_event",
+            success=True,
+            disaster_type="flood",
+            pattern_id="wp.flood.building.default",
+            algorithm_id="algo.fusion.building.v1",
+            selected_data_source="upload.bundle",
+            output_data_type="dt.building.fused",
+            target_crs="EPSG:32643",
+            repaired=False,
+            repair_count=0,
+            plan_revision=1,
+            created_at="2026-04-09T01:00:00+00:00",
+        )
+    )
+    provider = CapturingProvider()
+    planner = WorkflowPlanner(repo, provider)
+    trigger = RunTrigger(
+        type=RunTriggerType.disaster_event,
+        content="flood building fusion with prior evidence",
+        disaster_type="flood",
+    )
+
+    _plan = planner.create_plan(run_id="run-durable-summary", job_type=JobType.building, trigger=trigger)
+
+    assert provider.last_context is not None
+    durable = provider.last_context["retrieval"]["durable_learning_summaries"]
+    assert durable["patterns"][0]["entity_id"] == "wp.flood.building.default"
+    assert durable["patterns"][0]["total_runs"] == 1
+    assert durable["patterns"][0]["success_count"] == 1
+    assert durable["algorithms"][0]["entity_id"] == "algo.fusion.building.v1"

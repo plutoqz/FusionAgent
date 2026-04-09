@@ -3,7 +3,15 @@ from __future__ import annotations
 import re
 from typing import Any, Dict, List, Tuple
 
-from kg.models import AlgorithmNode, AlgorithmParameterSpec, DataSourceNode, KGContext, OutputSchemaPolicy, WorkflowPatternNode
+from kg.models import (
+    AlgorithmNode,
+    AlgorithmParameterSpec,
+    DataSourceNode,
+    DurableLearningSummary,
+    KGContext,
+    OutputSchemaPolicy,
+    WorkflowPatternNode,
+)
 from kg.repository import KGRepository
 from schemas.agent import RunTrigger
 from schemas.fusion import JobType
@@ -67,6 +75,10 @@ class PlanningContextBuilder:
             "output_schema_policies": {
                 output_type: self._output_schema_policy_to_dict(policy)
                 for output_type, policy in kg_context.output_schema_policies.items()
+            },
+            "durable_learning_summaries": {
+                key: [self._durable_learning_summary_to_dict(item) for item in items]
+                for key, items in kg_context.durable_learning_summaries.items()
             },
             "transform_paths": transform_paths,
             "knowledge_hits": self.kg_repo.search_knowledge(search_query, limit=5),
@@ -217,6 +229,21 @@ class PlanningContextBuilder:
             "rename_hints": policy.rename_hints,
             "compatibility_basis": policy.compatibility_basis,
             "metadata": policy.metadata,
+        }
+
+    @staticmethod
+    def _durable_learning_summary_to_dict(summary: DurableLearningSummary) -> Dict[str, Any]:
+        return {
+            "entity_kind": summary.entity_kind,
+            "entity_id": summary.entity_id,
+            "job_type": summary.job_type.value,
+            "disaster_type": summary.disaster_type,
+            "total_runs": summary.total_runs,
+            "success_count": summary.success_count,
+            "failure_count": summary.failure_count,
+            "repaired_count": summary.repaired_count,
+            "last_run_at": summary.last_run_at,
+            "last_failure_reason": summary.last_failure_reason,
         }
 
     @staticmethod
