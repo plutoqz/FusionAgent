@@ -28,6 +28,17 @@
 - The official case is already clipped data, not a national-scale full-layer run.
 - Small-area clipping does materially reduce runtime in the current building pipeline: roughly `565.7s` down to `56.3s` in this follow-up.
 - The first engineering change still needed for stable benchmarking is not algorithm refactoring; it is adopting a realistic harness timeout for real-data building cases and keeping API / worker / output directories aligned.
+- That timeout should now live in the manifest itself for known slow real-data building cases, instead of depending only on operator memory.
+
+## 2026-04-09 Continuation
+
+- The same official case `building_gitega_osm_vs_google_agent` was rerun again in `codex/phase1-task1-1` after restoring the local `E:\vscode\fusionAgent\Data` workspace inputs.
+- Result: `passed`.
+- Run id: `92fa35b6f1014d67a8e15fe2a1fe5db3`.
+- Duration: `592549 ms`.
+- Harness summary path: `tmp/eval/real-evidence-summary.json`.
+- This rerun also exposed and fixed a second timeout-budget bug: `utils/local_smoke.py` had been hard-coding `urllib` request timeouts to `30s`, which could still break real-data evidence runs even when the manifest timeout was correctly set to `1200`.
+- That HTTP-timeout fix is now covered by `tests/test_local_smoke_helpers.py`.
 
 ## Branch Status
 
@@ -58,4 +69,5 @@ $env:GEOFUSION_DEPENDENCY_FILE='E:\vscode\fusionAgent\依赖.txt'
 python scripts/start_local.py --port 8010
 ```
 
-5. For future real-data building runs, use `--timeout 1200` unless you intentionally want to test a stricter SLA.
+5. For future real-data building runs, keep the real-data manifest `timeout_sec` at `1200` for the known slow building cases unless you intentionally want to test a stricter SLA.
+6. If you override the CLI `--timeout`, remember that manifest case-level `timeout_sec` is now the authoritative value for those explicitly configured cases.

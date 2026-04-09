@@ -115,3 +115,24 @@ def test_replan_increments_plan_revision() -> None:
     assert replanned.context["selection_reason"] == "replanned_after_failure"
     assert replanned.context["failed_step"] == 1
     assert "algo.fusion.road.safe" in replanned.tasks[0].alternatives
+
+
+def test_planner_context_surfaces_multiple_pattern_candidates_when_policy_choice_should_matter() -> None:
+    provider = CapturingProvider()
+    planner = WorkflowPlanner(InMemoryKGRepository(), provider)
+    trigger = RunTrigger(
+        type=RunTriggerType.disaster_event,
+        content="earthquake building fusion with fallback choice",
+        disaster_type="earthquake",
+    )
+
+    _plan = planner.create_plan(run_id="run-earthquake", job_type=JobType.building, trigger=trigger)
+
+    assert provider.last_context is not None
+    patterns = provider.last_context["retrieval"]["candidate_patterns"]
+    pattern_ids = [item["pattern_id"] for item in patterns]
+
+    assert len(patterns) >= 3
+    assert "wp.earthquake.building.default" in pattern_ids
+    assert "wp.earthquake.building.safe" in pattern_ids
+    assert any(item["metadata"].get("runtime_status") == "runtime_candidate" for item in patterns)

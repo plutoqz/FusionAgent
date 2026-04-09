@@ -7,6 +7,7 @@
       "theme": "building",
       "readiness": "agent-ready",
       "execution_mode": "agent",
+      "timeout_sec": 1200,
       "priority": "P0",
       "inputs": {
         "osm": "E:/vscode/fusionAgent/Data/buildings/OSM/吉特加建筑物.shp",
@@ -22,6 +23,7 @@
       "theme": "building",
       "readiness": "agent-ready-with-prep",
       "execution_mode": "agent",
+      "timeout_sec": 1200,
       "priority": "P0",
       "inputs": {
         "osm": "E:/vscode/fusionAgent/Data/buildings/OSM/吉特加建筑物.shp",

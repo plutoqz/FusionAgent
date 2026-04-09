@@ -205,6 +205,8 @@ V2 应允许：
 
 历史融合结果必须成为长期记忆的一部分。
 
+实现状态说明：当前主线已经有第一版 runtime `direct reuse` / `clip reuse` 执行短路，并在复用物化失败时回退 fresh execution。下面这部分描述的是把现有 fast path 强化成兼容性、freshness 和 policy 更完整的 reuse 子系统，而不是从零开始补做 reuse。
+
 V2 应支持：
 
 - 注册每次输出 artifact 的空间范围、时间戳、job_type、schema 摘要

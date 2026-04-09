@@ -2,9 +2,14 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
+import subprocess
 import sys
 import tempfile
 import time
+import urllib.error
+import urllib.parse
+import urllib.request
 from pathlib import Path
 from typing import Any, Callable
 
@@ -20,6 +25,74 @@ from utils.shp_zip import zip_shapefile_bundle
 RequestBuilder = Callable[[Path], dict[str, Any]]
 Runner = Callable[..., dict[str, Any]]
 Validator = Callable[..., None]
+
+
+def _detect_git_commit_sha() -> str | None:
+    try:
+        completed = subprocess.run(
+            ["git", "-C", str(REPO_ROOT), "rev-parse", "HEAD"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except Exception:  # noqa: BLE001
+        return None
+    value = completed.stdout.strip()
+    return value or None
+
+
+def _build_summary_metadata(*, base_url: str, timeout_sec: float, command_mode: str) -> dict[str, Any]:
+    return {
+        "command_mode": command_mode,
+        "base_url": base_url,
+        "timeout_sec": float(timeout_sec),
+        "commit_sha": _detect_git_commit_sha(),
+        "environment": {
+            "kg_backend": os.getenv("GEOFUSION_KG_BACKEND"),
+            "llm_provider": os.getenv("GEOFUSION_LLM_PROVIDER"),
+            "celery_eager": os.getenv("GEOFUSION_CELERY_EAGER"),
+        },
+    }
+
+
+def _resolve_case_timeout_sec(case: dict[str, Any], *, default_timeout_sec: float) -> float:
+    raw = case.get("timeout_sec")
+    if raw is None:
+        return float(default_timeout_sec)
+    return float(raw)
+
+
+def _is_runnable_manifest_case(case: dict[str, Any]) -> bool:
+    return str(case.get("execution_mode") or "") == "agent" and str(case.get("readiness") or "") == "agent-ready"
+
+
+def _preflight_manifest_api(base_url: str) -> None:
+    url = urllib.parse.urljoin(base_url.rstrip("/") + "/", "api/v2/runs")
+    request = urllib.request.Request(url, method="GET")
+    try:
+        with urllib.request.urlopen(request, timeout=5):
+            return
+    except urllib.error.HTTPError:
+        # Any HTTP response means the API endpoint is reachable even if the method is not allowed.
+        return
+    except Exception as exc:  # noqa: BLE001
+        raise RuntimeError(f"Manifest preflight API reachability check failed for {url}: {exc}") from exc
+
+
+def _preflight_manifest_case_inputs(case: dict[str, Any]) -> None:
+    inputs = case.get("inputs") or {}
+    osm_path = Path(str(inputs.get("osm") or ""))
+    ref_path = Path(str(inputs.get("reference") or ""))
+    if not str(inputs.get("osm") or "").strip():
+        raise ValueError(f"Manifest preflight missing required input path 'inputs.osm' for case {case.get('case_id')!r}")
+    if not str(inputs.get("reference") or "").strip():
+        raise ValueError(
+            f"Manifest preflight missing required input path 'inputs.reference' for case {case.get('case_id')!r}"
+        )
+    if not osm_path.exists():
+        raise FileNotFoundError(f"Manifest preflight OSM shapefile not found: {osm_path}")
+    if not ref_path.exists():
+        raise FileNotFoundError(f"Manifest preflight reference shapefile not found: {ref_path}")
 
 
 def discover_case_dirs(cases_root: Path, selected_cases: list[str] | None = None) -> list[Path]:
@@ -82,6 +155,7 @@ def evaluate_cases(
     failed = len(results) - passed
     return {
         "generated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        **_build_summary_metadata(base_url=base_url, timeout_sec=timeout_sec, command_mode="golden-case"),
         "totals": {
             "total": len(results),
             "passed": passed,
@@ -102,24 +176,49 @@ def evaluate_manifest_cases(
     validator: Validator = validate_smoke_result,
 ) -> dict[str, Any]:
     results: list[dict[str, Any]] = []
+    runnable_cases = [case for case in cases if isinstance(case, dict) and _is_runnable_manifest_case(case)]
+    api_preflight_error: str | None = None
+    if runnable_cases:
+        try:
+            _preflight_manifest_api(base_url)
+        except Exception as exc:  # noqa: BLE001
+            api_preflight_error = f"{type(exc).__name__}: {exc}"
+
     for case in cases:
+        effective_timeout_sec = _resolve_case_timeout_sec(case, default_timeout_sec=timeout_sec)
         execution_mode = str(case.get("execution_mode") or "")
         readiness = str(case.get("readiness") or "")
         blockers = case.get("blockers") or []
         if execution_mode != "agent":
-            results.append(_skipped_manifest_case(case, f"execution_mode={execution_mode} is not runnable by eval_harness"))
+            results.append(
+                _skipped_manifest_case(
+                    case,
+                    f"execution_mode={execution_mode} is not runnable by eval_harness",
+                    timeout_sec=effective_timeout_sec,
+                )
+            )
             continue
         if readiness != "agent-ready":
             reason = f"readiness={readiness or 'unknown'} is not runnable yet"
             if blockers:
                 reason = f"{reason}; blockers={'; '.join(map(str, blockers))}"
-            results.append(_skipped_manifest_case(case, reason))
+            results.append(_skipped_manifest_case(case, reason, timeout_sec=effective_timeout_sec))
+            continue
+        if api_preflight_error is not None:
+            results.append(_failed_manifest_case(case, api_preflight_error, timeout_sec=effective_timeout_sec))
+            continue
+        try:
+            _preflight_manifest_case_inputs(case)
+        except Exception as exc:  # noqa: BLE001
+            results.append(
+                _failed_manifest_case(case, f"{type(exc).__name__}: {exc}", timeout_sec=effective_timeout_sec)
+            )
             continue
         results.append(
             _evaluate_single_manifest_case(
                 case=case,
                 base_url=base_url,
-                timeout_sec=timeout_sec,
+                timeout_sec=effective_timeout_sec,
                 runner=runner,
                 validator=validator,
             )
@@ -130,6 +229,7 @@ def evaluate_manifest_cases(
     skipped = sum(1 for item in results if item["status"] == "skipped")
     return {
         "generated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime()),
+        **_build_summary_metadata(base_url=base_url, timeout_sec=timeout_sec, command_mode="manifest"),
         "totals": {
             "total": len(results),
             "passed": passed,
@@ -180,6 +280,7 @@ def _evaluate_single_case(
         "run_id": run_id,
         "artifact_size": artifact_size,
         "error": error,
+        "timeout_sec": float(timeout_sec),
     }
 
 
@@ -222,10 +323,11 @@ def _evaluate_single_manifest_case(
         "run_id": run_id,
         "artifact_size": artifact_size,
         "error": error,
+        "timeout_sec": float(timeout_sec),
     }
 
 
-def _skipped_manifest_case(case: dict[str, Any], reason: str) -> dict[str, Any]:
+def _skipped_manifest_case(case: dict[str, Any], reason: str, *, timeout_sec: float) -> dict[str, Any]:
     return {
         "case_id": str(case.get("case_id") or "unknown_case"),
         "case_dir": None,
@@ -234,6 +336,20 @@ def _skipped_manifest_case(case: dict[str, Any], reason: str) -> dict[str, Any]:
         "run_id": None,
         "artifact_size": None,
         "error": reason,
+        "timeout_sec": float(timeout_sec),
+    }
+
+
+def _failed_manifest_case(case: dict[str, Any], reason: str, *, timeout_sec: float) -> dict[str, Any]:
+    return {
+        "case_id": str(case.get("case_id") or "unknown_case"),
+        "case_dir": None,
+        "status": "failed",
+        "duration_ms": 0,
+        "run_id": None,
+        "artifact_size": None,
+        "error": reason,
+        "timeout_sec": float(timeout_sec),
     }
 
 

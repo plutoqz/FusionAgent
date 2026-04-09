@@ -168,6 +168,7 @@ class PlanningContextBuilder:
             "job_type": pattern.job_type.value,
             "disaster_types": pattern.disaster_types,
             "success_rate": pattern.success_rate,
+            "metadata": pattern.metadata,
             "steps": [
                 {
                     "order": step.order,

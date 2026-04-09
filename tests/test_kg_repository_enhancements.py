@@ -51,3 +51,17 @@ def test_search_knowledge_returns_algorithm_and_pattern_hits() -> None:
 
     assert hits
     assert {hit["kind"] for hit in hits} >= {"algorithm", "pattern"}
+
+
+def test_repository_exposes_multiple_disaster_specific_pattern_candidates() -> None:
+    repo = InMemoryKGRepository()
+
+    building_patterns = repo.get_candidate_patterns(job_type=JobType.building, disaster_type="earthquake", limit=4)
+    road_patterns = repo.get_candidate_patterns(job_type=JobType.road, disaster_type="typhoon", limit=4)
+
+    assert len(building_patterns) >= 3
+    assert len(road_patterns) >= 3
+    assert any(pattern.pattern_id == "wp.earthquake.building.default" for pattern in building_patterns)
+    assert any(pattern.pattern_id == "wp.earthquake.building.safe" for pattern in building_patterns)
+    assert any(pattern.pattern_id == "wp.typhoon.road.default" for pattern in road_patterns)
+    assert any(pattern.pattern_id == "wp.typhoon.road.safe" for pattern in road_patterns)

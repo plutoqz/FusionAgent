@@ -8,7 +8,7 @@
   "osm_zip": "input/osm.zip",
   "ref_zip": "input/ref.zip",
   "expected_plan_checks": {
-    "pattern_hint": "wp.flood.road",
+    "pattern_hint": "wp.flood.road.default",
     "required_algorithms": [
       "algo.fusion.road.v1",
       "algo.fusion.road.safe"

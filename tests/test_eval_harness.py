@@ -120,9 +120,61 @@ def test_evaluate_cases_keeps_going_after_failures(tmp_path: Path) -> None:
     assert "RuntimeError: runner failed" in str(summary["cases"][1]["error"])
 
 
+def test_evaluate_cases_includes_summary_metadata(tmp_path: Path, monkeypatch) -> None:
+    case_a = tmp_path / "case_a"
+    _write_case(case_a, case_id="case_a")
+
+    monkeypatch.setattr(eval_harness, "_detect_git_commit_sha", lambda: "abc123")
+    monkeypatch.setenv("GEOFUSION_KG_BACKEND", "memory")
+    monkeypatch.setenv("GEOFUSION_LLM_PROVIDER", "mock")
+    monkeypatch.setenv("GEOFUSION_CELERY_EAGER", "1")
+
+    def fake_request_builder(case_dir: Path) -> dict:
+        return {
+            "case_id": case_dir.name,
+            "expected_plan_checks": {},
+            "artifact_checks": {},
+        }
+
+    def fake_runner(case_dir: Path, *, base_url: str, timeout_sec: float) -> dict:
+        assert base_url == "http://unit.test"
+        assert timeout_sec == 12.0
+        return {"run_id": f"run-{case_dir.name}", "artifact_size": 123, "plan": {}, "artifact_entries": []}
+
+    def fake_validator(result: dict, *, expected_plan_checks: dict, artifact_checks: dict) -> None:
+        _ = result
+        _ = expected_plan_checks
+        _ = artifact_checks
+
+    summary = eval_harness.evaluate_cases(
+        case_dirs=[case_a],
+        base_url="http://unit.test",
+        timeout_sec=12.0,
+        request_builder=fake_request_builder,
+        runner=fake_runner,
+        validator=fake_validator,
+    )
+
+    assert summary["command_mode"] == "golden-case"
+    assert summary["base_url"] == "http://unit.test"
+    assert summary["timeout_sec"] == 12.0
+    assert summary["commit_sha"] == "abc123"
+    assert summary["environment"] == {
+        "kg_backend": "memory",
+        "llm_provider": "mock",
+        "celery_eager": "1",
+    }
+
+
 def test_evaluate_manifest_cases_skips_non_runnable_and_runs_agent_ready(monkeypatch) -> None:
     cases = [
-        {"case_id": "building_ok", "execution_mode": "agent", "readiness": "agent-ready", "theme": "building"},
+        {
+            "case_id": "building_ok",
+            "execution_mode": "agent",
+            "readiness": "agent-ready",
+            "theme": "building",
+            "timeout_sec": 90.0,
+        },
         {"case_id": "poi_script", "execution_mode": "legacy-script", "readiness": "script-ready", "theme": "poi"},
         {
             "case_id": "road_blocked",
@@ -139,7 +191,7 @@ def test_evaluate_manifest_cases_skips_non_runnable_and_runs_agent_ready(monkeyp
         _ = validator
         called.append(case["case_id"])
         assert base_url == "http://unit.test"
-        assert timeout_sec == 12.0
+        assert timeout_sec == 90.0
         return {
             "case_id": case["case_id"],
             "case_dir": None,
@@ -148,8 +200,11 @@ def test_evaluate_manifest_cases_skips_non_runnable_and_runs_agent_ready(monkeyp
             "run_id": "run-building_ok",
             "artifact_size": 10,
             "error": None,
+            "timeout_sec": timeout_sec,
         }
 
+    monkeypatch.setattr(eval_harness, "_preflight_manifest_api", lambda _base_url: None)
+    monkeypatch.setattr(eval_harness, "_preflight_manifest_case_inputs", lambda _case: None)
     monkeypatch.setattr(eval_harness, "_evaluate_single_manifest_case", fake_eval)
     summary = eval_harness.evaluate_manifest_cases(cases=cases, base_url="http://unit.test", timeout_sec=12.0)
 
@@ -159,6 +214,141 @@ def test_evaluate_manifest_cases_skips_non_runnable_and_runs_agent_ready(monkeyp
     assert "legacy-script" in str(summary["cases"][1]["error"])
     assert summary["cases"][2]["status"] == "skipped"
     assert "missing reference road source" in str(summary["cases"][2]["error"])
+    assert summary["cases"][0]["timeout_sec"] == 90.0
+
+
+def test_manifest_case_timeout_overrides_cli_default_only_for_that_case(monkeypatch) -> None:
+    cases = [
+        {"case_id": "case_default", "execution_mode": "agent", "readiness": "agent-ready", "theme": "building"},
+        {
+            "case_id": "case_override",
+            "execution_mode": "agent",
+            "readiness": "agent-ready",
+            "theme": "building",
+            "timeout_sec": 75.0,
+        },
+    ]
+    seen: list[tuple[str, float]] = []
+
+    def fake_eval(*, case: dict, base_url: str, timeout_sec: float, runner, validator) -> dict:
+        _ = runner
+        _ = validator
+        _ = base_url
+        seen.append((case["case_id"], timeout_sec))
+        return {
+            "case_id": case["case_id"],
+            "case_dir": None,
+            "status": "passed",
+            "duration_ms": 1,
+            "run_id": f"run-{case['case_id']}",
+            "artifact_size": 10,
+            "error": None,
+            "timeout_sec": timeout_sec,
+        }
+
+    monkeypatch.setattr(eval_harness, "_preflight_manifest_api", lambda _base_url: None)
+    monkeypatch.setattr(eval_harness, "_preflight_manifest_case_inputs", lambda _case: None)
+    monkeypatch.setattr(eval_harness, "_evaluate_single_manifest_case", fake_eval)
+    summary = eval_harness.evaluate_manifest_cases(cases=cases, base_url="http://unit.test", timeout_sec=12.0)
+
+    assert seen == [("case_default", 12.0), ("case_override", 75.0)]
+    assert [item["timeout_sec"] for item in summary["cases"]] == [12.0, 75.0]
+
+
+def test_evaluate_manifest_cases_includes_summary_metadata(monkeypatch) -> None:
+    monkeypatch.setattr(eval_harness, "_detect_git_commit_sha", lambda: "def456")
+    monkeypatch.setenv("GEOFUSION_KG_BACKEND", "neo4j")
+    monkeypatch.setenv("GEOFUSION_LLM_PROVIDER", "openai")
+    monkeypatch.setenv("GEOFUSION_CELERY_EAGER", "0")
+
+    def fake_eval(*, case: dict, base_url: str, timeout_sec: float, runner, validator) -> dict:
+        _ = runner
+        _ = validator
+        return {
+            "case_id": case["case_id"],
+            "case_dir": None,
+            "status": "passed",
+            "duration_ms": 1,
+            "run_id": "run-building_ok",
+            "artifact_size": 10,
+            "error": None,
+            "timeout_sec": timeout_sec,
+        }
+
+    monkeypatch.setattr(eval_harness, "_preflight_manifest_api", lambda _base_url: None)
+    monkeypatch.setattr(eval_harness, "_preflight_manifest_case_inputs", lambda _case: None)
+    monkeypatch.setattr(eval_harness, "_evaluate_single_manifest_case", fake_eval)
+    summary = eval_harness.evaluate_manifest_cases(
+        cases=[{"case_id": "building_ok", "execution_mode": "agent", "readiness": "agent-ready", "theme": "building"}],
+        base_url="http://manifest.test",
+        timeout_sec=45.0,
+    )
+
+    assert summary["command_mode"] == "manifest"
+    assert summary["base_url"] == "http://manifest.test"
+    assert summary["timeout_sec"] == 45.0
+    assert summary["commit_sha"] == "def456"
+    assert summary["environment"] == {
+        "kg_backend": "neo4j",
+        "llm_provider": "openai",
+        "celery_eager": "0",
+    }
+
+
+def test_evaluate_manifest_cases_fails_fast_when_api_preflight_fails(monkeypatch) -> None:
+    cases = [
+        {"case_id": "building_ok", "execution_mode": "agent", "readiness": "agent-ready", "theme": "building"},
+        {"case_id": "poi_script", "execution_mode": "legacy-script", "readiness": "script-ready", "theme": "poi"},
+    ]
+
+    monkeypatch.setattr(
+        eval_harness,
+        "_preflight_manifest_api",
+        lambda _base_url: (_ for _ in ()).throw(RuntimeError("api unreachable")),
+    )
+
+    def fail_if_called(**_kwargs):
+        raise AssertionError("runner path should not be reached when API preflight fails")
+
+    monkeypatch.setattr(eval_harness, "_evaluate_single_manifest_case", fail_if_called)
+    summary = eval_harness.evaluate_manifest_cases(cases=cases, base_url="http://unit.test", timeout_sec=12.0)
+
+    assert summary["totals"] == {"total": 2, "passed": 0, "failed": 1, "skipped": 1}
+    assert summary["cases"][0]["status"] == "failed"
+    assert "api unreachable" in str(summary["cases"][0]["error"])
+    assert summary["cases"][1]["status"] == "skipped"
+
+
+def test_evaluate_manifest_cases_fails_fast_on_missing_input_before_runner(monkeypatch, tmp_path: Path) -> None:
+    osm_shp = tmp_path / "src" / "osm_case.shp"
+    _write_dummy_shapefile_bundle(osm_shp)
+
+    monkeypatch.setattr(eval_harness, "_preflight_manifest_api", lambda _base_url: None)
+
+    def fail_if_called(**_kwargs):
+        raise AssertionError("runner path should not be reached when input preflight fails")
+
+    monkeypatch.setattr(eval_harness, "_evaluate_single_manifest_case", fail_if_called)
+    summary = eval_harness.evaluate_manifest_cases(
+        cases=[
+            {
+                "case_id": "building_missing_ref",
+                "execution_mode": "agent",
+                "readiness": "agent-ready",
+                "theme": "building",
+                "inputs": {
+                    "osm": str(osm_shp),
+                    "reference": str(tmp_path / "src" / "missing_ref.shp"),
+                },
+            }
+        ],
+        base_url="http://unit.test",
+        timeout_sec=12.0,
+    )
+
+    assert summary["totals"] == {"total": 1, "passed": 0, "failed": 1, "skipped": 0}
+    assert summary["cases"][0]["status"] == "failed"
+    assert "Manifest preflight reference shapefile not found" in str(summary["cases"][0]["error"])
 
 
 def test_materialize_manifest_case_creates_case_bundle(tmp_path: Path) -> None:
@@ -228,8 +418,7 @@ def test_main_writes_summary_json_and_exit_code_on_failure(tmp_path: Path, monke
     assert saved["totals"]["failed"] == 1
     assert saved["cases_root"] == str(tmp_path.resolve())
 
-    stdout = capsys.readouterr().out
-    printed = json.loads(stdout)
+    printed = json.loads(capsys.readouterr().out)
     assert printed["totals"]["total"] == 1
 
 
@@ -238,6 +427,11 @@ def test_main_supports_manifest_mode(tmp_path: Path, monkeypatch, capsys) -> Non
     _write_manifest(manifest_path, cases=[{"case_id": "alpha", "theme": "building"}])
     expected_summary = {
         "generated_at": "2026-01-01T00:00:00Z",
+        "command_mode": "manifest",
+        "base_url": "http://127.0.0.1:8000",
+        "timeout_sec": 180.0,
+        "commit_sha": "abc123",
+        "environment": {"kg_backend": None, "llm_provider": None, "celery_eager": None},
         "totals": {"total": 1, "passed": 1, "failed": 0, "skipped": 0},
         "all_passed": True,
         "cases": [
@@ -249,12 +443,14 @@ def test_main_supports_manifest_mode(tmp_path: Path, monkeypatch, capsys) -> Non
                 "run_id": "run-alpha",
                 "artifact_size": 11,
                 "error": None,
+                "timeout_sec": 1200.0,
             }
         ],
     }
 
     monkeypatch.setattr(eval_harness, "load_manifest_cases", lambda **_kwargs: [{"case_id": "alpha"}])
     monkeypatch.setattr(eval_harness, "evaluate_manifest_cases", lambda **_kwargs: dict(expected_summary))
+    monkeypatch.setattr(eval_harness, "_detect_git_commit_sha", lambda: "abc123")
 
     code = eval_harness.main(["--manifest", str(manifest_path), "--case", "alpha"])
 

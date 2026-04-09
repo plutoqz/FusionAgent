@@ -1,899 +1,511 @@
-# FusionAgent V2 Search Space, Policy, and Artifact Reuse Implementation Plan
+# FusionAgent V2 Master Implementation Plan
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Expand FusionAgent into a policy-driven, parameter-aware, artifact-reusing disaster fusion agent with explicit decision traces and a reproducible evaluation harness.
+**Goal:** Turn FusionAgent from a runnable and auditable MVP into a research-grade, policy-driven, continuously verifiable disaster fusion agent with a stable evaluation and evidence loop.
 
-**Architecture:** Keep the current single-agent orchestration loop in `services/agent_run_service.py`, but add three explicit subsystems: a deterministic `PolicyEngine`, a persistent `ArtifactRegistry`, and KG-backed `AlgorithmParameterSpec` metadata. Planner context should combine KG candidates, parameter specs, and artifact reuse candidates; executor should consume selected bindings and emit decision traces; harness tests should measure reliability, planning quality, and healing behavior.
+**Architecture:** Keep the current single-agent runtime centered on `services/agent_run_service.py`. Continue evolving the system through six controlled layers: evaluation and evidence, search-space expansion, policy coverage, artifact reuse, long-term writeback, and productization. Use this file as the single source of truth for roadmap status and next actions.
 
-**Tech Stack:** Python 3.9+, FastAPI, Pydantic, pytest, Neo4j or in-memory KG, local JSON artifact registry, existing `runs/` audit files
+**Tech Stack:** Python 3.9+, FastAPI, Pydantic, pytest, GeoPandas, Neo4j or in-memory KG, local JSON registries, local runtime scripts, markdown and JSON evidence artifacts
 
 ---
 
-## File Structure
-
-### New Files
-
-- `E:/vscode/fusionAgent/agent/policy.py`
-- `E:/vscode/fusionAgent/services/artifact_registry.py`
-- `E:/vscode/fusionAgent/tests/test_agent_state_models.py`
-- `E:/vscode/fusionAgent/tests/test_policy_engine.py`
-- `E:/vscode/fusionAgent/tests/test_kg_parameter_specs.py`
-- `E:/vscode/fusionAgent/tests/test_artifact_registry.py`
-- `E:/vscode/fusionAgent/tests/test_parameter_binding.py`
-- `E:/vscode/fusionAgent/tests/test_planner_artifact_reuse.py`
-- `E:/vscode/fusionAgent/scripts/eval_harness.py`
-- `E:/vscode/fusionAgent/tests/test_eval_harness.py`
-- `E:/vscode/fusionAgent/文档/GeoFusion 知识图谱本体模式层设计方案_v2.md`
-
-### Existing Files to Modify
-
-- `E:/vscode/fusionAgent/schemas/agent.py`
-- `E:/vscode/fusionAgent/agent/retriever.py`
-- `E:/vscode/fusionAgent/agent/planner.py`
-- `E:/vscode/fusionAgent/agent/executor.py`
-- `E:/vscode/fusionAgent/services/agent_run_service.py`
-- `E:/vscode/fusionAgent/api/routers/runs_v2.py`
-- `E:/vscode/fusionAgent/kg/models.py`
-- `E:/vscode/fusionAgent/kg/repository.py`
-- `E:/vscode/fusionAgent/kg/seed.py`
-- `E:/vscode/fusionAgent/kg/inmemory_repository.py`
-- `E:/vscode/fusionAgent/kg/neo4j_repository.py`
-- `E:/vscode/fusionAgent/kg/bootstrap.py`
-- `E:/vscode/fusionAgent/adapters/building_adapter.py`
-- `E:/vscode/fusionAgent/adapters/road_adapter.py`
-- `E:/vscode/fusionAgent/tests/test_planner_context.py`
-- `E:/vscode/fusionAgent/tests/test_repair_audit.py`
-- `E:/vscode/fusionAgent/tests/test_agent_run_service_enhancements.py`
-- `E:/vscode/fusionAgent/tests/test_kg_repository_enhancements.py`
-
-### Global Test Environment
-
-```powershell
-$env:GEOFUSION_KG_BACKEND = "memory"
-$env:GEOFUSION_LLM_PROVIDER = "mock"
-$env:GEOFUSION_CELERY_EAGER = "1"
-```
-
-## Task 1: Add Explicit Decision and Reuse State Models
-
-**Files:**
-- Modify: `E:/vscode/fusionAgent/schemas/agent.py`
-- Test: `E:/vscode/fusionAgent/tests/test_agent_state_models.py`
-
-- [ ] **Step 1: Write the failing test**
-
-```python
-from schemas.agent import (
-    ArtifactReuseDecision,
-    DecisionCandidate,
-    DecisionRecord,
-    RunPhase,
-    RunStatus,
-    RunTrigger,
-    RunTriggerType,
-)
-from schemas.fusion import JobType
-
-
-def test_run_status_accepts_decision_records_and_artifact_reuse() -> None:
-    status = RunStatus(
-        run_id="run-1",
-        job_type=JobType.building,
-        trigger=RunTrigger(type=RunTriggerType.user_query, content="building"),
-        phase=RunPhase.queued,
-        target_crs="EPSG:32643",
-        created_at="2026-04-07T00:00:00+00:00",
-        decision_records=[
-            DecisionRecord(
-                decision_type="pattern_selection",
-                selected_id="wp.flood.building.default",
-                selected_score=0.92,
-                rationale="highest weighted score",
-                candidates=[
-                    DecisionCandidate(candidate_id="wp.flood.building.default", score=0.92, reason="success_rate"),
-                    DecisionCandidate(candidate_id="wp.flood.building.safe", score=0.74, reason="lower success_rate"),
-                ],
-                policy_version="v2",
-                evidence_refs=["retrieval.candidate_patterns"],
-            )
-        ],
-        artifact_reuse=ArtifactReuseDecision(
-            reused=False,
-            artifact_id=None,
-            freshness_status="miss",
-            rationale="no reusable artifact found",
-        ),
-    )
-
-    assert status.decision_records[0].decision_type == "pattern_selection"
-    assert status.artifact_reuse.freshness_status == "miss"
-```
-
-- [ ] **Step 2: Run test to verify it fails**
+## Plan Usage
 
-Run: `pytest tests/test_agent_state_models.py::test_run_status_accepts_decision_records_and_artifact_reuse -v`
+This file is the master plan and progress tracker.
 
-Expected: FAIL with `ImportError` or `ValidationError` because the new models and fields do not exist yet.
+- Read this file first before planning or implementation.
+- Update this file when a task starts, completes, is descoped, or is replaced.
+- Keep completed tasks here unless they are pure noise; they are part of the project history.
+- Prefer updating this file over creating a parallel plan.
+- If a phase needs highly detailed execution notes, create a supporting doc under `docs/superpowers/plans/` and link it here, but keep the status and phase gate in this file.
 
-- [ ] **Step 3: Write minimal implementation**
+## Status Legend
 
-```python
-class DecisionCandidate(BaseModel):
-    candidate_id: str
-    score: float
-    reason: str
+- `[x]` completed and verified
+- `[ ]` not started or intentionally reopened
 
+## Current Snapshot
 
-class DecisionRecord(BaseModel):
-    decision_type: str
-    selected_id: str
-    selected_score: float
-    rationale: str
-    candidates: List[DecisionCandidate] = Field(default_factory=list)
-    policy_version: str = "v2"
-    evidence_refs: List[str] = Field(default_factory=list)
+**Last updated:** `2026-04-09`
 
+**Overall judgment:** FusionAgent has already crossed the "basic runtime MVP" line. The primary problem is no longer missing core orchestration. The primary problem is making the system trustworthy and extensible enough that future algorithm, policy, and ontology work produces credible evidence instead of one-off demos.
 
-class ArtifactReuseDecision(BaseModel):
-    reused: bool
-    artifact_id: Optional[str] = None
-    freshness_status: str
-    rationale: str
-```
+**What is already in place:**
 
-Add fields to `RunStatus`:
+- [x] `planner -> validator -> executor/healing -> writeback` runtime loop is implemented in `services/agent_run_service.py`
+- [x] Explicit `PolicyEngine` v1 exists in `agent/policy.py`
+- [x] KG-backed parameter default binding exists in `agent/parameter_binding.py`
+- [x] Persistent artifact registry exists in `services/artifact_registry.py`
+- [x] Runtime artifact direct reuse and clip reuse exist in `services/artifact_reuse_service.py`
+- [x] Audit trail and decision records are persisted through the run lifecycle
+- [x] Evaluation harness exists in `scripts/eval_harness.py`
+- [x] Benchmark timeout misdiagnosis was corrected and follow-up evidence was recorded in `docs/superpowers/specs/2026-04-08-benchmark-followup-summary.md`
 
-```python
-decision_records: List[DecisionRecord] = Field(default_factory=list)
-artifact_reuse: Optional[ArtifactReuseDecision] = None
-```
+**What is not yet strong enough:**
 
-- [ ] **Step 4: Run test to verify it passes**
+- [ ] Evaluation and benchmark evidence are not yet a stable long-term operating discipline
+- [ ] Search space is still narrow; policy has too few meaningful choices
+- [ ] Policy coverage is still partial; some choices remain implicit in planner, registry, or adapters
+- [ ] Artifact reuse compatibility rules are still too shallow for stronger claims
+- [ ] Long-term learning and writeback are still weak
+- [ ] Operator-facing productization is still intentionally thin
 
-Run: `pytest tests/test_agent_state_models.py::test_run_status_accepts_decision_records_and_artifact_reuse -v`
+## Supporting Documents
 
-Expected: PASS
+- Spec: `docs/superpowers/specs/2026-04-07-fusion-agent-v2-design.md`
+- Progress summary: `docs/superpowers/specs/2026-04-08-benchmark-followup-summary.md`
+- Historical implementation plan: this file, now promoted to the master tracker
+- Historical focused plan: `docs/superpowers/plans/2026-04-08-fusion-agent-parameter-defaults-and-building-benchmark.md`
+- Historical benchmark follow-up plan: `docs/superpowers/plans/2026-04-08-benchmark-followup-and-runtime-alignment.md`
 
-- [ ] **Step 5: Commit**
+## Roadmap Order
 
-```bash
-git add schemas/agent.py tests/test_agent_state_models.py
-git commit -m "feat: add decision and artifact reuse state models"
-```
+The project should advance in this order unless a blocker or research requirement forces a deviation:
 
-## Task 2: Introduce a Deterministic Policy Engine
+- Phase 1: Evaluation and evidence hardening
+- Phase 2: Search-space expansion
+- Phase 3: Policy coverage expansion
+- Phase 4: Artifact reuse v2
+- Phase 5: Long-term writeback and learning loop
+- Phase 6: Productization and operations
 
-**Files:**
-- Create: `E:/vscode/fusionAgent/agent/policy.py`
-- Modify: `E:/vscode/fusionAgent/agent/retriever.py`
-- Test: `E:/vscode/fusionAgent/tests/test_policy_engine.py`
+The intended rule is simple: do not spend major effort on product polish until the evaluation loop, search space, and policy story are good enough to support repeatable research iteration.
 
-- [ ] **Step 1: Write the failing test**
+---
 
-```python
-from agent.policy import CandidateScoreInput, PolicyEngine
+## Phase 0: Completed Foundation
 
+This phase is already done enough to treat as baseline, not open work.
 
-def test_policy_engine_prefers_higher_score_and_emits_rationale() -> None:
-    engine = PolicyEngine()
+### Completed Runtime Capabilities
 
-    selected = engine.select(
-        decision_type="pattern_selection",
-        candidates=[
-            CandidateScoreInput(candidate_id="wp.safe", success_rate=0.82, data_quality=0.7, freshness=0.5, reuse_bonus=0.0),
-            CandidateScoreInput(candidate_id="wp.default", success_rate=0.88, data_quality=0.9, freshness=0.5, reuse_bonus=0.0),
-        ],
-    )
+- [x] `RunStatus`, `DecisionRecord`, `ArtifactReuseDecision`, repair records, and audit event persistence
+- [x] Initial planning and replanning with plan revision tracking
+- [x] Parameter defaults bound from KG specs into executable task inputs
+- [x] Candidate pattern retrieval and planner context enrichment
+- [x] Deterministic weighted policy scoring for current runtime decisions
+- [x] Runtime artifact registration after success
+- [x] Direct artifact reuse for exact spatial match
+- [x] Clip-based artifact reuse for contained AOI reuse
+- [x] Fallback from failed reuse materialization to fresh execution
+- [x] Golden-case and manifest-backed evaluation harness
+- [x] Benchmark correction workflow and follow-up summary
 
-    assert selected.selected_id == "wp.default"
-    assert selected.selected_score > 0.0
-    assert any(item.candidate_id == "wp.safe" for item in selected.candidates)
-    assert "success_rate" in selected.rationale
-```
+### Baseline Verification Evidence
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] Targeted policy, planner reuse, harness, and runtime enhancement tests were passing on `2026-04-09`
+- [x] Targeted API v2, planner context, and parameter binding tests were passing on `2026-04-09`
 
-Run: `pytest tests/test_policy_engine.py::test_policy_engine_prefers_higher_score_and_emits_rationale -v`
+### Carry-Forward Cleanup Items
 
-Expected: FAIL with `ModuleNotFoundError: No module named 'agent.policy'`
+- [x] Update wording drift where planner-stage artifact reuse rationale still claims no runtime short-circuit even though runtime short-circuit now exists
+- [ ] Keep README, design spec, and runtime behavior synchronized after each future phase
 
-- [ ] **Step 3: Write minimal implementation**
+---
 
-```python
-from __future__ import annotations
+## Phase 1: Evaluation And Evidence Hardening
 
-from dataclasses import dataclass
-from typing import List
+**Intent:** Make benchmark and validation output trustworthy enough that future architecture and policy work can be judged with evidence instead of anecdotes.
 
-from schemas.agent import DecisionCandidate, DecisionRecord
+**Exit criteria:**
 
+- Each benchmark result records enough metadata to explain what was run, where it ran, and why the result is credible.
+- Harness defaults separate quick regression checks from long-running real-data benchmark runs.
+- Timeout policy is explicit and encoded in inputs or manifests instead of hidden in operator memory.
+- The repo has one documented path to run "fast confidence checks" and one documented path to run "real benchmark evidence."
 
-@dataclass
-class CandidateScoreInput:
-    candidate_id: str
-    success_rate: float = 0.0
-    data_quality: float = 0.0
-    freshness: float = 0.0
-    reuse_bonus: float = 0.0
+### Files Likely To Change
 
+- `scripts/eval_harness.py`
+- `tests/test_eval_harness.py`
+- `docs/v2-operations.md`
+- `README.md`
+- `docs/superpowers/specs/2026-04-08-benchmark-followup-summary.md`
+- `docs/superpowers/specs/2026-04-07-real-data-eval-manifest.json`
+- `.github/workflows/*` if a benchmark-safe CI split is added
 
-class PolicyEngine:
-    def __init__(self) -> None:
-        self.weights = {
-            "success_rate": 0.45,
-            "data_quality": 0.25,
-            "freshness": 0.20,
-            "reuse_bonus": 0.10,
-        }
+### Task 1.1: Define Evaluation Tiers And Runtime Rules
 
-    def _score(self, item: CandidateScoreInput) -> float:
-        return (
-            item.success_rate * self.weights["success_rate"]
-            + item.data_quality * self.weights["data_quality"]
-            + item.freshness * self.weights["freshness"]
-            + item.reuse_bonus * self.weights["reuse_bonus"]
-        )
+- [x] Add a short section to `README.md` that defines three evaluation tiers: unit and targeted runtime tests, golden-case harness runs, and real-data benchmark runs.
+- [x] Add a short section to `docs/v2-operations.md` that defines when to use each tier and what evidence must be saved.
+- [x] Record the current timeout guidance in repo docs instead of only in ad hoc thread summaries.
+- [x] State clearly that real-data building benchmarks are not expected to fit the current `180s` default timeout.
+- [x] Add a "runtime alignment checklist" subsection covering API port, worker freshness, output directory alignment, and dependency file alignment.
 
-    def select(self, decision_type: str, candidates: List[CandidateScoreInput]) -> DecisionRecord:
-        scored = sorted(
-            [(candidate, self._score(candidate)) for candidate in candidates],
-            key=lambda pair: pair[1],
-            reverse=True,
-        )
-        best, best_score = scored[0]
-        return DecisionRecord(
-            decision_type=decision_type,
-            selected_id=best.candidate_id,
-            selected_score=best_score,
-            rationale=f"selected by weighted score using success_rate={self.weights['success_rate']}",
-            candidates=[
-                DecisionCandidate(candidate_id=item.candidate_id, score=score, reason="weighted_score")
-                for item, score in scored
-            ],
-            policy_version="v2",
-            evidence_refs=[decision_type],
-        )
-```
-
-- [ ] **Step 4: Run test to verify it passes**
-
-Run: `pytest tests/test_policy_engine.py::test_policy_engine_prefers_higher_score_and_emits_rationale -v`
-
-Expected: PASS
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add agent/policy.py agent/retriever.py tests/test_policy_engine.py
-git commit -m "feat: add deterministic policy engine"
-```
-
-## Task 3: Add Algorithm Parameter Specs to the KG Core
+### Task 1.2: Harden Harness Result Schema
 
-**Files:**
-- Modify: `E:/vscode/fusionAgent/kg/models.py`
-- Modify: `E:/vscode/fusionAgent/kg/repository.py`
-- Modify: `E:/vscode/fusionAgent/kg/seed.py`
-- Modify: `E:/vscode/fusionAgent/kg/inmemory_repository.py`
-- Modify: `E:/vscode/fusionAgent/kg/neo4j_repository.py`
-- Modify: `E:/vscode/fusionAgent/kg/bootstrap.py`
-- Test: `E:/vscode/fusionAgent/tests/test_kg_parameter_specs.py`
-
-- [ ] **Step 1: Write the failing test**
+- [x] Extend `scripts/eval_harness.py` summary output to include commit SHA when available.
+- [x] Extend `scripts/eval_harness.py` summary output to include `base_url`, `timeout_sec`, and the command mode used (`golden-case` or `manifest`).
+- [x] Extend `scripts/eval_harness.py` summary output to include a stable `environment` block with at least KG backend, LLM provider, and eager mode when available.
+- [x] Add tests in `tests/test_eval_harness.py` that verify these fields are present in both directory-backed and manifest-backed summary modes.
+- [x] Keep the summary JSON backward compatible by adding fields instead of renaming existing ones.
 
-```python
-from kg.inmemory_repository import InMemoryKGRepository
+### Task 1.3: Encode Timeout Policy Instead Of Remembering It
 
+- [x] Add optional per-case timeout support to manifest-driven evaluation in `scripts/eval_harness.py`.
+- [x] Keep the CLI `--timeout` flag as the global default, but let manifest entries override it for known slow cases.
+- [x] Add tests showing that a case-level timeout overrides the CLI default only for that case.
+- [x] Update the real-data manifest and follow-up summary docs to use explicit timeout values for real building cases.
+- [x] Avoid adding any dynamic timeout heuristics; keep this deterministic and inspectable.
 
-def test_inmemory_repository_returns_parameter_specs_for_algorithm() -> None:
-    repo = InMemoryKGRepository()
+### Task 1.4: Add Preflight Checks For Benchmark Credibility
 
-    specs = repo.get_parameter_specs("algo.fusion.building.v1")
+- [x] Add a small preflight routine in `scripts/eval_harness.py` for manifest mode that checks API reachability before spending a long timeout window.
+- [x] Add a preflight check that the referenced local shapefile inputs exist before the run starts.
+- [x] Add tests that these failures return immediate, specific errors instead of generic timeouts.
+- [x] Document the preflight behavior in `docs/v2-operations.md`.
 
-    assert specs
-    assert specs[0].parameter_name == "match_threshold"
-    assert specs[0].tunable is True
-```
-
-- [ ] **Step 2: Run test to verify it fails**
-
-Run: `pytest tests/test_kg_parameter_specs.py::test_inmemory_repository_returns_parameter_specs_for_algorithm -v`
-
-Expected: FAIL with `AttributeError: 'InMemoryKGRepository' object has no attribute 'get_parameter_specs'`
-
-- [ ] **Step 3: Write minimal implementation**
-
-`E:/vscode/fusionAgent/kg/models.py`:
-
-```python
-@dataclass
-class AlgorithmParameterSpec:
-    parameter_name: str
-    parameter_type: str
-    default_value: Any
-    allowed_values: List[str] = field(default_factory=list)
-    min_value: Optional[float] = None
-    max_value: Optional[float] = None
-    tunable: bool = True
-    optimization_tags: List[str] = field(default_factory=list)
-```
-
-`E:/vscode/fusionAgent/kg/repository.py`:
-
-```python
-@abstractmethod
-def get_parameter_specs(self, algo_id: str) -> List[AlgorithmParameterSpec]:
-    raise NotImplementedError
-```
-
-`E:/vscode/fusionAgent/kg/seed.py`:
-
-```python
-ALGORITHM_PARAMETER_SPECS = {
-    "algo.fusion.building.v1": [
-        AlgorithmParameterSpec(
-            parameter_name="match_threshold",
-            parameter_type="float",
-            default_value=0.4,
-            min_value=0.1,
-            max_value=0.9,
-            tunable=True,
-            optimization_tags=["precision", "stability"],
-        )
-    ],
-    "algo.fusion.road.v1": [
-        AlgorithmParameterSpec(
-            parameter_name="buffer_meters",
-            parameter_type="float",
-            default_value=3.0,
-            min_value=1.0,
-            max_value=10.0,
-            tunable=True,
-            optimization_tags=["recall", "speed"],
-        )
-    ],
-}
-```
-
-- [ ] **Step 4: Run test to verify it passes**
-
-Run: `pytest tests/test_kg_parameter_specs.py::test_inmemory_repository_returns_parameter_specs_for_algorithm -v`
-
-Expected: PASS
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add kg/models.py kg/repository.py kg/seed.py kg/inmemory_repository.py kg/neo4j_repository.py kg/bootstrap.py tests/test_kg_parameter_specs.py
-git commit -m "feat: add parameter specs to kg metadata"
-```
-
-## Task 4: Build an Artifact Registry and Reuse Lookup
-
-**Files:**
-- Create: `E:/vscode/fusionAgent/services/artifact_registry.py`
-- Modify: `E:/vscode/fusionAgent/services/agent_run_service.py`
-- Modify: `E:/vscode/fusionAgent/agent/retriever.py`
-- Test: `E:/vscode/fusionAgent/tests/test_artifact_registry.py`
-- Test: `E:/vscode/fusionAgent/tests/test_planner_artifact_reuse.py`
-
-- [ ] **Step 1: Write the failing test**
-
-```python
-from pathlib import Path
-
-from services.artifact_registry import ArtifactLookupRequest, ArtifactRecord, ArtifactRegistry
-
-
-def test_artifact_registry_returns_only_fresh_matching_candidates(tmp_path: Path) -> None:
-    registry = ArtifactRegistry(tmp_path / "artifact_index.json")
-    registry.register(
-        ArtifactRecord(
-            artifact_id="artifact-1",
-            run_id="run-1",
-            job_type="building",
-            disaster_type="flood",
-            created_at="2026-04-07T00:00:00+00:00",
-            fresh_until="2026-04-10T00:00:00+00:00",
-            spatial_extent="bbox(0,0,2,2)",
-            schema_fields=["name", "height"],
-            artifact_path="runs/run-1/output/building.zip",
-        )
-    )
-
-    matches = registry.find_reusable(
-        ArtifactLookupRequest(
-            job_type="building",
-            disaster_type="flood",
-            spatial_extent="bbox(0.5,0.5,1.5,1.5)",
-            required_fields=["name"],
-            now="2026-04-08T00:00:00+00:00",
-        )
-    )
-
-    assert len(matches) == 1
-    assert matches[0].artifact_id == "artifact-1"
-```
-
-- [ ] **Step 2: Run test to verify it fails**
-
-Run: `pytest tests/test_artifact_registry.py::test_artifact_registry_returns_only_fresh_matching_candidates -v`
-
-Expected: FAIL with `ModuleNotFoundError: No module named 'services.artifact_registry'`
-
-- [ ] **Step 3: Write minimal implementation**
-
-```python
-from __future__ import annotations
-
-import json
-from pathlib import Path
-from typing import List
-
-from pydantic import BaseModel, Field
-
-
-class ArtifactRecord(BaseModel):
-    artifact_id: str
-    run_id: str
-    job_type: str
-    disaster_type: str | None = None
-    created_at: str
-    fresh_until: str
-    spatial_extent: str
-    schema_fields: List[str] = Field(default_factory=list)
-    artifact_path: str
-
-
-class ArtifactLookupRequest(BaseModel):
-    job_type: str
-    disaster_type: str | None = None
-    spatial_extent: str | None = None
-    required_fields: List[str] = Field(default_factory=list)
-    now: str
-
-
-class ArtifactRegistry:
-    def __init__(self, index_path: Path) -> None:
-        self.index_path = index_path
-        self.index_path.parent.mkdir(parents=True, exist_ok=True)
-
-    def _load(self) -> List[ArtifactRecord]:
-        if not self.index_path.exists():
-            return []
-        data = json.loads(self.index_path.read_text(encoding="utf-8"))
-        return [ArtifactRecord.model_validate(item) for item in data]
-
-    def _save(self, records: List[ArtifactRecord]) -> None:
-        self.index_path.write_text(
-            json.dumps([record.model_dump(mode="json") for record in records], ensure_ascii=False, indent=2),
-            encoding="utf-8",
-        )
-
-    def register(self, record: ArtifactRecord) -> None:
-        records = [item for item in self._load() if item.artifact_id != record.artifact_id]
-        records.append(record)
-        self._save(records)
-
-    def find_reusable(self, request: ArtifactLookupRequest) -> List[ArtifactRecord]:
-        matches: List[ArtifactRecord] = []
-        for record in self._load():
-            if record.job_type != request.job_type:
-                continue
-            if request.disaster_type and record.disaster_type not in {request.disaster_type, None}:
-                continue
-            if record.fresh_until < request.now:
-                continue
-            if not all(field in record.schema_fields for field in request.required_fields):
-                continue
-            matches.append(record)
-        return matches
-```
-
-- [ ] **Step 4: Run test to verify it passes**
-
-Run: `pytest tests/test_artifact_registry.py::test_artifact_registry_returns_only_fresh_matching_candidates -v`
-
-Expected: PASS
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add services/artifact_registry.py services/agent_run_service.py agent/retriever.py tests/test_artifact_registry.py tests/test_planner_artifact_reuse.py
-git commit -m "feat: add artifact registry and reuse lookup"
-```
-
-## Task 5: Pass Parameter Bindings and Output Policy Through Planner and Executor
-
-**Files:**
-- Modify: `E:/vscode/fusionAgent/agent/retriever.py`
-- Modify: `E:/vscode/fusionAgent/agent/planner.py`
-- Modify: `E:/vscode/fusionAgent/agent/executor.py`
-- Modify: `E:/vscode/fusionAgent/adapters/building_adapter.py`
-- Modify: `E:/vscode/fusionAgent/adapters/road_adapter.py`
-- Test: `E:/vscode/fusionAgent/tests/test_parameter_binding.py`
-- Test: `E:/vscode/fusionAgent/tests/test_planner_context.py`
-
-- [ ] **Step 1: Write the failing test**
-
-```python
-from pathlib import Path
-
-from agent.executor import ExecutionContext, WorkflowExecutor
-from kg.inmemory_repository import InMemoryKGRepository
-from schemas.agent import RunTrigger, RunTriggerType, WorkflowPlan, WorkflowTask, WorkflowTaskInput, WorkflowTaskOutput
-from schemas.fusion import JobType
-
-
-def test_executor_passes_selected_parameters_to_handler(tmp_path: Path) -> None:
-    seen = {}
-
-    def handler(ctx: ExecutionContext) -> Path:
-        seen["parameters"] = ctx.step_parameters
-        out = tmp_path / "ok.shp"
-        out.write_text("dummy", encoding="utf-8")
-        return out
-
-    executor = WorkflowExecutor(
-        kg_repo=InMemoryKGRepository(),
-        algorithm_handlers={"algo.fusion.building.v1": handler},
-    )
-
-    plan = WorkflowPlan(
-        workflow_id="wf-params",
-        trigger=RunTrigger(type=RunTriggerType.user_query, content="building"),
-        context={},
-        tasks=[
-            WorkflowTask(
-                step=1,
-                name="building_fusion",
-                description="building fusion",
-                algorithm_id="algo.fusion.building.v1",
-                input=WorkflowTaskInput(
-                    data_type_id="dt.building.bundle",
-                    data_source_id="upload.bundle",
-                    parameters={"match_threshold": 0.55, "output_fields": ["name", "height"]},
-                ),
-                output=WorkflowTaskOutput(data_type_id="dt.building.fused", description="output"),
-            )
-        ],
-        expected_output="building result",
-    )
-
-    context = ExecutionContext(
-        run_id="run-1",
-        job_type=JobType.building,
-        osm_shp=tmp_path / "osm.shp",
-        ref_shp=tmp_path / "ref.shp",
-        output_dir=tmp_path,
-        target_crs="EPSG:4326",
-    )
-
-    executor.execute_plan(plan=plan, context=context, repair_records=[])
-
-    assert seen["parameters"]["match_threshold"] == 0.55
-    assert seen["parameters"]["output_fields"] == ["name", "height"]
-```
-
-- [ ] **Step 2: Run test to verify it fails**
-
-Run: `pytest tests/test_parameter_binding.py::test_executor_passes_selected_parameters_to_handler -v`
-
-Expected: FAIL because `ExecutionContext` does not expose `step_parameters`.
-
-- [ ] **Step 3: Write minimal implementation**
-
-```python
-@dataclass
-class ExecutionContext:
-    ...
-    step_parameters: Dict[str, object] = field(default_factory=dict)
-```
-
-Before algorithm execution:
-
-```python
-context.step_parameters = dict(task.input.parameters)
-last_output = self._execute_algorithm(task.algorithm_id, context)
-```
-
-Adapter signature:
-
-```python
-def run_building_fusion(..., algorithm_parameters: Dict[str, object] | None = None) -> Path:
-    algorithm_parameters = dict(algorithm_parameters or {})
-```
-
-Executor call:
-
-```python
-return run_building_fusion(
-    ...,
-    algorithm_parameters=context.step_parameters,
-)
-```
-
-- [ ] **Step 4: Run test to verify it passes**
-
-Run: `pytest tests/test_parameter_binding.py::test_executor_passes_selected_parameters_to_handler -v`
-
-Expected: PASS
-
-- [ ] **Step 5: Commit**
-
-```bash
-git add agent/retriever.py agent/planner.py agent/executor.py adapters/building_adapter.py adapters/road_adapter.py tests/test_parameter_binding.py tests/test_planner_context.py
-git commit -m "feat: bind selected parameters and output policy through execution"
-```
-
-## Task 6: Record Policy Decisions and Strengthen Healing Audit
-
-**Files:**
-- Modify: `E:/vscode/fusionAgent/agent/executor.py`
-- Modify: `E:/vscode/fusionAgent/services/agent_run_service.py`
-- Modify: `E:/vscode/fusionAgent/api/routers/runs_v2.py`
-- Test: `E:/vscode/fusionAgent/tests/test_repair_audit.py`
-- Test: `E:/vscode/fusionAgent/tests/test_agent_run_service_enhancements.py`
-
-- [ ] **Step 1: Write the failing test**
-
-```python
-from pathlib import Path
-
-from schemas.agent import RepairRecord
-from services.agent_run_service import AgentRunService
-
-
-def test_healing_summary_and_decision_records_are_persisted(tmp_path: Path, monkeypatch) -> None:
-    service = AgentRunService(base_dir=tmp_path / "runs")
-
-    repair_records = [
-        RepairRecord(
-            attempt_no=1,
-            strategy="alternative_algorithm",
-            step=1,
-            message="Recovered with safe algorithm",
-            success=True,
-            timestamp="2026-04-07T00:00:00+00:00",
-            reason_code="alternative_algorithm_succeeded",
-            from_algorithm="algo.fusion.building.v1",
-            to_algorithm="algo.fusion.building.safe",
-        )
-    ]
-
-    summary = service._build_healing_summary(repair_records)
-
-    assert summary["successful_repairs"] == 1
-    assert summary["last_reason_code"] == "alternative_algorithm_succeeded"
-```
-
-- [ ] **Step 2: Run test to verify it fails**
-
-Run: `pytest tests/test_repair_audit.py::test_healing_summary_and_decision_records_are_persisted -v`
-
-Expected: FAIL after you extend the assertion to require a new decision record path.
-
-- [ ] **Step 3: Write minimal implementation**
-
-Add the policy engine to `AgentRunService`:
-
-```python
-from agent.policy import CandidateScoreInput, PolicyEngine
-
-
-class AgentRunService:
-    def __init__(...):
-        ...
-        self.policy = PolicyEngine()
-```
-
-Append a `DecisionRecord` after plan creation:
-
-```python
-decision = self.policy.select(
-    decision_type="pattern_selection",
-    candidates=[
-        CandidateScoreInput(
-            candidate_id=item["pattern_id"],
-            success_rate=float(item.get("success_rate", 0.0)),
-            data_quality=1.0,
-            freshness=0.0,
-            reuse_bonus=0.0,
-        )
-        for item in plan.context.get("retrieval", {}).get("candidate_patterns", [])
-    ],
-)
-current.decision_records.append(decision)
-```
-
-Append a `DecisionRecord` after replan:
-
-```python
-current.decision_records.append(
-    DecisionRecord(
-        decision_type="replan_or_fail",
-        selected_id=f"revision_{replanned_revision}",
-        selected_score=1.0,
-        rationale=f"execution failed at step {failed_step}; replan applied",
-        candidates=[],
-        policy_version="v2",
-        evidence_refs=[failure_message],
-    )
-)
-```
+### Task 1.5: Separate Fast Regression From Slow Evidence
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] Define and document a recommended "fast confidence" command that runs targeted pytest plus a narrow harness subset.
+- [x] Define and document a recommended "real evidence" command that runs manifest-backed benchmark cases with longer timeouts.
+- [x] If CI is updated, keep slow benchmarks out of default PR gating unless they are intentionally requested.
+- [x] Make sure the commands are discoverable from `README.md` and `docs/v2-operations.md`.
 
-Run: `pytest tests/test_repair_audit.py -v`
+### Task 1.6: Close Documentation Drift
 
-Run: `pytest tests/test_agent_run_service_enhancements.py -v`
+- [x] Update `README.md` so the artifact reuse section reflects the actual runtime behavior.
+- [x] Update any stale plan or design wording that claims artifact reuse is planner-only or non-short-circuiting.
+- [x] Add one concise note in the master spec or summary that distinguishes current implemented behavior from target-state aspirations.
 
-Expected: PASS for both suites
+### Phase 1 Verification
 
-- [ ] **Step 5: Commit**
+- [x] Run `python -m pytest -q tests/test_eval_harness.py`
+- [x] Run `python -m pytest -q tests/test_api_v2_integration.py tests/test_agent_run_service_enhancements.py`
+- [x] Run one documented fast confidence command end-to-end and save the output path in this file
+- [x] Run one manifest-backed real benchmark command end-to-end and record the output path in this file
 
-```bash
-git add agent/executor.py services/agent_run_service.py api/routers/runs_v2.py tests/test_repair_audit.py tests/test_agent_run_service_enhancements.py
-git commit -m "feat: persist policy decisions and healing audit"
-```
+### Phase 1 Completion Notes
 
-## Task 7: Add an Evaluation Harness with Baselines and Fault Injection
+- [x] Add completion date here when done
+- [x] Add evidence file paths here when done
+- [x] Add any follow-on issues that Phase 1 uncovered here when done
 
-**Files:**
-- Create: `E:/vscode/fusionAgent/scripts/eval_harness.py`
-- Create: `E:/vscode/fusionAgent/tests/test_eval_harness.py`
-- Modify: `E:/vscode/fusionAgent/tests/test_api_v2_integration.py`
-- Modify: `E:/vscode/fusionAgent/tests/test_kg_repository_enhancements.py`
-- Modify: `E:/vscode/fusionAgent/文档/GeoFusion 知识图谱本体模式层设计方案_v2.md`
+Current evidence and blockers:
 
-- [ ] **Step 1: Write the failing test**
+- `2026-04-09`: targeted verification passed with `python -m pytest -q tests/test_eval_harness.py` and `python -m pytest -q tests/test_api_v2_integration.py tests/test_agent_run_service_enhancements.py`
+- `2026-04-09`: `python -m pytest -q tests/test_local_smoke_helpers.py` passed after adding a regression test that proves smoke HTTP requests now respect the case timeout budget
+- `2026-04-09`: documented fast confidence command passed end-to-end; summary saved to `tmp/eval/fast-confidence-summary.json`
+- `2026-04-09`: documented real evidence command passed end-to-end after restoring `E:\vscode\fusionAgent\Data`; summary saved to `tmp/eval/real-evidence-summary.json`
+- `2026-04-09`: successful real-data building case `building_gitega_osm_vs_google_agent` recorded run id `92fa35b6f1014d67a8e15fe2a1fe5db3`, duration `592549 ms`, and artifact size `28698170`
+- `2026-04-09`: `building_gitega_osm_vs_msft_clipped_agent` remains intentionally skipped because the manifest still marks it `agent-ready-with-prep`
 
-```python
-from scripts.eval_harness import summarize_results
+Follow-on issues uncovered in Phase 1:
 
+- Road golden cases had stale `pattern_hint` values (`wp.flood.road`) and were updated to the concrete runtime pattern id `wp.flood.road.default`
+- `utils/local_smoke.py` had a hidden fixed `30s` HTTP timeout that ignored the case-level benchmark timeout; this is now fixed and covered by `tests/test_local_smoke_helpers.py`
+- Real-data manifest paths still depend on local shapefile assets outside git; Phase 1 now has a working evidence path again, but future fresh checkouts still need data restore or manifest repointing
 
-def test_eval_harness_summarizes_accuracy_and_repair_metrics() -> None:
-    summary = summarize_results(
-        [
-            {"case_id": "c1", "success": True, "repaired": False, "plan_valid": True},
-            {"case_id": "c2", "success": True, "repaired": True, "plan_valid": True},
-            {"case_id": "c3", "success": False, "repaired": False, "plan_valid": False},
-        ]
-    )
+---
 
-    assert summary["run_success_rate"] == 2 / 3
-    assert summary["repair_success_rate"] == 1 / 1
-    assert summary["plan_valid_rate"] == 2 / 3
-```
+## Phase 2: Search-Space Expansion
 
-- [ ] **Step 2: Run test to verify it fails**
+**Intent:** Increase the number and diversity of valid choices available to the planner and policy layers so the system evolves from a narrow workflow runner into a real decision-making fusion agent.
 
-Run: `pytest tests/test_eval_harness.py::test_eval_harness_summarizes_accuracy_and_repair_metrics -v`
+**Exit criteria:**
 
-Expected: FAIL with `ModuleNotFoundError: No module named 'scripts.eval_harness'`
+- Candidate patterns and supporting metadata are broad enough that policy selection is meaningful.
+- The KG contains richer algorithm, source, and parameter metadata for at least the current building and road scopes.
+- Search-space expansion remains constrained and auditable; no uncontrolled ontology sprawl.
 
-- [ ] **Step 3: Write minimal implementation**
+### Files Likely To Change
 
-```python
-from __future__ import annotations
+- `kg/models.py`
+- `kg/seed.py`
+- `kg/repository.py`
+- `kg/inmemory_repository.py`
+- `kg/neo4j_repository.py`
+- `kg/bootstrap.py`
+- `agent/retriever.py`
+- `agent/planner.py`
+- `tests/test_kg_parameter_specs.py`
+- `tests/test_kg_repository.py`
+- `tests/test_kg_repository_enhancements.py`
+- `tests/test_planner_context.py`
+- `docs/superpowers/specs/2026-04-07-fusion-agent-v2-design.md`
 
-from typing import Dict, List
+### Task 2.1: Expand Disaster And Pattern Coverage Within Current Themes
 
+- [x] Add additional disaster-specific workflow patterns for the existing `building` scope.
+- [x] Add additional disaster-specific workflow patterns for the existing `road` scope.
+- [x] Keep additions bounded to scenarios that can be represented and tested with current runtime architecture.
+- [x] Add tests that retrieval returns multiple candidate patterns where policy choice is supposed to matter.
+- [x] Document which new patterns are real runtime candidates versus target-state placeholders.
 
-def summarize_results(results: List[Dict[str, object]]) -> Dict[str, float]:
-    total = len(results)
-    successes = sum(1 for item in results if item.get("success") is True)
-    repairs = [item for item in results if item.get("repaired") is True]
-    repair_successes = sum(1 for item in repairs if item.get("success") is True)
-    plan_valid = sum(1 for item in results if item.get("plan_valid") is True)
-    return {
-        "run_success_rate": successes / total if total else 0.0,
-        "repair_success_rate": repair_successes / len(repairs) if repairs else 0.0,
-        "plan_valid_rate": plan_valid / total if total else 0.0,
-    }
-```
+### Task 2.2: Enrich Algorithm Metadata
 
-- [ ] **Step 4: Run test to verify it passes**
+- [ ] Add richer per-algorithm metadata for expected accuracy, stability, and intended usage mode where the data is trustworthy enough to encode.
+- [ ] Keep metadata deterministic and explicit in seed or repository-backed records.
+- [ ] Do not invent fake precision; if a metric is unknown, leave it absent rather than pretending.
+- [ ] Add tests that policy inputs can be assembled from this richer metadata without breaking old behavior.
 
-Run: `pytest tests/test_eval_harness.py::test_eval_harness_summarizes_accuracy_and_repair_metrics -v`
+### Task 2.3: Enrich Data Source Metadata
 
-Expected: PASS
+- [ ] Expand `DataSource` coverage to include clearer freshness, quality, and supported-type signals.
+- [ ] Add tests that retriever context exposes the richer source metadata in a stable shape.
+- [ ] Decide on one conservative schema for source quality metadata and keep it consistent across in-memory and Neo4j backends.
 
-- [ ] **Step 5: Commit**
+### Task 2.4: Strengthen Parameter Spec Coverage
 
-```bash
-git add scripts/eval_harness.py tests/test_eval_harness.py tests/test_api_v2_integration.py tests/test_kg_repository_enhancements.py 文档/GeoFusion\ 知识图谱本体模式层设计方案_v2.md
-git commit -m "feat: add evaluation harness and ontology v2 doc"
-```
+- [ ] Review current KG parameter specs and fill obvious missing defaults for current supported algorithms.
+- [ ] Add spec metadata that supports future policy reasoning without forcing speculative tuning now.
+- [ ] Keep parameter binding deterministic; the planner should not guess missing defaults that belong in KG metadata.
 
-## Task 8: Run the Consolidated Regression Suite
+### Task 2.5: Add Output Schema Policy Metadata
 
-**Files:**
-- Test only: `E:/vscode/fusionAgent/tests`
+- [ ] Introduce metadata needed to reason about output-field retention, renaming, or compatibility policy.
+- [ ] Keep this as metadata first; do not bury it inside adapters as implicit one-off logic.
+- [ ] Add tests that planner or retriever context can expose this metadata without changing runtime output behavior yet.
 
-- [ ] **Step 1: Run targeted fast suites**
+### Phase 2 Verification
 
-Run:
+- [x] Run `python -m pytest -q tests/test_kg_parameter_specs.py tests/test_kg_repository.py tests/test_kg_repository_enhancements.py`
+- [x] Run `python -m pytest -q tests/test_planner_context.py tests/test_policy_engine.py`
+- [x] Add one short note here summarizing how candidate breadth changed
 
-```bash
-pytest tests/test_agent_state_models.py tests/test_policy_engine.py tests/test_kg_parameter_specs.py tests/test_artifact_registry.py tests/test_parameter_binding.py tests/test_eval_harness.py -v
-```
+Phase 2 note: candidate breadth now includes earthquake-specific building patterns and typhoon-specific road patterns, with retrieval metadata exposing which options are real runtime candidates rather than placeholder target-state ideas.
 
-Expected: all PASS
+---
 
-- [ ] **Step 2: Run integration suites**
+## Phase 3: Policy Coverage Expansion
 
-Run:
+**Intent:** Move from a partial explicit policy layer to a consistent policy system that explains major runtime choices instead of leaving them implicit.
 
-```bash
-pytest tests/test_planner_context.py tests/test_repair_audit.py tests/test_agent_run_service_enhancements.py tests/test_api_v2_integration.py tests/test_worker_orchestration.py -v
-```
+**Exit criteria:**
 
-Expected: all PASS
+- Decision records cover more than pattern selection and replan/fail.
+- Runtime audit can explain why a source, parameter set, reuse path, or fallback path was chosen.
+- Policy inputs and outputs are stable enough to benchmark.
 
-- [ ] **Step 3: Run the full repository regression**
+### Files Likely To Change
 
-Run:
+- `agent/policy.py`
+- `agent/retriever.py`
+- `agent/planner.py`
+- `services/agent_run_service.py`
+- `schemas/agent.py`
+- `tests/test_policy_engine.py`
+- `tests/test_agent_run_service_enhancements.py`
+- `tests/test_planner_context.py`
 
-```bash
-pytest -q
-```
+### Task 3.1: Add Explicit Decision Types
 
-Expected: PASS with no new failures
+- [ ] Add `data_source_selection` decision support.
+- [ ] Add `artifact_reuse_selection` decision support.
+- [ ] Add `parameter_strategy` or equivalent decision support for parameter-level choices that are policy driven rather than static defaults.
+- [ ] Add `output_schema_policy` decision support if output compatibility policy becomes executable in this phase.
 
-- [ ] **Step 4: Run local smoke**
+### Task 3.2: Standardize Candidate Evidence
 
-Run:
+- [ ] Define one stable candidate evidence shape so every decision type can emit comparable traces.
+- [ ] Keep rationale strings concise but evidence-backed.
+- [ ] Prefer additive schema evolution in `schemas/agent.py`.
 
-```bash
-python scripts/smoke_local_v2.py
-```
+### Task 3.3: Wire Policy Decisions Into Runtime Status
 
-Expected: run created, plan available, audit available, artifact downloadable
+- [ ] Ensure new decision types are persisted into `RunStatus` and audit events.
+- [ ] Ensure failure and fallback paths still preserve prior decision history instead of overwriting it.
+- [ ] Add tests that multiple decision types can coexist in the same run.
 
-- [ ] **Step 5: Commit the stabilization pass**
+### Phase 3 Verification
 
-```bash
-git add tests scripts/eval_harness.py docs/superpowers/specs/2026-04-07-fusion-agent-v2-design.md docs/superpowers/plans/2026-04-07-fusion-agent-v2-implementation.md
-git commit -m "test: stabilize fusionagent v2 policy and reuse workflow"
-```
+- [ ] Run `python -m pytest -q tests/test_policy_engine.py tests/test_agent_run_service_enhancements.py`
+- [ ] Run at least one end-to-end run and inspect `audit.jsonl` and `run.json`
+- [ ] Add a short summary here of which decision types are now explicit
 
-## Inputs Required Before Full-Value Execution
+---
 
-- Real `building` and `road` sample datasets across at least two disaster scenarios
-- A curated algorithm inventory with parameter names and known failure modes
-- Desired field retention and renaming rules for final artifacts
-- Freshness threshold expectations for artifact reuse
-- Priority weights for `accuracy`, `stability`, `speed`, `freshness`, and `cost`
+## Phase 4: Artifact Reuse V2
+
+**Intent:** Upgrade artifact reuse from a useful first pass into a stronger, compatibility-aware reuse subsystem that can support real claims about freshness and correctness.
+
+**Exit criteria:**
+
+- Reuse decisions consider more than recency and bounding box containment.
+- Reuse failures are diagnosable and policy-aware.
+- Direct and clip reuse remain fast paths, but their safety rules are clearer and better tested.
+
+### Files Likely To Change
+
+- `services/artifact_registry.py`
+- `services/artifact_reuse_service.py`
+- `services/agent_run_service.py`
+- `agent/retriever.py`
+- `agent/policy.py`
+- `tests/test_artifact_registry.py`
+- `tests/test_planner_artifact_reuse.py`
+- `tests/test_agent_run_service_enhancements.py`
+
+### Task 4.1: Improve Compatibility Checks
+
+- [ ] Add schema compatibility checks beyond raw field subset matching where practical.
+- [ ] Add CRS-aware handling rules or explicitly reject unsafe cross-CRS reuse paths.
+- [ ] Add provenance metadata needed to explain why a record was considered reusable.
+
+### Task 4.2: Add Freshness Policy By Work Type
+
+- [ ] Stop treating all artifacts as having the same acceptable age.
+- [ ] Define a conservative freshness policy keyed by job type and, if justified, scenario type.
+- [ ] Keep the rule table explicit and test-backed.
+
+### Task 4.3: Add Stronger Quality Gates
+
+- [ ] Add validation for clip outputs that would otherwise silently produce misleading artifacts.
+- [ ] Keep failure behavior explicit: reject or fall back, never silently degrade.
+- [ ] Add tests for empty clips, mismatched schema, stale artifacts, and unsafe compatibility cases.
+
+### Phase 4 Verification
+
+- [ ] Run `python -m pytest -q tests/test_artifact_registry.py tests/test_planner_artifact_reuse.py tests/test_agent_run_service_enhancements.py`
+- [ ] Add one direct reuse run and one clip reuse run to evidence notes if practical
+
+---
+
+## Phase 5: Long-Term Writeback And Learning Loop
+
+**Intent:** Distinguish transient run logging from durable learning so that successful and failed runs can influence future planning and policy in a controlled way.
+
+**Exit criteria:**
+
+- The system has an explicit boundary between runtime logs and durable learning records.
+- Aggregated execution evidence can be queried without replaying raw audit logs.
+- Policy tuning and reuse heuristics can reference durable evidence instead of only seed metadata.
+
+### Files Likely To Change
+
+- `services/agent_run_service.py`
+- `kg/models.py`
+- `kg/repository.py`
+- `kg/inmemory_repository.py`
+- `kg/neo4j_repository.py`
+- `agent/retriever.py`
+- `tests/test_kg_repository_enhancements.py`
+- `tests/test_repair_audit.py`
+
+### Task 5.1: Define Durable Learning Records
+
+- [ ] Define the minimal durable evidence entities needed for future planning and policy.
+- [ ] Keep them separate from verbose audit logs.
+- [ ] Add tests for storing and reading them across backends.
+
+### Task 5.2: Aggregate Run Outcomes
+
+- [ ] Add a path to aggregate repeated run outcomes by pattern, algorithm, and scenario slice.
+- [ ] Keep writeback deterministic and append-only where possible.
+- [ ] Avoid premature auto-tuning; start by storing evidence cleanly.
+
+### Task 5.3: Expose Durable Evidence To Retrieval
+
+- [ ] Feed aggregated evidence into planner or policy retrieval only after the storage shape is stable.
+- [ ] Add tests that retrieval can surface the evidence without breaking existing context contracts.
+
+### Phase 5 Verification
+
+- [ ] Run repository enhancement tests
+- [ ] Run targeted planner or retriever tests
+- [ ] Add one note here describing what evidence is now durable
+
+---
+
+## Phase 6: Productization And Operations
+
+**Intent:** Build the operator-facing layer only after the engine beneath it is reliable enough to justify long-lived UX and deployment investment.
+
+**Exit criteria:**
+
+- Operators can inspect runs, plans, decisions, and artifacts without reading raw files by hand.
+- Deployment and runtime lifecycle are documented and repeatable.
+- Productization does not hide the research evidence trail.
+
+### Files Likely To Change
+
+- `api/routers/*`
+- `services/*`
+- `docs/v2-operations.md`
+- `README.md`
+- any future frontend workspace if one is introduced
+
+### Task 6.1: Operator Inspection Flow
+
+- [ ] Design a run inspection flow that surfaces status, plan, audit, and artifact in one place.
+- [ ] Keep the first version narrow and operational, not flashy.
+
+### Task 6.2: Run Comparison And Audit Review
+
+- [ ] Add a way to compare runs or benchmark outputs at the product layer.
+- [ ] Preserve access to raw evidence instead of replacing it with summary-only UI.
+
+### Task 6.3: Deployment And Runtime Hygiene
+
+- [ ] Harden startup, logging, retention, and local versus managed runtime conventions.
+- [ ] Document production-like runtime expectations separately from quick local development mode.
+
+### Phase 6 Verification
+
+- [ ] Define product-layer acceptance checks once the phase becomes active
+
+---
+
+## Cross-Cutting Rules
+
+- [ ] Do not add major new product surfaces before Phase 1, Phase 2, and Phase 3 are in acceptable shape.
+- [ ] Do not widen the ontology unless the new metadata is usable by runtime, policy, or evaluation.
+- [ ] Do not hide important decision logic inside prompts when it should be explicit and auditable.
+- [ ] Do not treat benchmark success as credible without runtime alignment, timeout clarity, and saved evidence.
+- [ ] After every meaningful phase, update `README.md`, this master plan, and any affected spec or summary docs together.
+
+## Immediate Next Actions
+
+These are the next items to work in order.
+
+- [x] Phase 2 Task 2.1: expand disaster and pattern coverage within current `building` and `road` themes
+- [ ] Phase 2 Task 2.2: enrich algorithm metadata beyond bare success rate and alternatives
+- [ ] Phase 2 Task 2.3: enrich data source metadata and expose it stably in retrieval context
+- [ ] Revisit whether benchmark evidence should be copied out of `tmp/eval/` into a more durable tracked note or summary
+
+## Progress Log
+
+- `2026-04-07`: original V2 implementation plan created
+- `2026-04-08`: benchmark follow-up plan and corrected benchmark summary added
+- `2026-04-09`: master plan rewritten into a long-lived roadmap and progress tracker; current priority set to Phase 1 evaluation and evidence hardening
+- `2026-04-09`: Phase 1 Task 1.1 completed in `codex/phase1-task1-1`; README and `docs/v2-operations.md` now define evaluation tiers, timeout guidance, and runtime alignment checklist
+- `2026-04-09`: Phase 1 Task 1.2 completed in `codex/phase1-task1-1`; `scripts/eval_harness.py` summary now records commit SHA, command mode, `base_url`, `timeout_sec`, and environment metadata
+- `2026-04-09`: Phase 1 Task 1.3 completed in `codex/phase1-task1-1`; manifest-backed evaluation now supports case-level `timeout_sec`, and the real-data building manifest encodes `1200` seconds explicitly
+- `2026-04-09`: Phase 1 Task 1.4 completed in `codex/phase1-task1-1`; manifest mode now performs API and input preflight so configuration problems fail immediately with specific errors
+- `2026-04-09`: Phase 1 Task 1.5 completed in `codex/phase1-task1-1`; README and `docs/v2-operations.md` now publish one recommended fast-confidence command and one recommended real-evidence command, while default CI remains on the fast pytest-only lane
+- `2026-04-09`: Phase 1 Task 1.6 completed in `codex/phase1-task1-1`; README, the master plan, and the V2 design spec now state clearly that runtime direct/clip reuse short-circuit already exists and Phase 4 is about strengthening it rather than introducing it
+- `2026-04-09`: Phase 1 verification passed for targeted pytest and the documented fast-confidence command; the documented real-evidence command now fails fast with a specific missing-input preflight error instead of a long opaque timeout
+- `2026-04-09`: Phase 1 completed in `codex/phase1-task1-1`; local data was restored, `utils/local_smoke.py` was fixed to honor case-level timeouts end-to-end, and the documented real-evidence command succeeded for `building_gitega_osm_vs_google_agent`
+- `2026-04-09`: Phase 2 Task 2.1 completed in `codex/phase1-task1-1`; KG seeds now include additional disaster-specific `building` and `road` runtime candidates, planner retrieval exposes pattern metadata, and retrieval tests confirm multiple candidate patterns are visible where policy choice should matter
+- `2026-04-09`: Phase 2 verification for Task 2.1 passed in `codex/phase1-task1-1` with `python -m pytest -q tests/test_kg_parameter_specs.py tests/test_kg_repository.py tests/test_kg_repository_enhancements.py` and `python -m pytest -q tests/test_planner_context.py tests/test_policy_engine.py`
 
 ## Self-Review
 
-### Spec Coverage
+### Spec coverage
 
-- Search space expansion: covered by Tasks 3, 4, and 5.
-- Explicit policy: covered by Tasks 1, 2, and 6.
-- Artifact reuse and freshness: covered by Task 4.
-- Ontology adjustments: covered by Task 7.
-- Evaluation and harness: covered by Tasks 7 and 8.
+- Current runtime foundation is preserved and marked as completed baseline.
+- Evaluation and evidence hardening is now the first active phase.
+- Search-space expansion, policy expansion, artifact reuse strengthening, long-term writeback, and productization are all represented as later phases.
 
-### Placeholder Scan
+### Placeholder scan
 
-- No `TODO`, `TBD`, or deferred placeholders remain.
-- Every task has explicit files, commands, and concrete code snippets.
+- No `TODO`, `TBD`, or "similar to above" placeholders are left as execution steps.
+- Later phases remain detailed enough to guide sequencing without pretending exact implementation details are already settled.
 
-### Type Consistency
+### Type consistency
 
-- `DecisionRecord` and `ArtifactReuseDecision` are introduced in Task 1 and reused consistently later.
-- `AlgorithmParameterSpec` is defined in Task 3 and consumed in Tasks 4 and 5.
-- `PolicyEngine` is defined in Task 2 and integrated in Task 6.
+- File paths referenced here match current repo structure.
+- Phase order matches the intended dependency chain described in the roadmap section.
 
 ## Execution Handoff
 
-Plan complete and saved to `docs/superpowers/plans/2026-04-07-fusion-agent-v2-implementation.md`. Two execution options:
+Plan complete and saved to `docs/superpowers/plans/2026-04-07-fusion-agent-v2-implementation.md`.
+
+Two execution options:
 
 **1. Subagent-Driven (recommended)** - I dispatch a fresh subagent per task, review between tasks, fast iteration
 
 **2. Inline Execution** - Execute tasks in this session using executing-plans, batch execution with checkpoints
 
-Which approach?
+Pick one when you want to move from planning into implementation.

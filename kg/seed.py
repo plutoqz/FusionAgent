@@ -309,7 +309,12 @@ WORKFLOW_PATTERNS: List[WorkflowPatternNode] = [
         job_type=JobType.building,
         disaster_types=["flood", "typhoon", "generic"],
         success_rate=0.88,
-        metadata={"version": "1.0.0"},
+        metadata={
+            "version": "1.0.0",
+            "runtime_status": "runtime_candidate",
+            "scenario_focus": "flood",
+            "strategy": "throughput",
+        },
         steps=[
             PatternStep(
                 order=1,
@@ -327,7 +332,60 @@ WORKFLOW_PATTERNS: List[WorkflowPatternNode] = [
         job_type=JobType.building,
         disaster_types=["flood", "generic"],
         success_rate=0.82,
-        metadata={"version": "1.0.0", "mode": "safe"},
+        metadata={
+            "version": "1.0.0",
+            "runtime_status": "runtime_candidate",
+            "scenario_focus": "flood",
+            "mode": "safe",
+            "strategy": "conservative",
+        },
+        steps=[
+            PatternStep(
+                order=1,
+                name="building_fusion_safe",
+                algorithm_id="algo.fusion.building.safe",
+                input_data_type="dt.building.bundle",
+                output_data_type="dt.building.fused",
+                data_source_id="upload.bundle",
+            )
+        ],
+    ),
+    WorkflowPatternNode(
+        pattern_id="wp.earthquake.building.default",
+        pattern_name="Earthquake Building Fusion",
+        job_type=JobType.building,
+        disaster_types=["earthquake"],
+        success_rate=0.91,
+        metadata={
+            "version": "1.0.0",
+            "runtime_status": "runtime_candidate",
+            "scenario_focus": "earthquake",
+            "strategy": "throughput",
+        },
+        steps=[
+            PatternStep(
+                order=1,
+                name="building_fusion_earthquake",
+                algorithm_id="algo.fusion.building.v1",
+                input_data_type="dt.building.bundle",
+                output_data_type="dt.building.fused",
+                data_source_id="upload.bundle",
+            )
+        ],
+    ),
+    WorkflowPatternNode(
+        pattern_id="wp.earthquake.building.safe",
+        pattern_name="Earthquake Building Fusion Safe Route",
+        job_type=JobType.building,
+        disaster_types=["earthquake"],
+        success_rate=0.85,
+        metadata={
+            "version": "1.0.0",
+            "runtime_status": "runtime_candidate",
+            "scenario_focus": "earthquake",
+            "mode": "safe",
+            "strategy": "conservative",
+        },
         steps=[
             PatternStep(
                 order=1,
@@ -345,7 +403,12 @@ WORKFLOW_PATTERNS: List[WorkflowPatternNode] = [
         job_type=JobType.road,
         disaster_types=["flood", "earthquake", "generic"],
         success_rate=0.86,
-        metadata={"version": "1.0.0"},
+        metadata={
+            "version": "1.0.0",
+            "runtime_status": "runtime_candidate",
+            "scenario_focus": "flood",
+            "strategy": "throughput",
+        },
         steps=[
             PatternStep(
                 order=1,
@@ -363,7 +426,60 @@ WORKFLOW_PATTERNS: List[WorkflowPatternNode] = [
         job_type=JobType.road,
         disaster_types=["flood", "generic"],
         success_rate=0.81,
-        metadata={"version": "1.0.0", "mode": "safe"},
+        metadata={
+            "version": "1.0.0",
+            "runtime_status": "runtime_candidate",
+            "scenario_focus": "flood",
+            "mode": "safe",
+            "strategy": "conservative",
+        },
+        steps=[
+            PatternStep(
+                order=1,
+                name="road_fusion_safe",
+                algorithm_id="algo.fusion.road.safe",
+                input_data_type="dt.road.bundle",
+                output_data_type="dt.road.fused",
+                data_source_id="upload.bundle",
+            )
+        ],
+    ),
+    WorkflowPatternNode(
+        pattern_id="wp.typhoon.road.default",
+        pattern_name="Typhoon Road Fusion",
+        job_type=JobType.road,
+        disaster_types=["typhoon"],
+        success_rate=0.9,
+        metadata={
+            "version": "1.0.0",
+            "runtime_status": "runtime_candidate",
+            "scenario_focus": "typhoon",
+            "strategy": "throughput",
+        },
+        steps=[
+            PatternStep(
+                order=1,
+                name="road_fusion_typhoon",
+                algorithm_id="algo.fusion.road.v1",
+                input_data_type="dt.road.bundle",
+                output_data_type="dt.road.fused",
+                data_source_id="upload.bundle",
+            )
+        ],
+    ),
+    WorkflowPatternNode(
+        pattern_id="wp.typhoon.road.safe",
+        pattern_name="Typhoon Road Fusion Safe Route",
+        job_type=JobType.road,
+        disaster_types=["typhoon"],
+        success_rate=0.84,
+        metadata={
+            "version": "1.0.0",
+            "runtime_status": "runtime_candidate",
+            "scenario_focus": "typhoon",
+            "mode": "safe",
+            "strategy": "conservative",
+        },
         steps=[
             PatternStep(
                 order=1,

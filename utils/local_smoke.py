@@ -77,14 +77,25 @@ def _encode_multipart(form: dict[str, str], file_fields: dict[str, Path]) -> tup
     return b"\r\n".join(lines), boundary
 
 
-def _json_request(method: str, url: str, *, data: bytes | None = None, headers: dict[str, str] | None = None) -> Any:
+def _json_request(
+    method: str,
+    url: str,
+    *,
+    data: bytes | None = None,
+    headers: dict[str, str] | None = None,
+    timeout_sec: float = 30.0,
+) -> Any:
     request = urllib.request.Request(url, data=data, method=method, headers=headers or {})
     try:
-        with urllib.request.urlopen(request, timeout=30) as response:
+        with urllib.request.urlopen(request, timeout=timeout_sec) as response:
             return json.loads(response.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
         detail = exc.read().decode("utf-8", errors="ignore")
         raise RuntimeError(f"HTTP {exc.code} for {url}: {detail}") from exc
+
+
+def _remaining_timeout_sec(deadline: float) -> float:
+    return max(0.1, deadline - time.time())
 
 
 def run_local_v2_smoke(case_dir: Path, *, base_url: str = "http://127.0.0.1:8000", timeout_sec: float = 180.0) -> dict[str, Any]:
@@ -97,27 +108,28 @@ def run_local_v2_smoke(case_dir: Path, *, base_url: str = "http://127.0.0.1:8000
         },
     )
 
+    deadline = time.time() + timeout_sec
     create_resp = _json_request(
         "POST",
         urllib.parse.urljoin(base_url.rstrip("/") + "/", "api/v2/runs"),
         data=body,
         headers={"Content-Type": f"multipart/form-data; boundary={boundary}"},
+        timeout_sec=_remaining_timeout_sec(deadline),
     )
     run_id = create_resp["run_id"]
 
-    deadline = time.time() + timeout_sec
     run_url = urllib.parse.urljoin(base_url.rstrip("/") + "/", f"api/v2/runs/{run_id}")
     plan_url = urllib.parse.urljoin(base_url.rstrip("/") + "/", f"api/v2/runs/{run_id}/plan")
     artifact_url = urllib.parse.urljoin(base_url.rstrip("/") + "/", f"api/v2/runs/{run_id}/artifact")
 
     while time.time() < deadline:
-        status = _json_request("GET", run_url)
+        status = _json_request("GET", run_url, timeout_sec=_remaining_timeout_sec(deadline))
         if status["phase"] == "failed":
             raise RuntimeError(f"Smoke run failed: {status.get('error')}")
         if status["phase"] == "succeeded":
-            plan = _json_request("GET", plan_url)["plan"]
+            plan = _json_request("GET", plan_url, timeout_sec=_remaining_timeout_sec(deadline))["plan"]
             artifact_request = urllib.request.Request(artifact_url, method="GET")
-            with urllib.request.urlopen(artifact_request, timeout=30) as response:
+            with urllib.request.urlopen(artifact_request, timeout=_remaining_timeout_sec(deadline)) as response:
                 artifact_bytes = response.read()
             with zipfile.ZipFile(io.BytesIO(artifact_bytes), "r") as zf:
                 artifact_entries = zf.namelist()
