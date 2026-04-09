@@ -341,26 +341,28 @@ Phase 3 note: explicit runtime decision coverage now includes `pattern_selection
 
 ### Task 4.1: Improve Compatibility Checks
 
-- [ ] Add schema compatibility checks beyond raw field subset matching where practical.
-- [ ] Add CRS-aware handling rules or explicitly reject unsafe cross-CRS reuse paths.
-- [ ] Add provenance metadata needed to explain why a record was considered reusable.
+- [x] Add schema compatibility checks beyond raw field subset matching where practical.
+- [x] Add CRS-aware handling rules or explicitly reject unsafe cross-CRS reuse paths.
+- [x] Add provenance metadata needed to explain why a record was considered reusable.
 
 ### Task 4.2: Add Freshness Policy By Work Type
 
-- [ ] Stop treating all artifacts as having the same acceptable age.
-- [ ] Define a conservative freshness policy keyed by job type and, if justified, scenario type.
-- [ ] Keep the rule table explicit and test-backed.
+- [x] Stop treating all artifacts as having the same acceptable age.
+- [x] Define a conservative freshness policy keyed by job type and, if justified, scenario type.
+- [x] Keep the rule table explicit and test-backed.
 
 ### Task 4.3: Add Stronger Quality Gates
 
-- [ ] Add validation for clip outputs that would otherwise silently produce misleading artifacts.
-- [ ] Keep failure behavior explicit: reject or fall back, never silently degrade.
-- [ ] Add tests for empty clips, mismatched schema, stale artifacts, and unsafe compatibility cases.
+- [x] Add validation for clip outputs that would otherwise silently produce misleading artifacts.
+- [x] Keep failure behavior explicit: reject or fall back, never silently degrade.
+- [x] Add tests for empty clips, mismatched schema, stale artifacts, and unsafe compatibility cases.
 
 ### Phase 4 Verification
 
-- [ ] Run `python -m pytest -q tests/test_artifact_registry.py tests/test_planner_artifact_reuse.py tests/test_agent_run_service_enhancements.py`
-- [ ] Add one direct reuse run and one clip reuse run to evidence notes if practical
+- [x] Run `python -m pytest -q tests/test_artifact_registry.py tests/test_planner_artifact_reuse.py tests/test_agent_run_service_enhancements.py`
+- [x] Add one direct reuse run and one clip reuse run to evidence notes if practical
+
+Phase 4 note: artifact reuse now requires compatible `output_data_type` and `target_crs`, carries explicit provenance metadata into the registry and planner retrieval, uses job-type freshness windows (`building=3d`, `road=1d`), and validates clip outputs for CRS, required fields, and bbox safety before short-circuiting fresh execution.
 
 ---
 
@@ -467,7 +469,8 @@ These are the next items to work in order.
 - [x] Phase 2 Task 2.4: strengthen parameter spec coverage for current supported algorithms
 - [x] Phase 2 Task 2.5: add output schema policy metadata
 - [x] Phase 3 Task 3.1: add explicit decision types beyond pattern selection and replan/fail
-- [ ] Phase 4 Task 4.1: improve artifact reuse compatibility checks
+- [x] Phase 4 Task 4.1: improve artifact reuse compatibility checks
+- [ ] Phase 5 Task 5.1: define durable learning records
 - [ ] Revisit whether benchmark evidence should be copied out of `tmp/eval/` into a more durable tracked note or summary
 
 ## Progress Log
@@ -491,6 +494,8 @@ These are the next items to work in order.
 - `2026-04-09`: Phase 2 completed in `codex/phase2-task2-2-2-3`; verification passed with `python -m pytest -q tests/test_kg_parameter_specs.py tests/test_kg_repository.py tests/test_kg_repository_enhancements.py`, `python -m pytest -q tests/test_planner_context.py tests/test_policy_engine.py`, and `python -m pytest -q tests/test_parameter_binding.py`
 - `2026-04-09`: Phase 3 Tasks 3.1 to 3.3 completed in `codex/phase3-task3-1`; planning now emits explicit `data_source_selection`, `artifact_reuse_selection`, `parameter_strategy`, and `output_schema_policy` decisions alongside existing `pattern_selection` and `replan_or_fail`, and every decision candidate now persists a stable `metrics + meta` evidence shape
 - `2026-04-09`: Phase 3 completed in `codex/phase3-task3-1`; verification passed with `python -m pytest -q tests/test_agent_state_models.py tests/test_policy_engine.py tests/test_agent_run_service_enhancements.py`, `python -m pytest -q tests/test_planner_context.py`, and the end-to-end audit/run inspection embedded in `tests/test_agent_run_service_enhancements.py::test_agent_run_service_updates_status_and_records_feedback`
+- `2026-04-09`: Phase 4 Tasks 4.1 to 4.3 completed in `codex/phase4-task4-1`; artifact reuse now filters on explicit `output_data_type` plus `target_crs`, records reuse provenance metadata in the registry, applies job-type freshness windows, and validates clip outputs before allowing short-circuit reuse
+- `2026-04-09`: Phase 4 completed in `codex/phase4-task4-1`; verification passed with `python -m pytest -q tests/test_artifact_registry.py tests/test_planner_artifact_reuse.py tests/test_agent_run_service_enhancements.py` and `python -m pytest -q tests/test_planner_context.py`, while the direct-reuse and clip-reuse happy-path evidence remains covered by `tests/test_agent_run_service_enhancements.py`
 
 ## Self-Review
 

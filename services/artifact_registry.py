@@ -8,6 +8,7 @@ from threading import Lock
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 from pydantic import BaseModel, Field
+from utils.crs import normalize_target_crs
 
 
 def _utc_now_dt() -> datetime:
@@ -35,6 +36,16 @@ def _norm_token(value: object | None) -> Optional[str]:
             pass
     text = str(value).strip()
     return text or None
+
+
+def _norm_crs(value: object | None) -> Optional[str]:
+    token = _norm_token(value)
+    if token is None:
+        return None
+    try:
+        return normalize_target_crs(token)
+    except Exception:  # noqa: BLE001
+        return None
 
 
 def _norm_field_set(fields: Iterable[str]) -> set[str]:
@@ -89,6 +100,10 @@ class ArtifactRecord(BaseModel):
 
     created_at: str
     output_fields: List[str] = Field(default_factory=list)
+    output_data_type: Optional[str] = None
+    target_crs: Optional[str] = None
+    schema_policy_id: Optional[str] = None
+    compatibility_basis: Optional[str] = None
 
     bbox: Optional[Tuple[float, float, float, float]] = None
     meta: Dict[str, Any] = Field(default_factory=dict)
@@ -100,6 +115,8 @@ class ArtifactLookupRequest(BaseModel):
 
     max_age_seconds: Optional[int] = None
     required_fields: List[str] = Field(default_factory=list)
+    required_output_type: Optional[str] = None
+    required_target_crs: Optional[str] = None
 
     bbox: Optional[Tuple[float, float, float, float]] = None
 
@@ -149,6 +166,8 @@ class ArtifactRegistry:
         want_job_type = _norm_token(request.job_type)
         want_disaster = _norm_token(request.disaster_type)
         want_fields = _norm_field_set(request.required_fields)
+        want_output_type = _norm_token(request.required_output_type)
+        want_target_crs = _norm_crs(request.required_target_crs)
         want_bbox = _as_bbox(request.bbox)
 
         max_age_seconds = request.max_age_seconds
@@ -160,6 +179,10 @@ class ArtifactRegistry:
             if want_job_type is not None and _norm_token(record.job_type) != want_job_type:
                 continue
             if want_disaster is not None and (_norm_token(record.disaster_type) or "").lower() != want_disaster.lower():
+                continue
+            if want_output_type is not None and _norm_token(record.output_data_type) != want_output_type:
+                continue
+            if want_target_crs is not None and _norm_crs(record.target_crs) != want_target_crs:
                 continue
 
             created_dt = _parse_iso_dt(record.created_at)
@@ -213,6 +236,8 @@ class ArtifactRegistry:
         want_job_type = _norm_token(request.job_type)
         want_disaster = _norm_token(request.disaster_type)
         want_fields = _norm_field_set(request.required_fields)
+        want_output_type = _norm_token(request.required_output_type)
+        want_target_crs = _norm_crs(request.required_target_crs)
         want_bbox = _as_bbox(request.bbox)
 
         max_age_seconds = request.max_age_seconds
@@ -224,6 +249,10 @@ class ArtifactRegistry:
             if want_job_type is not None and _norm_token(record.job_type) != want_job_type:
                 continue
             if want_disaster is not None and (_norm_token(record.disaster_type) or "").lower() != want_disaster.lower():
+                continue
+            if want_output_type is not None and _norm_token(record.output_data_type) != want_output_type:
+                continue
+            if want_target_crs is not None and _norm_crs(record.target_crs) != want_target_crs:
                 continue
 
             created_dt = _parse_iso_dt(record.created_at)

@@ -102,3 +102,53 @@ def test_find_reusable_returns_fresh_matching_and_filters_others(tmp_path: Path)
         now=now,
     )
     assert none_selected is None
+
+
+def test_find_reusable_rejects_output_type_and_crs_mismatches(tmp_path: Path) -> None:
+    index_path = tmp_path / "artifact_index.json"
+    registry = ArtifactRegistry(index_path=index_path)
+
+    now = datetime(2026, 4, 9, 0, 0, 0, tzinfo=timezone.utc)
+
+    registry.register(
+        ArtifactRecord(
+            artifact_id="artifact-wrong-output-type",
+            artifact_path=str(tmp_path / "wrong_output_type.zip"),
+            job_type="building",
+            disaster_type="flood",
+            created_at=(now - timedelta(minutes=1)).isoformat(),
+            output_fields=["geometry", "confidence"],
+            bbox=(0.0, 0.0, 10.0, 10.0),
+            output_data_type="dt.building.bundle",
+            target_crs="EPSG:4326",
+        )
+    )
+    registry.register(
+        ArtifactRecord(
+            artifact_id="artifact-compatible",
+            artifact_path=str(tmp_path / "compatible.zip"),
+            job_type="building",
+            disaster_type="flood",
+            created_at=(now - timedelta(minutes=5)).isoformat(),
+            output_fields=["geometry", "confidence"],
+            bbox=(0.0, 0.0, 10.0, 10.0),
+            output_data_type="dt.building.fused",
+            target_crs="EPSG:32643",
+        )
+    )
+
+    selected = registry.find_reusable(
+        ArtifactLookupRequest(
+            job_type="building",
+            disaster_type="flood",
+            max_age_seconds=3600,
+            required_fields=["confidence"],
+            bbox=(1.0, 1.0, 2.0, 2.0),
+            required_output_type="dt.building.fused",
+            required_target_crs="EPSG:32643",
+        ),
+        now=now,
+    )
+
+    assert selected is not None
+    assert selected.artifact_id == "artifact-compatible"

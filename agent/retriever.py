@@ -7,6 +7,7 @@ from kg.models import AlgorithmNode, AlgorithmParameterSpec, DataSourceNode, KGC
 from kg.repository import KGRepository
 from schemas.agent import RunTrigger
 from schemas.fusion import JobType
+from services.artifact_reuse_policy import get_artifact_reuse_max_age_seconds
 from services.artifact_registry import ArtifactLookupRequest, ArtifactRegistry, ArtifactRecord
 
 
@@ -79,12 +80,13 @@ class PlanningContextBuilder:
         if not self.artifact_registry:
             return []
         bbox = self._parse_bbox(trigger.spatial_extent)
+        required_output_type = f"dt.{job_type.value}.fused"
         request = ArtifactLookupRequest(
             job_type=job_type.value,
             disaster_type=trigger.disaster_type,
-            # Keep it simple and conservative: only consider fairly recent artifacts.
-            max_age_seconds=7 * 24 * 60 * 60,
+            max_age_seconds=get_artifact_reuse_max_age_seconds(job_type),
             required_fields=[],
+            required_output_type=required_output_type,
             bbox=bbox,
         )
         try:
@@ -115,6 +117,10 @@ class PlanningContextBuilder:
             "disaster_type": record.disaster_type,
             "created_at": record.created_at,
             "output_fields": record.output_fields,
+            "output_data_type": record.output_data_type,
+            "target_crs": record.target_crs,
+            "schema_policy_id": record.schema_policy_id,
+            "compatibility_basis": record.compatibility_basis,
             "bbox": record.bbox,
             "meta": record.meta,
         }
