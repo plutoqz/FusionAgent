@@ -182,7 +182,7 @@ git commit -m "feat: add thesis-aligned task and scenario profile primitives"
 - Modify: `E:\vscode\fusionAgent\agent\retriever.py`
 - Test: `E:\vscode\fusionAgent\tests\test_intent_resolver.py`
 
-- [ ] **Step 1: Write the failing tests for scenario-driven and task-driven routing**
+- [x] **Step 1: Write the failing tests for scenario-driven and task-driven routing**
 
 ```python
 from agent.intent_resolver import resolve_planning_mode
@@ -208,13 +208,13 @@ def test_resolve_planning_mode_prefers_task_when_user_specifies_data_request() -
     assert resolved["planning_mode"] == "task_driven"
 ```
 
-- [ ] **Step 2: Run tests to verify they fail**
+- [x] **Step 2: Run tests to verify they fail**
 
 Run: `python -m pytest -q tests/test_intent_resolver.py`
 
 Expected: FAIL with missing module or missing function
 
-- [ ] **Step 3: Add a small resolver with explicit heuristics**
+- [x] **Step 3: Add a small resolver with explicit heuristics**
 
 ```python
 from __future__ import annotations
@@ -236,7 +236,7 @@ def resolve_planning_mode(trigger: RunTrigger) -> Dict[str, object]:
     return {"planning_mode": "task_driven", "profile_source": "default_task"}
 ```
 
-- [ ] **Step 4: Extend `RunStatus`-visible plan context to include planning mode**
+- [x] **Step 4: Extend `RunStatus`-visible plan context to include planning mode**
 
 ```python
 normalized = {
@@ -249,7 +249,7 @@ normalized = {
 }
 ```
 
-- [ ] **Step 5: Wire resolver output into retriever intent extraction**
+- [x] **Step 5: Wire resolver output into retriever intent extraction**
 
 ```python
 resolved = resolve_planning_mode(trigger)
@@ -265,13 +265,13 @@ return {
 }
 ```
 
-- [ ] **Step 6: Run tests to verify they pass**
+- [x] **Step 6: Run tests to verify they pass**
 
 Run: `python -m pytest -q tests/test_intent_resolver.py tests/test_planner_context.py -k planning_mode`
 
 Expected: PASS
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add agent/intent_resolver.py schemas/agent.py agent/retriever.py tests/test_intent_resolver.py tests/test_planner_context.py

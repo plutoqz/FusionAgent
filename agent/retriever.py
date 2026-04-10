@@ -3,6 +3,7 @@ from __future__ import annotations
 import re
 from typing import Any, Dict, List, Tuple
 
+from agent.intent_resolver import resolve_planning_mode
 from kg.models import (
     AlgorithmNode,
     AlgorithmParameterSpec,
@@ -39,6 +40,7 @@ class PlanningContextBuilder:
 
     @staticmethod
     def _extract_intent(job_type: JobType, trigger: RunTrigger) -> Dict[str, Any]:
+        resolved = resolve_planning_mode(trigger)
         return {
             "job_type": job_type.value,
             "trigger": trigger.model_dump(),
@@ -46,6 +48,8 @@ class PlanningContextBuilder:
             "spatial_extent": trigger.spatial_extent,
             "temporal_start": trigger.temporal_start,
             "temporal_end": trigger.temporal_end,
+            "planning_mode": resolved["planning_mode"],
+            "profile_source": resolved["profile_source"],
         }
 
     def _build_retrieval_payload(

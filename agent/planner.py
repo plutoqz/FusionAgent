@@ -180,6 +180,7 @@ class WorkflowPlanner:
             "selection_reason": selection_reason,
             "llm_provider": self.llm_provider.provider_name,
             "plan_revision": revision,
+            "planning_mode": planning_context["intent"]["planning_mode"],
         }
         if failed_step is not None:
             normalized["failed_step"] = failed_step
