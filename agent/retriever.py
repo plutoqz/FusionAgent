@@ -41,6 +41,18 @@ class PlanningContextBuilder:
     @staticmethod
     def _extract_intent(job_type: JobType, trigger: RunTrigger) -> Dict[str, Any]:
         resolved = resolve_planning_mode(trigger)
+        if resolved["planning_mode"] == "task_driven":
+            task_bundle = {
+                "bundle_id": "task_bundle.direct_request",
+                "requested_tasks": [f"task.{job_type.value}.fusion"],
+                "requires_disaster_profile": False,
+            }
+        else:
+            task_bundle = {
+                "bundle_id": f"task_bundle.{trigger.disaster_type or 'default'}",
+                "requested_tasks": [f"task.{job_type.value}.fusion"],
+                "requires_disaster_profile": True,
+            }
         return {
             "job_type": job_type.value,
             "trigger": trigger.model_dump(),
@@ -50,6 +62,7 @@ class PlanningContextBuilder:
             "temporal_end": trigger.temporal_end,
             "planning_mode": resolved["planning_mode"],
             "profile_source": resolved["profile_source"],
+            "task_bundle": task_bundle,
         }
 
     def _build_retrieval_payload(
@@ -71,6 +84,8 @@ class PlanningContextBuilder:
         payload: Dict[str, Any] = {
             "candidate_patterns": [self._pattern_to_dict(pattern) for pattern in kg_context.patterns],
             "algorithms": {algo_id: self._algo_to_dict(algo) for algo_id, algo in kg_context.algorithms.items()},
+            "task_nodes": [self._task_node_to_dict(task) for task in kg_context.task_nodes],
+            "scenario_profiles": [self._scenario_profile_to_dict(item) for item in kg_context.scenario_profiles],
             "parameter_specs": {
                 algo_id: [self._parameter_spec_to_dict(spec) for spec in specs]
                 for algo_id, specs in kg_context.parameter_specs.items()
@@ -248,6 +263,27 @@ class PlanningContextBuilder:
             "repaired_count": summary.repaired_count,
             "last_run_at": summary.last_run_at,
             "last_failure_reason": summary.last_failure_reason,
+        }
+
+    @staticmethod
+    def _task_node_to_dict(task) -> Dict[str, Any]:
+        return {
+            "task_id": task.task_id,
+            "task_name": task.task_name,
+            "category": task.category,
+            "description": task.description,
+        }
+
+    @staticmethod
+    def _scenario_profile_to_dict(profile) -> Dict[str, Any]:
+        return {
+            "profile_id": profile.profile_id,
+            "profile_name": profile.profile_name,
+            "disaster_types": profile.disaster_types,
+            "activated_tasks": profile.activated_tasks,
+            "preferred_output_fields": profile.preferred_output_fields,
+            "qos_priority": profile.qos_priority,
+            "metadata": profile.metadata,
         }
 
     @staticmethod

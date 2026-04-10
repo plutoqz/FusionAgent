@@ -285,7 +285,7 @@ git commit -m "feat: add dual-entry planning mode resolution"
 - Modify: `E:\vscode\fusionAgent\agent\planner.py`
 - Create: `E:\vscode\fusionAgent\tests\test_task_bundle_context.py`
 
-- [ ] **Step 1: Write the failing test for task bundle exposure**
+- [x] **Step 1: Write the failing test for task bundle exposure**
 
 ```python
 from agent.retriever import PlanningContextBuilder
@@ -307,13 +307,13 @@ def test_retrieval_payload_contains_task_bundle_for_task_driven_request() -> Non
     assert context["intent"]["task_bundle"]["bundle_id"] == "task_bundle.direct_request"
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `python -m pytest -q tests/test_task_bundle_context.py`
 
 Expected: FAIL because `task_bundle` is absent
 
-- [ ] **Step 3: Add a minimal task bundle payload in retriever intent extraction**
+- [x] **Step 3: Add a minimal task bundle payload in retriever intent extraction**
 
 ```python
 if resolved["planning_mode"] == "task_driven":
@@ -330,7 +330,7 @@ else:
     }
 ```
 
-- [ ] **Step 4: Surface scenario profiles and task nodes in retrieval payload**
+- [x] **Step 4: Surface scenario profiles and task nodes in retrieval payload**
 
 ```python
 payload: Dict[str, Any] = {
@@ -345,7 +345,7 @@ payload: Dict[str, Any] = {
 }
 ```
 
-- [ ] **Step 5: Preserve the new fields when normalizing planner context**
+- [x] **Step 5: Preserve the new fields when normalizing planner context**
 
 ```python
 plan.context = self._normalize_plan_context(
@@ -357,13 +357,13 @@ plan.context = self._normalize_plan_context(
 
 Use the existing normalization path and verify the new `intent.task_bundle`, `retrieval.task_nodes`, and `retrieval.scenario_profiles` survive round-trip unchanged.
 
-- [ ] **Step 6: Run tests to verify they pass**
+- [x] **Step 6: Run tests to verify they pass**
 
 Run: `python -m pytest -q tests/test_task_bundle_context.py tests/test_planner_context.py -k task_bundle`
 
 Expected: PASS
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add agent/retriever.py agent/planner.py tests/test_task_bundle_context.py tests/test_planner_context.py
