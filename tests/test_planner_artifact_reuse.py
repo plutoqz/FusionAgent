@@ -60,7 +60,7 @@ class CapturingProvider(LLMProvider):
 
 def test_planner_context_includes_reusable_artifact_candidates(tmp_path: Path) -> None:
     registry = ArtifactRegistry(index_path=tmp_path / "artifact_registry.json")
-    now = datetime(2026, 4, 7, 0, 0, 0, tzinfo=timezone.utc)
+    now = datetime.now(timezone.utc)
 
     registry.register(
         ArtifactRecord(
@@ -96,7 +96,7 @@ def test_planner_context_includes_reusable_artifact_candidates(tmp_path: Path) -
 
 def test_planner_context_applies_job_type_freshness_policy_and_exposes_reuse_metadata(tmp_path: Path) -> None:
     registry = ArtifactRegistry(index_path=tmp_path / "artifact_registry.json")
-    now = datetime(2026, 4, 9, 0, 0, 0, tzinfo=timezone.utc)
+    now = datetime.now(timezone.utc)
 
     registry.register(
         ArtifactRecord(
