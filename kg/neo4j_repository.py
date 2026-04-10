@@ -461,6 +461,7 @@ class Neo4jKGRepository(KGRepository):
                 dlr.repairCount = $repair_count,
                 dlr.failureReason = $failure_reason,
                 dlr.planRevision = $plan_revision,
+                dlr.metadataJson = $metadata_json,
                 dlr.createdAt = $created_at,
                 dlr.graphNamespace = "fusionagent"
             MERGE (run)-[:HAS_DURABLE_LEARNING]->(dlr)
@@ -487,6 +488,7 @@ class Neo4jKGRepository(KGRepository):
             repair_count=record.repair_count,
             failure_reason=record.failure_reason,
             plan_revision=record.plan_revision,
+            metadata_json=(json.dumps(record.metadata, ensure_ascii=False, sort_keys=True) if record.metadata else None),
             created_at=record.created_at,
         )
 
@@ -513,6 +515,13 @@ class Neo4jKGRepository(KGRepository):
         result: List[DurableLearningRecord] = []
         for row in rows:
             dlr = row["dlr"]
+            metadata: Dict[str, object] = {}
+            raw_metadata = dlr.get("metadataJson")
+            if raw_metadata:
+                try:
+                    metadata = json.loads(str(raw_metadata))
+                except json.JSONDecodeError:
+                    metadata = {}
             result.append(
                 DurableLearningRecord(
                     record_id=str(dlr.get("recordId")),
@@ -532,6 +541,7 @@ class Neo4jKGRepository(KGRepository):
                     repair_count=int(dlr.get("repairCount", 0)),
                     failure_reason=(str(dlr.get("failureReason")) if dlr.get("failureReason") is not None else None),
                     plan_revision=int(dlr.get("planRevision", 0)),
+                    metadata=metadata,
                     created_at=(str(dlr.get("createdAt")) if dlr.get("createdAt") is not None else None),
                 )
             )

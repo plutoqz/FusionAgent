@@ -455,6 +455,9 @@ class AgentRunService:
             "selected_decisions": {
                 decision.decision_type: decision.selected_id for decision in planning_decisions
             },
+            "planning_mode": plan.context.get("planning_mode"),
+            "profile_source": plan.context.get("intent", {}).get("profile_source"),
+            "task_bundle": plan.context.get("intent", {}).get("task_bundle"),
         }
         pattern_decision = next((item for item in planning_decisions if item.decision_type == "pattern_selection"), None)
         if pattern_decision is not None:
@@ -718,6 +721,13 @@ class AgentRunService:
     ) -> None:
         try:
             output_data_type = self._extract_output_data_type(plan)
+            intent_context = plan.context.get("intent", {})
+            durable_metadata = {
+                "planning_mode": plan.context.get("planning_mode"),
+                "profile_source": intent_context.get("profile_source"),
+                "task_bundle": intent_context.get("task_bundle"),
+            }
+            durable_metadata = {key: value for key, value in durable_metadata.items() if value is not None}
             feedback = ExecutionFeedback(
                 run_id=run_id,
                 job_type=request.job_type,
@@ -748,6 +758,7 @@ class AgentRunService:
                 repair_count=len(repair_records),
                 failure_reason=failure_reason,
                 plan_revision=self._extract_plan_revision(plan),
+                metadata=durable_metadata,
                 created_at=_utc_now(),
             )
             self.kg_repo.record_durable_learning_record(durable_record)
