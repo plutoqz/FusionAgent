@@ -285,7 +285,7 @@ git commit -m "feat: add dual-entry planning mode resolution"
 - Modify: `E:\vscode\fusionAgent\agent\planner.py`
 - Create: `E:\vscode\fusionAgent\tests\test_task_bundle_context.py`
 
-- [ ] **Step 1: Write the failing test for task bundle exposure**
+- [x] **Step 1: Write the failing test for task bundle exposure**
 
 ```python
 from agent.retriever import PlanningContextBuilder
@@ -307,13 +307,13 @@ def test_retrieval_payload_contains_task_bundle_for_task_driven_request() -> Non
     assert context["intent"]["task_bundle"]["bundle_id"] == "task_bundle.direct_request"
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `python -m pytest -q tests/test_task_bundle_context.py`
 
 Expected: FAIL because `task_bundle` is absent
 
-- [ ] **Step 3: Add a minimal task bundle payload in retriever intent extraction**
+- [x] **Step 3: Add a minimal task bundle payload in retriever intent extraction**
 
 ```python
 if resolved["planning_mode"] == "task_driven":
@@ -330,7 +330,7 @@ else:
     }
 ```
 
-- [ ] **Step 4: Surface scenario profiles and task nodes in retrieval payload**
+- [x] **Step 4: Surface scenario profiles and task nodes in retrieval payload**
 
 ```python
 payload: Dict[str, Any] = {
@@ -345,7 +345,7 @@ payload: Dict[str, Any] = {
 }
 ```
 
-- [ ] **Step 5: Preserve the new fields when normalizing planner context**
+- [x] **Step 5: Preserve the new fields when normalizing planner context**
 
 ```python
 plan.context = self._normalize_plan_context(
@@ -357,13 +357,13 @@ plan.context = self._normalize_plan_context(
 
 Use the existing normalization path and verify the new `intent.task_bundle`, `retrieval.task_nodes`, and `retrieval.scenario_profiles` survive round-trip unchanged.
 
-- [ ] **Step 6: Run tests to verify they pass**
+- [x] **Step 6: Run tests to verify they pass**
 
 Run: `python -m pytest -q tests/test_task_bundle_context.py tests/test_planner_context.py -k task_bundle`
 
 Expected: PASS
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add agent/retriever.py agent/planner.py tests/test_task_bundle_context.py tests/test_planner_context.py
@@ -374,10 +374,12 @@ git commit -m "feat: add task bundle context for dual-entry planning"
 
 **Files:**
 - Modify: `E:\vscode\fusionAgent\services\agent_run_service.py`
-- Modify: `E:\vscode\fusionAgent\schemas\agent.py`
+- Modify: `E:\vscode\fusionAgent\kg\models.py`
+- Modify: `E:\vscode\fusionAgent\kg\neo4j_repository.py`
 - Test: `E:\vscode\fusionAgent\tests\test_agent_run_service_enhancements.py`
+- Test: `E:\vscode\fusionAgent\tests\test_neo4j_repository.py`
 
-- [ ] **Step 1: Write the failing test for planning-mode visibility in run status**
+- [x] **Step 1: Write the failing test for planning-mode visibility in run status**
 
 ```python
 def test_run_status_records_planning_mode_and_profile_source(client):
@@ -388,13 +390,13 @@ def test_run_status_records_planning_mode_and_profile_source(client):
     assert inspection["plan"]["context"]["intent"]["profile_source"] in {"disaster_type", "direct_task", "default_task"}
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `python -m pytest -q tests/test_agent_run_service_enhancements.py -k planning_mode`
 
 Expected: FAIL because runtime evidence does not yet assert the new fields
 
-- [ ] **Step 3: Include planning-mode details in planning-stage audit details**
+- [x] **Step 3: Include planning-mode details in planning-stage audit details**
 
 ```python
 event_details = {
@@ -409,7 +411,7 @@ event_details = {
 }
 ```
 
-- [ ] **Step 4: Record the same fields in durable learning metadata**
+- [x] **Step 4: Record the same fields in durable learning metadata**
 
 ```python
 durable_record = DurableLearningRecord(
@@ -434,16 +436,16 @@ durable_record = DurableLearningRecord(
 
 Keep the existing record shape, but add the planning-mode fields into the record metadata JSON if you add one. Do not break repository readers by renaming existing attributes.
 
-- [ ] **Step 5: Run tests to verify they pass**
+- [x] **Step 5: Run tests to verify they pass**
 
 Run: `python -m pytest -q tests/test_agent_run_service_enhancements.py -k planning_mode`
 
 Expected: PASS
 
-- [ ] **Step 6: Commit**
+- [x] **Step 6: Commit**
 
 ```bash
-git add services/agent_run_service.py schemas/agent.py tests/test_agent_run_service_enhancements.py
+git add kg/models.py kg/neo4j_repository.py services/agent_run_service.py tests/test_agent_run_service_enhancements.py tests/test_neo4j_repository.py
 git commit -m "feat: persist planning mode in runtime evidence"
 ```
 
@@ -455,7 +457,7 @@ git commit -m "feat: persist planning mode in runtime evidence"
 - Modify: `E:\vscode\fusionAgent\文档\完整项目上下文文档.md`
 - Test: documentation review plus targeted smoke tests
 
-- [ ] **Step 1: Add a concise architecture note to `README.md`**
+- [x] **Step 1: Add a concise architecture note to `README.md`**
 
 ```md
 ## Thesis Alignment Note
@@ -468,7 +470,7 @@ FusionAgent now distinguishes:
 The runtime supports both scenario-driven and task-driven entry modes.
 ```
 
-- [ ] **Step 2: Add an explicit “paper ontology vs executable ontology” section to the Chinese ontology doc**
+- [x] **Step 2: Add an explicit “paper ontology vs executable ontology” section to the Chinese ontology doc**
 
 ```md
 ## 执行本体与论文本体映射
@@ -478,13 +480,13 @@ The runtime supports both scenario-driven and task-driven entry modes.
 - 映射原则：先保证可执行，再逐步补足语义层
 ```
 
-- [ ] **Step 3: Update the project context doc to replace “algorithm-disaster-data” wording**
+- [x] **Step 3: Update the project context doc to replace “algorithm-disaster-data” wording**
 
 ```md
 后续统一采用“算法-任务-数据”作为核心执行三元，灾害通过 `ScenarioProfile` 进入系统，影响任务激活、数据需求、参数偏好、输出要求与评测权重。
 ```
 
-- [ ] **Step 4: Run targeted smoke and doc-consistency checks**
+- [x] **Step 4: Run targeted smoke and doc-consistency checks**
 
 Run:
 
@@ -499,10 +501,10 @@ Then manually verify that:
 - `README.md` and the Chinese docs use the same terms for `task-driven`, `scenario-driven`, `TaskBundle`, and `ScenarioProfile`
 - no doc still claims the core triad is “algorithm-disaster-data”
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
-git add README.md 文档/GeoFusion\ 知识图谱本体模式层设计方案.md 文档/完整项目上下文文档.md tests/test_planner_context.py tests/test_intent_resolver.py tests/test_task_bundle_context.py
+git add README.md docs/superpowers/plans/2026-04-10-thesis-aligned-agent-architecture.md 文档/GeoFusion\ 知识图谱本体模式层设计方案.md 文档/完整项目上下文文档.md tests/test_planner_context.py tests/test_intent_resolver.py tests/test_task_bundle_context.py
 git commit -m "docs: align thesis narrative with executable architecture"
 ```
 

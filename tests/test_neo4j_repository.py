@@ -137,6 +137,7 @@ def test_record_durable_learning_record_emits_managed_summary_node() -> None:
             repaired=False,
             repair_count=0,
             plan_revision=1,
+            metadata={"planning_mode": "task_driven", "profile_source": "default_task"},
             created_at="2026-04-09T00:00:00+00:00",
         )
     )
@@ -145,6 +146,7 @@ def test_record_durable_learning_record_emits_managed_summary_node() -> None:
     assert "DurableLearningRecord" in captured[0][0]
     assert captured[0][1]["record_id"] == "dlr-1"
     assert captured[0][1]["output_data_type"] == "dt.building.fused"
+    assert '"planning_mode": "task_driven"' in captured[0][1]["metadata_json"]
 
 
 def test_list_durable_learning_records_maps_rows_from_fake_driver() -> None:
@@ -177,6 +179,7 @@ def test_list_durable_learning_records_maps_rows_from_fake_driver() -> None:
                         "repairCount": 2,
                         "failureReason": "RuntimeError: still failing",
                         "planRevision": 2,
+                        "metadataJson": "{\"planning_mode\": \"scenario_driven\", \"profile_source\": \"disaster_type\"}",
                         "createdAt": "2026-04-09T02:00:00+00:00",
                     }
                 }
@@ -209,6 +212,7 @@ def test_list_durable_learning_records_maps_rows_from_fake_driver() -> None:
             repair_count=2,
             failure_reason="RuntimeError: still failing",
             plan_revision=2,
+            metadata={"planning_mode": "scenario_driven", "profile_source": "disaster_type"},
             created_at="2026-04-09T02:00:00+00:00",
         )
     ]

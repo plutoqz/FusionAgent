@@ -64,11 +64,20 @@ def _build_plan(
         workflow_id=workflow_id,
         trigger=RunTrigger(type=RunTriggerType.user_query, content="building"),
         context={
-            "intent": {"job_type": "building"},
+            "intent": {
+                "job_type": "building",
+                "profile_source": "default_task",
+                "task_bundle": {
+                    "bundle_id": "task_bundle.direct_request",
+                    "requested_tasks": ["task.building.fusion"],
+                    "requires_disaster_profile": False,
+                },
+            },
             "retrieval": retrieval,
             "selection_reason": "initial" if revision == 1 else "replanned_after_failure",
             "llm_provider": "mock",
             "plan_revision": revision,
+            "planning_mode": "task_driven",
         },
         tasks=[
             WorkflowTask(
@@ -103,7 +112,15 @@ def test_agent_run_service_updates_status_and_records_feedback(tmp_path: Path, m
         workflow_id="wf_service",
         trigger=RunTrigger(type=RunTriggerType.user_query, content="building"),
         context={
-            "intent": {"job_type": "building"},
+            "intent": {
+                "job_type": "building",
+                "profile_source": "default_task",
+                "task_bundle": {
+                    "bundle_id": "task_bundle.direct_request",
+                    "requested_tasks": ["task.building.fusion"],
+                    "requires_disaster_profile": False,
+                },
+            },
             "retrieval": {
                 "candidate_patterns": [{"pattern_id": "wp.flood.building.default", "success_rate": 0.90}],
                 "reusable_artifacts": [
@@ -117,6 +134,7 @@ def test_agent_run_service_updates_status_and_records_feedback(tmp_path: Path, m
             "selection_reason": "initial",
             "llm_provider": "mock",
             "plan_revision": 1,
+            "planning_mode": "task_driven",
         },
         tasks=[
             WorkflowTask(
@@ -217,15 +235,67 @@ def test_agent_run_service_updates_status_and_records_feedback(tmp_path: Path, m
     assert service.kg_repo.durable_learning_records[-1].run_id == status.run_id
     assert service.kg_repo.durable_learning_records[-1].success is True
     assert service.kg_repo.durable_learning_records[-1].output_data_type == "dt.building.fused"
+    assert service.kg_repo.durable_learning_records[-1].metadata["planning_mode"] == "task_driven"
+    assert service.kg_repo.durable_learning_records[-1].metadata["profile_source"] == "default_task"
+    assert (
+        service.kg_repo.durable_learning_records[-1].metadata["task_bundle"]["bundle_id"]
+        == "task_bundle.direct_request"
+    )
     audit_events = service.get_audit_events(status.run_id)
     plan_created = next(event for event in audit_events if event.kind == "plan_created")
     assert plan_created.details["effective_parameters"]["1"]["match_similarity_threshold"] == 0.5
     assert plan_created.details["effective_parameters"]["1"]["one_to_one_min_overlap_similarity"] == 0.3
+    assert plan_created.details["planning_mode"] == "task_driven"
+    assert plan_created.details["profile_source"] == "default_task"
+    assert plan_created.details["task_bundle"]["bundle_id"] == "task_bundle.direct_request"
     registry_path = (tmp_path / "runs" / "artifact_registry.json")
     assert registry_path.exists()
     payload = json.loads(registry_path.read_text(encoding="utf-8"))
     records = payload.get("records", [])
     assert any(record.get("artifact_id") == status.run_id for record in records)
+
+
+def test_run_status_records_planning_mode_and_profile_source(tmp_path: Path, monkeypatch) -> None:
+    service = AgentRunService(base_dir=tmp_path / "runs")
+    osm_shp = tmp_path / "osm.shp"
+    ref_shp = tmp_path / "ref.shp"
+    fused_shp = tmp_path / "fused.shp"
+    artifact_zip = tmp_path / "artifact.zip"
+    for path in [osm_shp, ref_shp, fused_shp]:
+        path.write_text("dummy", encoding="utf-8")
+    artifact_zip.write_bytes(b"zip")
+
+    plan = _build_plan(workflow_id="wf_task_mode", revision=1)
+
+    monkeypatch.setattr("services.agent_run_service.validate_zip_has_shapefile", lambda *_args, **_kwargs: osm_shp)
+    monkeypatch.setattr(service.planner, "create_plan", lambda **_kwargs: plan.model_copy(deep=True))
+    monkeypatch.setattr(service.validator, "validate_and_repair", lambda input_plan: input_plan)
+    monkeypatch.setattr(service.executor, "execute_plan", lambda **_kwargs: fused_shp)
+    monkeypatch.setattr("services.agent_run_service.zip_shapefile_bundle", lambda *_args, **_kwargs: artifact_zip)
+
+    status = service.create_run(
+        request=RunCreateRequest(
+            job_type=JobType.building,
+            trigger=RunTrigger(type=RunTriggerType.user_query, content="need building and road data for Gilgit, Pakistan"),
+            target_crs="EPSG:32643",
+            field_mapping={},
+            debug=False,
+        ),
+        osm_zip_name="osm.zip",
+        osm_zip_bytes=_write_dummy_zip(tmp_path / "osm.zip"),
+        ref_zip_name="ref.zip",
+        ref_zip_bytes=_write_dummy_zip(tmp_path / "ref.zip"),
+    )
+
+    saved_plan = service.get_plan(status.run_id)
+    assert saved_plan is not None
+    assert saved_plan.context["planning_mode"] == "task_driven"
+    assert saved_plan.context["intent"]["profile_source"] == "default_task"
+    assert saved_plan.context["intent"]["task_bundle"]["bundle_id"] == "task_bundle.direct_request"
+    durable_record = service.kg_repo.durable_learning_records[-1]
+    assert durable_record.metadata["planning_mode"] == "task_driven"
+    assert durable_record.metadata["profile_source"] == "default_task"
+    assert durable_record.metadata["task_bundle"]["bundle_id"] == "task_bundle.direct_request"
 
 
 def test_agent_run_service_directly_reuses_existing_artifact(tmp_path: Path, monkeypatch) -> None:

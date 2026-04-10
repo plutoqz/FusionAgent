@@ -83,6 +83,25 @@ def test_planner_context_records_task_driven_mode_for_direct_data_request() -> N
     assert plan.context["planning_mode"] == "task_driven"
 
 
+def test_planner_context_exposes_task_bundle_task_nodes_and_scenario_profiles() -> None:
+    provider = CapturingProvider()
+    planner = WorkflowPlanner(InMemoryKGRepository(), provider)
+    trigger = RunTrigger(
+        type=RunTriggerType.user_query,
+        content="need building and road data for Gilgit, Pakistan",
+    )
+
+    _plan = planner.create_plan(run_id="run-task-bundle", job_type=JobType.building, trigger=trigger)
+
+    assert provider.last_context is not None
+    assert provider.last_context["intent"]["task_bundle"]["bundle_id"] == "task_bundle.direct_request"
+    assert any(item["task_id"] == "task.building.fusion" for item in provider.last_context["retrieval"]["task_nodes"])
+    assert any(
+        item["profile_id"] == "scenario.default.task"
+        for item in provider.last_context["retrieval"]["scenario_profiles"]
+    )
+
+
 def test_replan_increments_plan_revision() -> None:
     provider = CapturingProvider()
     planner = WorkflowPlanner(InMemoryKGRepository(), provider)

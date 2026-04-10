@@ -153,6 +153,7 @@ class DurableLearningRecord:
     repair_count: int = 0
     failure_reason: Optional[str] = None
     plan_revision: int = 0
+    metadata: Dict[str, Any] = field(default_factory=dict)
     created_at: Optional[str] = None
 
 

@@ -19,6 +19,21 @@ The most accurate description of the project today is:
 FusionAgent already has a credible runtime loop, but it is still not the final
 long-lived product form with a full operator UI and mature long-term learning.
 
+## Thesis Alignment Note
+
+FusionAgent now distinguishes:
+
+- executable core ontology: `Algorithm - Task - Data`
+- scenario constraint layer: disaster event, `ScenarioProfile`, data need, output requirement, QoS policy
+
+The runtime supports both `scenario-driven` and `task-driven` entry modes.
+Direct task requests can bypass disaster inference and follow default task routing.
+
+The current agent mode is best described as
+`Constrained Plan-and-Execute with Reactive Healing`:
+the LLM reasons inside KG-retrieved candidates and runtime constraints, while
+validator, policy, audit, and healing loops bound correctness and robustness.
+
 ## Implemented Capabilities
 
 ### Core Runtime
@@ -28,6 +43,8 @@ long-lived product form with a full operator UI and mature long-term learning.
 - persisted artifact bundle output
 - explicit run status, decision records, and audit trail
 - `building` and `road` job support in the v2 runtime
+- dual-entry intent routing with `task-driven` / `scenario-driven` planning modes
+- shared planning context via `TaskBundle` and `ScenarioProfile`
 
 ### Phase 1: Evaluation And Evidence Hardening
 
@@ -73,6 +90,7 @@ long-lived product form with a full operator UI and mature long-term learning.
 ### Phase 5: Long-Term Writeback And Learning Loop
 
 - each run writes a compact `DurableLearningRecord`
+- durable records now retain planning metadata such as planning mode, profile source, and task bundle
 - durable records are stored separately from verbose audit logs
 - repositories can aggregate outcome evidence by:
   - pattern
