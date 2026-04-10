@@ -15,6 +15,25 @@ class DataTypeNode:
 
 
 @dataclass
+class TaskNode:
+    task_id: str
+    task_name: str
+    category: str
+    description: str = ""
+
+
+@dataclass
+class ScenarioProfileNode:
+    profile_id: str
+    profile_name: str
+    disaster_types: List[str]
+    activated_tasks: List[str] = field(default_factory=list)
+    preferred_output_fields: List[str] = field(default_factory=list)
+    qos_priority: Dict[str, float] = field(default_factory=dict)
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
 class AlgorithmNode:
     algo_id: str
     algo_name: str
@@ -159,4 +178,6 @@ class KGContext:
     data_sources: List[DataSourceNode] = field(default_factory=list)
     output_schema_policies: Dict[str, OutputSchemaPolicy] = field(default_factory=dict)
     durable_learning_summaries: Dict[str, List[DurableLearningSummary]] = field(default_factory=dict)
+    task_nodes: List[TaskNode] = field(default_factory=list)
+    scenario_profiles: List[ScenarioProfileNode] = field(default_factory=list)
     disaster_type: Optional[str] = None

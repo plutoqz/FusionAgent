@@ -15,11 +15,21 @@ from kg.models import (
     ExecutionFeedback,
     KGContext,
     OutputSchemaPolicy,
+    ScenarioProfileNode,
+    TaskNode,
     WorkflowPatternNode,
 )
 
 
 class KGRepository(ABC):
+    @abstractmethod
+    def list_task_nodes(self) -> List[TaskNode]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_scenario_profiles(self, disaster_type: Optional[str]) -> List[ScenarioProfileNode]:
+        raise NotImplementedError
+
     @abstractmethod
     def get_candidate_patterns(
         self,

@@ -3,6 +3,17 @@ from kg.models import DurableLearningRecord, DurableLearningSummary, ExecutionFe
 from schemas.fusion import JobType
 
 
+def test_build_context_exposes_task_nodes_and_scenario_profiles() -> None:
+    repo = InMemoryKGRepository()
+
+    context = repo.build_context(job_type=JobType.building, disaster_type="flood")
+
+    assert context.task_nodes
+    assert any(task.task_id == "task.building.fusion" for task in context.task_nodes)
+    assert context.scenario_profiles
+    assert any(profile.profile_id == "scenario.flood.default" for profile in context.scenario_profiles)
+
+
 def test_inmemory_repository_returns_ranked_data_sources() -> None:
     repo = InMemoryKGRepository()
 
