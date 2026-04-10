@@ -14,6 +14,8 @@ from kg.seed import (
     DATA_TYPES,
     OUTPUT_SCHEMA_POLICIES,
     PARAMETER_SPECS,
+    SCENARIO_PROFILES,
+    TASKS,
     WORKFLOW_PATTERNS,
 )
 from utils.local_runtime import apply_local_dependency_defaults
@@ -44,9 +46,11 @@ def build_bootstrap_cypher() -> str:
         "",
         _build_schema_section(),
         _build_datatype_section(),
+        _build_task_section(),
         _build_algorithm_section(),
         _build_parameter_spec_section(),
         _build_datasource_section(),
+        _build_scenario_profile_section(),
         _build_output_schema_policy_section(),
         _build_pattern_section(),
         _build_transform_section(),
@@ -75,6 +79,10 @@ def _build_schema_section() -> str:
             "FOR (osp:OutputSchemaPolicy) REQUIRE osp.policyId IS UNIQUE;",
             "CREATE CONSTRAINT datatype_type_id IF NOT EXISTS",
             "FOR (dt:DataType) REQUIRE dt.typeId IS UNIQUE;",
+            "CREATE CONSTRAINT task_task_id IF NOT EXISTS",
+            "FOR (task:Task) REQUIRE task.taskId IS UNIQUE;",
+            "CREATE CONSTRAINT scenario_profile_profile_id IF NOT EXISTS",
+            "FOR (profile:ScenarioProfile) REQUIRE profile.profileId IS UNIQUE;",
             "CREATE CONSTRAINT step_template_step_key IF NOT EXISTS",
             "FOR (st:StepTemplate) REQUIRE st.stepKey IS UNIQUE;",
             "CREATE CONSTRAINT workflow_instance_instance_id IF NOT EXISTS",
@@ -96,6 +104,24 @@ def _build_datatype_section() -> str:
             f"MERGE (dt:DataType {{{_merge_properties({'typeId': data_type.type_id})}}}) "
             f"SET dt:{MANAGED_LABEL} "
             f"SET dt += {{{_merge_properties({'theme': data_type.theme, 'geometryType': data_type.geometry_type, 'description': data_type.description, 'graphNamespace': GRAPH_NAMESPACE})}}};"
+        )
+    return _statement_lines(lines)
+
+
+def _build_task_section() -> str:
+    lines = ["// Seed Task nodes"]
+    for task in TASKS.values():
+        properties = {
+            "taskId": task.task_id,
+            "taskName": task.task_name,
+            "category": task.category,
+            "description": task.description,
+            "graphNamespace": GRAPH_NAMESPACE,
+        }
+        lines.append(
+            f"MERGE (task:Task {{{_merge_properties({'taskId': task.task_id})}}}) "
+            f"SET task:{MANAGED_LABEL} "
+            f"SET task += {{{_merge_properties(properties)}}};"
         )
     return _statement_lines(lines)
 
@@ -190,6 +216,27 @@ def _build_datasource_section() -> str:
             f"MERGE (ds:DataSource {{{_merge_properties({'sourceId': source.source_id})}}}) "
             f"SET ds:{MANAGED_LABEL} "
             f"SET ds += {{{_merge_properties(properties)}}};"
+        )
+    return _statement_lines(lines)
+
+
+def _build_scenario_profile_section() -> str:
+    lines = ["// Seed ScenarioProfile nodes"]
+    for profile in SCENARIO_PROFILES:
+        properties = {
+            "profileId": profile.profile_id,
+            "profileName": profile.profile_name,
+            "disasterTypes": profile.disaster_types,
+            "activatedTasks": profile.activated_tasks,
+            "preferredOutputFields": profile.preferred_output_fields,
+            "qosPriorityJson": json.dumps(profile.qos_priority, ensure_ascii=False),
+            "metadataJson": json.dumps(profile.metadata, ensure_ascii=False),
+            "graphNamespace": GRAPH_NAMESPACE,
+        }
+        lines.append(
+            f"MERGE (profile:ScenarioProfile {{{_merge_properties({'profileId': profile.profile_id})}}}) "
+            f"SET profile:{MANAGED_LABEL} "
+            f"SET profile += {{{_merge_properties(properties)}}};"
         )
     return _statement_lines(lines)
 

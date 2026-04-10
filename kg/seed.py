@@ -11,6 +11,8 @@ from kg.models import (
     DataTypeNode,
     OutputSchemaPolicy,
     PatternStep,
+    ScenarioProfileNode,
+    TaskNode,
     WorkflowPatternNode,
 )
 
@@ -47,6 +49,68 @@ DATA_TYPES: Dict[str, DataTypeNode] = {
         description="Fused road output.",
     ),
 }
+
+
+TASKS: Dict[str, TaskNode] = {
+    "task.building.fusion": TaskNode(
+        task_id="task.building.fusion",
+        task_name="Building Fusion",
+        category="fusion",
+        description="Fuse multiple building vector sources into one output.",
+    ),
+    "task.road.fusion": TaskNode(
+        task_id="task.road.fusion",
+        task_name="Road Fusion",
+        category="fusion",
+        description="Fuse multiple road vector sources into one output.",
+    ),
+    "task.vector.download": TaskNode(
+        task_id="task.vector.download",
+        task_name="Vector Data Download",
+        category="acquisition",
+        description="Acquire vector data required by downstream fusion or enrichment tasks.",
+    ),
+}
+
+
+SCENARIO_PROFILES: List[ScenarioProfileNode] = [
+    ScenarioProfileNode(
+        profile_id="scenario.flood.default",
+        profile_name="Flood Default Scenario",
+        disaster_types=["flood"],
+        activated_tasks=["task.building.fusion", "task.road.fusion"],
+        preferred_output_fields=["geometry", "confidence", "timestamp"],
+        qos_priority={"accuracy": 0.35, "stability": 0.25, "freshness": 0.25, "speed": 0.15},
+        metadata={"entry_mode": "scenario_driven"},
+    ),
+    ScenarioProfileNode(
+        profile_id="scenario.earthquake.default",
+        profile_name="Earthquake Default Scenario",
+        disaster_types=["earthquake"],
+        activated_tasks=["task.building.fusion", "task.road.fusion"],
+        preferred_output_fields=["geometry", "confidence", "timestamp"],
+        qos_priority={"accuracy": 0.4, "stability": 0.3, "freshness": 0.15, "speed": 0.15},
+        metadata={"entry_mode": "scenario_driven"},
+    ),
+    ScenarioProfileNode(
+        profile_id="scenario.typhoon.default",
+        profile_name="Typhoon Default Scenario",
+        disaster_types=["typhoon"],
+        activated_tasks=["task.building.fusion", "task.road.fusion"],
+        preferred_output_fields=["geometry", "confidence", "timestamp"],
+        qos_priority={"accuracy": 0.3, "stability": 0.25, "freshness": 0.3, "speed": 0.15},
+        metadata={"entry_mode": "scenario_driven"},
+    ),
+    ScenarioProfileNode(
+        profile_id="scenario.default.task",
+        profile_name="Default Direct Task Profile",
+        disaster_types=["generic"],
+        activated_tasks=["task.building.fusion", "task.road.fusion", "task.vector.download"],
+        preferred_output_fields=["geometry"],
+        qos_priority={"accuracy": 0.35, "stability": 0.25, "freshness": 0.2, "speed": 0.2},
+        metadata={"entry_mode": "task_driven"},
+    ),
+]
 
 
 ALGORITHMS: Dict[str, AlgorithmNode] = {

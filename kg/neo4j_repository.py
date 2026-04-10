@@ -16,6 +16,8 @@ from kg.models import (
     KGContext,
     OutputSchemaPolicy,
     PatternStep,
+    ScenarioProfileNode,
+    TaskNode,
     WorkflowPatternNode,
 )
 from kg.repository import KGRepository
@@ -70,6 +72,52 @@ class Neo4jKGRepository(KGRepository):
                 return {}
             return payload if isinstance(payload, dict) else {}
         return {}
+
+    def list_task_nodes(self) -> List[TaskNode]:
+        rows = self._execute(
+            f"""
+            MATCH (task:Task:{MANAGED_LABEL})
+            RETURN task
+            ORDER BY task.taskId ASC
+            """
+        )
+        return [
+            TaskNode(
+                task_id=str(row["task"].get("taskId")),
+                task_name=str(row["task"].get("taskName", row["task"].get("taskId"))),
+                category=str(row["task"].get("category", "unknown")),
+                description=str(row["task"].get("description", "")),
+            )
+            for row in rows
+        ]
+
+    def get_scenario_profiles(self, disaster_type: Optional[str]) -> List[ScenarioProfileNode]:
+        rows = self._execute(
+            f"""
+            MATCH (profile:ScenarioProfile:{MANAGED_LABEL})
+            WHERE $disaster_type IS NULL
+               OR $disaster_type IN profile.disasterTypes
+               OR "generic" IN profile.disasterTypes
+            RETURN profile
+            ORDER BY profile.profileId ASC
+            """,
+            disaster_type=(disaster_type or None),
+        )
+        result: List[ScenarioProfileNode] = []
+        for row in rows:
+            profile = row["profile"]
+            result.append(
+                ScenarioProfileNode(
+                    profile_id=str(profile.get("profileId")),
+                    profile_name=str(profile.get("profileName", profile.get("profileId"))),
+                    disaster_types=list(profile.get("disasterTypes", [])),
+                    activated_tasks=list(profile.get("activatedTasks", [])),
+                    preferred_output_fields=list(profile.get("preferredOutputFields", [])),
+                    qos_priority=self._parse_metadata_json(profile.get("qosPriorityJson")),
+                    metadata=self._parse_metadata_json(profile.get("metadataJson")),
+                )
+            )
+        return result
 
     def get_candidate_patterns(
         self,
@@ -520,5 +568,7 @@ class Neo4jKGRepository(KGRepository):
                 disaster_type=disaster_type,
                 limit=5,
             ),
+            task_nodes=self.list_task_nodes(),
+            scenario_profiles=self.get_scenario_profiles(disaster_type),
             disaster_type=disaster_type,
         )

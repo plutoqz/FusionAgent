@@ -63,6 +63,24 @@ def test_planner_builds_stable_context_fields() -> None:
     assert set(plan.context.keys()) >= {"intent", "retrieval", "selection_reason", "llm_provider", "plan_revision"}
     assert plan.context["plan_revision"] == 1
     assert plan.context["llm_provider"] == "capturing"
+    assert plan.context["planning_mode"] == "scenario_driven"
+    assert plan.context["intent"]["profile_source"] == "disaster_type"
+
+
+def test_planner_context_records_task_driven_mode_for_direct_data_request() -> None:
+    provider = CapturingProvider()
+    planner = WorkflowPlanner(InMemoryKGRepository(), provider)
+    trigger = RunTrigger(
+        type=RunTriggerType.user_query,
+        content="need building and road data for Gilgit, Pakistan",
+    )
+
+    plan = planner.create_plan(run_id="run-task-driven", job_type=JobType.building, trigger=trigger)
+
+    assert provider.last_context is not None
+    assert provider.last_context["intent"]["planning_mode"] == "task_driven"
+    assert provider.last_context["intent"]["profile_source"] == "direct_task"
+    assert plan.context["planning_mode"] == "task_driven"
 
 
 def test_replan_increments_plan_revision() -> None:

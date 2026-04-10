@@ -13,10 +13,21 @@ from kg.models import (
     ExecutionFeedback,
     KGContext,
     OutputSchemaPolicy,
+    ScenarioProfileNode,
+    TaskNode,
     WorkflowPatternNode,
 )
 from kg.repository import KGRepository
-from kg.seed import ALGORITHMS, CAN_TRANSFORM_TO, DATA_SOURCES, OUTPUT_SCHEMA_POLICIES, PARAMETER_SPECS, WORKFLOW_PATTERNS
+from kg.seed import (
+    ALGORITHMS,
+    CAN_TRANSFORM_TO,
+    DATA_SOURCES,
+    OUTPUT_SCHEMA_POLICIES,
+    PARAMETER_SPECS,
+    SCENARIO_PROFILES,
+    TASKS,
+    WORKFLOW_PATTERNS,
+)
 
 
 class InMemoryKGRepository(KGRepository):
@@ -28,6 +39,8 @@ class InMemoryKGRepository(KGRepository):
         data_sources: Optional[List[DataSourceNode]] = None,
         parameter_specs: Optional[Dict[str, List[AlgorithmParameterSpec]]] = None,
         output_schema_policies: Optional[Dict[str, OutputSchemaPolicy]] = None,
+        task_nodes: Optional[Dict[str, TaskNode]] = None,
+        scenario_profiles: Optional[List[ScenarioProfileNode]] = None,
     ) -> None:
         self.algorithms = ALGORITHMS if algorithms is None else algorithms
         self.patterns = WORKFLOW_PATTERNS if patterns is None else patterns
@@ -35,11 +48,27 @@ class InMemoryKGRepository(KGRepository):
         self.data_sources = DATA_SOURCES if data_sources is None else data_sources
         self.parameter_specs = PARAMETER_SPECS if parameter_specs is None else parameter_specs
         self.output_schema_policies = OUTPUT_SCHEMA_POLICIES if output_schema_policies is None else output_schema_policies
+        self.task_nodes = TASKS if task_nodes is None else task_nodes
+        self.scenario_profiles = SCENARIO_PROFILES if scenario_profiles is None else scenario_profiles
         self.feedback_history: List[ExecutionFeedback] = []
         self.durable_learning_records: List[DurableLearningRecord] = []
         self._pattern_scores: Dict[str, float] = {}
         self._algorithm_scores: Dict[str, float] = {}
         self._data_source_scores: Dict[str, float] = {}
+
+    def list_task_nodes(self) -> List[TaskNode]:
+        return list(self.task_nodes.values())
+
+    def get_scenario_profiles(self, disaster_type: Optional[str]) -> List[ScenarioProfileNode]:
+        dtype = (disaster_type or "generic").lower()
+        profiles = [
+            profile
+            for profile in self.scenario_profiles
+            if dtype in (item.lower() for item in profile.disaster_types)
+            or "generic" in (item.lower() for item in profile.disaster_types)
+        ]
+        profiles.sort(key=lambda item: item.profile_id)
+        return profiles
 
     def get_candidate_patterns(
         self,
@@ -216,5 +245,7 @@ class InMemoryKGRepository(KGRepository):
                 disaster_type=disaster_type,
                 limit=5,
             ),
+            task_nodes=self.list_task_nodes(),
+            scenario_profiles=self.get_scenario_profiles(disaster_type),
             disaster_type=disaster_type,
         )
