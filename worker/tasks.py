@@ -100,8 +100,8 @@ def writeback_run_task(
 def execute_run_task(
     run_id: str,
     request: Dict[str, Any],
-    osm_zip_path: str,
-    ref_zip_path: str,
+    osm_zip_path: str | None,
+    ref_zip_path: str | None,
     intermediate_dir: str,
     output_dir: str,
     log_dir: str,
@@ -112,8 +112,8 @@ def execute_run_task(
     agent_run_service.execute_run(
         run_id=run_id,
         request=run_request,
-        osm_zip_path=Path(osm_zip_path),
-        ref_zip_path=Path(ref_zip_path),
+        osm_zip_path=Path(osm_zip_path) if osm_zip_path else None,
+        ref_zip_path=Path(ref_zip_path) if ref_zip_path else None,
         intermediate_dir=Path(intermediate_dir),
         output_dir=Path(output_dir),
         log_dir=Path(log_dir),

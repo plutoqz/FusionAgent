@@ -28,6 +28,7 @@ from schemas.agent import (
     RunEvent,
     RunArtifactMeta,
     RunCreateRequest,
+    RunInputStrategy,
     RunPhase,
     RunStatus,
     WorkflowPlan,
@@ -35,6 +36,8 @@ from schemas.agent import (
 from services.artifact_registry import ArtifactRecord, ArtifactRegistry
 from services.artifact_reuse_policy import get_artifact_reuse_max_age_seconds
 from services.artifact_reuse_service import ArtifactReuseService, ReuseResult
+from services.input_acquisition_service import InputAcquisitionService, ResolvedRunInputs
+from services.local_bundle_catalog import LocalBundleCatalogProvider
 from utils.crs import normalize_target_crs
 from utils.shp_zip import validate_zip_has_shapefile, zip_shapefile_bundle
 
@@ -74,6 +77,11 @@ class AgentRunService:
         self.kg_repo = kg_repo or self._create_kg_repo()
         self.llm_provider = create_llm_provider()
         self.artifact_registry = ArtifactRegistry(index_path=self.base_dir / "artifact_registry.json")
+        self.input_acquisition_service = InputAcquisitionService(
+            registry=self.artifact_registry,
+            providers=self._build_input_bundle_providers(),
+            cache_dir=self.base_dir / "input_bundle_cache",
+        )
         self.artifact_reuse_service = ArtifactReuseService(self.artifact_registry)
         self.planner = WorkflowPlanner(self.kg_repo, self.llm_provider, artifact_registry=self.artifact_registry)
         self.validator = WorkflowValidator(self.kg_repo)
@@ -93,10 +101,10 @@ class AgentRunService:
     def create_run(
         self,
         request: RunCreateRequest,
-        osm_zip_name: str,
-        osm_zip_bytes: bytes,
-        ref_zip_name: str,
-        ref_zip_bytes: bytes,
+        osm_zip_name: str | None,
+        osm_zip_bytes: bytes | None,
+        ref_zip_name: str | None,
+        ref_zip_bytes: bytes | None,
     ) -> RunStatus:
         run_id = uuid.uuid4().hex
         run_dir = self.base_dir / run_id
@@ -107,10 +115,20 @@ class AgentRunService:
         for directory in [input_dir, intermediate_dir, output_dir, log_dir]:
             directory.mkdir(parents=True, exist_ok=True)
 
-        osm_zip_path = input_dir / (Path(osm_zip_name).name or "osm.zip")
-        ref_zip_path = input_dir / (Path(ref_zip_name).name or "ref.zip")
-        osm_zip_path.write_bytes(osm_zip_bytes)
-        ref_zip_path.write_bytes(ref_zip_bytes)
+        osm_zip_path: Path | None = None
+        ref_zip_path: Path | None = None
+        if request.input_strategy == RunInputStrategy.uploaded:
+            if not osm_zip_name or osm_zip_bytes is None or not ref_zip_name or ref_zip_bytes is None:
+                raise ValueError("uploaded input strategy requires both osm/ref zip bundles")
+            osm_zip_path = input_dir / (Path(osm_zip_name).name or "osm.zip")
+            ref_zip_path = input_dir / (Path(ref_zip_name).name or "ref.zip")
+            osm_zip_path.write_bytes(osm_zip_bytes)
+            ref_zip_path.write_bytes(ref_zip_bytes)
+        elif request.input_strategy == RunInputStrategy.task_driven_auto:
+            if any(value is not None for value in (osm_zip_name, osm_zip_bytes, ref_zip_name, ref_zip_bytes)):
+                raise ValueError("task_driven_auto input strategy does not accept uploaded zip bundles")
+        else:
+            raise ValueError(f"Unsupported input strategy: {request.input_strategy}")
         self._persist_request(run_dir / "request.json", request)
 
         status = RunStatus(
@@ -155,8 +173,9 @@ class AgentRunService:
                     current_step=None,
                     details={
                         "request_path": str(run_dir / "request.json"),
-                        "osm_zip_name": osm_zip_path.name,
-                        "ref_zip_name": ref_zip_path.name,
+                        "input_strategy": request.input_strategy.value,
+                        "osm_zip_name": osm_zip_path.name if osm_zip_path is not None else None,
+                        "ref_zip_name": ref_zip_path.name if ref_zip_path is not None else None,
                     },
                 ),
             )
@@ -189,8 +208,8 @@ class AgentRunService:
         self,
         run_id: str,
         request: RunCreateRequest,
-        osm_zip_path: Path,
-        ref_zip_path: Path,
+        osm_zip_path: Path | None,
+        ref_zip_path: Path | None,
         intermediate_dir: Path,
         output_dir: Path,
         log_dir: Path,
@@ -268,6 +287,39 @@ class AgentRunService:
                     reuse_result.source_record.artifact_id,
                 )
                 return
+
+            input_dir = intermediate_dir.parent / "input"
+            osm_zip_path, ref_zip_path, resolved_inputs = self._resolve_execution_inputs(
+                request=request,
+                plan=plan,
+                input_dir=input_dir,
+                osm_zip_path=osm_zip_path,
+                ref_zip_path=ref_zip_path,
+            )
+            if resolved_inputs is not None:
+                self._update_status(
+                    run_id,
+                    RunPhase.running,
+                    progress=50,
+                    plan_revision=self._extract_plan_revision(plan),
+                    event_kind="task_inputs_resolved",
+                    event_message="Task-driven input bundles prepared for execution.",
+                    event_details={
+                        "input_strategy": request.input_strategy.value,
+                        "source_mode": resolved_inputs.source_mode,
+                        "source_id": resolved_inputs.source_id,
+                        "cache_hit": resolved_inputs.cache_hit,
+                        "version_token": resolved_inputs.version_token,
+                        "osm_zip_name": resolved_inputs.osm_zip_path.name,
+                        "ref_zip_name": resolved_inputs.ref_zip_path.name,
+                    },
+                )
+                logger.info(
+                    "Task-driven inputs resolved: mode=%s source_id=%s cache_hit=%s",
+                    resolved_inputs.source_mode,
+                    resolved_inputs.source_id,
+                    resolved_inputs.cache_hit,
+                )
 
             while True:
                 try:
@@ -544,6 +596,35 @@ class AgentRunService:
         self._persist_plan(self._plan_path(run_id), plan)
         return fused_shp, repair_records
 
+    def _resolve_execution_inputs(
+        self,
+        *,
+        request: RunCreateRequest,
+        plan: WorkflowPlan,
+        input_dir: Path,
+        osm_zip_path: Path | None,
+        ref_zip_path: Path | None,
+    ) -> tuple[Path, Path, ResolvedRunInputs | None]:
+        if osm_zip_path is not None and ref_zip_path is not None:
+            return osm_zip_path, ref_zip_path, None
+        if request.input_strategy == RunInputStrategy.uploaded:
+            raise ValueError("uploaded input strategy requires persisted input bundles before execution")
+
+        source_id = self._resolve_task_driven_source_id(plan)
+        if not source_id:
+            raise ValueError("task-driven input strategy could not resolve a source_id from the plan")
+        required_output_type = self._extract_required_input_data_type(plan)
+        if not required_output_type:
+            raise ValueError("task-driven input strategy could not resolve the required input data type")
+
+        resolved = self.input_acquisition_service.resolve_task_driven_inputs(
+            request=request,
+            source_id=source_id,
+            required_output_type=required_output_type,
+            input_dir=input_dir,
+        )
+        return resolved.osm_zip_path, resolved.ref_zip_path, resolved
+
     def run_writeback_stage(
         self,
         run_id: str,
@@ -680,8 +761,8 @@ class AgentRunService:
         self,
         run_id: str,
         request: RunCreateRequest,
-        osm_zip_path: Path,
-        ref_zip_path: Path,
+        osm_zip_path: Path | None,
+        ref_zip_path: Path | None,
         intermediate_dir: Path,
         output_dir: Path,
         log_dir: Path,
@@ -692,8 +773,8 @@ class AgentRunService:
             execute_run_task.delay(
                 run_id=run_id,
                 request=request.model_dump(mode="json"),
-                osm_zip_path=str(osm_zip_path),
-                ref_zip_path=str(ref_zip_path),
+                osm_zip_path=str(osm_zip_path) if osm_zip_path is not None else None,
+                ref_zip_path=str(ref_zip_path) if ref_zip_path is not None else None,
                 intermediate_dir=str(intermediate_dir),
                 output_dir=str(output_dir),
                 log_dir=str(log_dir),
@@ -939,6 +1020,16 @@ class AgentRunService:
         return None
 
     @staticmethod
+    def _extract_required_input_data_type(plan: WorkflowPlan) -> Optional[str]:
+        for task in sorted(plan.tasks, key=lambda item: item.step):
+            if task.is_transform:
+                continue
+            data_type = str(task.input.data_type_id or "").strip()
+            if data_type:
+                return data_type
+        return None
+
+    @staticmethod
     def _extract_output_data_type(plan: WorkflowPlan) -> Optional[str]:
         ordered_tasks = sorted(plan.tasks, key=lambda item: item.step)
         for task in reversed(ordered_tasks):
@@ -946,6 +1037,14 @@ class AgentRunService:
             if output_type:
                 return output_type
         return None
+
+    @staticmethod
+    def _resolve_task_driven_source_id(plan: WorkflowPlan) -> Optional[str]:
+        selected = AgentRunService._extract_selected_data_source(plan)
+        if selected and selected != "upload.bundle":
+            return selected
+        alternatives = AgentRunService._extract_alternative_sources(plan)
+        return alternatives[0] if alternatives else None
 
     @staticmethod
     def _extract_alternative_sources(plan: WorkflowPlan) -> List[str]:
@@ -1391,6 +1490,19 @@ class AgentRunService:
     @staticmethod
     def _create_kg_repo() -> KGRepository:
         return create_kg_repository()
+
+    @staticmethod
+    def _build_input_bundle_providers() -> list[object]:
+        providers: list[object] = []
+        project_root = Path(__file__).resolve().parents[1]
+        try:
+            providers.append(LocalBundleCatalogProvider(project_root))
+        except Exception as exc:  # noqa: BLE001
+            logging.getLogger("geofusion.run").warning(
+                "Failed to initialize local bundle catalog provider: %s",
+                exc,
+            )
+        return providers
 
 
 agent_run_service = AgentRunService(base_dir=Path("runs"))

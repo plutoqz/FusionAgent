@@ -1,4 +1,5 @@
 import json
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from zipfile import ZipFile
 
@@ -8,6 +9,7 @@ from shapely.geometry import box
 from schemas.agent import (
     RepairRecord,
     RunCreateRequest,
+    RunInputStrategy,
     RunPhase,
     RunStatus,
     RunTrigger,
@@ -21,6 +23,7 @@ from schemas.agent import (
 from schemas.fusion import JobType
 from services.artifact_registry import ArtifactRecord
 from services.agent_run_service import AgentRunService
+from services.input_acquisition_service import ResolvedRunInputs
 
 
 def _write_dummy_zip(path: Path) -> bytes:
@@ -42,6 +45,10 @@ def _write_polygon_bundle_zip(path: Path, geometries: list, *, crs: str = "EPSG:
             if file.is_file():
                 zf.write(file, arcname=file.name)
     return path
+
+
+def _iso_now_minus(*, days: int = 0, hours: int = 0) -> str:
+    return (datetime.now(timezone.utc) - timedelta(days=days, hours=hours)).isoformat()
 
 
 def _build_plan(
@@ -95,6 +102,21 @@ def _build_plan(
         ],
         expected_output="building result",
         validation=ValidationReport(valid=True, inserted_transform_steps=0, issues=[]),
+    )
+
+
+def _build_auto_request(*, spatial_extent: str = "bbox(0,0,1,1)") -> RunCreateRequest:
+    return RunCreateRequest(
+        job_type=JobType.building,
+        trigger=RunTrigger(
+            type=RunTriggerType.user_query,
+            content="need building data",
+            spatial_extent=spatial_extent,
+        ),
+        target_crs="EPSG:32643",
+        field_mapping={},
+        debug=False,
+        input_strategy=RunInputStrategy.task_driven_auto,
     )
 
 
@@ -298,6 +320,80 @@ def test_run_status_records_planning_mode_and_profile_source(tmp_path: Path, mon
     assert durable_record.metadata["task_bundle"]["bundle_id"] == "task_bundle.direct_request"
 
 
+def test_agent_run_service_task_driven_auto_prepares_inputs_before_execution(tmp_path: Path, monkeypatch) -> None:
+    service = AgentRunService(base_dir=tmp_path / "runs")
+    osm_shp = tmp_path / "resolved_osm.shp"
+    ref_shp = tmp_path / "resolved_ref.shp"
+    fused_shp = tmp_path / "fused.shp"
+    artifact_zip = tmp_path / "artifact.zip"
+    for path in [osm_shp, ref_shp, fused_shp]:
+        path.write_text("dummy", encoding="utf-8")
+    artifact_zip.write_bytes(b"zip")
+
+    plan = _build_plan(workflow_id="wf_auto_inputs", revision=1)
+    plan.tasks[0].input.data_source_id = "catalog.flood.building"
+
+    prepared_dir = tmp_path / "prepared"
+    prepared_dir.mkdir(parents=True, exist_ok=True)
+    resolved = ResolvedRunInputs(
+        osm_zip_path=prepared_dir / "osm.zip",
+        ref_zip_path=prepared_dir / "ref.zip",
+        source_mode="downloaded",
+        source_id="catalog.flood.building",
+        cache_hit=False,
+        version_token="v1",
+    )
+    resolved.osm_zip_path.write_bytes(b"osm")
+    resolved.ref_zip_path.write_bytes(b"ref")
+
+    captured: dict[str, object] = {}
+
+    monkeypatch.setattr(service.planner, "create_plan", lambda **_kwargs: plan.model_copy(deep=True))
+    monkeypatch.setattr(service.validator, "validate_and_repair", lambda input_plan: input_plan)
+
+    def fake_resolve_task_driven_inputs(**kwargs):
+        captured.update(kwargs)
+        return resolved
+
+    monkeypatch.setattr(service.input_acquisition_service, "resolve_task_driven_inputs", fake_resolve_task_driven_inputs)
+    monkeypatch.setattr(
+        "services.agent_run_service.validate_zip_has_shapefile",
+        lambda zip_path, *_args, **_kwargs: osm_shp if Path(zip_path).name.startswith("osm") else ref_shp,
+    )
+    monkeypatch.setattr(service.executor, "execute_plan", lambda **_kwargs: fused_shp)
+    monkeypatch.setattr("services.agent_run_service.zip_shapefile_bundle", lambda *_args, **_kwargs: artifact_zip)
+
+    status = service.create_run(
+        request=_build_auto_request(),
+        osm_zip_name=None,
+        osm_zip_bytes=None,
+        ref_zip_name=None,
+        ref_zip_bytes=None,
+    )
+
+    latest = service.get_run(status.run_id)
+    assert latest is not None
+    assert latest.phase == RunPhase.succeeded
+    assert captured["source_id"] == "catalog.flood.building"
+    assert captured["required_output_type"] == "dt.building.bundle"
+    assert Path(captured["input_dir"]).name == "input"
+
+    audit_events = service.get_audit_events(status.run_id)
+    created = next(event for event in audit_events if event.kind == "run_created")
+    assert created.details["input_strategy"] == "task_driven_auto"
+    assert created.details["osm_zip_name"] is None
+    assert created.details["ref_zip_name"] is None
+
+    resolved_event = next(event for event in audit_events if event.kind == "task_inputs_resolved")
+    assert resolved_event.details["input_strategy"] == "task_driven_auto"
+    assert resolved_event.details["source_mode"] == "downloaded"
+    assert resolved_event.details["source_id"] == "catalog.flood.building"
+    assert resolved_event.details["cache_hit"] is False
+    assert resolved_event.details["version_token"] == "v1"
+    assert resolved_event.details["osm_zip_name"] == "osm.zip"
+    assert resolved_event.details["ref_zip_name"] == "ref.zip"
+
+
 def test_agent_run_service_directly_reuses_existing_artifact(tmp_path: Path, monkeypatch) -> None:
     service = AgentRunService(base_dir=tmp_path / "runs")
     osm_shp = tmp_path / "osm.shp"
@@ -305,6 +401,7 @@ def test_agent_run_service_directly_reuses_existing_artifact(tmp_path: Path, mon
     for path in [osm_shp, ref_shp]:
         path.write_text("dummy", encoding="utf-8")
 
+    reusable_created_at = _iso_now_minus(hours=1)
     source_artifact = _write_polygon_bundle_zip(tmp_path / "artifact-source.zip", [box(0, 0, 1, 1)], crs="EPSG:32643")
     service.artifact_registry.register(
         ArtifactRecord(
@@ -312,7 +409,7 @@ def test_agent_run_service_directly_reuses_existing_artifact(tmp_path: Path, mon
             artifact_path=str(source_artifact),
             job_type="building",
             disaster_type="flood",
-            created_at="2026-04-08T00:00:00+00:00",
+            created_at=reusable_created_at,
             output_fields=[],
             bbox=(0.0, 0.0, 1.0, 1.0),
             output_data_type="dt.building.fused",
@@ -326,7 +423,7 @@ def test_agent_run_service_directly_reuses_existing_artifact(tmp_path: Path, mon
         {
             "artifact_id": "artifact-source",
             "artifact_path": str(source_artifact),
-            "created_at": "2026-04-08T00:00:00+00:00",
+            "created_at": reusable_created_at,
             "bbox": [0.0, 0.0, 1.0, 1.0],
         }
     ]
@@ -384,6 +481,7 @@ def test_agent_run_service_clips_reused_artifact_when_request_bbox_is_smaller(tm
     for path in [osm_shp, ref_shp]:
         path.write_text("dummy", encoding="utf-8")
 
+    reusable_created_at = _iso_now_minus(hours=1)
     source_artifact = _write_polygon_bundle_zip(
         tmp_path / "artifact-clip-source.zip",
         [box(0, 0, 4, 4)],
@@ -395,7 +493,7 @@ def test_agent_run_service_clips_reused_artifact_when_request_bbox_is_smaller(tm
             artifact_path=str(source_artifact),
             job_type="building",
             disaster_type="flood",
-            created_at="2026-04-08T00:00:00+00:00",
+            created_at=reusable_created_at,
             output_fields=[],
             bbox=(0.0, 0.0, 4.0, 4.0),
             output_data_type="dt.building.fused",
@@ -409,7 +507,7 @@ def test_agent_run_service_clips_reused_artifact_when_request_bbox_is_smaller(tm
         {
             "artifact_id": "artifact-clip-source",
             "artifact_path": str(source_artifact),
-            "created_at": "2026-04-08T00:00:00+00:00",
+            "created_at": reusable_created_at,
             "bbox": [0.0, 0.0, 4.0, 4.0],
         }
     ]
@@ -477,6 +575,7 @@ def test_agent_run_service_falls_back_to_fresh_execution_when_clip_reuse_materia
     artifact_zip.write_bytes(b"zip")
 
     # Deliberately lie in the registry bbox so candidate selection passes but clipping fails.
+    reusable_created_at = _iso_now_minus(hours=1)
     source_artifact = _write_polygon_bundle_zip(
         tmp_path / "artifact-fallback-source.zip",
         [box(0, 0, 1, 1)],
@@ -488,7 +587,7 @@ def test_agent_run_service_falls_back_to_fresh_execution_when_clip_reuse_materia
             artifact_path=str(source_artifact),
             job_type="building",
             disaster_type="flood",
-            created_at="2026-04-08T00:00:00+00:00",
+            created_at=reusable_created_at,
             output_fields=[],
             bbox=(0.0, 0.0, 4.0, 4.0),
             output_data_type="dt.building.fused",
@@ -502,7 +601,7 @@ def test_agent_run_service_falls_back_to_fresh_execution_when_clip_reuse_materia
         {
             "artifact_id": "artifact-fallback-source",
             "artifact_path": str(source_artifact),
-            "created_at": "2026-04-08T00:00:00+00:00",
+            "created_at": reusable_created_at,
             "bbox": [0.0, 0.0, 4.0, 4.0],
         }
     ]
@@ -647,6 +746,7 @@ def test_agent_run_service_skips_reuse_candidates_with_unsafe_crs(tmp_path: Path
         path.write_text("dummy", encoding="utf-8")
     artifact_zip.write_bytes(b"zip")
 
+    reusable_created_at = _iso_now_minus(hours=1)
     source_artifact = _write_polygon_bundle_zip(tmp_path / "artifact-crs-mismatch.zip", [box(0, 0, 1, 1)])
     service.artifact_registry.register(
         ArtifactRecord(
@@ -654,7 +754,7 @@ def test_agent_run_service_skips_reuse_candidates_with_unsafe_crs(tmp_path: Path
             artifact_path=str(source_artifact),
             job_type="building",
             disaster_type="flood",
-            created_at="2026-04-08T00:00:00+00:00",
+            created_at=reusable_created_at,
             output_fields=["geometry", "confidence"],
             bbox=(0.0, 0.0, 1.0, 1.0),
             output_data_type="dt.building.fused",
@@ -668,7 +768,7 @@ def test_agent_run_service_skips_reuse_candidates_with_unsafe_crs(tmp_path: Path
         {
             "artifact_id": "artifact-crs-mismatch",
             "artifact_path": str(source_artifact),
-            "created_at": "2026-04-08T00:00:00+00:00",
+            "created_at": reusable_created_at,
             "bbox": [0.0, 0.0, 1.0, 1.0],
             "output_data_type": "dt.building.fused",
             "target_crs": "EPSG:4326",

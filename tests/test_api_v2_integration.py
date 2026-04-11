@@ -13,7 +13,17 @@ from fastapi.testclient import TestClient
 
 from api.app import create_app
 import api.routers.runs_v2 as runs_v2_router
+from schemas.agent import (
+    RunTrigger,
+    RunTriggerType,
+    ValidationReport,
+    WorkflowPlan,
+    WorkflowTask,
+    WorkflowTaskInput,
+    WorkflowTaskOutput,
+)
 from services.agent_run_service import AgentRunService
+from services.input_acquisition_service import ResolvedRunInputs
 
 
 def _zip_bundle(shp_path: Path, out_zip: Path) -> Path:
@@ -58,6 +68,52 @@ def _build_building_sample(tmp_path: Path) -> tuple[Path, Path]:
     osm.to_file(osm_shp)
     ref.to_file(ref_shp)
     return osm_shp, ref_shp
+
+
+def _build_task_driven_plan() -> WorkflowPlan:
+    return WorkflowPlan(
+        workflow_id="wf_task_driven_auto",
+        trigger=RunTrigger(type=RunTriggerType.user_query, content="need building data"),
+        context={
+            "intent": {
+                "job_type": "building",
+                "profile_source": "default_task",
+                "task_bundle": {
+                    "bundle_id": "task_bundle.direct_request",
+                    "requested_tasks": ["task.building.fusion"],
+                    "requires_disaster_profile": False,
+                },
+            },
+            "retrieval": {
+                "candidate_patterns": [{"pattern_id": "wp.flood.building.default", "success_rate": 0.91}],
+                "data_sources": [{"source_id": "catalog.flood.building"}],
+            },
+            "selection_reason": "initial",
+            "llm_provider": "mock",
+            "plan_revision": 1,
+            "planning_mode": "task_driven",
+        },
+        tasks=[
+            WorkflowTask(
+                step=1,
+                name="building_fusion",
+                description="building fusion",
+                algorithm_id="algo.fusion.building.v1",
+                input=WorkflowTaskInput(
+                    data_type_id="dt.building.bundle",
+                    data_source_id="catalog.flood.building",
+                    parameters={},
+                ),
+                output=WorkflowTaskOutput(data_type_id="dt.building.fused", description=""),
+                depends_on=[],
+                is_transform=False,
+                kg_validated=True,
+                alternatives=["algo.fusion.building.safe"],
+            )
+        ],
+        expected_output="building result",
+        validation=ValidationReport(valid=True, inserted_transform_steps=0, issues=[]),
+    )
 
 
 def _wait_run(client: TestClient, run_id: str, timeout_sec: float = 60.0) -> dict:
@@ -199,6 +255,75 @@ def test_v2_task_driven_run_allows_missing_uploads_when_auto_acquire_is_requeste
     assert captured["osm_zip_bytes"] is None
     assert captured["ref_zip_name"] is None
     assert captured["ref_zip_bytes"] is None
+
+
+def test_v2_run_task_driven_auto_input_integration(
+    tmp_path: Path,
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = runs_v2_router.agent_run_service
+    osm_shp = tmp_path / "resolved_osm.shp"
+    ref_shp = tmp_path / "resolved_ref.shp"
+    fused_shp = tmp_path / "fused.shp"
+    artifact_zip = tmp_path / "artifact.zip"
+    for path in [osm_shp, ref_shp, fused_shp]:
+        path.write_text("dummy", encoding="utf-8")
+    artifact_zip.write_bytes(b"zip")
+
+    prepared_dir = tmp_path / "prepared"
+    prepared_dir.mkdir(parents=True, exist_ok=True)
+    resolved = ResolvedRunInputs(
+        osm_zip_path=prepared_dir / "osm.zip",
+        ref_zip_path=prepared_dir / "ref.zip",
+        source_mode="downloaded",
+        source_id="catalog.flood.building",
+        cache_hit=False,
+        version_token="v1",
+    )
+    resolved.osm_zip_path.write_bytes(b"osm")
+    resolved.ref_zip_path.write_bytes(b"ref")
+
+    monkeypatch.setattr(service.planner, "create_plan", lambda **_kwargs: _build_task_driven_plan().model_copy(deep=True))
+    monkeypatch.setattr(service.validator, "validate_and_repair", lambda input_plan: input_plan)
+    monkeypatch.setattr(service.input_acquisition_service, "resolve_task_driven_inputs", lambda **_kwargs: resolved)
+    monkeypatch.setattr(
+        "services.agent_run_service.validate_zip_has_shapefile",
+        lambda zip_path, *_args, **_kwargs: osm_shp if Path(zip_path).name.startswith("osm") else ref_shp,
+    )
+    monkeypatch.setattr(service.executor, "execute_plan", lambda **_kwargs: fused_shp)
+    monkeypatch.setattr("services.agent_run_service.zip_shapefile_bundle", lambda *_args, **_kwargs: artifact_zip)
+
+    resp = client.post(
+        "/api/v2/runs",
+        data={
+            "job_type": "building",
+            "trigger_type": "user_query",
+            "trigger_content": "need building data",
+            "spatial_extent": "bbox(0,0,1,1)",
+            "target_crs": "EPSG:32643",
+            "input_strategy": "task_driven_auto",
+            "field_mapping": "{}",
+            "debug": "false",
+        },
+    )
+
+    assert resp.status_code == 200, resp.text
+    run_id = resp.json()["run_id"]
+
+    status = _wait_run(client, run_id)
+    assert status["phase"] == "succeeded", status.get("error")
+
+    inspection_resp = client.get(f"/api/v2/runs/{run_id}/inspection")
+    assert inspection_resp.status_code == 200
+    inspection = inspection_resp.json()
+    created = next(event for event in inspection["audit_events"] if event["kind"] == "run_created")
+    assert created["details"]["input_strategy"] == "task_driven_auto"
+    resolved_event = next(event for event in inspection["audit_events"] if event["kind"] == "task_inputs_resolved")
+    assert resolved_event["details"]["source_mode"] == "downloaded"
+    assert resolved_event["details"]["source_id"] == "catalog.flood.building"
+    assert resolved_event["details"]["cache_hit"] is False
+    assert resolved_event["details"]["version_token"] == "v1"
 
 
 def test_v2_compare_runs_exposes_both_inspections(tmp_path: Path, client: TestClient) -> None:
