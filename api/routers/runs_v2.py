@@ -11,6 +11,7 @@ from schemas.agent import (
     RunCreateRequest,
     RunCreateResponse,
     RunComparisonResponse,
+    RunInputStrategy,
     RunInspectionArtifact,
     RunInspectionResponse,
     RunPhase,
@@ -63,8 +64,8 @@ def _selected_decisions(status: RunStatus) -> dict[str, str]:
 
 @router.post("/runs", response_model=RunCreateResponse)
 async def create_run(
-    osm_zip: UploadFile = File(...),
-    ref_zip: UploadFile = File(...),
+    osm_zip: Optional[UploadFile] = File(None),
+    ref_zip: Optional[UploadFile] = File(None),
     job_type: JobType = Form(...),
     trigger_type: RunTriggerType = Form(RunTriggerType.user_query),
     trigger_content: str = Form("manual trigger"),
@@ -75,11 +76,18 @@ async def create_run(
     target_crs: str = Form("EPSG:32643"),
     field_mapping: str = Form("{}"),
     debug: bool = Form(False),
+    input_strategy: RunInputStrategy = Form(RunInputStrategy.uploaded),
 ) -> RunCreateResponse:
-    if not osm_zip.filename or not osm_zip.filename.lower().endswith(".zip"):
-        raise HTTPException(status_code=400, detail="osm_zip must be a .zip file")
-    if not ref_zip.filename or not ref_zip.filename.lower().endswith(".zip"):
-        raise HTTPException(status_code=400, detail="ref_zip must be a .zip file")
+    if input_strategy == RunInputStrategy.uploaded:
+        if osm_zip is None or ref_zip is None:
+            raise HTTPException(status_code=400, detail="uploaded mode requires osm_zip and ref_zip")
+        if not osm_zip.filename or not osm_zip.filename.lower().endswith(".zip"):
+            raise HTTPException(status_code=400, detail="osm_zip must be a .zip file")
+        if not ref_zip.filename or not ref_zip.filename.lower().endswith(".zip"):
+            raise HTTPException(status_code=400, detail="ref_zip must be a .zip file")
+    else:
+        if osm_zip is not None or ref_zip is not None:
+            raise HTTPException(status_code=400, detail="task_driven_auto mode does not accept uploaded files")
 
     try:
         normalized_crs = normalize_target_crs(target_crs)
@@ -101,20 +109,22 @@ async def create_run(
         target_crs=normalized_crs,
         field_mapping=mapping.model_dump() if hasattr(mapping, "model_dump") else mapping.dict(),
         debug=debug,
+        input_strategy=input_strategy,
     )
 
-    osm_bytes = await osm_zip.read()
-    ref_bytes = await ref_zip.read()
-    if not osm_bytes:
-        raise HTTPException(status_code=400, detail="osm_zip is empty")
-    if not ref_bytes:
-        raise HTTPException(status_code=400, detail="ref_zip is empty")
+    osm_bytes = await osm_zip.read() if osm_zip is not None else None
+    ref_bytes = await ref_zip.read() if ref_zip is not None else None
+    if input_strategy == RunInputStrategy.uploaded:
+        if not osm_bytes:
+            raise HTTPException(status_code=400, detail="osm_zip is empty")
+        if not ref_bytes:
+            raise HTTPException(status_code=400, detail="ref_zip is empty")
 
     status = agent_run_service.create_run(
         request=request,
-        osm_zip_name=osm_zip.filename,
+        osm_zip_name=(osm_zip.filename if osm_zip is not None else None),
         osm_zip_bytes=osm_bytes,
-        ref_zip_name=ref_zip.filename,
+        ref_zip_name=(ref_zip.filename if ref_zip is not None else None),
         ref_zip_bytes=ref_bytes,
     )
     return RunCreateResponse(run_id=status.run_id, phase=status.phase)

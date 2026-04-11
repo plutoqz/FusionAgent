@@ -166,6 +166,41 @@ def test_v2_run_scheduled_trigger(tmp_path: Path, client: TestClient) -> None:
     assert status["trigger"]["type"] == "scheduled"
 
 
+def test_v2_task_driven_run_allows_missing_uploads_when_auto_acquire_is_requested(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, object] = {}
+
+    def fake_create_run(**kwargs):
+        captured.update(kwargs)
+        return type("CreatedRun", (), {"run_id": "run-auto", "phase": "queued"})()
+
+    monkeypatch.setattr(runs_v2_router.agent_run_service, "create_run", fake_create_run)
+
+    resp = client.post(
+        "/api/v2/runs",
+        data={
+            "job_type": "building",
+            "trigger_type": "user_query",
+            "trigger_content": "need building data for bbox(29,40,30,41)",
+            "spatial_extent": "bbox(29,40,30,41)",
+            "target_crs": "EPSG:32643",
+            "input_strategy": "task_driven_auto",
+            "field_mapping": "{}",
+            "debug": "false",
+        },
+    )
+
+    assert resp.status_code == 200, resp.text
+    request = captured["request"]
+    assert request.input_strategy == "task_driven_auto"
+    assert captured["osm_zip_name"] is None
+    assert captured["osm_zip_bytes"] is None
+    assert captured["ref_zip_name"] is None
+    assert captured["ref_zip_bytes"] is None
+
+
 def test_v2_compare_runs_exposes_both_inspections(tmp_path: Path, client: TestClient) -> None:
     osm_shp, ref_shp = _build_building_sample(tmp_path)
     osm_zip = _zip_bundle(osm_shp, tmp_path / "osm_compare.zip")

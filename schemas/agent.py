@@ -25,6 +25,11 @@ class RunPhase(str, Enum):
     failed = "failed"
 
 
+class RunInputStrategy(str, Enum):
+    uploaded = "uploaded"
+    task_driven_auto = "task_driven_auto"
+
+
 class RunTrigger(BaseModel):
     type: RunTriggerType
     content: str
@@ -160,6 +165,7 @@ class RunCreateRequest(BaseModel):
     target_crs: str = "EPSG:32643"
     field_mapping: Dict[str, Dict[str, str]] = Field(default_factory=dict)
     debug: bool = False
+    input_strategy: RunInputStrategy = RunInputStrategy.uploaded
 
 
 class RunCreateResponse(BaseModel):
