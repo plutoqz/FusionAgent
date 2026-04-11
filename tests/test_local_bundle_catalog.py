@@ -8,7 +8,9 @@ import pytest
 geopandas = pytest.importorskip("geopandas")
 from shapely.geometry import LineString, Polygon
 
+from services.artifact_registry import ArtifactRegistry
 from services.local_bundle_catalog import LocalBundleCatalogProvider
+from services.raw_vector_source_service import RawVectorSourceService
 
 
 def _write_frame(path: Path, gdf) -> None:
@@ -62,7 +64,14 @@ def _read_columns(bundle_zip: Path) -> list[str]:
 
 def test_local_bundle_catalog_supports_expanded_building_and_flood_road_sources(tmp_path: Path) -> None:
     _seed_local_catalog_tree(tmp_path)
-    provider = LocalBundleCatalogProvider(tmp_path)
+    provider = LocalBundleCatalogProvider(
+        tmp_path,
+        raw_source_service=RawVectorSourceService(
+            root_dir=tmp_path,
+            registry=ArtifactRegistry(index_path=tmp_path / "artifact_registry.json"),
+            cache_dir=tmp_path / "raw-cache",
+        ),
+    )
 
     for source_id in ["catalog.flood.building", "catalog.earthquake.building", "catalog.flood.road"]:
         assert provider.can_handle(source_id)
@@ -78,7 +87,14 @@ def test_local_bundle_catalog_supports_expanded_building_and_flood_road_sources(
 
 def test_local_bundle_catalog_uses_google_and_microsoft_reference_layers_for_building_pairs(tmp_path: Path) -> None:
     _seed_local_catalog_tree(tmp_path)
-    provider = LocalBundleCatalogProvider(tmp_path)
+    provider = LocalBundleCatalogProvider(
+        tmp_path,
+        raw_source_service=RawVectorSourceService(
+            root_dir=tmp_path,
+            registry=ArtifactRegistry(index_path=tmp_path / "artifact_registry.json"),
+            cache_dir=tmp_path / "raw-cache",
+        ),
+    )
 
     google_bundle = provider.materialize(
         source_id="catalog.flood.building",

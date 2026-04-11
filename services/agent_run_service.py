@@ -38,6 +38,7 @@ from services.artifact_reuse_policy import get_artifact_reuse_max_age_seconds
 from services.artifact_reuse_service import ArtifactReuseService, ReuseResult
 from services.input_acquisition_service import InputAcquisitionService, ResolvedRunInputs
 from services.local_bundle_catalog import LocalBundleCatalogProvider
+from services.raw_vector_source_service import RawVectorSourceService
 from utils.crs import normalize_target_crs
 from utils.shp_zip import validate_zip_has_shapefile, zip_shapefile_bundle
 
@@ -77,6 +78,7 @@ class AgentRunService:
         self.kg_repo = kg_repo or self._create_kg_repo()
         self.llm_provider = create_llm_provider()
         self.artifact_registry = ArtifactRegistry(index_path=self.base_dir / "artifact_registry.json")
+        self.raw_vector_source_service = self._build_raw_vector_source_service()
         self.input_acquisition_service = InputAcquisitionService(
             registry=self.artifact_registry,
             providers=self._build_input_bundle_providers(),
@@ -1491,12 +1493,23 @@ class AgentRunService:
     def _create_kg_repo() -> KGRepository:
         return create_kg_repository()
 
-    @staticmethod
-    def _build_input_bundle_providers() -> list[object]:
-        providers: list[object] = []
+    def _build_raw_vector_source_service(self) -> RawVectorSourceService:
         project_root = Path(__file__).resolve().parents[1]
+        return RawVectorSourceService(
+            root_dir=project_root,
+            registry=self.artifact_registry,
+            cache_dir=self.base_dir / "raw_source_cache",
+        )
+
+    def _build_input_bundle_providers(self) -> list[object]:
+        providers: list[object] = []
         try:
-            providers.append(LocalBundleCatalogProvider(project_root))
+            providers.append(
+                LocalBundleCatalogProvider(
+                    Path(__file__).resolve().parents[1],
+                    raw_source_service=self.raw_vector_source_service,
+                )
+            )
         except Exception as exc:  # noqa: BLE001
             logging.getLogger("geofusion.run").warning(
                 "Failed to initialize local bundle catalog provider: %s",
