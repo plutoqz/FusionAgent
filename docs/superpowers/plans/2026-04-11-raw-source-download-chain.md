@@ -77,4 +77,4 @@
 - [x] **Step 1: Update README to describe raw-source acquisition, cache reuse, and bundle assembly behavior**
 - [x] **Step 2: Mark this plan document with the executed checkpoints**
 - [x] **Step 3: Run focused verification for the new download chain**
-- [ ] **Step 4: Commit, push branch, merge to `main`, and push `main`**
+- [x] **Step 4: Commit, push branch, merge to `main`, and push `main`**
