@@ -15,6 +15,7 @@ from kg.models import (
     TaskNode,
     WorkflowPatternNode,
 )
+from kg.source_catalog import build_data_sources
 
 
 DATA_TYPES: Dict[str, DataTypeNode] = {
@@ -714,83 +715,7 @@ WORKFLOW_PATTERNS: List[WorkflowPatternNode] = [
 ]
 
 
-DATA_SOURCES: List[DataSourceNode] = [
-    DataSourceNode(
-        source_id="upload.bundle",
-        source_name="Uploaded Bundle",
-        supported_types=["dt.building.bundle", "dt.road.bundle", "dt.raw.vector"],
-        disaster_types=["generic", "flood", "earthquake", "typhoon"],
-        quality_score=1.0,
-        source_kind="local_upload",
-        quality_tier="operator_provided",
-        freshness_category="request_bound",
-        freshness_hours=0,
-        freshness_score=1.0,
-        supported_job_types=["building", "road"],
-        supported_geometry_types=["mixed", "polygon", "line"],
-        metadata={"kind": "local"},
-    ),
-    DataSourceNode(
-        source_id="catalog.flood.building",
-        source_name="Flood Building Catalog",
-        supported_types=["dt.building.bundle"],
-        disaster_types=["flood", "generic"],
-        quality_score=0.86,
-        source_kind="catalog",
-        quality_tier="curated",
-        freshness_category="event_snapshot",
-        freshness_hours=72,
-        freshness_score=0.74,
-        supported_job_types=["building"],
-        supported_geometry_types=["polygon"],
-        metadata={"kind": "catalog", "priority": 2},
-    ),
-    DataSourceNode(
-        source_id="catalog.earthquake.building",
-        source_name="Earthquake Building Catalog",
-        supported_types=["dt.building.bundle"],
-        disaster_types=["earthquake", "generic"],
-        quality_score=0.88,
-        source_kind="catalog",
-        quality_tier="curated",
-        freshness_category="event_snapshot",
-        freshness_hours=96,
-        freshness_score=0.71,
-        supported_job_types=["building"],
-        supported_geometry_types=["polygon"],
-        metadata={"kind": "catalog", "priority": 2},
-    ),
-    DataSourceNode(
-        source_id="catalog.earthquake.road",
-        source_name="Earthquake Road Catalog",
-        supported_types=["dt.road.bundle"],
-        disaster_types=["earthquake", "generic"],
-        quality_score=0.84,
-        source_kind="catalog",
-        quality_tier="curated",
-        freshness_category="event_snapshot",
-        freshness_hours=96,
-        freshness_score=0.69,
-        supported_job_types=["road"],
-        supported_geometry_types=["line"],
-        metadata={"kind": "catalog", "priority": 2},
-    ),
-    DataSourceNode(
-        source_id="catalog.typhoon.road",
-        source_name="Typhoon Road Catalog",
-        supported_types=["dt.road.bundle"],
-        disaster_types=["typhoon", "generic"],
-        quality_score=0.87,
-        source_kind="catalog",
-        quality_tier="curated",
-        freshness_category="event_snapshot",
-        freshness_hours=48,
-        freshness_score=0.78,
-        supported_job_types=["road"],
-        supported_geometry_types=["line"],
-        metadata={"kind": "catalog", "priority": 2},
-    ),
-]
+DATA_SOURCES: List[DataSourceNode] = build_data_sources()
 
 
 OUTPUT_SCHEMA_POLICIES: Dict[str, OutputSchemaPolicy] = {

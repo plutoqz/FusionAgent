@@ -206,6 +206,25 @@ def test_planner_context_exposes_richer_algorithm_and_data_source_metadata() -> 
     assert source["supported_geometry_types"] == ["polygon"]
 
 
+def test_planner_context_exposes_component_source_metadata_for_catalog_sources() -> None:
+    provider = CapturingProvider()
+    planner = WorkflowPlanner(InMemoryKGRepository(), provider)
+    trigger = RunTrigger(
+        type=RunTriggerType.disaster_event,
+        content="flood building fusion with source components",
+        disaster_type="flood",
+    )
+
+    _plan = planner.create_plan(run_id="run-source-components", job_type=JobType.building, trigger=trigger)
+
+    assert provider.last_context is not None
+    data_sources = provider.last_context["retrieval"]["data_sources"]
+    source = next(item for item in data_sources if item["source_id"] == "catalog.flood.building")
+    assert source["metadata"]["component_source_ids"] == ["raw.osm.building", "raw.google.building"]
+    assert source["metadata"]["bundle_strategy"] == "osm_ref_pair"
+    assert source["metadata"]["provider_family"] == "local_bundle_catalog"
+
+
 def test_planner_context_exposes_parameter_specs_and_output_schema_policy_metadata() -> None:
     provider = CapturingProvider()
     planner = WorkflowPlanner(InMemoryKGRepository(), provider)

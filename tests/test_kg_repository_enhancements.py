@@ -119,6 +119,45 @@ def test_repository_exposes_richer_data_source_signals_for_current_themes() -> N
     assert typhoon_road.supported_geometry_types == ["line"]
 
 
+def test_repository_exposes_bundle_and_raw_sources_for_catalog_expansion() -> None:
+    repo = InMemoryKGRepository()
+
+    bundle_sources = repo.get_candidate_data_sources(
+        job_type=JobType.building,
+        disaster_type="flood",
+        required_type="dt.building.bundle",
+        limit=8,
+    )
+    raw_sources = repo.get_candidate_data_sources(
+        job_type=JobType.building,
+        disaster_type="generic",
+        required_type="dt.raw.vector",
+        limit=16,
+    )
+    road_bundle_sources = repo.get_candidate_data_sources(
+        job_type=JobType.road,
+        disaster_type="flood",
+        required_type="dt.road.bundle",
+        limit=8,
+    )
+
+    bundle_ids = {source.source_id for source in bundle_sources}
+    raw_ids = {source.source_id for source in raw_sources}
+    road_bundle_ids = {source.source_id for source in road_bundle_sources}
+
+    assert "catalog.flood.building" in bundle_ids
+    assert "catalog.earthquake.building" in bundle_ids
+    assert "catalog.flood.road" in road_bundle_ids
+    assert "raw.osm.water" in raw_ids
+    assert "raw.osm.poi" in raw_ids
+    assert "raw.microsoft.building" in raw_ids
+    assert "raw.google.building" in raw_ids
+
+    flood_bundle = next(source for source in bundle_sources if source.source_id == "catalog.flood.building")
+    assert flood_bundle.metadata["component_source_ids"] == ["raw.osm.building", "raw.google.building"]
+    assert flood_bundle.metadata["bundle_strategy"] == "osm_ref_pair"
+
+
 def test_inmemory_repository_persists_and_filters_durable_learning_records() -> None:
     repo = InMemoryKGRepository()
 
