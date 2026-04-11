@@ -4,6 +4,7 @@ import zipfile
 from pathlib import Path
 
 import geopandas as gpd
+import pytest
 from shapely.geometry import Polygon
 
 from schemas.agent import RunCreateRequest, RunInputStrategy, RunTrigger, RunTriggerType
@@ -60,7 +61,7 @@ class _StubBundleProvider:
         )
 
 
-def _build_request(*, spatial_extent: str = "bbox(0,0,10,10)") -> RunCreateRequest:
+def _build_request(*, spatial_extent: str = "bbox(0,0,10,10)", target_crs: str = "EPSG:4326") -> RunCreateRequest:
     return RunCreateRequest(
         job_type=JobType.building,
         trigger=RunTrigger(
@@ -68,20 +69,23 @@ def _build_request(*, spatial_extent: str = "bbox(0,0,10,10)") -> RunCreateReque
             content="need building data",
             spatial_extent=spatial_extent,
         ),
-        target_crs="EPSG:4326",
+        target_crs=target_crs,
         field_mapping={},
         debug=False,
         input_strategy=RunInputStrategy.task_driven_auto,
     )
 
 
-def _extract_bounds(bundle_zip: Path) -> list[float]:
+def _extract_bounds(bundle_zip: Path, *, output_crs: str = "EPSG:4326") -> list[float]:
     extract_dir = bundle_zip.parent / f"extract_{bundle_zip.stem}"
     with zipfile.ZipFile(bundle_zip, "r") as zf:
         zf.extractall(extract_dir)
     shp_path = next(extract_dir.glob("*.shp"))
     gdf = gpd.read_file(shp_path)
-    return [float(value) for value in gdf.total_bounds.tolist()]
+    if gdf.crs is None:
+        gdf = gdf.set_crs("EPSG:4326")
+    bounds = gdf.to_crs(output_crs).total_bounds.tolist()
+    return [float(value) for value in bounds]
 
 
 def test_input_acquisition_reuses_cached_bundle_when_version_matches_and_clips_to_request_bbox(tmp_path: Path) -> None:
@@ -178,3 +182,31 @@ def test_input_acquisition_supports_catalog_earthquake_building_source(tmp_path:
     assert resolved.source_mode == "downloaded"
     assert resolved.cache_hit is False
     assert resolved.version_token == "v1"
+
+
+def test_input_acquisition_clip_reuse_transforms_request_bbox_into_cached_dataset_crs(tmp_path: Path) -> None:
+    from services.input_acquisition_service import InputAcquisitionService
+
+    registry = ArtifactRegistry(index_path=tmp_path / "artifact_registry.json")
+    provider = _StubBundleProvider(version_token="v1")
+    service = InputAcquisitionService(registry=registry, providers=[provider], cache_dir=tmp_path / "cache")
+
+    initial = service.resolve_task_driven_inputs(
+        request=_build_request(target_crs="EPSG:3857"),
+        source_id="catalog.task.building.default",
+        required_output_type="dt.building.bundle",
+        input_dir=tmp_path / "run1",
+    )
+    reused = service.resolve_task_driven_inputs(
+        request=_build_request(spatial_extent="bbox(1,1,2,2)", target_crs="EPSG:3857"),
+        source_id="catalog.task.building.default",
+        required_output_type="dt.building.bundle",
+        input_dir=tmp_path / "run2",
+    )
+
+    assert initial.source_mode == "downloaded"
+    assert reused.source_mode == "clip_reused"
+    assert reused.cache_hit is True
+    assert provider.download_calls == 1
+    assert _extract_bounds(reused.osm_zip_path) == pytest.approx([1.0, 1.0, 2.0, 2.0], abs=1e-3)
+    assert _extract_bounds(reused.ref_zip_path) == pytest.approx([1.0, 1.0, 2.0, 2.0], abs=1e-3)

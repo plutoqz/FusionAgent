@@ -12,37 +12,148 @@ DEFAULT_DISASTER_TYPES = ["generic", "flood", "earthquake", "typhoon"]
 @dataclass(frozen=True)
 class CatalogBundleSpec:
     source_id: str
-    osm_relative_dir: Tuple[str, ...]
-    ref_relative_dir: Optional[Tuple[str, ...]]
+    osm_source_id: str
+    ref_source_id: Optional[str]
+    bundle_strategy: str
 
+    @property
+    def component_source_ids(self) -> Tuple[str, ...]:
+        if self.ref_source_id is None:
+            return (self.osm_source_id,)
+        return (self.osm_source_id, self.ref_source_id)
+
+
+@dataclass(frozen=True)
+class RawVectorSourceSpec:
+    source_id: str
+    locator_kind: str
+    relative_path: Tuple[str, ...]
+    glob_pattern: Optional[str] = None
+
+    @property
+    def path_hint(self) -> str:
+        prefix = "/".join(self.relative_path)
+        if self.glob_pattern:
+            return f"{prefix}/{self.glob_pattern}"
+        return prefix
+
+
+RAW_VECTOR_SOURCE_SPECS: Tuple[RawVectorSourceSpec, ...] = (
+    RawVectorSourceSpec(
+        source_id="raw.osm.building",
+        locator_kind="first_shp_in_dir",
+        relative_path=("Data", "buildings", "OSM"),
+    ),
+    RawVectorSourceSpec(
+        source_id="raw.google.building",
+        locator_kind="first_shp_in_dir",
+        relative_path=("Data", "buildings", "Google"),
+    ),
+    RawVectorSourceSpec(
+        source_id="raw.microsoft.building",
+        locator_kind="first_shp_in_dir",
+        relative_path=("Data", "buildings", "Microsoft"),
+    ),
+    RawVectorSourceSpec(
+        source_id="raw.osm.road",
+        locator_kind="first_shp_in_dir",
+        relative_path=("Data", "roads", "OSM"),
+    ),
+    RawVectorSourceSpec(
+        source_id="raw.osm.water",
+        locator_kind="exact_path",
+        relative_path=("Data", "burundi-260127-free.shp", "gis_osm_water_a_free_1.shp"),
+    ),
+    RawVectorSourceSpec(
+        source_id="raw.local.water",
+        locator_kind="first_shp_in_dir",
+        relative_path=("Data", "water"),
+    ),
+    RawVectorSourceSpec(
+        source_id="raw.osm.poi",
+        locator_kind="exact_path",
+        relative_path=("Data", "burundi-260127-free.shp", "gis_osm_pois_free_1.shp"),
+    ),
+    RawVectorSourceSpec(
+        source_id="raw.gns.poi",
+        locator_kind="recursive_glob",
+        relative_path=("Data", "POI"),
+        glob_pattern="**/GNS.shp",
+    ),
+    RawVectorSourceSpec(
+        source_id="raw.rh.poi",
+        locator_kind="recursive_glob",
+        relative_path=("Data", "POI"),
+        glob_pattern="**/RH.shp",
+    ),
+)
+
+RAW_VECTOR_SOURCE_SPECS_BY_ID = {spec.source_id: spec for spec in RAW_VECTOR_SOURCE_SPECS}
 
 CATALOG_BUNDLE_SPECS: Tuple[CatalogBundleSpec, ...] = (
     CatalogBundleSpec(
         source_id="catalog.flood.building",
-        osm_relative_dir=("Data", "buildings", "OSM"),
-        ref_relative_dir=("Data", "buildings", "Google"),
+        osm_source_id="raw.osm.building",
+        ref_source_id="raw.google.building",
+        bundle_strategy="osm_ref_pair",
     ),
     CatalogBundleSpec(
         source_id="catalog.flood.road",
-        osm_relative_dir=("Data", "roads", "OSM"),
-        ref_relative_dir=None,
+        osm_source_id="raw.osm.road",
+        ref_source_id=None,
+        bundle_strategy="single_source_with_empty_ref",
     ),
     CatalogBundleSpec(
         source_id="catalog.earthquake.building",
-        osm_relative_dir=("Data", "buildings", "OSM"),
-        ref_relative_dir=("Data", "buildings", "Microsoft"),
+        osm_source_id="raw.osm.building",
+        ref_source_id="raw.microsoft.building",
+        bundle_strategy="osm_ref_pair",
     ),
     CatalogBundleSpec(
         source_id="catalog.earthquake.road",
-        osm_relative_dir=("Data", "roads", "OSM"),
-        ref_relative_dir=None,
+        osm_source_id="raw.osm.road",
+        ref_source_id=None,
+        bundle_strategy="single_source_with_empty_ref",
     ),
     CatalogBundleSpec(
         source_id="catalog.typhoon.road",
-        osm_relative_dir=("Data", "roads", "OSM"),
-        ref_relative_dir=None,
+        osm_source_id="raw.osm.road",
+        ref_source_id=None,
+        bundle_strategy="single_source_with_empty_ref",
     ),
 )
+
+CATALOG_BUNDLE_SPECS_BY_ID = {spec.source_id: spec for spec in CATALOG_BUNDLE_SPECS}
+
+
+def get_raw_vector_source_spec(source_id: str) -> RawVectorSourceSpec:
+    try:
+        return RAW_VECTOR_SOURCE_SPECS_BY_ID[source_id]
+    except KeyError as exc:
+        raise KeyError(f"Unknown raw vector source: {source_id}") from exc
+
+
+def get_catalog_bundle_spec(source_id: str) -> CatalogBundleSpec:
+    try:
+        return CATALOG_BUNDLE_SPECS_BY_ID[source_id]
+    except KeyError as exc:
+        raise KeyError(f"Unknown catalog bundle source: {source_id}") from exc
+
+
+def _bundle_path_hints(bundle_spec: CatalogBundleSpec) -> List[str]:
+    return [get_raw_vector_source_spec(source_id).path_hint for source_id in bundle_spec.component_source_ids]
+
+
+def _raw_path_hint(source_id: str) -> str:
+    return get_raw_vector_source_spec(source_id).path_hint
+
+
+def _bundle_component_ids(source_id: str) -> List[str]:
+    return list(get_catalog_bundle_spec(source_id).component_source_ids)
+
+
+def _bundle_strategy(source_id: str) -> str:
+    return get_catalog_bundle_spec(source_id).bundle_strategy
 
 
 def build_data_sources() -> List[DataSourceNode]:
@@ -83,9 +194,9 @@ def build_data_sources() -> List[DataSourceNode]:
                 "kind": "catalog",
                 "priority": 2,
                 "provider_family": "local_bundle_catalog",
-                "bundle_strategy": "osm_ref_pair",
-                "component_source_ids": ["raw.osm.building", "raw.google.building"],
-                "path_hints": ["Data/buildings/OSM", "Data/buildings/Google"],
+                "bundle_strategy": _bundle_strategy("catalog.flood.building"),
+                "component_source_ids": _bundle_component_ids("catalog.flood.building"),
+                "path_hints": _bundle_path_hints(get_catalog_bundle_spec("catalog.flood.building")),
             },
         ),
         DataSourceNode(
@@ -105,9 +216,9 @@ def build_data_sources() -> List[DataSourceNode]:
                 "kind": "catalog",
                 "priority": 2,
                 "provider_family": "local_bundle_catalog",
-                "bundle_strategy": "osm_ref_pair",
-                "component_source_ids": ["raw.osm.building", "raw.microsoft.building"],
-                "path_hints": ["Data/buildings/OSM", "Data/buildings/Microsoft"],
+                "bundle_strategy": _bundle_strategy("catalog.earthquake.building"),
+                "component_source_ids": _bundle_component_ids("catalog.earthquake.building"),
+                "path_hints": _bundle_path_hints(get_catalog_bundle_spec("catalog.earthquake.building")),
             },
         ),
         DataSourceNode(
@@ -127,9 +238,9 @@ def build_data_sources() -> List[DataSourceNode]:
                 "kind": "catalog",
                 "priority": 2,
                 "provider_family": "local_bundle_catalog",
-                "bundle_strategy": "single_source_with_empty_ref",
-                "component_source_ids": ["raw.osm.road"],
-                "path_hints": ["Data/roads/OSM"],
+                "bundle_strategy": _bundle_strategy("catalog.flood.road"),
+                "component_source_ids": _bundle_component_ids("catalog.flood.road"),
+                "path_hints": _bundle_path_hints(get_catalog_bundle_spec("catalog.flood.road")),
             },
         ),
         DataSourceNode(
@@ -149,9 +260,9 @@ def build_data_sources() -> List[DataSourceNode]:
                 "kind": "catalog",
                 "priority": 2,
                 "provider_family": "local_bundle_catalog",
-                "bundle_strategy": "single_source_with_empty_ref",
-                "component_source_ids": ["raw.osm.road"],
-                "path_hints": ["Data/roads/OSM"],
+                "bundle_strategy": _bundle_strategy("catalog.earthquake.road"),
+                "component_source_ids": _bundle_component_ids("catalog.earthquake.road"),
+                "path_hints": _bundle_path_hints(get_catalog_bundle_spec("catalog.earthquake.road")),
             },
         ),
         DataSourceNode(
@@ -171,9 +282,9 @@ def build_data_sources() -> List[DataSourceNode]:
                 "kind": "catalog",
                 "priority": 2,
                 "provider_family": "local_bundle_catalog",
-                "bundle_strategy": "single_source_with_empty_ref",
-                "component_source_ids": ["raw.osm.road"],
-                "path_hints": ["Data/roads/OSM"],
+                "bundle_strategy": _bundle_strategy("catalog.typhoon.road"),
+                "component_source_ids": _bundle_component_ids("catalog.typhoon.road"),
+                "path_hints": _bundle_path_hints(get_catalog_bundle_spec("catalog.typhoon.road")),
             },
         ),
         DataSourceNode(
@@ -194,7 +305,7 @@ def build_data_sources() -> List[DataSourceNode]:
                 "provider_family": "osm",
                 "theme": "building",
                 "source_role": "osm_primary",
-                "path_hint": "Data/buildings/OSM",
+                "path_hint": _raw_path_hint("raw.osm.building"),
             },
         ),
         DataSourceNode(
@@ -215,7 +326,7 @@ def build_data_sources() -> List[DataSourceNode]:
                 "provider_family": "google",
                 "theme": "building",
                 "source_role": "reference_candidate",
-                "path_hint": "Data/buildings/Google",
+                "path_hint": _raw_path_hint("raw.google.building"),
             },
         ),
         DataSourceNode(
@@ -236,7 +347,7 @@ def build_data_sources() -> List[DataSourceNode]:
                 "provider_family": "microsoft",
                 "theme": "building",
                 "source_role": "reference_candidate",
-                "path_hint": "Data/buildings/Microsoft",
+                "path_hint": _raw_path_hint("raw.microsoft.building"),
             },
         ),
         DataSourceNode(
@@ -257,7 +368,7 @@ def build_data_sources() -> List[DataSourceNode]:
                 "provider_family": "osm",
                 "theme": "road",
                 "source_role": "osm_primary",
-                "path_hint": "Data/roads/OSM",
+                "path_hint": _raw_path_hint("raw.osm.road"),
             },
         ),
         DataSourceNode(
@@ -278,7 +389,7 @@ def build_data_sources() -> List[DataSourceNode]:
                 "provider_family": "osm",
                 "theme": "water",
                 "source_role": "environmental_context",
-                "path_hint": "Data/burundi-260127-free.shp/gis_osm_water_a_free_1.shp",
+                "path_hint": _raw_path_hint("raw.osm.water"),
             },
         ),
         DataSourceNode(
@@ -299,7 +410,7 @@ def build_data_sources() -> List[DataSourceNode]:
                 "provider_family": "local_open_data",
                 "theme": "water",
                 "source_role": "environmental_context",
-                "path_hint": "Data/water",
+                "path_hint": _raw_path_hint("raw.local.water"),
             },
         ),
         DataSourceNode(
@@ -320,7 +431,7 @@ def build_data_sources() -> List[DataSourceNode]:
                 "provider_family": "osm",
                 "theme": "poi",
                 "source_role": "enrichment_candidate",
-                "path_hint": "Data/burundi-260127-free.shp/gis_osm_pois_free_1.shp",
+                "path_hint": _raw_path_hint("raw.osm.poi"),
             },
         ),
         DataSourceNode(
@@ -341,7 +452,7 @@ def build_data_sources() -> List[DataSourceNode]:
                 "provider_family": "gns",
                 "theme": "poi",
                 "source_role": "name_reference",
-                "path_hint": "Data/POI/布隆迪/GNS.shp",
+                "path_hint": _raw_path_hint("raw.gns.poi"),
             },
         ),
         DataSourceNode(
@@ -362,7 +473,7 @@ def build_data_sources() -> List[DataSourceNode]:
                 "provider_family": "rh",
                 "theme": "poi",
                 "source_role": "reference_candidate",
-                "path_hint": "Data/POI/布隆迪/RH.shp",
+                "path_hint": _raw_path_hint("raw.rh.poi"),
             },
         ),
     ]

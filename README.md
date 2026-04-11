@@ -104,6 +104,15 @@ validator, policy, audit, and healing loops bound correctness and robustness.
 - raw-vector catalog coverage now includes OSM `building / road / water / POI`, Microsoft buildings, Google buildings, local water samples, and open POI references already present under `Data/`
 - planner retrieval exposes `component_source_ids`, `bundle_strategy`, `provider_family`, and local path hints for these sources
 
+### Phase 4.7: Raw Source Download Chain
+
+- task-driven runtime now materializes bundle inputs from raw-vector source specs instead of directly reading final bundle shapefiles
+- raw-vector acquisition supports directory-first, exact-path, and recursive-glob locators from the shared source catalog
+- raw sources are cached with version-aware reuse through the shared artifact registry before bundle assembly
+- cached raw sources and cached input bundles both support bbox clip reuse
+- clip reuse now transforms request-space bbox masks into the cached dataset CRS before clipping, so projected caches remain spatially correct
+- `LocalBundleCatalogProvider` now assembles `osm.zip` and `ref.zip` from `component_source_ids`, while single-source road bundles generate an empty reference bundle on demand
+
 ### Phase 5: Long-Term Writeback And Learning Loop
 
 - each run writes a compact `DurableLearningRecord`
@@ -229,6 +238,8 @@ python -m pytest -q `
   tests/test_planner_context.py `
   tests/test_agent_run_service_enhancements.py `
   tests/test_input_acquisition_service.py `
+  tests/test_raw_vector_source_service.py `
+  tests/test_local_bundle_catalog.py `
   tests/test_eval_harness.py `
   tests/test_policy_engine.py `
   tests/test_artifact_registry.py `

@@ -6,18 +6,12 @@ import uuid
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Optional, Protocol, Sequence, Tuple
-
-import geopandas as gpd
-from shapely.geometry import box
+from typing import Optional, Protocol, Sequence
 
 from schemas.agent import RunCreateRequest
 from services.artifact_registry import ArtifactLookupRequest, ArtifactRecord, ArtifactRegistry
 from utils.crs import normalize_target_crs
-from utils.shp_zip import validate_zip_has_shapefile, zip_shapefile_bundle
-
-
-BBox = Tuple[float, float, float, float]
+from utils.vector_clip import BBox, bundle_bbox_from_zip, clip_zip_to_request_bbox
 
 
 def _as_bbox(value: Sequence[float] | None) -> Optional[BBox]:
@@ -39,17 +33,6 @@ def _parse_bbox_text(value: str | None) -> Optional[BBox]:
     if not match:
         return None
     return _as_bbox([match.group(1), match.group(2), match.group(3), match.group(4)])
-
-
-def _bundle_bbox_from_zip(zip_path: Path) -> Optional[BBox]:
-    extract_dir = zip_path.parent / f"_inspect_{zip_path.stem}_{uuid.uuid4().hex[:8]}"
-    shp_path = validate_zip_has_shapefile(zip_path, extract_dir)
-    gdf = gpd.read_file(shp_path)
-    if gdf.empty:
-        return None
-    minx, miny, maxx, maxy = [float(value) for value in gdf.total_bounds.tolist()]
-    return (minx, miny, maxx, maxy)
-
 
 class InputBundleProvider(Protocol):
     def can_handle(self, source_id: str) -> bool: ...
@@ -144,7 +127,7 @@ class InputAcquisitionService:
         )
         bundle_bbox = materialized.bbox
         if bundle_bbox is None:
-            bundle_bbox = _bundle_bbox_from_zip(materialized.osm_zip_path)
+            bundle_bbox = bundle_bbox_from_zip(materialized.osm_zip_path)
         self.registry.register(
             ArtifactRecord(
                 artifact_id=f"input_bundle.{uuid.uuid4().hex}",
@@ -189,7 +172,7 @@ class InputAcquisitionService:
         return MaterializedInputBundle(
             osm_zip_path=osm_out,
             ref_zip_path=ref_out,
-            bbox=_bundle_bbox_from_zip(osm_out),
+            bbox=bundle_bbox_from_zip(osm_out),
             target_crs="",
         )
 
@@ -206,15 +189,4 @@ class InputAcquisitionService:
 
     @staticmethod
     def _clip_single_zip(source_zip: Path, output_zip: Path, *, request_bbox: BBox) -> Path:
-        extract_dir = output_zip.parent / f"_clip_src_{source_zip.stem}_{uuid.uuid4().hex[:8]}"
-        shp_path = validate_zip_has_shapefile(source_zip, extract_dir)
-        gdf = gpd.read_file(shp_path)
-        clipped = gdf.clip(box(*request_bbox))
-        clipped = clipped[~clipped.geometry.is_empty & clipped.geometry.notna()].copy()
-        if clipped.empty:
-            clipped = gdf.iloc[0:0].copy()
-        out_dir = output_zip.parent / f"_clip_dst_{source_zip.stem}_{uuid.uuid4().hex[:8]}"
-        out_dir.mkdir(parents=True, exist_ok=True)
-        clipped_shp = out_dir / shp_path.name
-        clipped.to_file(clipped_shp)
-        return zip_shapefile_bundle(clipped_shp, output_zip)
+        return clip_zip_to_request_bbox(source_zip, output_zip, request_bbox=request_bbox)
