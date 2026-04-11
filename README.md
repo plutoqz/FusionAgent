@@ -96,6 +96,14 @@ validator, policy, audit, and healing loops bound correctness and robustness.
 - resolved task inputs are written into audit evidence as `task_inputs_resolved`
 - current concrete provider is a local catalog backed by `Data/`; remote downloader providers remain follow-up work
 
+### Phase 4.6: Source Catalog Expansion
+
+- task-driven retrieval now distinguishes bundle-level sources from raw-vector sources
+- building bundle sources now record concrete component pairs: `OSM + Google` and `OSM + Microsoft`
+- road bundle sources now include an explicit `catalog.flood.road` route alongside earthquake and typhoon road bundles
+- raw-vector catalog coverage now includes OSM `building / road / water / POI`, Microsoft buildings, Google buildings, local water samples, and open POI references already present under `Data/`
+- planner retrieval exposes `component_source_ids`, `bundle_strategy`, `provider_family`, and local path hints for these sources
+
 ### Phase 5: Long-Term Writeback And Learning Loop
 
 - each run writes a compact `DurableLearningRecord`
