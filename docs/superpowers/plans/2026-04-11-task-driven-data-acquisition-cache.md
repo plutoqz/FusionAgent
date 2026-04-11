@@ -135,7 +135,7 @@ Run: `python -m pytest -q tests/test_api_v2_integration.py -k task_driven_run_al
 
 Expected: PASS
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add schemas/agent.py api/routers/runs_v2.py tests/test_api_v2_integration.py
@@ -291,7 +291,7 @@ python -m pytest -q `
 
 Expected: PASS
 
-- [ ] **Step 10: Commit**
+- [x] **Step 10: Commit**
 
 ```bash
 git add services/artifact_registry.py services/input_acquisition_service.py services/local_bundle_catalog.py tests/test_artifact_registry.py tests/test_input_acquisition_service.py
@@ -305,7 +305,7 @@ git commit -m "feat: add task-driven input acquisition cache service"
 - Modify: `E:\vscode\fusionAgent\tests\test_agent_run_service_enhancements.py`
 - Modify: `E:\vscode\fusionAgent\tests\test_api_v2_integration.py`
 
-- [ ] **Step 1: Write the failing run-service test for task-driven auto input preparation**
+- [x] **Step 1: Write the failing run-service test for task-driven auto input preparation**
 
 ```python
 def test_agent_run_service_task_driven_auto_prepares_inputs_before_execution(tmp_path: Path, monkeypatch) -> None:
@@ -336,13 +336,13 @@ def test_agent_run_service_task_driven_auto_prepares_inputs_before_execution(tmp
     assert created.details["input_resolution"]["source_mode"] == "downloaded"
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `python -m pytest -q tests/test_agent_run_service_enhancements.py -k task_driven_auto_prepares_inputs`
 
 Expected: FAIL because `create_run()` still requires uploaded bytes
 
-- [ ] **Step 3: Make `AgentRunService.create_run()` accept optional uploaded files and resolve task-driven inputs**
+- [x] **Step 3: Make `AgentRunService.create_run()` accept optional uploaded files and resolve task-driven inputs after planning**
 
 ```python
 def create_run(
@@ -353,36 +353,48 @@ def create_run(
     ref_zip_name: str | None,
     ref_zip_bytes: bytes | None,
 ) -> RunStatus:
+    # uploaded mode persists files immediately
+    # task_driven_auto mode defers bundle resolution until execute_run(),
+    # after planning selects a usable data source.
+```
+
+```python
+def execute_run(..., osm_zip_path: Path | None, ref_zip_path: Path | None, ...) -> None:
     ...
-    resolved_inputs = self._prepare_run_inputs(
+    osm_zip_path, ref_zip_path, resolved_inputs = self._resolve_execution_inputs(
         request=request,
-        run_dir=run_dir,
+        plan=plan,
         input_dir=input_dir,
-        osm_zip_name=osm_zip_name,
-        osm_zip_bytes=osm_zip_bytes,
-        ref_zip_name=ref_zip_name,
-        ref_zip_bytes=ref_zip_bytes,
+        osm_zip_path=osm_zip_path,
+        ref_zip_path=ref_zip_path,
     )
 ```
 
-- [ ] **Step 4: Persist input-resolution evidence in the run audit**
+- [x] **Step 4: Persist input-resolution evidence in the run audit**
 
 ```python
 details={
     "request_path": str(run_dir / "request.json"),
     "input_strategy": request.input_strategy.value,
-    "input_resolution": {
-        "source_mode": resolved_inputs.source_mode,
-        "source_id": resolved_inputs.source_id,
-        "cache_hit": resolved_inputs.cache_hit,
-        "version_token": resolved_inputs.version_token,
-        "osm_zip_name": resolved_inputs.osm_zip_path.name,
-        "ref_zip_name": resolved_inputs.ref_zip_path.name,
-    },
+    "osm_zip_name": osm_zip_path.name if osm_zip_path else None,
+    "ref_zip_name": ref_zip_path.name if ref_zip_path else None,
 }
 ```
 
-- [ ] **Step 5: Add API integration coverage for upload-free task-driven execution**
+```python
+event_kind="task_inputs_resolved"
+event_details={
+    "input_strategy": request.input_strategy.value,
+    "source_mode": resolved_inputs.source_mode,
+    "source_id": resolved_inputs.source_id,
+    "cache_hit": resolved_inputs.cache_hit,
+    "version_token": resolved_inputs.version_token,
+    "osm_zip_name": resolved_inputs.osm_zip_path.name,
+    "ref_zip_name": resolved_inputs.ref_zip_path.name,
+}
+```
+
+- [x] **Step 5: Add API integration coverage for upload-free task-driven execution**
 
 ```python
 def test_v2_run_task_driven_auto_input_integration(tmp_path: Path, client: TestClient, monkeypatch: pytest.MonkeyPatch) -> None:
@@ -407,7 +419,7 @@ def test_v2_run_task_driven_auto_input_integration(tmp_path: Path, client: TestC
     )
 ```
 
-- [ ] **Step 6: Run tests to verify they pass**
+- [x] **Step 6: Run tests to verify they pass**
 
 Run:
 
@@ -419,7 +431,7 @@ python -m pytest -q `
 
 Expected: PASS
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add services/agent_run_service.py tests/test_agent_run_service_enhancements.py tests/test_api_v2_integration.py
@@ -432,7 +444,7 @@ git commit -m "feat: wire task-driven auto inputs into run execution"
 - Modify: `E:\vscode\fusionAgent\README.md`
 - Modify: `E:\vscode\fusionAgent\docs\superpowers\plans\2026-04-11-task-driven-data-acquisition-cache.md`
 
-- [ ] **Step 1: Update README capability and gap notes**
+- [x] **Step 1: Update README capability and gap notes**
 
 ```md
 ### Phase 4.5: Task-Driven Input Acquisition
@@ -442,11 +454,11 @@ git commit -m "feat: wire task-driven auto inputs into run execution"
 - the current concrete provider is local-catalog based; remote source download remains a follow-up
 ```
 
-- [ ] **Step 2: Mark completed plan steps**
+- [x] **Step 2: Mark completed plan steps**
 
 Update the checkbox state in this plan file as work is completed so execution history remains trustworthy.
 
-- [ ] **Step 3: Run focused regression verification**
+- [x] **Step 3: Run focused regression verification**
 
 Run:
 
@@ -460,7 +472,7 @@ python -m pytest -q `
 
 Expected: PASS
 
-- [ ] **Step 4: Commit**
+- [x] **Step 4: Commit**
 
 ```bash
 git add README.md docs/superpowers/plans/2026-04-11-task-driven-data-acquisition-cache.md

@@ -4,9 +4,10 @@ FusionAgent is a vector-data fusion agent prototype for disaster response workfl
 The current `main` branch is no longer just a script wrapper. It now provides a
 testable, auditable, and incrementally extensible agentic workflow runtime.
 
-The runtime currently supports `building` and `road` jobs using uploaded
-`zip shapefile` inputs, and can perform planning, validation, execution,
-healing, replanning, evidence writeback, and artifact output.
+The runtime currently supports `building` and `road` jobs using either uploaded
+`zip shapefile` inputs or task-driven auto-acquired input bundles, and can
+perform planning, validation, execution, healing, replanning, evidence
+writeback, and artifact output.
 
 ## Current Position
 
@@ -86,6 +87,14 @@ validator, policy, audit, and healing loops bound correctness and robustness.
   - `road = 1d`
 - clip reuse quality gates for CRS, required fields, and bbox safety
 - explicit fallback to fresh execution when reuse is unsafe or materialization fails
+
+### Phase 4.5: Task-Driven Input Acquisition
+
+- `POST /api/v2/runs` accepts `input_strategy=task_driven_auto` for upload-free task-driven runs
+- runtime resolves concrete `osm.zip` and `ref.zip` after planning chooses a usable data source
+- input preparation reuses cached input bundles through version-token checks and bbox clip reuse
+- resolved task inputs are written into audit evidence as `task_inputs_resolved`
+- current concrete provider is a local catalog backed by `Data/`; remote downloader providers remain follow-up work
 
 ### Phase 5: Long-Term Writeback And Learning Loop
 
@@ -211,6 +220,7 @@ $env:GEOFUSION_CELERY_EAGER='1'
 python -m pytest -q `
   tests/test_planner_context.py `
   tests/test_agent_run_service_enhancements.py `
+  tests/test_input_acquisition_service.py `
   tests/test_eval_harness.py `
   tests/test_policy_engine.py `
   tests/test_artifact_registry.py `
@@ -228,6 +238,7 @@ python -m pytest -q `
 ### Create Run
 
 - `POST /api/v2/runs`
+- use uploaded bundles by default, or set `input_strategy=task_driven_auto` to let the runtime prepare inputs automatically
 
 ### Inspect Run State And Evidence
 
