@@ -13,12 +13,13 @@ from utils.shp_zip import zip_shapefile_bundle
 
 
 class _StubBundleProvider:
-    def __init__(self, *, version_token: str) -> None:
+    def __init__(self, *, version_token: str, supported_source_ids: set[str] | None = None) -> None:
         self.version_token = version_token
         self.download_calls = 0
+        self.supported_source_ids = supported_source_ids or {"catalog.task.building.default"}
 
     def can_handle(self, source_id: str) -> bool:
-        return source_id == "catalog.task.building.default"
+        return source_id in self.supported_source_ids
 
     def current_version(self, source_id: str) -> str:
         assert self.can_handle(source_id)
@@ -154,3 +155,26 @@ def test_input_acquisition_redownloads_bundle_when_cached_version_is_stale(tmp_p
     assert resolved.cache_hit is False
     assert resolved.version_token == "v2"
     assert provider.download_calls == 1
+
+
+def test_input_acquisition_supports_catalog_earthquake_building_source(tmp_path: Path) -> None:
+    from services.input_acquisition_service import InputAcquisitionService
+
+    registry = ArtifactRegistry(index_path=tmp_path / "artifact_registry.json")
+    provider = _StubBundleProvider(
+        version_token="v1",
+        supported_source_ids={"catalog.earthquake.building"},
+    )
+    service = InputAcquisitionService(registry=registry, providers=[provider], cache_dir=tmp_path / "cache")
+
+    resolved = service.resolve_task_driven_inputs(
+        request=_build_request(),
+        source_id="catalog.earthquake.building",
+        required_output_type="dt.building.bundle",
+        input_dir=tmp_path / "run",
+    )
+
+    assert resolved.source_id == "catalog.earthquake.building"
+    assert resolved.source_mode == "downloaded"
+    assert resolved.cache_hit is False
+    assert resolved.version_token == "v1"

@@ -7,6 +7,7 @@ from typing import Optional
 import geopandas as gpd
 from shapely.geometry import box
 
+from kg.source_catalog import CATALOG_BUNDLE_SPECS
 from services.input_acquisition_service import BBox, MaterializedInputBundle
 from utils.crs import normalize_target_crs
 from utils.shp_zip import zip_shapefile_bundle
@@ -30,26 +31,16 @@ class LocalBundleCatalogProvider:
     def __init__(self, root_dir: Path) -> None:
         root = Path(root_dir)
         self.specs = {
-            "catalog.flood.building": SourceBundleSpec(
-                source_id="catalog.flood.building",
-                osm_path=_first_shp(root / "Data" / "buildings" / "OSM"),
-                ref_path=_first_shp(root / "Data" / "buildings" / "Google"),
-            ),
-            "catalog.earthquake.building": SourceBundleSpec(
-                source_id="catalog.earthquake.building",
-                osm_path=_first_shp(root / "Data" / "buildings" / "OSM"),
-                ref_path=_first_shp(root / "Data" / "buildings" / "Google"),
-            ),
-            "catalog.earthquake.road": SourceBundleSpec(
-                source_id="catalog.earthquake.road",
-                osm_path=_first_shp(root / "Data" / "roads" / "OSM"),
-                ref_path=None,
-            ),
-            "catalog.typhoon.road": SourceBundleSpec(
-                source_id="catalog.typhoon.road",
-                osm_path=_first_shp(root / "Data" / "roads" / "OSM"),
-                ref_path=None,
-            ),
+            bundle_spec.source_id: SourceBundleSpec(
+                source_id=bundle_spec.source_id,
+                osm_path=_first_shp(root.joinpath(*bundle_spec.osm_relative_dir)),
+                ref_path=(
+                    _first_shp(root.joinpath(*bundle_spec.ref_relative_dir))
+                    if bundle_spec.ref_relative_dir is not None
+                    else None
+                ),
+            )
+            for bundle_spec in CATALOG_BUNDLE_SPECS
         }
 
     def can_handle(self, source_id: str) -> bool:
