@@ -117,8 +117,16 @@ class ArtifactLookupRequest(BaseModel):
     required_fields: List[str] = Field(default_factory=list)
     required_output_type: Optional[str] = None
     required_target_crs: Optional[str] = None
+    required_meta: Dict[str, Any] = Field(default_factory=dict)
 
     bbox: Optional[Tuple[float, float, float, float]] = None
+
+
+def _meta_contains(actual: Dict[str, Any], required: Dict[str, Any]) -> bool:
+    for key, value in (required or {}).items():
+        if actual.get(key) != value:
+            return False
+    return True
 
 
 @dataclass(frozen=True)
@@ -168,6 +176,7 @@ class ArtifactRegistry:
         want_fields = _norm_field_set(request.required_fields)
         want_output_type = _norm_token(request.required_output_type)
         want_target_crs = _norm_crs(request.required_target_crs)
+        want_meta = dict(request.required_meta or {})
         want_bbox = _as_bbox(request.bbox)
 
         max_age_seconds = request.max_age_seconds
@@ -183,6 +192,8 @@ class ArtifactRegistry:
             if want_output_type is not None and _norm_token(record.output_data_type) != want_output_type:
                 continue
             if want_target_crs is not None and _norm_crs(record.target_crs) != want_target_crs:
+                continue
+            if want_meta and not _meta_contains(record.meta, want_meta):
                 continue
 
             created_dt = _parse_iso_dt(record.created_at)
@@ -238,6 +249,7 @@ class ArtifactRegistry:
         want_fields = _norm_field_set(request.required_fields)
         want_output_type = _norm_token(request.required_output_type)
         want_target_crs = _norm_crs(request.required_target_crs)
+        want_meta = dict(request.required_meta or {})
         want_bbox = _as_bbox(request.bbox)
 
         max_age_seconds = request.max_age_seconds
@@ -253,6 +265,8 @@ class ArtifactRegistry:
             if want_output_type is not None and _norm_token(record.output_data_type) != want_output_type:
                 continue
             if want_target_crs is not None and _norm_crs(record.target_crs) != want_target_crs:
+                continue
+            if want_meta and not _meta_contains(record.meta, want_meta):
                 continue
 
             created_dt = _parse_iso_dt(record.created_at)

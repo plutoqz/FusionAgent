@@ -152,3 +152,46 @@ def test_find_reusable_rejects_output_type_and_crs_mismatches(tmp_path: Path) ->
 
     assert selected is not None
     assert selected.artifact_id == "artifact-compatible"
+
+
+def test_artifact_registry_filters_candidates_by_required_meta(tmp_path: Path) -> None:
+    index_path = tmp_path / "artifact_index.json"
+    registry = ArtifactRegistry(index_path=index_path)
+
+    registry.register(
+        ArtifactRecord(
+            artifact_id="bundle-a",
+            artifact_path=str(tmp_path / "bundle-a"),
+            job_type="building",
+            created_at="2026-04-11T00:00:00+00:00",
+            output_data_type="dt.building.bundle",
+            target_crs="EPSG:32643",
+            bbox=(0.0, 0.0, 10.0, 10.0),
+            meta={"artifact_role": "input_bundle", "source_id": "catalog.task.building.default"},
+        )
+    )
+    registry.register(
+        ArtifactRecord(
+            artifact_id="bundle-b",
+            artifact_path=str(tmp_path / "bundle-b"),
+            job_type="building",
+            created_at="2026-04-11T01:00:00+00:00",
+            output_data_type="dt.building.bundle",
+            target_crs="EPSG:32643",
+            bbox=(0.0, 0.0, 10.0, 10.0),
+            meta={"artifact_role": "input_bundle", "source_id": "catalog.other"},
+        )
+    )
+
+    selected = registry.find_reusable(
+        ArtifactLookupRequest(
+            job_type="building",
+            required_output_type="dt.building.bundle",
+            required_target_crs="EPSG:32643",
+            bbox=(1.0, 1.0, 2.0, 2.0),
+            required_meta={"artifact_role": "input_bundle", "source_id": "catalog.task.building.default"},
+        ),
+    )
+
+    assert selected is not None
+    assert selected.artifact_id == "bundle-a"

@@ -151,7 +151,7 @@ git commit -m "feat: add task-driven auto input strategy"
 - Create: `E:\vscode\fusionAgent\tests\test_input_acquisition_service.py`
 - Modify: `E:\vscode\fusionAgent\tests\test_artifact_registry.py`
 
-- [ ] **Step 1: Write the failing registry test for metadata-filtered reusable bundle lookup**
+- [x] **Step 1: Write the failing registry test for metadata-filtered reusable bundle lookup**
 
 ```python
 def test_artifact_registry_filters_candidates_by_required_meta(tmp_path: Path) -> None:
@@ -195,13 +195,13 @@ def test_artifact_registry_filters_candidates_by_required_meta(tmp_path: Path) -
     assert found.artifact_id == "bundle-a"
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `python -m pytest -q tests/test_artifact_registry.py -k required_meta`
 
 Expected: FAIL because `ArtifactLookupRequest` has no `required_meta` and the registry ignores meta filters
 
-- [ ] **Step 3: Extend `ArtifactLookupRequest` with exact-match metadata filters**
+- [x] **Step 3: Extend `ArtifactLookupRequest` with exact-match metadata filters**
 
 ```python
 class ArtifactLookupRequest(BaseModel):
@@ -209,7 +209,7 @@ class ArtifactLookupRequest(BaseModel):
     required_meta: Dict[str, Any] = Field(default_factory=dict)
 ```
 
-- [ ] **Step 4: Apply `required_meta` subset matching in `find_reusable()` and `list_reusable()`**
+- [x] **Step 4: Apply `required_meta` subset matching in `find_reusable()` and `list_reusable()`**
 
 ```python
 def _meta_contains(actual: Dict[str, Any], required: Dict[str, Any]) -> bool:
@@ -219,7 +219,7 @@ def _meta_contains(actual: Dict[str, Any], required: Dict[str, Any]) -> bool:
     return True
 ```
 
-- [ ] **Step 5: Write the failing input-acquisition test for version-aware cache reuse and clipping**
+- [x] **Step 5: Write the failing input-acquisition test for version-aware cache reuse and clipping**
 
 ```python
 def test_input_acquisition_reuses_cached_bundle_when_version_matches_and_clips_to_request_bbox(tmp_path: Path) -> None:
@@ -245,13 +245,13 @@ def test_input_acquisition_reuses_cached_bundle_when_version_matches_and_clips_t
     assert provider.download_calls == 1
 ```
 
-- [ ] **Step 6: Run test to verify it fails**
+- [x] **Step 6: Run test to verify it fails**
 
 Run: `python -m pytest -q tests/test_input_acquisition_service.py`
 
 Expected: FAIL because `InputAcquisitionService` does not exist
 
-- [ ] **Step 7: Implement a local catalog provider interface and the input-acquisition service**
+- [x] **Step 7: Implement a local catalog provider interface and the input-acquisition service**
 
 ```python
 class InputBundleProvider(Protocol):
@@ -268,7 +268,7 @@ class InputAcquisitionService:
         return self._download_and_register_bundle(...)
 ```
 
-- [ ] **Step 8: Store cached input bundles in the existing registry with explicit metadata**
+- [x] **Step 8: Store cached input bundles in the existing registry with explicit metadata**
 
 ```python
 meta={
@@ -279,7 +279,7 @@ meta={
 }
 ```
 
-- [ ] **Step 9: Run tests to verify they pass**
+- [x] **Step 9: Run tests to verify they pass**
 
 Run:
 
