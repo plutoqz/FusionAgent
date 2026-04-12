@@ -56,7 +56,7 @@ $env:GEOFUSION_CELERY_EAGER = "1"
 - Create: `E:/vscode/fusionAgent/agent/parameter_binding.py`
 - Test: `E:/vscode/fusionAgent/tests/test_parameter_default_binding.py`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 ```python
 from agent.parameter_binding import bind_plan_parameters
@@ -122,13 +122,13 @@ def test_bind_plan_parameters_injects_kg_defaults_and_preserves_explicit_overrid
     assert road_params["dedupe_buffer_m"] == 12.0
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `python -m pytest tests/test_parameter_default_binding.py::test_bind_plan_parameters_injects_kg_defaults_and_preserves_explicit_override -q`
 
 Expected: FAIL with `ModuleNotFoundError: No module named 'agent.parameter_binding'`
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 ```python
 from __future__ import annotations
@@ -152,13 +152,13 @@ def bind_plan_parameters(plan: WorkflowPlan, kg_repo: KGRepository) -> WorkflowP
     return plan
 ```
 
-- [ ] **Step 4: Run test to verify it passes**
+- [x] **Step 4: Run test to verify it passes**
 
 Run: `python -m pytest tests/test_parameter_default_binding.py::test_bind_plan_parameters_injects_kg_defaults_and_preserves_explicit_override -q`
 
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add agent/parameter_binding.py tests/test_parameter_default_binding.py
@@ -172,7 +172,7 @@ git commit -m "feat: add deterministic plan parameter binding"
 - Modify: `E:/vscode/fusionAgent/tests/test_planner_context.py`
 - Test: `E:/vscode/fusionAgent/tests/test_parameter_default_binding.py`
 
-- [ ] **Step 1: Write the failing integration test**
+- [x] **Step 1: Write the failing integration test**
 
 Append to `E:/vscode/fusionAgent/tests/test_planner_context.py`:
 
@@ -190,13 +190,13 @@ def test_planner_injects_kg_parameter_defaults_into_task_inputs() -> None:
     assert "dedupe_buffer_m" in params
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `python -m pytest tests/test_planner_context.py::test_planner_injects_kg_parameter_defaults_into_task_inputs -q`
 
 Expected: FAIL because planner still leaves `parameters` empty
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 In `E:/vscode/fusionAgent/agent/planner.py` add:
 
@@ -218,13 +218,13 @@ plan = self._finalize_plan(plan, fallback_workflow_id=previous_plan.workflow_id)
 plan = bind_plan_parameters(plan, self.kg_repo)
 ```
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `python -m pytest tests/test_parameter_default_binding.py tests/test_planner_context.py -q`
 
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add agent/planner.py tests/test_planner_context.py tests/test_parameter_default_binding.py
@@ -237,7 +237,7 @@ git commit -m "feat: inject kg defaults during plan creation"
 - Modify: `E:/vscode/fusionAgent/services/agent_run_service.py`
 - Modify: `E:/vscode/fusionAgent/tests/test_agent_run_service_enhancements.py`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Append to `E:/vscode/fusionAgent/tests/test_agent_run_service_enhancements.py`:
 
@@ -281,13 +281,13 @@ def test_saved_plan_contains_bound_effective_parameters(tmp_path: Path, monkeypa
     assert saved.tasks[0].input.parameters["one_to_one_min_overlap_similarity"] == 0.31
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `python -m pytest tests/test_agent_run_service_enhancements.py::test_saved_plan_contains_bound_effective_parameters -q`
 
 Expected: FAIL if saved plan loses or mutates effective parameters incorrectly
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 If the test fails because observability is insufficient, add a compact audit payload in `run_planning_stage(...)`:
 
@@ -301,13 +301,13 @@ event_details["effective_parameters"] = {
 
 Do not add a second source of truth. The saved `plan.json` remains canonical; audit only mirrors a summary.
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `python -m pytest tests/test_agent_run_service_enhancements.py -q`
 
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add services/agent_run_service.py tests/test_agent_run_service_enhancements.py
@@ -321,7 +321,7 @@ git commit -m "feat: persist effective parameters in run artifacts"
 - Modify: `E:/vscode/fusionAgent/tests/test_eval_harness.py`
 - Modify: `E:/vscode/fusionAgent/tests/test_api_v2_integration.py`
 
-- [ ] **Step 1: Write the failing test**
+- [x] **Step 1: Write the failing test**
 
 Append to `E:/vscode/fusionAgent/tests/test_eval_harness.py`:
 
@@ -363,13 +363,13 @@ def test_manifest_agent_case_reports_fast_infra_failure_when_api_is_unreachable(
     assert summary == 1
 ```
 
-- [ ] **Step 2: Run test to verify it fails**
+- [x] **Step 2: Run test to verify it fails**
 
 Run: `python -m pytest tests/test_eval_harness.py::test_manifest_agent_case_reports_fast_infra_failure_when_api_is_unreachable -q`
 
 Expected: FAIL if harness still only times out or emits ambiguous errors
 
-- [ ] **Step 3: Write minimal implementation**
+- [x] **Step 3: Write minimal implementation**
 
 In `E:/vscode/fusionAgent/scripts/eval_harness.py`, before launching a manifest-backed `agent-ready` case, wrap the runner call so connection-refused and obvious HTTP unavailability errors are surfaced directly:
 
@@ -384,13 +384,13 @@ except Exception as exc:  # noqa: BLE001
 
 Do not silently convert this into `skipped`; unreachable local API during an explicitly requested live benchmark is a real failure.
 
-- [ ] **Step 4: Run tests to verify they pass**
+- [x] **Step 4: Run tests to verify they pass**
 
 Run: `python -m pytest tests/test_eval_harness.py tests/test_api_v2_integration.py -q`
 
 Expected: PASS
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add scripts/eval_harness.py tests/test_eval_harness.py tests/test_api_v2_integration.py
@@ -404,7 +404,7 @@ git commit -m "feat: harden manifest-backed benchmark preflight"
 - Use existing: `E:/vscode/fusionAgent/scripts/start_local.py`
 - Use existing: `E:/vscode/fusionAgent/scripts/eval_harness.py`
 
-- [ ] **Step 1: Start a fresh execution thread**
+- [x] **Step 1: Start a fresh execution thread**
 
 Use a new Codex thread rooted at:
 
@@ -418,7 +418,7 @@ Context to carry into the new thread:
 Execute docs/superpowers/plans/2026-04-08-fusion-agent-parameter-defaults-and-building-benchmark.md from Task 1 onward. After Tasks 1-4 pass, run the first real building benchmark case from docs/superpowers/specs/2026-04-07-real-data-eval-manifest.json.
 ```
 
-- [ ] **Step 2: Start local API**
+- [x] **Step 2: Start local API**
 
 Run:
 
@@ -432,7 +432,7 @@ Expected:
 Uvicorn/FastAPI app starts locally without import errors
 ```
 
-- [ ] **Step 3: Run the first building benchmark**
+- [x] **Step 3: Run the first building benchmark**
 
 Run:
 
@@ -446,7 +446,7 @@ Expected:
 JSON summary with total=1 and either passed=1 or a concrete failure reason tied to data/runtime behavior
 ```
 
-- [ ] **Step 4: Save the benchmark result**
+- [x] **Step 4: Save the benchmark result**
 
 Write the result summary into:
 
@@ -502,12 +502,9 @@ After this plan is complete, the next plans should be split by subsystem:
 - Parameter keys match current KG spec keys in `kg/seed.py`.
 - Runtime terminology matches existing models: `WorkflowPlan`, `WorkflowTask.input.parameters`, `RunStatus`, `eval_harness`.
 
-## Execution Handoff
+## Execution Status
 
-Plan complete and saved to `docs/superpowers/plans/2026-04-08-fusion-agent-parameter-defaults-and-building-benchmark.md`. Two execution options:
-
-**1. Subagent-Driven (recommended)** - I dispatch a fresh subagent per task, review between tasks, fast iteration
-
-**2. Inline Execution** - Execute tasks in this session using executing-plans, batch execution with checkpoints
-
-Which approach?
+- Status: implementation complete; benchmark evidence refreshed in this worktree.
+- Verification run on `2026-04-12`: `python -m pytest -q tests/test_parameter_default_binding.py tests/test_planner_context.py tests/test_agent_run_service_enhancements.py tests/test_eval_harness.py tests/test_api_v2_integration.py` -> `42 passed`.
+- Official benchmark rerun on isolated local runtime: `building_gitega_osm_vs_google_agent` passed with `run_id=0b4315edf3a8449d940355717ad70fa7`, `duration_ms=612458`, and summary saved in `docs/superpowers/specs/2026-04-08-building-real-benchmark-result.json`.
+- Current follow-up still pending from this plan: commit and branch integration for the refreshed evidence.

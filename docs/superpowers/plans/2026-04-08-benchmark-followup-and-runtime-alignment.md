@@ -34,7 +34,7 @@
 - Use existing: `C:/Users/QDX/.config/superpowers/worktrees/fusionAgent/parameter-defaults-benchmark/scripts/start_local.py`
 - Use existing: `C:/Users/QDX/.config/superpowers/worktrees/fusionAgent/parameter-defaults-benchmark/runs/local-runtime/`
 
-- [ ] **Step 1: Start a new runtime on an isolated port**
+- [x] **Step 1: Start a new runtime on an isolated port**
 
 Run:
 
@@ -44,7 +44,9 @@ python scripts/start_local.py --port 8010
 
 Expected: the command prints `API: http://127.0.0.1:8010` and writes fresh `api.log`, `worker.log`, and `scheduler.log` under `runs/local-runtime/`.
 
-- [ ] **Step 2: Verify the API responds on the new port**
+Execution note: `8010` was already occupied on `2026-04-12`, so the isolated runtime was started on `http://127.0.0.1:8011` instead to avoid cross-thread contamination.
+
+- [x] **Step 2: Verify the API responds on the new port**
 
 Run:
 
@@ -54,7 +56,7 @@ try { (Invoke-WebRequest -UseBasicParsing http://127.0.0.1:8010/api/v2/runs -Met
 
 Expected: `405`, proving the route exists and the app is serving the v2 API.
 
-- [ ] **Step 3: Verify the worker log is fresh**
+- [x] **Step 3: Verify the worker log is fresh**
 
 Run:
 
@@ -71,7 +73,7 @@ Expected: recent timestamps from the current run startup, not only stale entries
 - Use existing: `C:/Users/QDX/.config/superpowers/worktrees/fusionAgent/parameter-defaults-benchmark/docs/superpowers/specs/2026-04-07-real-data-eval-manifest.json`
 - Use existing: `C:/Users/QDX/.config/superpowers/worktrees/fusionAgent/parameter-defaults-benchmark/scripts/eval_harness.py`
 
-- [ ] **Step 1: Rerun the official case with a longer timeout**
+- [x] **Step 1: Rerun the official case with a longer timeout**
 
 Run:
 
@@ -81,7 +83,7 @@ python scripts/eval_harness.py --manifest docs/superpowers/specs/2026-04-07-real
 
 Expected: the output JSON records the case as `passed` if the runtime and worker are aligned, or a concrete infrastructure / execution failure if not.
 
-- [ ] **Step 2: Inspect the generated run status**
+- [x] **Step 2: Inspect the generated run status**
 
 Run:
 
@@ -90,6 +92,8 @@ Get-ChildItem runs -Directory | Sort-Object LastWriteTime -Descending | Select-O
 ```
 
 Expected: the latest run directory corresponds to the official rerun and contains `run.json`, `logs/run.log`, and an output artifact if execution succeeded.
+
+Execution note: this rerun was verified through the live API status endpoint because the local relative `runs/<run_id>/` tree was not materialized inside this worktree even though the runtime reported persisted artifact paths.
 
 ## Task 3: Re-run The Micro AOI Diagnostic Case
 
@@ -107,6 +111,8 @@ python scripts/eval_harness.py --manifest tmp/micro_building_case/manifest.json 
 
 Expected: either a completed result with a concrete duration, or a clear runtime failure that is no longer ambiguous `queued` behavior.
 
+Execution note: blocked on `2026-04-12` because `tmp/micro_building_case/manifest.json` was not present in this worktree, so the planned micro rerun could not be reproduced from repository state alone.
+
 - [ ] **Step 2: Cross-check the run phase**
 
 Run:
@@ -122,7 +128,7 @@ Expected: `phase` should be `succeeded` or `failed`; it should not remain indefi
 **Files:**
 - Create: `C:/Users/QDX/.config/superpowers/worktrees/fusionAgent/parameter-defaults-benchmark/docs/superpowers/specs/2026-04-08-benchmark-followup-summary.md`
 
-- [ ] **Step 1: Summarize corrected findings**
+- [x] **Step 1: Summarize corrected findings**
 
 Write a Markdown note that includes:
 
@@ -134,7 +140,7 @@ Write a Markdown note that includes:
 - exact next-thread starting commands / files
 ```
 
-- [ ] **Step 2: Verify artifact paths**
+- [x] **Step 2: Verify artifact paths**
 
 Run:
 
@@ -163,6 +169,14 @@ Expected: the corrected real benchmark result, micro benchmark result, and follo
 - All file paths resolve inside the isolated worktree.
 - Both benchmark commands target the same isolated base URL `http://127.0.0.1:8010`.
 
-## Execution Handoff
+## Execution Status
 
-Plan complete and saved to `docs/superpowers/plans/2026-04-08-benchmark-followup-and-runtime-alignment.md`. Execution mode selected by the user: inline execution in this session.
+- Status: partially completed.
+- Completed on `2026-04-12`:
+  - isolated runtime aligned on `http://127.0.0.1:8011`
+  - API reachability verified with `405`
+  - fresh worker startup confirmed from `runs/local-runtime/worker.log`
+  - official case `building_gitega_osm_vs_google_agent` rerun and passed with `run_id=0b4315edf3a8449d940355717ad70fa7`
+  - follow-up summary refreshed
+- Remaining blocker:
+  - `tmp/micro_building_case/manifest.json` is absent in this worktree, so the planned micro AOI rerun remains blocked until those local-only inputs are restored or regenerated.

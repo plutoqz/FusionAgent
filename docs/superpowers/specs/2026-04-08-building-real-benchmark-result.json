@@ -1,5 +1,14 @@
 {
-  "generated_at": "2026-04-08T08:25:10Z",
+  "generated_at": "2026-04-12T04:58:35Z",
+  "command_mode": "manifest",
+  "base_url": "http://127.0.0.1:8011",
+  "timeout_sec": 1200.0,
+  "commit_sha": "08e4cef7618fe9b009201db6231c88d108aca9bd",
+  "environment": {
+    "kg_backend": null,
+    "llm_provider": null,
+    "celery_eager": null
+  },
   "totals": {
     "total": 1,
     "passed": 1,
@@ -12,13 +21,14 @@
       "case_id": "building_gitega_osm_vs_google_agent",
       "case_dir": null,
       "status": "passed",
-      "duration_ms": 565720,
-      "run_id": "769d9740741b45b98dbb28f89c8586d0",
-      "artifact_size": 28698170,
-      "error": null
+      "duration_ms": 612458,
+      "run_id": "0b4315edf3a8449d940355717ad70fa7",
+      "artifact_size": 28698169,
+      "error": null,
+      "timeout_sec": 1200.0
     }
   ],
-  "manifest": "E:\\vscode\\fusionAgent\\docs\\superpowers\\specs\\2026-04-07-real-data-eval-manifest.json",
+  "manifest": "C:\\Users\\QDX\\.config\\superpowers\\worktrees\\fusionAgent\\codex-plan-followup\\docs\\superpowers\\specs\\2026-04-07-real-data-eval-manifest.json",
   "selected_cases": [
     "building_gitega_osm_vs_google_agent"
   ]

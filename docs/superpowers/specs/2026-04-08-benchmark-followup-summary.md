@@ -2,72 +2,52 @@
 
 ## Corrected Findings
 
-- Official real-data building case `building_gitega_osm_vs_google_agent` has now been re-run on the isolated runtime at `http://127.0.0.1:8010`.
+- Official real-data building case `building_gitega_osm_vs_google_agent` was rerun on `2026-04-12` on an isolated runtime at `http://127.0.0.1:8011`.
 - Corrected result: `passed`.
-- Corrected run id: `769d9740741b45b98dbb28f89c8586d0`.
-- Corrected duration: `565720 ms` from [2026-04-08-building-real-benchmark-result.json](C:/Users/QDX/.config/superpowers/worktrees/fusionAgent/parameter-defaults-benchmark/docs/superpowers/specs/2026-04-08-building-real-benchmark-result.json).
-- Runtime evidence: [run.json](C:/Users/QDX/.config/superpowers/worktrees/fusionAgent/parameter-defaults-benchmark/runs/769d9740741b45b98dbb28f89c8586d0/run.json).
+- Corrected run id: `0b4315edf3a8449d940355717ad70fa7`.
+- Corrected duration: `612458 ms`.
+- Durable summary path: [2026-04-08-building-real-benchmark-result.json](/C:/Users/QDX/.config/superpowers/worktrees/fusionAgent/codex-plan-followup/docs/superpowers/specs/2026-04-08-building-real-benchmark-result.json).
+- Live runtime evidence was verified from `GET /api/v2/runs/0b4315edf3a8449d940355717ad70fa7` and `GET /api/v2/runs/0b4315edf3a8449d940355717ad70fa7/plan`.
 
 ## Micro AOI Diagnostic
 
-- Diagnostic case `building_gitega_micro_agent` also passed on the same isolated runtime.
-- Diagnostic run id: `29a05db92d144f7bb60bbbdb280344c6`.
-- Diagnostic duration: `56345 ms`.
-- Diagnostic artifact size: `6240282` bytes.
-- Runtime evidence: [run.json](C:/Users/QDX/.config/superpowers/worktrees/fusionAgent/parameter-defaults-benchmark/runs/29a05db92d144f7bb60bbbdb280344c6/run.json).
-- The diagnostic micro-AOI inputs were materialized under a local-only `tmp/micro_building_case/` workspace during the rerun. Those temporary shapefile artifacts are intentionally not retained in git; the durable evidence is the benchmark result JSON plus the recorded runtime run id above.
+- Planned diagnostic case `building_gitega_micro_agent` was not rerun in this worktree.
+- Blocker: the plan expected an existing local-only file `tmp/micro_building_case/manifest.json`, but that file is absent in the current repository state.
+- The micro benchmark JSON has been refreshed to record this blocked status instead of preserving stale success output from an older worktree.
 
 ## Root Cause Split
 
-- The original timeout conclusion for run `57e88999357149d2a48f3164a409aa2c` was false. The run actually succeeded after about `579s`; the failure was the harness timeout window being only `180s`.
-- The later micro-case timeout was a different issue. The worker had received the task but failed before execution because `AgentRunService._build_logger(...)` created a `FileHandler` before ensuring the `logs/` directory existed.
-- That logger-directory bug is now covered by a regression test in [test_agent_run_service_enhancements.py](C:/Users/QDX/.config/superpowers/worktrees/fusionAgent/parameter-defaults-benchmark/tests/test_agent_run_service_enhancements.py) and fixed in [agent_run_service.py](C:/Users/QDX/.config/superpowers/worktrees/fusionAgent/parameter-defaults-benchmark/services/agent_run_service.py).
+- The original timeout conclusion for the official case was false. The corrected rerun confirms the case succeeds when the harness timeout is set to `1200s`.
+- A second alignment issue showed up during this follow-up: port `8010` was already occupied by another local process, so a nominal `405` on that port would have been ambiguous evidence. The rerun therefore used a clean isolated port `8011`.
+- Current benchmark guidance remains: treat API port alignment, worker freshness, and manifest timeout policy as first-class evidence, not operator assumptions.
 
 ## Interpretation
 
-- The official case is already clipped data, not a national-scale full-layer run.
-- Small-area clipping does materially reduce runtime in the current building pipeline: roughly `565.7s` down to `56.3s` in this follow-up.
-- The first engineering change still needed for stable benchmarking is not algorithm refactoring; it is adopting a realistic harness timeout for real-data building cases and keeping API / worker / output directories aligned.
-- That timeout should now live in the manifest itself for known slow real-data building cases, instead of depending only on operator memory.
-
-## 2026-04-09 Continuation
-
-- The same official case `building_gitega_osm_vs_google_agent` was rerun again in `codex/phase1-task1-1` after restoring the local `E:\vscode\fusionAgent\Data` workspace inputs.
-- Result: `passed`.
-- Run id: `92fa35b6f1014d67a8e15fe2a1fe5db3`.
-- Duration: `592549 ms`.
-- Harness summary path: `tmp/eval/real-evidence-summary.json`.
-- This rerun also exposed and fixed a second timeout-budget bug: `utils/local_smoke.py` had been hard-coding `urllib` request timeouts to `30s`, which could still break real-data evidence runs even when the manifest timeout was correctly set to `1200`.
-- That HTTP-timeout fix is now covered by `tests/test_local_smoke_helpers.py`.
+- The official case is viable on the current runtime and no longer supports the earlier “timeout means failure” conclusion.
+- Real-data building benchmarks still require an explicit long timeout window. `180s` remains inappropriate for this class of case.
+- The micro benchmark path is not reproducible from tracked repository state alone; it depends on local-only inputs that must be restored before that part of the plan can be completed honestly.
 
 ## Branch Status
 
-- Active worktree branch: `codex/parameter-defaults-benchmark`.
-- This branch now contains:
-  - the earlier parameter-binding / harness changes,
-  - the corrected official benchmark result,
-  - the micro benchmark result,
-  - the logger-directory bug fix and regression test,
-  - this handoff summary,
-  - the harness follow-up needed to keep the fail-fast benchmark test injectable and stable.
-- Merge recommendation right now: merge only after the follow-up is committed, the temporary micro-AOI artifacts are cleaned out of the worktree, and the targeted benchmark-related tests are rerun cleanly.
+- Active worktree branch: `codex/plan-followup`.
+- This branch currently contains:
+  - refreshed benchmark evidence for the official building case,
+  - updated `04-08` plan progress,
+  - this follow-up summary,
+  - explicit recording that the micro diagnostic rerun is blocked on missing local-only inputs.
+- Merge recommendation: merge after committing these refreshed docs and evidence updates, then decide in a later thread whether to restore/regenerate the micro benchmark inputs.
 
 ## Recommended Next Thread Start
 
-1. Open the worktree at `C:\Users\QDX\.config\superpowers\worktrees\fusionAgent\parameter-defaults-benchmark`.
+1. Open the worktree at `C:\Users\QDX\.config\superpowers\worktrees\fusionAgent\codex-plan-followup`.
 2. Read:
-   - [2026-04-08-benchmark-followup-summary.md](C:/Users/QDX/.config/superpowers/worktrees/fusionAgent/parameter-defaults-benchmark/docs/superpowers/specs/2026-04-08-benchmark-followup-summary.md)
-   - [2026-04-08-building-real-benchmark-result.json](C:/Users/QDX/.config/superpowers/worktrees/fusionAgent/parameter-defaults-benchmark/docs/superpowers/specs/2026-04-08-building-real-benchmark-result.json)
-   - [2026-04-08-building-micro-benchmark-result.json](C:/Users/QDX/.config/superpowers/worktrees/fusionAgent/parameter-defaults-benchmark/docs/superpowers/specs/2026-04-08-building-micro-benchmark-result.json)
-3. Check `git status` and confirm the worktree is clean except for any intentional new follow-up edits before deciding whether to:
-   - commit this follow-up as a separate benchmark-correction commit, or
-   - squash it into the benchmark branch before review.
-4. If continuing benchmark work, keep using the isolated runtime command:
+   - [2026-04-08-benchmark-followup-summary.md](/C:/Users/QDX/.config/superpowers/worktrees/fusionAgent/codex-plan-followup/docs/superpowers/specs/2026-04-08-benchmark-followup-summary.md)
+   - [2026-04-08-building-real-benchmark-result.json](/C:/Users/QDX/.config/superpowers/worktrees/fusionAgent/codex-plan-followup/docs/superpowers/specs/2026-04-08-building-real-benchmark-result.json)
+   - [2026-04-08-building-micro-benchmark-result.json](/C:/Users/QDX/.config/superpowers/worktrees/fusionAgent/codex-plan-followup/docs/superpowers/specs/2026-04-08-building-micro-benchmark-result.json)
+3. If continuing benchmark work, keep using the isolated runtime command:
 
 ```powershell
-$env:GEOFUSION_DEPENDENCY_FILE='E:\vscode\fusionAgent\依赖.txt'
-python scripts/start_local.py --port 8010
+python scripts/start_local.py --port 8011
 ```
 
-5. For future real-data building runs, keep the real-data manifest `timeout_sec` at `1200` for the known slow building cases unless you intentionally want to test a stricter SLA.
-6. If you override the CLI `--timeout`, remember that manifest case-level `timeout_sec` is now the authoritative value for those explicitly configured cases.
+4. Before claiming the micro benchmark is reproducible, first restore or regenerate `tmp/micro_building_case/manifest.json`.

@@ -1,25 +1,13 @@
 {
-  "generated_at": "2026-04-08T08:26:46Z",
-  "totals": {
-    "total": 1,
-    "passed": 1,
-    "failed": 0,
-    "skipped": 0
-  },
-  "all_passed": true,
-  "cases": [
-    {
-      "case_id": "building_gitega_micro_agent",
-      "case_dir": null,
-      "status": "passed",
-      "duration_ms": 56345,
-      "run_id": "29a05db92d144f7bb60bbbdb280344c6",
-      "artifact_size": 6240282,
-      "error": null
-    }
-  ],
-  "manifest": "C:\\Users\\QDX\\.config\\superpowers\\worktrees\\fusionAgent\\parameter-defaults-benchmark\\tmp\\micro_building_case\\manifest.json",
-  "selected_cases": [
-    "building_gitega_micro_agent"
-  ]
+  "generated_at": "2026-04-12T05:00:00Z",
+  "status": "blocked",
+  "case_id": "building_gitega_micro_agent",
+  "base_url": "http://127.0.0.1:8011",
+  "timeout_sec": 1200.0,
+  "reason": "Missing local-only manifest: tmp/micro_building_case/manifest.json",
+  "details": {
+    "attempted_plan": "docs/superpowers/plans/2026-04-08-benchmark-followup-and-runtime-alignment.md",
+    "required_manifest": "tmp/micro_building_case/manifest.json",
+    "worktree": "C:\\Users\\QDX\\.config\\superpowers\\worktrees\\fusionAgent\\codex-plan-followup"
+  }
 }
