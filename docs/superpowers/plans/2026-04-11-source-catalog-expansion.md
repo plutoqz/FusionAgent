@@ -292,3 +292,9 @@ git commit -m "docs: describe source catalog expansion stage"
   - `component_source_ids`
   - `bundle_strategy`
   - `provider_family`
+
+## Execution Status
+
+- Status: completed
+- Runtime outcome: planner-visible source metadata now distinguishes bundle-level and raw-vector sources, and the local bundle provider aligns with the shared source catalog.
+- Evidence in code: `kg/source_catalog.py`, `kg/seed.py`, `services/local_bundle_catalog.py`

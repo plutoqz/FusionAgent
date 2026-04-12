@@ -78,3 +78,9 @@
 - [x] **Step 2: Mark this plan document with the executed checkpoints**
 - [x] **Step 3: Run focused verification for the new download chain**
 - [x] **Step 4: Commit, push branch, merge to `main`, and push `main`**
+
+## Execution Status
+
+- Status: completed
+- Runtime outcome: task-driven runs now follow `raw source -> acquisition/cache/version check -> clip reuse -> bundle assembly` instead of depending on final bundle shapefiles only.
+- Evidence in code: `services/raw_vector_source_service.py`, `utils/vector_clip.py`, `services/local_bundle_catalog.py`, `services/agent_run_service.py`

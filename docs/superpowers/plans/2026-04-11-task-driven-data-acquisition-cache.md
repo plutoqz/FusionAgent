@@ -501,14 +501,8 @@ git commit -m "docs: describe task-driven acquisition cache pipeline"
   - `artifact_role = input_bundle`
   - `source_version`
 
-## Execution Handoff
+## Execution Status
 
-Plan complete and saved to `docs/superpowers/plans/2026-04-11-task-driven-data-acquisition-cache.md`.
-
-Two execution options:
-
-**1. Subagent-Driven (recommended)** - I dispatch a fresh subagent per task, review between tasks, fast iteration
-
-**2. Inline Execution** - Execute tasks in this session using executing-plans, batch execution with checkpoints
-
-Which approach?
+- Status: completed
+- Runtime outcome: `task_driven_auto` runs now expand into source selection, input-bundle materialization, version-aware cache reuse, and bbox clip reuse before execution.
+- Evidence in code: `api/routers/runs_v2.py`, `services/input_acquisition_service.py`, `services/agent_run_service.py`

@@ -1,140 +1,138 @@
 # FusionAgent
 
-FusionAgent is a vector-data fusion agent prototype for disaster response workflows.
-The current `main` branch is no longer just a script wrapper. It now provides a
-testable, auditable, and incrementally extensible agentic workflow runtime.
+[English README](./README.en.md)
 
-The runtime currently supports `building` and `road` jobs using either uploaded
-`zip shapefile` inputs or task-driven auto-acquired input bundles, and can
-perform planning, validation, execution, healing, replanning, evidence
-writeback, and artifact output.
+FusionAgent 是一个面向灾害响应工作流的矢量数据融合智能体原型。当前 `main` 分支已经不再只是算法脚本包装层，而是一个可测试、可审计、可渐进扩展的 agentic runtime。
 
-## Current Position
+当前运行时已支持 `building` 与 `road` 两类任务，输入既可以是上传的 `zip shapefile`，也可以是 `task-driven` 自动准备的输入包；运行时已具备 planning、validation、execution、healing、replanning、evidence writeback 与 artifact 输出能力。
 
-The most accurate description of the project today is:
+## 当前定位
 
-- engineering MVP: reached
-- research-grade iterative prototype: reached
-- final product form: not reached
+对项目现状最准确的表述是：
 
-FusionAgent already has a credible runtime loop, but it is still not the final
-long-lived product form with a full operator UI and mature long-term learning.
+- 工程 MVP：已达到
+- 研究型迭代原型：已达到
+- 最终产品形态：尚未达到
 
-## Thesis Alignment Note
+FusionAgent 已经具备可信的运行闭环，但仍不是拥有完整操作界面、成熟长期学习机制的最终产品。
 
-FusionAgent now distinguishes:
+## 论文对齐说明
 
-- executable core ontology: `Algorithm - Task - Data`
-- scenario constraint layer: disaster event, `ScenarioProfile`, data need, output requirement, QoS policy
+FusionAgent 当前明确区分：
 
-The runtime supports both `scenario-driven` and `task-driven` entry modes.
-Direct task requests can bypass disaster inference and follow default task routing.
+- 可执行核心本体：`Algorithm - Task - Data`
+- 场景约束层：disaster event、`ScenarioProfile`、data need、output requirement、QoS policy
 
-The current agent mode is best described as
-`Constrained Plan-and-Execute with Reactive Healing`:
-the LLM reasons inside KG-retrieved candidates and runtime constraints, while
-validator, policy, audit, and healing loops bound correctness and robustness.
+运行时同时支持 `scenario-driven` 和 `task-driven` 两种入口。直接任务请求可以跳过灾害推断，按默认 task 路由执行。
 
-## Implemented Capabilities
+当前智能体模式更准确的描述是：
+`Constrained Plan-and-Execute with Reactive Healing`
 
-### Core Runtime
+即 LLM 在 KG 检索候选与运行时约束内部做受限推理，而 validator、policy、audit 与 healing 回路负责约束正确性与鲁棒性。
+
+## 已实现能力
+
+### 核心运行时
 
 - `planner -> validator -> executor -> healing/replan -> writeback`
-- persisted `run.json`, `plan.json`, `validation.json`, and `audit.jsonl`
-- persisted artifact bundle output
-- explicit run status, decision records, and audit trail
-- `building` and `road` job support in the v2 runtime
-- dual-entry intent routing with `task-driven` / `scenario-driven` planning modes
-- shared planning context via `TaskBundle` and `ScenarioProfile`
+- 持久化 `run.json`、`plan.json`、`validation.json` 与 `audit.jsonl`
+- 持久化 artifact bundle 输出
+- 显式 run status、decision records 与 audit trail
+- `v2` 运行时支持 `building` 和 `road`
+- `task-driven` / `scenario-driven` 双入口意图路由
+- 通过 `TaskBundle` 与 `ScenarioProfile` 共享规划上下文
 
-### Phase 1: Evaluation And Evidence Hardening
+### Phase 1：评测与证据加固
 
-- `scripts/eval_harness.py` supports both golden-case and manifest modes
-- harness summaries include commit SHA, base URL, timeout, mode, and environment
-- manifest evaluation supports per-case timeout overrides
-- manifest mode performs API and input preflight checks
-- docs now separate fast confidence checks from real evidence runs
+- `scripts/eval_harness.py` 同时支持 golden-case 与 manifest 模式
+- harness summary 包含 commit SHA、base URL、timeout、mode 与 environment
+- manifest 评测支持 per-case timeout override
+- manifest 模式包含 API 与输入 preflight 检查
+- 文档已区分快速信心检查与真实证据运行
 
-### Phase 2: Search-Space Expansion
+### Phase 2：搜索空间扩展
 
-- broader disaster-specific workflow pattern coverage for `building` and `road`
-- richer algorithm metadata: `accuracy_score`, `stability_score`, `usage_mode`
-- richer data-source metadata: freshness, quality, and supported-type signals
-- stronger parameter spec coverage with `tunable` and `optimization_tags`
-- output schema policy metadata exposed through KG and planner retrieval
+- `building` 与 `road` 的灾害场景 workflow pattern 覆盖更广
+- 算法元数据更丰富：`accuracy_score`、`stability_score`、`usage_mode`
+- 数据源元数据更丰富：freshness、quality、supported-type signals
+- 参数规格覆盖增强，支持 `tunable` 与 `optimization_tags`
+- 输出 schema policy 元数据已通过 KG 与 planner retrieval 暴露
 
-### Phase 3: Policy Coverage Expansion
+### Phase 3：策略覆盖扩展
 
-- explicit decision types:
+- 已显式建模的决策类型包括：
   - `pattern_selection`
   - `data_source_selection`
   - `artifact_reuse_selection`
   - `parameter_strategy`
   - `output_schema_policy`
   - `replan_or_fail`
-- stable candidate evidence shape: `metrics + meta`
-- decision traces persisted in both `run.json` and audit-backed status updates
+- 候选证据形状统一为 `metrics + meta`
+- decision trace 会同时落入 `run.json` 与 audit-backed status updates
 
-### Phase 4: Artifact Reuse V2
+### Phase 4：Artifact Reuse V2
 
-- artifact registry with runtime direct reuse and clip reuse
-- compatibility checks for:
+- 已有 artifact registry，支持运行时 direct reuse 与 clip reuse
+- 兼容性检查包含：
   - `output_data_type`
   - `target_crs`
   - job-type freshness policy
-- current freshness policy:
+- 当前 freshness policy：
   - `building = 3d`
   - `road = 1d`
-- clip reuse quality gates for CRS, required fields, and bbox safety
-- explicit fallback to fresh execution when reuse is unsafe or materialization fails
+- clip reuse 包含 CRS、required fields 与 bbox safety 质量门禁
+- reuse 不安全或 materialization 失败时会显式回退到 fresh execution
 
-### Phase 4.5: Task-Driven Input Acquisition
+### Phase 4.5：Task-Driven 输入准备
 
-- `POST /api/v2/runs` accepts `input_strategy=task_driven_auto` for upload-free task-driven runs
-- runtime resolves concrete `osm.zip` and `ref.zip` after planning chooses a usable data source
-- input preparation reuses cached input bundles through version-token checks and bbox clip reuse
-- resolved task inputs are written into audit evidence as `task_inputs_resolved`
-- current concrete provider is a local catalog backed by `Data/`; remote downloader providers remain follow-up work
+- `POST /api/v2/runs` 支持 `input_strategy=task_driven_auto`
+- planner 选出可用数据源后，运行时会解析出具体 `osm.zip` 与 `ref.zip`
+- `task-driven` 请求会在执行前展开为 source resolution、具体输入准备、version-token checks 与 bbox clip reuse
+- 输入准备层可通过 version-token checks 与 bbox clip reuse 复用缓存 input bundle
+- 已解析输入会作为 `task_inputs_resolved` 写入 audit evidence
+- 当前具体 provider 是基于 `Data/` 的本地目录 catalog；远程 downloader provider 仍是后续工作
 
-### Phase 4.6: Source Catalog Expansion
+### Phase 4.6：Source Catalog Expansion
 
-- task-driven retrieval now distinguishes bundle-level sources from raw-vector sources
-- building bundle sources now record concrete component pairs: `OSM + Google` and `OSM + Microsoft`
-- road bundle sources now include an explicit `catalog.flood.road` route alongside earthquake and typhoon road bundles
-- raw-vector catalog coverage now includes OSM `building / road / water / POI`, Microsoft buildings, Google buildings, local water samples, and open POI references already present under `Data/`
-- planner retrieval exposes `component_source_ids`, `bundle_strategy`, `provider_family`, and local path hints for these sources
+- `task-driven` retrieval 已明确区分 bundle-level source 与 raw-vector source
+- building bundle source 已显式记录组件对：`OSM + Google`、`OSM + Microsoft`
+- road bundle source 已包含显式 `catalog.flood.road` 路径，并覆盖 earthquake / typhoon road bundles
+- raw-vector catalog 当前覆盖 OSM `building / road / water / POI`、Microsoft buildings、Google buildings、本地 water sample 与 `Data/` 下已有 open POI references
+- planner retrieval 已暴露这些 source 的 `component_source_ids`、`bundle_strategy`、`provider_family` 与 local path hints
 
-### Phase 4.7: Raw Source Download Chain
+### Phase 4.7：Raw Source Download Chain
 
-- task-driven runtime now materializes bundle inputs from raw-vector source specs instead of directly reading final bundle shapefiles
-- raw-vector acquisition supports directory-first, exact-path, and recursive-glob locators from the shared source catalog
-- raw sources are cached with version-aware reuse through the shared artifact registry before bundle assembly
-- cached raw sources and cached input bundles both support bbox clip reuse
-- clip reuse now transforms request-space bbox masks into the cached dataset CRS before clipping, so projected caches remain spatially correct
-- `LocalBundleCatalogProvider` now assembles `osm.zip` and `ref.zip` from `component_source_ids`, while single-source road bundles generate an empty reference bundle on demand
+- `task-driven` 运行时已能从 raw-vector source spec 物化 bundle 输入，而不再只依赖最终 bundle shapefile
+- raw-vector acquisition 支持 directory-first、exact-path 与 recursive-glob locator
+- raw source 会在 bundle 组装前通过共享 artifact registry 做 version-aware reuse
+- cached raw source 与 cached input bundle 都支持 bbox clip reuse
+- clip reuse 会先把 request-space bbox mask 转到缓存数据集 CRS 再裁剪，保证 projected cache 的空间正确性
+- `LocalBundleCatalogProvider` 已能通过 `component_source_ids` 组装 `osm.zip` 与 `ref.zip`
+- 单源 road bundle 会按需生成空 reference bundle
+- 当前下载链路仍然是本地 catalog 驱动；remote fetch provider 仍是后续工作
 
-### Phase 5: Long-Term Writeback And Learning Loop
+### Phase 5：长期写回与学习闭环
 
-- each run writes a compact `DurableLearningRecord`
-- durable records now retain planning metadata such as planning mode, profile source, and task bundle
-- durable records are stored separately from verbose audit logs
-- repositories can aggregate outcome evidence by:
+- 每次 run 都会写入紧凑版 `DurableLearningRecord`
+- durable record 会保留 planning mode、profile source 与 task bundle 等规划元数据
+- durable record 与冗长 audit log 分离存储
+- repository 已能按下列维度聚合 outcome evidence：
   - pattern
   - algorithm
   - data source
-- planner retrieval now exposes durable learning summaries
+- planner retrieval 已暴露 durable learning summary
 
-### Phase 6: Productization And Operations
+### Phase 6：产品化与运维
 
-- operator inspection endpoint:
+- 提供 operator inspection endpoint：
   - `GET /api/v2/runs/{run_id}/inspection`
-- run comparison endpoint:
+- 提供 run comparison endpoint：
   - `GET /api/v2/runs/{left_run_id}/compare/{right_run_id}`
-- cleaned `docs/v2-operations.md` covering runtime conventions and operator flows
+- 已有整理后的 [docs/v2-operations.md](./docs/v2-operations.md) 说明运行约定与 operator 流程
 
-## Evidence Written Per Run
+## 每次运行产出的核心证据
 
-Each run currently persists the following core evidence files:
+每次 run 当前会持久化以下核心证据文件：
 
 - `run.json`
 - `plan.json`
@@ -142,33 +140,33 @@ Each run currently persists the following core evidence files:
 - `audit.jsonl`
 - artifact bundle
 
-## Known Remaining Gaps
+## 当前仍然存在的明确缺口
 
-Even though the six roadmap phases are implemented, there are still clear gaps:
+虽然六个 roadmap phase 已经都进入实现范围，但仍然存在这些现实缺口：
 
-- benchmark evidence is not yet promoted into a more durable tracked research note
-- the search space still focuses on the current `building` and `road` themes
-- durable learning is still a first-pass capability, not full policy auto-tuning
-- operator-facing productization is still a narrow API layer, not a full frontend
+- benchmark evidence 还没有上升为更耐久的研究笔记或跟踪文档
+- search space 仍然集中在当前 `building` 与 `road` 主题
+- durable learning 仍是 first-pass 能力，不是完整 policy auto-tuning
+- operator-facing productization 目前仍是窄 API 层，不是完整前端产品
 
-## Repository Structure
+## 仓库结构
 
-- `api/`: FastAPI routes and app entry points
-- `services/`: runtime services, including `AgentRunService`
-- `agent/`: planner, retriever, validator, executor, and policy logic
-- `kg/`: KG models, repositories, seed data, and bootstrap logic
-- `adapters/`: building and road fusion adapters
-- `worker/`: Celery worker and scheduling entry points
-- `llm/`: LLM provider abstractions and implementations
-- `scripts/`: harness, bootstrap, local start, and inspection scripts
-- `tests/`: unit, integration, runtime, API, and repository tests
-- `docs/`: operations and design documentation
+- `api/`: FastAPI 路由与应用入口
+- `services/`: 运行时服务，包括 `AgentRunService`
+- `agent/`: planner、retriever、validator、executor 与 policy 逻辑
+- `kg/`: KG 模型、repository、seed data 与 bootstrap
+- `adapters/`: building / road fusion adapter
+- `worker/`: Celery worker 与调度入口
+- `llm/`: LLM provider 抽象与实现
+- `scripts/`: harness、bootstrap、本地启动与 inspection 脚本
+- `tests/`: unit、integration、runtime、API 与 repository tests
+- `docs/`: 运维与设计文档
 
-## Running Locally
+## 本地运行
 
-### Fast Local Mode
+### 快速本地模式
 
-Use this for unit tests, API contract checks, and local debugging.
+适合单元测试、API 契约检查与本地调试。
 
 ```powershell
 python -m pip install -r requirements.txt
@@ -178,16 +176,16 @@ $env:GEOFUSION_CELERY_EAGER='1'
 uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-### Full Local Loop
+### 本地全链路模式
 
-Use this for Neo4j, Redis, Celery, and live-LLM integration.
+适合联调 Neo4j、Redis、Celery 与 live LLM。
 
 ```powershell
 python scripts/start_local.py --check-only
 python scripts/start_local.py
 ```
 
-To reset the managed graph during setup checks:
+如需在 setup check 时重置 managed graph：
 
 ```powershell
 python scripts/start_local.py --check-only --reset-managed-graph
@@ -200,35 +198,35 @@ Copy-Item .env.example .env
 docker compose up --build
 ```
 
-## Evaluation Tiers
+## 评测分层
 
-### Tier 1: Targeted Tests
+### Tier 1：Targeted Tests
 
-Use for everyday regression checking.
+用于日常回归检查。
 
-### Tier 2: Golden-Case Harness
+### Tier 2：Golden-Case Harness
 
-Use for API-to-runtime closed-loop checks.
+用于 API 到 runtime 的闭环检查。
 
-### Tier 3: Real-Data Benchmark
+### Tier 3：Real-Data Benchmark
 
-Use for durable research evidence.
+用于沉淀可复用的研究级证据。
 
-Current timeout guidance:
+当前 timeout 建议：
 
-- harness default: `180s`
-- real-data building benchmarks should not be judged with `180s`
-- current recommendation for real-data building runs: at least `1200s`
+- harness 默认值：`180s`
+- real-data building benchmark 不应使用 `180s` 判定
+- 当前 real-data building run 建议至少使用 `1200s`
 
-## Common Verification Commands
+## 常用验证命令
 
-Run the full test suite:
+运行全量测试：
 
 ```powershell
 python -m pytest -q
 ```
 
-Common runtime-focused subset:
+常用 runtime-focused 子集：
 
 ```powershell
 $env:GEOFUSION_KG_BACKEND='memory'
@@ -257,26 +255,16 @@ python -m pytest -q `
 ### Create Run
 
 - `POST /api/v2/runs`
-- use uploaded bundles by default, or set `input_strategy=task_driven_auto` to let the runtime prepare inputs automatically
+- 默认使用上传 bundle；设置 `input_strategy=task_driven_auto` 后，运行时会自动准备输入
 
-### Inspect Run State And Evidence
+### Inspect Run
 
 - `GET /api/v2/runs/{run_id}`
 - `GET /api/v2/runs/{run_id}/plan`
 - `GET /api/v2/runs/{run_id}/audit`
 - `GET /api/v2/runs/{run_id}/artifact`
 - `GET /api/v2/runs/{run_id}/inspection`
+
+### Compare Runs
+
 - `GET /api/v2/runs/{left_run_id}/compare/{right_run_id}`
-
-## Recommended Reading
-
-- [docs/v2-operations.md](docs/v2-operations.md)
-- [docs/superpowers/specs/2026-04-07-fusion-agent-v2-design.md](docs/superpowers/specs/2026-04-07-fusion-agent-v2-design.md)
-- [docs/superpowers/plans/2026-04-07-fusion-agent-v2-implementation.md](docs/superpowers/plans/2026-04-07-fusion-agent-v2-implementation.md)
-- [docs/superpowers/specs/2026-04-08-benchmark-followup-summary.md](docs/superpowers/specs/2026-04-08-benchmark-followup-summary.md)
-
-## Notes
-
-- do not commit `.env`, runtime logs, `runs/`, `jobs/`, or other local artifacts
-- do not commit private local dependency files
-- keep text files in UTF-8 to avoid encoding corruption
