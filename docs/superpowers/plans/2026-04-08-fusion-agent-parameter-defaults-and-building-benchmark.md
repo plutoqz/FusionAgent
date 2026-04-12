@@ -454,7 +454,7 @@ Write the result summary into:
 docs/superpowers/specs/2026-04-08-building-real-benchmark-result.json
 ```
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
 
 ```bash
 git add docs/superpowers/specs/2026-04-08-building-real-benchmark-result.json
@@ -504,7 +504,7 @@ After this plan is complete, the next plans should be split by subsystem:
 
 ## Execution Status
 
-- Status: implementation complete; benchmark evidence refreshed in this worktree.
+- Status: completed
 - Verification run on `2026-04-12`: `python -m pytest -q tests/test_parameter_default_binding.py tests/test_planner_context.py tests/test_agent_run_service_enhancements.py tests/test_eval_harness.py tests/test_api_v2_integration.py` -> `42 passed`.
 - Official benchmark rerun on isolated local runtime: `building_gitega_osm_vs_google_agent` passed with `run_id=0b4315edf3a8449d940355717ad70fa7`, `duration_ms=612458`, and summary saved in `docs/superpowers/specs/2026-04-08-building-real-benchmark-result.json`.
-- Current follow-up still pending from this plan: commit and branch integration for the refreshed evidence.
+- Branch integration note: refreshed evidence and doc updates were later merged into `main`.
