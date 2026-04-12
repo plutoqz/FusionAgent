@@ -55,6 +55,7 @@ validator, policy, audit, and healing loops bound correctness and robustness.
 - harness summaries include commit SHA, base URL, timeout, mode, and environment
 - manifest evaluation supports per-case timeout overrides
 - manifest mode performs API and input preflight checks
+- the real-data manifest now includes a reproducible `building_gitega_micro_agent` micro case whose inputs are materialized from tracked building shapefiles via manifest `clip_bbox` metadata
 - docs now separate fast confidence checks from real evidence runs
 
 ### Phase 2: Search-Space Expansion
@@ -221,6 +222,7 @@ Current timeout guidance:
 - harness default: `180s`
 - real-data building benchmarks should not be judged with `180s`
 - current recommendation for real-data building runs: at least `1200s`
+- `building_gitega_micro_agent` is now input-reproducible from the tracked manifest, but the local full-loop runtime can still leave that run queued when worker/runtime alignment is off
 
 ## Common Verification Commands
 

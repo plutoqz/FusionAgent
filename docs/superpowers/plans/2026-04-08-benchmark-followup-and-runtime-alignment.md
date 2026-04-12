@@ -99,21 +99,21 @@ Execution note: this rerun was verified through the live API status endpoint bec
 
 **Files:**
 - Create: `C:/Users/QDX/.config/superpowers/worktrees/fusionAgent/parameter-defaults-benchmark/docs/superpowers/specs/2026-04-08-building-micro-benchmark-result.json`
-- Use existing: `C:/Users/QDX/.config/superpowers/worktrees/fusionAgent/parameter-defaults-benchmark/tmp/micro_building_case/manifest.json`
+- Use existing: `C:/Users/QDX/.config/superpowers/worktrees/fusionAgent/parameter-defaults-benchmark/docs/superpowers/specs/2026-04-07-real-data-eval-manifest.json`
 
-- [ ] **Step 1: Run the micro case on the same isolated runtime**
+- [x] **Step 1: Run the micro case on the same isolated runtime**
 
 Run:
 
 ```powershell
-python scripts/eval_harness.py --manifest tmp/micro_building_case/manifest.json --case building_gitega_micro_agent --base-url http://127.0.0.1:8010 --timeout 1200 --output-json docs/superpowers/specs/2026-04-08-building-micro-benchmark-result.json
+python scripts/eval_harness.py --manifest docs/superpowers/specs/2026-04-07-real-data-eval-manifest.json --case building_gitega_micro_agent --base-url http://127.0.0.1:8012 --timeout 1200 --output-json docs/superpowers/specs/2026-04-08-building-micro-benchmark-result.json
 ```
 
 Expected: either a completed result with a concrete duration, or a clear runtime failure that is no longer ambiguous `queued` behavior.
 
-Execution note: blocked on `2026-04-12` because `tmp/micro_building_case/manifest.json` was not present in this worktree, so the planned micro rerun could not be reproduced from repository state alone.
+Execution note: on `2026-04-12` the micro case was rerun from the tracked manifest after adding manifest-driven input clipping. The harness still timed out after `1200s`, but the created run id `8319c5bba5f64dd1a88ace78debaace5` shows that the remaining blocker is runtime queue consumption rather than missing local-only inputs.
 
-- [ ] **Step 2: Cross-check the run phase**
+- [x] **Step 2: Cross-check the run phase**
 
 Run:
 
@@ -122,6 +122,8 @@ Get-Content -Raw (Join-Path (Get-ChildItem runs -Directory | Sort-Object LastWri
 ```
 
 Expected: `phase` should be `succeeded` or `failed`; it should not remain indefinitely at `queued` on the fresh runtime.
+
+Execution note: the live API confirmed that run `8319c5bba5f64dd1a88ace78debaace5` remained at `queued` with only a `run_created` audit event, so the micro case is now reproducible from repository state but still blocked by full-loop runtime alignment.
 
 ## Task 4: Write A Handoff Summary
 
@@ -178,5 +180,7 @@ Expected: the corrected real benchmark result, micro benchmark result, and follo
   - fresh worker startup confirmed from `runs/local-runtime/worker.log`
   - official case `building_gitega_osm_vs_google_agent` rerun and passed with `run_id=0b4315edf3a8449d940355717ad70fa7`
   - follow-up summary refreshed
+  - tracked manifest now includes `building_gitega_micro_agent`
+  - manifest-driven clipping can materialize the micro AOI inputs from repository state alone
 - Remaining blocker:
-  - `tmp/micro_building_case/manifest.json` is absent in this worktree, so the planned micro AOI rerun remains blocked until those local-only inputs are restored or regenerated.
+  - the micro run `8319c5bba5f64dd1a88ace78debaace5` still stalls at `queued` under the current full-loop local runtime, so the unresolved problem is worker/runtime alignment rather than missing benchmark inputs.

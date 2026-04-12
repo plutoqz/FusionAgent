@@ -13,6 +13,7 @@ import urllib.request
 from pathlib import Path
 from typing import Any, Callable
 
+import geopandas as gpd
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
@@ -20,6 +21,7 @@ if str(REPO_ROOT) not in sys.path:
 
 from utils.local_smoke import build_run_request_from_case, run_local_v2_smoke, validate_smoke_result
 from utils.shp_zip import zip_shapefile_bundle
+from utils.vector_clip import clip_frame_to_request_bbox
 
 
 RequestBuilder = Callable[[Path], dict[str, Any]]
@@ -353,6 +355,39 @@ def _failed_manifest_case(case: dict[str, Any], reason: str, *, timeout_sec: flo
     }
 
 
+def _parse_clip_bbox(case: dict[str, Any]) -> tuple[float, float, float, float] | None:
+    raw = case.get("clip_bbox")
+    if not isinstance(raw, list) or len(raw) != 4:
+        return None
+    try:
+        minx, miny, maxx, maxy = (float(raw[0]), float(raw[1]), float(raw[2]), float(raw[3]))
+    except Exception as exc:  # noqa: BLE001
+        raise ValueError(f"Invalid clip_bbox for case {case.get('case_id')!r}: {raw!r}") from exc
+    if maxx < minx or maxy < miny:
+        raise ValueError(f"Invalid clip_bbox ordering for case {case.get('case_id')!r}: {raw!r}")
+    return (minx, miny, maxx, maxy)
+
+
+def _bbox_to_text(bbox: tuple[float, float, float, float]) -> str:
+    return f"bbox({bbox[0]},{bbox[1]},{bbox[2]},{bbox[3]})"
+
+
+def _zip_manifest_input(source_path: Path, output_zip: Path, *, clip_bbox: tuple[float, float, float, float] | None) -> None:
+    if clip_bbox is None:
+        zip_shapefile_bundle(source_path, output_zip)
+        return
+
+    gdf = gpd.read_file(source_path)
+    clipped = clip_frame_to_request_bbox(gdf, clip_bbox)
+    if clipped.empty:
+        raise ValueError(f"clip_bbox produced no features for source {source_path}")
+    clip_dir = output_zip.parent / f"_clip_{source_path.stem}"
+    clip_dir.mkdir(parents=True, exist_ok=True)
+    clipped_shp = clip_dir / source_path.name
+    clipped.to_file(clipped_shp)
+    zip_shapefile_bundle(clipped_shp, output_zip)
+
+
 def _materialize_manifest_case(case: dict[str, Any], root: Path) -> Path:
     case_id = str(case.get("case_id") or "manifest_case")
     theme = str(case.get("theme") or "")
@@ -370,8 +405,9 @@ def _materialize_manifest_case(case: dict[str, Any], root: Path) -> Path:
     case_dir = root / case_id
     input_dir = case_dir / "input"
     input_dir.mkdir(parents=True, exist_ok=True)
-    zip_shapefile_bundle(osm_path, input_dir / "osm.zip")
-    zip_shapefile_bundle(ref_path, input_dir / "ref.zip")
+    clip_bbox = _parse_clip_bbox(case)
+    _zip_manifest_input(osm_path, input_dir / "osm.zip", clip_bbox=clip_bbox)
+    _zip_manifest_input(ref_path, input_dir / "ref.zip", clip_bbox=clip_bbox)
 
     payload = {
         "case_id": case_id,
@@ -399,6 +435,8 @@ def _materialize_manifest_case(case: dict[str, Any], root: Path) -> Path:
             "algo.fusion.road.v1",
             "algo.fusion.road.safe",
         ]
+    if clip_bbox is not None:
+        payload["trigger"]["spatial_extent"] = _bbox_to_text(clip_bbox)
 
     (case_dir / "case.json").write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     return case_dir

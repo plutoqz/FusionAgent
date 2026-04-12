@@ -48,6 +48,7 @@ FusionAgent 当前明确区分：
 - harness summary 包含 commit SHA、base URL、timeout、mode 与 environment
 - manifest 评测支持 per-case timeout override
 - manifest 模式包含 API 与输入 preflight 检查
+- real-data manifest 现在包含一个可复现的 `building_gitega_micro_agent` micro case，可通过 manifest 中的 `clip_bbox` 从 tracked building shapefile 自动物化 micro AOI 输入
 - 文档已区分快速信心检查与真实证据运行
 
 ### Phase 2：搜索空间扩展
@@ -217,6 +218,7 @@ docker compose up --build
 - harness 默认值：`180s`
 - real-data building benchmark 不应使用 `180s` 判定
 - 当前 real-data building run 建议至少使用 `1200s`
+- `building_gitega_micro_agent` 当前已经可以从 tracked manifest 复现输入，但在 full-loop 本地 runtime 下仍可能因 worker/runtime alignment 停留在 `queued`
 
 ## 常用验证命令
 

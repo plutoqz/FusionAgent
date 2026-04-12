@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from zipfile import ZipFile
 
+import geopandas as gpd
 import sys
 
 
@@ -376,6 +378,54 @@ def test_materialize_manifest_case_creates_case_bundle(tmp_path: Path) -> None:
     assert (case_dir / "input" / "osm.zip").exists()
     assert (case_dir / "input" / "ref.zip").exists()
     assert "algo.fusion.building.v1" in payload["expected_plan_checks"]["required_algorithms"]
+
+
+def test_materialize_manifest_case_clips_inputs_when_clip_bbox_is_provided(tmp_path: Path) -> None:
+    src_dir = tmp_path / "src"
+    src_dir.mkdir(parents=True, exist_ok=True)
+    osm_shp = src_dir / "osm_case.shp"
+    ref_shp = src_dir / "ref_case.shp"
+    geometry = gpd.GeoSeries.from_wkt(
+        [
+            "POLYGON ((0 0, 0 1, 1 1, 1 0, 0 0))",
+            "POLYGON ((0.5 0.5, 0.5 1.5, 1.5 1.5, 1.5 0.5, 0.5 0.5))",
+        ],
+        crs="EPSG:4326",
+    )
+    gpd.GeoDataFrame({"name": ["a", "b"]}, geometry=geometry).to_file(osm_shp)
+    gpd.GeoDataFrame({"name": ["r1", "r2"]}, geometry=geometry).to_file(ref_shp)
+
+    case = {
+        "case_id": "building_micro_case",
+        "theme": "building",
+        "execution_mode": "agent",
+        "readiness": "agent-ready",
+        "clip_bbox": [0.25, 0.25, 0.55, 0.55],
+        "inputs": {
+            "osm": str(osm_shp),
+            "reference": str(ref_shp),
+        },
+    }
+
+    case_dir = eval_harness._materialize_manifest_case(case, tmp_path / "work")
+    payload = json.loads((case_dir / "case.json").read_text(encoding="utf-8"))
+
+    assert payload["trigger"]["spatial_extent"] == "bbox(0.25,0.25,0.55,0.55)"
+
+    extract_dir = tmp_path / "extract"
+    with ZipFile(case_dir / "input" / "osm.zip", "r") as zf:
+        zf.extractall(extract_dir / "osm")
+    with ZipFile(case_dir / "input" / "ref.zip", "r") as zf:
+        zf.extractall(extract_dir / "ref")
+
+    osm_out = gpd.read_file(next((extract_dir / "osm").glob("*.shp")))
+    ref_out = gpd.read_file(next((extract_dir / "ref").glob("*.shp")))
+    for frame in [osm_out, ref_out]:
+        minx, miny, maxx, maxy = frame.to_crs("EPSG:4326").total_bounds.tolist()
+        assert minx >= 0.25
+        assert miny >= 0.25
+        assert maxx <= 0.55
+        assert maxy <= 0.55
 
 
 def test_main_writes_summary_json_and_exit_code_on_failure(tmp_path: Path, monkeypatch, capsys) -> None:

@@ -19,6 +19,23 @@
       ]
     },
     {
+      "case_id": "building_gitega_micro_agent",
+      "theme": "building",
+      "readiness": "agent-ready",
+      "execution_mode": "agent",
+      "timeout_sec": 1200,
+      "priority": "P0",
+      "clip_bbox": [29.817351, -3.646572, 29.931113, -3.412421],
+      "inputs": {
+        "osm": "E:/vscode/fusionAgent/Data/buildings/OSM/吉特加建筑物.shp",
+        "reference": "E:/vscode/fusionAgent/Data/buildings/Google/Google吉特加clip.shp"
+      },
+      "notes": [
+        "Reproducible micro AOI benchmark derived from the tracked Gitega building inputs.",
+        "Input clipping is materialized from manifest metadata instead of local-only tmp files."
+      ]
+    },
+    {
       "case_id": "building_gitega_osm_vs_msft_clipped_agent",
       "theme": "building",
       "readiness": "agent-ready-with-prep",
