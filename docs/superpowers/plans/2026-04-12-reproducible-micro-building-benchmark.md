@@ -160,14 +160,14 @@ python -m pytest -q tests/test_eval_harness.py tests/test_local_smoke_helpers.py
 
 and keep the benchmark result JSON as live evidence.
 
-- [ ] **Step 2: Commit**
+- [x] **Step 2: Commit**
 
 ```bash
 git add scripts/eval_harness.py tests/test_eval_harness.py docs/superpowers/specs/2026-04-07-real-data-eval-manifest.json docs/superpowers/specs/2026-04-08-building-micro-benchmark-result.json docs/superpowers/plans/2026-04-08-benchmark-followup-and-runtime-alignment.md docs/superpowers/specs/2026-04-08-benchmark-followup-summary.md README.md README.en.md docs/superpowers/plans/2026-04-12-reproducible-micro-building-benchmark.md
 git commit -m "feat: make micro building benchmark reproducible"
 ```
 
-- [ ] **Step 3: Push, merge to `main`, and clean local/remote branches**
+- [x] **Step 3: Push, merge to `main`, and clean local/remote branches**
 
 Use the current repo’s established fast-forward cleanup workflow after verification succeeds.
 
@@ -177,3 +177,4 @@ Use the current repo’s established fast-forward cleanup workflow after verific
 - Verification on `2026-04-12`: `python -m pytest -q tests/test_eval_harness.py tests/test_local_smoke_helpers.py` -> `16 passed`.
 - Reproducibility result: `building_gitega_micro_agent` is now generated from the tracked real-data manifest via `clip_bbox`, without relying on `tmp/micro_building_case/manifest.json`.
 - Current runtime result: the full-loop local run still timed out after creating run `8319c5bba5f64dd1a88ace78debaace5`, which remained at `queued`. The remaining blocker is worker/runtime alignment, not manifest/input reproducibility.
+- Branch wrap-up on `2026-04-13`: the work was fast-forward merged to `main`, pushed to `origin/main`, local/remote feature branches were removed, and the leftover detached worktree directory was cleaned up after the log handle was released.
