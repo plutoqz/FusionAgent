@@ -1,0 +1,35 @@
+{
+  "generated_at": "2026-04-16T08:19:14Z",
+  "command_mode": "manifest",
+  "base_url": "http://127.0.0.1:8010",
+  "timeout_sec": 90.0,
+  "commit_sha": "27d48d1eaaa7bb1463625265cf9745f7887e1676",
+  "environment": {
+    "kg_backend": "neo4j",
+    "llm_provider": "openai",
+    "celery_eager": "0"
+  },
+  "totals": {
+    "total": 1,
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0
+  },
+  "all_passed": true,
+  "cases": [
+    {
+      "case_id": "building_gitega_micro_agent",
+      "case_dir": null,
+      "status": "passed",
+      "duration_ms": 194896,
+      "run_id": "7117ef6fd95a44aa97d438cb7b3a9bee",
+      "artifact_size": 6388375,
+      "error": null,
+      "timeout_sec": 1200.0
+    }
+  ],
+  "manifest": "E:\\vscode\\fusionAgent\\docs\\superpowers\\specs\\2026-04-07-real-data-eval-manifest.json",
+  "selected_cases": [
+    "building_gitega_micro_agent"
+  ]
+}

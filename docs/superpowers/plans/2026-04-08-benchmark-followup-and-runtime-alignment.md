@@ -14,25 +14,25 @@
 
 ### New Files
 
-- `C:/Users/QDX/.config/superpowers/worktrees/fusionAgent/parameter-defaults-benchmark/docs/superpowers/plans/2026-04-08-benchmark-followup-and-runtime-alignment.md`
-- `C:/Users/QDX/.config/superpowers/worktrees/fusionAgent/parameter-defaults-benchmark/docs/superpowers/specs/2026-04-08-benchmark-followup-summary.md`
-- `C:/Users/QDX/.config/superpowers/worktrees/fusionAgent/parameter-defaults-benchmark/docs/superpowers/specs/2026-04-08-building-micro-benchmark-result.json`
+- `E:/vscode/fusionAgent/docs/superpowers/plans/2026-04-08-benchmark-followup-and-runtime-alignment.md`
+- `E:/vscode/fusionAgent/docs/superpowers/specs/2026-04-08-benchmark-followup-summary.md`
+- `E:/vscode/fusionAgent/docs/superpowers/specs/2026-04-08-building-micro-benchmark-result.json`
 
 ### Existing Files To Modify
 
-- `C:/Users/QDX/.config/superpowers/worktrees/fusionAgent/parameter-defaults-benchmark/docs/superpowers/specs/2026-04-08-building-real-benchmark-result.json`
+- `E:/vscode/fusionAgent/docs/superpowers/specs/2026-04-08-building-real-benchmark-result.json`
 
 ### Runtime / Diagnostic Artifacts
 
-- `C:/Users/QDX/.config/superpowers/worktrees/fusionAgent/parameter-defaults-benchmark/runs/local-runtime/`
-- `C:/Users/QDX/.config/superpowers/worktrees/fusionAgent/parameter-defaults-benchmark/tmp/micro_building_case/manifest.json`
-- `C:/Users/QDX/.config/superpowers/worktrees/fusionAgent/parameter-defaults-benchmark/tmp/micro_building_case/summary.json`
+- `E:/vscode/fusionAgent/runs/local-runtime/`
+- `E:/vscode/fusionAgent/tmp/micro_building_case/manifest.json`
+- `E:/vscode/fusionAgent/tmp/micro_building_case/summary.json`
 
 ## Task 1: Align A Fresh Local Runtime
 
 **Files:**
-- Use existing: `C:/Users/QDX/.config/superpowers/worktrees/fusionAgent/parameter-defaults-benchmark/scripts/start_local.py`
-- Use existing: `C:/Users/QDX/.config/superpowers/worktrees/fusionAgent/parameter-defaults-benchmark/runs/local-runtime/`
+- Use existing: `E:/vscode/fusionAgent/scripts/start_local.py`
+- Use existing: `E:/vscode/fusionAgent/runs/local-runtime/`
 
 - [x] **Step 1: Start a new runtime on an isolated port**
 
@@ -69,9 +69,9 @@ Expected: recent timestamps from the current run startup, not only stale entries
 ## Task 2: Correct The Official Building Benchmark Result
 
 **Files:**
-- Modify: `C:/Users/QDX/.config/superpowers/worktrees/fusionAgent/parameter-defaults-benchmark/docs/superpowers/specs/2026-04-08-building-real-benchmark-result.json`
-- Use existing: `C:/Users/QDX/.config/superpowers/worktrees/fusionAgent/parameter-defaults-benchmark/docs/superpowers/specs/2026-04-07-real-data-eval-manifest.json`
-- Use existing: `C:/Users/QDX/.config/superpowers/worktrees/fusionAgent/parameter-defaults-benchmark/scripts/eval_harness.py`
+- Modify: `E:/vscode/fusionAgent/docs/superpowers/specs/2026-04-08-building-real-benchmark-result.json`
+- Use existing: `E:/vscode/fusionAgent/docs/superpowers/specs/2026-04-07-real-data-eval-manifest.json`
+- Use existing: `E:/vscode/fusionAgent/scripts/eval_harness.py`
 
 - [x] **Step 1: Rerun the official case with a longer timeout**
 
@@ -98,8 +98,8 @@ Execution note: this rerun was verified through the live API status endpoint bec
 ## Task 3: Re-run The Micro AOI Diagnostic Case
 
 **Files:**
-- Create: `C:/Users/QDX/.config/superpowers/worktrees/fusionAgent/parameter-defaults-benchmark/docs/superpowers/specs/2026-04-08-building-micro-benchmark-result.json`
-- Use existing: `C:/Users/QDX/.config/superpowers/worktrees/fusionAgent/parameter-defaults-benchmark/docs/superpowers/specs/2026-04-07-real-data-eval-manifest.json`
+- Create: `E:/vscode/fusionAgent/docs/superpowers/specs/2026-04-08-building-micro-benchmark-result.json`
+- Use existing: `E:/vscode/fusionAgent/docs/superpowers/specs/2026-04-07-real-data-eval-manifest.json`
 
 - [x] **Step 1: Run the micro case on the same isolated runtime**
 
@@ -113,6 +113,8 @@ Expected: either a completed result with a concrete duration, or a clear runtime
 
 Execution note: on `2026-04-12` the micro case was rerun from the tracked manifest after adding manifest-driven input clipping. The harness still timed out after `1200s`, but the created run id `8319c5bba5f64dd1a88ace78debaace5` shows that the remaining blocker is runtime queue consumption rather than missing local-only inputs.
 
+Follow-up note on `2026-04-16`: a clean isolated rerun on `http://127.0.0.1:8010` passed in `194896 ms` with `run_id=7117ef6fd95a44aa97d438cb7b3a9bee`, so the earlier queued result should now be treated as historical runtime drift rather than a standing defect in current `main`.
+
 - [x] **Step 2: Cross-check the run phase**
 
 Run:
@@ -125,10 +127,12 @@ Expected: `phase` should be `succeeded` or `failed`; it should not remain indefi
 
 Execution note: the live API confirmed that run `8319c5bba5f64dd1a88ace78debaace5` remained at `queued` with only a `run_created` audit event, so the micro case is now reproducible from repository state but still blocked by full-loop runtime alignment.
 
+Follow-up note on `2026-04-16`: the clean isolated rerun no longer remained at `queued`; it reached `succeeded`, which closes the specific runtime-alignment uncertainty captured by the `2026-04-12` run.
+
 ## Task 4: Write A Handoff Summary
 
 **Files:**
-- Create: `C:/Users/QDX/.config/superpowers/worktrees/fusionAgent/parameter-defaults-benchmark/docs/superpowers/specs/2026-04-08-benchmark-followup-summary.md`
+- Create: `E:/vscode/fusionAgent/docs/superpowers/specs/2026-04-08-benchmark-followup-summary.md`
 
 - [x] **Step 1: Summarize corrected findings**
 
@@ -173,7 +177,7 @@ Expected: the corrected real benchmark result, micro benchmark result, and follo
 
 ## Execution Status
 
-- Status: partially completed.
+- Status: completed as a historical follow-up, with later clean-rerun confirmation.
 - Completed on `2026-04-12`:
   - isolated runtime aligned on `http://127.0.0.1:8011`
   - API reachability verified with `405`
@@ -182,5 +186,9 @@ Expected: the corrected real benchmark result, micro benchmark result, and follo
   - follow-up summary refreshed
   - tracked manifest now includes `building_gitega_micro_agent`
   - manifest-driven clipping can materialize the micro AOI inputs from repository state alone
-- Remaining blocker:
-  - the micro run `8319c5bba5f64dd1a88ace78debaace5` still stalls at `queued` under the current full-loop local runtime, so the unresolved problem is worker/runtime alignment rather than missing benchmark inputs.
+- Follow-up on `2026-04-16`:
+  - clean isolated runtime aligned on `http://127.0.0.1:8010`
+  - uploaded smoke run passed on the same runtime
+  - micro case `building_gitega_micro_agent` rerun and passed with `run_id=7117ef6fd95a44aa97d438cb7b3a9bee`
+  - durable confirmation was saved in `docs/superpowers/specs/2026-04-16-building-micro-alignment-result.json`
+  - conclusion updated: the old queued run captured environment drift in that older runtime, not a standing blocker in current `main`

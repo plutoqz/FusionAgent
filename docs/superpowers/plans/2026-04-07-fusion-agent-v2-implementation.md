@@ -27,9 +27,9 @@ This file is the master plan and progress tracker.
 
 ## Current Snapshot
 
-**Last updated:** `2026-04-09`
+**Last updated:** `2026-04-16`
 
-**Overall judgment:** FusionAgent has already crossed the "basic runtime MVP" line. The primary problem is no longer missing core orchestration. The primary problem is making the system trustworthy and extensible enough that future algorithm, policy, and ontology work produces credible evidence instead of one-off demos.
+**Overall judgment:** FusionAgent has already crossed the "basic runtime MVP" line, and the current V2 roadmap is now complete for its intended scope. The primary remaining work is no longer closing baseline roadmap gaps; it is defining the next research and product iteration without losing the evidence discipline and runtime transparency established in this phase.
 
 **What is already in place:**
 
@@ -41,15 +41,14 @@ This file is the master plan and progress tracker.
 - [x] Audit trail and decision records are persisted through the run lifecycle
 - [x] Evaluation harness exists in `scripts/eval_harness.py`
 - [x] Benchmark timeout misdiagnosis was corrected and follow-up evidence was recorded in `docs/superpowers/specs/2026-04-08-benchmark-followup-summary.md`
+- [x] Benchmark evidence now records runtime-aligned metadata through `/api/v2/runtime`, and the latest clean micro rerun is tracked in `docs/superpowers/specs/2026-04-16-building-micro-alignment-result.json`
 
-**What is not yet strong enough:**
+**What still needs deliberate follow-on planning:**
 
-- [ ] Evaluation and benchmark evidence are not yet a stable long-term operating discipline
-- [ ] Search space is still narrow; policy has too few meaningful choices
-- [ ] Policy coverage is still partial; some choices remain implicit in planner, registry, or adapters
-- [ ] Artifact reuse compatibility rules are still too shallow for stronger claims
-- [ ] Long-term learning and writeback are still weak
-- [ ] Operator-facing productization is still intentionally thin
+- [x] Evaluation and benchmark evidence are now handled through a documented, runtime-aligned workflow for the current repo-supported benchmark cases
+- [x] Search-space expansion, policy coverage, artifact reuse hardening, long-term writeback, and operator inspection reached the completion bar defined by this roadmap
+- [ ] Fresh-checkout reproducibility still depends on restoring the local `Data/` assets or repointing manifests to equivalent tracked inputs
+- [ ] Broader disaster/theme coverage, stronger CI evidence automation, and richer operator UX should be treated as a new roadmap rather than unfinished checklist items from this V2 plan
 
 ## Supporting Documents
 
@@ -100,7 +99,7 @@ This phase is already done enough to treat as baseline, not open work.
 ### Carry-Forward Cleanup Items
 
 - [x] Update wording drift where planner-stage artifact reuse rationale still claims no runtime short-circuit even though runtime short-circuit now exists
-- [ ] Keep README, design spec, and runtime behavior synchronized after each future phase
+- [x] Re-sync README, runtime docs, and benchmark summaries for the `2026-04-16` evidence-hardening closure batch
 
 ---
 
@@ -190,6 +189,8 @@ Current evidence and blockers:
 - `2026-04-09`: documented real evidence command passed end-to-end after restoring `E:\vscode\fusionAgent\Data`; summary saved to `tmp/eval/real-evidence-summary.json`
 - `2026-04-09`: successful real-data building case `building_gitega_osm_vs_google_agent` recorded run id `92fa35b6f1014d67a8e15fe2a1fe5db3`, duration `592549 ms`, and artifact size `28698170`
 - `2026-04-09`: `building_gitega_osm_vs_msft_clipped_agent` remains intentionally skipped because the manifest still marks it `agent-ready-with-prep`
+- `2026-04-16`: targeted evidence-hardening verification passed with `python -m pytest -q tests/test_eval_harness.py tests/test_api_v2_integration.py`
+- `2026-04-16`: a clean isolated runtime on `http://127.0.0.1:8010` returned `/api/v2/runtime` metadata and passed both `python scripts/smoke_local_v2.py --base-url http://127.0.0.1:8010 --timeout 180` and the manifest-backed micro rerun saved to `docs/superpowers/specs/2026-04-16-building-micro-alignment-result.json` with run id `7117ef6fd95a44aa97d438cb7b3a9bee`
 
 Follow-on issues uncovered in Phase 1:
 
@@ -476,7 +477,7 @@ These are the next items to work in order.
 - [x] Phase 4 Task 4.1: improve artifact reuse compatibility checks
 - [x] Phase 5 Task 5.1: define durable learning records
 - [x] Phase 6 Task 6.1: design operator inspection flow
-- [ ] Revisit whether benchmark evidence should be copied out of `tmp/eval/` into a more durable tracked note or summary
+- [x] Revisit whether benchmark evidence should be copied out of `tmp/eval/` into a more durable tracked note or summary
 
 ## Progress Log
 
@@ -505,6 +506,9 @@ These are the next items to work in order.
 - `2026-04-09`: Phase 5 completed in `codex/phase5-task5-1`; verification passed with `python -m pytest -q tests/test_kg_repository_enhancements.py tests/test_neo4j_repository.py tests/test_planner_context.py tests/test_agent_run_service_enhancements.py`
 - `2026-04-09`: Phase 6 Tasks 6.1 to 6.3 completed in `codex/phase6-task6-1`; the v2 API now exposes `/inspection` and `/compare` operator views, and `docs/v2-operations.md` was rewritten into a clean current-state runtime guide covering inspection, comparison, and local-vs-managed conventions
 - `2026-04-09`: Phase 6 completed in `codex/phase6-task6-1`; verification passed with `python -m pytest -q tests/test_api_v2_integration.py`
+- `2026-04-16`: benchmark evidence revisit closed; durable tracked summaries now live under `docs/superpowers/specs/`, and README plus runtime docs now record the standard local port and dependency conventions for `8000` default development, `8010` isolated benchmarks, and `8011` isolated fast-confidence runs
+- `2026-04-16`: clean isolated runtime verification on `http://127.0.0.1:8010` showed that `building_gitega_micro_agent` now passes in current `main`; the earlier queued `2026-04-12` micro run is preserved as historical environment drift evidence rather than the current expected runtime state
+- `2026-04-16`: evidence capture hardening improved again; the v2 API now exposes `/api/v2/runtime`, and `scripts/eval_harness.py` now prefers runtime-reported metadata over shell-only env capture when building benchmark summaries
 
 ## Self-Review
 

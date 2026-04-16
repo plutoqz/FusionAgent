@@ -187,8 +187,19 @@ Use this for Neo4j, Redis, Celery, and live-LLM integration.
 
 ```powershell
 python scripts/start_local.py --check-only
-python scripts/start_local.py
+python scripts/start_local.py --port 8000
 ```
+
+Local runtime conventions:
+
+- use `8000` as the default port for everyday development, smoke runs, and manual debugging
+- the standard full-loop startup command is `python scripts/start_local.py --port 8000`
+- local direct-run entrypoints load the repo-root `依赖.txt` first; Redis broker / backend should follow its `Redis端口`, and the repo example currently uses `6380`
+- Celery falls back to the generic code default `redis://localhost:6379/0` only when no `依赖.txt`-derived value is available
+- the default Neo4j convention is `bolt://localhost:7687`
+- reserve `8011` for isolated fast-confidence checks
+- reserve `8010` for isolated real-data benchmarks
+- use `8012+` only for temporary diagnostics, not as a standing default port
 
 To reset the managed graph during setup checks:
 
@@ -202,6 +213,11 @@ python scripts/start_local.py --check-only --reset-managed-graph
 Copy-Item .env.example .env
 docker compose up --build
 ```
+
+Notes:
+
+- the `docker compose` path uses container-local `redis://redis:6379/0` and API port `8000`
+- it does not depend on the local Redis port declared in `依赖.txt`
 
 ## Evaluation Tiers
 
@@ -222,7 +238,8 @@ Current timeout guidance:
 - harness default: `180s`
 - real-data building benchmarks should not be judged with `180s`
 - current recommendation for real-data building runs: at least `1200s`
-- `building_gitega_micro_agent` is now input-reproducible from the tracked manifest, but the local full-loop runtime can still leave that run queued when worker/runtime alignment is off
+- `building_gitega_micro_agent` is now input-reproducible from the tracked manifest and has been re-verified on a clean isolated `8010` full-loop runtime; the older `queued` outcome should now be treated as an environment-alignment symptom, not the default expectation for current `main`
+- `scripts/eval_harness.py` now prefers non-sensitive runtime metadata from `/api/v2/runtime`, so saved summary `environment` fields reflect the actual runtime more reliably than shell-only env capture
 
 ## Common Verification Commands
 

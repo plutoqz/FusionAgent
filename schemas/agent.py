@@ -231,3 +231,10 @@ class RunComparisonResponse(BaseModel):
     left: RunInspectionResponse
     right: RunInspectionResponse
     differing_decisions: Dict[str, Dict[str, Optional[str]]] = Field(default_factory=dict)
+
+
+class RuntimeMetadataResponse(BaseModel):
+    kg_backend: Optional[str] = None
+    llm_provider: Optional[str] = None
+    celery_eager: Optional[str] = None
+    api_port: Optional[str] = None

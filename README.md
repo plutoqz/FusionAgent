@@ -183,8 +183,19 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 
 ```powershell
 python scripts/start_local.py --check-only
-python scripts/start_local.py
+python scripts/start_local.py --port 8000
 ```
+
+本地运行约定：
+
+- 日常开发、本机冒烟、手工联调默认使用 `8000`
+- 推荐的标准全链路启动方式是 `python scripts/start_local.py --port 8000`
+- 本机直跑入口会优先读取仓库根目录 `依赖.txt`；Redis broker / backend 端口以其中的 `Redis端口` 为准，仓库样例当前使用 `6380`
+- 只有未提供 `依赖.txt` 时，Celery 才回退到代码中的通用默认值 `redis://localhost:6379/0`
+- Neo4j 默认约定为 `bolt://localhost:7687`
+- `8011` 预留给隔离的 fast-confidence 检查
+- `8010` 预留给隔离的 real-data benchmark
+- `8012+` 只建议用于临时排障，不作为常驻默认端口
 
 如需在 setup check 时重置 managed graph：
 
@@ -198,6 +209,11 @@ python scripts/start_local.py --check-only --reset-managed-graph
 Copy-Item .env.example .env
 docker compose up --build
 ```
+
+说明：
+
+- `docker compose` 路径使用容器内的 `redis://redis:6379/0` 与 API `8000`
+- 它不依赖本机 `依赖.txt` 中的 Redis 端口约定
 
 ## 评测分层
 
@@ -218,7 +234,8 @@ docker compose up --build
 - harness 默认值：`180s`
 - real-data building benchmark 不应使用 `180s` 判定
 - 当前 real-data building run 建议至少使用 `1200s`
-- `building_gitega_micro_agent` 当前已经可以从 tracked manifest 复现输入，但在 full-loop 本地 runtime 下仍可能因 worker/runtime alignment 停留在 `queued`
+- `building_gitega_micro_agent` 当前已经可以从 tracked manifest 复现输入，并且在干净隔离的 `8010` full-loop runtime 上已验证通过；如果 API / worker / broker 对齐漂移，旧的 `queued` 症状仍可能作为环境问题重现
+- `scripts/eval_harness.py` 现在会优先读取 `/api/v2/runtime` 返回的非敏感运行时元数据，因此 summary 中的 `environment` 更接近真实运行时，而不是仅依赖当前 shell 环境变量
 
 ## 常用验证命令
 

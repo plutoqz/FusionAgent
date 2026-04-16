@@ -297,6 +297,67 @@ def test_evaluate_manifest_cases_includes_summary_metadata(monkeypatch) -> None:
     }
 
 
+def test_evaluate_cases_uses_runtime_metadata_when_local_env_is_unset(tmp_path: Path, monkeypatch) -> None:
+    case_a = tmp_path / "case_a"
+    _write_case(case_a, case_id="case_a")
+
+    monkeypatch.setattr(eval_harness, "_detect_git_commit_sha", lambda: "abc123")
+    monkeypatch.delenv("GEOFUSION_KG_BACKEND", raising=False)
+    monkeypatch.delenv("GEOFUSION_LLM_PROVIDER", raising=False)
+    monkeypatch.delenv("GEOFUSION_CELERY_EAGER", raising=False)
+
+    class _FakeResponse:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def read(self) -> bytes:
+            return (
+                b'{"kg_backend":"neo4j","llm_provider":"mock","celery_eager":"0","api_port":"8010"}'
+            )
+
+    def fake_urlopen(request, timeout=0):
+        assert request.full_url == "http://unit.test/api/v2/runtime"
+        assert timeout == 5
+        return _FakeResponse()
+
+    monkeypatch.setattr(eval_harness.urllib.request, "urlopen", fake_urlopen)
+
+    def fake_request_builder(case_dir: Path) -> dict:
+        return {
+            "case_id": case_dir.name,
+            "expected_plan_checks": {},
+            "artifact_checks": {},
+        }
+
+    def fake_runner(case_dir: Path, *, base_url: str, timeout_sec: float) -> dict:
+        assert base_url == "http://unit.test"
+        assert timeout_sec == 12.0
+        return {"run_id": f"run-{case_dir.name}", "artifact_size": 123, "plan": {}, "artifact_entries": []}
+
+    def fake_validator(result: dict, *, expected_plan_checks: dict, artifact_checks: dict) -> None:
+        _ = result
+        _ = expected_plan_checks
+        _ = artifact_checks
+
+    summary = eval_harness.evaluate_cases(
+        case_dirs=[case_a],
+        base_url="http://unit.test",
+        timeout_sec=12.0,
+        request_builder=fake_request_builder,
+        runner=fake_runner,
+        validator=fake_validator,
+    )
+
+    assert summary["environment"] == {
+        "kg_backend": "neo4j",
+        "llm_provider": "mock",
+        "celery_eager": "0",
+    }
+
+
 def test_evaluate_manifest_cases_fails_fast_when_api_preflight_fails(monkeypatch) -> None:
     cases = [
         {"case_id": "building_ok", "execution_mode": "agent", "readiness": "agent-ready", "theme": "building"},

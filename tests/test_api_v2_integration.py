@@ -133,11 +133,24 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("GEOFUSION_KG_BACKEND", "memory")
     monkeypatch.setenv("GEOFUSION_LLM_PROVIDER", "mock")
     monkeypatch.setenv("GEOFUSION_CELERY_EAGER", "1")
+    monkeypatch.setenv("GEOFUSION_API_PORT", "8000")
 
     svc = AgentRunService(base_dir=tmp_path / "runs")
     monkeypatch.setattr(runs_v2_router, "agent_run_service", svc)
     app = create_app()
     return TestClient(app)
+
+
+def test_v2_runtime_metadata_endpoint_reports_current_environment(client: TestClient) -> None:
+    resp = client.get("/api/v2/runtime")
+
+    assert resp.status_code == 200, resp.text
+    assert resp.json() == {
+        "kg_backend": "memory",
+        "llm_provider": "mock",
+        "celery_eager": "1",
+        "api_port": "8000",
+    }
 
 
 def test_v2_run_building_integration(tmp_path: Path, client: TestClient) -> None:

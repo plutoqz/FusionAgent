@@ -43,17 +43,39 @@ def _detect_git_commit_sha() -> str | None:
     return value or None
 
 
+def _fetch_runtime_environment(base_url: str) -> dict[str, Any]:
+    url = urllib.parse.urljoin(base_url.rstrip("/") + "/", "api/v2/runtime")
+    request = urllib.request.Request(url, method="GET")
+    try:
+        with urllib.request.urlopen(request, timeout=5) as response:
+            payload = json.loads(response.read().decode("utf-8"))
+    except Exception:  # noqa: BLE001
+        return {}
+    if not isinstance(payload, dict):
+        return {}
+    return {
+        "kg_backend": payload.get("kg_backend"),
+        "llm_provider": payload.get("llm_provider"),
+        "celery_eager": payload.get("celery_eager"),
+    }
+
+
 def _build_summary_metadata(*, base_url: str, timeout_sec: float, command_mode: str) -> dict[str, Any]:
+    environment = {
+        "kg_backend": os.getenv("GEOFUSION_KG_BACKEND"),
+        "llm_provider": os.getenv("GEOFUSION_LLM_PROVIDER"),
+        "celery_eager": os.getenv("GEOFUSION_CELERY_EAGER"),
+    }
+    runtime_environment = _fetch_runtime_environment(base_url)
+    for key, value in runtime_environment.items():
+        if value is not None:
+            environment[key] = value
     return {
         "command_mode": command_mode,
         "base_url": base_url,
         "timeout_sec": float(timeout_sec),
         "commit_sha": _detect_git_commit_sha(),
-        "environment": {
-            "kg_backend": os.getenv("GEOFUSION_KG_BACKEND"),
-            "llm_provider": os.getenv("GEOFUSION_LLM_PROVIDER"),
-            "celery_eager": os.getenv("GEOFUSION_CELERY_EAGER"),
-        },
+        "environment": environment,
     }
 
 

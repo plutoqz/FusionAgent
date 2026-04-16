@@ -14,6 +14,18 @@
 
 本地私有配置写在仓库根目录的 `依赖.txt`，可由 [依赖.txt.example](/E:/vscode/fusionAgent/依赖.txt.example) 复制得到。
 
+## 端口与依赖约定
+
+- 日常本机开发、本机冒烟、手工联调默认使用 API `8000`
+- 推荐的标准启动方式是 `python scripts/start_local.py --port 8000`
+- `scripts/start_local.py`、`main.py` 和 `worker/celery_app.py` 会优先读取仓库根目录 `依赖.txt`
+- 本机 broker / backend 以 `依赖.txt` 中的 `Redis端口` 为准；仓库样例当前使用 `6380`
+- 只有未提供本地依赖文件时，Celery 才回退到通用默认值 `redis://localhost:6379/0`
+- Neo4j 默认约定为 `bolt://localhost:7687`
+- `8011` 预留给隔离的 fast-confidence 检查
+- `8010` 预留给隔离的 real-data benchmark
+- `8012+` 只建议用于临时排障，不作为常驻默认端口
+
 ## Neo4j 隔离约定
 
 - 如果 Neo4j 是 Enterprise 并且支持多数据库，可以通过 `GEOFUSION_NEO4J_DATABASE` 指向专用数据库。
@@ -53,7 +65,7 @@ python scripts/start_local.py --check-only --reset-managed-graph
 ### 3. 启动本地 API / worker / scheduler
 
 ```bash
-python scripts/start_local.py
+python scripts/start_local.py --port 8000
 ```
 
 日志会输出到 `runs/local-runtime/`：
@@ -65,7 +77,7 @@ python scripts/start_local.py
 ## 本机冒烟
 
 ```bash
-python scripts/smoke_local_v2.py
+python scripts/smoke_local_v2.py --base-url http://127.0.0.1:8000
 ```
 
 默认使用 `tests/golden_cases/building_disaster_flood` 作为样例，脚本会：
@@ -96,7 +108,8 @@ python scripts/smoke_local_v2.py
 python -m pytest -q
 python scripts/start_local.py --check-only
 python scripts/start_local.py --check-only --reset-managed-graph
-python scripts/start_local.py
-python scripts/smoke_local_v2.py
+python scripts/start_local.py --port 8000
+python scripts/smoke_local_v2.py --base-url http://127.0.0.1:8000
+python scripts/start_local.py --port 8010
 python scripts/inspect_neo4j_state.py --managed-only
 ```

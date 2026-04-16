@@ -31,6 +31,18 @@ $env:GEOFUSION_LLM_PROVIDER='openai'
 $env:GEOFUSION_CELERY_EAGER='0'
 ```
 
+## Standard Local Conventions
+
+- default day-to-day API port: `8000`
+- standard full-loop startup command: `python scripts/start_local.py --port 8000`
+- `main.py`, `worker/celery_app.py`, and `scripts/start_local.py` auto-load repo-local dependency defaults, so local broker / backend settings follow `依赖.txt` before falling back to the generic code default
+- the current repo-local example uses Redis on `localhost:6380`; the generic code fallback remains `redis://localhost:6379/0`
+- default Neo4j convention: `bolt://localhost:7687`
+- reserve `8011` for an isolated fast-confidence runtime when you do not want to share the default `8000` app
+- reserve `8010` for isolated real-data benchmark runs so the benchmark base URL, worker logs, and evidence directory can stay aligned
+- use `8012+` only for temporary diagnostics or one-off worktree isolation
+- `docker compose` is a separate path: it uses container-local `redis://redis:6379/0` and API port `8000`, not the host-side `依赖.txt` mapping
+
 ## Evaluation Tiers
 
 ### Tier 1: Targeted Tests
@@ -63,6 +75,7 @@ Minimum evidence:
 - `run_id`
 - matching `run.json`, `plan.json`, `audit.jsonl`, and artifact bundle
 - `base_url`, timeout, and key environment notes
+- when available, rely on `/api/v2/runtime` so harness summaries capture actual runtime metadata rather than only the shell that launched the harness
 
 ## Timeout Guidance
 
@@ -81,7 +94,7 @@ Terminal A:
 $env:GEOFUSION_KG_BACKEND='memory'
 $env:GEOFUSION_LLM_PROVIDER='mock'
 $env:GEOFUSION_CELERY_EAGER='1'
-uvicorn main:app --host 127.0.0.1 --port 8011
+uvicorn main:app --host 127.0.0.1 --port 8000
 ```
 
 Terminal B:
@@ -96,14 +109,24 @@ python -m pytest -q `
   tests/test_agent_run_service_enhancements.py
 if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 python scripts/eval_harness.py `
-  --base-url http://127.0.0.1:8011 `
+  --base-url http://127.0.0.1:8000 `
   --timeout 180 `
   --case building_disaster_flood `
   --case road_disaster_earthquake `
   --output-json tmp/eval/fast-confidence-summary.json
 ```
 
+If you intentionally need a second isolated fast-confidence runtime while `8000` is busy, reuse the same command pattern on `8011` and keep the `base_url` aligned.
+
 ### Real Evidence
+
+Start a fresh isolated full-loop runtime first:
+
+```powershell
+python scripts/start_local.py --port 8010
+```
+
+Then run the benchmark against the same isolated base URL:
 
 ```powershell
 python scripts/eval_harness.py `
@@ -126,6 +149,7 @@ The v2 API now has a narrow but practical operator layer.
 - `GET /api/v2/runs/{run_id}/audit`: full audit event stream
 - `GET /api/v2/runs/{run_id}/artifact`: artifact bundle download
 - `GET /api/v2/runs/{run_id}/inspection`: one-shot operational view of status, plan, audit events, and artifact metadata
+- `GET /api/v2/runtime`: non-sensitive runtime metadata for evidence capture and alignment checks (`kg_backend`, `llm_provider`, `celery_eager`, `api_port`)
 
 ### Run Comparison
 
@@ -180,6 +204,12 @@ python -m kg.bootstrap --inspect --managed-only --json
 ```
 
 ## Celery / Redis
+
+Local direct-run note:
+
+- the preferred path is `python scripts/start_local.py --port 8000`
+- when you start `uvicorn` or `celery` manually, the entrypoints still auto-load repo-local defaults from `依赖.txt`
+- if you bypass that mechanism, make sure `GEOFUSION_CELERY_BROKER` and `GEOFUSION_CELERY_BACKEND` match the intended host Redis port before blaming queued runs on the worker
 
 Worker:
 

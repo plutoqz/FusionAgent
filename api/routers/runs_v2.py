@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import os
 from typing import Optional
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
@@ -15,6 +16,7 @@ from schemas.agent import (
     RunInspectionArtifact,
     RunInspectionResponse,
     RunPhase,
+    RuntimeMetadataResponse,
     RunPlanResponse,
     RunStatus,
     RunTrigger,
@@ -26,6 +28,15 @@ from utils.crs import normalize_target_crs
 
 
 router = APIRouter(tags=["runs-v2"])
+
+
+def _build_runtime_metadata_response() -> RuntimeMetadataResponse:
+    return RuntimeMetadataResponse(
+        kg_backend=os.getenv("GEOFUSION_KG_BACKEND"),
+        llm_provider=os.getenv("GEOFUSION_LLM_PROVIDER"),
+        celery_eager=os.getenv("GEOFUSION_CELERY_EAGER"),
+        api_port=os.getenv("GEOFUSION_API_PORT"),
+    )
 
 
 def _parse_field_mapping(raw_json: str) -> FieldMapping:
@@ -165,6 +176,11 @@ async def get_run_inspection(run_id: str) -> RunInspectionResponse:
     if status is None:
         raise HTTPException(status_code=404, detail=f"Run not found: {run_id}")
     return _build_run_inspection_response(run_id, status)
+
+
+@router.get("/runtime", response_model=RuntimeMetadataResponse)
+async def get_runtime_metadata() -> RuntimeMetadataResponse:
+    return _build_runtime_metadata_response()
 
 
 @router.get("/runs/{left_run_id}/compare/{right_run_id}", response_model=RunComparisonResponse)
