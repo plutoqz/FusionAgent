@@ -41,6 +41,7 @@ $env:GEOFUSION_CELERY_EAGER='0'
 - reserve `8011` for an isolated fast-confidence runtime when you do not want to share the default `8000` app
 - reserve `8010` for isolated real-data benchmark runs so the benchmark base URL, worker logs, and evidence directory can stay aligned
 - use `8012+` only for temporary diagnostics or one-off worktree isolation
+- official benchmark source-asset downloads are cached under `runs/source-assets/`; local `Data/` is still preferred unless you explicitly force remote materialization
 - `docker compose` is a separate path: it uses container-local `redis://redis:6379/0` and API port `8000`, not the host-side `依赖.txt` mapping
 
 ## Evaluation Tiers
@@ -126,17 +127,52 @@ Start a fresh isolated full-loop runtime first:
 python scripts/start_local.py --port 8010
 ```
 
+If you want a clean-checkout benchmark path without restoring local `Data/`, prefetch the bounded official assets first:
+
+```powershell
+python scripts/materialize_source_assets.py `
+  --source raw.osm.building `
+  --source raw.microsoft.building `
+  --bbox 29.817351,-3.646572,29.931113,-3.412421 `
+  --prefer-remote
+```
+
 Then run the benchmark against the same isolated base URL:
 
 ```powershell
 python scripts/eval_harness.py `
   --manifest docs/superpowers/specs/2026-04-07-real-data-eval-manifest.json `
-  --case building_gitega_osm_vs_google_agent `
-  --case building_gitega_osm_vs_msft_clipped_agent `
+  --case building_gitega_micro_msft_agent `
   --base-url http://127.0.0.1:8010 `
   --timeout 1200 `
-  --output-json tmp/eval/real-evidence-summary.json
+  --output-json tmp/eval/fresh-checkout-micro-msft.json
 ```
+
+This bounded fresh-checkout path is tracked in `docs/superpowers/specs/2026-04-16-building-micro-msft-fresh-checkout-result.json`.
+Historical Google-backed building cases are still useful, but they continue to depend on restored local `Data/` assets rather than the new official-download cache.
+
+## Fresh-Checkout Source Asset Materialization
+
+The repo now has one bounded official-source materialization path for benchmark reproduction.
+
+- manifest cases may use `inputs.osm_source_id` and `inputs.reference_source_id` in addition to direct local shapefile paths
+- `scripts/eval_harness.py` resolves those source ids through `services/source_asset_service.py`
+- `scripts/materialize_source_assets.py` can prefetch the same assets into `runs/source-assets/`
+- local `Data/` files are still preferred when they are complete; incomplete local shapefile bundles are skipped and replaced by cache-backed official assets
+
+Currently materializable source ids:
+
+- `raw.osm.building`
+- `raw.osm.road`
+- `raw.osm.water`
+- `raw.osm.poi`
+- `raw.microsoft.building`
+
+Current non-goals for this slice:
+
+- `raw.google.building` still requires locally restored data
+- local-only reference or Excel-style inputs are still manual
+- the runtime `task_driven_auto` path has not yet been switched over to the new source-asset fallback; this slice only hardens benchmark reproducibility
 
 ## Operator Inspection API
 

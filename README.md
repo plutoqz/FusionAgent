@@ -48,7 +48,9 @@ FusionAgent 当前明确区分：
 - harness summary 包含 commit SHA、base URL、timeout、mode 与 environment
 - manifest 评测支持 per-case timeout override
 - manifest 模式包含 API 与输入 preflight 检查
-- real-data manifest 现在包含一个可复现的 `building_gitega_micro_agent` micro case，可通过 manifest 中的 `clip_bbox` 从 tracked building shapefile 自动物化 micro AOI 输入
+- real-data manifest 保留了基于 tracked 输入的 `building_gitega_micro_agent` micro case，用于延续历史对齐证据
+- real-data manifest 新增 `building_gitega_micro_msft_agent` micro case，可通过 `inputs.osm_source_id` 与 `inputs.reference_source_id` 从官方 Geofabrik / Microsoft 资产自动物化 fresh-checkout 输入
+- `scripts/materialize_source_assets.py` 可将上述有界 source id 预取到 `runs/source-assets/` 缓存目录
 - 文档已区分快速信心检查与真实证据运行
 
 ### Phase 2：搜索空间扩展
@@ -91,7 +93,9 @@ FusionAgent 当前明确区分：
 - `task-driven` 请求会在执行前展开为 source resolution、具体输入准备、version-token checks 与 bbox clip reuse
 - 输入准备层可通过 version-token checks 与 bbox clip reuse 复用缓存 input bundle
 - 已解析输入会作为 `task_inputs_resolved` 写入 audit evidence
-- 当前具体 provider 是基于 `Data/` 的本地目录 catalog；远程 downloader provider 仍是后续工作
+- 当前 task-driven 运行时主 provider 仍是基于 `Data/` 的本地目录 catalog
+- benchmark / eval 路径新增了有界 `SourceAssetService`，可对 `raw.osm.building / road / water / poi` 与 `raw.microsoft.building` 走本地 `Data/` 优先、官方下载缓存兜底的物化链路
+- 更广泛的 runtime 级 remote downloader provider 与 `RawVectorSourceService` 回退集成仍是后续工作
 
 ### Phase 4.6：Source Catalog Expansion
 
@@ -110,7 +114,7 @@ FusionAgent 当前明确区分：
 - clip reuse 会先把 request-space bbox mask 转到缓存数据集 CRS 再裁剪，保证 projected cache 的空间正确性
 - `LocalBundleCatalogProvider` 已能通过 `component_source_ids` 组装 `osm.zip` 与 `ref.zip`
 - 单源 road bundle 会按需生成空 reference bundle
-- 当前下载链路仍然是本地 catalog 驱动；remote fetch provider 仍是后续工作
+- runtime 侧下载链路当前仍以本地 catalog 驱动；fresh-checkout benchmark 则已可通过 `SourceAssetService` 与 `scripts/materialize_source_assets.py` 走官方下载缓存复现
 
 ### Phase 5：长期写回与学习闭环
 
@@ -149,6 +153,8 @@ FusionAgent 当前明确区分：
 - search space 仍然集中在当前 `building` 与 `road` 主题
 - durable learning 仍是 first-pass 能力，不是完整 policy auto-tuning
 - operator-facing productization 目前仍是窄 API 层，不是完整前端产品
+- `raw.google.building` 与部分本地 reference / Excel 类输入仍需要人工准备，不在当前官方自动物化集合内
+- fresh-checkout 自动物化当前只覆盖有界 benchmark 路径，还没有完整下沉到 runtime task-driven 回退链路
 
 ## 仓库结构
 
@@ -234,7 +240,9 @@ docker compose up --build
 - harness 默认值：`180s`
 - real-data building benchmark 不应使用 `180s` 判定
 - 当前 real-data building run 建议至少使用 `1200s`
-- `building_gitega_micro_agent` 当前已经可以从 tracked manifest 复现输入，并且在干净隔离的 `8010` full-loop runtime 上已验证通过；如果 API / worker / broker 对齐漂移，旧的 `queued` 症状仍可能作为环境问题重现
+- `building_gitega_micro_agent` 当前仍用于 tracked 输入路径的历史对齐验证
+- `building_gitega_micro_msft_agent` 当前已经可以在干净 checkout 上通过官方 source-id 物化输入，并且在隔离的 `8010` full-loop runtime 上验证通过；跟踪证据见 `docs/superpowers/specs/2026-04-16-building-micro-msft-fresh-checkout-result.json`
+- 如需预热 fresh-checkout 缓存，可先运行 `python scripts/materialize_source_assets.py --source raw.osm.building --source raw.microsoft.building --bbox 29.817351,-3.646572,29.931113,-3.412421 --prefer-remote`
 - `scripts/eval_harness.py` 现在会优先读取 `/api/v2/runtime` 返回的非敏感运行时元数据，因此 summary 中的 `environment` 更接近真实运行时，而不是仅依赖当前 shell 环境变量
 
 ## 常用验证命令
@@ -255,6 +263,7 @@ python -m pytest -q `
   tests/test_planner_context.py `
   tests/test_agent_run_service_enhancements.py `
   tests/test_input_acquisition_service.py `
+  tests/test_source_asset_service.py `
   tests/test_raw_vector_source_service.py `
   tests/test_local_bundle_catalog.py `
   tests/test_eval_harness.py `

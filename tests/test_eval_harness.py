@@ -414,6 +414,25 @@ def test_evaluate_manifest_cases_fails_fast_on_missing_input_before_runner(monke
     assert "Manifest preflight reference shapefile not found" in str(summary["cases"][0]["error"])
 
 
+def test_preflight_manifest_case_inputs_accepts_source_id_inputs(monkeypatch) -> None:
+    class _StubSourceAssetService:
+        def can_materialize(self, source_id: str) -> bool:
+            return source_id in {"raw.osm.building", "raw.microsoft.building"}
+
+    monkeypatch.setattr(eval_harness, "_build_source_asset_service", lambda: _StubSourceAssetService())
+
+    eval_harness._preflight_manifest_case_inputs(
+        {
+            "case_id": "building_msft",
+            "theme": "building",
+            "inputs": {
+                "osm_source_id": "raw.osm.building",
+                "reference_source_id": "raw.microsoft.building",
+            },
+        }
+    )
+
+
 def test_materialize_manifest_case_creates_case_bundle(tmp_path: Path) -> None:
     osm_shp = tmp_path / "src" / "osm_case.shp"
     ref_shp = tmp_path / "src" / "ref_case.shp"
@@ -439,6 +458,42 @@ def test_materialize_manifest_case_creates_case_bundle(tmp_path: Path) -> None:
     assert (case_dir / "input" / "osm.zip").exists()
     assert (case_dir / "input" / "ref.zip").exists()
     assert "algo.fusion.building.v1" in payload["expected_plan_checks"]["required_algorithms"]
+
+
+def test_materialize_manifest_case_supports_source_id_inputs(tmp_path: Path, monkeypatch) -> None:
+    asset_dir = tmp_path / "assets"
+    osm_shp = asset_dir / "osm.shp"
+    ref_shp = asset_dir / "ref.shp"
+    _write_dummy_shapefile_bundle(osm_shp)
+    _write_dummy_shapefile_bundle(ref_shp)
+
+    class _StubSourceAssetService:
+        def resolve_raw_source_path(self, source_id: str, *, request_bbox=None):
+            _ = request_bbox
+            mapping = {
+                "raw.osm.building": type("Resolution", (), {"path": osm_shp})(),
+                "raw.microsoft.building": type("Resolution", (), {"path": ref_shp})(),
+            }
+            return mapping[source_id]
+
+    monkeypatch.setattr(eval_harness, "_build_source_asset_service", lambda: _StubSourceAssetService())
+
+    case_dir = eval_harness._materialize_manifest_case(
+        {
+            "case_id": "building_msft",
+            "theme": "building",
+            "execution_mode": "agent",
+            "readiness": "agent-ready",
+            "inputs": {
+                "osm_source_id": "raw.osm.building",
+                "reference_source_id": "raw.microsoft.building",
+            },
+        },
+        tmp_path / "work",
+    )
+
+    assert (case_dir / "input" / "osm.zip").exists()
+    assert (case_dir / "input" / "ref.zip").exists()
 
 
 def test_materialize_manifest_case_clips_inputs_when_clip_bbox_is_provided(tmp_path: Path) -> None:

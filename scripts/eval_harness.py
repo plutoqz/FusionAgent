@@ -19,6 +19,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from services.source_asset_service import SourceAssetService
 from utils.local_smoke import build_run_request_from_case, run_local_v2_smoke, validate_smoke_result
 from utils.shp_zip import zip_shapefile_bundle
 from utils.vector_clip import clip_frame_to_request_bbox
@@ -58,6 +59,10 @@ def _fetch_runtime_environment(base_url: str) -> dict[str, Any]:
         "llm_provider": payload.get("llm_provider"),
         "celery_eager": payload.get("celery_eager"),
     }
+
+
+def _build_source_asset_service() -> SourceAssetService:
+    return SourceAssetService(repo_root=REPO_ROOT, cache_dir=REPO_ROOT / "runs" / "source-assets")
 
 
 def _build_summary_metadata(*, base_url: str, timeout_sec: float, command_mode: str) -> dict[str, Any]:
@@ -105,18 +110,41 @@ def _preflight_manifest_api(base_url: str) -> None:
 
 def _preflight_manifest_case_inputs(case: dict[str, Any]) -> None:
     inputs = case.get("inputs") or {}
-    osm_path = Path(str(inputs.get("osm") or ""))
-    ref_path = Path(str(inputs.get("reference") or ""))
-    if not str(inputs.get("osm") or "").strip():
-        raise ValueError(f"Manifest preflight missing required input path 'inputs.osm' for case {case.get('case_id')!r}")
-    if not str(inputs.get("reference") or "").strip():
+    _preflight_manifest_input(case, inputs, path_key="osm", source_key="osm_source_id", label="OSM")
+    _preflight_manifest_input(case, inputs, path_key="reference", source_key="reference_source_id", label="reference")
+
+
+def _preflight_manifest_input(
+    case: dict[str, Any],
+    inputs: dict[str, Any],
+    *,
+    path_key: str,
+    source_key: str,
+    label: str,
+) -> None:
+    raw_path = str(inputs.get(path_key) or "").strip()
+    source_id = str(inputs.get(source_key) or "").strip()
+    if raw_path and source_id:
         raise ValueError(
-            f"Manifest preflight missing required input path 'inputs.reference' for case {case.get('case_id')!r}"
+            f"Manifest preflight input for {label} must not set both 'inputs.{path_key}' and 'inputs.{source_key}'"
         )
-    if not osm_path.exists():
-        raise FileNotFoundError(f"Manifest preflight OSM shapefile not found: {osm_path}")
-    if not ref_path.exists():
-        raise FileNotFoundError(f"Manifest preflight reference shapefile not found: {ref_path}")
+    if raw_path:
+        candidate = Path(raw_path)
+        if not candidate.exists():
+            raise FileNotFoundError(f"Manifest preflight {label} shapefile not found: {candidate}")
+        return
+    if source_id:
+        service = _build_source_asset_service()
+        if not service.can_materialize(source_id):
+            raise ValueError(
+                f"Manifest preflight {label} source id is not materializable in this repo: {source_id}"
+            )
+        return
+    if path_key == "osm":
+        raise ValueError(f"Manifest preflight missing required input path 'inputs.osm' for case {case.get('case_id')!r}")
+    raise ValueError(
+        f"Manifest preflight missing required input path 'inputs.reference' for case {case.get('case_id')!r}"
+    )
 
 
 def discover_case_dirs(cases_root: Path, selected_cases: list[str] | None = None) -> list[Path]:
@@ -410,6 +438,27 @@ def _zip_manifest_input(source_path: Path, output_zip: Path, *, clip_bbox: tuple
     zip_shapefile_bundle(clipped_shp, output_zip)
 
 
+def _resolve_manifest_input_path(
+    *,
+    inputs: dict[str, Any],
+    path_key: str,
+    source_key: str,
+    request_bbox: tuple[float, float, float, float] | None,
+) -> Path:
+    raw_path = str(inputs.get(path_key) or "").strip()
+    source_id = str(inputs.get(source_key) or "").strip()
+    if raw_path and source_id:
+        raise ValueError(f"Manifest input must not set both 'inputs.{path_key}' and 'inputs.{source_key}'")
+    if raw_path:
+        candidate = Path(raw_path)
+        if not candidate.exists():
+            raise FileNotFoundError(f"Manifest input shapefile not found: {candidate}")
+        return candidate
+    if source_id:
+        return _build_source_asset_service().resolve_raw_source_path(source_id, request_bbox=request_bbox).path
+    raise ValueError(f"Manifest input must set one of 'inputs.{path_key}' or 'inputs.{source_key}'")
+
+
 def _materialize_manifest_case(case: dict[str, Any], root: Path) -> Path:
     case_id = str(case.get("case_id") or "manifest_case")
     theme = str(case.get("theme") or "")
@@ -417,17 +466,22 @@ def _materialize_manifest_case(case: dict[str, Any], root: Path) -> Path:
         raise ValueError(f"Unsupported manifest theme for agent execution: {theme}")
 
     inputs = case.get("inputs") or {}
-    osm_path = Path(str(inputs.get("osm") or ""))
-    ref_path = Path(str(inputs.get("reference") or ""))
-    if not osm_path.exists():
-        raise FileNotFoundError(f"OSM shapefile not found: {osm_path}")
-    if not ref_path.exists():
-        raise FileNotFoundError(f"Reference shapefile not found: {ref_path}")
-
     case_dir = root / case_id
     input_dir = case_dir / "input"
     input_dir.mkdir(parents=True, exist_ok=True)
     clip_bbox = _parse_clip_bbox(case)
+    osm_path = _resolve_manifest_input_path(
+        inputs=inputs,
+        path_key="osm",
+        source_key="osm_source_id",
+        request_bbox=clip_bbox,
+    )
+    ref_path = _resolve_manifest_input_path(
+        inputs=inputs,
+        path_key="reference",
+        source_key="reference_source_id",
+        request_bbox=clip_bbox,
+    )
     _zip_manifest_input(osm_path, input_dir / "osm.zip", clip_bbox=clip_bbox)
     _zip_manifest_input(ref_path, input_dir / "ref.zip", clip_bbox=clip_bbox)
 

@@ -1,0 +1,49 @@
+{
+  "case_id": "building_gitega_micro_msft_agent",
+  "case_name": "Fresh-checkout reproducibility micro benchmark (Microsoft buildings)",
+  "status": "passed",
+  "run_id": "60e7afca80e146cd819fe87966d47e8c",
+  "duration_ms": 207420,
+  "artifact_size_bytes": 4399017,
+  "runner": {
+    "base_url": "http://127.0.0.1:8010",
+    "timeout_seconds": 180
+  },
+  "environment": {
+    "kg_backend": "neo4j",
+    "llm_provider": "openai",
+    "celery_eager": 0
+  },
+  "inputs": {
+    "bbox": [
+      29.817351,
+      -3.646572,
+      29.931113,
+      -3.412421
+    ],
+    "source_ids": [
+      "raw.osm.building",
+      "raw.microsoft.building"
+    ]
+  },
+  "materialization_proof": {
+    "first_run": {
+      "raw.osm.building": "asset_downloaded",
+      "raw.microsoft.building": "asset_downloaded"
+    },
+    "second_run": {
+      "raw.osm.building": "asset_cached",
+      "raw.microsoft.building": "asset_cached"
+    }
+  },
+  "evidence_origin": {
+    "output_json": "tmp/eval/fresh-checkout-micro-msft.json",
+    "manifest": "docs/superpowers/specs/2026-04-07-real-data-eval-manifest.json",
+    "generated_at": "2026-04-16"
+  },
+  "notes": [
+    "This evidence captures the bounded fresh-checkout reproducibility path for benchmark reruns.",
+    "Scope includes source-id-backed eval harness inputs and source asset materialization/prefetch.",
+    "Scope excludes broader runtime RawVectorSourceService task-driven fallback integration."
+  ]
+}

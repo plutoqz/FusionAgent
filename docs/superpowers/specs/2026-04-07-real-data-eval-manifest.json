@@ -36,6 +36,23 @@
       ]
     },
     {
+      "case_id": "building_gitega_micro_msft_agent",
+      "theme": "building",
+      "readiness": "agent-ready",
+      "execution_mode": "agent",
+      "timeout_sec": 1200,
+      "priority": "P0",
+      "clip_bbox": [29.817351, -3.646572, 29.931113, -3.412421],
+      "inputs": {
+        "osm_source_id": "raw.osm.building",
+        "reference_source_id": "raw.microsoft.building"
+      },
+      "notes": [
+        "Fresh-checkout reproducible micro AOI benchmark based on official Geofabrik Burundi shapefiles and Microsoft Global ML Building Footprints.",
+        "The harness materializes both source ids into clipped shapefile bundles before upload so the benchmark no longer depends on a pre-restored local Data tree."
+      ]
+    },
+    {
       "case_id": "building_gitega_osm_vs_msft_clipped_agent",
       "theme": "building",
       "readiness": "agent-ready-with-prep",

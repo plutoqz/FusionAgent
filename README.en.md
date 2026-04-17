@@ -55,7 +55,9 @@ validator, policy, audit, and healing loops bound correctness and robustness.
 - harness summaries include commit SHA, base URL, timeout, mode, and environment
 - manifest evaluation supports per-case timeout overrides
 - manifest mode performs API and input preflight checks
-- the real-data manifest now includes a reproducible `building_gitega_micro_agent` micro case whose inputs are materialized from tracked building shapefiles via manifest `clip_bbox` metadata
+- the real-data manifest still keeps the tracked-input `building_gitega_micro_agent` micro case for continuity with earlier evidence
+- the real-data manifest now also includes `building_gitega_micro_msft_agent`, which materializes fresh-checkout inputs from official Geofabrik and Microsoft assets through `inputs.osm_source_id` and `inputs.reference_source_id`
+- `scripts/materialize_source_assets.py` can prefetch those bounded source ids into `runs/source-assets/`
 - docs now separate fast confidence checks from real evidence runs
 
 ### Phase 2: Search-Space Expansion
@@ -97,7 +99,9 @@ validator, policy, audit, and healing loops bound correctness and robustness.
 - runtime resolves concrete `osm.zip` and `ref.zip` after planning chooses a usable data source
 - input preparation reuses cached input bundles through version-token checks and bbox clip reuse
 - resolved task inputs are written into audit evidence as `task_inputs_resolved`
-- current concrete provider is a local catalog backed by `Data/`; remote downloader providers remain follow-up work
+- the runtime task-driven provider is still primarily the local `Data/`-backed catalog
+- the benchmark / eval path now has a bounded `SourceAssetService` fallback that can materialize `raw.osm.building / road / water / poi` and `raw.microsoft.building` from either repo-local `Data/` or an official download cache
+- broader runtime-level remote downloader providers and `RawVectorSourceService` fallback integration remain follow-up work
 
 ### Phase 4.6: Source Catalog Expansion
 
@@ -115,6 +119,7 @@ validator, policy, audit, and healing loops bound correctness and robustness.
 - cached raw sources and cached input bundles both support bbox clip reuse
 - clip reuse now transforms request-space bbox masks into the cached dataset CRS before clipping, so projected caches remain spatially correct
 - `LocalBundleCatalogProvider` now assembles `osm.zip` and `ref.zip` from `component_source_ids`, while single-source road bundles generate an empty reference bundle on demand
+- the runtime path is still local-catalog-driven, while fresh-checkout benchmark reproduction can now use `SourceAssetService` plus `scripts/materialize_source_assets.py` to fall back to official cached downloads
 
 ### Phase 5: Long-Term Writeback And Learning Loop
 
@@ -153,6 +158,8 @@ Even though the six roadmap phases are implemented, there are still clear gaps:
 - the search space still focuses on the current `building` and `road` themes
 - durable learning is still a first-pass capability, not full policy auto-tuning
 - operator-facing productization is still a narrow API layer, not a full frontend
+- `raw.google.building` and some local-only reference / Excel-style inputs still require manual preparation and are not part of the current official materialization set
+- fresh-checkout automation currently covers only the bounded benchmark path, not the full runtime task-driven fallback chain
 
 ## Repository Structure
 
@@ -238,7 +245,9 @@ Current timeout guidance:
 - harness default: `180s`
 - real-data building benchmarks should not be judged with `180s`
 - current recommendation for real-data building runs: at least `1200s`
-- `building_gitega_micro_agent` is now input-reproducible from the tracked manifest and has been re-verified on a clean isolated `8010` full-loop runtime; the older `queued` outcome should now be treated as an environment-alignment symptom, not the default expectation for current `main`
+- `building_gitega_micro_agent` remains the tracked-input micro benchmark for historical alignment
+- `building_gitega_micro_msft_agent` is now reproducible on a fresh checkout from official source ids and has been re-verified on an isolated `8010` full-loop runtime; tracked evidence lives in `docs/superpowers/specs/2026-04-16-building-micro-msft-fresh-checkout-result.json`
+- if you want to warm the fresh-checkout cache first, run `python scripts/materialize_source_assets.py --source raw.osm.building --source raw.microsoft.building --bbox 29.817351,-3.646572,29.931113,-3.412421 --prefer-remote`
 - `scripts/eval_harness.py` now prefers non-sensitive runtime metadata from `/api/v2/runtime`, so saved summary `environment` fields reflect the actual runtime more reliably than shell-only env capture
 
 ## Common Verification Commands
@@ -259,6 +268,7 @@ python -m pytest -q `
   tests/test_planner_context.py `
   tests/test_agent_run_service_enhancements.py `
   tests/test_input_acquisition_service.py `
+  tests/test_source_asset_service.py `
   tests/test_raw_vector_source_service.py `
   tests/test_local_bundle_catalog.py `
   tests/test_eval_harness.py `

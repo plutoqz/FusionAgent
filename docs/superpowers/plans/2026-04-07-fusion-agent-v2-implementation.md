@@ -27,7 +27,7 @@ This file is the master plan and progress tracker.
 
 ## Current Snapshot
 
-**Last updated:** `2026-04-16`
+**Last updated:** `2026-04-17`
 
 **Overall judgment:** FusionAgent has already crossed the "basic runtime MVP" line, and the current V2 roadmap is now complete for its intended scope. The primary remaining work is no longer closing baseline roadmap gaps; it is defining the next research and product iteration without losing the evidence discipline and runtime transparency established in this phase.
 
@@ -47,7 +47,8 @@ This file is the master plan and progress tracker.
 
 - [x] Evaluation and benchmark evidence are now handled through a documented, runtime-aligned workflow for the current repo-supported benchmark cases
 - [x] Search-space expansion, policy coverage, artifact reuse hardening, long-term writeback, and operator inspection reached the completion bar defined by this roadmap
-- [ ] Fresh-checkout reproducibility still depends on restoring the local `Data/` assets or repointing manifests to equivalent tracked inputs
+- [x] A bounded fresh-checkout reproducibility path now exists for `building_gitega_micro_msft_agent` through source-id-backed manifest materialization plus the official source-asset cache
+- [ ] Broader runtime task-driven remote fallback, Google-backed building inputs, and other manual-only datasets still need a separate follow-on plan
 - [ ] Broader disaster/theme coverage, stronger CI evidence automation, and richer operator UX should be treated as a new roadmap rather than unfinished checklist items from this V2 plan
 
 ## Supporting Documents
@@ -57,6 +58,8 @@ This file is the master plan and progress tracker.
 - Historical implementation plan: this file, now promoted to the master tracker
 - Historical focused plan: `docs/superpowers/plans/2026-04-08-fusion-agent-parameter-defaults-and-building-benchmark.md`
 - Historical benchmark follow-up plan: `docs/superpowers/plans/2026-04-08-benchmark-followup-and-runtime-alignment.md`
+- Focused fresh-checkout reproducibility plan: `docs/superpowers/plans/2026-04-16-fresh-checkout-benchmark-reproducibility.md`
+- Fresh-checkout benchmark evidence: `docs/superpowers/specs/2026-04-16-building-micro-msft-fresh-checkout-result.json`
 
 ## Roadmap Order
 
@@ -120,6 +123,10 @@ This phase is already done enough to treat as baseline, not open work.
 - `tests/test_eval_harness.py`
 - `docs/v2-operations.md`
 - `README.md`
+- `README.en.md`
+- `services/source_asset_service.py`
+- `scripts/materialize_source_assets.py`
+- `tests/test_source_asset_service.py`
 - `docs/superpowers/specs/2026-04-08-benchmark-followup-summary.md`
 - `docs/superpowers/specs/2026-04-07-real-data-eval-manifest.json`
 - `.github/workflows/*` if a benchmark-safe CI split is added
@@ -191,12 +198,16 @@ Current evidence and blockers:
 - `2026-04-09`: `building_gitega_osm_vs_msft_clipped_agent` remains intentionally skipped because the manifest still marks it `agent-ready-with-prep`
 - `2026-04-16`: targeted evidence-hardening verification passed with `python -m pytest -q tests/test_eval_harness.py tests/test_api_v2_integration.py`
 - `2026-04-16`: a clean isolated runtime on `http://127.0.0.1:8010` returned `/api/v2/runtime` metadata and passed both `python scripts/smoke_local_v2.py --base-url http://127.0.0.1:8010 --timeout 180` and the manifest-backed micro rerun saved to `docs/superpowers/specs/2026-04-16-building-micro-alignment-result.json` with run id `7117ef6fd95a44aa97d438cb7b3a9bee`
+- `2026-04-16`: the manifest gained `building_gitega_micro_msft_agent`, which materializes `raw.osm.building` and `raw.microsoft.building` through source ids instead of absolute local shapefile paths
+- `2026-04-16`: a fresh-checkout benchmark rerun succeeded on `http://127.0.0.1:8010` for `building_gitega_micro_msft_agent`; tracked evidence lives in `docs/superpowers/specs/2026-04-16-building-micro-msft-fresh-checkout-result.json` with run id `60e7afca80e146cd819fe87966d47e8c`
+- `2026-04-16`: the new `scripts/materialize_source_assets.py` helper proved official-source materialization and cache reuse for both `raw.osm.building` and `raw.microsoft.building`
+- `2026-04-17`: focused verification for the fresh-checkout slice passed with `python -m pytest -q tests/test_source_asset_service.py tests/test_eval_harness.py`
 
 Follow-on issues uncovered in Phase 1:
 
 - Road golden cases had stale `pattern_hint` values (`wp.flood.road`) and were updated to the concrete runtime pattern id `wp.flood.road.default`
 - `utils/local_smoke.py` had a hidden fixed `30s` HTTP timeout that ignored the case-level benchmark timeout; this is now fixed and covered by `tests/test_local_smoke_helpers.py`
-- Real-data manifest paths still depend on local shapefile assets outside git; Phase 1 now has a working evidence path again, but future fresh checkouts still need data restore or manifest repointing
+- The repo now has one bounded fresh-checkout benchmark path through `SourceAssetService`, but full runtime task-driven fallback integration and manual-only sources such as `raw.google.building` still require follow-on work
 
 ---
 
@@ -509,6 +520,7 @@ These are the next items to work in order.
 - `2026-04-16`: benchmark evidence revisit closed; durable tracked summaries now live under `docs/superpowers/specs/`, and README plus runtime docs now record the standard local port and dependency conventions for `8000` default development, `8010` isolated benchmarks, and `8011` isolated fast-confidence runs
 - `2026-04-16`: clean isolated runtime verification on `http://127.0.0.1:8010` showed that `building_gitega_micro_agent` now passes in current `main`; the earlier queued `2026-04-12` micro run is preserved as historical environment drift evidence rather than the current expected runtime state
 - `2026-04-16`: evidence capture hardening improved again; the v2 API now exposes `/api/v2/runtime`, and `scripts/eval_harness.py` now prefers runtime-reported metadata over shell-only env capture when building benchmark summaries
+- `2026-04-17`: fresh-checkout benchmark reproducibility landed for a bounded OSM + Microsoft building micro path; `scripts/eval_harness.py` now accepts `osm_source_id` / `reference_source_id`, `services/source_asset_service.py` plus `scripts/materialize_source_assets.py` can materialize/cache official assets, and tracked evidence was added in `docs/superpowers/specs/2026-04-16-building-micro-msft-fresh-checkout-result.json`
 
 ## Self-Review
 
