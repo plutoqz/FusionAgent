@@ -289,7 +289,9 @@ Expected: PASS
 
 Observed on `2026-04-17`: `python -m pytest -q tests/test_source_asset_service.py tests/test_eval_harness.py` passed (`20 passed`).
 
-- [ ] **Step 5: Commit**
+- [x] **Step 5: Commit**
+
+Observed on `2026-04-17`: committed as `4ae541c` with message `feat: add fresh-checkout benchmark asset resolution`.
 
 ## Implemented Evidence
 
