@@ -6,6 +6,7 @@ from kg.models import DurableLearningRecord
 from llm.providers.base import LLMProvider
 from schemas.agent import RunTrigger, RunTriggerType, WorkflowPlan
 from schemas.fusion import JobType
+from services.aoi_resolution_service import AOIResolutionService
 
 
 class CapturingProvider(LLMProvider):
@@ -44,6 +45,14 @@ class CapturingProvider(LLMProvider):
             "expected_output": "building fused shapefile",
             "estimated_time": "5m",
         }
+
+
+class StubGeocoder:
+    def __init__(self, results):
+        self.results = results
+
+    def search(self, query: str):
+        return list(self.results)
 
 
 def test_planner_builds_stable_context_fields() -> None:
@@ -289,3 +298,41 @@ def test_planner_context_exposes_durable_learning_summaries() -> None:
     assert durable["patterns"][0]["total_runs"] == 1
     assert durable["patterns"][0]["success_count"] == 1
     assert durable["algorithms"][0]["entity_id"] == "algo.fusion.building.v1"
+
+
+def test_planner_context_includes_resolved_aoi_and_source_coverage_hints() -> None:
+    provider = CapturingProvider()
+    planner = WorkflowPlanner(InMemoryKGRepository(), provider)
+    planner.context_builder.aoi_resolution_service = AOIResolutionService(
+        geocoder=StubGeocoder(
+            [
+                {
+                    "display_name": "Nairobi, Nairobi County, Kenya",
+                    "lat": "-1.286389",
+                    "lon": "36.817223",
+                    "boundingbox": ["-1.45", "-1.10", "36.65", "37.10"],
+                    "class": "boundary",
+                    "type": "administrative",
+                    "importance": 0.97,
+                    "address": {
+                        "city": "Nairobi",
+                        "state": "Nairobi County",
+                        "country": "Kenya",
+                        "country_code": "ke",
+                    },
+                }
+            ]
+        )
+    )
+    trigger = RunTrigger(
+        type=RunTriggerType.user_query,
+        content="fuse building and road data for Nairobi, Kenya",
+    )
+
+    plan = planner.create_plan(run_id="run-nairobi", job_type=JobType.building, trigger=trigger)
+
+    assert provider.last_context is not None
+    assert provider.last_context["intent"]["location_query"] == "Nairobi, Kenya"
+    assert provider.last_context["intent"]["resolved_aoi"]["country_code"] == "ke"
+    assert provider.last_context["retrieval"]["source_coverage_hints"]
+    assert plan.context["intent"]["resolved_aoi"]["country_code"] == "ke"

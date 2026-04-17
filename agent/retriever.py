@@ -14,8 +14,9 @@ from kg.models import (
     WorkflowPatternNode,
 )
 from kg.repository import KGRepository
-from schemas.agent import RunTrigger
+from schemas.agent import RunTrigger, RunTriggerType
 from schemas.fusion import JobType
+from services.aoi_resolution_service import AOIResolutionService, ResolvedAOI
 from services.artifact_reuse_policy import get_artifact_reuse_max_age_seconds
 from services.artifact_registry import ArtifactLookupRequest, ArtifactRegistry, ArtifactRecord
 
@@ -24,22 +25,46 @@ class PlanningContextBuilder:
     def __init__(self, kg_repo: KGRepository, artifact_registry: ArtifactRegistry | None = None) -> None:
         self.kg_repo = kg_repo
         self.artifact_registry = artifact_registry
+        self.aoi_resolution_service: AOIResolutionService | None = None
 
     def build(self, job_type: JobType, trigger: RunTrigger) -> Tuple[Dict[str, Any], str]:
         kg_context = self.kg_repo.build_context(job_type=job_type, disaster_type=trigger.disaster_type)
+        location_query = self._extract_location_query(trigger)
+        resolved_aoi = self._resolve_aoi(trigger)
         selection_reason = self._select_reason(kg_context.patterns)
         return (
             {
-                "intent": self._extract_intent(job_type, trigger),
-                "retrieval": self._build_retrieval_payload(job_type, trigger, kg_context),
+                "intent": self._extract_intent(job_type, trigger, location_query, resolved_aoi),
+                "retrieval": self._build_retrieval_payload(job_type, trigger, kg_context, resolved_aoi),
                 "constraints": self._build_constraints(job_type),
-                "execution_hints": self._build_execution_hints(kg_context),
+                "execution_hints": self._build_execution_hints(kg_context, resolved_aoi),
             },
             selection_reason,
         )
 
+    def _resolve_aoi(self, trigger: RunTrigger) -> ResolvedAOI | None:
+        if self.aoi_resolution_service is None:
+            return None
+        if trigger.type != RunTriggerType.user_query:
+            return None
+        if not trigger.content.strip():
+            return None
+        return self.aoi_resolution_service.resolve(trigger.content)
+
     @staticmethod
-    def _extract_intent(job_type: JobType, trigger: RunTrigger) -> Dict[str, Any]:
+    def _extract_location_query(trigger: RunTrigger) -> str | None:
+        content = (trigger.content or "").strip()
+        if not content:
+            return None
+        return AOIResolutionService.extract_location_query(content)
+
+    @staticmethod
+    def _extract_intent(
+        job_type: JobType,
+        trigger: RunTrigger,
+        location_query: str | None,
+        resolved_aoi: ResolvedAOI | None,
+    ) -> Dict[str, Any]:
         resolved = resolve_planning_mode(trigger)
         if resolved["planning_mode"] == "task_driven":
             task_bundle = {
@@ -56,6 +81,8 @@ class PlanningContextBuilder:
         return {
             "job_type": job_type.value,
             "trigger": trigger.model_dump(),
+            "location_query": location_query,
+            "resolved_aoi": resolved_aoi.to_dict() if resolved_aoi is not None else None,
             "expected_output_type": f"dt.{job_type.value}.fused",
             "spatial_extent": trigger.spatial_extent,
             "temporal_start": trigger.temporal_start,
@@ -70,6 +97,7 @@ class PlanningContextBuilder:
         job_type: JobType,
         trigger: RunTrigger,
         kg_context: KGContext,
+        resolved_aoi: ResolvedAOI | None,
     ) -> Dict[str, Any]:
         required_types = sorted({step.input_data_type for pattern in kg_context.patterns for step in pattern.steps})
         transform_paths = {
@@ -99,6 +127,11 @@ class PlanningContextBuilder:
                 key: [self._durable_learning_summary_to_dict(item) for item in items]
                 for key, items in kg_context.durable_learning_summaries.items()
             },
+            "source_coverage_hints": self._build_source_coverage_hints(
+                kg_context,
+                job_type=job_type,
+                resolved_aoi=resolved_aoi,
+            ),
             "transform_paths": transform_paths,
             "knowledge_hits": self.kg_repo.search_knowledge(search_query, limit=5),
         }
@@ -167,12 +200,15 @@ class PlanningContextBuilder:
         }
 
     @staticmethod
-    def _build_execution_hints(kg_context: KGContext) -> Dict[str, Any]:
-        return {
+    def _build_execution_hints(kg_context: KGContext, resolved_aoi: ResolvedAOI | None) -> Dict[str, Any]:
+        hints = {
             "preferred_pattern_id": kg_context.patterns[0].pattern_id if kg_context.patterns else None,
             "fallback_pattern_ids": [pattern.pattern_id for pattern in kg_context.patterns[1:]],
             "available_data_source_ids": [source.source_id for source in kg_context.data_sources],
         }
+        if resolved_aoi is not None:
+            hints["available_aoi"] = resolved_aoi.to_dict()
+        return hints
 
     @staticmethod
     def _select_reason(patterns: List[WorkflowPatternNode]) -> str:
@@ -285,6 +321,39 @@ class PlanningContextBuilder:
             "qos_priority": profile.qos_priority,
             "metadata": profile.metadata,
         }
+
+    @staticmethod
+    def _build_source_coverage_hints(
+        kg_context: KGContext,
+        *,
+        job_type: JobType,
+        resolved_aoi: ResolvedAOI | None,
+    ) -> List[Dict[str, Any]]:
+        hints: List[Dict[str, Any]] = []
+        for source in kg_context.data_sources:
+            if job_type.value not in source.supported_job_types and source.source_id != "upload.bundle":
+                continue
+            metadata = dict(source.metadata or {})
+            hint = {
+                "source_id": source.source_id,
+                "source_name": source.source_name,
+                "source_kind": source.source_kind,
+                "provider_family": metadata.get("provider_family"),
+                "path_hint": metadata.get("path_hint") or metadata.get("path_hints"),
+                "supported_job_types": source.supported_job_types,
+                "supported_geometry_types": source.supported_geometry_types,
+                "quality_score": source.quality_score,
+                "freshness_score": source.freshness_score,
+            }
+            if resolved_aoi is not None:
+                hint["resolved_aoi"] = {
+                    "display_name": resolved_aoi.display_name,
+                    "country_code": resolved_aoi.country_code,
+                    "country_name": resolved_aoi.country_name,
+                    "bbox": list(resolved_aoi.bbox),
+                }
+            hints.append(hint)
+        return hints
 
     @staticmethod
     def _pattern_to_dict(pattern: WorkflowPatternNode) -> Dict[str, Any]:

@@ -22,7 +22,8 @@ Rules:
 1) Use only algorithms listed in candidate patterns.
 2) Keep tasks executable and ordered.
 3) Prefer high success-rate patterns.
-4) Return valid JSON only.
+4) When resolved_aoi and source_coverage_hints are present, use them to choose executable source-aware tasks.
+5) Return valid JSON only.
 """
 
 
