@@ -90,12 +90,13 @@ FusionAgent 当前明确区分：
 
 - `POST /api/v2/runs` 支持 `input_strategy=task_driven_auto`
 - planner 选出可用数据源后，运行时会解析出具体 `osm.zip` 与 `ref.zip`
+- 自然语言区域请求现在可先解析 AOI，再把 `resolved_aoi` 注入 planner context 与运行时输入准备链路
 - `task-driven` 请求会在执行前展开为 source resolution、具体输入准备、version-token checks 与 bbox clip reuse
 - 输入准备层可通过 version-token checks 与 bbox clip reuse 复用缓存 input bundle
 - 已解析输入会作为 `task_inputs_resolved` 写入 audit evidence
-- 当前 task-driven 运行时主 provider 仍是基于 `Data/` 的本地目录 catalog
+- `aoi_resolved` 与 AOI 感知的 `task_inputs_resolved` 都会写入 audit evidence
 - benchmark / eval 路径新增了有界 `SourceAssetService`，可对 `raw.osm.building / road / water / poi` 与 `raw.microsoft.building` 走本地 `Data/` 优先、官方下载缓存兜底的物化链路
-- 更广泛的 runtime 级 remote downloader provider 与 `RawVectorSourceService` 回退集成仍是后续工作
+- `RawVectorSourceService` 已接入上述 source-asset fallback，task-driven runtime 在本地 `Data/` 不完整时可回退到官方缓存下载链路
 
 ### Phase 4.6：Source Catalog Expansion
 
@@ -114,7 +115,8 @@ FusionAgent 当前明确区分：
 - clip reuse 会先把 request-space bbox mask 转到缓存数据集 CRS 再裁剪，保证 projected cache 的空间正确性
 - `LocalBundleCatalogProvider` 已能通过 `component_source_ids` 组装 `osm.zip` 与 `ref.zip`
 - 单源 road bundle 会按需生成空 reference bundle
-- runtime 侧下载链路当前仍以本地 catalog 驱动；fresh-checkout benchmark 则已可通过 `SourceAssetService` 与 `scripts/materialize_source_assets.py` 走官方下载缓存复现
+- runtime 侧现在也能在 local catalog 缺失时回退到 `SourceAssetService`，把官方 Geofabrik / Microsoft 数据下载、裁剪后接入 bundle 组装
+- `scripts/smoke_agentic_region.py` 提供了自然语言区域请求的标准本机冒烟入口，推荐用 Nairobi, Kenya 做验证
 
 ### Phase 5：长期写回与学习闭环
 
@@ -154,7 +156,7 @@ FusionAgent 当前明确区分：
 - durable learning 仍是 first-pass 能力，不是完整 policy auto-tuning
 - operator-facing productization 目前仍是窄 API 层，不是完整前端产品
 - `raw.google.building` 与部分本地 reference / Excel 类输入仍需要人工准备，不在当前官方自动物化集合内
-- fresh-checkout 自动物化当前只覆盖有界 benchmark 路径，还没有完整下沉到 runtime task-driven 回退链路
+- AOI 解析当前仍依赖外部 geocoder，可用性与速率受网络条件影响
 
 ## 仓库结构
 
@@ -190,6 +192,7 @@ uvicorn main:app --reload --host 0.0.0.0 --port 8000
 ```powershell
 python scripts/start_local.py --check-only
 python scripts/start_local.py --port 8000
+python scripts/smoke_agentic_region.py --base-url http://127.0.0.1:8000 --query "fuse building and road data for Nairobi, Kenya" --timeout 1200
 ```
 
 本地运行约定：

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import re
 import shutil
 import uuid
@@ -9,6 +10,7 @@ from pathlib import Path
 from typing import Optional, Protocol, Sequence
 
 from schemas.agent import RunCreateRequest
+from services.aoi_resolution_service import ResolvedAOI
 from services.artifact_registry import ArtifactLookupRequest, ArtifactRecord, ArtifactRegistry
 from utils.crs import normalize_target_crs
 from utils.vector_clip import BBox, bundle_bbox_from_zip, clip_zip_to_request_bbox
@@ -34,16 +36,36 @@ def _parse_bbox_text(value: str | None) -> Optional[BBox]:
         return None
     return _as_bbox([match.group(1), match.group(2), match.group(3), match.group(4)])
 
+
+def _safe_cache_component(value: str) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return "empty"
+    normalized = re.sub(r"[^A-Za-z0-9._-]+", "_", text).strip("._-")
+    if normalized and normalized == text:
+        return normalized
+    digest = hashlib.sha1(text.encode("utf-8")).hexdigest()[:12]
+    if normalized:
+        return f"{normalized[:48]}_{digest}"
+    return digest
+
 class InputBundleProvider(Protocol):
     def can_handle(self, source_id: str) -> bool: ...
 
-    def current_version(self, source_id: str) -> str: ...
+    def current_version(
+        self,
+        source_id: str,
+        *,
+        request_bbox: Optional[BBox] = None,
+        resolved_aoi: ResolvedAOI | None = None,
+    ) -> str: ...
 
     def materialize(
         self,
         *,
         source_id: str,
         request_bbox: Optional[BBox],
+        resolved_aoi: ResolvedAOI | None = None,
         target_dir: Path,
         target_crs: str,
     ) -> "MaterializedInputBundle": ...
@@ -81,25 +103,38 @@ class InputAcquisitionService:
         source_id: str,
         required_output_type: str,
         input_dir: Path,
+        request_bbox: Optional[BBox] = None,
+        resolved_aoi: ResolvedAOI | None = None,
     ) -> ResolvedRunInputs:
         provider = self._provider_for(source_id)
-        version_token = provider.current_version(source_id)
         target_crs = normalize_target_crs(request.target_crs)
-        request_bbox = _parse_bbox_text(request.trigger.spatial_extent)
+        effective_request_bbox = request_bbox or _parse_bbox_text(request.trigger.spatial_extent)
+        if effective_request_bbox is None and resolved_aoi is not None:
+            effective_request_bbox = tuple(resolved_aoi.bbox)
+        version_token = self._provider_current_version(
+            provider,
+            source_id,
+            request_bbox=effective_request_bbox,
+            resolved_aoi=resolved_aoi,
+        )
         candidate = self.registry.find_reusable(
             ArtifactLookupRequest(
                 job_type=request.job_type.value,
                 required_output_type=required_output_type,
                 required_target_crs=target_crs,
-                bbox=request_bbox,
+                bbox=effective_request_bbox,
                 required_meta={"artifact_role": "input_bundle", "source_id": source_id},
             )
         )
 
         if candidate is not None and candidate.meta.get("source_version") == version_token:
             bundle_dir = Path(candidate.artifact_path)
-            if request_bbox is not None and candidate.bbox is not None and tuple(candidate.bbox) != request_bbox:
-                clipped = self._clip_cached_bundle(bundle_dir=bundle_dir, request_bbox=request_bbox, input_dir=input_dir)
+            if effective_request_bbox is not None and candidate.bbox is not None and tuple(candidate.bbox) != effective_request_bbox:
+                clipped = self._clip_cached_bundle(
+                    bundle_dir=bundle_dir,
+                    request_bbox=effective_request_bbox,
+                    input_dir=input_dir,
+                )
                 return ResolvedRunInputs(
                     osm_zip_path=clipped.osm_zip_path,
                     ref_zip_path=clipped.ref_zip_path,
@@ -118,16 +153,29 @@ class InputAcquisitionService:
                 version_token=version_token,
             )
 
-        cache_bundle_dir = self.cache_dir / source_id.replace(".", "_") / version_token / uuid.uuid4().hex
-        materialized = provider.materialize(
+        cache_bundle_dir = (
+            self.cache_dir
+            / source_id.replace(".", "_")
+            / _safe_cache_component(version_token)
+            / uuid.uuid4().hex
+        )
+        materialized = self._provider_materialize(
+            provider,
             source_id=source_id,
-            request_bbox=request_bbox,
+            request_bbox=effective_request_bbox,
+            resolved_aoi=resolved_aoi,
             target_dir=cache_bundle_dir,
             target_crs=target_crs,
         )
         bundle_bbox = materialized.bbox
         if bundle_bbox is None:
             bundle_bbox = bundle_bbox_from_zip(materialized.osm_zip_path)
+        if effective_request_bbox is not None and (bundle_bbox is None or tuple(bundle_bbox) != effective_request_bbox):
+            materialized = self._clip_materialized_bundle(
+                bundle_dir=cache_bundle_dir,
+                request_bbox=effective_request_bbox,
+            )
+            bundle_bbox = materialized.bbox
         self.registry.register(
             ArtifactRecord(
                 artifact_id=f"input_bundle.{uuid.uuid4().hex}",
@@ -163,6 +211,49 @@ class InputAcquisitionService:
         raise ValueError(f"No input bundle provider registered for source_id={source_id}")
 
     @staticmethod
+    def _provider_current_version(
+        provider: InputBundleProvider,
+        source_id: str,
+        *,
+        request_bbox: Optional[BBox],
+        resolved_aoi: ResolvedAOI | None,
+    ) -> str:
+        try:
+            return provider.current_version(
+                source_id,
+                request_bbox=request_bbox,
+                resolved_aoi=resolved_aoi,
+            )
+        except TypeError:
+            return provider.current_version(source_id)
+
+    @staticmethod
+    def _provider_materialize(
+        provider: InputBundleProvider,
+        *,
+        source_id: str,
+        request_bbox: Optional[BBox],
+        resolved_aoi: ResolvedAOI | None,
+        target_dir: Path,
+        target_crs: str,
+    ) -> MaterializedInputBundle:
+        try:
+            return provider.materialize(
+                source_id=source_id,
+                request_bbox=request_bbox,
+                resolved_aoi=resolved_aoi,
+                target_dir=target_dir,
+                target_crs=target_crs,
+            )
+        except TypeError:
+            return provider.materialize(
+                source_id=source_id,
+                request_bbox=request_bbox,
+                target_dir=target_dir,
+                target_crs=target_crs,
+            )
+
+    @staticmethod
     def _copy_cached_bundle(*, bundle_dir: Path, input_dir: Path) -> MaterializedInputBundle:
         input_dir.mkdir(parents=True, exist_ok=True)
         osm_out = input_dir / "osm.zip"
@@ -190,3 +281,15 @@ class InputAcquisitionService:
     @staticmethod
     def _clip_single_zip(source_zip: Path, output_zip: Path, *, request_bbox: BBox) -> Path:
         return clip_zip_to_request_bbox(source_zip, output_zip, request_bbox=request_bbox)
+
+    def _clip_materialized_bundle(self, *, bundle_dir: Path, request_bbox: BBox) -> MaterializedInputBundle:
+        clipped_dir = bundle_dir / "_clipped"
+        clipped = self._clip_cached_bundle(bundle_dir=bundle_dir, request_bbox=request_bbox, input_dir=clipped_dir)
+        shutil.copyfile(clipped.osm_zip_path, bundle_dir / "osm.zip")
+        shutil.copyfile(clipped.ref_zip_path, bundle_dir / "ref.zip")
+        return MaterializedInputBundle(
+            osm_zip_path=bundle_dir / "osm.zip",
+            ref_zip_path=bundle_dir / "ref.zip",
+            bbox=request_bbox,
+            target_crs=clipped.target_crs,
+        )

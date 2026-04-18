@@ -78,6 +78,7 @@ python scripts/start_local.py --port 8000
 
 ```bash
 python scripts/smoke_local_v2.py --base-url http://127.0.0.1:8000
+python scripts/smoke_agentic_region.py --base-url http://127.0.0.1:8000 --query "fuse building and road data for Nairobi, Kenya" --timeout 1200
 ```
 
 默认使用 `tests/golden_cases/building_disaster_flood` 作为样例，脚本会：
@@ -87,6 +88,13 @@ python scripts/smoke_local_v2.py --base-url http://127.0.0.1:8000
 - 校验 plan 中的 pattern / algorithm / output type
 - 下载 artifact 并检查 `.shp/.shx/.dbf`
 
+`smoke_agentic_region.py` 用于新的自然语言地区入口，脚本会：
+
+- 提交 `input_strategy=task_driven_auto` 的 AOI 感知请求
+- 轮询 `/api/v2/runs/{run_id}`
+- 输出 `run_id`、解析到的 AOI、实际 source id 与 artifact path
+- 建议优先用 `Nairobi, Kenya` 做标准验证
+
 ## 当前真实边界
 
 当前本机链路已具备：
@@ -94,11 +102,12 @@ python scripts/smoke_local_v2.py --base-url http://127.0.0.1:8000
 - `v1` 直接融合
 - `v2` 规划、验证、执行、有限修复
 - artifact 下载与状态文件落盘
+- 自然语言地区名 -> AOI 解析 -> 自动下载/裁剪/组装输入 bundle
 
 当前本机链路尚未具备：
 
 - 完整 `replan`
-- 动态外部数据接入
+- `raw.google.building` 自动官方下载
 - 完整经验学习写回
 - 独立前端产品界面
 

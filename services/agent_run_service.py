@@ -31,11 +31,13 @@ from schemas.agent import (
     RunInputStrategy,
     RunPhase,
     RunStatus,
+    RunTriggerType,
     WorkflowPlan,
 )
 from services.artifact_registry import ArtifactRecord, ArtifactRegistry
 from services.artifact_reuse_policy import get_artifact_reuse_max_age_seconds
 from services.artifact_reuse_service import ArtifactReuseService, ReuseResult
+from services.aoi_resolution_service import AOIResolutionService, NominatimGeocoder, ResolvedAOI
 from services.input_acquisition_service import InputAcquisitionService, ResolvedRunInputs
 from services.local_bundle_catalog import LocalBundleCatalogProvider
 from services.raw_vector_source_service import RawVectorSourceService
@@ -78,6 +80,7 @@ class AgentRunService:
         self.kg_repo = kg_repo or self._create_kg_repo()
         self.llm_provider = create_llm_provider()
         self.artifact_registry = ArtifactRegistry(index_path=self.base_dir / "artifact_registry.json")
+        self.aoi_resolution_service = AOIResolutionService(geocoder=self._build_geocoder())
         self.raw_vector_source_service = self._build_raw_vector_source_service()
         self.input_acquisition_service = InputAcquisitionService(
             registry=self.artifact_registry,
@@ -291,14 +294,32 @@ class AgentRunService:
                 return
 
             input_dir = intermediate_dir.parent / "input"
+            resolved_aoi = self._extract_resolved_aoi(plan)
             osm_zip_path, ref_zip_path, resolved_inputs = self._resolve_execution_inputs(
                 request=request,
                 plan=plan,
                 input_dir=input_dir,
                 osm_zip_path=osm_zip_path,
                 ref_zip_path=ref_zip_path,
+                resolved_aoi=resolved_aoi,
             )
             if resolved_inputs is not None:
+                event_details = {
+                    "input_strategy": request.input_strategy.value,
+                    "source_mode": resolved_inputs.source_mode,
+                    "source_id": resolved_inputs.source_id,
+                    "cache_hit": resolved_inputs.cache_hit,
+                    "version_token": resolved_inputs.version_token,
+                    "osm_zip_name": resolved_inputs.osm_zip_path.name,
+                    "ref_zip_name": resolved_inputs.ref_zip_path.name,
+                }
+                if resolved_aoi is not None:
+                    event_details["resolved_aoi"] = {
+                        "display_name": resolved_aoi.display_name,
+                        "country_code": resolved_aoi.country_code,
+                        "country_name": resolved_aoi.country_name,
+                        "bbox": list(resolved_aoi.bbox),
+                    }
                 self._update_status(
                     run_id,
                     RunPhase.running,
@@ -306,15 +327,7 @@ class AgentRunService:
                     plan_revision=self._extract_plan_revision(plan),
                     event_kind="task_inputs_resolved",
                     event_message="Task-driven input bundles prepared for execution.",
-                    event_details={
-                        "input_strategy": request.input_strategy.value,
-                        "source_mode": resolved_inputs.source_mode,
-                        "source_id": resolved_inputs.source_id,
-                        "cache_hit": resolved_inputs.cache_hit,
-                        "version_token": resolved_inputs.version_token,
-                        "osm_zip_name": resolved_inputs.osm_zip_path.name,
-                        "ref_zip_name": resolved_inputs.ref_zip_path.name,
-                    },
+                    event_details=event_details,
                 )
                 logger.info(
                     "Task-driven inputs resolved: mode=%s source_id=%s cache_hit=%s",
@@ -498,7 +511,51 @@ class AgentRunService:
                 handler.close()
 
     def run_planning_stage(self, run_id: str, request: RunCreateRequest) -> WorkflowPlan:
-        plan = self.planner.create_plan(run_id=run_id, job_type=request.job_type, trigger=request.trigger)
+        resolved_aoi: ResolvedAOI | None = None
+        if self._should_resolve_aoi(request):
+            try:
+                resolved_aoi = self.aoi_resolution_service.resolve(request.trigger.content)
+                self._update_status(
+                    run_id,
+                    RunPhase.planning,
+                    progress=12,
+                    event_kind="aoi_resolved",
+                    event_message=f"Resolved AOI for {resolved_aoi.display_name}.",
+                    event_details={
+                        "query": resolved_aoi.query,
+                        "display_name": resolved_aoi.display_name,
+                        "country_name": resolved_aoi.country_name,
+                        "country_code": resolved_aoi.country_code,
+                        "bbox": list(resolved_aoi.bbox),
+                        "selection_reason": resolved_aoi.selection_reason,
+                        "confidence": resolved_aoi.confidence,
+                    },
+                )
+            except Exception as exc:  # noqa: BLE001
+                self._update_status(
+                    run_id,
+                    RunPhase.planning,
+                    progress=12,
+                    event_kind="aoi_resolution_failed",
+                    event_message="AOI resolution failed before planning.",
+                    event_details={
+                        "query": request.trigger.content,
+                        "error": f"{type(exc).__name__}: {exc}",
+                    },
+                )
+                raise
+
+        previous_override = self.planner.context_builder.resolved_aoi_override
+        self.planner.context_builder.resolved_aoi_override = resolved_aoi
+        try:
+            plan = self.planner.create_plan(run_id=run_id, job_type=request.job_type, trigger=request.trigger)
+        finally:
+            self.planner.context_builder.resolved_aoi_override = previous_override
+        if resolved_aoi is not None:
+            intent = dict(plan.context.get("intent", {}))
+            if intent.get("resolved_aoi") is None:
+                intent["resolved_aoi"] = resolved_aoi.to_dict()
+                plan.context = {**plan.context, "intent": intent}
         planning_decisions = self._build_planning_decisions(plan)
         artifact_reuse = self._build_artifact_reuse_decision(plan)
         plan_path = self._plan_path(run_id)
@@ -513,6 +570,8 @@ class AgentRunService:
             "profile_source": plan.context.get("intent", {}).get("profile_source"),
             "task_bundle": plan.context.get("intent", {}).get("task_bundle"),
         }
+        if plan.context.get("intent", {}).get("resolved_aoi") is not None:
+            event_details["resolved_aoi"] = plan.context["intent"]["resolved_aoi"]
         pattern_decision = next((item for item in planning_decisions if item.decision_type == "pattern_selection"), None)
         if pattern_decision is not None:
             event_details["selected_pattern"] = pattern_decision.selected_id
@@ -606,6 +665,7 @@ class AgentRunService:
         input_dir: Path,
         osm_zip_path: Path | None,
         ref_zip_path: Path | None,
+        resolved_aoi: ResolvedAOI | None = None,
     ) -> tuple[Path, Path, ResolvedRunInputs | None]:
         if osm_zip_path is not None and ref_zip_path is not None:
             return osm_zip_path, ref_zip_path, None
@@ -624,6 +684,8 @@ class AgentRunService:
             source_id=source_id,
             required_output_type=required_output_type,
             input_dir=input_dir,
+            request_bbox=tuple(resolved_aoi.bbox) if resolved_aoi is not None else None,
+            resolved_aoi=resolved_aoi,
         )
         return resolved.osm_zip_path, resolved.ref_zip_path, resolved
 
@@ -1039,6 +1101,39 @@ class AgentRunService:
             if output_type:
                 return output_type
         return None
+
+    @staticmethod
+    def _extract_resolved_aoi(plan: WorkflowPlan) -> ResolvedAOI | None:
+        intent = plan.context.get("intent", {})
+        raw = intent.get("resolved_aoi") if isinstance(intent, dict) else None
+        if not isinstance(raw, dict):
+            return None
+        try:
+            return ResolvedAOI(
+                query=str(raw.get("query") or ""),
+                display_name=str(raw.get("display_name") or ""),
+                country_name=raw.get("country_name"),
+                country_code=raw.get("country_code"),
+                bbox=tuple(raw.get("bbox") or ()),
+                confidence=float(raw.get("confidence") or 0.0),
+                selection_reason=str(raw.get("selection_reason") or ""),
+                candidates=tuple(),
+            )
+        except Exception:  # noqa: BLE001
+            return None
+
+    @staticmethod
+    def _should_resolve_aoi(request: RunCreateRequest) -> bool:
+        if request.input_strategy != RunInputStrategy.task_driven_auto:
+            return False
+        if request.trigger.type != RunTriggerType.user_query:
+            return False
+        if request.trigger.spatial_extent:
+            return False
+        content = (request.trigger.content or "").strip()
+        if not content:
+            return False
+        return bool(re.search(r"\b(for|in|around|within)\b", content, flags=re.IGNORECASE))
 
     @staticmethod
     def _resolve_task_driven_source_id(plan: WorkflowPlan) -> Optional[str]:
@@ -1492,6 +1587,14 @@ class AgentRunService:
     @staticmethod
     def _create_kg_repo() -> KGRepository:
         return create_kg_repository()
+
+    @staticmethod
+    def _build_geocoder() -> NominatimGeocoder:
+        return NominatimGeocoder(
+            user_agent=os.getenv("GEOFUSION_GEOCODER_USER_AGENT", "GeoFusion/1.0 (+https://openai.com/codex)"),
+            max_retries=_as_int(os.getenv("GEOFUSION_GEOCODER_RETRIES"), default=3),
+            timeout_seconds=_as_int(os.getenv("GEOFUSION_GEOCODER_TIMEOUT"), default=30),
+        )
 
     def _build_raw_vector_source_service(self) -> RawVectorSourceService:
         project_root = Path(__file__).resolve().parents[1]

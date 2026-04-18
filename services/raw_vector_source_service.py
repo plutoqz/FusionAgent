@@ -11,9 +11,11 @@ from typing import Optional
 import geopandas as gpd
 
 from kg.source_catalog import RAW_VECTOR_SOURCE_SPECS, RawVectorSourceSpec, get_raw_vector_source_spec
+from services.aoi_resolution_service import ResolvedAOI
 from services.artifact_registry import ArtifactLookupRequest, ArtifactRecord, ArtifactRegistry
+from services.source_asset_service import SourceAssetResolution, SourceAssetService
 from utils.crs import normalize_target_crs
-from utils.shp_zip import collect_bundle_files, zip_shapefile_bundle
+from utils.shp_zip import collect_bundle_files, validate_zip_has_shapefile, zip_shapefile_bundle
 from utils.vector_clip import BBox, REQUEST_BBOX_CRS, clip_frame_to_request_bbox, clip_zip_to_request_bbox, frame_bbox_in_crs
 
 
@@ -45,22 +47,44 @@ class MaterializedRawVectorSource:
     source_mode: str
     cache_hit: bool
     version_token: str
+    feature_count: Optional[int] = None
 
 
 class RawVectorSourceService:
-    def __init__(self, *, root_dir: Path, registry: ArtifactRegistry, cache_dir: Path) -> None:
+    def __init__(
+        self,
+        *,
+        root_dir: Path,
+        registry: ArtifactRegistry,
+        cache_dir: Path,
+        source_asset_service: SourceAssetService | None = None,
+    ) -> None:
         self.root_dir = Path(root_dir)
         self.registry = registry
         self.cache_dir = Path(cache_dir)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self.specs = {spec.source_id: spec for spec in RAW_VECTOR_SOURCE_SPECS}
+        self.source_asset_service = source_asset_service or SourceAssetService(
+            repo_root=self.root_dir,
+            cache_dir=self.cache_dir / "source_assets",
+        )
 
     def can_handle(self, source_id: str) -> bool:
         return source_id in self.specs
 
-    def current_version(self, source_id: str) -> str:
-        shp_path = self._resolve_source_path(get_raw_vector_source_spec(source_id))
-        return _bundle_version_token(shp_path)
+    def current_version(
+        self,
+        source_id: str,
+        *,
+        request_bbox: Optional[BBox] = None,
+        resolved_aoi: ResolvedAOI | None = None,
+    ) -> str:
+        resolution = self._resolve_source_resolution(
+            source_id,
+            request_bbox=request_bbox,
+            resolved_aoi=resolved_aoi,
+        )
+        return resolution.version_token
 
     def resolve(
         self,
@@ -69,9 +93,15 @@ class RawVectorSourceService:
         request_bbox: Optional[BBox],
         target_path: Path,
         target_crs: str,
+        resolved_aoi: ResolvedAOI | None = None,
     ) -> MaterializedRawVectorSource:
         normalized_target_crs = normalize_target_crs(target_crs)
-        version_token = self.current_version(source_id)
+        source_resolution = self._resolve_source_resolution(
+            source_id,
+            request_bbox=request_bbox,
+            resolved_aoi=resolved_aoi,
+        )
+        version_token = source_resolution.version_token
         candidate = self.registry.find_reusable(
             ArtifactLookupRequest(
                 required_output_type="dt.raw.vector",
@@ -92,6 +122,7 @@ class RawVectorSourceService:
                     source_mode="clip_reused",
                     cache_hit=True,
                     version_token=version_token,
+                    feature_count=self._bundle_feature_count(clipped),
                 )
             copied = self._copy_cached_zip(cache_zip=cache_zip, target_path=target_path)
             return MaterializedRawVectorSource(
@@ -102,14 +133,17 @@ class RawVectorSourceService:
                 source_mode="cache_reused",
                 cache_hit=True,
                 version_token=version_token,
+                feature_count=self._bundle_feature_count(copied),
             )
 
         cache_zip = self.cache_dir / source_id.replace(".", "_") / version_token / uuid.uuid4().hex / "source.zip"
         materialized = self._materialize_from_source(
             source_id=source_id,
+            source_path=source_resolution.path,
             request_bbox=request_bbox,
             target_path=cache_zip,
             target_crs=normalized_target_crs,
+            version_token=version_token,
         )
         self.registry.register(
             ArtifactRecord(
@@ -124,6 +158,7 @@ class RawVectorSourceService:
                     "artifact_role": "raw_vector",
                     "source_id": source_id,
                     "source_version": version_token,
+                    "source_mode": source_resolution.source_mode,
                 },
             )
         )
@@ -136,21 +171,23 @@ class RawVectorSourceService:
             source_mode="downloaded",
             cache_hit=False,
             version_token=version_token,
+            feature_count=materialized.feature_count,
         )
 
     def _materialize_from_source(
         self,
         *,
         source_id: str,
+        source_path: Path,
         request_bbox: Optional[BBox],
         target_path: Path,
         target_crs: str,
+        version_token: str,
     ) -> MaterializedRawVectorSource:
-        spec = get_raw_vector_source_spec(source_id)
-        shp_path = self._resolve_source_path(spec)
-        gdf = gpd.read_file(shp_path)
+        gdf = gpd.read_file(source_path)
         clipped = clip_frame_to_request_bbox(gdf, request_bbox, request_crs=REQUEST_BBOX_CRS)
         request_space_bbox = frame_bbox_in_crs(clipped, bbox_crs=REQUEST_BBOX_CRS)
+        feature_count = len(clipped.index)
 
         projected = clipped
         if not projected.empty:
@@ -161,7 +198,7 @@ class RawVectorSourceService:
         target_path.parent.mkdir(parents=True, exist_ok=True)
         out_dir = target_path.parent / f"bundle_{uuid.uuid4().hex[:8]}"
         out_dir.mkdir(parents=True, exist_ok=True)
-        out_shp = out_dir / shp_path.name
+        out_shp = out_dir / source_path.name
         projected.to_file(out_shp)
         zip_shapefile_bundle(out_shp, target_path)
 
@@ -172,7 +209,33 @@ class RawVectorSourceService:
             source_id=source_id,
             source_mode="downloaded",
             cache_hit=False,
-            version_token=self.current_version(source_id),
+            version_token=version_token,
+            feature_count=feature_count,
+        )
+
+    def _resolve_source_resolution(
+        self,
+        source_id: str,
+        *,
+        request_bbox: Optional[BBox],
+        resolved_aoi: ResolvedAOI | None,
+    ) -> SourceAssetResolution:
+        if self.source_asset_service.can_materialize(source_id):
+            return self.source_asset_service.resolve_raw_source_path(
+                source_id,
+                request_bbox=request_bbox,
+                aoi=resolved_aoi,
+            )
+        spec = get_raw_vector_source_spec(source_id)
+        shp_path = self._resolve_source_path(spec)
+        return SourceAssetResolution(
+            source_id=source_id,
+            path=shp_path,
+            source_mode="local_data",
+            cache_hit=True,
+            version_token=_bundle_version_token(shp_path),
+            bbox=None,
+            feature_count=None,
         )
 
     def _resolve_source_path(self, spec: RawVectorSourceSpec) -> Path:
@@ -202,3 +265,10 @@ class RawVectorSourceService:
     def _clip_cached_zip(*, cache_zip: Path, request_bbox: BBox, target_path: Path) -> Path:
         target_path.parent.mkdir(parents=True, exist_ok=True)
         return clip_zip_to_request_bbox(cache_zip, target_path, request_bbox=request_bbox)
+
+    @staticmethod
+    def _bundle_feature_count(bundle_zip: Path) -> int:
+        extract_dir = bundle_zip.parent / f"_inspect_{bundle_zip.stem}_{uuid.uuid4().hex[:8]}"
+        shp_path = validate_zip_has_shapefile(bundle_zip, extract_dir)
+        frame = gpd.read_file(shp_path)
+        return len(frame.index)

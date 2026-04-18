@@ -1,12 +1,65 @@
 from __future__ import annotations
 
+import json
 import re
+import time
+import urllib.parse
+import urllib.request
 from dataclasses import asdict, dataclass
 from typing import Any, Iterable, Protocol
 
 
 class Geocoder(Protocol):
     def search(self, query: str) -> Iterable[dict[str, Any]]: ...
+
+
+class NominatimGeocoder:
+    def __init__(
+        self,
+        *,
+        base_url: str = "https://nominatim.openstreetmap.org/search",
+        user_agent: str = "GeoFusion/1.0 (+https://openai.com/codex)",
+        limit: int = 5,
+        timeout_seconds: int = 30,
+        max_retries: int = 3,
+    ) -> None:
+        self.base_url = base_url
+        self.user_agent = user_agent
+        self.limit = max(1, int(limit))
+        self.timeout_seconds = max(1, int(timeout_seconds))
+        self.max_retries = max(1, int(max_retries))
+
+    def search(self, query: str) -> Iterable[dict[str, Any]]:
+        params = urllib.parse.urlencode(
+            {
+                "q": query,
+                "format": "jsonv2",
+                "limit": self.limit,
+                "addressdetails": 1,
+            }
+        )
+        url = f"{self.base_url}?{params}"
+        request = urllib.request.Request(
+            url,
+            headers={
+                "User-Agent": self.user_agent,
+                "Accept": "application/json",
+            },
+            method="GET",
+        )
+        last_error: Exception | None = None
+        for attempt in range(1, self.max_retries + 1):
+            try:
+                with urllib.request.urlopen(request, timeout=self.timeout_seconds) as response:
+                    return list(json.loads(response.read().decode("utf-8")))
+            except Exception as exc:  # noqa: BLE001
+                last_error = exc
+                if attempt >= self.max_retries:
+                    raise
+                time.sleep(min(2 ** (attempt - 1), 3))
+        if last_error is not None:
+            raise last_error
+        return []
 
 
 @dataclass(frozen=True)
@@ -59,7 +112,7 @@ class AOIResolutionService:
         if not raw_candidates:
             raise ValueError(f"No AOI candidates found for query: {location_query}")
 
-        candidates = tuple(self._normalize_candidate(location_query, raw) for raw in raw_candidates)
+        candidates = tuple(self._deduplicate_candidates(self._normalize_candidate(location_query, raw) for raw in raw_candidates))
         return self._select_candidate(location_query, candidates)
 
     @staticmethod
@@ -108,6 +161,20 @@ class AOIResolutionService:
             confidence=confidence,
             raw=dict(raw),
         )
+
+    @staticmethod
+    def _deduplicate_candidates(candidates: Iterable[ResolvedAOICandidate]) -> tuple[ResolvedAOICandidate, ...]:
+        deduped: dict[tuple[str, str | None, tuple[float, float, float, float]], ResolvedAOICandidate] = {}
+        for candidate in candidates:
+            key = (
+                candidate.display_name.strip().casefold(),
+                candidate.country_code,
+                tuple(round(value, 7) for value in candidate.bbox),
+            )
+            existing = deduped.get(key)
+            if existing is None or candidate.confidence > existing.confidence:
+                deduped[key] = candidate
+        return tuple(deduped.values())
 
     @staticmethod
     def _select_candidate(query: str, candidates: tuple[ResolvedAOICandidate, ...]) -> ResolvedAOI:

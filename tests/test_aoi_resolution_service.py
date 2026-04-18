@@ -85,3 +85,34 @@ def test_aoi_resolution_service_rejects_ambiguous_place_names() -> None:
 
     with pytest.raises(AOIAmbiguityError):
         service.resolve("Springfield")
+
+
+def test_aoi_resolution_service_deduplicates_equivalent_candidates_before_raising_ambiguity() -> None:
+    service = AOIResolutionService(
+        geocoder=StubGeocoder(
+            [
+                {
+                    "display_name": "Nairobi, Kenya",
+                    "country_code": "ke",
+                    "importance": 0.67,
+                    "boundingbox": ["-1.4448", "-1.1606", "36.6647", "37.1048"],
+                    "address": {"city": "Nairobi", "country": "Kenya", "country_code": "ke"},
+                    "type": "administrative",
+                },
+                {
+                    "display_name": "Nairobi, Kenya",
+                    "country_code": "ke",
+                    "importance": 0.67,
+                    "boundingbox": ["-1.4448", "-1.1606", "36.6647", "37.1048"],
+                    "address": {"city": "Nairobi", "country": "Kenya", "country_code": "ke"},
+                    "type": "city",
+                },
+            ]
+        )
+    )
+
+    resolved = service.resolve("fuse building and road data for Nairobi, Kenya")
+
+    assert resolved.display_name == "Nairobi, Kenya"
+    assert resolved.country_code == "ke"
+    assert resolved.bbox == pytest.approx((36.6647, -1.4448, 37.1048, -1.1606))

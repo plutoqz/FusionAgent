@@ -26,6 +26,7 @@ class PlanningContextBuilder:
         self.kg_repo = kg_repo
         self.artifact_registry = artifact_registry
         self.aoi_resolution_service: AOIResolutionService | None = None
+        self.resolved_aoi_override: ResolvedAOI | None = None
 
     def build(self, job_type: JobType, trigger: RunTrigger) -> Tuple[Dict[str, Any], str]:
         kg_context = self.kg_repo.build_context(job_type=job_type, disaster_type=trigger.disaster_type)
@@ -43,6 +44,8 @@ class PlanningContextBuilder:
         )
 
     def _resolve_aoi(self, trigger: RunTrigger) -> ResolvedAOI | None:
+        if self.resolved_aoi_override is not None:
+            return self.resolved_aoi_override
         if self.aoi_resolution_service is None:
             return None
         if trigger.type != RunTriggerType.user_query:
@@ -340,6 +343,9 @@ class PlanningContextBuilder:
                 "source_kind": source.source_kind,
                 "provider_family": metadata.get("provider_family"),
                 "path_hint": metadata.get("path_hint") or metadata.get("path_hints"),
+                "supports_aoi": metadata.get("supports_aoi"),
+                "materialization_scope": metadata.get("materialization_scope"),
+                "materialization_provider": metadata.get("materialization_provider"),
                 "supported_job_types": source.supported_job_types,
                 "supported_geometry_types": source.supported_geometry_types,
                 "quality_score": source.quality_score,

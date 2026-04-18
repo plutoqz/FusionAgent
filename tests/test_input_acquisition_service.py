@@ -9,6 +9,7 @@ from shapely.geometry import Polygon
 
 from schemas.agent import RunCreateRequest, RunInputStrategy, RunTrigger, RunTriggerType
 from schemas.fusion import JobType
+from services.aoi_resolution_service import ResolvedAOI
 from services.artifact_registry import ArtifactRecord, ArtifactRegistry
 from utils.shp_zip import zip_shapefile_bundle
 
@@ -37,12 +38,12 @@ class _StubBundleProvider:
 
         osm = gpd.GeoDataFrame(
             {"osm_id": [1]},
-            geometry=[Polygon([(0, 0), (0, 10), (10, 10), (10, 0)])],
+            geometry=[Polygon([(-180, -90), (-180, 90), (180, 90), (180, -90)])],
             crs="EPSG:4326",
         ).to_crs(target_crs)
         ref = gpd.GeoDataFrame(
             {"confidence": [0.9]},
-            geometry=[Polygon([(0, 0), (0, 10), (10, 10), (10, 0)])],
+            geometry=[Polygon([(-180, -90), (-180, 90), (180, 90), (180, -90)])],
             crs="EPSG:4326",
         ).to_crs(target_crs)
 
@@ -73,6 +74,19 @@ def _build_request(*, spatial_extent: str = "bbox(0,0,10,10)", target_crs: str =
         field_mapping={},
         debug=False,
         input_strategy=RunInputStrategy.task_driven_auto,
+    )
+
+
+def _resolved_nairobi_aoi() -> ResolvedAOI:
+    return ResolvedAOI(
+        query="Nairobi, Kenya",
+        display_name="Nairobi, Nairobi County, Kenya",
+        country_name="Kenya",
+        country_code="ke",
+        bbox=(36.65, -1.45, 37.10, -1.10),
+        confidence=0.97,
+        selection_reason="single_high_confidence_candidate",
+        candidates=(),
     )
 
 
@@ -184,6 +198,32 @@ def test_input_acquisition_supports_catalog_earthquake_building_source(tmp_path:
     assert resolved.version_token == "v1"
 
 
+def test_input_acquisition_sanitizes_composite_version_tokens_for_cache_paths(tmp_path: Path) -> None:
+    from services.input_acquisition_service import InputAcquisitionService
+
+    registry = ArtifactRegistry(index_path=tmp_path / "artifact_registry.json")
+    provider = _StubBundleProvider(
+        version_token="57bc0c18328c05e1f7af0bcb38669c0981ea6306|20c32cf4490675d928294532486a20438cde6d73",
+        supported_source_ids={"catalog.earthquake.building"},
+    )
+    service = InputAcquisitionService(registry=registry, providers=[provider], cache_dir=tmp_path / "cache")
+
+    resolved = service.resolve_task_driven_inputs(
+        request=_build_request(),
+        source_id="catalog.earthquake.building",
+        required_output_type="dt.building.bundle",
+        input_dir=tmp_path / "run",
+    )
+
+    assert resolved.source_mode == "downloaded"
+    assert resolved.cache_hit is False
+    assert provider.download_calls == 1
+    assert resolved.osm_zip_path.exists()
+    assert resolved.ref_zip_path.exists()
+    assert all("|" not in str(path) for path in (resolved.osm_zip_path, resolved.ref_zip_path))
+    assert not any("|" in str(path) for path in (tmp_path / "cache").rglob("*"))
+
+
 def test_input_acquisition_clip_reuse_transforms_request_bbox_into_cached_dataset_crs(tmp_path: Path) -> None:
     from services.input_acquisition_service import InputAcquisitionService
 
@@ -210,3 +250,35 @@ def test_input_acquisition_clip_reuse_transforms_request_bbox_into_cached_datase
     assert provider.download_calls == 1
     assert _extract_bounds(reused.osm_zip_path) == pytest.approx([1.0, 1.0, 2.0, 2.0], abs=1e-3)
     assert _extract_bounds(reused.ref_zip_path) == pytest.approx([1.0, 1.0, 2.0, 2.0], abs=1e-3)
+
+
+def test_input_acquisition_uses_resolved_aoi_bbox_when_trigger_has_no_spatial_extent(tmp_path: Path) -> None:
+    from services.input_acquisition_service import InputAcquisitionService
+
+    registry = ArtifactRegistry(index_path=tmp_path / "artifact_registry.json")
+    provider = _StubBundleProvider(version_token="v1")
+    service = InputAcquisitionService(registry=registry, providers=[provider], cache_dir=tmp_path / "cache")
+
+    request = RunCreateRequest(
+        job_type=JobType.building,
+        trigger=RunTrigger(type=RunTriggerType.user_query, content="need building data for Nairobi, Kenya"),
+        target_crs="EPSG:4326",
+        field_mapping={},
+        debug=False,
+        input_strategy=RunInputStrategy.task_driven_auto,
+    )
+
+    resolved = service.resolve_task_driven_inputs(
+        request=request,
+        source_id="catalog.task.building.default",
+        required_output_type="dt.building.bundle",
+        input_dir=tmp_path / "run",
+        request_bbox=_resolved_nairobi_aoi().bbox,
+        resolved_aoi=_resolved_nairobi_aoi(),
+    )
+
+    assert resolved.source_mode == "downloaded"
+    assert resolved.cache_hit is False
+    assert provider.download_calls == 1
+    assert _extract_bounds(resolved.osm_zip_path) == pytest.approx([36.65, -1.45, 37.10, -1.10], abs=1e-3)
+    assert _extract_bounds(resolved.ref_zip_path) == pytest.approx([36.65, -1.45, 37.10, -1.10], abs=1e-3)

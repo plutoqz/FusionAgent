@@ -23,6 +23,7 @@ from schemas.agent import (
     WorkflowTaskOutput,
 )
 from services.agent_run_service import AgentRunService
+from services.aoi_resolution_service import ResolvedAOI
 from services.input_acquisition_service import ResolvedRunInputs
 
 
@@ -113,6 +114,19 @@ def _build_task_driven_plan() -> WorkflowPlan:
         ],
         expected_output="building result",
         validation=ValidationReport(valid=True, inserted_transform_steps=0, issues=[]),
+    )
+
+
+def _resolved_nairobi_aoi() -> ResolvedAOI:
+    return ResolvedAOI(
+        query="Nairobi, Kenya",
+        display_name="Nairobi, Nairobi County, Kenya",
+        country_name="Kenya",
+        country_code="ke",
+        bbox=(36.65, -1.45, 37.10, -1.10),
+        confidence=0.97,
+        selection_reason="single_high_confidence_candidate",
+        candidates=(),
     )
 
 
@@ -337,6 +351,81 @@ def test_v2_run_task_driven_auto_input_integration(
     assert resolved_event["details"]["source_id"] == "catalog.flood.building"
     assert resolved_event["details"]["cache_hit"] is False
     assert resolved_event["details"]["version_token"] == "v1"
+
+
+def test_v2_run_task_driven_auto_nairobi_query_records_aoi_resolution(
+    tmp_path: Path,
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = runs_v2_router.agent_run_service
+    osm_shp = tmp_path / "resolved_osm.shp"
+    ref_shp = tmp_path / "resolved_ref.shp"
+    fused_shp = tmp_path / "fused.shp"
+    artifact_zip = tmp_path / "artifact.zip"
+    for path in [osm_shp, ref_shp, fused_shp]:
+        path.write_text("dummy", encoding="utf-8")
+    artifact_zip.write_bytes(b"zip")
+
+    plan = _build_task_driven_plan()
+    plan.trigger = RunTrigger(
+        type=RunTriggerType.user_query,
+        content="fuse building and road data for Nairobi, Kenya",
+    )
+    plan.tasks[0].input.data_source_id = "catalog.earthquake.building"
+
+    prepared_dir = tmp_path / "prepared"
+    prepared_dir.mkdir(parents=True, exist_ok=True)
+    resolved = ResolvedRunInputs(
+        osm_zip_path=prepared_dir / "osm.zip",
+        ref_zip_path=prepared_dir / "ref.zip",
+        source_mode="downloaded",
+        source_id="catalog.earthquake.building",
+        cache_hit=False,
+        version_token="ke-v1",
+    )
+    resolved.osm_zip_path.write_bytes(b"osm")
+    resolved.ref_zip_path.write_bytes(b"ref")
+
+    monkeypatch.setattr(service.aoi_resolution_service, "resolve", lambda _query: _resolved_nairobi_aoi())
+    monkeypatch.setattr(service.planner, "create_plan", lambda **_kwargs: plan.model_copy(deep=True))
+    monkeypatch.setattr(service.validator, "validate_and_repair", lambda input_plan: input_plan)
+    monkeypatch.setattr(service.input_acquisition_service, "resolve_task_driven_inputs", lambda **_kwargs: resolved)
+    monkeypatch.setattr(
+        "services.agent_run_service.validate_zip_has_shapefile",
+        lambda zip_path, *_args, **_kwargs: osm_shp if Path(zip_path).name.startswith("osm") else ref_shp,
+    )
+    monkeypatch.setattr(service.executor, "execute_plan", lambda **_kwargs: fused_shp)
+    monkeypatch.setattr("services.agent_run_service.zip_shapefile_bundle", lambda *_args, **_kwargs: artifact_zip)
+
+    resp = client.post(
+        "/api/v2/runs",
+        data={
+            "job_type": "building",
+            "trigger_type": "user_query",
+            "trigger_content": "fuse building and road data for Nairobi, Kenya",
+            "target_crs": "EPSG:32643",
+            "input_strategy": "task_driven_auto",
+            "field_mapping": "{}",
+            "debug": "false",
+        },
+    )
+
+    assert resp.status_code == 200, resp.text
+    run_id = resp.json()["run_id"]
+
+    status = _wait_run(client, run_id)
+    assert status["phase"] == "succeeded", status.get("error")
+
+    inspection_resp = client.get(f"/api/v2/runs/{run_id}/inspection")
+    assert inspection_resp.status_code == 200
+    inspection = inspection_resp.json()
+    aoi_event = next(event for event in inspection["audit_events"] if event["kind"] == "aoi_resolved")
+    assert aoi_event["details"]["country_code"] == "ke"
+    assert aoi_event["details"]["display_name"] == "Nairobi, Nairobi County, Kenya"
+    resolved_event = next(event for event in inspection["audit_events"] if event["kind"] == "task_inputs_resolved")
+    assert resolved_event["details"]["resolved_aoi"]["country_code"] == "ke"
+    assert resolved_event["details"]["source_id"] == "catalog.earthquake.building"
 
 
 def test_v2_compare_runs_exposes_both_inspections(tmp_path: Path, client: TestClient) -> None:

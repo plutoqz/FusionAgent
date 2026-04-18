@@ -97,11 +97,12 @@ validator, policy, audit, and healing loops bound correctness and robustness.
 
 - `POST /api/v2/runs` accepts `input_strategy=task_driven_auto` for upload-free task-driven runs
 - runtime resolves concrete `osm.zip` and `ref.zip` after planning chooses a usable data source
+- natural-language region requests can now resolve an AOI first and inject `resolved_aoi` into both planner context and runtime input preparation
 - input preparation reuses cached input bundles through version-token checks and bbox clip reuse
 - resolved task inputs are written into audit evidence as `task_inputs_resolved`
-- the runtime task-driven provider is still primarily the local `Data/`-backed catalog
+- `aoi_resolved` and AOI-aware `task_inputs_resolved` events are both persisted into the audit trail
 - the benchmark / eval path now has a bounded `SourceAssetService` fallback that can materialize `raw.osm.building / road / water / poi` and `raw.microsoft.building` from either repo-local `Data/` or an official download cache
-- broader runtime-level remote downloader providers and `RawVectorSourceService` fallback integration remain follow-up work
+- `RawVectorSourceService` now uses that source-asset fallback when local `Data/` is incomplete, so the task-driven runtime can continue through official cached downloads
 
 ### Phase 4.6: Source Catalog Expansion
 
@@ -119,7 +120,8 @@ validator, policy, audit, and healing loops bound correctness and robustness.
 - cached raw sources and cached input bundles both support bbox clip reuse
 - clip reuse now transforms request-space bbox masks into the cached dataset CRS before clipping, so projected caches remain spatially correct
 - `LocalBundleCatalogProvider` now assembles `osm.zip` and `ref.zip` from `component_source_ids`, while single-source road bundles generate an empty reference bundle on demand
-- the runtime path is still local-catalog-driven, while fresh-checkout benchmark reproduction can now use `SourceAssetService` plus `scripts/materialize_source_assets.py` to fall back to official cached downloads
+- the runtime path can now also fall back to `SourceAssetService` when local catalog inputs are missing, so official Geofabrik / Microsoft assets can be downloaded, clipped, and bundled in the live task-driven flow
+- `scripts/smoke_agentic_region.py` provides the standard smoke entry for natural-language region runs, with Nairobi, Kenya as the recommended validation example
 
 ### Phase 5: Long-Term Writeback And Learning Loop
 
@@ -159,7 +161,7 @@ Even though the six roadmap phases are implemented, there are still clear gaps:
 - durable learning is still a first-pass capability, not full policy auto-tuning
 - operator-facing productization is still a narrow API layer, not a full frontend
 - `raw.google.building` and some local-only reference / Excel-style inputs still require manual preparation and are not part of the current official materialization set
-- fresh-checkout automation currently covers only the bounded benchmark path, not the full runtime task-driven fallback chain
+- AOI resolution still depends on an external geocoder, so availability and latency remain sensitive to network conditions
 
 ## Repository Structure
 
@@ -195,6 +197,7 @@ Use this for Neo4j, Redis, Celery, and live-LLM integration.
 ```powershell
 python scripts/start_local.py --check-only
 python scripts/start_local.py --port 8000
+python scripts/smoke_agentic_region.py --base-url http://127.0.0.1:8000 --query "fuse building and road data for Nairobi, Kenya" --timeout 1200
 ```
 
 Local runtime conventions:

@@ -197,6 +197,8 @@ def build_data_sources() -> List[DataSourceNode]:
                 "bundle_strategy": _bundle_strategy("catalog.flood.building"),
                 "component_source_ids": _bundle_component_ids("catalog.flood.building"),
                 "path_hints": _bundle_path_hints(get_catalog_bundle_spec("catalog.flood.building")),
+                "supports_aoi": True,
+                "materialization_scope": "resolved_aoi_clip",
             },
         ),
         DataSourceNode(
@@ -219,6 +221,8 @@ def build_data_sources() -> List[DataSourceNode]:
                 "bundle_strategy": _bundle_strategy("catalog.earthquake.building"),
                 "component_source_ids": _bundle_component_ids("catalog.earthquake.building"),
                 "path_hints": _bundle_path_hints(get_catalog_bundle_spec("catalog.earthquake.building")),
+                "supports_aoi": True,
+                "materialization_scope": "resolved_aoi_clip",
             },
         ),
         DataSourceNode(
@@ -241,6 +245,8 @@ def build_data_sources() -> List[DataSourceNode]:
                 "bundle_strategy": _bundle_strategy("catalog.flood.road"),
                 "component_source_ids": _bundle_component_ids("catalog.flood.road"),
                 "path_hints": _bundle_path_hints(get_catalog_bundle_spec("catalog.flood.road")),
+                "supports_aoi": True,
+                "materialization_scope": "resolved_aoi_clip",
             },
         ),
         DataSourceNode(
@@ -263,6 +269,8 @@ def build_data_sources() -> List[DataSourceNode]:
                 "bundle_strategy": _bundle_strategy("catalog.earthquake.road"),
                 "component_source_ids": _bundle_component_ids("catalog.earthquake.road"),
                 "path_hints": _bundle_path_hints(get_catalog_bundle_spec("catalog.earthquake.road")),
+                "supports_aoi": True,
+                "materialization_scope": "resolved_aoi_clip",
             },
         ),
         DataSourceNode(
@@ -285,6 +293,8 @@ def build_data_sources() -> List[DataSourceNode]:
                 "bundle_strategy": _bundle_strategy("catalog.typhoon.road"),
                 "component_source_ids": _bundle_component_ids("catalog.typhoon.road"),
                 "path_hints": _bundle_path_hints(get_catalog_bundle_spec("catalog.typhoon.road")),
+                "supports_aoi": True,
+                "materialization_scope": "resolved_aoi_clip",
             },
         ),
         DataSourceNode(
@@ -306,6 +316,9 @@ def build_data_sources() -> List[DataSourceNode]:
                 "theme": "building",
                 "source_role": "osm_primary",
                 "path_hint": _raw_path_hint("raw.osm.building"),
+                "supports_aoi": True,
+                "materialization_scope": "country_bundle_then_clip",
+                "materialization_provider": "geofabrik",
             },
         ),
         DataSourceNode(
@@ -327,6 +340,8 @@ def build_data_sources() -> List[DataSourceNode]:
                 "theme": "building",
                 "source_role": "reference_candidate",
                 "path_hint": _raw_path_hint("raw.google.building"),
+                "supports_aoi": False,
+                "materialization_scope": "local_only",
             },
         ),
         DataSourceNode(
@@ -348,6 +363,9 @@ def build_data_sources() -> List[DataSourceNode]:
                 "theme": "building",
                 "source_role": "reference_candidate",
                 "path_hint": _raw_path_hint("raw.microsoft.building"),
+                "supports_aoi": True,
+                "materialization_scope": "country_tiles_then_clip",
+                "materialization_provider": "microsoft_global_buildings",
             },
         ),
         DataSourceNode(
@@ -369,6 +387,9 @@ def build_data_sources() -> List[DataSourceNode]:
                 "theme": "road",
                 "source_role": "osm_primary",
                 "path_hint": _raw_path_hint("raw.osm.road"),
+                "supports_aoi": True,
+                "materialization_scope": "country_bundle_then_clip",
+                "materialization_provider": "geofabrik",
             },
         ),
         DataSourceNode(
@@ -390,6 +411,9 @@ def build_data_sources() -> List[DataSourceNode]:
                 "theme": "water",
                 "source_role": "environmental_context",
                 "path_hint": _raw_path_hint("raw.osm.water"),
+                "supports_aoi": True,
+                "materialization_scope": "country_bundle_then_clip",
+                "materialization_provider": "geofabrik",
             },
         ),
         DataSourceNode(
@@ -411,6 +435,8 @@ def build_data_sources() -> List[DataSourceNode]:
                 "theme": "water",
                 "source_role": "environmental_context",
                 "path_hint": _raw_path_hint("raw.local.water"),
+                "supports_aoi": False,
+                "materialization_scope": "local_only",
             },
         ),
         DataSourceNode(
@@ -432,6 +458,9 @@ def build_data_sources() -> List[DataSourceNode]:
                 "theme": "poi",
                 "source_role": "enrichment_candidate",
                 "path_hint": _raw_path_hint("raw.osm.poi"),
+                "supports_aoi": True,
+                "materialization_scope": "country_bundle_then_clip",
+                "materialization_provider": "geofabrik",
             },
         ),
         DataSourceNode(
@@ -453,6 +482,8 @@ def build_data_sources() -> List[DataSourceNode]:
                 "theme": "poi",
                 "source_role": "name_reference",
                 "path_hint": _raw_path_hint("raw.gns.poi"),
+                "supports_aoi": False,
+                "materialization_scope": "local_only",
             },
         ),
         DataSourceNode(
@@ -474,6 +505,8 @@ def build_data_sources() -> List[DataSourceNode]:
                 "theme": "poi",
                 "source_role": "reference_candidate",
                 "path_hint": _raw_path_hint("raw.rh.poi"),
+                "supports_aoi": False,
+                "materialization_scope": "local_only",
             },
         ),
     ]
