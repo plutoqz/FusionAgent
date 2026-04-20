@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
+import os
 from pathlib import Path
 from typing import Dict, List
 
@@ -114,6 +115,7 @@ def _prepare_ref_building(
     if "confidence" not in gdf.columns:
         gdf["confidence"] = 1.0
     gdf = ensure_numeric(gdf, ["confidence", "area_in_me"])
+    gdf.loc[(gdf["confidence"] < 0) | (gdf["confidence"] > 1), "confidence"] = np.nan
     gdf["confidence"] = gdf["confidence"].fillna(1.0)
 
     if "area_in_me" not in gdf.columns:
@@ -156,6 +158,179 @@ def _non_empty_frames(frames: List[pd.DataFrame], crs: str) -> List[gpd.GeoDataF
     return output
 
 
+def _feature_count_from_path(path: Path) -> int:
+    try:
+        import pyogrio
+
+        info = pyogrio.read_info(path)
+        return int(info.get("features") or 0)
+    except Exception:  # noqa: BLE001
+        try:
+            import fiona
+
+            with fiona.open(path) as src:
+                return len(src)
+        except Exception:  # noqa: BLE001
+            return int(len(gpd.read_file(path)))
+
+
+def _legacy_feature_limit() -> int:
+    raw = os.getenv("GEOFUSION_BUILDING_LEGACY_MAX_FEATURES", "250000")
+    try:
+        return max(0, int(raw))
+    except Exception:  # noqa: BLE001
+        return 250000
+
+
+def _should_use_safe_building_algorithm(osm_shp: Path, ref_shp: Path) -> tuple[bool, int, int, int]:
+    limit = _legacy_feature_limit()
+    if limit <= 0:
+        return False, 0, 0, limit
+    osm_count = _feature_count_from_path(osm_shp)
+    ref_count = _feature_count_from_path(ref_shp)
+    return max(osm_count, ref_count) > limit, osm_count, ref_count, limit
+
+
+def _finalize_building_output(frame: gpd.GeoDataFrame, target_crs: str) -> gpd.GeoDataFrame:
+    output = frame.copy()
+    if output.crs is None:
+        output = output.set_crs(target_crs)
+    else:
+        output = output.to_crs(target_crs)
+    output = output[~output.geometry.is_empty & output.geometry.notna()].copy()
+    for column in ["osm_id", "fclass", "name", "type", "longitude", "latitude", "area_in_me", "confidence"]:
+        if column not in output.columns:
+            output[column] = np.nan
+    return gpd.GeoDataFrame(
+        output[["osm_id", "fclass", "name", "type", "longitude", "latitude", "area_in_me", "confidence", "geometry"]],
+        geometry="geometry",
+        crs=target_crs,
+    )
+
+
+def _build_unmatched_osm_frame(osm_data: gpd.GeoDataFrame, target_crs: str) -> gpd.GeoDataFrame:
+    fallback = osm_data.copy()
+    centroid_ll = gpd.GeoSeries(fallback.geometry.centroid, crs=target_crs).to_crs("EPSG:4326")
+    fallback["longitude"] = centroid_ll.x
+    fallback["latitude"] = centroid_ll.y
+    fallback["area_in_me"] = fallback.geometry.area
+    fallback["confidence"] = 1.0
+    return _finalize_building_output(fallback, target_crs)
+
+
+def _build_unmatched_ref_frame(ref_data: gpd.GeoDataFrame, target_crs: str) -> gpd.GeoDataFrame:
+    fallback = ref_data.copy()
+    fallback["osm_id"] = np.nan
+    fallback["fclass"] = "ref_building"
+    fallback["name"] = np.nan
+    fallback["type"] = np.nan
+    return _finalize_building_output(fallback, target_crs)
+
+
+def run_building_fusion_safe(
+    osm_shp: Path,
+    ref_shp: Path,
+    output_dir: Path,
+    target_crs: str = "EPSG:32643",
+    field_mapping: Dict[str, Dict[str, str]] | None = None,
+    debug: bool = False,
+    parameters: Dict[str, object] | None = None,
+) -> Path:
+    del debug
+    resolved_parameters = _resolve_building_parameters(parameters)
+
+    osm_raw = gpd.read_file(osm_shp)
+    ref_raw = gpd.read_file(ref_shp)
+
+    osm_data = _prepare_osm_building(osm_raw, target_crs, (field_mapping or {}).get("osm"))
+    ref_data = _prepare_ref_building(ref_raw, target_crs, (field_mapping or {}).get("ref"))
+
+    if osm_data.empty and ref_data.empty:
+        raise ValueError("Both OSM and reference building datasets are empty.")
+
+    output_dir.mkdir(parents=True, exist_ok=True)
+    output_shp = output_dir / "fused_buildings.shp"
+
+    if osm_data.empty:
+        _build_unmatched_ref_frame(ref_data, target_crs).to_file(output_shp)
+        return output_shp
+
+    if ref_data.empty:
+        _build_unmatched_osm_frame(osm_data, target_crs).to_file(output_shp)
+        return output_shp
+
+    osm = osm_data.reset_index(drop=True).copy()
+    ref = ref_data.reset_index(drop=True).copy()
+    osm["_osm_row"] = np.arange(len(osm))
+    ref["_ref_row"] = np.arange(len(ref))
+
+    candidate_pairs = gpd.sjoin(
+        osm[["_osm_row", "geometry"]],
+        ref[["_ref_row", "geometry"]],
+        how="inner",
+        predicate="intersects",
+    )
+
+    matched_rows = pd.DataFrame(columns=["_osm_row", "_ref_row", "similarity"])
+    if not candidate_pairs.empty:
+        osm_rows = candidate_pairs["_osm_row"].to_numpy(dtype=int)
+        ref_rows = candidate_pairs["_ref_row"].to_numpy(dtype=int)
+        osm_geoms = gpd.GeoSeries(osm.geometry.iloc[osm_rows].reset_index(drop=True), crs=target_crs)
+        ref_geoms = gpd.GeoSeries(ref.geometry.iloc[ref_rows].reset_index(drop=True), crs=target_crs)
+        intersections = osm_geoms.intersection(ref_geoms)
+        min_areas = np.minimum(osm_geoms.area.to_numpy(), ref_geoms.area.to_numpy())
+        min_areas[min_areas == 0] = np.nan
+        similarities = intersections.area.to_numpy() / min_areas
+        matched_rows = pd.DataFrame(
+            {
+                "_osm_row": osm_rows,
+                "_ref_row": ref_rows,
+                "similarity": similarities,
+            }
+        )
+        matched_rows = matched_rows[matched_rows["similarity"] >= resolved_parameters.match_similarity_threshold].copy()
+        if not matched_rows.empty:
+            matched_rows = matched_rows.sort_values("similarity", ascending=False)
+            matched_rows = matched_rows.drop_duplicates(subset=["_osm_row"], keep="first")
+            matched_rows = matched_rows.drop_duplicates(subset=["_ref_row"], keep="first")
+
+    matched_osm_rows = matched_rows["_osm_row"].to_list() if not matched_rows.empty else []
+    matched_ref_rows = matched_rows["_ref_row"].to_list() if not matched_rows.empty else []
+
+    frames: List[gpd.GeoDataFrame] = []
+    if matched_osm_rows:
+        matched_osm = osm.iloc[matched_osm_rows].reset_index(drop=True).copy()
+        matched_ref = ref.iloc[matched_ref_rows].reset_index(drop=True).copy()
+        matched = gpd.GeoDataFrame(
+            {
+                "osm_id": matched_osm["osm_id"].values,
+                "fclass": matched_osm["fclass"].values,
+                "name": matched_osm["name"].values,
+                "type": matched_osm["type"].values,
+                "longitude": matched_ref["longitude"].values,
+                "latitude": matched_ref["latitude"].values,
+                "area_in_me": matched_ref["area_in_me"].values,
+                "confidence": matched_ref["confidence"].values,
+            },
+            geometry=matched_osm.geometry.values,
+            crs=target_crs,
+        )
+        frames.append(_finalize_building_output(matched, target_crs))
+
+    unmatched_osm = osm[~osm["_osm_row"].isin(matched_osm_rows)].copy()
+    if not unmatched_osm.empty:
+        frames.append(_build_unmatched_osm_frame(unmatched_osm, target_crs))
+
+    unmatched_ref = ref[~ref["_ref_row"].isin(matched_ref_rows)].copy()
+    if not unmatched_ref.empty:
+        frames.append(_build_unmatched_ref_frame(unmatched_ref, target_crs))
+
+    combined = gpd.GeoDataFrame(pd.concat(frames, ignore_index=True), geometry="geometry", crs=target_crs)
+    combined = _finalize_building_output(combined, target_crs)
+    combined.to_file(output_shp)
+    return output_shp
+
+
 def run_building_fusion(
     osm_shp: Path,
     ref_shp: Path,
@@ -165,6 +340,13 @@ def run_building_fusion(
     debug: bool = False,
     parameters: Dict[str, object] | None = None,
 ) -> Path:
+    should_use_safe, osm_count, ref_count, limit = _should_use_safe_building_algorithm(osm_shp, ref_shp)
+    if should_use_safe:
+        raise RuntimeError(
+            "Legacy building fusion skipped for large dataset "
+            f"(osm={osm_count}, ref={ref_count}, limit={limit}); use safe fallback."
+        )
+
     legacy_build = load_legacy_module("legacy_build", str(BUILD_ALGO_PATH))
     resolved_parameters = _resolve_building_parameters(parameters)
 

@@ -42,6 +42,7 @@ $env:GEOFUSION_CELERY_EAGER='0'
 - reserve `8010` for isolated real-data benchmark runs so the benchmark base URL, worker logs, and evidence directory can stay aligned
 - use `8012+` only for temporary diagnostics or one-off worktree isolation
 - official benchmark source-asset downloads are cached under `runs/source-assets/`; local `Data/` is still preferred unless you explicitly force remote materialization
+- task-driven AOI runs now resolve a natural-language location before planning and can fall back to official Geofabrik / Microsoft downloads when local `Data/` is incomplete
 - `docker compose` is a separate path: it uses container-local `redis://redis:6379/0` and API port `8000`, not the host-side `依赖.txt` mapping
 
 ## Evaluation Tiers
@@ -55,6 +56,7 @@ Minimum evidence:
 - exact `pytest` command
 - pass or fail output
 - failing test names when red
+- for AOI work, the resolved place name and selected source id when available
 
 ### Tier 2: Golden-Case Harness
 
@@ -119,6 +121,15 @@ python scripts/eval_harness.py `
 
 If you intentionally need a second isolated fast-confidence runtime while `8000` is busy, reuse the same command pattern on `8011` and keep the `base_url` aligned.
 
+Natural-language AOI smoke:
+
+```powershell
+python scripts/smoke_agentic_region.py `
+  --base-url http://127.0.0.1:8000 `
+  --query "fuse building and road data for Nairobi, Kenya" `
+  --timeout 1200
+```
+
 ### Real Evidence
 
 Start a fresh isolated full-loop runtime first:
@@ -172,7 +183,7 @@ Current non-goals for this slice:
 
 - `raw.google.building` still requires locally restored data
 - local-only reference or Excel-style inputs are still manual
-- the runtime `task_driven_auto` path has not yet been switched over to the new source-asset fallback; this slice only hardens benchmark reproducibility
+- AOI resolution still depends on external geocoding availability and request latency
 
 ## Operator Inspection API
 

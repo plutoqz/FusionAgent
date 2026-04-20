@@ -41,7 +41,7 @@ class WorkflowExecutor:
         self.planner = planner
         self.algorithm_handlers = algorithm_handlers or {}
         self.algorithm_handlers.setdefault("algo.fusion.building.v1", self._handle_building)
-        self.algorithm_handlers.setdefault("algo.fusion.building.safe", self._handle_building)
+        self.algorithm_handlers.setdefault("algo.fusion.building.safe", self._handle_building_safe)
         self.algorithm_handlers.setdefault("algo.fusion.road.v1", self._handle_road)
         self.algorithm_handlers.setdefault("algo.fusion.road.safe", self._handle_road)
 
@@ -206,6 +206,20 @@ class WorkflowExecutor:
         from adapters.building_adapter import run_building_fusion
 
         return run_building_fusion(
+            osm_shp=context.osm_shp,
+            ref_shp=context.ref_shp,
+            output_dir=context.output_dir,
+            target_crs=context.target_crs,
+            field_mapping=context.field_mapping,
+            debug=context.debug,
+            parameters=dict(context.step_parameters or {}),
+        )
+
+    @staticmethod
+    def _handle_building_safe(context: ExecutionContext) -> Path:
+        from adapters.building_adapter import run_building_fusion_safe
+
+        return run_building_fusion_safe(
             osm_shp=context.osm_shp,
             ref_shp=context.ref_shp,
             output_dir=context.output_dir,
