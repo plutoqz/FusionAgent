@@ -46,6 +46,7 @@ Durability labels:
 | --- | --- | --- | --- | --- |
 | v2 API integration tests | `tests/test_api_v2_integration.py` | Run creation, inspection, task-driven input paths, AOI target CRS behavior | strong | Good regression gate for API/runtime contract |
 | Agent run service tests | `tests/test_agent_run_service_enhancements.py` | Planning, audit, input acquisition, reuse, AOI, runtime orchestration, partial replan behavior | strong | Main runtime behavior test file |
+| Phase C replan input refresh | `docs/superpowers/plans/2026-04-20-full-replan-loop-v1.md` | Replanned task-driven runs refresh input bundles when source/type changes and preserve `plan-revision-N.json` snapshots | strong | First Phase C implementation slice; full tests passed with `159 passed, 1 skipped, 6 warnings` |
 | Planner context tests | `tests/test_planner_context.py` | KG/context evidence exposed to planner | strong | Useful for Phase D and E |
 | Policy engine tests | `tests/test_policy_engine.py` | Explicit policy decision behavior | strong | Useful for Phase D policy hints |
 | Artifact registry tests | `tests/test_artifact_registry.py` | Reusable artifact metadata and lookup | strong | Supports artifact reuse claims |

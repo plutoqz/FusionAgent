@@ -306,31 +306,14 @@ class AgentRunService:
                 resolved_aoi=resolved_aoi,
             )
             if resolved_inputs is not None:
-                event_details = {
-                    "input_strategy": request.input_strategy.value,
-                    "source_mode": resolved_inputs.source_mode,
-                    "source_id": resolved_inputs.source_id,
-                    "cache_hit": resolved_inputs.cache_hit,
-                    "version_token": resolved_inputs.version_token,
-                    "osm_zip_name": resolved_inputs.osm_zip_path.name,
-                    "ref_zip_name": resolved_inputs.ref_zip_path.name,
-                    "target_crs": runtime_request.target_crs,
-                }
-                if resolved_aoi is not None:
-                    event_details["resolved_aoi"] = {
-                        "display_name": resolved_aoi.display_name,
-                        "country_code": resolved_aoi.country_code,
-                        "country_name": resolved_aoi.country_name,
-                        "bbox": list(resolved_aoi.bbox),
-                    }
-                self._update_status(
+                self._record_task_inputs_resolved(
                     run_id,
-                    RunPhase.running,
+                    request=runtime_request,
+                    plan=plan,
+                    resolved_inputs=resolved_inputs,
+                    resolved_aoi=resolved_aoi,
                     progress=50,
-                    plan_revision=self._extract_plan_revision(plan),
-                    event_kind="task_inputs_resolved",
-                    event_message="Task-driven input bundles prepared for execution.",
-                    event_details=event_details,
+                    message="Task-driven input bundles prepared for execution.",
                 )
                 logger.info(
                     "Task-driven inputs resolved: mode=%s source_id=%s cache_hit=%s",
@@ -431,6 +414,7 @@ class AgentRunService:
                             "Replan did not produce a newer plan revision after execution failure."
                         ) from exec_error
 
+                    previous_input_signature = self._task_driven_input_signature(plan)
                     plan = replanned
                     plan_path = self._plan_path(run_id)
                     self._persist_plan(plan_path, plan)
@@ -450,6 +434,29 @@ class AgentRunService:
                         event_details={"failed_step": failed_step, "previous_revision": current_revision},
                     )
                     plan = self.run_validation_stage(run_id=run_id, plan=plan)
+                    if (
+                        request.input_strategy == RunInputStrategy.task_driven_auto
+                        and previous_input_signature != self._task_driven_input_signature(plan)
+                    ):
+                        resolved_aoi = self._extract_resolved_aoi(plan) or resolved_aoi
+                        osm_zip_path, ref_zip_path, resolved_inputs = self._resolve_execution_inputs(
+                            request=runtime_request,
+                            plan=plan,
+                            input_dir=input_dir,
+                            osm_zip_path=None,
+                            ref_zip_path=None,
+                            resolved_aoi=resolved_aoi,
+                        )
+                        if resolved_inputs is not None:
+                            self._record_task_inputs_resolved(
+                                run_id,
+                                request=runtime_request,
+                                plan=plan,
+                                resolved_inputs=resolved_inputs,
+                                resolved_aoi=resolved_aoi,
+                                progress=68,
+                                message="Task-driven input bundles refreshed after replan.",
+                            )
                     logger.info("Healing replan completed with revision=%s", self._extract_plan_revision(plan))
             logger.info("Execution stage completed: %s", fused_shp)
 
@@ -714,6 +721,44 @@ class AgentRunService:
             resolved_aoi=resolved_aoi,
         )
         return resolved.osm_zip_path, resolved.ref_zip_path, resolved
+
+    def _record_task_inputs_resolved(
+        self,
+        run_id: str,
+        *,
+        request: RunCreateRequest,
+        plan: WorkflowPlan,
+        resolved_inputs: ResolvedRunInputs,
+        resolved_aoi: ResolvedAOI | None,
+        progress: int,
+        message: str,
+    ) -> None:
+        event_details = {
+            "input_strategy": request.input_strategy.value,
+            "source_mode": resolved_inputs.source_mode,
+            "source_id": resolved_inputs.source_id,
+            "cache_hit": resolved_inputs.cache_hit,
+            "version_token": resolved_inputs.version_token,
+            "osm_zip_name": resolved_inputs.osm_zip_path.name,
+            "ref_zip_name": resolved_inputs.ref_zip_path.name,
+            "target_crs": request.target_crs,
+        }
+        if resolved_aoi is not None:
+            event_details["resolved_aoi"] = {
+                "display_name": resolved_aoi.display_name,
+                "country_code": resolved_aoi.country_code,
+                "country_name": resolved_aoi.country_name,
+                "bbox": list(resolved_aoi.bbox),
+            }
+        self._update_status(
+            run_id,
+            RunPhase.running,
+            progress=progress,
+            plan_revision=self._extract_plan_revision(plan),
+            event_kind="task_inputs_resolved",
+            event_message=message,
+            event_details=event_details,
+        )
 
     def run_writeback_stage(
         self,
@@ -1047,7 +1092,11 @@ class AgentRunService:
 
     @staticmethod
     def _persist_plan(path: Path, plan: WorkflowPlan) -> None:
-        path.write_text(json.dumps(plan.model_dump(mode="json"), ensure_ascii=False, indent=2), encoding="utf-8")
+        payload = json.dumps(plan.model_dump(mode="json"), ensure_ascii=False, indent=2)
+        path.write_text(payload, encoding="utf-8")
+        revision = AgentRunService._extract_plan_revision(plan)
+        if revision > 0:
+            path.with_name(f"plan-revision-{revision}.json").write_text(payload, encoding="utf-8")
 
     @staticmethod
     def _persist_validation(path: Path, plan: WorkflowPlan) -> None:
@@ -1178,6 +1227,13 @@ class AgentRunService:
             return selected
         alternatives = AgentRunService._extract_alternative_sources(plan)
         return alternatives[0] if alternatives else None
+
+    @staticmethod
+    def _task_driven_input_signature(plan: WorkflowPlan) -> tuple[Optional[str], Optional[str]]:
+        return (
+            AgentRunService._resolve_task_driven_source_id(plan),
+            AgentRunService._extract_required_input_data_type(plan),
+        )
 
     @staticmethod
     def _extract_alternative_sources(plan: WorkflowPlan) -> List[str]:

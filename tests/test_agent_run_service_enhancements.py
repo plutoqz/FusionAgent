@@ -1213,6 +1213,10 @@ def test_agent_run_service_replans_after_execution_failure(tmp_path: Path, monke
     assert saved_plan is not None
     assert saved_plan.workflow_id == "wf_replanned"
     assert saved_plan.context["plan_revision"] == 2
+    revision_1 = json.loads((tmp_path / "runs" / status.run_id / "plan-revision-1.json").read_text(encoding="utf-8"))
+    revision_2 = json.loads((tmp_path / "runs" / status.run_id / "plan-revision-2.json").read_text(encoding="utf-8"))
+    assert revision_1["workflow_id"] == "wf_initial"
+    assert revision_2["workflow_id"] == "wf_replanned"
     replan_decisions = [record for record in latest.decision_records if record.decision_type == "replan_or_fail"]
     assert replan_decisions
     assert replan_decisions[-1].selected_id == "replan"
@@ -1224,6 +1228,92 @@ def test_agent_run_service_replans_after_execution_failure(tmp_path: Path, monke
     ]
     assert audit_events[-1].kind == "run_succeeded"
     assert audit_events[-1].plan_revision == 2
+
+
+def test_task_driven_replan_refreshes_inputs_when_source_changes(tmp_path: Path, monkeypatch) -> None:
+    service = AgentRunService(base_dir=tmp_path / "runs")
+    service.max_plan_revisions = 2
+
+    fused_shp = tmp_path / "fused.shp"
+    artifact_zip = tmp_path / "artifact.zip"
+    fused_shp.write_text("dummy", encoding="utf-8")
+    artifact_zip.write_bytes(b"zip")
+
+    initial_plan = _build_plan(workflow_id="wf_initial", revision=1)
+    initial_plan.tasks[0].input.data_source_id = "catalog.flood.building"
+    replanned_plan = _build_plan(workflow_id="wf_replanned", revision=2)
+    replanned_plan.tasks[0].input.data_source_id = "catalog.earthquake.building"
+
+    monkeypatch.setattr("services.agent_run_service.validate_zip_has_shapefile", lambda zip_path, *_args, **_kwargs: Path(str(zip_path) + ".shp"))
+    monkeypatch.setattr(service.planner, "create_plan", lambda **_kwargs: initial_plan.model_copy(deep=True))
+    monkeypatch.setattr(service.validator, "validate_and_repair", lambda input_plan: input_plan)
+    monkeypatch.setattr(service.planner, "replan_from_error", lambda **_kwargs: replanned_plan.model_copy(deep=True))
+    monkeypatch.setattr("services.agent_run_service.zip_shapefile_bundle", lambda *_args, **_kwargs: artifact_zip)
+
+    resolve_calls: list[str] = []
+
+    def fake_resolve_task_driven_inputs(**kwargs):
+        source_id = kwargs["source_id"]
+        resolve_calls.append(source_id)
+        osm_zip = tmp_path / f"{source_id.replace('.', '_')}_osm.zip"
+        ref_zip = tmp_path / f"{source_id.replace('.', '_')}_ref.zip"
+        _write_dummy_zip(osm_zip)
+        _write_dummy_zip(ref_zip)
+        return ResolvedRunInputs(
+            osm_zip_path=osm_zip,
+            ref_zip_path=ref_zip,
+            source_mode="generated",
+            source_id=source_id,
+            cache_hit=False,
+            version_token=f"version:{source_id}",
+        )
+
+    monkeypatch.setattr(service.input_acquisition_service, "resolve_task_driven_inputs", fake_resolve_task_driven_inputs)
+
+    execute_calls = {"count": 0}
+
+    def fake_execute_plan(*, plan, context, repair_records, **_kwargs):
+        execute_calls["count"] += 1
+        if execute_calls["count"] == 1:
+            repair_records.append(
+                RepairRecord(
+                    attempt_no=1,
+                    strategy="alternative_source",
+                    step=1,
+                    message="Primary source failed.",
+                    success=False,
+                    timestamp="2026-04-02T00:00:00+00:00",
+                    reason_code="primary_source_failed",
+                    from_source="catalog.flood.building",
+                    to_source="catalog.earthquake.building",
+                )
+            )
+            raise RuntimeError("source failed")
+        assert plan.workflow_id == "wf_replanned"
+        return fused_shp
+
+    monkeypatch.setattr(service.executor, "execute_plan", fake_execute_plan)
+
+    status = service.create_run(
+        request=_build_auto_request(),
+        osm_zip_name=None,
+        osm_zip_bytes=None,
+        ref_zip_name=None,
+        ref_zip_bytes=None,
+    )
+
+    latest = service.get_run(status.run_id)
+    assert latest is not None
+    assert latest.phase == RunPhase.succeeded
+    assert latest.plan_revision == 2
+    assert resolve_calls == ["catalog.flood.building", "catalog.earthquake.building"]
+    audit_events = service.get_audit_events(status.run_id)
+    resolved_events = [event for event in audit_events if event.kind == "task_inputs_resolved"]
+    assert [event.details["source_id"] for event in resolved_events] == [
+        "catalog.flood.building",
+        "catalog.earthquake.building",
+    ]
+    assert resolved_events[-1].plan_revision == 2
 
 
 def test_agent_run_service_fails_when_replan_limit_is_reached(tmp_path: Path, monkeypatch) -> None:
