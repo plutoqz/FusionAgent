@@ -123,6 +123,9 @@ If you intentionally need a second isolated fast-confidence runtime while `8000`
 
 Natural-language AOI smoke:
 
+- when `task_driven_auto` resolves an AOI and the caller omits `target_crs`, the runtime derives a projected UTM CRS from the AOI bbox centroid
+- explicit `target_crs` still wins; pass `target_crs=EPSG:4326` only when you intentionally want geographic output
+
 ```powershell
 python scripts/smoke_agentic_region.py `
   --base-url http://127.0.0.1:8000 `
