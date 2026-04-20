@@ -165,6 +165,7 @@ FusionAgent 当前明确区分：
 - [Final Gap Matrix](./docs/superpowers/specs/2026-04-20-final-gap-matrix.md)：最终目标缺口、优先级、风险与 gate
 - [Evidence Ledger](./docs/superpowers/specs/2026-04-20-evidence-ledger.md)：现有测试、benchmark、运行文档与论文证据索引
 - [Long-Chain Decision Roadmap](./docs/superpowers/specs/2026-04-20-long-chain-decision-roadmap.md)：从 Phase A 到 Phase H 的最长合理推进链条与每阶段决策门
+- [Evaluation Contract And Thesis Claim Lock](./docs/superpowers/specs/2026-04-20-evaluation-contract-claim-lock.md)：论文/产品 claim、指标、baseline 与 Phase C-D gate
 
 ## 仓库结构
 

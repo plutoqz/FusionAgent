@@ -28,6 +28,7 @@ Durability labels:
 | v2 operations guide | `docs/v2-operations.md` | Runtime modes, evaluation tiers, benchmark conventions, operator endpoints | strong | Primary operator evidence |
 | Local direct-run guide | `docs/local-direct-run.md` | Local full-loop capability and current true boundaries | medium | Useful for local verification and smoke runs |
 | Master v2 plan | `docs/superpowers/plans/2026-04-07-fusion-agent-v2-implementation.md` | Prior six-phase v2 roadmap status | strong | Explicitly says baseline roadmap is complete for intended scope |
+| Evaluation contract and claim lock | `docs/superpowers/specs/2026-04-20-evaluation-contract-claim-lock.md` | Scoped thesis/product claims, metrics, baselines, datasets, and Phase C-D authorization | strong | Current control document for post-Phase-A implementation |
 
 ## Design And Thesis Alignment Evidence
 
