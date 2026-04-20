@@ -161,7 +161,7 @@ def build_data_sources() -> List[DataSourceNode]:
         DataSourceNode(
             source_id="upload.bundle",
             source_name="Uploaded Bundle",
-            supported_types=["dt.building.bundle", "dt.road.bundle", "dt.raw.vector"],
+            supported_types=["dt.building.bundle", "dt.road.bundle", "dt.water.bundle", "dt.raw.vector"],
             disaster_types=list(DEFAULT_DISASTER_TYPES),
             quality_score=1.0,
             source_kind="local_upload",
@@ -169,7 +169,7 @@ def build_data_sources() -> List[DataSourceNode]:
             freshness_category="request_bound",
             freshness_hours=0,
             freshness_score=1.0,
-            supported_job_types=["building", "road"],
+            supported_job_types=["building", "road", "water"],
             supported_geometry_types=["mixed", "polygon", "line", "point"],
             metadata={
                 "kind": "local",
@@ -403,7 +403,7 @@ def build_data_sources() -> List[DataSourceNode]:
             freshness_category="sample_snapshot",
             freshness_hours=168,
             freshness_score=0.61,
-            supported_job_types=["building", "road"],
+            supported_job_types=["building", "road", "water"],
             supported_geometry_types=["polygon", "line"],
             metadata={
                 "kind": "raw_vector",
@@ -427,7 +427,7 @@ def build_data_sources() -> List[DataSourceNode]:
             freshness_category="sample_snapshot",
             freshness_hours=240,
             freshness_score=0.55,
-            supported_job_types=["building", "road"],
+            supported_job_types=["building", "road", "water"],
             supported_geometry_types=["polygon"],
             metadata={
                 "kind": "raw_vector",

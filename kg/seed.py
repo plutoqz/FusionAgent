@@ -37,6 +37,12 @@ DATA_TYPES: Dict[str, DataTypeNode] = {
         geometry_type="line",
         description="Prepared road fusion input bundle.",
     ),
+    "dt.water.bundle": DataTypeNode(
+        type_id="dt.water.bundle",
+        theme="water",
+        geometry_type="polygon",
+        description="Prepared water polygon fusion input bundle.",
+    ),
     "dt.building.fused": DataTypeNode(
         type_id="dt.building.fused",
         theme="building",
@@ -48,6 +54,12 @@ DATA_TYPES: Dict[str, DataTypeNode] = {
         theme="transportation",
         geometry_type="line",
         description="Fused road output.",
+    ),
+    "dt.water.fused": DataTypeNode(
+        type_id="dt.water.fused",
+        theme="water",
+        geometry_type="polygon",
+        description="Fused water polygon output.",
     ),
 }
 
@@ -64,6 +76,12 @@ TASKS: Dict[str, TaskNode] = {
         task_name="Road Fusion",
         category="fusion",
         description="Fuse multiple road vector sources into one output.",
+    ),
+    "task.water.fusion": TaskNode(
+        task_id="task.water.fusion",
+        task_name="Water Fusion",
+        category="fusion",
+        description="Fuse multiple water polygon sources into one output.",
     ),
     "task.vector.download": TaskNode(
         task_id="task.vector.download",
@@ -182,6 +200,23 @@ ALGORITHMS: Dict[str, AlgorithmNode] = {
             "evidence_basis": "conservative_thresholds",
         },
         alternatives=["algo.fusion.road.v1"],
+    ),
+    "algo.fusion.water.v1": AlgorithmNode(
+        algo_id="algo.fusion.water.v1",
+        algo_name="Water Polygon Fusion",
+        input_types=["dt.water.bundle"],
+        output_type="dt.water.fused",
+        task_type="water_fusion",
+        tool_ref="adapters.water_adapter:run_water_fusion",
+        success_rate=0.84,
+        accuracy_score=0.82,
+        stability_score=0.88,
+        usage_mode="conservative",
+        metadata={
+            "selection_profile": "primary",
+            "evidence_basis": "uploaded_polygon_runtime",
+            "runtime_scope": "uploaded_only",
+        },
     ),
     "algo.transform.raw_to_building_bundle": AlgorithmNode(
         algo_id="algo.transform.raw_to_building_bundle",
@@ -666,6 +701,30 @@ WORKFLOW_PATTERNS: List[WorkflowPatternNode] = [
         ],
     ),
     WorkflowPatternNode(
+        pattern_id="wp.flood.water.default",
+        pattern_name="Flood Water Polygon Fusion",
+        job_type=JobType.water,
+        disaster_types=["flood", "generic"],
+        success_rate=0.84,
+        metadata={
+            "version": "1.0.0",
+            "runtime_status": "runtime_candidate",
+            "scenario_focus": "flood",
+            "strategy": "conservative",
+            "input_strategy": "uploaded_only",
+        },
+        steps=[
+            PatternStep(
+                order=1,
+                name="water_fusion",
+                algorithm_id="algo.fusion.water.v1",
+                input_data_type="dt.water.bundle",
+                output_data_type="dt.water.fused",
+                data_source_id="upload.bundle",
+            )
+        ],
+    ),
+    WorkflowPatternNode(
         pattern_id="wp.typhoon.road.default",
         pattern_name="Typhoon Road Fusion",
         job_type=JobType.road,
@@ -757,6 +816,31 @@ OUTPUT_SCHEMA_POLICIES: Dict[str, OutputSchemaPolicy] = {
         metadata={
             "policy_scope": "current_runtime",
             "notes": "Road output schema remains metadata-only until explicit output policy execution is added.",
+        },
+    ),
+    "dt.water.fused": OutputSchemaPolicy(
+        policy_id="osp.water.fused.v1",
+        output_type="dt.water.fused",
+        job_type=JobType.water,
+        retention_mode="preserve_listed",
+        required_fields=["geometry"],
+        optional_fields=[
+            "OSM_ID",
+            "REF_ID",
+            "MATCH_REF",
+            "OV_RATIO",
+            "MATCH_CNT",
+            "SRC",
+            "NAME",
+            "FCLASS",
+            "WATER_TY",
+        ],
+        rename_hints={},
+        compatibility_basis="field_names",
+        metadata={
+            "policy_scope": "current_runtime",
+            "enforcement": "metadata_only",
+            "notes": "Water output schema documents current uploaded-only runtime columns without enforcing adapter output.",
         },
     ),
 }

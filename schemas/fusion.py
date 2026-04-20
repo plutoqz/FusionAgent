@@ -9,6 +9,7 @@ from pydantic import BaseModel, Field
 class JobType(str, Enum):
     building = "building"
     road = "road"
+    water = "water"
 
 
 class JobState(str, Enum):

@@ -1,5 +1,13 @@
 from kg.inmemory_repository import InMemoryKGRepository
-from kg.seed import ALGORITHMS, CAN_TRANSFORM_TO, DATA_SOURCES, DATA_TYPES, OUTPUT_SCHEMA_POLICIES, WORKFLOW_PATTERNS
+from kg.seed import (
+    ALGORITHMS,
+    CAN_TRANSFORM_TO,
+    DATA_SOURCES,
+    DATA_TYPES,
+    OUTPUT_SCHEMA_POLICIES,
+    TASKS,
+    WORKFLOW_PATTERNS,
+)
 from schemas.fusion import JobType
 
 
@@ -45,3 +53,12 @@ def test_seed_ontology_data_type_references_are_closed() -> None:
                 missing.append(f"transform:to:{to_type}")
 
     assert missing == []
+
+
+def test_water_seed_records_exist() -> None:
+    assert "dt.water.bundle" in DATA_TYPES
+    assert "dt.water.fused" in DATA_TYPES
+    assert "task.water.fusion" in TASKS
+    assert "algo.fusion.water.v1" in ALGORITHMS
+    assert OUTPUT_SCHEMA_POLICIES["dt.water.fused"].policy_id == "osp.water.fused.v1"
+    assert any(pattern.job_type == JobType.water for pattern in WORKFLOW_PATTERNS)

@@ -11,6 +11,11 @@ TASK_HINTS = (
     "data",
     "building",
     "road",
+    "water",
+    "lake",
+    "river",
+    "reservoir",
+    "pond",
     "gilgit",
     "pakistan",
 )

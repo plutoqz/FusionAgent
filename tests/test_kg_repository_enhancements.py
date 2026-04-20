@@ -29,6 +29,20 @@ def test_inmemory_repository_returns_ranked_data_sources() -> None:
     assert all("dt.building.bundle" in source.supported_types for source in sources)
 
 
+def test_inmemory_repository_returns_water_pattern_and_upload_bundle_source() -> None:
+    repo = InMemoryKGRepository()
+
+    patterns = repo.get_candidate_patterns(job_type=JobType.water, disaster_type="flood")
+    sources = repo.get_candidate_data_sources(
+        job_type=JobType.water,
+        disaster_type="flood",
+        required_type="dt.water.bundle",
+    )
+
+    assert [pattern.pattern_id for pattern in patterns] == ["wp.flood.water.default"]
+    assert "upload.bundle" in {source.source_id for source in sources}
+
+
 def test_execution_feedback_changes_pattern_ranking() -> None:
     repo = InMemoryKGRepository()
 

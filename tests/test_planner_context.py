@@ -127,6 +127,30 @@ def test_planner_context_exposes_data_types() -> None:
     assert any(item["type_id"] == "dt.building.fused" for item in data_types)
 
 
+def test_planner_context_exposes_water_metadata_and_builds_water_plan() -> None:
+    provider = CapturingProvider()
+    planner = WorkflowPlanner(InMemoryKGRepository(), provider)
+    trigger = RunTrigger(
+        type=RunTriggerType.disaster_event,
+        content="flood water polygon fusion",
+        disaster_type="flood",
+    )
+
+    plan = planner.create_plan(run_id="run-water-context", job_type=JobType.water, trigger=trigger)
+
+    assert provider.last_context is not None
+    retrieval = provider.last_context["retrieval"]
+    assert [item["pattern_id"] for item in retrieval["candidate_patterns"]] == ["wp.flood.water.default"]
+    assert any(item["type_id"] == "dt.water.bundle" for item in retrieval["data_types"])
+    assert any(item["type_id"] == "dt.water.fused" for item in retrieval["data_types"])
+    assert "algo.fusion.water.v1" in retrieval["algorithms"]
+    assert "dt.water.fused" in retrieval["output_schema_policies"]
+    assert retrieval["transform_paths"]["dt.water.bundle"] == []
+    assert plan.tasks[0].algorithm_id == "algo.fusion.water.v1"
+    assert plan.tasks[0].input.data_type_id == "dt.water.bundle"
+    assert plan.tasks[0].output.data_type_id == "dt.water.fused"
+
+
 def test_replan_increments_plan_revision() -> None:
     provider = CapturingProvider()
     planner = WorkflowPlanner(InMemoryKGRepository(), provider)
