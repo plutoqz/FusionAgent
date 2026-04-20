@@ -130,6 +130,7 @@ class PlanningContextBuilder:
                 key: [self._durable_learning_summary_to_dict(item) for item in items]
                 for key, items in kg_context.durable_learning_summaries.items()
             },
+            "data_types": [self._data_type_to_dict(item) for item in kg_context.data_types],
             "source_coverage_hints": self._build_source_coverage_hints(
                 kg_context,
                 job_type=job_type,
@@ -253,6 +254,15 @@ class PlanningContextBuilder:
             "supported_job_types": source.supported_job_types,
             "supported_geometry_types": source.supported_geometry_types,
             "metadata": source.metadata,
+        }
+
+    @staticmethod
+    def _data_type_to_dict(data_type) -> Dict[str, Any]:
+        return {
+            "type_id": data_type.type_id,
+            "theme": data_type.theme,
+            "geometry_type": data_type.geometry_type,
+            "description": data_type.description,
         }
 
     @staticmethod

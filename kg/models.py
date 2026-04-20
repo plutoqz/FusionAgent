@@ -175,6 +175,7 @@ class DurableLearningSummary:
 class KGContext:
     patterns: List[WorkflowPatternNode]
     algorithms: Dict[str, AlgorithmNode]
+    data_types: List[DataTypeNode] = field(default_factory=list)
     parameter_specs: Dict[str, List[AlgorithmParameterSpec]] = field(default_factory=dict)
     data_sources: List[DataSourceNode] = field(default_factory=list)
     output_schema_policies: Dict[str, OutputSchemaPolicy] = field(default_factory=dict)

@@ -9,6 +9,7 @@ from schemas.fusion import JobType
 from kg.models import (
     AlgorithmNode,
     AlgorithmParameterSpec,
+    DataTypeNode,
     DataSourceNode,
     DurableLearningRecord,
     DurableLearningSummary,
@@ -22,6 +23,10 @@ from kg.models import (
 
 
 class KGRepository(ABC):
+    @abstractmethod
+    def list_data_types(self) -> List[DataTypeNode]:
+        raise NotImplementedError
+
     @abstractmethod
     def list_task_nodes(self) -> List[TaskNode]:
         raise NotImplementedError

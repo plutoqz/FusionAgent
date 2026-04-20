@@ -111,6 +111,22 @@ def test_planner_context_exposes_task_bundle_task_nodes_and_scenario_profiles() 
     )
 
 
+def test_planner_context_exposes_data_types() -> None:
+    provider = CapturingProvider()
+    planner = WorkflowPlanner(InMemoryKGRepository(), provider)
+    trigger = RunTrigger(
+        type=RunTriggerType.user_query,
+        content="need building data for Gilgit, Pakistan",
+    )
+
+    _plan = planner.create_plan(run_id="run-data-types", job_type=JobType.building, trigger=trigger)
+
+    assert provider.last_context is not None
+    data_types = provider.last_context["retrieval"]["data_types"]
+    assert any(item["type_id"] == "dt.building.bundle" for item in data_types)
+    assert any(item["type_id"] == "dt.building.fused" for item in data_types)
+
+
 def test_replan_increments_plan_revision() -> None:
     provider = CapturingProvider()
     planner = WorkflowPlanner(InMemoryKGRepository(), provider)

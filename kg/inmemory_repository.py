@@ -8,6 +8,7 @@ from schemas.fusion import JobType
 from kg.models import (
     AlgorithmNode,
     AlgorithmParameterSpec,
+    DataTypeNode,
     DataSourceNode,
     DurableLearningRecord,
     ExecutionFeedback,
@@ -21,6 +22,7 @@ from kg.repository import KGRepository
 from kg.seed import (
     ALGORITHMS,
     CAN_TRANSFORM_TO,
+    DATA_TYPES,
     DATA_SOURCES,
     OUTPUT_SCHEMA_POLICIES,
     PARAMETER_SPECS,
@@ -37,6 +39,7 @@ class InMemoryKGRepository(KGRepository):
         patterns: Optional[List[WorkflowPatternNode]] = None,
         can_transform_to: Optional[Dict[str, List[str]]] = None,
         data_sources: Optional[List[DataSourceNode]] = None,
+        data_types: Optional[Dict[str, DataTypeNode]] = None,
         parameter_specs: Optional[Dict[str, List[AlgorithmParameterSpec]]] = None,
         output_schema_policies: Optional[Dict[str, OutputSchemaPolicy]] = None,
         task_nodes: Optional[Dict[str, TaskNode]] = None,
@@ -46,6 +49,7 @@ class InMemoryKGRepository(KGRepository):
         self.patterns = WORKFLOW_PATTERNS if patterns is None else patterns
         self.can_transform_to = CAN_TRANSFORM_TO if can_transform_to is None else can_transform_to
         self.data_sources = DATA_SOURCES if data_sources is None else data_sources
+        self.data_types = DATA_TYPES if data_types is None else data_types
         self.parameter_specs = PARAMETER_SPECS if parameter_specs is None else parameter_specs
         self.output_schema_policies = OUTPUT_SCHEMA_POLICIES if output_schema_policies is None else output_schema_policies
         self.task_nodes = TASKS if task_nodes is None else task_nodes
@@ -55,6 +59,9 @@ class InMemoryKGRepository(KGRepository):
         self._pattern_scores: Dict[str, float] = {}
         self._algorithm_scores: Dict[str, float] = {}
         self._data_source_scores: Dict[str, float] = {}
+
+    def list_data_types(self) -> List[DataTypeNode]:
+        return [self.data_types[type_id] for type_id in sorted(self.data_types)]
 
     def list_task_nodes(self) -> List[TaskNode]:
         return list(self.task_nodes.values())
@@ -237,6 +244,7 @@ class InMemoryKGRepository(KGRepository):
         return KGContext(
             patterns=patterns,
             algorithms=algorithms,
+            data_types=self.list_data_types(),
             parameter_specs=parameter_specs,
             data_sources=list(sources.values()),
             output_schema_policies=output_schema_policies,

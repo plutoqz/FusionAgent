@@ -10,6 +10,7 @@ from kg.bootstrap import MANAGED_LABEL, resolve_graph_target
 from kg.models import (
     AlgorithmNode,
     AlgorithmParameterSpec,
+    DataTypeNode,
     DataSourceNode,
     DurableLearningRecord,
     ExecutionFeedback,
@@ -72,6 +73,27 @@ class Neo4jKGRepository(KGRepository):
                 return {}
             return payload if isinstance(payload, dict) else {}
         return {}
+
+    def list_data_types(self) -> List[DataTypeNode]:
+        rows = self._execute(
+            f"""
+            MATCH (dt:DataType:{MANAGED_LABEL})
+            RETURN dt
+            ORDER BY dt.typeId
+            """
+        )
+        result: List[DataTypeNode] = []
+        for row in rows:
+            dt = row["dt"]
+            result.append(
+                DataTypeNode(
+                    type_id=str(dt.get("typeId")),
+                    theme=str(dt.get("theme", "")),
+                    geometry_type=str(dt.get("geometryType", "")),
+                    description=str(dt.get("description", "")),
+                )
+            )
+        return result
 
     def list_task_nodes(self) -> List[TaskNode]:
         rows = self._execute(
@@ -570,6 +592,7 @@ class Neo4jKGRepository(KGRepository):
         return KGContext(
             patterns=patterns,
             algorithms=algorithms,
+            data_types=self.list_data_types(),
             parameter_specs=parameter_specs,
             data_sources=list(sources.values()),
             output_schema_policies=output_schema_policies,
