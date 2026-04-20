@@ -41,3 +41,24 @@ def test_smoke_agentic_region_builds_task_driven_form_payload() -> None:
     assert payload["trigger_content"] == "fuse building and road data for Nairobi, Kenya"
     assert payload["input_strategy"] == "task_driven_auto"
     assert payload["target_crs"] == "EPSG:4326"
+
+
+def test_smoke_agentic_region_omits_target_crs_when_not_provided() -> None:
+    parsed = parse_args(
+        [
+            "--base-url",
+            "http://127.0.0.1:8010",
+            "--query",
+            "fuse building and road data for Nairobi, Kenya",
+            "--job-type",
+            "building",
+        ]
+    )
+
+    payload = build_create_run_form(parsed)
+
+    assert payload["job_type"] == "building"
+    assert payload["trigger_type"] == "user_query"
+    assert payload["trigger_content"] == "fuse building and road data for Nairobi, Kenya"
+    assert payload["input_strategy"] == "task_driven_auto"
+    assert "target_crs" not in payload

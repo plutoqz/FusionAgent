@@ -494,6 +494,147 @@ def test_agent_run_service_resolves_nairobi_before_input_materialization(tmp_pat
     assert resolved_event.details["resolved_aoi"]["display_name"] == "Nairobi, Nairobi County, Kenya"
 
 
+def test_agent_run_service_auto_selects_target_crs_from_nairobi_aoi_when_omitted(tmp_path: Path, monkeypatch) -> None:
+    service = AgentRunService(base_dir=tmp_path / "runs")
+    osm_shp = tmp_path / "resolved_osm_auto.shp"
+    ref_shp = tmp_path / "resolved_ref_auto.shp"
+    fused_shp = tmp_path / "fused_auto.shp"
+    artifact_zip = tmp_path / "artifact_auto.zip"
+    for path in [osm_shp, ref_shp, fused_shp]:
+        path.write_text("dummy", encoding="utf-8")
+    artifact_zip.write_bytes(b"zip")
+
+    plan = _build_plan(workflow_id="wf_nairobi_auto_crs", revision=1)
+    plan.trigger = RunTrigger(
+        type=RunTriggerType.user_query,
+        content="fuse building and road data for Nairobi, Kenya",
+    )
+    plan.tasks[0].input.data_source_id = "catalog.earthquake.building"
+
+    prepared_dir = tmp_path / "prepared_auto"
+    prepared_dir.mkdir(parents=True, exist_ok=True)
+    resolved_inputs = ResolvedRunInputs(
+        osm_zip_path=prepared_dir / "osm.zip",
+        ref_zip_path=prepared_dir / "ref.zip",
+        source_mode="downloaded",
+        source_id="catalog.earthquake.building",
+        cache_hit=False,
+        version_token="ke-v1",
+    )
+    resolved_inputs.osm_zip_path.write_bytes(b"osm")
+    resolved_inputs.ref_zip_path.write_bytes(b"ref")
+
+    captured: dict[str, object] = {}
+    resolved_aoi = _resolved_nairobi_aoi()
+
+    monkeypatch.setattr(service.aoi_resolution_service, "resolve", lambda query: resolved_aoi)
+    monkeypatch.setattr(service.planner, "create_plan", lambda **_kwargs: plan.model_copy(deep=True))
+    monkeypatch.setattr(service.validator, "validate_and_repair", lambda input_plan: input_plan)
+
+    def fake_resolve_task_driven_inputs(**kwargs):
+        captured.update(kwargs)
+        return resolved_inputs
+
+    monkeypatch.setattr(service.input_acquisition_service, "resolve_task_driven_inputs", fake_resolve_task_driven_inputs)
+    monkeypatch.setattr(
+        "services.agent_run_service.validate_zip_has_shapefile",
+        lambda zip_path, *_args, **_kwargs: osm_shp if Path(zip_path).name.startswith("osm") else ref_shp,
+    )
+    monkeypatch.setattr(service.executor, "execute_plan", lambda **_kwargs: fused_shp)
+    monkeypatch.setattr("services.agent_run_service.zip_shapefile_bundle", lambda *_args, **_kwargs: artifact_zip)
+
+    status = service.create_run(
+        request=RunCreateRequest(
+            job_type=JobType.building,
+            trigger=RunTrigger(
+                type=RunTriggerType.user_query,
+                content="fuse building and road data for Nairobi, Kenya",
+            ),
+            target_crs=None,
+            field_mapping={},
+            debug=False,
+            input_strategy=RunInputStrategy.task_driven_auto,
+        ),
+        osm_zip_name=None,
+        osm_zip_bytes=None,
+        ref_zip_name=None,
+        ref_zip_bytes=None,
+    )
+
+    latest = service.get_run(status.run_id)
+    assert latest is not None
+    assert latest.target_crs == "EPSG:32737"
+    assert captured["resolved_aoi"] == resolved_aoi
+
+    audit_events = service.get_audit_events(status.run_id)
+    resolved_event = next(event for event in audit_events if event.kind == "task_inputs_resolved")
+    assert resolved_event.details["target_crs"] == "EPSG:32737"
+
+
+def test_agent_run_service_preserves_explicit_target_crs_override(tmp_path: Path, monkeypatch) -> None:
+    service = AgentRunService(base_dir=tmp_path / "runs")
+    osm_shp = tmp_path / "resolved_osm_override.shp"
+    ref_shp = tmp_path / "resolved_ref_override.shp"
+    fused_shp = tmp_path / "fused_override.shp"
+    artifact_zip = tmp_path / "artifact_override.zip"
+    for path in [osm_shp, ref_shp, fused_shp]:
+        path.write_text("dummy", encoding="utf-8")
+    artifact_zip.write_bytes(b"zip")
+
+    plan = _build_plan(workflow_id="wf_nairobi_override_crs", revision=1)
+    plan.trigger = RunTrigger(
+        type=RunTriggerType.user_query,
+        content="fuse building and road data for Nairobi, Kenya",
+    )
+    plan.tasks[0].input.data_source_id = "catalog.earthquake.building"
+
+    prepared_dir = tmp_path / "prepared_override"
+    prepared_dir.mkdir(parents=True, exist_ok=True)
+    resolved_inputs = ResolvedRunInputs(
+        osm_zip_path=prepared_dir / "osm.zip",
+        ref_zip_path=prepared_dir / "ref.zip",
+        source_mode="downloaded",
+        source_id="catalog.earthquake.building",
+        cache_hit=False,
+        version_token="ke-v1",
+    )
+    resolved_inputs.osm_zip_path.write_bytes(b"osm")
+    resolved_inputs.ref_zip_path.write_bytes(b"ref")
+
+    monkeypatch.setattr(service.aoi_resolution_service, "resolve", lambda query: _resolved_nairobi_aoi())
+    monkeypatch.setattr(service.planner, "create_plan", lambda **_kwargs: plan.model_copy(deep=True))
+    monkeypatch.setattr(service.validator, "validate_and_repair", lambda input_plan: input_plan)
+    monkeypatch.setattr(service.input_acquisition_service, "resolve_task_driven_inputs", lambda **kwargs: resolved_inputs)
+    monkeypatch.setattr(
+        "services.agent_run_service.validate_zip_has_shapefile",
+        lambda zip_path, *_args, **_kwargs: osm_shp if Path(zip_path).name.startswith("osm") else ref_shp,
+    )
+    monkeypatch.setattr(service.executor, "execute_plan", lambda **_kwargs: fused_shp)
+    monkeypatch.setattr("services.agent_run_service.zip_shapefile_bundle", lambda *_args, **_kwargs: artifact_zip)
+
+    status = service.create_run(
+        request=RunCreateRequest(
+            job_type=JobType.building,
+            trigger=RunTrigger(
+                type=RunTriggerType.user_query,
+                content="fuse building and road data for Nairobi, Kenya",
+            ),
+            target_crs="EPSG:4326",
+            field_mapping={},
+            debug=False,
+            input_strategy=RunInputStrategy.task_driven_auto,
+        ),
+        osm_zip_name=None,
+        osm_zip_bytes=None,
+        ref_zip_name=None,
+        ref_zip_bytes=None,
+    )
+
+    latest = service.get_run(status.run_id)
+    assert latest is not None
+    assert latest.target_crs == "EPSG:4326"
+
+
 def test_agent_run_service_directly_reuses_existing_artifact(tmp_path: Path, monkeypatch) -> None:
     service = AgentRunService(base_dir=tmp_path / "runs")
     osm_shp = tmp_path / "osm.shp"
