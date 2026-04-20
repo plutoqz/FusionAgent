@@ -158,6 +158,14 @@ FusionAgent 当前明确区分：
 - `raw.google.building` 与部分本地 reference / Excel 类输入仍需要人工准备，不在当前官方自动物化集合内
 - AOI 解析当前仍依赖外部 geocoder，可用性与速率受网络条件影响
 
+## 后续控制面文档
+
+当前 v2 roadmap 已经完成其既定范围。下一阶段不应直接无约束扩功能，而应先按 Phase A 控制面推进：
+
+- [Final Gap Matrix](./docs/superpowers/specs/2026-04-20-final-gap-matrix.md)：最终目标缺口、优先级、风险与 gate
+- [Evidence Ledger](./docs/superpowers/specs/2026-04-20-evidence-ledger.md)：现有测试、benchmark、运行文档与论文证据索引
+- [Long-Chain Decision Roadmap](./docs/superpowers/specs/2026-04-20-long-chain-decision-roadmap.md)：从 Phase A 到 Phase H 的最长合理推进链条与每阶段决策门
+
 ## 仓库结构
 
 - `api/`: FastAPI 路由与应用入口
