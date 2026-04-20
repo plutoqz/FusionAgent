@@ -41,7 +41,7 @@ from services.aoi_resolution_service import AOIResolutionService, NominatimGeoco
 from services.input_acquisition_service import InputAcquisitionService, ResolvedRunInputs
 from services.local_bundle_catalog import LocalBundleCatalogProvider
 from services.raw_vector_source_service import RawVectorSourceService
-from utils.crs import normalize_target_crs
+from utils.crs import normalize_target_crs, resolve_target_crs
 from utils.shp_zip import validate_zip_has_shapefile, zip_shapefile_bundle
 
 
@@ -142,7 +142,7 @@ class AgentRunService:
             trigger=request.trigger,
             phase=RunPhase.queued,
             progress=0,
-            target_crs=normalize_target_crs(request.target_crs),
+            target_crs=resolve_target_crs(request.target_crs),
             debug=request.debug,
             error=None,
             log_path=str(log_dir / "run.log"),
@@ -222,6 +222,7 @@ class AgentRunService:
         logger = self._build_logger(run_id, log_dir / "run.log")
         plan: Optional[WorkflowPlan] = None
         repair_records: List[RepairRecord] = []
+        runtime_request = request
 
         try:
             self._update_status(
@@ -242,10 +243,11 @@ class AgentRunService:
 
             plan = self.run_validation_stage(run_id=run_id, plan=plan)
             logger.info("Validation stage completed; valid=%s", getattr(plan.validation, "valid", None))
+            runtime_request = self._request_with_effective_target_crs(run_id, request)
 
             reuse_result = self._attempt_artifact_reuse(
                 run_id=run_id,
-                request=request,
+                request=runtime_request,
                 plan=plan,
                 output_dir=output_dir,
             )
@@ -253,7 +255,7 @@ class AgentRunService:
                 artifact = reuse_result.artifact
                 self._record_feedback(
                     run_id=run_id,
-                    request=request,
+                    request=runtime_request,
                     plan=plan,
                     repair_records=repair_records,
                     success=True,
@@ -261,7 +263,7 @@ class AgentRunService:
                 )
                 self._register_artifact(
                     run_id=run_id,
-                    request=request,
+                    request=runtime_request,
                     plan=plan,
                     artifact=artifact,
                     repair_records=repair_records,
@@ -296,7 +298,7 @@ class AgentRunService:
             input_dir = intermediate_dir.parent / "input"
             resolved_aoi = self._extract_resolved_aoi(plan)
             osm_zip_path, ref_zip_path, resolved_inputs = self._resolve_execution_inputs(
-                request=request,
+                request=runtime_request,
                 plan=plan,
                 input_dir=input_dir,
                 osm_zip_path=osm_zip_path,
@@ -312,6 +314,7 @@ class AgentRunService:
                     "version_token": resolved_inputs.version_token,
                     "osm_zip_name": resolved_inputs.osm_zip_path.name,
                     "ref_zip_name": resolved_inputs.ref_zip_path.name,
+                    "target_crs": runtime_request.target_crs,
                 }
                 if resolved_aoi is not None:
                     event_details["resolved_aoi"] = {
@@ -340,7 +343,7 @@ class AgentRunService:
                 try:
                     fused_shp, repair_records = self.run_execution_stage(
                         run_id=run_id,
-                        request=request,
+                        request=runtime_request,
                         plan=plan,
                         osm_zip_path=osm_zip_path,
                         ref_zip_path=ref_zip_path,
@@ -452,7 +455,7 @@ class AgentRunService:
 
             artifact = self.run_writeback_stage(
                 run_id=run_id,
-                request=request,
+                request=runtime_request,
                 plan=plan,
                 fused_shp=fused_shp,
                 repair_records=repair_records,
@@ -499,7 +502,7 @@ class AgentRunService:
             if plan is not None:
                 self._record_feedback(
                     run_id=run_id,
-                    request=request,
+                    request=runtime_request,
                     plan=plan,
                     repair_records=repair_records,
                     success=False,
@@ -544,6 +547,29 @@ class AgentRunService:
                     },
                 )
                 raise
+
+        effective_target_crs = resolve_target_crs(
+            request.target_crs,
+            bbox=(resolved_aoi.bbox if resolved_aoi is not None else None),
+        )
+        if request.target_crs:
+            target_crs_source = "explicit"
+        elif resolved_aoi is not None:
+            target_crs_source = "resolved_aoi_default"
+        else:
+            target_crs_source = "fallback_default"
+        self._update_status(
+            run_id,
+            RunPhase.planning,
+            progress=14,
+            target_crs=effective_target_crs,
+            event_kind="target_crs_resolved",
+            event_message=f"Resolved target CRS {effective_target_crs}.",
+            event_details={
+                "target_crs": effective_target_crs,
+                "source": target_crs_source,
+            },
+        )
 
         previous_override = self.planner.context_builder.resolved_aoi_override
         self.planner.context_builder.resolved_aoi_override = resolved_aoi
@@ -635,7 +661,7 @@ class AgentRunService:
             osm_shp=osm_shp,
             ref_shp=ref_shp,
             output_dir=output_dir,
-            target_crs=normalize_target_crs(request.target_crs),
+            target_crs=self._request_with_effective_target_crs(run_id, request).target_crs,
             field_mapping=request.field_mapping,
             debug=request.debug,
             alternative_data_sources=self._extract_alternative_sources(plan),
@@ -739,7 +765,7 @@ class AgentRunService:
                 output_fields.insert(0, "geometry")
 
             output_data_type = self._extract_output_data_type(plan)
-            target_crs = normalize_target_crs(request.target_crs)
+            target_crs = self._request_with_effective_target_crs(run_id, request).target_crs
             schema_policy = self.kg_repo.get_output_schema_policy(output_data_type) if output_data_type else None
 
             meta: Dict[str, object] = {
@@ -788,6 +814,13 @@ class AgentRunService:
             return (float(match.group(1)), float(match.group(2)), float(match.group(3)), float(match.group(4)))
         except Exception:  # noqa: BLE001
             return None
+
+    def _request_with_effective_target_crs(self, run_id: str, request: RunCreateRequest) -> RunCreateRequest:
+        status = self.get_run(run_id)
+        target_crs = status.target_crs if status is not None else resolve_target_crs(request.target_crs)
+        if request.target_crs == target_crs:
+            return request
+        return request.model_copy(update={"target_crs": target_crs})
 
     def get_run(self, run_id: str) -> Optional[RunStatus]:
         path = self.base_dir / run_id / "run.json"
@@ -898,7 +931,7 @@ class AgentRunService:
                 algorithm_id=feedback.algorithm_id,
                 selected_data_source=feedback.selected_data_source,
                 output_data_type=output_data_type,
-                target_crs=normalize_target_crs(request.target_crs),
+                target_crs=self._request_with_effective_target_crs(run_id, request).target_crs,
                 repaired=bool(repair_records),
                 repair_count=len(repair_records),
                 failure_reason=failure_reason,
@@ -915,6 +948,7 @@ class AgentRunService:
         run_id: str,
         phase: RunPhase,
         progress: Optional[int] = None,
+        target_crs: Optional[str] = None,
         error: Optional[str] = None,
         started_at: Optional[str] = None,
         finished_at: Optional[str] = None,
@@ -943,6 +977,8 @@ class AgentRunService:
             current.phase = phase
             if progress is not None:
                 current.progress = progress
+            if target_crs is not None:
+                current.target_crs = normalize_target_crs(target_crs)
             if error is not None or phase == RunPhase.succeeded:
                 current.error = error
             if started_at is not None:

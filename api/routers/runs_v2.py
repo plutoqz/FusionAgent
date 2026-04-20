@@ -24,7 +24,7 @@ from schemas.agent import (
 )
 from schemas.fusion import FieldMapping, JobType
 from services.agent_run_service import agent_run_service
-from utils.crs import normalize_target_crs
+from utils.crs import normalize_explicit_target_crs
 
 
 router = APIRouter(tags=["runs-v2"])
@@ -84,7 +84,7 @@ async def create_run(
     spatial_extent: Optional[str] = Form(None),
     temporal_start: Optional[str] = Form(None),
     temporal_end: Optional[str] = Form(None),
-    target_crs: str = Form("EPSG:32643"),
+    target_crs: Optional[str] = Form(None),
     field_mapping: str = Form("{}"),
     debug: bool = Form(False),
     input_strategy: RunInputStrategy = Form(RunInputStrategy.uploaded),
@@ -101,7 +101,7 @@ async def create_run(
             raise HTTPException(status_code=400, detail="task_driven_auto mode does not accept uploaded files")
 
     try:
-        normalized_crs = normalize_target_crs(target_crs)
+        normalized_crs = normalize_explicit_target_crs(target_crs)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
 

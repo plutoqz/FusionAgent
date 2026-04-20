@@ -162,7 +162,7 @@ class RunEvent(BaseModel):
 class RunCreateRequest(BaseModel):
     job_type: JobType
     trigger: RunTrigger
-    target_crs: str = "EPSG:32643"
+    target_crs: Optional[str] = None
     field_mapping: Dict[str, Dict[str, str]] = Field(default_factory=dict)
     debug: bool = False
     input_strategy: RunInputStrategy = RunInputStrategy.uploaded

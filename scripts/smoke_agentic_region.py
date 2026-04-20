@@ -23,7 +23,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--base-url", default="http://127.0.0.1:8000", help="API base URL.")
     parser.add_argument("--query", required=True, help="Natural-language region request.")
     parser.add_argument("--job-type", choices=["building", "road"], default="building", help="Fusion job type.")
-    parser.add_argument("--target-crs", default="EPSG:32643", help="Target CRS for the run.")
+    parser.add_argument("--target-crs", default="", help="Optional explicit target CRS override.")
     parser.add_argument("--timeout", type=float, default=1200.0, help="Overall timeout in seconds.")
     parser.add_argument("--poll-interval", type=float, default=2.0, help="Polling interval in seconds.")
     parser.add_argument("--output-json", default="", help="Optional path to save the final inspection payload.")
@@ -31,15 +31,17 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
 
 
 def build_create_run_form(args: argparse.Namespace) -> dict[str, str]:
-    return {
+    payload = {
         "job_type": args.job_type,
         "trigger_type": "user_query",
         "trigger_content": args.query,
-        "target_crs": args.target_crs,
         "input_strategy": "task_driven_auto",
         "field_mapping": "{}",
         "debug": "false",
     }
+    if args.target_crs:
+        payload["target_crs"] = args.target_crs
+    return payload
 
 
 def _json_request(
@@ -84,11 +86,12 @@ def run_smoke(
         "job_type": job_type,
         "trigger_type": "user_query",
         "trigger_content": query,
-        "target_crs": target_crs,
         "input_strategy": "task_driven_auto",
         "field_mapping": "{}",
         "debug": "false",
     }
+    if target_crs:
+        create_payload["target_crs"] = target_crs
     created = _json_request("POST", create_url, form_data=create_payload, timeout_sec=min(timeout_sec, 60.0))
     run_id = created["run_id"]
 
