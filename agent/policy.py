@@ -39,6 +39,10 @@ class CandidateScoreInput(BaseModel):
     speed: Optional[float] = None
     cost: Optional[float] = None
 
+    # Bounded operational memory hint. This is deliberately small so durable
+    # learning can shape ties and close calls without replacing KG metadata.
+    learning_adjustment: Optional[float] = None
+
     # Free-form, not used by scoring; useful for callers.
     meta: Dict[str, object] = Field(default_factory=dict)
 
@@ -92,6 +96,8 @@ class CandidateScoreInput(BaseModel):
                 continue
             if not (0.0 <= float(value) <= 1.0):
                 raise ValueError(f"{name} must be in [0.0, 1.0] when provided.")
+        if self.learning_adjustment is not None and not (-0.10 <= float(self.learning_adjustment) <= 0.10):
+            raise ValueError("learning_adjustment must be in [-0.10, 0.10] when provided.")
         return self
 
 
@@ -163,6 +169,7 @@ class PolicyEngine:
         re = self._neutral_if_missing(c.reuse)
         sp = self._neutral_if_missing(c.speed)
         co = self._neutral_if_missing(c.cost)
+        la = self._learning_adjustment(c.learning_adjustment)
 
         score = (
             self._w.success_accuracy * primary
@@ -172,6 +179,7 @@ class PolicyEngine:
             + self._w.reuse * re
             + self._w.speed * sp
             + self._w.cost * co
+            + la
         )
 
         # Keep per-candidate explanation compact and deterministic.
@@ -183,7 +191,8 @@ class PolicyEngine:
             f"{self._w.freshness:.2f}*(freshness={fr:.3f}) + "
             f"{self._w.reuse:.2f}*(reuse={re:.3f}) + "
             f"{self._w.speed:.2f}*(speed={sp:.3f}) + "
-            f"{self._w.cost:.2f}*(cost={co:.3f})"
+            f"{self._w.cost:.2f}*(cost={co:.3f}) + "
+            f"learning_adjustment={la:.3f}"
         )
         return (float(score), reason)
 
@@ -194,6 +203,10 @@ class PolicyEngine:
     @staticmethod
     def _neutral_if_missing(value: Optional[float]) -> float:
         return float(value) if value is not None else 0.5
+
+    @staticmethod
+    def _learning_adjustment(value: Optional[float]) -> float:
+        return float(value) if value is not None else 0.0
 
     @staticmethod
     def _primary_success_accuracy(c: CandidateScoreInput) -> float:
@@ -233,6 +246,8 @@ class PolicyEngine:
                 f"Optional fields present ({', '.join(extras)}); "
                 f"used only with low weights (speed={self._w.speed:.2f}, cost={self._w.cost:.2f})."
             )
+        if any(c.learning_adjustment is not None for (c, _, _) in scored_sorted):
+            parts.append("Durable-learning hints were applied as bounded learning_adjustment values.")
 
         # Contrast top-2 if available to make the rationale more useful but still short.
         if len(scored_sorted) >= 2:
@@ -256,6 +271,7 @@ class PolicyEngine:
                 "reuse": candidate.reuse,
                 "speed": candidate.speed,
                 "cost": candidate.cost,
+                "learning_adjustment": candidate.learning_adjustment,
             },
             "meta": dict(candidate.meta),
         }

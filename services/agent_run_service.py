@@ -1265,6 +1265,7 @@ class AgentRunService:
     def _build_pattern_selection_decision(self, plan: WorkflowPlan) -> Optional[DecisionRecord]:
         retrieval = plan.context.get("retrieval", {})
         raw_patterns = retrieval.get("candidate_patterns", []) if isinstance(retrieval, dict) else []
+        learning_summaries = self._durable_pattern_summaries_by_id(retrieval)
         candidates: List[CandidateScoreInput] = []
         for raw in raw_patterns:
             if not isinstance(raw, dict):
@@ -1273,11 +1274,17 @@ class AgentRunService:
             if not pattern_id:
                 continue
             success_rate = self._to_unit_interval(raw.get("success_rate"))
+            learning_adjustment = self._pattern_learning_adjustment(pattern_id, learning_summaries)
+            meta = {}
+            if pattern_id in learning_summaries:
+                meta["durable_learning_summary"] = learning_summaries[pattern_id]
             candidates.append(
                 CandidateScoreInput(
                     candidate_id=pattern_id,
                     success_rate=success_rate,
                     accuracy=success_rate,
+                    learning_adjustment=learning_adjustment,
+                    meta=meta,
                 )
             )
         if not candidates:
@@ -1289,9 +1296,47 @@ class AgentRunService:
         if not candidates:
             return None
         decision = self.policy_engine.select("pattern_selection", candidates)
+        evidence_refs = ["context.retrieval.candidate_patterns", "policy:deterministic_weighted_sum"]
+        if any(candidate.learning_adjustment is not None for candidate in candidates):
+            evidence_refs.append("context.retrieval.durable_learning_summaries.patterns")
         return decision.model_copy(
-            update={"evidence_refs": ["context.retrieval.candidate_patterns", "policy:deterministic_weighted_sum"]}
+            update={"evidence_refs": evidence_refs}
         )
+
+    @staticmethod
+    def _durable_pattern_summaries_by_id(retrieval: object) -> Dict[str, Dict[str, object]]:
+        if not isinstance(retrieval, dict):
+            return {}
+        durable = retrieval.get("durable_learning_summaries")
+        if not isinstance(durable, dict):
+            return {}
+        patterns = durable.get("patterns")
+        if not isinstance(patterns, list):
+            return {}
+        summaries: Dict[str, Dict[str, object]] = {}
+        for raw in patterns:
+            if not isinstance(raw, dict):
+                continue
+            entity_id = str(raw.get("entity_id") or "").strip()
+            if entity_id:
+                summaries[entity_id] = dict(raw)
+        return summaries
+
+    @staticmethod
+    def _pattern_learning_adjustment(pattern_id: str, summaries: Dict[str, Dict[str, object]]) -> Optional[float]:
+        summary = summaries.get(pattern_id)
+        if not summary:
+            return None
+        try:
+            total_runs = int(summary.get("total_runs") or 0)
+            success_count = int(summary.get("success_count") or 0)
+        except (TypeError, ValueError):
+            return None
+        if total_runs < 2:
+            return None
+        success_ratio = max(0.0, min(1.0, success_count / total_runs))
+        adjustment = (success_ratio - 0.5) * 0.2
+        return round(max(-0.10, min(0.10, adjustment)), 6)
 
     def _build_data_source_selection_decision(self, plan: WorkflowPlan) -> Optional[DecisionRecord]:
         retrieval = plan.context.get("retrieval", {})

@@ -206,3 +206,30 @@ def test_policy_engine_emits_stable_candidate_evidence_shape() -> None:
     assert candidate.evidence["metrics"]["data_quality"] == 1.0
     assert candidate.evidence["metrics"]["freshness"] == 1.0
     assert candidate.evidence["meta"]["source_kind"] == "local_upload"
+
+
+def test_policy_engine_applies_learning_adjustment_and_emits_it_in_evidence() -> None:
+    record = PolicyEngine().select(
+        "pattern_selection",
+        [
+            CandidateScoreInput(
+                candidate_id="historically_weak",
+                success_rate=0.90,
+                accuracy=0.90,
+                learning_adjustment=-0.10,
+                meta={"learning_hint": "recent failures"},
+            ),
+            CandidateScoreInput(
+                candidate_id="historically_strong",
+                success_rate=0.86,
+                accuracy=0.86,
+                learning_adjustment=0.10,
+                meta={"learning_hint": "recent successes"},
+            ),
+        ],
+    )
+
+    assert record.selected_id == "historically_strong"
+    selected = next(candidate for candidate in record.candidates if candidate.candidate_id == record.selected_id)
+    assert selected.evidence["metrics"]["learning_adjustment"] == 0.10
+    assert "learning_adjustment" in selected.reason

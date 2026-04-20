@@ -1316,6 +1316,53 @@ def test_task_driven_replan_refreshes_inputs_when_source_changes(tmp_path: Path,
     assert resolved_events[-1].plan_revision == 2
 
 
+def test_pattern_selection_uses_durable_learning_summaries_as_policy_hints(tmp_path: Path) -> None:
+    service = AgentRunService(base_dir=tmp_path / "runs")
+    plan = _build_plan(workflow_id="wf_learning_hints", revision=1)
+    plan.context["retrieval"]["candidate_patterns"] = [
+        {"pattern_id": "wp.historically.weak", "success_rate": 0.90},
+        {"pattern_id": "wp.historically.strong", "success_rate": 0.86},
+    ]
+    plan.context["retrieval"]["durable_learning_summaries"] = {
+        "patterns": [
+            {
+                "entity_kind": "pattern",
+                "entity_id": "wp.historically.weak",
+                "job_type": "building",
+                "disaster_type": "flood",
+                "total_runs": 4,
+                "success_count": 1,
+                "failure_count": 3,
+                "repaired_count": 0,
+                "last_run_at": "2026-04-20T00:00:00+00:00",
+                "last_failure_reason": "source failed",
+            },
+            {
+                "entity_kind": "pattern",
+                "entity_id": "wp.historically.strong",
+                "job_type": "building",
+                "disaster_type": "flood",
+                "total_runs": 4,
+                "success_count": 4,
+                "failure_count": 0,
+                "repaired_count": 0,
+                "last_run_at": "2026-04-20T00:00:00+00:00",
+                "last_failure_reason": None,
+            },
+        ]
+    }
+
+    decision = service._build_pattern_selection_decision(plan)
+
+    assert decision is not None
+    assert decision.selected_id == "wp.historically.strong"
+    selected = next(candidate for candidate in decision.candidates if candidate.candidate_id == decision.selected_id)
+    weak = next(candidate for candidate in decision.candidates if candidate.candidate_id == "wp.historically.weak")
+    assert selected.evidence["metrics"]["learning_adjustment"] == 0.10
+    assert weak.evidence["metrics"]["learning_adjustment"] < 0
+    assert "context.retrieval.durable_learning_summaries.patterns" in decision.evidence_refs
+
+
 def test_agent_run_service_fails_when_replan_limit_is_reached(tmp_path: Path, monkeypatch) -> None:
     service = AgentRunService(base_dir=tmp_path / "runs")
     service.max_plan_revisions = 2

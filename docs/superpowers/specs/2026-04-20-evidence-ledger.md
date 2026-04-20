@@ -49,6 +49,7 @@ Durability labels:
 | Phase C replan input refresh | `docs/superpowers/plans/2026-04-20-full-replan-loop-v1.md` | Replanned task-driven runs refresh input bundles when source/type changes and preserve `plan-revision-N.json` snapshots | strong | First Phase C implementation slice; full tests passed with `159 passed, 1 skipped, 6 warnings` |
 | Planner context tests | `tests/test_planner_context.py` | KG/context evidence exposed to planner | strong | Useful for Phase D and E |
 | Policy engine tests | `tests/test_policy_engine.py` | Explicit policy decision behavior | strong | Useful for Phase D policy hints |
+| Phase D durable learning policy hints | `docs/superpowers/plans/2026-04-20-durable-learning-policy-hints.md` | Pattern selection consumes durable learning summaries through bounded `learning_adjustment` evidence | strong | First Phase D implementation slice; full tests passed with `161 passed, 1 skipped, 6 warnings` |
 | Artifact registry tests | `tests/test_artifact_registry.py` | Reusable artifact metadata and lookup | strong | Supports artifact reuse claims |
 | Artifact reuse planner tests | `tests/test_planner_artifact_reuse.py` | Planning-stage reuse reasoning | strong | Use with runtime reuse tests |
 | Workflow validator tests | `tests/test_workflow_validator.py` | Validation constraints and transform insertion | strong | Useful for Phase C replan gate design |
