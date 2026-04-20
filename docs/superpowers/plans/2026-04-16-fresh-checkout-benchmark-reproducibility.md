@@ -139,7 +139,9 @@ Conclusion: it is not required to satisfy the bounded fresh-checkout benchmark g
 
 Reason: changing `RawVectorSourceService` would widen the surface from benchmark reproducibility into runtime provider design, cache semantics, and additional policy questions.
 
-- [ ] **Future Step 3: Add optional `source_asset_service` fallback to `RawVectorSourceService`**
+- [x] **Future Step 3: Add optional `source_asset_service` fallback to `RawVectorSourceService`**
+
+Completed via the agentic any-region runtime work merged on 2026-04-20.
 
 Future scope if reopened:
 
@@ -147,7 +149,9 @@ Future scope if reopened:
 - fall back to `source_asset_service.resolve_raw_source_path(source_id)` if local files are absent
 - preserve existing cache/version semantics for the zipped runtime artifact layer
 
-- [ ] **Future Step 4: Add runtime fallback coverage in `tests/test_raw_vector_source_service.py`**
+- [x] **Future Step 4: Add runtime fallback coverage in `tests/test_raw_vector_source_service.py`**
+
+Completed via the agentic any-region runtime work merged on 2026-04-20.
 
 This deferred task remains the main follow-on item if the repo later needs the same official-source fallback inside the runtime `task_driven_auto` acquisition chain.
 

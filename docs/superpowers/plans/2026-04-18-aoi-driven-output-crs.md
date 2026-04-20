@@ -8,6 +8,8 @@
 
 **Tech Stack:** FastAPI, Pydantic, GeoPandas / pyproj, pytest
 
+**Completion Status:** Completed and merged via PR #2 on 2026-04-20. Final verification on `main`: `python -m pytest -q` passed with `158 passed, 1 skipped, 6 warnings`.
+
 ---
 
 ## File Map
@@ -39,7 +41,7 @@
 - Modify: `utils/crs.py`
 - Test: `tests/test_crs.py`
 
-- [ ] **Step 1: Write the failing CRS derivation tests**
+- [x] **Step 1: Write the failing CRS derivation tests**
 
 Add these tests to `tests/test_crs.py`:
 
@@ -70,7 +72,7 @@ def test_resolve_target_crs_preserves_explicit_value() -> None:
     assert resolve_target_crs("epsg:4326", bbox=(36.65, -1.45, 37.10, -1.10)) == "EPSG:4326"
 ```
 
-- [ ] **Step 2: Run the focused CRS test file and confirm it fails**
+- [x] **Step 2: Run the focused CRS test file and confirm it fails**
 
 Run:
 
@@ -80,7 +82,7 @@ python -m pytest -q tests\test_crs.py
 
 Expected: failure because `derive_default_target_crs`, `normalize_explicit_target_crs`, and `resolve_target_crs` do not exist yet.
 
-- [ ] **Step 3: Implement the CRS helper split in `utils/crs.py`**
+- [x] **Step 3: Implement the CRS helper split in `utils/crs.py`**
 
 Replace the one-function module with explicit validation plus default derivation:
 
@@ -131,7 +133,7 @@ def normalize_target_crs(crs: str | None) -> str:
     return resolve_target_crs(crs)
 ```
 
-- [ ] **Step 4: Re-run the focused CRS test file and confirm it passes**
+- [x] **Step 4: Re-run the focused CRS test file and confirm it passes**
 
 Run:
 
@@ -141,7 +143,7 @@ python -m pytest -q tests\test_crs.py
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit the utility-only slice**
+- [x] **Step 5: Commit the utility-only slice**
 
 ```powershell
 git add utils/crs.py tests/test_crs.py
@@ -159,7 +161,7 @@ git commit -m "feat: derive default target crs from aoi bbox"
 - Test: `tests/test_api_v2_integration.py`
 - Test: `tests/test_smoke_agentic_region.py`
 
-- [ ] **Step 1: Add failing tests for omitted-vs-explicit CRS behavior**
+- [x] **Step 1: Add failing tests for omitted-vs-explicit CRS behavior**
 
 Extend the existing AOI/runtime tests with these expectations:
 
@@ -206,7 +208,7 @@ def test_smoke_agentic_region_omits_target_crs_when_not_provided() -> None:
     assert "target_crs" not in payload
 ```
 
-- [ ] **Step 2: Run the focused runtime/API/smoke tests and confirm they fail**
+- [x] **Step 2: Run the focused runtime/API/smoke tests and confirm they fail**
 
 Run:
 
@@ -216,7 +218,7 @@ python -m pytest -q tests\test_agent_run_service_enhancements.py tests\test_api_
 
 Expected: failure because omitted `target_crs` is still collapsed to `EPSG:32643`, and the smoke script still forces `target_crs`.
 
-- [ ] **Step 3: Preserve omitted-vs-explicit semantics at the request boundary**
+- [x] **Step 3: Preserve omitted-vs-explicit semantics at the request boundary**
 
 Make the request model and router stop forcing the default too early:
 
@@ -268,7 +270,7 @@ def build_create_run_form(args: argparse.Namespace) -> dict[str, str]:
     return payload
 ```
 
-- [ ] **Step 4: Resolve the effective target CRS after AOI resolution**
+- [x] **Step 4: Resolve the effective target CRS after AOI resolution**
 
 In `services/agent_run_service.py`, compute the final CRS only when AOI context is available:
 
@@ -308,7 +310,7 @@ target_crs=effective_target_crs,
 
 And add `target_crs` into `task_inputs_resolved` details so inspection output carries the effective value.
 
-- [ ] **Step 5: Re-run the focused tests and confirm they pass**
+- [x] **Step 5: Re-run the focused tests and confirm they pass**
 
 Run:
 
@@ -318,7 +320,7 @@ python -m pytest -q tests\test_crs.py tests\test_agent_run_service_enhancements.
 
 Expected: PASS, including Nairobi auto-selecting `EPSG:32737` when omitted and explicit `EPSG:4326` surviving unchanged.
 
-- [ ] **Step 6: Commit the runtime/API slice**
+- [x] **Step 6: Commit the runtime/API slice**
 
 ```powershell
 git add schemas/agent.py api/routers/runs_v2.py services/agent_run_service.py scripts/smoke_agentic_region.py tests/test_agent_run_service_enhancements.py tests/test_api_v2_integration.py tests/test_smoke_agentic_region.py
@@ -330,7 +332,7 @@ git commit -m "feat: auto-select output crs from resolved aoi"
 **Files:**
 - Modify: `docs/v2-operations.md`
 
-- [ ] **Step 1: Update the operator docs**
+- [x] **Step 1: Update the operator docs**
 
 Add an explicit note to `docs/v2-operations.md` near the AOI smoke section:
 
@@ -348,7 +350,7 @@ python scripts/smoke_agentic_region.py `
   --timeout 1200
 ```
 
-- [ ] **Step 2: Run the full test suite**
+- [x] **Step 2: Run the full test suite**
 
 Run:
 
@@ -358,20 +360,20 @@ python -m pytest -q
 
 Expected: PASS with the existing warning profile only.
 
-- [ ] **Step 3: Commit the doc + verification slice**
+- [x] **Step 3: Commit the doc + verification slice**
 
 ```powershell
 git add docs/v2-operations.md
 git commit -m "docs: describe aoi-driven target crs defaults"
 ```
 
-- [ ] **Step 4: Push the branch**
+- [x] **Step 4: Push the branch**
 
 ```powershell
 git push -u origin codex/agentic-output-crs
 ```
 
-- [ ] **Step 5: Open the stacked PR**
+- [x] **Step 5: Open the stacked PR**
 
 Create a PR with:
 

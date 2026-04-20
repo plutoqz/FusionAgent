@@ -8,6 +8,8 @@
 
 **Tech Stack:** Python 3.9+, FastAPI, Pydantic, GeoPandas, Shapely, pytest, existing LLM provider abstractions, existing KG repository, existing artifact/input acquisition services
 
+**Completion Status:** Completed and merged via PR #1 on 2026-04-20. Final verification on `main`: `python -m pytest -q` passed with `149 passed, 1 skipped, 6 warnings` after PR #1 and `158 passed, 1 skipped, 6 warnings` after the stacked CRS PR.
+
 ---
 
 ## File Structure
@@ -61,7 +63,7 @@
 - Test: `C:\Users\QDX\.config\superpowers\worktrees\fusionAgent\agentic-any-region-fusion\tests\test_aoi_resolution_service.py`
 - Test: `C:\Users\QDX\.config\superpowers\worktrees\fusionAgent\agentic-any-region-fusion\tests\test_planner_context.py`
 
-- [ ] **Step 1: Write the failing tests for AOI selection and planner context**
+- [x] **Step 1: Write the failing tests for AOI selection and planner context**
 
 ```python
 class _StubGeocoder:
@@ -135,7 +137,7 @@ def test_planner_context_includes_resolved_aoi_and_source_coverage_hints():
     assert provider.last_context["retrieval"]["source_coverage_hints"]
 ```
 
-- [ ] **Step 2: Run the tests and confirm they fail for missing AOI support**
+- [x] **Step 2: Run the tests and confirm they fail for missing AOI support**
 
 Run:
 
@@ -145,7 +147,7 @@ python -m pytest -q tests/test_aoi_resolution_service.py tests/test_planner_cont
 
 Expected: FAIL because AOI resolution and context enrichment do not exist yet.
 
-- [ ] **Step 3: Implement the AOI resolver and context enrichment**
+- [x] **Step 3: Implement the AOI resolver and context enrichment**
 
 ```python
 @dataclass(frozen=True)
@@ -174,7 +176,7 @@ class AOIAmbiguityError(ValueError):
     pass
 ```
 
-- [ ] **Step 4: Re-run the AOI and planner-context tests**
+- [x] **Step 4: Re-run the AOI and planner-context tests**
 
 Run:
 
@@ -191,7 +193,7 @@ Expected: PASS
 - Modify: `C:\Users\QDX\.config\superpowers\worktrees\fusionAgent\agentic-any-region-fusion\kg\source_catalog.py`
 - Test: `C:\Users\QDX\.config\superpowers\worktrees\fusionAgent\agentic-any-region-fusion\tests\test_source_asset_service.py`
 
-- [ ] **Step 1: Write failing tests for Nairobi-scoped source download and clipping**
+- [x] **Step 1: Write failing tests for Nairobi-scoped source download and clipping**
 
 ```python
 def test_source_asset_service_materializes_kenya_osm_and_clips_to_nairobi(monkeypatch, tmp_path):
@@ -231,7 +233,7 @@ def test_source_asset_service_uses_aoi_bbox_for_reference_source(monkeypatch, tm
     assert resolved.feature_count > 0
 ```
 
-- [ ] **Step 2: Run the tests and confirm the current Burundi-only logic fails**
+- [x] **Step 2: Run the tests and confirm the current Burundi-only logic fails**
 
 Run:
 
@@ -241,7 +243,7 @@ python -m pytest -q tests/test_source_asset_service.py
 
 Expected: FAIL because the service is still Burundi-specific.
 
-- [ ] **Step 3: Implement country-aware OSM and AOI-aware reference downloads**
+- [x] **Step 3: Implement country-aware OSM and AOI-aware reference downloads**
 
 ```python
 def resolve_raw_source_path(self, source_id: str, *, aoi: ResolvedAOI | None = None) -> SourceAssetResolution:
@@ -263,7 +265,7 @@ Implement:
 - cache keys that include source id + AOI hash + provider version
 - explicit `coverage_empty` status instead of pretending success
 
-- [ ] **Step 4: Re-run the source-asset tests**
+- [x] **Step 4: Re-run the source-asset tests**
 
 Run:
 
@@ -284,7 +286,7 @@ Expected: PASS
 - Test: `C:\Users\QDX\.config\superpowers\worktrees\fusionAgent\agentic-any-region-fusion\tests\test_agent_run_service_enhancements.py`
 - Test: `C:\Users\QDX\.config\superpowers\worktrees\fusionAgent\agentic-any-region-fusion\tests\test_api_v2_integration.py`
 
-- [ ] **Step 1: Write the failing runtime integration test for Nairobi**
+- [x] **Step 1: Write the failing runtime integration test for Nairobi**
 
 ```python
 def test_agent_run_service_resolves_nairobi_before_input_materialization(tmp_path, monkeypatch):
@@ -364,7 +366,7 @@ def test_agent_run_service_resolves_nairobi_before_input_materialization(tmp_pat
     assert any(event.kind == "task_inputs_resolved" for event in service.get_audit_events(status.run_id))
 ```
 
-- [ ] **Step 2: Run the runtime tests and confirm missing AOI orchestration fails**
+- [x] **Step 2: Run the runtime tests and confirm missing AOI orchestration fails**
 
 Run:
 
@@ -374,7 +376,7 @@ python -m pytest -q tests/test_agent_run_service_enhancements.py tests/test_api_
 
 Expected: FAIL because runtime orchestration still lacks AOI-aware materialization.
 
-- [ ] **Step 3: Implement AOI-first runtime orchestration and AOI-scoped input acquisition**
+- [x] **Step 3: Implement AOI-first runtime orchestration and AOI-scoped input acquisition**
 
 ```python
 resolved_aoi = self.aoi_resolution_service.resolve(request.trigger.content)
@@ -397,7 +399,7 @@ Implement:
 - runtime fallback to the generalized source-asset service when local `Data/` is incomplete
 - audit events for AOI resolution and source coverage checks
 
-- [ ] **Step 4: Re-run the runtime integration tests**
+- [x] **Step 4: Re-run the runtime integration tests**
 
 Run:
 
@@ -417,7 +419,7 @@ Expected: PASS
 - Modify: `C:\Users\QDX\.config\superpowers\worktrees\fusionAgent\agentic-any-region-fusion\README.en.md`
 - Test: `C:\Users\QDX\.config\superpowers\worktrees\fusionAgent\agentic-any-region-fusion\tests\test_smoke_agentic_region.py`
 
-- [ ] **Step 1: Write the failing test for the smoke helper CLI**
+- [x] **Step 1: Write the failing test for the smoke helper CLI**
 
 ```python
 def test_smoke_agentic_region_builds_nairobi_request(monkeypatch):
@@ -429,7 +431,7 @@ def test_smoke_agentic_region_builds_nairobi_request(monkeypatch):
     assert parsed.query == "fuse building and road data for Nairobi, Kenya"
 ```
 
-- [ ] **Step 2: Run the smoke-helper test and confirm it fails before the script exists**
+- [x] **Step 2: Run the smoke-helper test and confirm it fails before the script exists**
 
 Run:
 
@@ -439,7 +441,7 @@ python -m pytest -q tests/test_smoke_agentic_region.py
 
 Expected: FAIL because the helper script does not exist yet.
 
-- [ ] **Step 3: Implement the helper and docs**
+- [x] **Step 3: Implement the helper and docs**
 
 ```powershell
 python scripts/smoke_agentic_region.py --base-url http://127.0.0.1:8010 --query "fuse building and road data for Nairobi, Kenya" --timeout 1200
@@ -451,7 +453,7 @@ Implement:
 - a wait loop that prints AOI, source ids, run id, and final artifact path
 - docs showing the Nairobi example as the canonical validation case
 
-- [ ] **Step 4: Re-run the helper test and the full suite**
+- [x] **Step 4: Re-run the helper test and the full suite**
 
 Run:
 

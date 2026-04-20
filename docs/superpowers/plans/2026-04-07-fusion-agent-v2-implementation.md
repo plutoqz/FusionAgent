@@ -48,8 +48,8 @@ This file is the master plan and progress tracker.
 - [x] Evaluation and benchmark evidence are now handled through a documented, runtime-aligned workflow for the current repo-supported benchmark cases
 - [x] Search-space expansion, policy coverage, artifact reuse hardening, long-term writeback, and operator inspection reached the completion bar defined by this roadmap
 - [x] A bounded fresh-checkout reproducibility path now exists for `building_gitega_micro_msft_agent` through source-id-backed manifest materialization plus the official source-asset cache
-- [ ] Broader runtime task-driven remote fallback, Google-backed building inputs, and other manual-only datasets still need a separate follow-on plan
-- [ ] Broader disaster/theme coverage, stronger CI evidence automation, and richer operator UX should be treated as a new roadmap rather than unfinished checklist items from this V2 plan
+- Deferred follow-on decision: Google-backed building inputs and other manual-only datasets still need a separate plan if they become product priorities.
+- Deferred follow-on decision: broader disaster/theme coverage, stronger CI evidence automation, and richer operator UX should be treated as a new roadmap rather than unfinished checklist items from this V2 plan.
 
 ## Supporting Documents
 
@@ -467,13 +467,13 @@ Phase 6 note: the v2 API now exposes a one-shot inspection endpoint and a side-b
 
 ---
 
-## Cross-Cutting Rules
+## Cross-Cutting Guardrails
 
-- [ ] Do not add major new product surfaces before Phase 1, Phase 2, and Phase 3 are in acceptable shape.
-- [ ] Do not widen the ontology unless the new metadata is usable by runtime, policy, or evaluation.
-- [ ] Do not hide important decision logic inside prompts when it should be explicit and auditable.
-- [ ] Do not treat benchmark success as credible without runtime alignment, timeout clarity, and saved evidence.
-- [ ] After every meaningful phase, update `README.md`, this master plan, and any affected spec or summary docs together.
+- Do not add major new product surfaces before Phase 1, Phase 2, and Phase 3 are in acceptable shape.
+- Do not widen the ontology unless the new metadata is usable by runtime, policy, or evaluation.
+- Do not hide important decision logic inside prompts when it should be explicit and auditable.
+- Do not treat benchmark success as credible without runtime alignment, timeout clarity, and saved evidence.
+- After every meaningful phase, update `README.md`, this master plan, and any affected spec or summary docs together.
 
 ## Immediate Next Actions
 
