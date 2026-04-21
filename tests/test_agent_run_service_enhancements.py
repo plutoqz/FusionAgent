@@ -1,6 +1,7 @@
 import json
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+from typing import Optional
 from zipfile import ZipFile
 
 import geopandas as gpd
@@ -107,12 +108,17 @@ def _build_plan(
     )
 
 
-def _build_auto_request(*, spatial_extent: str = "bbox(0,0,1,1)") -> RunCreateRequest:
+def _build_auto_request(
+    *,
+    spatial_extent: Optional[str] = "bbox(0,0,1,1)",
+    job_type: JobType = JobType.building,
+    content: str = "need building data",
+) -> RunCreateRequest:
     return RunCreateRequest(
-        job_type=JobType.building,
+        job_type=job_type,
         trigger=RunTrigger(
             type=RunTriggerType.user_query,
-            content="need building data",
+            content=content,
             spatial_extent=spatial_extent,
         ),
         target_crs="EPSG:32643",
@@ -122,29 +128,77 @@ def _build_auto_request(*, spatial_extent: str = "bbox(0,0,1,1)") -> RunCreateRe
     )
 
 
-def test_agent_run_service_rejects_water_task_driven_auto(tmp_path: Path) -> None:
+def _build_water_task_driven_plan(*, workflow_id: str = "wf_water_auto_inputs", revision: int = 1) -> WorkflowPlan:
+    plan = _build_plan(workflow_id=workflow_id, revision=revision, algorithm_id="algo.fusion.water.v1")
+    plan.trigger = RunTrigger(type=RunTriggerType.user_query, content="need water polygons for Nairobi, Kenya")
+    plan.context["intent"]["job_type"] = "water"
+    plan.context["intent"]["profile_source"] = "direct_task"
+    plan.context["retrieval"]["candidate_patterns"] = [{"pattern_id": "wp.flood.water.default", "success_rate": 0.84}]
+    plan.tasks[0].name = "water_fusion"
+    plan.tasks[0].description = "water fusion"
+    plan.tasks[0].algorithm_id = "algo.fusion.water.v1"
+    plan.tasks[0].input.data_type_id = "dt.water.bundle"
+    plan.tasks[0].input.data_source_id = "catalog.flood.water"
+    plan.tasks[0].output.data_type_id = "dt.water.fused"
+    plan.tasks[0].alternatives = []
+    plan.expected_output = "water result"
+    return plan
+
+
+def test_agent_run_service_allows_water_task_driven_auto_and_records_task_inputs_resolved(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
     service = AgentRunService(base_dir=tmp_path / "runs")
-    request = RunCreateRequest(
-        job_type=JobType.water,
-        trigger=RunTrigger(
-            type=RunTriggerType.user_query,
-            content="need water polygons",
-            spatial_extent="bbox(0,0,1,1)",
+    osm_shp = tmp_path / "resolved_osm_water.shp"
+    ref_shp = tmp_path / "resolved_ref_water.shp"
+    fused_shp = tmp_path / "fused_water.shp"
+    artifact_zip = tmp_path / "artifact_water.zip"
+    for path in [osm_shp, ref_shp, fused_shp]:
+        path.write_text("dummy", encoding="utf-8")
+    artifact_zip.write_bytes(b"zip")
+
+    plan = _build_water_task_driven_plan()
+    prepared_dir = tmp_path / "prepared_water"
+    prepared_dir.mkdir(parents=True, exist_ok=True)
+    resolved = ResolvedRunInputs(
+        osm_zip_path=prepared_dir / "osm.zip",
+        ref_zip_path=prepared_dir / "ref.zip",
+        source_mode="downloaded",
+        source_id="catalog.flood.water",
+        cache_hit=False,
+        version_token="water-v1",
+    )
+    resolved.osm_zip_path.write_bytes(b"osm")
+    resolved.ref_zip_path.write_bytes(b"ref")
+
+    monkeypatch.setattr(service.aoi_resolution_service, "resolve", lambda query: _resolved_nairobi_aoi())
+    monkeypatch.setattr(service.planner, "create_plan", lambda **_kwargs: plan.model_copy(deep=True))
+    monkeypatch.setattr(service.validator, "validate_and_repair", lambda input_plan: input_plan)
+    monkeypatch.setattr(service.input_acquisition_service, "resolve_task_driven_inputs", lambda **_kwargs: resolved)
+    monkeypatch.setattr(
+        "services.agent_run_service.validate_zip_has_shapefile",
+        lambda zip_path, *_args, **_kwargs: osm_shp if Path(zip_path).name.startswith("osm") else ref_shp,
+    )
+    monkeypatch.setattr(service.executor, "execute_plan", lambda **_kwargs: fused_shp)
+    monkeypatch.setattr("services.agent_run_service.zip_shapefile_bundle", lambda *_args, **_kwargs: artifact_zip)
+
+    status = service.create_run(
+        request=_build_auto_request(
+            spatial_extent=None,
+            job_type=JobType.water,
+            content="need water polygons for Nairobi, Kenya",
         ),
-        target_crs="EPSG:32643",
-        field_mapping={},
-        debug=False,
-        input_strategy=RunInputStrategy.task_driven_auto,
+        osm_zip_name=None,
+        osm_zip_bytes=None,
+        ref_zip_name=None,
+        ref_zip_bytes=None,
     )
 
-    with pytest.raises(ValueError, match="water runs currently support uploaded input strategy only"):
-        service.create_run(
-            request=request,
-            osm_zip_name=None,
-            osm_zip_bytes=None,
-            ref_zip_name=None,
-            ref_zip_bytes=None,
-        )
+    latest = service.get_run(status.run_id)
+    assert latest is not None
+    assert latest.phase == RunPhase.succeeded
+    assert any(event.kind == "task_inputs_resolved" for event in service.get_audit_events(status.run_id))
 
 
 def _resolved_nairobi_aoi() -> ResolvedAOI:

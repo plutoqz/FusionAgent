@@ -42,7 +42,6 @@ _LOCAL_SOURCE_CANDIDATES = {
         ("Data", "burundi-260127-free.shp", "gis_osm_roads_free_1.shp"),
     ],
     "raw.osm.water": [
-        ("Data", "water"),
         ("Data", "burundi-260127-free.shp", "gis_osm_water_a_free_1.shp"),
     ],
     "raw.osm.poi": [

@@ -168,7 +168,7 @@ class RawVectorSourceService:
             bbox=materialized.bbox,
             target_crs=normalized_target_crs,
             source_id=source_id,
-            source_mode="downloaded",
+            source_mode="coverage_empty" if (materialized.feature_count or 0) == 0 else "downloaded",
             cache_hit=False,
             version_token=version_token,
             feature_count=materialized.feature_count,

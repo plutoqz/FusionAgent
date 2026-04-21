@@ -120,9 +120,6 @@ class AgentRunService:
         for directory in [input_dir, intermediate_dir, output_dir, log_dir]:
             directory.mkdir(parents=True, exist_ok=True)
 
-        if request.job_type.value == "water" and request.input_strategy != RunInputStrategy.uploaded:
-            raise ValueError("water runs currently support uploaded input strategy only")
-
         osm_zip_path: Path | None = None
         ref_zip_path: Path | None = None
         if request.input_strategy == RunInputStrategy.uploaded:

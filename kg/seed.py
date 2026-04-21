@@ -214,8 +214,8 @@ ALGORITHMS: Dict[str, AlgorithmNode] = {
         usage_mode="conservative",
         metadata={
             "selection_profile": "primary",
-            "evidence_basis": "uploaded_polygon_runtime",
-            "runtime_scope": "uploaded_only",
+            "evidence_basis": "shared_bundle_runtime",
+            "runtime_scope": "uploaded_or_task_driven_auto",
         },
     ),
     "algo.transform.raw_to_building_bundle": AlgorithmNode(
@@ -711,7 +711,8 @@ WORKFLOW_PATTERNS: List[WorkflowPatternNode] = [
             "runtime_status": "runtime_candidate",
             "scenario_focus": "flood",
             "strategy": "conservative",
-            "input_strategy": "uploaded_only",
+            "input_strategy": "task_driven_auto_supported",
+            "source_family": "catalog_water_bundle",
         },
         steps=[
             PatternStep(
@@ -720,7 +721,7 @@ WORKFLOW_PATTERNS: List[WorkflowPatternNode] = [
                 algorithm_id="algo.fusion.water.v1",
                 input_data_type="dt.water.bundle",
                 output_data_type="dt.water.fused",
-                data_source_id="upload.bundle",
+                data_source_id="catalog.flood.water",
             )
         ],
     ),

@@ -62,12 +62,18 @@ class _StubBundleProvider:
         )
 
 
-def _build_request(*, spatial_extent: str = "bbox(0,0,10,10)", target_crs: str = "EPSG:4326") -> RunCreateRequest:
+def _build_request(
+    *,
+    spatial_extent: str = "bbox(0,0,10,10)",
+    target_crs: str = "EPSG:4326",
+    job_type: JobType = JobType.building,
+    content: str = "need building data",
+) -> RunCreateRequest:
     return RunCreateRequest(
-        job_type=JobType.building,
+        job_type=job_type,
         trigger=RunTrigger(
             type=RunTriggerType.user_query,
-            content="need building data",
+            content=content,
             spatial_extent=spatial_extent,
         ),
         target_crs=target_crs,
@@ -196,6 +202,32 @@ def test_input_acquisition_supports_catalog_earthquake_building_source(tmp_path:
     assert resolved.source_mode == "downloaded"
     assert resolved.cache_hit is False
     assert resolved.version_token == "v1"
+
+
+def test_input_acquisition_supports_catalog_flood_water_source_and_preserves_version_token(tmp_path: Path) -> None:
+    from services.input_acquisition_service import InputAcquisitionService
+
+    registry = ArtifactRegistry(index_path=tmp_path / "artifact_registry.json")
+    provider = _StubBundleProvider(
+        version_token="water-osm-v1|water-ref-v1",
+        supported_source_ids={"catalog.flood.water"},
+    )
+    service = InputAcquisitionService(registry=registry, providers=[provider], cache_dir=tmp_path / "cache")
+
+    resolved = service.resolve_task_driven_inputs(
+        request=_build_request(
+            job_type=JobType.water,
+            content="need water data",
+        ),
+        source_id="catalog.flood.water",
+        required_output_type="dt.water.bundle",
+        input_dir=tmp_path / "run",
+    )
+
+    assert resolved.source_id == "catalog.flood.water"
+    assert resolved.source_mode == "downloaded"
+    assert resolved.cache_hit is False
+    assert resolved.version_token == "water-osm-v1|water-ref-v1"
 
 
 def test_input_acquisition_sanitizes_composite_version_tokens_for_cache_paths(tmp_path: Path) -> None:

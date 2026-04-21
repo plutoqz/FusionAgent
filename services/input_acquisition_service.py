@@ -159,14 +159,17 @@ class InputAcquisitionService:
             / _safe_cache_component(version_token)
             / uuid.uuid4().hex
         )
-        materialized = self._provider_materialize(
-            provider,
-            source_id=source_id,
-            request_bbox=effective_request_bbox,
-            resolved_aoi=resolved_aoi,
-            target_dir=cache_bundle_dir,
-            target_crs=target_crs,
-        )
+        try:
+            materialized = self._provider_materialize(
+                provider,
+                source_id=source_id,
+                request_bbox=effective_request_bbox,
+                resolved_aoi=resolved_aoi,
+                target_dir=cache_bundle_dir,
+                target_crs=target_crs,
+            )
+        except Exception as exc:  # noqa: BLE001
+            raise ValueError(f"task-driven input materialization failed for {source_id}: {exc}") from exc
         bundle_bbox = materialized.bbox
         if bundle_bbox is None:
             bundle_bbox = bundle_bbox_from_zip(materialized.osm_zip_path)

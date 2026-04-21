@@ -42,6 +42,22 @@ def _seed_raw_source_tree(root: Path) -> None:
             crs="EPSG:4326",
         ),
     )
+    _write_frame(
+        root / "Data" / "burundi-260127-free.shp" / "gis_osm_water_a_free_1.shp",
+        gpd.GeoDataFrame(
+            {"water_id": [10]},
+            geometry=[Polygon([(1, 1), (1, 3), (3, 3), (3, 1)])],
+            crs="EPSG:4326",
+        ),
+    )
+    _write_frame(
+        root / "Data" / "water" / "local_water.shp",
+        gpd.GeoDataFrame(
+            {"local_id": [20]},
+            geometry=[Polygon([(2, 2), (2, 6), (6, 6), (6, 2)])],
+            crs="EPSG:4326",
+        ),
+    )
 
 
 def _resolved_nairobi_aoi() -> ResolvedAOI:
@@ -54,22 +70,6 @@ def _resolved_nairobi_aoi() -> ResolvedAOI:
         confidence=0.97,
         selection_reason="single_high_confidence_candidate",
         candidates=(),
-    )
-    _write_frame(
-        root / "Data" / "burundi-260127-free.shp" / "gis_osm_water_a_free_1.shp",
-        gpd.GeoDataFrame(
-            {"water_id": [10]},
-            geometry=[Polygon([(1, 1), (1, 2), (2, 2), (2, 1)])],
-            crs="EPSG:4326",
-        ),
-    )
-    _write_frame(
-        root / "Data" / "POI" / "sample_region" / "GNS.shp",
-        gpd.GeoDataFrame(
-            {"gns_id": [20]},
-            geometry=[Point(1.5, 1.5)],
-            crs="EPSG:4326",
-        ),
     )
 
 
@@ -243,3 +243,50 @@ def test_raw_vector_source_service_falls_back_to_source_asset_service_when_local
     assert resolved.source_mode == "downloaded"
     assert resolved.cache_hit is False
     assert _extract_bounds(resolved.zip_path) == pytest.approx([36.7, -1.4, 36.9, -1.2], abs=1e-3)
+
+
+def test_raw_vector_source_service_reuses_cached_water_source_and_clips_bbox(tmp_path: Path) -> None:
+    _seed_raw_source_tree(tmp_path)
+    registry = ArtifactRegistry(index_path=tmp_path / "artifact_registry.json")
+    service = RawVectorSourceService(root_dir=tmp_path, registry=registry, cache_dir=tmp_path / "cache")
+
+    initial = service.resolve(
+        source_id="raw.osm.water",
+        request_bbox=None,
+        target_path=tmp_path / "run1" / "water.zip",
+        target_crs="EPSG:4326",
+    )
+    reused = service.resolve(
+        source_id="raw.osm.water",
+        request_bbox=(1.25, 1.25, 2.75, 2.75),
+        target_path=tmp_path / "run2" / "water.zip",
+        target_crs="EPSG:4326",
+    )
+
+    assert initial.source_mode == "downloaded"
+    assert reused.source_mode == "clip_reused"
+    assert reused.cache_hit is True
+    assert reused.version_token == initial.version_token
+    assert _extract_bounds(reused.zip_path) == [1.25, 1.25, 2.75, 2.75]
+
+
+def test_raw_vector_source_service_materializes_local_water_source_with_stable_version_token(tmp_path: Path) -> None:
+    _seed_raw_source_tree(tmp_path)
+    registry = ArtifactRegistry(index_path=tmp_path / "artifact_registry.json")
+    service = RawVectorSourceService(root_dir=tmp_path, registry=registry, cache_dir=tmp_path / "cache")
+
+    version_a = service.current_version("raw.local.water")
+    version_b = service.current_version("raw.local.water")
+    resolved = service.resolve(
+        source_id="raw.local.water",
+        request_bbox=(2.5, 2.5, 5.5, 5.5),
+        target_path=tmp_path / "run" / "local_water.zip",
+        target_crs="EPSG:4326",
+    )
+
+    assert version_a == version_b
+    assert resolved.source_id == "raw.local.water"
+    assert resolved.source_mode == "downloaded"
+    assert resolved.cache_hit is False
+    assert resolved.version_token == version_a
+    assert _extract_bounds(resolved.zip_path) == [2.5, 2.5, 5.5, 5.5]

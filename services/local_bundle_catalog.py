@@ -76,7 +76,7 @@ class LocalBundleCatalogProvider:
                 resolved_aoi=resolved_aoi,
             )
             if (osm.feature_count or 0) == 0 or (ref.feature_count or 0) == 0:
-                raise ValueError(f"AOI-scoped building bundle has empty source coverage for {source_id}")
+                raise ValueError(f"AOI-scoped bundle has empty source coverage for {source_id}")
         else:
             ref = self._create_empty_reference_bundle(osm=osm, output_zip=target_dir / "ref.zip")
 

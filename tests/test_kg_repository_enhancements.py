@@ -29,7 +29,7 @@ def test_inmemory_repository_returns_ranked_data_sources() -> None:
     assert all("dt.building.bundle" in source.supported_types for source in sources)
 
 
-def test_inmemory_repository_returns_water_pattern_and_upload_bundle_source() -> None:
+def test_inmemory_repository_returns_water_pattern_and_task_driven_bundle_sources() -> None:
     repo = InMemoryKGRepository()
 
     patterns = repo.get_candidate_patterns(job_type=JobType.water, disaster_type="flood")
@@ -40,7 +40,11 @@ def test_inmemory_repository_returns_water_pattern_and_upload_bundle_source() ->
     )
 
     assert [pattern.pattern_id for pattern in patterns] == ["wp.flood.water.default"]
-    assert "upload.bundle" in {source.source_id for source in sources}
+    assert patterns[0].metadata["input_strategy"] == "task_driven_auto_supported"
+    assert patterns[0].metadata["source_family"] == "catalog_water_bundle"
+    source_ids = {source.source_id for source in sources}
+    assert "upload.bundle" in source_ids
+    assert "catalog.flood.water" in source_ids
 
 
 def test_execution_feedback_changes_pattern_ranking() -> None:
@@ -154,15 +158,24 @@ def test_repository_exposes_bundle_and_raw_sources_for_catalog_expansion() -> No
         required_type="dt.road.bundle",
         limit=8,
     )
+    water_bundle_sources = repo.get_candidate_data_sources(
+        job_type=JobType.water,
+        disaster_type="flood",
+        required_type="dt.water.bundle",
+        limit=8,
+    )
 
     bundle_ids = {source.source_id for source in bundle_sources}
     raw_ids = {source.source_id for source in raw_sources}
     road_bundle_ids = {source.source_id for source in road_bundle_sources}
+    water_bundle_ids = {source.source_id for source in water_bundle_sources}
 
     assert "catalog.flood.building" in bundle_ids
     assert "catalog.earthquake.building" in bundle_ids
     assert "catalog.flood.road" in road_bundle_ids
+    assert "catalog.flood.water" in water_bundle_ids
     assert "raw.osm.water" in raw_ids
+    assert "raw.local.water" in raw_ids
     assert "raw.osm.poi" in raw_ids
     assert "raw.microsoft.building" in raw_ids
     assert "raw.google.building" in raw_ids
@@ -170,6 +183,9 @@ def test_repository_exposes_bundle_and_raw_sources_for_catalog_expansion() -> No
     flood_bundle = next(source for source in bundle_sources if source.source_id == "catalog.flood.building")
     assert flood_bundle.metadata["component_source_ids"] == ["raw.osm.building", "raw.google.building"]
     assert flood_bundle.metadata["bundle_strategy"] == "osm_ref_pair"
+    water_bundle = next(source for source in water_bundle_sources if source.source_id == "catalog.flood.water")
+    assert water_bundle.metadata["component_source_ids"] == ["raw.osm.water", "raw.local.water"]
+    assert water_bundle.metadata["bundle_strategy"] == "osm_ref_pair"
 
 
 def test_inmemory_repository_persists_and_filters_durable_learning_records() -> None:

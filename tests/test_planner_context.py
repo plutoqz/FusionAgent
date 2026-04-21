@@ -131,23 +131,30 @@ def test_planner_context_exposes_water_metadata_and_builds_water_plan() -> None:
     provider = CapturingProvider()
     planner = WorkflowPlanner(InMemoryKGRepository(), provider)
     trigger = RunTrigger(
-        type=RunTriggerType.disaster_event,
-        content="flood water polygon fusion",
-        disaster_type="flood",
+        type=RunTriggerType.user_query,
+        content="need water polygons for Nairobi, Kenya",
     )
 
     plan = planner.create_plan(run_id="run-water-context", job_type=JobType.water, trigger=trigger)
 
     assert provider.last_context is not None
+    assert provider.last_context["intent"]["planning_mode"] == "task_driven"
+    assert provider.last_context["intent"]["profile_source"] == "direct_task"
     retrieval = provider.last_context["retrieval"]
     assert [item["pattern_id"] for item in retrieval["candidate_patterns"]] == ["wp.flood.water.default"]
+    assert retrieval["candidate_patterns"][0]["metadata"]["input_strategy"] == "task_driven_auto_supported"
+    assert retrieval["candidate_patterns"][0]["metadata"]["source_family"] == "catalog_water_bundle"
     assert any(item["type_id"] == "dt.water.bundle" for item in retrieval["data_types"])
     assert any(item["type_id"] == "dt.water.fused" for item in retrieval["data_types"])
     assert "algo.fusion.water.v1" in retrieval["algorithms"]
     assert "dt.water.fused" in retrieval["output_schema_policies"]
     assert retrieval["transform_paths"]["dt.water.bundle"] == []
+    water_source = next(item for item in retrieval["data_sources"] if item["source_id"] == "catalog.flood.water")
+    assert water_source["metadata"]["component_source_ids"] == ["raw.osm.water", "raw.local.water"]
+    assert water_source["metadata"]["provider_family"] == "local_bundle_catalog"
     assert plan.tasks[0].algorithm_id == "algo.fusion.water.v1"
     assert plan.tasks[0].input.data_type_id == "dt.water.bundle"
+    assert plan.tasks[0].input.data_source_id == "catalog.flood.water"
     assert plan.tasks[0].output.data_type_id == "dt.water.fused"
 
 

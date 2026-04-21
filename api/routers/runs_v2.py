@@ -89,8 +89,6 @@ async def create_run(
     debug: bool = Form(False),
     input_strategy: RunInputStrategy = Form(RunInputStrategy.uploaded),
 ) -> RunCreateResponse:
-    if job_type == JobType.water and input_strategy != RunInputStrategy.uploaded:
-        raise HTTPException(status_code=400, detail="water runs currently support uploaded input strategy only")
     if input_strategy == RunInputStrategy.uploaded:
         if osm_zip is None or ref_zip is None:
             raise HTTPException(status_code=400, detail="uploaded mode requires osm_zip and ref_zip")

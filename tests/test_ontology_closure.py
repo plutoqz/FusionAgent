@@ -61,4 +61,9 @@ def test_water_seed_records_exist() -> None:
     assert "task.water.fusion" in TASKS
     assert "algo.fusion.water.v1" in ALGORITHMS
     assert OUTPUT_SCHEMA_POLICIES["dt.water.fused"].policy_id == "osp.water.fused.v1"
-    assert any(pattern.job_type == JobType.water for pattern in WORKFLOW_PATTERNS)
+    water_pattern = next(pattern for pattern in WORKFLOW_PATTERNS if pattern.job_type == JobType.water)
+    assert water_pattern.metadata["input_strategy"] == "task_driven_auto_supported"
+    assert water_pattern.metadata["source_family"] == "catalog_water_bundle"
+    water_source = next(source for source in DATA_SOURCES if source.source_id == "catalog.flood.water")
+    assert water_source.supported_types == ["dt.water.bundle"]
+    assert water_source.metadata["component_source_ids"] == ["raw.osm.water", "raw.local.water"]
