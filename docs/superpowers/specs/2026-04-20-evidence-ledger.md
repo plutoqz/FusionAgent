@@ -80,6 +80,8 @@ Durability labels:
 | Clean micro alignment result | `docs/superpowers/specs/2026-04-16-building-micro-alignment-result.json` | Isolated runtime benchmark alignment | medium | Good historical evidence but should be normalized before final paper use |
 | Historical Google-backed building benchmark result | `docs/superpowers/specs/2026-04-08-building-real-benchmark-result.json` | Historical real-data pass with Google-backed reference | medium | Useful but depends on restored local `Data/` assets |
 | Benchmark follow-up summary | `docs/superpowers/specs/2026-04-08-benchmark-followup-summary.md` | Timeout correction and evidence discipline history | medium | Historical narrative evidence |
+| Phase G experiment matrix spec | `docs/superpowers/specs/2026-04-21-paper-experiment-matrix.json` | Frozen claim/baseline/case contract for paper evidence | strong | Source of truth for Phase G evidence curation |
+| Phase G paper evidence freeze | `docs/superpowers/specs/2026-04-21-paper-evidence-freeze.json`, `docs/superpowers/specs/2026-04-21-paper-evidence-freeze.md` | Paper-grade summary, failure analysis, and raw-artifact traceability notes | strong | Generated from tracked benchmark summaries plus qualitative Phase F references |
 
 ## Operator And Product Evidence
 
@@ -99,5 +101,4 @@ Durability labels:
 | Durable-learning policy-hint decision trace | D | Proves memory can influence future planning/policy without hidden auto-tuning |
 | Executable ontology closure tests for data types, step IO, sources, scenarios, and schema policy references | E | Bridges research ontology and runtime evidence |
 | One third vertical slice benchmark | F | Shows architecture can extend beyond current building/road center |
-| Final experiment matrix with frozen run artifacts | G | Produces paper-grade evidence |
 | Thin operator workflow smoke | H | Shows product-facing usability only after runtime evidence is stable |

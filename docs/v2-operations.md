@@ -80,6 +80,20 @@ Minimum evidence:
 - `base_url`, timeout, and key environment notes
 - when available, rely on `/api/v2/runtime` so harness summaries capture actual runtime metadata rather than only the shell that launched the harness
 
+### Phase G Evidence Freeze
+
+After benchmark reruns are curated, freeze the tracked paper evidence with:
+
+```powershell
+python scripts/freeze_paper_evidence.py `
+  --spec docs/superpowers/specs/2026-04-21-paper-experiment-matrix.json `
+  --output-json docs/superpowers/specs/2026-04-21-paper-evidence-freeze.json `
+  --output-markdown docs/superpowers/specs/2026-04-21-paper-evidence-freeze.md
+```
+
+Track the matrix spec and frozen outputs under `docs/superpowers/specs/`.
+Do not track raw `runs/<run_id>/` directories or source caches; record their storage location inside the frozen JSON instead.
+
 ## Timeout Guidance
 
 - `scripts/eval_harness.py` still defaults to `180` seconds
