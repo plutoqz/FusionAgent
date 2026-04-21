@@ -1,0 +1,208 @@
+from __future__ import annotations
+
+import json
+from pathlib import Path
+
+import pytest
+
+from scripts import freeze_paper_evidence
+
+
+def _write_json(path: Path, payload: dict) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def test_build_freeze_report_normalizes_harness_summary_and_renders_failure_rows(tmp_path: Path) -> None:
+    summary_path = tmp_path / "docs" / "superpowers" / "specs" / "building-real.json"
+    old_manifest = (
+        "C:/Users/QDX/.config/superpowers/worktrees/fusionAgent/old/"
+        "docs/superpowers/specs/2026-04-07-real-data-eval-manifest.json"
+    )
+    _write_json(
+        summary_path,
+        {
+            "generated_at": "2026-04-21T00:00:00Z",
+            "command_mode": "manifest",
+            "base_url": "http://127.0.0.1:8010",
+            "timeout_sec": 1200.0,
+            "commit_sha": "abc123",
+            "manifest": old_manifest,
+            "environment": {
+                "kg_backend": "neo4j",
+                "llm_provider": "openai",
+                "celery_eager": "0",
+            },
+            "cases": [
+                {
+                    "case_id": "building_real",
+                    "status": "passed",
+                    "run_id": "run-building-real",
+                    "timeout_sec": 1200.0,
+                    "evidence": {
+                        "planning_validity": True,
+                        "artifact_validity": True,
+                        "inspection_artifact_available": True,
+                        "inspection_download_path": "/api/v2/runs/run-building-real/artifact",
+                    },
+                }
+            ],
+        },
+    )
+    manifest_path = tmp_path / "docs" / "superpowers" / "specs" / "2026-04-07-real-data-eval-manifest.json"
+    _write_json(manifest_path, {"version": "test"})
+
+    spec_path = tmp_path / "docs" / "superpowers" / "specs" / "matrix.json"
+    _write_json(
+        spec_path,
+        {
+            "version": "2026-04-21",
+            "rows": [
+                {
+                    "row_id": "c1_building_real",
+                    "claim_ids": ["C1", "C2"],
+                    "baseline": "full_system",
+                    "dataset": "Gitega OSM vs Google buildings",
+                    "case_id": "building_real",
+                    "summary_json": "docs/superpowers/specs/building-real.json",
+                    "command": ["python", "scripts/eval_harness.py", "--case", "building_real"],
+                    "artifact_storage": "runs/run-building-real",
+                    "supports_metrics": ["execution_success_rate", "artifact_validity"],
+                },
+                {
+                    "row_id": "failure_alignment_drift",
+                    "claim_ids": ["C2-boundary"],
+                    "baseline": "historical_failure",
+                    "dataset": "Historical micro alignment drift",
+                    "case_id": "building_real",
+                    "summary_json": "docs/superpowers/specs/building-real.json",
+                    "command": ["historical", "reference"],
+                    "artifact_storage": "api-only run",
+                    "supports_metrics": ["execution_success_rate"],
+                    "expected_status": "failed",
+                    "analysis": "Historical runtime alignment drift should stay visible.",
+                },
+            ],
+            "qualitative_evidence": [
+                {
+                    "evidence_id": "c7_water_uploaded_vertical_slice",
+                    "claim_ids": ["C7"],
+                    "paths": ["docs/superpowers/plans/2026-04-20-water-vertical-slice.md"],
+                    "summary": "Uploaded-only water slice proves bounded extensibility.",
+                }
+            ],
+        },
+    )
+
+    report = freeze_paper_evidence.build_freeze_report(repo_root=tmp_path, spec_path=spec_path)
+    markdown = freeze_paper_evidence.render_markdown(report)
+
+    assert report["rows"][0]["manifest"] == "docs/superpowers/specs/2026-04-07-real-data-eval-manifest.json"
+    assert report["rows"][0]["raw_artifacts"]["run_json"] == "runs/run-building-real/run.json"
+    assert report["rows"][0]["metrics"]["artifact_validity"] == "pass"
+    assert report["failure_rows"][0]["row_id"] == "failure_alignment_drift"
+    assert report["qualitative_evidence"][0]["evidence_id"] == "c7_water_uploaded_vertical_slice"
+    assert "Historical runtime alignment drift" in markdown
+
+
+def test_build_freeze_report_supports_single_case_durable_result_json(tmp_path: Path) -> None:
+    summary_path = tmp_path / "docs" / "superpowers" / "specs" / "micro-msft.json"
+    _write_json(
+        summary_path,
+        {
+            "case_id": "building_msft",
+            "case_name": "Fresh-checkout reproducibility micro benchmark",
+            "status": "passed",
+            "run_id": "run-msft",
+            "duration_ms": 207420,
+            "artifact_size_bytes": 4399017,
+            "runner": {
+                "base_url": "http://127.0.0.1:8010",
+                "timeout_seconds": 180,
+            },
+            "environment": {
+                "kg_backend": "neo4j",
+                "llm_provider": "openai",
+                "celery_eager": 0,
+            },
+            "inputs": {
+                "bbox": [29.817351, -3.646572, 29.931113, -3.412421],
+                "source_ids": ["raw.osm.building", "raw.microsoft.building"],
+            },
+            "evidence_origin": {
+                "output_json": "tmp/eval/fresh-checkout-micro-msft.json",
+                "manifest": "docs/superpowers/specs/2026-04-07-real-data-eval-manifest.json",
+                "generated_at": "2026-04-16",
+            },
+            "notes": [
+                "This evidence captures the bounded fresh-checkout reproducibility path.",
+            ],
+        },
+    )
+
+    spec_path = tmp_path / "docs" / "superpowers" / "specs" / "matrix.json"
+    _write_json(
+        spec_path,
+        {
+            "version": "2026-04-21",
+            "rows": [
+                {
+                    "row_id": "c5_building_msft_manual_baseline_contrast",
+                    "claim_ids": ["C5"],
+                    "baseline": "manual_input_baseline",
+                    "dataset": "Gitega micro building OSM vs Microsoft",
+                    "case_id": "building_msft",
+                    "summary_json": "docs/superpowers/specs/micro-msft.json",
+                    "command": ["python", "scripts/eval_harness.py", "--case", "building_msft"],
+                    "artifact_storage": "runs/run-msft",
+                    "reproducibility": "tracked_source_ids",
+                    "supports_metrics": [
+                        "execution_success_rate",
+                        "artifact_validity",
+                        "evidence_completeness_rate",
+                        "reproducibility_status",
+                    ],
+                }
+            ],
+        },
+    )
+
+    report = freeze_paper_evidence.build_freeze_report(repo_root=tmp_path, spec_path=spec_path)
+    row = report["rows"][0]
+
+    assert row["case_name"] == "Fresh-checkout reproducibility micro benchmark"
+    assert row["manifest"] == "docs/superpowers/specs/2026-04-07-real-data-eval-manifest.json"
+    assert row["base_url"] == "http://127.0.0.1:8010"
+    assert row["timeout_sec"] == 180
+    assert row["metrics"]["artifact_validity"] == "pass"
+    assert row["metrics"]["reproducibility_status"] == "tracked_source_ids"
+    assert row["evidence"]["artifact_validity"] is True
+    assert row["raw_artifacts"]["artifact_bundle"] == "runs/run-msft"
+
+
+def test_build_freeze_report_rejects_missing_case_id(tmp_path: Path) -> None:
+    summary_path = tmp_path / "docs" / "superpowers" / "specs" / "building-real.json"
+    _write_json(summary_path, {"generated_at": "2026-04-21T00:00:00Z", "cases": []})
+    spec_path = tmp_path / "docs" / "superpowers" / "specs" / "matrix.json"
+    _write_json(
+        spec_path,
+        {
+            "version": "2026-04-21",
+            "rows": [
+                {
+                    "row_id": "missing_case_row",
+                    "claim_ids": ["C1"],
+                    "baseline": "full_system",
+                    "dataset": "broken",
+                    "case_id": "missing_case",
+                    "summary_json": "docs/superpowers/specs/building-real.json",
+                    "command": ["python", "scripts/eval_harness.py"],
+                    "artifact_storage": "runs/missing-case",
+                    "supports_metrics": ["execution_success_rate"],
+                }
+            ],
+        },
+    )
+
+    with pytest.raises(ValueError, match="Case 'missing_case' not found"):
+        freeze_paper_evidence.build_freeze_report(repo_root=tmp_path, spec_path=spec_path)
