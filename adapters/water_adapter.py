@@ -127,7 +127,7 @@ def _fuse_water(
     overlap_threshold: float,
 ) -> gpd.GeoDataFrame:
     rows: List[Dict[str, object]] = []
-    matched_ref_ids: set[int] = set()
+    matched_ref_positions: set[int] = set()
     ref_sindex = ref_data.sindex if not ref_data.empty else None
 
     for _, osm_row in osm_data.iterrows():
@@ -143,12 +143,11 @@ def _fuse_water(
                 overlap_ratio = float(osm_geom.intersection(ref_row.geometry).area / osm_area)
                 if overlap_ratio >= overlap_threshold:
                     matches.append((int(ref_row["REF_ID"]), overlap_ratio))
+                    matched_ref_positions.add(int(ref_pos))
 
         matches.sort(key=lambda item: (-item[1], item[0]))
         best_ref_id = matches[0][0] if matches else 0
         best_overlap = matches[0][1] if matches else 0.0
-        for ref_id, _ in matches:
-            matched_ref_ids.add(ref_id)
 
         rows.append(
             _output_row(
@@ -165,10 +164,10 @@ def _fuse_water(
             )
         )
 
-    for _, ref_row in ref_data.iterrows():
-        ref_id = int(ref_row["REF_ID"])
-        if ref_id in matched_ref_ids:
+    for ref_pos, (_, ref_row) in enumerate(ref_data.iterrows()):
+        if ref_pos in matched_ref_positions:
             continue
+        ref_id = int(ref_row["REF_ID"])
         rows.append(
             _output_row(
                 osm_id=0,
