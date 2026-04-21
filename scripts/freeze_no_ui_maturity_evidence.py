@@ -8,7 +8,6 @@ from typing import Any
 
 
 def freeze_no_ui_maturity_evidence(
-    *,
     target_path: Path,
     gap_ledger_path: Path,
     paper_evidence_path: Path,
