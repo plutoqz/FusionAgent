@@ -98,6 +98,24 @@ python scripts/scenario_eval_harness.py `
 
 The checked-in scenario regression set now validates capability evidence in addition to the top-level phase. Building, road, and mixed execution cases require execution-level evidence such as `task_inputs_resolved`, `source_coverage`, and a minimum successful child-run count; water and bounded-POI cases currently use planner-level capability checks such as `aoi_resolved`, `kg_path_selected`, and `plan_validated` when local raw source materialization is not yet stable in the default fast-mode environment.
 
+Task 5 live scenario harness deferral record:
+
+- Date: 2026-04-21
+- Command:
+
+```powershell
+python scripts/scenario_eval_harness.py `
+  --manifest docs/superpowers/specs/2026-04-21-scenario-eval-manifest.json `
+  --base-url http://127.0.0.1:8000 `
+  --output-root E:\fyx\data\fusionagentTEST `
+  --output-json tmp/eval/scenario-harness-summary.json `
+  --timeout 1200
+```
+
+- Deferred reason: `http://127.0.0.1:8000/api/v2/runtime` returned connection refused; local API was unavailable.
+- This deferral is not counted as a passing live scenario harness result.
+- Water and bounded-POI scenario capability checks were not upgraded to execution-level claims.
+
 ### Tier 3: Real-Data Benchmark
 
 Use this only when you need durable research evidence.

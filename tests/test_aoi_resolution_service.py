@@ -46,23 +46,27 @@ def test_aoi_resolution_service_selects_nairobi_when_query_mentions_kenya() -> N
 
 
 def test_aoi_resolution_service_supports_deterministic_fake_geocoder_maturity_path() -> None:
-    service = AOIResolutionService(
-        geocoder=FakeGeocoder(
-            [
-                {
-                    "display_name": "Nairobi, Kenya",
-                    "boundingbox": ["-1.45", "-1.15", "36.65", "37.05"],
-                    "address": {"country": "Kenya", "country_code": "ke", "city": "Nairobi"},
-                    "importance": 0.91,
-                }
-            ]
-        )
+    geocoder = FakeGeocoder(
+        [
+            {
+                "display_name": "Nairobi, Kenya",
+                "boundingbox": ["-1.45", "-1.15", "36.65", "37.05"],
+                "address": {"country": "Kenya", "country_code": "ke", "city": "Nairobi"},
+                "importance": 0.91,
+            }
+        ]
     )
+    service = AOIResolutionService(geocoder=geocoder)
 
     resolved = service.resolve("need building data for Nairobi, Kenya")
 
+    assert geocoder.queries == ["Nairobi, Kenya"]
+    assert resolved.display_name == "Nairobi, Kenya"
+    assert resolved.country_name == "Kenya"
     assert resolved.country_code == "ke"
-    assert resolved.selection_reason in {"single_candidate", "top_confidence_margin"}
+    assert resolved.bbox == (36.65, -1.45, 37.05, -1.15)
+    assert resolved.selection_reason == "single_candidate"
+    assert resolved.confidence == pytest.approx(0.91)
 
 
 def test_aoi_resolution_service_rejects_ambiguous_place_names() -> None:
