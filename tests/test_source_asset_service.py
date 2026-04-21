@@ -230,7 +230,7 @@ def test_source_asset_service_water_prefers_local_source_and_clips_request_bbox(
     assert len(frame) == 1
 
 
-def test_source_asset_service_water_empty_local_clip_does_not_fallback_to_remote(
+def test_source_asset_service_water_empty_local_clip_falls_back_to_geofabrik_asset(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
@@ -243,21 +243,37 @@ def test_source_asset_service_water_empty_local_clip_does_not_fallback_to_remote
             crs="EPSG:4326",
         ),
     )
-    service = SourceAssetService(repo_root=tmp_path, cache_dir=tmp_path / "cache")
-    monkeypatch.setattr(
-        service,
-        "_download_file",
-        lambda *_args, **_kwargs: pytest.fail("raw.osm.water should not download remote assets when local data exists"),
+    archive_path = tmp_path / "fixtures" / "burundi-latest-free.shp.zip"
+    waters = geopandas.GeoDataFrame(
+        {"water_id": [99]},
+        geometry=[Polygon([(10.0, 10.0), (10.0, 11.0), (11.0, 11.0), (11.0, 10.0)])],
+        crs="EPSG:4326",
     )
+    _write_geofabrik_zip_with_layers(archive_path, waters=waters)
+
+    service = SourceAssetService(
+        repo_root=tmp_path,
+        cache_dir=tmp_path / "cache",
+        geofabrik_burundi_url=archive_path.resolve().as_uri(),
+    )
+    download_calls: list[str] = []
+    original_download = service._download_file
+
+    def tracked_download(url: str, target_path: Path) -> None:
+        download_calls.append(url)
+        original_download(url, target_path)
+
+    monkeypatch.setattr(service, "_download_file", tracked_download)
 
     resolved = service.resolve_raw_source_path("raw.osm.water", request_bbox=(10.0, 10.0, 11.0, 11.0))
     frame = geopandas.read_file(resolved.path)
 
-    assert resolved.source_mode == "coverage_empty"
+    assert resolved.source_mode == "asset_downloaded"
     assert resolved.cache_hit is False
-    assert resolved.feature_count == 0
-    assert resolved.bbox is None
-    assert len(frame) == 0
+    assert resolved.feature_count == 1
+    assert resolved.bbox == pytest.approx((10.0, 10.0, 11.0, 11.0))
+    assert len(frame) == 1
+    assert download_calls == [archive_path.resolve().as_uri()]
 
 
 def test_source_asset_service_skips_incomplete_local_shapefile_and_uses_remote_asset(

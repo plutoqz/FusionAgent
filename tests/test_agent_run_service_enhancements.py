@@ -26,6 +26,10 @@ from schemas.fusion import JobType
 from services.artifact_registry import ArtifactRecord
 from services.agent_run_service import AgentRunService
 from services.aoi_resolution_service import ResolvedAOI
+from services.input_acquisition_service import InputAcquisitionService
+from services.local_bundle_catalog import LocalBundleCatalogProvider
+from services.raw_vector_source_service import RawVectorSourceService
+from services.source_asset_service import SourceAssetResolution
 from services.input_acquisition_service import ResolvedRunInputs
 
 
@@ -48,6 +52,11 @@ def _write_polygon_bundle_zip(path: Path, geometries: list, *, crs: str = "EPSG:
             if file.is_file():
                 zf.write(file, arcname=file.name)
     return path
+
+
+def _write_frame(path: Path, frame: gpd.GeoDataFrame) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    frame.to_file(path)
 
 
 def _iso_now_minus(*, days: int = 0, hours: int = 0) -> str:
@@ -145,6 +154,50 @@ def _build_water_task_driven_plan(*, workflow_id: str = "wf_water_auto_inputs", 
     return plan
 
 
+def _seed_water_runtime_tree(root: Path) -> None:
+    _write_frame(
+        root / "Data" / "burundi-260127-free.shp" / "gis_osm_water_a_free_1.shp",
+        gpd.GeoDataFrame(
+            {"osmw_id": [1]},
+            geometry=[box(0.0, 0.0, 2.0, 2.0)],
+            crs="EPSG:4326",
+        ),
+    )
+    _write_frame(
+        root / "Data" / "water" / "local_water.shp",
+        gpd.GeoDataFrame(
+            {"locw_id": [2]},
+            geometry=[box(0.5, 0.5, 1.5, 1.5)],
+            crs="EPSG:4326",
+        ),
+    )
+
+
+def _wire_real_water_acquisition_chain(
+    service: AgentRunService,
+    *,
+    root_dir: Path,
+    source_asset_service=None,
+) -> None:
+    raw_service = RawVectorSourceService(
+        root_dir=root_dir,
+        registry=service.artifact_registry,
+        cache_dir=service.base_dir / "raw_source_cache",
+        source_asset_service=source_asset_service,
+    )
+    service.raw_vector_source_service = raw_service
+    service.input_acquisition_service = InputAcquisitionService(
+        registry=service.artifact_registry,
+        providers=[
+            LocalBundleCatalogProvider(
+                root_dir,
+                raw_source_service=raw_service,
+            )
+        ],
+        cache_dir=service.base_dir / "input_bundle_cache",
+    )
+
+
 def test_agent_run_service_allows_water_task_driven_auto_and_records_task_inputs_resolved(
     tmp_path: Path,
     monkeypatch,
@@ -199,6 +252,158 @@ def test_agent_run_service_allows_water_task_driven_auto_and_records_task_inputs
     assert latest is not None
     assert latest.phase == RunPhase.succeeded
     assert any(event.kind == "task_inputs_resolved" for event in service.get_audit_events(status.run_id))
+
+
+def test_agent_run_service_water_task_driven_auto_uses_real_shared_acquisition_chain(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    root_dir = tmp_path / "runtime_root"
+    _seed_water_runtime_tree(root_dir)
+
+    service = AgentRunService(base_dir=tmp_path / "runs")
+    _wire_real_water_acquisition_chain(service, root_dir=root_dir)
+
+    fused_shp = tmp_path / "fused_water_real.shp"
+    _write_frame(
+        fused_shp,
+        gpd.GeoDataFrame(
+            {"fid": [1]},
+            geometry=[box(0.25, 0.25, 1.75, 1.75)],
+            crs="EPSG:4326",
+        ),
+    )
+
+    plan = _build_water_task_driven_plan(workflow_id="wf_water_real_chain")
+    plan.trigger = RunTrigger(
+        type=RunTriggerType.user_query,
+        content="need water polygons",
+        spatial_extent="bbox(0.25,0.25,1.75,1.75)",
+    )
+
+    captured: dict[str, object] = {}
+
+    monkeypatch.setattr(service.planner, "create_plan", lambda **_kwargs: plan.model_copy(deep=True))
+    monkeypatch.setattr(service.validator, "validate_and_repair", lambda input_plan: input_plan)
+
+    def fake_execute_plan(*, context, **_kwargs):
+        captured["osm_shp"] = context.osm_shp
+        captured["ref_shp"] = context.ref_shp
+        captured["osm_frame"] = gpd.read_file(context.osm_shp)
+        captured["ref_frame"] = gpd.read_file(context.ref_shp)
+        return fused_shp
+
+    monkeypatch.setattr(service.executor, "execute_plan", fake_execute_plan)
+
+    status = service.create_run(
+        request=_build_auto_request(
+            spatial_extent="bbox(0.25,0.25,1.75,1.75)",
+            job_type=JobType.water,
+            content="need water polygons",
+        ),
+        osm_zip_name=None,
+        osm_zip_bytes=None,
+        ref_zip_name=None,
+        ref_zip_bytes=None,
+    )
+
+    latest = service.get_run(status.run_id)
+    assert latest is not None
+    assert latest.phase == RunPhase.succeeded
+    assert Path(captured["osm_shp"]).exists()
+    assert Path(captured["ref_shp"]).exists()
+    assert list(captured["osm_frame"].columns)[:1] == ["osmw_id"]
+    assert list(captured["ref_frame"].columns)[:1] == ["locw_id"]
+    assert str(captured["osm_frame"].crs) == "EPSG:32643"
+    assert str(captured["ref_frame"].crs) == "EPSG:32643"
+    expected_osm_bounds = (
+        gpd.GeoSeries([box(0.25, 0.25, 1.75, 1.75)], crs="EPSG:4326").to_crs("EPSG:32643").total_bounds.tolist()
+    )
+    expected_ref_bounds = (
+        gpd.GeoSeries([box(0.5, 0.5, 1.5, 1.5)], crs="EPSG:4326").to_crs("EPSG:32643").total_bounds.tolist()
+    )
+    assert captured["osm_frame"].total_bounds.tolist() == pytest.approx(expected_osm_bounds)
+    assert captured["ref_frame"].total_bounds.tolist() == pytest.approx(expected_ref_bounds)
+
+    audit_events = service.get_audit_events(status.run_id)
+    resolved_event = next(event for event in audit_events if event.kind == "task_inputs_resolved")
+    assert resolved_event.details["source_id"] == "catalog.flood.water"
+    assert resolved_event.details["source_mode"] == "downloaded"
+    assert resolved_event.details["cache_hit"] is False
+
+
+def test_agent_run_service_water_task_driven_auto_fails_at_materialization_time_when_bundle_is_empty(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    root_dir = tmp_path / "runtime_root_empty"
+    root_dir.mkdir(parents=True, exist_ok=True)
+
+    empty_osm = root_dir / "empty_osm.shp"
+    empty_ref = root_dir / "empty_ref.shp"
+    empty_frame = gpd.GeoDataFrame({"wid": []}, geometry=[], crs="EPSG:4326")
+    _write_frame(empty_osm, empty_frame)
+    _write_frame(empty_ref, empty_frame)
+
+    class _EmptyWaterSourceAssetService:
+        def can_materialize(self, source_id: str) -> bool:
+            return source_id in {"raw.osm.water", "raw.local.water"}
+
+        def resolve_raw_source_path(self, source_id: str, *, request_bbox=None, aoi=None):
+            path = empty_osm if source_id == "raw.osm.water" else empty_ref
+            return SourceAssetResolution(
+                source_id=source_id,
+                path=path,
+                source_mode="coverage_empty",
+                cache_hit=True,
+                version_token=f"empty:{source_id}",
+                bbox=None,
+                feature_count=0,
+            )
+
+    service = AgentRunService(base_dir=tmp_path / "runs")
+    _wire_real_water_acquisition_chain(
+        service,
+        root_dir=root_dir,
+        source_asset_service=_EmptyWaterSourceAssetService(),
+    )
+
+    plan = _build_water_task_driven_plan(workflow_id="wf_water_materialization_failure")
+    plan.trigger = RunTrigger(
+        type=RunTriggerType.user_query,
+        content="need water polygons",
+        spatial_extent="bbox(10,10,11,11)",
+    )
+
+    monkeypatch.setattr(service.planner, "create_plan", lambda **_kwargs: plan.model_copy(deep=True))
+    monkeypatch.setattr(service.validator, "validate_and_repair", lambda input_plan: input_plan)
+    monkeypatch.setattr(
+        service.executor,
+        "execute_plan",
+        lambda **_kwargs: pytest.fail("execution should not run when water bundle materialization fails"),
+    )
+
+    status = service.create_run(
+        request=_build_auto_request(
+            spatial_extent="bbox(10,10,11,11)",
+            job_type=JobType.water,
+            content="need water polygons",
+        ),
+        osm_zip_name=None,
+        osm_zip_bytes=None,
+        ref_zip_name=None,
+        ref_zip_bytes=None,
+    )
+
+    latest = service.get_run(status.run_id)
+    assert latest is not None
+    assert latest.phase == RunPhase.failed
+    assert latest.error is not None
+    assert "task-driven input materialization failed for catalog.flood.water" in latest.error
+    assert "catalog.flood.water" in (latest.failure_summary or "")
+    audit_events = service.get_audit_events(status.run_id)
+    assert not any(event.kind == "task_inputs_resolved" for event in audit_events)
+    assert audit_events[-1].kind == "run_failed"
 
 
 def _resolved_nairobi_aoi() -> ResolvedAOI:

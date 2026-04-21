@@ -54,7 +54,7 @@ def _seed_local_catalog_tree(root: Path) -> None:
     _write_frame(
         root / "Data" / "burundi-260127-free.shp" / "gis_osm_water_a_free_1.shp",
         geopandas.GeoDataFrame(
-            {"osm_water_id": [301]},
+            {"osmw_id": [301]},
             geometry=[Polygon([(0, 0), (0, 2), (2, 2), (2, 0)])],
             crs="EPSG:4326",
         ),
@@ -62,7 +62,7 @@ def _seed_local_catalog_tree(root: Path) -> None:
     _write_frame(
         root / "Data" / "water" / "local_water.shp",
         geopandas.GeoDataFrame(
-            {"local_water_id": [401]},
+            {"locw_id": [401]},
             geometry=[Polygon([(0.5, 0.5), (0.5, 1.5), (1.5, 1.5), (1.5, 0.5)])],
             crs="EPSG:4326",
         ),
@@ -150,18 +150,23 @@ def test_local_bundle_catalog_materializes_flood_water_bundle_from_shared_provid
     assert provider.can_handle("catalog.flood.water")
     assert materialized.osm_zip_path.name == "osm.zip"
     assert materialized.ref_zip_path.name == "ref.zip"
-    assert "osm_water_" in "".join(_read_columns(materialized.osm_zip_path))
-    assert "local_wat" in "".join(_read_columns(materialized.ref_zip_path))
+    assert "osmw_id" in _read_columns(materialized.osm_zip_path)
+    assert "locw_id" in _read_columns(materialized.ref_zip_path)
 
 
 def test_local_bundle_catalog_water_bundle_raises_when_aoi_has_empty_component_coverage(tmp_path: Path) -> None:
     _seed_local_catalog_tree(tmp_path)
+    class _NoFallbackSourceAssetService:
+        def can_materialize(self, _source_id: str) -> bool:
+            return False
+
     provider = LocalBundleCatalogProvider(
         tmp_path,
         raw_source_service=RawVectorSourceService(
             root_dir=tmp_path,
             registry=ArtifactRegistry(index_path=tmp_path / "artifact_registry.json"),
             cache_dir=tmp_path / "raw-cache",
+            source_asset_service=_NoFallbackSourceAssetService(),
         ),
     )
 
