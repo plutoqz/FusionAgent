@@ -1,0 +1,148 @@
+from pathlib import Path
+
+from scripts.run_no_ui_maturity_check import (
+    build_summary,
+    collect_readme_stale_wording_status,
+    collect_static_maturity_status,
+)
+
+
+def test_collect_static_maturity_status_reports_required_docs(tmp_path: Path) -> None:
+    required = tmp_path / "target.md"
+    required.write_text("ok", encoding="utf-8")
+
+    status = collect_static_maturity_status([required])
+
+    assert status["required_files"][str(required)] is True
+
+
+def test_collect_static_maturity_status_reports_missing_required_docs(
+    tmp_path: Path,
+) -> None:
+    required = tmp_path / "missing-target.md"
+
+    status = collect_static_maturity_status([required])
+
+    assert status["required_files"][str(required)] is False
+
+
+def test_readme_stale_wording_detects_only_a_prototype(
+    tmp_path: Path,
+) -> None:
+    readme = tmp_path / "README.md"
+    readme.write_text("This project is only a prototype for now.", encoding="utf-8")
+
+    status = collect_readme_stale_wording_status([readme])
+
+    assert status["stale_readme_phrases"][str(readme)] == ["only a prototype"]
+
+
+def test_readme_stale_wording_is_pending_without_maturity_markers(
+    tmp_path: Path,
+) -> None:
+    readme = tmp_path / "README.md"
+    readme.write_text("This project is prototype only for now.", encoding="utf-8")
+
+    status = collect_readme_stale_wording_status([readme])
+
+    assert status["readme_wording_passed"] is True
+    assert status["readme_repositioning_status"] == "pending"
+    assert status["readme_repositioning_complete"] is False
+    assert status["stale_readme_phrases"][str(readme)] == ["prototype only"]
+
+
+def test_readme_stale_wording_fails_when_maturity_markers_exist(
+    tmp_path: Path,
+) -> None:
+    readme = tmp_path / "README.en.md"
+    readme.write_text(
+        "Mature no-UI vector data fusion agent: reached.\n"
+        "This project is prototype only for now.",
+        encoding="utf-8",
+    )
+
+    status = collect_readme_stale_wording_status([readme])
+
+    assert status["readme_wording_passed"] is False
+    assert status["readme_repositioning_status"] == "enforced"
+    assert status["readme_repositioning_complete"] is True
+    assert status["stale_readme_phrases"][str(readme)] == ["prototype only"]
+
+
+def test_build_summary_marks_pending_readme_without_failing_static_check(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    present = tmp_path / "present.md"
+    readme = tmp_path / "README.md"
+    present.write_text("ok", encoding="utf-8")
+    readme.write_text("This project is prototype only for now.", encoding="utf-8")
+    monkeypatch.setattr(
+        "scripts.run_no_ui_maturity_check.DEFAULT_REQUIRED_FILES",
+        [present],
+    )
+    monkeypatch.setattr("scripts.run_no_ui_maturity_check.README_FILES", [readme])
+
+    summary = build_summary(run_tests=False)
+
+    assert summary["passed"] is True
+    assert summary["static_check_passed"] is True
+    assert summary["maturity_gate_passed"] is False
+    assert summary["static"]["readme_repositioning_status"] == "pending"
+    assert summary["static"]["readme_repositioning_complete"] is False
+
+
+def test_build_summary_can_require_readme_repositioning(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    present = tmp_path / "present.md"
+    readme = tmp_path / "README.md"
+    present.write_text("ok", encoding="utf-8")
+    readme.write_text("This project is prototype only for now.", encoding="utf-8")
+    monkeypatch.setattr(
+        "scripts.run_no_ui_maturity_check.DEFAULT_REQUIRED_FILES",
+        [present],
+    )
+    monkeypatch.setattr("scripts.run_no_ui_maturity_check.README_FILES", [readme])
+
+    summary = build_summary(run_tests=False, require_readme_repositioning=True)
+
+    assert summary["passed"] is False
+    assert summary["readme_repositioning_required"] is True
+    assert summary["static_check_passed"] is True
+    assert summary["maturity_gate_passed"] is False
+
+
+def test_build_summary_aggregates_static_readme_and_skipped_tests(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    present = tmp_path / "present.md"
+    missing = tmp_path / "missing.md"
+    readme = tmp_path / "README.md"
+    present.write_text("ok", encoding="utf-8")
+    readme.write_text(
+        "No-UI mature vector data fusion agent: achieved.\n"
+        "This project is only a prototype for now.",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        "scripts.run_no_ui_maturity_check.DEFAULT_REQUIRED_FILES",
+        [present, missing],
+    )
+    monkeypatch.setattr("scripts.run_no_ui_maturity_check.README_FILES", [readme])
+
+    summary = build_summary(run_tests=False)
+
+    assert summary["passed"] is False
+    assert summary["static_check_passed"] is False
+    assert summary["maturity_gate_passed"] is False
+    assert summary["static"]["required_files"][str(present)] is True
+    assert summary["static"]["required_files"][str(missing)] is False
+    assert summary["static"]["required_files_passed"] is False
+    assert summary["static"]["readme_wording_passed"] is False
+    assert summary["static"]["stale_readme_phrases"][str(readme)] == [
+        "only a prototype"
+    ]
+    assert summary["tests"] == {"skipped": True}
