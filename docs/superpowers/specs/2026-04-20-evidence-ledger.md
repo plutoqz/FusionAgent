@@ -110,10 +110,4 @@ The runtime wording is now frozen as:
 
 | Missing Evidence | Phase | Why It Is Needed |
 | --- | --- | --- |
-| Evaluation contract mapping thesis claims to metrics and baselines | B | Prevents future implementation from drifting away from provable claims |
-| Replan-loop failure injection evidence with preserved plan revisions and downstream reacquisition | closed in frozen matrix | Promoted into `c3_replan_fault_recovery`; keep frozen outputs and source docs synchronized |
-| Durable-learning policy-hint decision trace | closed in frozen matrix | Promoted into `c4_learning_hints_pattern_selection`; keep frozen outputs and source docs synchronized |
 | Executable ontology closure tests for data types, step IO, sources, scenarios, and schema policy references | E | Bridges research ontology and runtime evidence |
-| One third vertical slice benchmark | closed by water slice | Water already proved the third slice beyond building/road |
-| One fourth bounded vertical slice benchmark | F.1 | Shows the shared runtime can absorb another bounded theme without introducing a POI-only orchestration path |
-| Thin operator workflow smoke | H | Shows product-facing usability only after runtime evidence is stable |
