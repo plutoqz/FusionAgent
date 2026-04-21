@@ -23,6 +23,7 @@ DEFAULT_REQUIRED_FILES = [
     REPO_ROOT / "docs/superpowers/specs/2026-04-21-scenario-evidence-freeze.md",
     REPO_ROOT / "docs/superpowers/specs/2026-04-21-no-ui-maturity-evidence-freeze.json",
     REPO_ROOT / "docs/superpowers/specs/2026-04-21-no-ui-maturity-evidence-freeze.md",
+    REPO_ROOT / "docs/superpowers/specs/2026-04-21-operator-read-model-contract.md",
     REPO_ROOT / "docs/no-ui-agent-operations.md",
 ]
 
@@ -38,6 +39,11 @@ STALE_README_PHRASES = [
     "仅原型",
     "只是原型",
     "仅仅是原型",
+]
+
+STALE_README_CONTEXT_PATTERNS = [
+    ("agent prototype opening", ["agent prototype"]),
+    ("agent prototype opening", ["智能体原型"]),
 ]
 
 README_MATURITY_MARKERS = [
@@ -70,6 +76,9 @@ def collect_readme_stale_wording_status(readme_files: list[Path]) -> dict[str, A
             for phrase in STALE_README_PHRASES
             if phrase.lower() in normalized_text
         ]
+        for label, patterns in STALE_README_CONTEXT_PATTERNS:
+            if any(pattern.lower() in normalized_text for pattern in patterns):
+                found.append(label)
         markers = [
             marker
             for marker in README_MATURITY_MARKERS

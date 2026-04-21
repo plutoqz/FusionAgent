@@ -7,6 +7,12 @@ from pathlib import Path
 from typing import Any
 
 
+REPO_ROOT = Path(__file__).resolve().parents[1]
+DEFAULT_OPERATOR_CONTRACT_PATH = (
+    REPO_ROOT / "docs/superpowers/specs/2026-04-21-operator-read-model-contract.md"
+)
+
+
 def freeze_no_ui_maturity_evidence(
     target_path: Path,
     gap_ledger_path: Path,
@@ -14,11 +20,15 @@ def freeze_no_ui_maturity_evidence(
     scenario_evidence_path: Path,
     output_json: Path,
     output_markdown: Path,
+    operator_contract_path: Path | None = None,
 ) -> dict[str, Any]:
     target_path = Path(target_path)
     gap_ledger_path = Path(gap_ledger_path)
     paper_evidence_path = Path(paper_evidence_path)
     scenario_evidence_path = Path(scenario_evidence_path)
+    operator_contract_path = Path(
+        operator_contract_path or DEFAULT_OPERATOR_CONTRACT_PATH
+    )
     paper_summary = _load_companion_json(paper_evidence_path)
     scenario_summary = _load_companion_json(scenario_evidence_path)
 
@@ -27,6 +37,7 @@ def freeze_no_ui_maturity_evidence(
         "gap_ledger_present": gap_ledger_path.exists(),
         "paper_evidence_present": paper_evidence_path.exists(),
         "scenario_evidence_present": scenario_evidence_path.exists(),
+        "operator_contract_present": operator_contract_path.exists(),
     }
     gates = _build_gates(
         source_presence=source_presence,
@@ -42,6 +53,7 @@ def freeze_no_ui_maturity_evidence(
             "gap_ledger": _source_record(gap_ledger_path),
             "paper_evidence": _source_record(paper_evidence_path),
             "scenario_evidence": _source_record(scenario_evidence_path),
+            "operator_contract": _source_record(operator_contract_path),
         },
         "paper_blocking_rows": gates["paper_evidence_no_open_blockers"]["blocking_rows"],
         "remaining_boundaries": _remaining_boundaries(
@@ -68,8 +80,12 @@ def _load_companion_json(markdown_path: Path) -> dict[str, Any] | None:
 
 
 def _source_record(path: Path) -> dict[str, Any]:
+    try:
+        display_path = path.resolve().relative_to(REPO_ROOT).as_posix()
+    except ValueError:
+        display_path = path.as_posix()
     return {
-        "path": path.as_posix(),
+        "path": display_path,
         "present": path.exists(),
     }
 
@@ -242,6 +258,11 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--gap-ledger", required=True, help="No-UI maturity gap ledger Markdown path.")
     parser.add_argument("--paper-evidence", required=True, help="Paper evidence freeze Markdown path.")
     parser.add_argument("--scenario-evidence", required=True, help="Scenario evidence freeze Markdown path.")
+    parser.add_argument(
+        "--operator-contract",
+        default=str(DEFAULT_OPERATOR_CONTRACT_PATH),
+        help="Operator read-model contract Markdown path.",
+    )
     parser.add_argument("--output-json", required=True, help="Output JSON path.")
     parser.add_argument("--output-markdown", required=True, help="Output Markdown path.")
     return parser
@@ -256,6 +277,7 @@ def main(argv: list[str] | None = None) -> int:
         scenario_evidence_path=Path(args.scenario_evidence),
         output_json=Path(args.output_json),
         output_markdown=Path(args.output_markdown),
+        operator_contract_path=Path(args.operator_contract),
     )
     return 0
 

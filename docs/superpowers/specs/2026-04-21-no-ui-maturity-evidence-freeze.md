@@ -1,12 +1,12 @@
 # No-UI Maturity Evidence Freeze
 
-- Generated at: `2026-04-21T18:20:56.761189+00:00`
+- Generated at: `2026-04-21T22:07:03.534563+00:00`
 - README repositioning ready: pass
 
 ## Gate Status
 
 - `source_files_present`: pass
-  - details: `{"gap_ledger_present": true, "maturity_target_present": true, "paper_evidence_present": true, "scenario_evidence_present": true}`
+  - details: `{"gap_ledger_present": true, "maturity_target_present": true, "operator_contract_present": true, "paper_evidence_present": true, "scenario_evidence_present": true}`
 - `paper_evidence_no_open_blockers`: pass
   - blocking_rows: `[]`
 - `scenario_evidence_frozen`: pass
@@ -21,6 +21,7 @@
 - `gap_ledger_present`: pass; path: `docs/superpowers/specs/2026-04-21-no-ui-maturity-gap-ledger.md`
 - `paper_evidence_present`: pass; path: `docs/superpowers/specs/2026-04-21-paper-evidence-freeze.md`
 - `scenario_evidence_present`: pass; path: `docs/superpowers/specs/2026-04-21-scenario-evidence-freeze.md`
+- `operator_contract_present`: pass; path: `docs/superpowers/specs/2026-04-21-operator-read-model-contract.md`
 
 ## Remaining Boundaries
 

@@ -1,6 +1,7 @@
 from pathlib import Path
 
 from scripts.run_no_ui_maturity_check import (
+    DEFAULT_REQUIRED_FILES,
     build_summary,
     collect_readme_stale_wording_status,
     collect_static_maturity_status,
@@ -24,6 +25,17 @@ def test_collect_static_maturity_status_reports_missing_required_docs(
     status = collect_static_maturity_status([required])
 
     assert status["required_files"][str(required)] is False
+
+
+def test_default_required_files_include_operator_read_model_contract() -> None:
+    contract_suffix = (
+        "docs/superpowers/specs/2026-04-21-operator-read-model-contract.md"
+    )
+
+    assert any(
+        path.as_posix().endswith(contract_suffix)
+        for path in DEFAULT_REQUIRED_FILES
+    )
 
 
 def test_readme_stale_wording_detects_only_a_prototype(
@@ -67,6 +79,25 @@ def test_readme_stale_wording_fails_when_maturity_markers_exist(
     assert status["readme_repositioning_status"] == "enforced"
     assert status["readme_repositioning_complete"] is True
     assert status["stale_readme_phrases"][str(readme)] == ["prototype only"]
+
+
+def test_readme_opening_prototype_wording_fails_when_maturity_markers_exist(
+    tmp_path: Path,
+) -> None:
+    readme = tmp_path / "README.en.md"
+    readme.write_text(
+        "Mature no-UI vector data fusion agent: reached.\n"
+        "FusionAgent is a vector-data fusion agent prototype for disaster response workflows.",
+        encoding="utf-8",
+    )
+
+    status = collect_readme_stale_wording_status([readme])
+
+    assert status["readme_wording_passed"] is False
+    assert status["readme_repositioning_status"] == "enforced"
+    assert status["stale_readme_phrases"][str(readme)] == [
+        "agent prototype opening"
+    ]
 
 
 def test_build_summary_marks_pending_readme_without_failing_static_check(

@@ -4,7 +4,7 @@
 
 简历/演示项目说明见 [FusionAgent Resume Project Brief](./docs/demo/fusionagent-resume-project-brief.md)。
 
-FusionAgent 是一个面向灾害响应工作流的矢量数据融合智能体原型。当前 `main` 分支已经不再只是算法脚本包装层，而是一个可测试、可审计、可渐进扩展的 agentic runtime。
+FusionAgent 是一个面向有界灾害响应工作流的成熟无界面矢量数据融合智能体。当前 `main` 分支已经不再只是算法脚本包装层，而是一个可测试、可审计、可渐进扩展的 agentic runtime。
 
 当前运行时已稳定支持 `building`、`road`、`water`，并新增了有界的 `poi` 自动融合垂直切片；四者共享同一条 task-driven runtime backbone，并具备 planning、validation、execution、healing、replanning、evidence writeback 与 artifact 输出能力。
 
