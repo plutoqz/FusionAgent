@@ -1,8 +1,8 @@
 {
   "manifest_id": "scenario.paper.demo.v1",
   "metadata": {
-    "purpose": "Small paper/demo scenario regression set for FusionAgent scenario evidence.",
-    "scope": "Stable building/road scenarios only; no self-evolution auto-tuning required."
+    "purpose": "Capability-oriented scenario regression set for FusionAgent scenario evidence.",
+    "scope": "Covers building, road, water, and bounded poi through phase checks plus scenario evidence checks."
   },
   "cases": [
     {
@@ -24,7 +24,136 @@
         "fallback",
         "bilingual-report"
       ],
-      "notes": "Regression case for disaster-aware AOI parsing, building+road orchestration, evidence package generation, and graceful partial success."
+      "notes": "Mixed baseline for building and road with graceful partial success allowed.",
+      "capability_checks": {
+        "required_job_types": [
+          "building",
+          "road"
+        ],
+        "min_succeeded_children": 1,
+        "require_aoi_resolved": false,
+        "require_task_inputs_resolved": true,
+        "require_source_coverage": true
+      }
+    },
+    {
+      "case_id": "nairobi_flood_road_single",
+      "scenario_name": "Nairobi flood road",
+      "trigger_content": "fuse road data for Nairobi, Kenya after a flood",
+      "disaster_type": "flood",
+      "job_types": [
+        "road"
+      ],
+      "expected_phase": [
+        "succeeded",
+        "partial"
+      ],
+      "tags": [
+        "capability",
+        "road",
+        "aoi"
+      ],
+      "notes": "Road single-task case that should exercise AOI resolution and task-driven source preparation.",
+      "capability_checks": {
+        "required_job_types": [
+          "road"
+        ],
+        "min_succeeded_children": 1,
+        "require_aoi_resolved": true,
+        "require_task_inputs_resolved": true,
+        "require_source_coverage": true
+      }
+    },
+    {
+      "case_id": "nairobi_flood_water_single",
+      "scenario_name": "Nairobi flood water",
+      "trigger_content": "need water polygons for Nairobi, Kenya",
+      "job_types": [
+        "water"
+      ],
+      "expected_phase": [
+        "succeeded",
+        "partial"
+      ],
+      "tags": [
+        "capability",
+        "water",
+        "aoi"
+      ],
+      "notes": "Water single-task planner-level capability case that must reach AOI resolution and validated planning even when local raw sources are unavailable.",
+      "capability_checks": {
+        "required_job_types": [
+          "water"
+        ],
+        "required_workflow_steps": [
+          "aoi_resolved",
+          "kg_path_selected",
+          "plan_validated"
+        ],
+        "min_succeeded_children": 0,
+        "require_aoi_resolved": true,
+        "require_task_inputs_resolved": false,
+        "require_source_coverage": false
+      }
+    },
+    {
+      "case_id": "nairobi_poi_single",
+      "scenario_name": "Nairobi poi",
+      "trigger_content": "need poi data for Nairobi, Kenya",
+      "job_types": [
+        "poi"
+      ],
+      "expected_phase": [
+        "succeeded",
+        "partial"
+      ],
+      "tags": [
+        "capability",
+        "poi",
+        "aoi"
+      ],
+      "notes": "POI single-task planner-level capability case that must reach AOI resolution and validated planning even when local POI shapefiles are unavailable.",
+      "capability_checks": {
+        "required_job_types": [
+          "poi"
+        ],
+        "required_workflow_steps": [
+          "aoi_resolved",
+          "kg_path_selected",
+          "plan_validated"
+        ],
+        "min_succeeded_children": 0,
+        "require_aoi_resolved": true,
+        "require_task_inputs_resolved": false,
+        "require_source_coverage": false
+      }
+    },
+    {
+      "case_id": "nairobi_building_single",
+      "scenario_name": "Nairobi building",
+      "trigger_content": "need building data for Nairobi, Kenya",
+      "job_types": [
+        "building"
+      ],
+      "expected_phase": [
+        "succeeded",
+        "partial"
+      ],
+      "tags": [
+        "capability",
+        "building",
+        "acquisition"
+      ],
+      "notes": "Building single-task case with verified AOI-aware acquisition, source coverage, and successful execution.",
+      "capability_checks": {
+        "required_job_types": [
+          "building"
+        ],
+        "min_succeeded_children": 1,
+        "require_aoi_resolved": true,
+        "require_task_inputs_resolved": true,
+        "require_source_coverage": true
+      }
     }
   ]
 }

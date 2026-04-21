@@ -40,7 +40,11 @@ def run_manifest_cases(manifest_path: Path, output_root: Optional[str], client: 
             request = scenario_case_to_request(case, output_root=output_root)
             response = _coerce_scenario_response(client.create_scenario_run(request))
             phase = response.phase.value if hasattr(response.phase, "value") else str(response.phase)
-            passed = phase in case.expected_phase
+            summary_path = Path(response.output_dir) / "scenario_summary.json"
+            summary_payload = _load_summary(summary_path)
+            observed = _build_observed_evidence(summary_payload)
+            capability_failures = _capability_failures(case, observed)
+            passed = phase in case.expected_phase and not capability_failures
             results.append(
                 ScenarioHarnessCaseResult(
                     case_id=case.case_id,
@@ -48,7 +52,11 @@ def run_manifest_cases(manifest_path: Path, output_root: Optional[str], client: 
                     phase=phase,
                     passed=passed,
                     output_dir=response.output_dir,
+                    summary_path=str(summary_path),
                     expected_phase=list(case.expected_phase),
+                    capability_checks_passed=not capability_failures,
+                    capability_failures=capability_failures,
+                    observed=observed,
                     response=response.model_dump(mode="json"),
                 )
             )
@@ -80,6 +88,68 @@ def _coerce_scenario_response(response: Any) -> ScenarioRunResponse:
     if isinstance(response, ScenarioRunResponse):
         return response
     return ScenarioRunResponse.model_validate(response)
+
+
+def _load_summary(summary_path: Path) -> dict[str, Any]:
+    return json.loads(summary_path.read_text(encoding="utf-8"))
+
+
+def _build_observed_evidence(summary: dict[str, Any]) -> dict[str, Any]:
+    child_runs = summary.get("child_runs") or []
+    workflow_traces = summary.get("workflow_traces") or []
+    step_names = []
+    observed_job_types = []
+    for item in child_runs:
+        if not isinstance(item, dict):
+            continue
+        job_type = str(item.get("job_type") or "").strip()
+        if job_type and job_type not in observed_job_types:
+            observed_job_types.append(job_type)
+    for trace in workflow_traces:
+        if not isinstance(trace, dict):
+            continue
+        for step in trace.get("steps", []):
+            if not isinstance(step, dict):
+                continue
+            name = str(step.get("step_name") or "").strip()
+            if name and name not in step_names:
+                step_names.append(name)
+    return {
+        "observed_job_types": observed_job_types,
+        "succeeded_child_count": sum(
+            1
+            for item in child_runs
+            if isinstance(item, dict) and str(item.get("phase")) == "succeeded"
+        ),
+        "workflow_step_names": step_names,
+        "source_coverage_count": len(summary.get("source_coverage") or []),
+    }
+
+
+def _capability_failures(case, observed: dict[str, Any]) -> list[str]:
+    checks = case.capability_checks
+    failures = []
+    observed_job_types = set(observed.get("observed_job_types") or [])
+    for job_type in checks.required_job_types:
+        value = job_type.value if hasattr(job_type, "value") else str(job_type)
+        if value not in observed_job_types:
+            failures.append(f"required_job_types missing {value}")
+    step_names = set(observed.get("workflow_step_names") or [])
+    for step_name in checks.required_workflow_steps:
+        if step_name not in step_names:
+            failures.append(f"required_workflow_steps missing {step_name}")
+    if observed.get("succeeded_child_count", 0) < checks.min_succeeded_children:
+        failures.append(
+            "min_succeeded_children expected "
+            f"{checks.min_succeeded_children}, got {observed.get('succeeded_child_count', 0)}"
+        )
+    if checks.require_aoi_resolved and "aoi_resolved" not in step_names:
+        failures.append("require_aoi_resolved missing aoi_resolved")
+    if checks.require_task_inputs_resolved and "task_inputs_resolved" not in step_names:
+        failures.append("require_task_inputs_resolved missing task_inputs_resolved")
+    if checks.require_source_coverage and observed.get("source_coverage_count", 0) <= 0:
+        failures.append("require_source_coverage missing source coverage evidence")
+    return failures
 
 
 def _parser() -> argparse.ArgumentParser:

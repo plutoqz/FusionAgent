@@ -92,6 +92,8 @@ python scripts/scenario_eval_harness.py `
   --timeout 1200
 ```
 
+The checked-in scenario regression set now validates capability evidence in addition to the top-level phase. Building, road, and mixed execution cases require execution-level evidence such as `task_inputs_resolved`, `source_coverage`, and a minimum successful child-run count; water and bounded-POI cases currently use planner-level capability checks such as `aoi_resolved`, `kg_path_selected`, and `plan_validated` when local raw source materialization is not yet stable in the default fast-mode environment.
+
 ### Tier 3: Real-Data Benchmark
 
 Use this only when you need durable research evidence.

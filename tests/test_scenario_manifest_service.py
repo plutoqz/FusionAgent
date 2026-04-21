@@ -43,3 +43,39 @@ def test_checked_in_scenario_eval_manifest_loads():
 
     assert manifest.manifest_id == "scenario.paper.demo.v1"
     assert manifest.cases[0].case_id == "parakou_earthquake_building_road"
+
+
+def test_manifest_capability_checks_load(tmp_path: Path):
+    manifest_path = tmp_path / "manifest.json"
+    manifest_path.write_text(
+        json.dumps(
+            {
+                "manifest_id": "scenario.paper.demo.v1",
+                "cases": [
+                    {
+                        "case_id": "nairobi_flood_road_single",
+                        "scenario_name": "Nairobi flood road",
+                        "trigger_content": "fuse road data for Nairobi, Kenya after a flood",
+                        "job_types": ["road"],
+                        "expected_phase": ["succeeded", "partial"],
+                        "capability_checks": {
+                            "required_job_types": ["road"],
+                            "required_workflow_steps": ["aoi_resolved", "plan_validated"],
+                            "min_succeeded_children": 1,
+                            "require_aoi_resolved": True,
+                            "require_task_inputs_resolved": True,
+                            "require_source_coverage": True,
+                        },
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    manifest = load_scenario_manifest(manifest_path)
+
+    assert manifest.cases[0].capability_checks.required_job_types == [JobType.road]
+    assert manifest.cases[0].capability_checks.required_workflow_steps == ["aoi_resolved", "plan_validated"]
+    assert manifest.cases[0].capability_checks.min_succeeded_children == 1
+    assert manifest.cases[0].capability_checks.require_aoi_resolved is True

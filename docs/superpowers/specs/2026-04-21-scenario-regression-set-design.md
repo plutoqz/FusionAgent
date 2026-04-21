@@ -98,36 +98,38 @@ Config:
 ### 3. `nairobi_flood_water_single`
 
 Role:
-- water single-task capability coverage
+- water single-task planner-level capability coverage
 
 Config:
 - `job_types=["water"]`
 - `expected_phase=["succeeded", "partial"]`
 - `capability_checks.required_job_types=["water"]`
-- `capability_checks.min_succeeded_children=1`
+- `capability_checks.required_workflow_steps=["aoi_resolved", "kg_path_selected", "plan_validated"]`
+- `capability_checks.min_succeeded_children=0`
 - `capability_checks.require_aoi_resolved=true`
-- `capability_checks.require_task_inputs_resolved=true`
-- `capability_checks.require_source_coverage=true`
+- `capability_checks.require_task_inputs_resolved=false`
+- `capability_checks.require_source_coverage=false`
 
 ### 4. `nairobi_poi_single`
 
 Role:
-- bounded POI single-task capability coverage
+- bounded POI single-task planner-level capability coverage
 
 Config:
 - `job_types=["poi"]`
 - `expected_phase=["succeeded", "partial"]`
 - `capability_checks.required_job_types=["poi"]`
-- `capability_checks.min_succeeded_children=1`
+- `capability_checks.required_workflow_steps=["aoi_resolved", "kg_path_selected", "plan_validated"]`
+- `capability_checks.min_succeeded_children=0`
 - `capability_checks.require_aoi_resolved=true`
-- `capability_checks.require_task_inputs_resolved=true`
-- `capability_checks.require_source_coverage=true`
+- `capability_checks.require_task_inputs_resolved=false`
+- `capability_checks.require_source_coverage=false`
 
-### 5. `gitega_building_single`
+### 5. `nairobi_building_single`
 
 Role:
-- building single-task coverage
-- more acquisition-oriented representative case
+- building single-task execution-level coverage
+- verified AOI-aware acquisition representative case
 
 Config:
 - `job_types=["building"]`
@@ -160,6 +162,7 @@ Capability checks will map to evidence as follows:
 - `require_aoi_resolved`: `aoi_resolved` must appear in workflow trace steps
 - `require_task_inputs_resolved`: `task_inputs_resolved` must appear in workflow trace steps
 - `require_source_coverage`: `source_coverage_count > 0`
+- `required_workflow_steps`: every listed workflow step must appear in the trace
 
 If the phase passes but one or more capability checks fail, the case result is failed.
 
@@ -263,3 +266,12 @@ This design remains a single implementation slice:
 - one checked-in regression-set expansion
 
 It does not require scenario runtime redesign, provider steering, or UI work, so it is appropriately scoped for one implementation plan.
+
+## Post-Design Execution Note
+
+During real harness execution in the default `memory + mock + eager` environment, water and bounded-POI cases proved stable at planner-level evidence but not at execution-level evidence because local raw source materialization was unavailable in that environment. The final checked-in regression set therefore uses:
+
+- execution-level checks for mixed, road, and building cases
+- planner-level checks for water and bounded-POI cases
+
+This keeps the regression set capability-oriented while remaining executable in the default fast-mode verification path.

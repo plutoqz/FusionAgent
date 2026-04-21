@@ -1,0 +1,180 @@
+{
+  "scenario_count": 5,
+  "scenarios": [
+    {
+      "scenario_id": "scenario_e945529cd21c486b9ccdeec163022c69",
+      "scenario_name": "Parakou earthquake",
+      "agentic_metrics": {
+        "self_evolution_hint_used": false,
+        "kg_path_trace_completeness": 1.0,
+        "fallback_success_rate": 1.0,
+        "planning_validity_rate": 1.0,
+        "evidence_completeness_rate": 0.8333333333333333,
+        "decision_trace_completeness": 1.0,
+        "self_evolution_policy_adjustment": 0.0,
+        "autonomy_ratio": 1.0,
+        "manual_intervention_count": 0,
+        "source_coverage_resolution_rate": 0.5,
+        "recovery_success_rate": 0.5,
+        "self_evolution_record_written": true,
+        "self_evolution_learning_opportunity_recorded": true,
+        "self_evolution_hint_available": true,
+        "plan_decision_materialization_consistency": 0.0
+      },
+      "self_evolution": {
+        "record_written": true,
+        "hint_available": true,
+        "hint_used": false,
+        "policy_adjustment": 0.0,
+        "learning_opportunity_recorded": true
+      },
+      "kg_path_trace_count": 2,
+      "workflow_trace_count": 2,
+      "document_paths": {
+        "zh": "E:\\fyx\\data\\fusionagentTEST\\scenario_e945529cd21c486b9ccdeec163022c69\\documents\\scenario_report.zh.md",
+        "en": "E:\\fyx\\data\\fusionagentTEST\\scenario_e945529cd21c486b9ccdeec163022c69\\documents\\scenario_report.en.md"
+      },
+      "source_dir": "E:\\fyx\\data\\fusionagentTEST\\scenario_e945529cd21c486b9ccdeec163022c69"
+    },
+    {
+      "scenario_id": "scenario_124da27fc84d4ddca6fbabd038bdc54d",
+      "scenario_name": "Nairobi flood road",
+      "agentic_metrics": {
+        "self_evolution_hint_used": false,
+        "kg_path_trace_completeness": 1.0,
+        "fallback_success_rate": 1.0,
+        "planning_validity_rate": 1.0,
+        "evidence_completeness_rate": 1.0,
+        "decision_trace_completeness": 1.0,
+        "self_evolution_policy_adjustment": 0.0,
+        "autonomy_ratio": 1.0,
+        "manual_intervention_count": 0,
+        "source_coverage_resolution_rate": 1.0,
+        "recovery_success_rate": 1.0,
+        "self_evolution_record_written": true,
+        "self_evolution_learning_opportunity_recorded": true,
+        "self_evolution_hint_available": true,
+        "plan_decision_materialization_consistency": 0.0
+      },
+      "self_evolution": {
+        "record_written": true,
+        "hint_available": true,
+        "hint_used": false,
+        "policy_adjustment": 0.0,
+        "learning_opportunity_recorded": true
+      },
+      "kg_path_trace_count": 1,
+      "workflow_trace_count": 1,
+      "document_paths": {
+        "zh": "E:\\fyx\\data\\fusionagentTEST\\scenario_124da27fc84d4ddca6fbabd038bdc54d\\documents\\scenario_report.zh.md",
+        "en": "E:\\fyx\\data\\fusionagentTEST\\scenario_124da27fc84d4ddca6fbabd038bdc54d\\documents\\scenario_report.en.md"
+      },
+      "source_dir": "E:\\fyx\\data\\fusionagentTEST\\scenario_124da27fc84d4ddca6fbabd038bdc54d"
+    },
+    {
+      "scenario_id": "scenario_9ce7cfb756854c40970ca0e744504dcd",
+      "scenario_name": "Nairobi flood water",
+      "agentic_metrics": {
+        "self_evolution_hint_used": true,
+        "kg_path_trace_completeness": 1.0,
+        "fallback_success_rate": 1.0,
+        "planning_validity_rate": 1.0,
+        "evidence_completeness_rate": 0.6666666666666666,
+        "decision_trace_completeness": 1.0,
+        "self_evolution_policy_adjustment": -0.1,
+        "autonomy_ratio": 1.0,
+        "manual_intervention_count": 0,
+        "source_coverage_resolution_rate": 0.0,
+        "recovery_success_rate": 0.0,
+        "self_evolution_record_written": false,
+        "self_evolution_learning_opportunity_recorded": true,
+        "self_evolution_hint_available": true,
+        "plan_decision_materialization_consistency": 0.0
+      },
+      "self_evolution": {
+        "record_written": false,
+        "hint_available": true,
+        "hint_used": true,
+        "policy_adjustment": -0.1,
+        "learning_opportunity_recorded": true
+      },
+      "kg_path_trace_count": 1,
+      "workflow_trace_count": 1,
+      "document_paths": {
+        "zh": "E:\\fyx\\data\\fusionagentTEST\\scenario_9ce7cfb756854c40970ca0e744504dcd\\documents\\scenario_report.zh.md",
+        "en": "E:\\fyx\\data\\fusionagentTEST\\scenario_9ce7cfb756854c40970ca0e744504dcd\\documents\\scenario_report.en.md"
+      },
+      "source_dir": "E:\\fyx\\data\\fusionagentTEST\\scenario_9ce7cfb756854c40970ca0e744504dcd"
+    },
+    {
+      "scenario_id": "scenario_f8cdf495ebb24d2a80a28b16e7513bc0",
+      "scenario_name": "Nairobi poi",
+      "agentic_metrics": {
+        "self_evolution_hint_used": true,
+        "kg_path_trace_completeness": 1.0,
+        "fallback_success_rate": 1.0,
+        "planning_validity_rate": 1.0,
+        "evidence_completeness_rate": 0.6666666666666666,
+        "decision_trace_completeness": 1.0,
+        "self_evolution_policy_adjustment": -0.1,
+        "autonomy_ratio": 1.0,
+        "manual_intervention_count": 0,
+        "source_coverage_resolution_rate": 0.0,
+        "recovery_success_rate": 0.0,
+        "self_evolution_record_written": false,
+        "self_evolution_learning_opportunity_recorded": true,
+        "self_evolution_hint_available": true,
+        "plan_decision_materialization_consistency": 0.0
+      },
+      "self_evolution": {
+        "record_written": false,
+        "hint_available": true,
+        "hint_used": true,
+        "policy_adjustment": -0.1,
+        "learning_opportunity_recorded": true
+      },
+      "kg_path_trace_count": 1,
+      "workflow_trace_count": 1,
+      "document_paths": {
+        "zh": "E:\\fyx\\data\\fusionagentTEST\\scenario_f8cdf495ebb24d2a80a28b16e7513bc0\\documents\\scenario_report.zh.md",
+        "en": "E:\\fyx\\data\\fusionagentTEST\\scenario_f8cdf495ebb24d2a80a28b16e7513bc0\\documents\\scenario_report.en.md"
+      },
+      "source_dir": "E:\\fyx\\data\\fusionagentTEST\\scenario_f8cdf495ebb24d2a80a28b16e7513bc0"
+    },
+    {
+      "scenario_id": "scenario_797f50c30a8f42e395767950bad4dd36",
+      "scenario_name": "Nairobi building",
+      "agentic_metrics": {
+        "self_evolution_hint_used": false,
+        "kg_path_trace_completeness": 1.0,
+        "fallback_success_rate": 1.0,
+        "planning_validity_rate": 1.0,
+        "evidence_completeness_rate": 1.0,
+        "decision_trace_completeness": 1.0,
+        "self_evolution_policy_adjustment": 0.0,
+        "autonomy_ratio": 1.0,
+        "manual_intervention_count": 0,
+        "source_coverage_resolution_rate": 1.0,
+        "recovery_success_rate": 1.0,
+        "self_evolution_record_written": true,
+        "self_evolution_learning_opportunity_recorded": true,
+        "self_evolution_hint_available": true,
+        "plan_decision_materialization_consistency": 1.0
+      },
+      "self_evolution": {
+        "record_written": true,
+        "hint_available": true,
+        "hint_used": false,
+        "policy_adjustment": 0.0,
+        "learning_opportunity_recorded": true
+      },
+      "kg_path_trace_count": 1,
+      "workflow_trace_count": 1,
+      "document_paths": {
+        "zh": "E:\\fyx\\data\\fusionagentTEST\\scenario_797f50c30a8f42e395767950bad4dd36\\documents\\scenario_report.zh.md",
+        "en": "E:\\fyx\\data\\fusionagentTEST\\scenario_797f50c30a8f42e395767950bad4dd36\\documents\\scenario_report.en.md"
+      },
+      "source_dir": "E:\\fyx\\data\\fusionagentTEST\\scenario_797f50c30a8f42e395767950bad4dd36"
+    }
+  ]
+}
