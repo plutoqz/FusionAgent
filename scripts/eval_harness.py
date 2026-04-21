@@ -181,6 +181,109 @@ def load_manifest_cases(manifest_path: Path, selected_cases: list[str] | None = 
     return filtered
 
 
+def _ordered_strings(values: Any) -> list[str]:
+    ordered: list[str] = []
+    if not isinstance(values, list):
+        return ordered
+    for value in values:
+        text = str(value or "").strip()
+        if text and text not in ordered:
+            ordered.append(text)
+    return ordered
+
+
+def _collect_plan_algorithms(plan: dict[str, Any]) -> list[str]:
+    ordered: list[str] = []
+    for task in plan.get("tasks", []):
+        if not isinstance(task, dict):
+            continue
+        candidates = [task.get("algorithm_id"), *(task.get("alternatives") or [])]
+        for candidate in candidates:
+            text = str(candidate or "").strip()
+            if text and text not in ordered:
+                ordered.append(text)
+    retrieval_algorithms = plan.get("context", {}).get("retrieval", {}).get("algorithms", {})
+    if isinstance(retrieval_algorithms, dict):
+        for algorithm_id in retrieval_algorithms.keys():
+            text = str(algorithm_id or "").strip()
+            if text and text not in ordered:
+                ordered.append(text)
+    return ordered
+
+
+def _collect_output_data_types(plan: dict[str, Any]) -> list[str]:
+    ordered: list[str] = []
+    for task in plan.get("tasks", []):
+        if not isinstance(task, dict):
+            continue
+        text = str(task.get("output", {}).get("data_type_id") or "").strip()
+        if text and text not in ordered:
+            ordered.append(text)
+    return ordered
+
+
+def _build_manifest_case_metadata(case: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "theme": str(case.get("theme") or ""),
+        "priority": str(case.get("priority") or ""),
+        "baseline": str(case.get("baseline") or "full_system"),
+        "proof_targets": _ordered_strings(case.get("proof_targets") or []),
+        "inputs": dict(case.get("inputs") or {}),
+        "notes": _ordered_strings(case.get("notes") or []),
+        "clip_bbox": case.get("clip_bbox"),
+    }
+
+
+def _build_manifest_case_evidence(case: dict[str, Any], result: dict[str, Any]) -> dict[str, Any]:
+    expected_plan_checks = case.get("expected_plan_checks") or {}
+    artifact_checks = case.get("artifact_checks") or {}
+    artifact_entries = _ordered_strings(result.get("artifact_entries") or [])
+    required_suffixes = _ordered_strings(artifact_checks.get("required_suffixes") or [])
+    required_algorithms = _ordered_strings(expected_plan_checks.get("required_algorithms") or [])
+    observed_algorithms = _ordered_strings(result.get("plan_algorithms") or [])
+    required_output_type = str(expected_plan_checks.get("required_output_type") or "")
+    observed_output_types = _ordered_strings(result.get("output_data_types") or [])
+
+    planning_validity = result.get("status") == "passed"
+    if required_algorithms:
+        planning_validity = planning_validity and all(
+            algorithm_id in observed_algorithms for algorithm_id in required_algorithms
+        )
+    if required_output_type:
+        planning_validity = planning_validity and required_output_type in observed_output_types
+
+    artifact_validity = False
+    if result.get("status") == "passed":
+        if required_suffixes:
+            artifact_validity = all(
+                any(entry.endswith(suffix) for entry in artifact_entries) for suffix in required_suffixes
+            )
+        else:
+            artifact_validity = bool(
+                artifact_entries or result.get("artifact_size") or result.get("inspection_artifact_available")
+            )
+
+    return {
+        "planning_validity": planning_validity,
+        "artifact_validity": artifact_validity,
+        "inspection_artifact_available": bool(result.get("inspection_artifact_available")),
+        "inspection_download_path": result.get("inspection_download_path"),
+        "required_algorithms": required_algorithms,
+        "observed_algorithms": observed_algorithms,
+        "required_output_type": required_output_type,
+        "observed_output_types": observed_output_types,
+        "required_suffixes": required_suffixes,
+        "artifact_entries": artifact_entries,
+    }
+
+
+def _annotate_manifest_case_result(case: dict[str, Any], result: dict[str, Any]) -> dict[str, Any]:
+    annotated = dict(result)
+    annotated.update(_build_manifest_case_metadata(case))
+    annotated["evidence"] = _build_manifest_case_evidence(case, annotated)
+    return annotated
+
+
 def evaluate_cases(
     case_dirs: list[Path],
     *,
@@ -243,10 +346,13 @@ def evaluate_manifest_cases(
         blockers = case.get("blockers") or []
         if execution_mode != "agent":
             results.append(
-                _skipped_manifest_case(
+                _annotate_manifest_case_result(
                     case,
-                    f"execution_mode={execution_mode} is not runnable by eval_harness",
-                    timeout_sec=effective_timeout_sec,
+                    _skipped_manifest_case(
+                        case,
+                        f"execution_mode={execution_mode} is not runnable by eval_harness",
+                        timeout_sec=effective_timeout_sec,
+                    ),
                 )
             )
             continue
@@ -254,25 +360,36 @@ def evaluate_manifest_cases(
             reason = f"readiness={readiness or 'unknown'} is not runnable yet"
             if blockers:
                 reason = f"{reason}; blockers={'; '.join(map(str, blockers))}"
-            results.append(_skipped_manifest_case(case, reason, timeout_sec=effective_timeout_sec))
+            results.append(_annotate_manifest_case_result(case, _skipped_manifest_case(case, reason, timeout_sec=effective_timeout_sec)))
             continue
         if api_preflight_error is not None:
-            results.append(_failed_manifest_case(case, api_preflight_error, timeout_sec=effective_timeout_sec))
+            results.append(
+                _annotate_manifest_case_result(
+                    case,
+                    _failed_manifest_case(case, api_preflight_error, timeout_sec=effective_timeout_sec),
+                )
+            )
             continue
         try:
             _preflight_manifest_case_inputs(case)
         except Exception as exc:  # noqa: BLE001
             results.append(
-                _failed_manifest_case(case, f"{type(exc).__name__}: {exc}", timeout_sec=effective_timeout_sec)
+                _annotate_manifest_case_result(
+                    case,
+                    _failed_manifest_case(case, f"{type(exc).__name__}: {exc}", timeout_sec=effective_timeout_sec),
+                )
             )
             continue
         results.append(
-            _evaluate_single_manifest_case(
-                case=case,
-                base_url=base_url,
-                timeout_sec=effective_timeout_sec,
-                runner=runner,
-                validator=validator,
+            _annotate_manifest_case_result(
+                case,
+                _evaluate_single_manifest_case(
+                    case=case,
+                    base_url=base_url,
+                    timeout_sec=effective_timeout_sec,
+                    runner=runner,
+                    validator=validator,
+                ),
             )
         )
 
@@ -346,6 +463,11 @@ def _evaluate_single_manifest_case(
 ) -> dict[str, Any]:
     started = time.perf_counter()
     case_id = str(case.get("case_id") or "unknown_case")
+    artifact_entries: list[str] = []
+    plan_algorithms: list[str] = []
+    output_data_types: list[str] = []
+    inspection_artifact_available = False
+    inspection_download_path: str | None = None
     try:
         with tempfile.TemporaryDirectory(prefix=f"eval-{case_id}-") as td:
             case_dir = _materialize_manifest_case(case, Path(td))
@@ -360,6 +482,13 @@ def _evaluate_single_manifest_case(
         error = None
         run_id = result.get("run_id")
         artifact_size = result.get("artifact_size")
+        artifact_entries = _ordered_strings(result.get("artifact_entries") or [])
+        plan = result.get("plan") or {}
+        plan_algorithms = _collect_plan_algorithms(plan)
+        output_data_types = _collect_output_data_types(plan)
+        inspection_artifact_available = bool(artifact_entries)
+        if run_id and artifact_entries:
+            inspection_download_path = f"/api/v2/runs/{run_id}/artifact"
     except Exception as exc:  # noqa: BLE001
         status = "failed"
         error = f"{type(exc).__name__}: {exc}"
@@ -374,6 +503,11 @@ def _evaluate_single_manifest_case(
         "duration_ms": duration_ms,
         "run_id": run_id,
         "artifact_size": artifact_size,
+        "artifact_entries": artifact_entries,
+        "plan_algorithms": plan_algorithms,
+        "output_data_types": output_data_types,
+        "inspection_artifact_available": inspection_artifact_available,
+        "inspection_download_path": inspection_download_path,
         "error": error,
         "timeout_sec": float(timeout_sec),
     }

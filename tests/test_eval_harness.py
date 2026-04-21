@@ -297,6 +297,105 @@ def test_evaluate_manifest_cases_includes_summary_metadata(monkeypatch) -> None:
     }
 
 
+def test_evaluate_manifest_cases_preserves_matrix_ready_case_metadata(monkeypatch) -> None:
+    monkeypatch.setattr(eval_harness, "_preflight_manifest_api", lambda _base_url: None)
+    monkeypatch.setattr(eval_harness, "_preflight_manifest_case_inputs", lambda _case: None)
+
+    def fake_eval(*, case: dict, base_url: str, timeout_sec: float, runner, validator) -> dict:
+        _ = runner
+        _ = validator
+        assert base_url == "http://unit.test"
+        assert timeout_sec == 12.0
+        return {
+            "case_id": case["case_id"],
+            "case_dir": None,
+            "status": "passed",
+            "duration_ms": 4,
+            "run_id": "run-building-alpha",
+            "artifact_size": 11,
+            "artifact_entries": [
+                "artifact/fused.shp",
+                "artifact/fused.shx",
+                "artifact/fused.dbf",
+            ],
+            "plan_algorithms": [
+                "algo.fusion.building.v1",
+                "algo.fusion.building.safe",
+            ],
+            "output_data_types": ["dt.building.fused"],
+            "inspection_artifact_available": True,
+            "inspection_download_path": "/api/v2/runs/run-building-alpha/artifact",
+            "error": None,
+            "timeout_sec": timeout_sec,
+        }
+
+    monkeypatch.setattr(eval_harness, "_evaluate_single_manifest_case", fake_eval)
+
+    summary = eval_harness.evaluate_manifest_cases(
+        cases=[
+            {
+                "case_id": "building_alpha",
+                "theme": "building",
+                "execution_mode": "agent",
+                "readiness": "agent-ready",
+                "priority": "P0",
+                "baseline": "full_system",
+                "proof_targets": ["C1", "C2"],
+                "inputs": {
+                    "osm_source_id": "raw.osm.building",
+                    "reference_source_id": "raw.microsoft.building",
+                },
+                "notes": ["fresh checkout"],
+                "expected_plan_checks": {
+                    "required_algorithms": [
+                        "algo.fusion.building.v1",
+                        "algo.fusion.building.safe",
+                    ],
+                    "required_output_type": "dt.building.fused",
+                },
+                "artifact_checks": {
+                    "required_suffixes": [".shp", ".shx", ".dbf"],
+                },
+            }
+        ],
+        base_url="http://unit.test",
+        timeout_sec=12.0,
+    )
+
+    case = summary["cases"][0]
+    assert case["theme"] == "building"
+    assert case["priority"] == "P0"
+    assert case["baseline"] == "full_system"
+    assert case["proof_targets"] == ["C1", "C2"]
+    assert case["inputs"] == {
+        "osm_source_id": "raw.osm.building",
+        "reference_source_id": "raw.microsoft.building",
+    }
+    assert case["notes"] == ["fresh checkout"]
+    assert case["evidence"] == {
+        "planning_validity": True,
+        "artifact_validity": True,
+        "inspection_artifact_available": True,
+        "inspection_download_path": "/api/v2/runs/run-building-alpha/artifact",
+        "required_algorithms": [
+            "algo.fusion.building.v1",
+            "algo.fusion.building.safe",
+        ],
+        "observed_algorithms": [
+            "algo.fusion.building.v1",
+            "algo.fusion.building.safe",
+        ],
+        "required_output_type": "dt.building.fused",
+        "observed_output_types": ["dt.building.fused"],
+        "required_suffixes": [".shp", ".shx", ".dbf"],
+        "artifact_entries": [
+            "artifact/fused.shp",
+            "artifact/fused.shx",
+            "artifact/fused.dbf",
+        ],
+    }
+
+
 def test_evaluate_cases_uses_runtime_metadata_when_local_env_is_unset(tmp_path: Path, monkeypatch) -> None:
     case_a = tmp_path / "case_a"
     _write_case(case_a, case_id="case_a")
