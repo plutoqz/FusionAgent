@@ -117,6 +117,47 @@
       ]
     },
     {
+      "row_id": "c1_c2_c7_scenario_trigger_autonomy",
+      "claim_ids": ["C1", "C2", "C7"],
+      "baseline": "full_system",
+      "dataset": "local file-inbox triggered disaster scenario",
+      "summary_kind": "scenario_trigger_proof",
+      "observed_status": "pending",
+      "summary": "Local trigger event normalizes into a scenario run, persists registry evidence, and freezes scenario reports without manual API submission.",
+      "evidence_paths": [
+        "docs/superpowers/specs/2026-04-21-scenario-trigger-proof.md",
+        "docs/superpowers/specs/2026-04-21-scenario-evidence-freeze.md"
+      ],
+      "supports_metrics": [
+        "planning_validity_rate",
+        "evidence_completeness_rate",
+        "decision_trace_completeness"
+      ]
+    },
+    {
+      "row_id": "c8_no_ui_operator_surface",
+      "claim_ids": ["C8-boundary"],
+      "baseline": "operator_api_smoke",
+      "dataset": "persisted run and scenario evidence",
+      "summary_kind": "verification",
+      "observed_status": "passed",
+      "summary": "No-UI operator APIs expose run listing, scenario listing, runtime summary, inspection, and comparison without requiring a frontend.",
+      "verification_command": [
+        "python",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_api_operator_read_models.py",
+        "tests/test_api_v2_integration.py",
+        "tests/test_api_scenario_registry.py"
+      ],
+      "verification_result": ".................                                                        [100%]\n17 passed in 4.72s",
+      "supports_metrics": [
+        "evidence_completeness_rate",
+        "artifact_validity"
+      ]
+    },
+    {
       "row_id": "failure_micro_alignment_drift",
       "claim_ids": ["C2-boundary"],
       "baseline": "historical_failure",

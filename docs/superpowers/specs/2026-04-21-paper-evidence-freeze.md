@@ -6,6 +6,8 @@
 | c5_building_msft_manual_baseline_contrast | C5 | manual_input_baseline | Gitega micro building OSM vs Microsoft, source-id materialized | passed | `docs/superpowers/specs/2026-04-16-building-micro-msft-fresh-checkout-result.json` |
 | c3_replan_fault_recovery | C3 | no_repair_or_replan | fault-injected task-driven water/building/road runtime | passed | verification evidence |
 | c4_learning_hints_pattern_selection | C4 | no_durable_learning_hints | durable summary seeded policy-hint contrast | passed | verification evidence |
+| c1_c2_c7_scenario_trigger_autonomy | C1, C2, C7 | full_system | local file-inbox triggered disaster scenario | pending | scenario_trigger_proof evidence |
+| c8_no_ui_operator_surface | C8-boundary | operator_api_smoke | persisted run and scenario evidence | passed | verification evidence |
 | failure_micro_alignment_drift | C2-boundary | historical_failure | Gitega micro building OSM vs Google | failed | `docs/superpowers/specs/2026-04-08-building-micro-benchmark-result.json` |
 
 ## Frozen Rows
@@ -52,6 +54,28 @@
 - Verification result: 2 passed
 - Evidence paths: `docs/superpowers/plans/2026-04-20-durable-learning-policy-hints.md`, `tests/test_policy_engine.py`, `tests/test_agent_run_service_enhancements.py`, `docs/superpowers/specs/2026-04-20-evaluation-contract-claim-lock.md`
 
+### `c1_c2_c7_scenario_trigger_autonomy`
+
+- Claims: C1, C2, C7
+- Baseline: full_system
+- Dataset: local file-inbox triggered disaster scenario
+- Observed status: pending
+- Summary: Local trigger event normalizes into a scenario run, persists registry evidence, and freezes scenario reports without manual API submission.
+- Metrics: planning_validity_rate=pending, evidence_completeness_rate=pending, decision_trace_completeness=pending
+- Evidence paths: `docs/superpowers/specs/2026-04-21-scenario-trigger-proof.md`, `docs/superpowers/specs/2026-04-21-scenario-evidence-freeze.md`
+
+### `c8_no_ui_operator_surface`
+
+- Claims: C8-boundary
+- Baseline: operator_api_smoke
+- Dataset: persisted run and scenario evidence
+- Observed status: passed
+- Summary: No-UI operator APIs expose run listing, scenario listing, runtime summary, inspection, and comparison without requiring a frontend.
+- Metrics: evidence_completeness_rate=pass, artifact_validity=pass
+- Verification command: `python -m pytest -q tests/test_api_operator_read_models.py tests/test_api_v2_integration.py tests/test_api_scenario_registry.py`
+- Verification result: .................                                                        [100%]
+17 passed in 4.72s
+
 ### `failure_micro_alignment_drift`
 
 - Claims: C2-boundary
@@ -64,6 +88,7 @@
 
 ## Failure Analysis
 
+- `c1_c2_c7_scenario_trigger_autonomy`: No analysis recorded.
 - `failure_micro_alignment_drift`: Historical worker/runtime alignment drift, superseded by the clean 2026-04-16 rerun and kept only as a failure-case note.
 
 ## Qualitative Evidence

@@ -101,16 +101,19 @@ def _normalize_summary_payload(payload: dict[str, Any]) -> dict[str, Any]:
     raise ValueError("Unsupported evidence summary format.")
 
 
+def _is_status_evidence_row(row: dict[str, Any]) -> bool:
+    return row.get("summary_kind") in {"verification", "scenario_trigger_proof"}
+
+
 def _metric_value(name: str, *, case: dict[str, Any], row: dict[str, Any]) -> str:
     evidence = case.get("evidence") or {}
-    if row.get("summary_kind") == "verification":
-        if name in {
-            "execution_success_rate",
-            "planning_validity_rate",
-            "recovery_success_rate",
-            "decision_trace_completeness",
-        }:
-            return "pass" if row.get("observed_status") == "passed" else "fail"
+    if _is_status_evidence_row(row):
+        observed_status = row.get("observed_status")
+        if observed_status == "passed":
+            return "pass"
+        if observed_status == "pending":
+            return "pending"
+        return "fail"
     if name == "execution_success_rate":
         return "pass" if case.get("status") == "passed" else "fail"
     if name == "planning_validity_rate":
@@ -124,8 +127,9 @@ def _metric_value(name: str, *, case: dict[str, Any], row: dict[str, Any]) -> st
     return "n/a"
 
 
-def _freeze_verification_row(row: dict[str, Any], *, repo_root: Path) -> dict[str, Any]:
+def _freeze_status_evidence_row(row: dict[str, Any], *, repo_root: Path) -> dict[str, Any]:
     observed_status = str(row.get("observed_status") or "unknown")
+    summary_kind = str(row.get("summary_kind") or "verification")
     return {
         "row_id": row["row_id"],
         "claim_ids": list(row.get("claim_ids") or []),
@@ -136,7 +140,7 @@ def _freeze_verification_row(row: dict[str, Any], *, repo_root: Path) -> dict[st
         "expected_status": row.get("expected_status") or "passed",
         "observed_status": observed_status,
         "summary_json": None,
-        "summary_source_format": "verification",
+        "summary_source_format": summary_kind,
         "manifest": None,
         "command": row.get("command"),
         "verification_command": list(row.get("verification_command") or []),
@@ -176,8 +180,8 @@ def build_freeze_report(*, repo_root: Path, spec_path: Path) -> dict[str, Any]:
     failure_rows: list[dict[str, Any]] = []
 
     for row in spec.get("rows", []):
-        if row.get("summary_kind") == "verification":
-            frozen_row = _freeze_verification_row(row, repo_root=repo_root)
+        if _is_status_evidence_row(row):
+            frozen_row = _freeze_status_evidence_row(row, repo_root=repo_root)
             rows.append(frozen_row)
             if frozen_row["expected_status"] != "passed" or frozen_row["observed_status"] != "passed":
                 failure_rows.append(frozen_row)
@@ -259,7 +263,11 @@ def render_markdown(report: dict[str, Any]) -> str:
         "| --- | --- | --- | --- | --- | --- |",
     ]
     for row in report["rows"]:
-        summary_label = f"`{row['summary_json']}`" if row["summary_json"] else "verification evidence"
+        summary_label = (
+            f"`{row['summary_json']}`"
+            if row["summary_json"]
+            else f"{row['summary_source_format']} evidence"
+        )
         lines.append(
             f"| {row['row_id']} | {', '.join(row['claim_ids'])} | {row['baseline']} | "
             f"{row['dataset']} | {row['observed_status']} | {summary_label} |"

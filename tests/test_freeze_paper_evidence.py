@@ -264,7 +264,7 @@ def test_build_freeze_report_rejects_missing_case_id(tmp_path: Path) -> None:
         freeze_paper_evidence.build_freeze_report(repo_root=tmp_path, spec_path=spec_path)
 
 
-def test_build_freeze_report_supports_verification_rows_and_renders_metric_details(tmp_path: Path) -> None:
+def test_build_freeze_report_supports_status_evidence_rows_and_renders_metric_details(tmp_path: Path) -> None:
     spec_path = tmp_path / "docs" / "superpowers" / "specs" / "matrix.json"
     _write_json(
         spec_path,
@@ -296,7 +296,25 @@ def test_build_freeze_report_supports_verification_rows_and_renders_metric_detai
                         "decision_trace_completeness",
                         "execution_success_rate",
                     ],
-                }
+                },
+                {
+                    "row_id": "c1_c2_c7_scenario_trigger_autonomy",
+                    "claim_ids": ["C1", "C2", "C7"],
+                    "baseline": "full_system",
+                    "dataset": "local file-inbox triggered disaster scenario",
+                    "summary_kind": "scenario_trigger_proof",
+                    "observed_status": "pending",
+                    "summary": "Local trigger event normalizes into a scenario run and freezes reports.",
+                    "evidence_paths": [
+                        "docs/superpowers/specs/2026-04-21-scenario-trigger-proof.md",
+                        "docs/superpowers/specs/2026-04-21-scenario-evidence-freeze.md",
+                    ],
+                    "supports_metrics": [
+                        "planning_validity_rate",
+                        "evidence_completeness_rate",
+                        "decision_trace_completeness",
+                    ],
+                },
             ],
             "qualitative_evidence": [
                 {
@@ -312,6 +330,7 @@ def test_build_freeze_report_supports_verification_rows_and_renders_metric_detai
     report = freeze_paper_evidence.build_freeze_report(repo_root=tmp_path, spec_path=spec_path)
     markdown = freeze_paper_evidence.render_markdown(report)
     row = report["rows"][0]
+    scenario_row = report["rows"][1]
 
     assert row["summary_source_format"] == "verification"
     assert row["metrics"] == {
@@ -323,12 +342,21 @@ def test_build_freeze_report_supports_verification_rows_and_renders_metric_detai
         "docs/superpowers/plans/2026-04-20-full-replan-loop-v1.md",
         "tests/test_agent_run_service_enhancements.py",
     ]
+    assert scenario_row["summary_source_format"] == "scenario_trigger_proof"
+    assert scenario_row["observed_status"] == "pending"
+    assert scenario_row["metrics"] == {
+        "planning_validity_rate": "pending",
+        "evidence_completeness_rate": "pending",
+        "decision_trace_completeness": "pending",
+    }
     assert "recovery_success_rate=pass" in markdown
+    assert "c1_c2_c7_scenario_trigger_autonomy" in markdown
+    assert "planning_validity_rate=pending" in markdown
     assert "docs/superpowers/plans/2026-04-20-full-replan-loop-v1.md" in markdown
     assert "Water shares the same task-driven runtime and evidence contract after Phase 1 stabilization." in markdown
 
 
-def test_repo_paper_experiment_matrix_and_freeze_outputs_promote_c3_c4_rows() -> None:
+def test_repo_paper_experiment_matrix_and_freeze_outputs_promote_c3_c4_and_add_c7_c8_rows() -> None:
     matrix_path = _REPO_ROOT / "docs" / "superpowers" / "specs" / "2026-04-21-paper-experiment-matrix.json"
     freeze_json_path = _REPO_ROOT / "docs" / "superpowers" / "specs" / "2026-04-21-paper-evidence-freeze.json"
     freeze_md_path = _REPO_ROOT / "docs" / "superpowers" / "specs" / "2026-04-21-paper-evidence-freeze.md"
@@ -348,6 +376,12 @@ def test_repo_paper_experiment_matrix_and_freeze_outputs_promote_c3_c4_rows() ->
         "decision_trace_completeness",
         "planning_validity_rate",
     ]
+    assert rows_by_id["c1_c2_c7_scenario_trigger_autonomy"]["claim_ids"] == ["C1", "C2", "C7"]
+    assert rows_by_id["c1_c2_c7_scenario_trigger_autonomy"]["summary_kind"] == "scenario_trigger_proof"
+    assert rows_by_id["c1_c2_c7_scenario_trigger_autonomy"]["observed_status"] == "pending"
+    assert rows_by_id["c8_no_ui_operator_surface"]["claim_ids"] == ["C8-boundary"]
+    assert rows_by_id["c8_no_ui_operator_surface"]["baseline"] == "operator_api_smoke"
+    assert rows_by_id["c8_no_ui_operator_surface"]["observed_status"] == "passed"
 
     freeze_report = json.loads(freeze_json_path.read_text(encoding="utf-8"))
     frozen_rows = {row["row_id"]: row for row in freeze_report["rows"]}
@@ -355,10 +389,18 @@ def test_repo_paper_experiment_matrix_and_freeze_outputs_promote_c3_c4_rows() ->
     assert frozen_rows["c3_replan_fault_recovery"]["metrics"]["recovery_success_rate"] == "pass"
     assert frozen_rows["c4_learning_hints_pattern_selection"]["observed_status"] == "passed"
     assert frozen_rows["c4_learning_hints_pattern_selection"]["metrics"]["planning_validity_rate"] == "pass"
+    assert frozen_rows["c1_c2_c7_scenario_trigger_autonomy"]["observed_status"] == "pending"
+    assert frozen_rows["c1_c2_c7_scenario_trigger_autonomy"]["metrics"]["planning_validity_rate"] == "pending"
+    assert frozen_rows["c8_no_ui_operator_surface"]["observed_status"] == "passed"
+    assert frozen_rows["c8_no_ui_operator_surface"]["metrics"]["artifact_validity"] == "pass"
 
     markdown = freeze_md_path.read_text(encoding="utf-8")
     assert "c3_replan_fault_recovery" in markdown
     assert "c4_learning_hints_pattern_selection" in markdown
+    assert "c1_c2_c7_scenario_trigger_autonomy" in markdown
+    assert "c8_no_ui_operator_surface" in markdown
     assert "recovery_success_rate=pass" in markdown
     assert "planning_validity_rate=pass" in markdown
+    assert "planning_validity_rate=pending" in markdown
+    assert "artifact_validity=pass" in markdown
     assert "Water shares the same task-driven runtime and evidence contract after Phase 1 stabilization." in markdown
