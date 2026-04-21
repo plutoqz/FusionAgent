@@ -61,7 +61,12 @@ def _prepare_water(
     gdf = gdf[gdf.geometry.geom_type.isin(["Polygon", "MultiPolygon"])].copy()
     gdf = gdf[gdf.geometry.area > 0].copy()
 
-    gdf[id_column] = np.arange(1, len(gdf) + 1)
+    generated_ids = pd.Series(np.arange(1, len(gdf) + 1), index=gdf.index)
+    if id_column in gdf.columns:
+        mapped_ids = pd.to_numeric(gdf[id_column], errors="coerce")
+        gdf[id_column] = mapped_ids.fillna(generated_ids).astype(int)
+    else:
+        gdf[id_column] = generated_ids.astype(int)
     for column, default in {"name": pd.NA, "fclass": "water", "water_ty": pd.NA}.items():
         if column not in gdf.columns:
             gdf[column] = default

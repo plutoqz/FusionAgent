@@ -80,3 +80,35 @@ def test_run_water_fusion_outputs_matched_osm_and_unmatched_ref_polygons(tmp_pat
     assert unmatched_ref["OSM_ID"] == 0
     assert unmatched_ref["REF_ID"] == 2
     assert unmatched_ref["SRC"] == "ref"
+
+
+def test_run_water_fusion_preserves_mapped_source_ids(tmp_path: Path) -> None:
+    osm = gpd.GeoDataFrame(
+        {"osm_id": [11], "name": ["osm lake"]},
+        geometry=[box(0, 0, 10, 10)],
+        crs="EPSG:3857",
+    )
+    ref = gpd.GeoDataFrame(
+        {"new_id": [101], "name": ["ref lake"]},
+        geometry=[box(1, 1, 9, 9)],
+        crs="EPSG:3857",
+    )
+    osm_shp = _write_shapefile(osm, tmp_path / "mapped-osm" / "osm_water.shp")
+    ref_shp = _write_shapefile(ref, tmp_path / "mapped-ref" / "ref_water.shp")
+
+    output_shp = run_water_fusion(
+        osm_shp=osm_shp,
+        ref_shp=ref_shp,
+        output_dir=tmp_path / "mapped-output",
+        target_crs="EPSG:3857",
+        field_mapping={
+            "osm": {"OSM_ID": "osm_id"},
+            "ref": {"REF_ID": "new_id"},
+        },
+    )
+
+    result = gpd.read_file(output_shp)
+
+    assert result.iloc[0]["OSM_ID"] == 11
+    assert result.iloc[0]["REF_ID"] == 101
+    assert result.iloc[0]["MATCH_REF"] == 101

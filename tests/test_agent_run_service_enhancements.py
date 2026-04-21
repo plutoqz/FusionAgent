@@ -4,6 +4,7 @@ from pathlib import Path
 from zipfile import ZipFile
 
 import geopandas as gpd
+import pytest
 from shapely.geometry import box
 
 from schemas.agent import (
@@ -119,6 +120,31 @@ def _build_auto_request(*, spatial_extent: str = "bbox(0,0,1,1)") -> RunCreateRe
         debug=False,
         input_strategy=RunInputStrategy.task_driven_auto,
     )
+
+
+def test_agent_run_service_rejects_water_task_driven_auto(tmp_path: Path) -> None:
+    service = AgentRunService(base_dir=tmp_path / "runs")
+    request = RunCreateRequest(
+        job_type=JobType.water,
+        trigger=RunTrigger(
+            type=RunTriggerType.user_query,
+            content="need water polygons",
+            spatial_extent="bbox(0,0,1,1)",
+        ),
+        target_crs="EPSG:32643",
+        field_mapping={},
+        debug=False,
+        input_strategy=RunInputStrategy.task_driven_auto,
+    )
+
+    with pytest.raises(ValueError, match="water runs currently support uploaded input strategy only"):
+        service.create_run(
+            request=request,
+            osm_zip_name=None,
+            osm_zip_bytes=None,
+            ref_zip_name=None,
+            ref_zip_bytes=None,
+        )
 
 
 def _resolved_nairobi_aoi() -> ResolvedAOI:

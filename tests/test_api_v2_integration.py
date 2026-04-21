@@ -301,6 +301,26 @@ def test_v2_run_water_uploaded_integration(tmp_path: Path, client: TestClient) -
     assert artifact_resp.content
 
 
+def test_v2_run_water_rejects_task_driven_auto(client: TestClient) -> None:
+    resp = client.post(
+        "/api/v2/runs",
+        data={
+            "job_type": "water",
+            "trigger_type": "user_query",
+            "trigger_content": "need water polygons for bbox(0,0,1,1)",
+            "spatial_extent": "bbox(0,0,1,1)",
+            "target_crs": "EPSG:32643",
+            "input_strategy": "task_driven_auto",
+            "field_mapping": "{}",
+            "debug": "false",
+        },
+    )
+
+    assert resp.status_code == 400
+    assert "water" in resp.json()["detail"]
+    assert "uploaded" in resp.json()["detail"]
+
+
 def test_v2_run_scheduled_trigger(tmp_path: Path, client: TestClient) -> None:
     osm_shp, ref_shp = _build_building_sample(tmp_path)
     osm_zip = _zip_bundle(osm_shp, tmp_path / "osm_building2.zip")
