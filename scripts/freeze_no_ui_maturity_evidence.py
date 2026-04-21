@@ -120,18 +120,48 @@ def _paper_boundary_rows(paper_summary: dict[str, Any] | None) -> list[dict[str,
     if paper_summary is None:
         return []
     rows: list[dict[str, Any]] = []
-    for row in paper_summary.get("failure_rows", []):
+    seen: set[tuple[Any, str, str]] = set()
+    for row in paper_summary.get("rows", []):
         if not isinstance(row, dict):
             continue
-        rows.append(
-            {
-                "row_id": row.get("row_id"),
-                "expected_status": str(row.get("expected_status") or "unknown"),
-                "observed_status": str(row.get("observed_status") or "unknown"),
-                "analysis": row.get("analysis"),
-            }
-        )
+        observed_status = _normalized_status(row.get("observed_status"))
+        if observed_status == "passed":
+            continue
+        _append_paper_boundary_row(rows, seen, row, default_expected_status="passed")
+
+    for row in paper_summary.get("failure_rows", []):
+        if isinstance(row, dict):
+            _append_paper_boundary_row(rows, seen, row, default_expected_status="unknown")
     return rows
+
+
+def _append_paper_boundary_row(
+    rows: list[dict[str, Any]],
+    seen: set[tuple[Any, str, str]],
+    row: dict[str, Any],
+    *,
+    default_expected_status: str,
+) -> None:
+    expected_status = _normalized_status(row.get("expected_status"), default=default_expected_status)
+    observed_status = _normalized_status(row.get("observed_status"))
+    key = (row.get("row_id"), expected_status, observed_status)
+    if key in seen:
+        return
+    seen.add(key)
+    rows.append(
+        {
+            "row_id": row.get("row_id"),
+            "expected_status": expected_status,
+            "observed_status": observed_status,
+            "analysis": row.get("analysis"),
+        }
+    )
+
+
+def _normalized_status(value: Any, *, default: str = "unknown") -> str:
+    if value is None:
+        return default
+    return str(value).strip().lower() or default
 
 
 def _remaining_boundaries(
