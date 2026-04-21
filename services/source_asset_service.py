@@ -63,6 +63,8 @@ _REMOTELY_MATERIALIZABLE_SOURCE_IDS = {
     "raw.osm.poi",
     "raw.microsoft.building",
 }
+# raw.google.building is intentionally absent: it remains a local/manual-only
+# source until an official, tested remote materialization path exists.
 
 
 @dataclass(frozen=True)

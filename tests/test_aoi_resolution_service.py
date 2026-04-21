@@ -5,7 +5,7 @@ import pytest
 from services.aoi_resolution_service import AOIAmbiguityError, AOIResolutionService
 
 
-class StubGeocoder:
+class FakeGeocoder:
     def __init__(self, results):
         self.results = results
         self.queries: list[str] = []
@@ -17,7 +17,7 @@ class StubGeocoder:
 
 def test_aoi_resolution_service_selects_nairobi_when_query_mentions_kenya() -> None:
     service = AOIResolutionService(
-        geocoder=StubGeocoder(
+        geocoder=FakeGeocoder(
             [
                 {
                     "display_name": "Nairobi, Nairobi County, Kenya",
@@ -45,9 +45,29 @@ def test_aoi_resolution_service_selects_nairobi_when_query_mentions_kenya() -> N
     assert resolved.bbox == (36.65, -1.45, 37.10, -1.10)
 
 
+def test_aoi_resolution_service_supports_deterministic_fake_geocoder_maturity_path() -> None:
+    service = AOIResolutionService(
+        geocoder=FakeGeocoder(
+            [
+                {
+                    "display_name": "Nairobi, Kenya",
+                    "boundingbox": ["-1.45", "-1.15", "36.65", "37.05"],
+                    "address": {"country": "Kenya", "country_code": "ke", "city": "Nairobi"},
+                    "importance": 0.91,
+                }
+            ]
+        )
+    )
+
+    resolved = service.resolve("need building data for Nairobi, Kenya")
+
+    assert resolved.country_code == "ke"
+    assert resolved.selection_reason in {"single_candidate", "top_confidence_margin"}
+
+
 def test_aoi_resolution_service_rejects_ambiguous_place_names() -> None:
     service = AOIResolutionService(
-        geocoder=StubGeocoder(
+        geocoder=FakeGeocoder(
             [
                 {
                     "display_name": "Springfield, Illinois, United States",
@@ -89,7 +109,7 @@ def test_aoi_resolution_service_rejects_ambiguous_place_names() -> None:
 
 def test_aoi_resolution_service_deduplicates_equivalent_candidates_before_raising_ambiguity() -> None:
     service = AOIResolutionService(
-        geocoder=StubGeocoder(
+        geocoder=FakeGeocoder(
             [
                 {
                     "display_name": "Nairobi, Kenya",

@@ -228,6 +228,17 @@ Currently materializable source ids:
 - `raw.osm.poi`
 - `raw.microsoft.building`
 
+| Source ID | Local Data Supported | Remote Materialization Supported | Current Claim |
+| --- | --- | --- | --- |
+| raw.osm.building | yes | yes | mature no-UI supported |
+| raw.osm.road | yes | yes | mature no-UI supported |
+| raw.osm.water | yes | yes | planner-level scenario evidence unless execution source is available |
+| raw.osm.poi | yes | yes | bounded POI evidence only |
+| raw.microsoft.building | yes | yes | mature no-UI supported for bounded building |
+| raw.google.building | yes | no | manual/local-only boundary |
+
+Water and bounded POI are mature as bounded task-driven runtime slices, but the default fast-mode scenario regression set still treats them as planner-level capability checks when local raw source materialization is unavailable.
+
 Current non-goals for this slice:
 
 - `raw.google.building` still requires locally restored data

@@ -128,6 +128,13 @@ class AOIAmbiguityError(ValueError):
 
 
 class AOIResolutionService:
+    """Resolve task text to an AOI through an injected geocoder.
+
+    Runtime callers normally pass NominatimGeocoder. Tests and maturity checks
+    should inject a deterministic fake Geocoder so AOI selection evidence is
+    reproducible without hiding the external geocoder dependency.
+    """
+
     def __init__(self, *, geocoder: Geocoder) -> None:
         self.geocoder = geocoder
 
