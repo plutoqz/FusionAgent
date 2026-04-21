@@ -28,6 +28,25 @@ def test_api_lists_persisted_runs_from_registry(tmp_path: Path, monkeypatch) -> 
     assert payload["records"][0]["run_dir"] == str(run_dir)
 
 
+def test_api_runs_list_skips_undecodable_run_json(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.chdir(tmp_path)
+    valid_run_dir = tmp_path / "runs" / "run-a"
+    bad_run_dir = tmp_path / "runs" / "run-bad"
+    valid_run_dir.mkdir(parents=True)
+    bad_run_dir.mkdir(parents=True)
+    (valid_run_dir / "run.json").write_text(
+        '{"run_id":"run-a","phase":"succeeded","job_type":"building"}',
+        encoding="utf-8",
+    )
+    (bad_run_dir / "run.json").write_bytes(b"\xff\xfe\x00")
+
+    response = TestClient(create_app()).get("/api/v2/runs")
+
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert [record["run_id"] for record in payload["records"]] == ["run-a"]
+
+
 def test_api_operator_summary_returns_runtime_and_recent_read_models(
     tmp_path: Path,
     monkeypatch,

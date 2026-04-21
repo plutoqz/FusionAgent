@@ -83,6 +83,24 @@ def test_run_registry_skips_malformed_and_non_object_run_json(tmp_path: Path) ->
     assert [record["run_id"] for record in records] == ["run-valid"]
 
 
+def test_run_registry_skips_undecodable_run_json(tmp_path: Path) -> None:
+    runs_root = tmp_path / "runs"
+    valid = runs_root / "run-valid"
+    undecodable = runs_root / "run-undecodable"
+    for run_dir in [valid, undecodable]:
+        run_dir.mkdir(parents=True)
+
+    (valid / "run.json").write_text(
+        '{"run_id":"run-valid","phase":"succeeded","job_type":"building"}',
+        encoding="utf-8",
+    )
+    (undecodable / "run.json").write_bytes(b"\xff\xfe\x00")
+
+    records = RunRegistryService(runs_root=runs_root).list_records(limit=10)
+
+    assert [record["run_id"] for record in records] == ["run-valid"]
+
+
 def test_run_registry_caps_limit_at_100(tmp_path: Path) -> None:
     runs_root = tmp_path / "runs"
     for index in range(105):

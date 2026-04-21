@@ -32,7 +32,7 @@ class RunRegistryService:
         for _, run_json_path in candidates:
             try:
                 record = json.loads(run_json_path.read_text(encoding="utf-8"))
-            except (json.JSONDecodeError, OSError):
+            except (json.JSONDecodeError, OSError, UnicodeDecodeError):
                 continue
             if not isinstance(record, dict):
                 continue
