@@ -6,10 +6,11 @@ FusionAgent is a vector-data fusion agent prototype for disaster response workfl
 The current `main` branch is no longer just a script wrapper. It now provides a
 testable, auditable, and incrementally extensible agentic workflow runtime.
 
-The runtime currently supports `building` and `road` jobs using either uploaded
-`zip shapefile` inputs or task-driven auto-acquired input bundles, and can
-perform planning, validation, execution, healing, replanning, evidence
-writeback, and artifact output.
+The runtime currently supports `building`, `road`, and an uploaded-only `water`
+vertical slice. `building` and `road` can run with either uploaded `zip shapefile`
+inputs or task-driven auto-acquired input bundles, while `water` currently accepts
+uploaded inputs only. The runtime can perform planning, validation, execution,
+healing, replanning, evidence writeback, and artifact output.
 
 ## Current Position
 
@@ -45,7 +46,7 @@ validator, policy, audit, and healing loops bound correctness and robustness.
 - persisted `run.json`, `plan.json`, `validation.json`, and `audit.jsonl`
 - persisted artifact bundle output
 - explicit run status, decision records, and audit trail
-- `building` and `road` job support in the v2 runtime
+- `building`, `road`, and uploaded-only `water` job support in the v2 runtime
 - dual-entry intent routing with `task-driven` / `scenario-driven` planning modes
 - shared planning context via `TaskBundle` and `ScenarioProfile`
 
@@ -142,6 +143,22 @@ validator, policy, audit, and healing loops bound correctness and robustness.
   - `GET /api/v2/runs/{left_run_id}/compare/{right_run_id}`
 - cleaned `docs/v2-operations.md` covering runtime conventions and operator flows
 
+### Phase F: Water Vertical Slice
+
+- added an uploaded-only `water` polygon fusion vertical slice
+- planner, KG seed, executor dispatch, adapter output, artifact writeback, and Neo4j bootstrap are now closed for this slice
+- `water` explicitly does not support `task_driven_auto`; the API and service reject that mode
+- tracked implementation record: [2026-04-20-water-vertical-slice.md](./docs/superpowers/plans/2026-04-20-water-vertical-slice.md)
+
+### Phase G: Experiment Matrix And Paper Evidence Freeze
+
+- manifest-mode `scripts/eval_harness.py` output now preserves matrix-ready metadata and evidence fields
+- added `scripts/freeze_paper_evidence.py` to normalize both harness summary JSON and historical single-case durable result JSON into frozen paper-facing JSON and Markdown
+- tracked Phase G artifacts include:
+  - [paper experiment matrix](./docs/superpowers/specs/2026-04-21-paper-experiment-matrix.json)
+  - [paper evidence freeze JSON](./docs/superpowers/specs/2026-04-21-paper-evidence-freeze.json)
+  - [paper evidence freeze Markdown](./docs/superpowers/specs/2026-04-21-paper-evidence-freeze.md)
+
 ## Evidence Written Per Run
 
 Each run currently persists the following core evidence files:
@@ -154,10 +171,12 @@ Each run currently persists the following core evidence files:
 
 ## Known Remaining Gaps
 
-Even though the six roadmap phases are implemented, there are still clear gaps:
+Even with the current runtime, vertical slices, and paper evidence freeze in place,
+there are still clear gaps:
 
-- benchmark evidence is not yet promoted into a more durable tracked research note
+- paper evidence is now frozen, but stronger robustness, learning, and operator-facing claims remain gated by later phases
 - the search space still focuses on the current `building` and `road` themes
+- `water` is still an uploaded-only proof slice and should not be described as a general task-driven acquisition capability
 - durable learning is still a first-pass capability, not full policy auto-tuning
 - operator-facing productization is still a narrow API layer, not a full frontend
 - `raw.google.building` and some local-only reference / Excel-style inputs still require manual preparation and are not part of the current official materialization set
@@ -169,10 +188,10 @@ Even though the six roadmap phases are implemented, there are still clear gaps:
 - `services/`: runtime services, including `AgentRunService`
 - `agent/`: planner, retriever, validator, executor, and policy logic
 - `kg/`: KG models, repositories, seed data, and bootstrap logic
-- `adapters/`: building and road fusion adapters
+- `adapters/`: building, road, and water fusion adapters
 - `worker/`: Celery worker and scheduling entry points
 - `llm/`: LLM provider abstractions and implementations
-- `scripts/`: harness, bootstrap, local start, and inspection scripts
+- `scripts/`: harness, paper evidence freeze, bootstrap, local start, and inspection scripts
 - `tests/`: unit, integration, runtime, API, and repository tests
 - `docs/`: operations and design documentation
 
@@ -308,6 +327,8 @@ python -m pytest -q `
 - [docs/superpowers/specs/2026-04-07-fusion-agent-v2-design.md](docs/superpowers/specs/2026-04-07-fusion-agent-v2-design.md)
 - [docs/superpowers/plans/2026-04-07-fusion-agent-v2-implementation.md](docs/superpowers/plans/2026-04-07-fusion-agent-v2-implementation.md)
 - [docs/superpowers/specs/2026-04-08-benchmark-followup-summary.md](docs/superpowers/specs/2026-04-08-benchmark-followup-summary.md)
+- [docs/superpowers/specs/2026-04-21-paper-experiment-matrix.json](docs/superpowers/specs/2026-04-21-paper-experiment-matrix.json)
+- [docs/superpowers/specs/2026-04-21-paper-evidence-freeze.md](docs/superpowers/specs/2026-04-21-paper-evidence-freeze.md)
 
 ## Notes
 

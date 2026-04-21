@@ -4,7 +4,7 @@
 
 FusionAgent 是一个面向灾害响应工作流的矢量数据融合智能体原型。当前 `main` 分支已经不再只是算法脚本包装层，而是一个可测试、可审计、可渐进扩展的 agentic runtime。
 
-当前运行时已支持 `building` 与 `road` 两类任务，输入既可以是上传的 `zip shapefile`，也可以是 `task-driven` 自动准备的输入包；运行时已具备 planning、validation、execution、healing、replanning、evidence writeback 与 artifact 输出能力。
+当前运行时已支持 `building`、`road`，以及 uploaded-only 的 `water` 垂直切片；其中 `building` 与 `road` 支持上传 `zip shapefile` 或 `task-driven` 自动准备输入包，`water` 当前仅支持上传输入。运行时已具备 planning、validation、execution、healing、replanning、evidence writeback 与 artifact 输出能力。
 
 ## 当前定位
 
@@ -38,7 +38,7 @@ FusionAgent 当前明确区分：
 - 持久化 `run.json`、`plan.json`、`validation.json` 与 `audit.jsonl`
 - 持久化 artifact bundle 输出
 - 显式 run status、decision records 与 audit trail
-- `v2` 运行时支持 `building` 和 `road`
+- `v2` 运行时支持 `building`、`road`，以及 uploaded-only 的 `water`
 - `task-driven` / `scenario-driven` 双入口意图路由
 - 通过 `TaskBundle` 与 `ScenarioProfile` 共享规划上下文
 
@@ -137,6 +137,22 @@ FusionAgent 当前明确区分：
   - `GET /api/v2/runs/{left_run_id}/compare/{right_run_id}`
 - 已有整理后的 [docs/v2-operations.md](./docs/v2-operations.md) 说明运行约定与 operator 流程
 
+### Phase F：Water Vertical Slice
+
+- 新增 uploaded-only 的 `water` polygon fusion 垂直切片
+- planner、KG seed、executor dispatch、adapter 输出、artifact writeback 与 Neo4j bootstrap 已形成闭环
+- `water` 当前明确不支持 `task_driven_auto`；API 与 service 会拒绝该模式
+- 跟踪文档见 [2026-04-20-water-vertical-slice.md](./docs/superpowers/plans/2026-04-20-water-vertical-slice.md)
+
+### Phase G：Experiment Matrix + Paper Evidence Freeze
+
+- `scripts/eval_harness.py` 的 manifest 结果现在会保留 matrix-ready metadata 和 evidence 字段
+- 新增 `scripts/freeze_paper_evidence.py`，可把 harness summary JSON 与历史 single-case durable result JSON 统一冻结为 paper-facing JSON/Markdown
+- 追踪产物包括：
+  - [paper experiment matrix](./docs/superpowers/specs/2026-04-21-paper-experiment-matrix.json)
+  - [paper evidence freeze JSON](./docs/superpowers/specs/2026-04-21-paper-evidence-freeze.json)
+  - [paper evidence freeze Markdown](./docs/superpowers/specs/2026-04-21-paper-evidence-freeze.md)
+
 ## 每次运行产出的核心证据
 
 每次 run 当前会持久化以下核心证据文件：
@@ -149,10 +165,11 @@ FusionAgent 当前明确区分：
 
 ## 当前仍然存在的明确缺口
 
-虽然六个 roadmap phase 已经都进入实现范围，但仍然存在这些现实缺口：
+虽然当前 runtime、垂直切片与 paper evidence freeze 都已经落地，但仍然存在这些现实缺口：
 
-- benchmark evidence 还没有上升为更耐久的研究笔记或跟踪文档
+- paper evidence 已冻结，但更强的 robustness / learning / operator-facing claim 仍受后续 phase gate 约束
 - search space 仍然集中在当前 `building` 与 `road` 主题
+- `water` 目前仍是 uploaded-only 证明切片，不应被表述为通用 task-driven 自动物化能力
 - durable learning 仍是 first-pass 能力，不是完整 policy auto-tuning
 - operator-facing productization 目前仍是窄 API 层，不是完整前端产品
 - `raw.google.building` 与部分本地 reference / Excel 类输入仍需要人工准备，不在当前官方自动物化集合内
@@ -166,6 +183,8 @@ FusionAgent 当前明确区分：
 - [Evidence Ledger](./docs/superpowers/specs/2026-04-20-evidence-ledger.md)：现有测试、benchmark、运行文档与论文证据索引
 - [Long-Chain Decision Roadmap](./docs/superpowers/specs/2026-04-20-long-chain-decision-roadmap.md)：从 Phase A 到 Phase H 的最长合理推进链条与每阶段决策门
 - [Evaluation Contract And Thesis Claim Lock](./docs/superpowers/specs/2026-04-20-evaluation-contract-claim-lock.md)：论文/产品 claim、指标、baseline 与 Phase C-D gate
+- [Phase G Experiment Matrix](./docs/superpowers/specs/2026-04-21-paper-experiment-matrix.json)：冻结后的 claim/baseline/case contract
+- [Phase G Paper Evidence Freeze](./docs/superpowers/specs/2026-04-21-paper-evidence-freeze.md)：paper-facing summary、failure analysis 与 qualitative evidence
 
 ## 仓库结构
 
@@ -173,10 +192,10 @@ FusionAgent 当前明确区分：
 - `services/`: 运行时服务，包括 `AgentRunService`
 - `agent/`: planner、retriever、validator、executor 与 policy 逻辑
 - `kg/`: KG 模型、repository、seed data 与 bootstrap
-- `adapters/`: building / road fusion adapter
+- `adapters/`: building / road / water fusion adapter
 - `worker/`: Celery worker 与调度入口
 - `llm/`: LLM provider 抽象与实现
-- `scripts/`: harness、bootstrap、本地启动与 inspection 脚本
+- `scripts/`: harness、paper evidence freeze、bootstrap、本地启动与 inspection 脚本
 - `tests/`: unit、integration、runtime、API 与 repository tests
 - `docs/`: 运维与设计文档
 
