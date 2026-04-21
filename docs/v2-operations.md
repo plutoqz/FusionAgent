@@ -8,6 +8,7 @@
 - persisted `run.json`, `plan.json`, `validation.json`, and `audit.jsonl`
 - durable learning summaries for long-term planning evidence
 - operator-facing inspection and comparison endpoints in the v2 API
+- stable task-driven support for `building`, `road`, `water`, and bounded `poi` on the shared runtime backbone
 
 ## Stability Contract
 
@@ -16,7 +17,9 @@ Freeze the runtime wording to the following contract:
 - `building: task_driven_auto supported`
 - `road: task_driven_auto supported`
 - `water: task_driven_auto supported after Phase 1`
-- all three share the same evidence contract: `run.json`, `plan.json`, `validation.json`, `audit.jsonl`, and the artifact bundle
+- `poi: bounded task_driven_auto supported after Phase 3`
+- all four share the same evidence contract: `run.json`, `plan.json`, `validation.json`, `audit.jsonl`, and the artifact bundle
+- `trajectory-to-road` remains reservation-only in Phase 4 and is not part of the stable runtime contract
 
 ## Runtime Modes
 
@@ -102,7 +105,8 @@ python scripts/freeze_paper_evidence.py `
 
 Track the matrix spec and frozen outputs under `docs/superpowers/specs/`.
 Do not track raw `runs/<run_id>/` directories or source caches; record their storage location inside the frozen JSON instead.
-Keep the water extensibility note explicit even though `water` now shares the stable task-driven contract.
+Keep the water and bounded-POI extensibility notes explicit even though both now share the stable task-driven contract.
+Do not describe the trajectory-to-road seam reservation as a live runtime ingestion path.
 
 ## Timeout Guidance
 

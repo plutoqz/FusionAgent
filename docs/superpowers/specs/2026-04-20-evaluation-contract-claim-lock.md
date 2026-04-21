@@ -21,7 +21,7 @@ This document locks the claims FusionAgent is allowed to pursue in the next impl
 | C4 | Durable learning can influence future planning or policy in an auditable way | in_scope_now | Deterministic policy-hint tests and decision traces | decision_trace_completeness, recovery_success_rate, planning_validity_rate | full_system, no_durable_learning_hints | Phase D focused regressions now prove bounded `learning_adjustment` evidence and auditable pattern-selection influence | Keep the frozen paper matrix aligned with the Phase D verification slice |
 | C5 | Task-driven AOI and source acquisition reduce manual input preparation for bounded official sources | in_scope_now | Source materialization tests plus real-data benchmark | reproducibility_status, execution_success_rate, runtime_duration_ms | full_system, manual_input_baseline | Fresh-checkout Microsoft building benchmark and source asset tests exist | Final benchmark should rerun and archive direct summary JSON |
 | C6 | Executable ontology and research ontology are aligned enough to support the paper narrative | conditional | KG seed/query tests and ontology closure checks | planning_validity_rate, decision_trace_completeness | full_system | Current docs distinguish executable subset and target ontology | Phase E should only proceed if Phase B/G needs stronger ontology evidence |
-| C7 | FusionAgent architecture can extend beyond building/road | conditional | One new vertical-slice benchmark | planning_validity_rate, execution_success_rate, artifact_validity | full_system | Water now runs on the shared task-driven runtime and evidence contract after Phase 1 stabilization | Keep the water extensibility claim bounded to the current building/road/water slice |
+| C7 | FusionAgent architecture can extend beyond building/road | conditional | One new vertical-slice benchmark | planning_validity_rate, execution_success_rate, artifact_validity | full_system | Water now runs on the shared task-driven runtime and evidence contract after Phase 1 stabilization, and bounded POI now does the same after Phase 3 stabilization | Keep the extensibility claim bounded to the current building/road/water/bounded-poi slices; trajectory-to-road remains reservation-only until separately evidenced |
 | C8 | FusionAgent has a usable operator-facing product surface | boundary_only | Operator API smoke and product demo evidence | evidence_completeness_rate, artifact_validity | full_system | Inspection and comparison endpoints exist | A full UI, auth, retention, listing, retry/cancel, and observability are product future work unless Phase H is activated |
 
 ## Phase C Decision
@@ -66,7 +66,9 @@ The stable runtime wording is now frozen as:
 - `building: task_driven_auto supported`
 - `road: task_driven_auto supported`
 - `water: task_driven_auto supported after Phase 1`
-- all three share the same evidence contract: `run.json`, `plan.json`, `validation.json`, `audit.jsonl`, and artifact bundle
+- `poi: bounded task_driven_auto supported after Phase 3`
+- all four share the same evidence contract: `run.json`, `plan.json`, `validation.json`, `audit.jsonl`, and artifact bundle
+- `trajectory-to-road` remains reservation-only and is outside the frozen stable runtime contract
 
 ## Baseline Matrix
 
@@ -199,7 +201,7 @@ Phase C and Phase D evidence are now frozen into the paper matrix.
 The current follow-up rule is:
 
 ```text
-Do not widen the claim surface beyond the stabilized building/road/water contract until the frozen C1-C7 evidence is reviewed.
+Do not widen the paper claim surface beyond the stabilized building/road/water/bounded-poi runtime slices until the frozen C1-C7 evidence is reviewed. Treat trajectory-to-road as reservation-only, not as a live runtime claim.
 ```
 
 Phase E-H remain conditional and should not start before the current frozen evidence set is reviewed.
