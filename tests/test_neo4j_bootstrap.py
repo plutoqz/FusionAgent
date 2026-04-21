@@ -32,6 +32,17 @@ def test_bootstrap_cypher_contains_schema_and_seed_entities() -> None:
     assert "MERGE (run:WorkflowInstance" not in cypher
 
 
+def test_bootstrap_cypher_contains_water_vertical_slice() -> None:
+    cypher = build_bootstrap_cypher()
+
+    assert "dt.water.bundle" in cypher
+    assert "dt.water.fused" in cypher
+    assert "task.water.fusion" in cypher
+    assert "algo.fusion.water.v1" in cypher
+    assert "wp.flood.water.default" in cypher
+    assert "osp.water.fused.v1" in cypher
+
+
 def test_apply_bootstrap_cypher_uses_home_database_by_default(monkeypatch) -> None:
     executed_statements: list[str] = []
     session_databases: list[object] = []
