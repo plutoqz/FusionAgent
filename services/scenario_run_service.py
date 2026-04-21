@@ -68,6 +68,8 @@ class ScenarioRunService:
                 "child_run_ids": child_run_ids,
                 "created_at": datetime.now(timezone.utc).isoformat(),
                 "case_id": request.metadata.get("case_id"),
+                "idempotency_key": request.metadata.get("idempotency_key"),
+                "trigger_event": request.metadata.get("trigger_event"),
             }
         )
 

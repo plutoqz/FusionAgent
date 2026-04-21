@@ -33,6 +33,18 @@ class ScenarioRegistryService:
                 break
         return records
 
+    def find_by_idempotency_key(self, idempotency_key: str) -> Optional[Dict[str, Any]]:
+        if not self.index_path.exists():
+            return None
+
+        for line in self.index_path.read_text(encoding="utf-8").splitlines():
+            if not line.strip():
+                continue
+            record = json.loads(line)
+            if record.get("idempotency_key") == idempotency_key:
+                return record
+        return None
+
     def get_summary(self, scenario_id: str) -> Dict[str, Any]:
         summary_path = self.output_root / scenario_id / "scenario_summary.json"
         return json.loads(summary_path.read_text(encoding="utf-8"))
