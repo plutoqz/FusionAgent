@@ -21,6 +21,10 @@ Freeze the runtime wording to the following contract:
 - all four share the same evidence contract: `run.json`, `plan.json`, `validation.json`, `audit.jsonl`, and the artifact bundle
 - `trajectory-to-road` remains reservation-only in Phase 4 and is not part of the stable runtime contract
 
+### Artifact Preview Products
+
+The no-UI maturity path can generate lightweight GeoJSON previews from artifact bundles before any final dashboard exists. These previews are operator and future-UI assets; they do not replace the canonical shapefile artifact bundle.
+
 ## Runtime Modes
 
 ### Local Fast Mode
