@@ -17,12 +17,21 @@ healing, replanning, evidence writeback, and artifact output contract.
 
 The most accurate description of the project today is:
 
-- engineering MVP: reached
-- research-grade iterative prototype: reached
-- final product form: not reached
+- Engineering MVP: reached
+- Research prototype: reached
+- Mature no-UI vector data fusion agent: reached
+- Final visualization product shape: not reached
 
-FusionAgent already has a credible runtime loop, but it is still not the final
-long-lived product form with a full operator UI and mature long-term learning.
+FusionAgent has now reached the engineering MVP, research prototype, and mature
+no-UI vector data fusion agent bar, but it should still not be described as the
+final visualization product.
+
+FusionAgent can now operate as a mature no-UI vector data fusion agent within
+its bounded scope: it provides natural-language and local scenario-trigger
+entry points, KG-constrained planning, task-driven data acquisition,
+execution/healing/replanning/learning evidence, scenario-level evidence
+freeze, operator read APIs, and a local operations runbook. The final
+visualization UI remains future work.
 
 ## Stability Contract
 
@@ -213,15 +222,20 @@ Scenario-level runs additionally persist:
 
 ## Known Remaining Gaps
 
-Even with the current runtime, vertical slices, and paper evidence freeze in place,
-there are still clear gaps:
+Even after reaching no-UI maturity, these product and research boundaries still
+remain:
 
-- paper evidence is now frozen, but stronger robustness, learning, and operator-facing claims remain gated by later phases
+- the final frontend and final visualization product shape are not built; the
+  current operator surface is still centered on read APIs and a local runbook
+- external provider event feeds are not integrated
+- production deployment, auth, multi-tenant isolation, and full production
+  operations are not claimed
 - the search space still focuses on the current `building`, `road`, `water`, and bounded `poi` themes
-- `water` and bounded `poi` now sit on the shared task-driven backbone, but that should not be overstated as proof that arbitrary new themes are already free to extend
+- `water` and bounded `poi` now sit on the shared task-driven backbone, but
+  that should not be overstated as proof that arbitrary new task families are
+  already free to extend
 - the trajectory-to-road path is only a seam reservation today and must not be described as already supporting real trajectory ingestion or road inference
 - durable learning is still a first-pass capability, not full policy auto-tuning
-- operator-facing productization is still a narrow API layer, not a full frontend
 - `raw.google.building` and some local-only reference / Excel-style inputs still require manual preparation and are not part of the current official materialization set
 - AOI resolution still depends on an external geocoder, so availability and latency remain sensitive to network conditions
 

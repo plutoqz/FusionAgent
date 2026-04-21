@@ -23,8 +23,8 @@ Durability labels:
 
 | Evidence | Path | Supports | Durability | Notes |
 | --- | --- | --- | --- | --- |
-| Main project positioning | `README.md` | Engineering MVP and research prototype are reached; final product shape is not reached | strong | Primary entry point for current status |
-| English project positioning | `README.en.md` | Same status for English readers | medium | Keep synchronized if README status changes |
+| Main project positioning | `README.md` | Engineering MVP, research prototype, and mature no-UI vector data fusion agent are reached; final visualization product shape is not reached | strong | Primary entry point for current no-UI maturity positioning |
+| English project positioning | `README.en.md` | Same no-UI maturity status for English readers | medium | Keep synchronized with the Chinese README and no-UI maturity target |
 | v2 operations guide | `docs/v2-operations.md` | Runtime modes, evaluation tiers, benchmark conventions, operator endpoints | strong | Primary operator evidence |
 | Local direct-run guide | `docs/local-direct-run.md` | Local full-loop capability and current true boundaries | medium | Useful for local verification and smoke runs |
 | Master v2 plan | `docs/superpowers/plans/2026-04-07-fusion-agent-v2-implementation.md` | Prior six-phase v2 roadmap status | strong | Explicitly says baseline roadmap is complete for intended scope |
