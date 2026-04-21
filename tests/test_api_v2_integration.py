@@ -196,6 +196,52 @@ def _build_task_driven_water_plan() -> WorkflowPlan:
     )
 
 
+def _build_task_driven_poi_plan() -> WorkflowPlan:
+    return WorkflowPlan(
+        workflow_id="wf_poi_task_driven_auto",
+        trigger=RunTrigger(type=RunTriggerType.user_query, content="need poi data for Nairobi, Kenya"),
+        context={
+            "intent": {
+                "job_type": "poi",
+                "profile_source": "direct_task",
+                "task_bundle": {
+                    "bundle_id": "task_bundle.direct_request",
+                    "requested_tasks": ["task.poi.fusion"],
+                    "requires_disaster_profile": False,
+                },
+            },
+            "retrieval": {
+                "candidate_patterns": [{"pattern_id": "wp.generic.poi.default", "success_rate": 0.8}],
+                "data_sources": [{"source_id": "catalog.generic.poi"}],
+            },
+            "selection_reason": "initial",
+            "llm_provider": "mock",
+            "plan_revision": 1,
+            "planning_mode": "task_driven",
+        },
+        tasks=[
+            WorkflowTask(
+                step=1,
+                name="poi_fusion",
+                description="poi fusion",
+                algorithm_id="algo.fusion.poi.v1",
+                input=WorkflowTaskInput(
+                    data_type_id="dt.poi.bundle",
+                    data_source_id="catalog.generic.poi",
+                    parameters={},
+                ),
+                output=WorkflowTaskOutput(data_type_id="dt.poi.fused", description=""),
+                depends_on=[],
+                is_transform=False,
+                kg_validated=True,
+                alternatives=[],
+            )
+        ],
+        expected_output="poi result",
+        validation=ValidationReport(valid=True, inserted_transform_steps=0, issues=[]),
+    )
+
+
 def _resolved_nairobi_aoi() -> ResolvedAOI:
     return ResolvedAOI(
         query="Nairobi, Kenya",
@@ -414,6 +460,76 @@ def test_v2_run_water_task_driven_auto_integration(
     resolved_event = next(event for event in inspection["audit_events"] if event["kind"] == "task_inputs_resolved")
     assert resolved_event["details"]["source_id"] == "catalog.flood.water"
     assert resolved_event["details"]["version_token"] == "water-v1"
+    assert resolved_event["details"]["resolved_aoi"]["country_code"] == "ke"
+
+
+def test_v2_run_poi_task_driven_auto_integration(
+    tmp_path: Path,
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = runs_v2_router.agent_run_service
+    osm_shp = tmp_path / "resolved_osm_poi.shp"
+    ref_shp = tmp_path / "resolved_ref_poi.shp"
+    fused_shp = tmp_path / "fused_poi.shp"
+    artifact_zip = tmp_path / "artifact_poi.zip"
+    for path in [osm_shp, ref_shp, fused_shp]:
+        path.write_text("dummy", encoding="utf-8")
+    artifact_zip.write_bytes(b"zip")
+
+    prepared_dir = tmp_path / "prepared_poi"
+    prepared_dir.mkdir(parents=True, exist_ok=True)
+    resolved = ResolvedRunInputs(
+        osm_zip_path=prepared_dir / "osm.zip",
+        ref_zip_path=prepared_dir / "ref.zip",
+        source_mode="downloaded",
+        source_id="catalog.generic.poi",
+        cache_hit=False,
+        version_token="poi-v1",
+    )
+    resolved.osm_zip_path.write_bytes(b"osm")
+    resolved.ref_zip_path.write_bytes(b"ref")
+
+    monkeypatch.setattr(service.aoi_resolution_service, "resolve", lambda _query: _resolved_nairobi_aoi())
+    monkeypatch.setattr(
+        service.planner,
+        "create_plan",
+        lambda **_kwargs: _build_task_driven_poi_plan().model_copy(deep=True),
+    )
+    monkeypatch.setattr(service.validator, "validate_and_repair", lambda input_plan: input_plan)
+    monkeypatch.setattr(service.input_acquisition_service, "resolve_task_driven_inputs", lambda **_kwargs: resolved)
+    monkeypatch.setattr(
+        "services.agent_run_service.validate_zip_has_shapefile",
+        lambda zip_path, *_args, **_kwargs: osm_shp if Path(zip_path).name.startswith("osm") else ref_shp,
+    )
+    monkeypatch.setattr(service.executor, "execute_plan", lambda **_kwargs: fused_shp)
+    monkeypatch.setattr("services.agent_run_service.zip_shapefile_bundle", lambda *_args, **_kwargs: artifact_zip)
+
+    resp = client.post(
+        "/api/v2/runs",
+        data={
+            "job_type": "poi",
+            "trigger_type": "user_query",
+            "trigger_content": "need poi data for Nairobi, Kenya",
+            "input_strategy": "task_driven_auto",
+            "field_mapping": "{}",
+            "debug": "false",
+        },
+    )
+
+    assert resp.status_code == 200, resp.text
+    run_id = resp.json()["run_id"]
+
+    status = _wait_run(client, run_id)
+    assert status["phase"] == "succeeded", status.get("error")
+
+    inspection_resp = client.get(f"/api/v2/runs/{run_id}/inspection")
+    assert inspection_resp.status_code == 200
+    inspection = inspection_resp.json()
+    assert inspection["run"]["job_type"] == "poi"
+    resolved_event = next(event for event in inspection["audit_events"] if event["kind"] == "task_inputs_resolved")
+    assert resolved_event["details"]["source_id"] == "catalog.generic.poi"
+    assert resolved_event["details"]["version_token"] == "poi-v1"
     assert resolved_event["details"]["resolved_aoi"]["country_code"] == "ke"
 
 

@@ -154,6 +154,24 @@ def _build_water_task_driven_plan(*, workflow_id: str = "wf_water_auto_inputs", 
     return plan
 
 
+def _build_poi_task_driven_plan(*, workflow_id: str = "wf_poi_auto_inputs", revision: int = 1) -> WorkflowPlan:
+    plan = _build_plan(workflow_id=workflow_id, revision=revision, algorithm_id="algo.fusion.poi.v1")
+    plan.trigger = RunTrigger(type=RunTriggerType.user_query, content="need poi data for Nairobi, Kenya")
+    plan.context["intent"]["job_type"] = "poi"
+    plan.context["intent"]["profile_source"] = "direct_task"
+    plan.context["intent"]["task_bundle"]["requested_tasks"] = ["task.poi.fusion"]
+    plan.context["retrieval"]["candidate_patterns"] = [{"pattern_id": "wp.generic.poi.default", "success_rate": 0.8}]
+    plan.tasks[0].name = "poi_fusion"
+    plan.tasks[0].description = "poi fusion"
+    plan.tasks[0].algorithm_id = "algo.fusion.poi.v1"
+    plan.tasks[0].input.data_type_id = "dt.poi.bundle"
+    plan.tasks[0].input.data_source_id = "catalog.generic.poi"
+    plan.tasks[0].output.data_type_id = "dt.poi.fused"
+    plan.tasks[0].alternatives = []
+    plan.expected_output = "poi result"
+    return plan
+
+
 def _seed_water_runtime_tree(root: Path) -> None:
     _write_frame(
         root / "Data" / "burundi-260127-free.shp" / "gis_osm_water_a_free_1.shp",
@@ -168,6 +186,25 @@ def _seed_water_runtime_tree(root: Path) -> None:
         gpd.GeoDataFrame(
             {"locw_id": [2]},
             geometry=[box(0.5, 0.5, 1.5, 1.5)],
+            crs="EPSG:4326",
+        ),
+    )
+
+
+def _seed_poi_runtime_tree(root: Path) -> None:
+    _write_frame(
+        root / "Data" / "burundi-260127-free.shp" / "gis_osm_pois_free_1.shp",
+        gpd.GeoDataFrame(
+            {"osm_pid": [1]},
+            geometry=[box(36.80, -1.30, 36.8001, -1.2999).centroid],
+            crs="EPSG:4326",
+        ),
+    )
+    _write_frame(
+        root / "Data" / "POI" / "Kenya" / "GNS.shp",
+        gpd.GeoDataFrame(
+            {"gns_id": [2]},
+            geometry=[box(36.80005, -1.30005, 36.80015, -1.29995).centroid],
             crs="EPSG:4326",
         ),
     )
@@ -328,6 +365,76 @@ def test_agent_run_service_water_task_driven_auto_uses_real_shared_acquisition_c
     audit_events = service.get_audit_events(status.run_id)
     resolved_event = next(event for event in audit_events if event.kind == "task_inputs_resolved")
     assert resolved_event.details["source_id"] == "catalog.flood.water"
+    assert resolved_event.details["source_mode"] == "downloaded"
+    assert resolved_event.details["cache_hit"] is False
+
+
+def test_agent_run_service_poi_task_driven_auto_uses_real_shared_acquisition_chain(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    root_dir = tmp_path / "runtime_root_poi"
+    _seed_poi_runtime_tree(root_dir)
+
+    service = AgentRunService(base_dir=tmp_path / "runs")
+    _wire_real_water_acquisition_chain(service, root_dir=root_dir)
+
+    fused_shp = tmp_path / "fused_poi_real.shp"
+    _write_frame(
+        fused_shp,
+        gpd.GeoDataFrame(
+            {"fid": [1]},
+            geometry=[box(36.80002, -1.30002, 36.80003, -1.30001).centroid],
+            crs="EPSG:4326",
+        ),
+    )
+
+    plan = _build_poi_task_driven_plan(workflow_id="wf_poi_real_chain")
+    plan.trigger = RunTrigger(
+        type=RunTriggerType.user_query,
+        content="need poi data",
+        spatial_extent="bbox(36.79,-1.31,36.81,-1.29)",
+    )
+
+    captured: dict[str, object] = {}
+
+    monkeypatch.setattr(service.planner, "create_plan", lambda **_kwargs: plan.model_copy(deep=True))
+    monkeypatch.setattr(service.validator, "validate_and_repair", lambda input_plan: input_plan)
+
+    def fake_execute_plan(*, context, **_kwargs):
+        captured["osm_shp"] = context.osm_shp
+        captured["ref_shp"] = context.ref_shp
+        captured["osm_frame"] = gpd.read_file(context.osm_shp)
+        captured["ref_frame"] = gpd.read_file(context.ref_shp)
+        return fused_shp
+
+    monkeypatch.setattr(service.executor, "execute_plan", fake_execute_plan)
+
+    status = service.create_run(
+        request=_build_auto_request(
+            spatial_extent="bbox(36.79,-1.31,36.81,-1.29)",
+            job_type=JobType.poi,
+            content="need poi data",
+        ),
+        osm_zip_name=None,
+        osm_zip_bytes=None,
+        ref_zip_name=None,
+        ref_zip_bytes=None,
+    )
+
+    latest = service.get_run(status.run_id)
+    assert latest is not None
+    assert latest.phase == RunPhase.succeeded
+    assert Path(captured["osm_shp"]).exists()
+    assert Path(captured["ref_shp"]).exists()
+    assert list(captured["osm_frame"].columns)[:1] == ["osm_pid"]
+    assert list(captured["ref_frame"].columns)[:1] == ["gns_id"]
+    assert str(captured["osm_frame"].crs) == "EPSG:32643"
+    assert str(captured["ref_frame"].crs) == "EPSG:32643"
+
+    audit_events = service.get_audit_events(status.run_id)
+    resolved_event = next(event for event in audit_events if event.kind == "task_inputs_resolved")
+    assert resolved_event.details["source_id"] == "catalog.generic.poi"
     assert resolved_event.details["source_mode"] == "downloaded"
     assert resolved_event.details["cache_hit"] is False
 

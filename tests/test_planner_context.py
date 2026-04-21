@@ -158,6 +158,35 @@ def test_planner_context_exposes_water_metadata_and_builds_water_plan() -> None:
     assert plan.tasks[0].output.data_type_id == "dt.water.fused"
 
 
+def test_planner_context_exposes_poi_metadata_and_builds_poi_plan() -> None:
+    provider = CapturingProvider()
+    planner = WorkflowPlanner(InMemoryKGRepository(), provider)
+    trigger = RunTrigger(
+        type=RunTriggerType.user_query,
+        content="show hospitals in Nairobi, Kenya",
+    )
+
+    plan = planner.create_plan(run_id="run-poi-context", job_type=JobType.poi, trigger=trigger)
+
+    assert provider.last_context is not None
+    assert provider.last_context["intent"]["planning_mode"] == "task_driven"
+    assert provider.last_context["intent"]["profile_source"] == "direct_task"
+    retrieval = provider.last_context["retrieval"]
+    assert [item["pattern_id"] for item in retrieval["candidate_patterns"]] == ["wp.generic.poi.default"]
+    assert any(item["type_id"] == "dt.poi.bundle" for item in retrieval["data_types"])
+    assert any(item["type_id"] == "dt.poi.fused" for item in retrieval["data_types"])
+    assert "algo.fusion.poi.v1" in retrieval["algorithms"]
+    assert "dt.poi.fused" in retrieval["output_schema_policies"]
+    assert retrieval["transform_paths"]["dt.poi.bundle"] == ["dt.raw.vector", "dt.poi.bundle"]
+    poi_source = next(item for item in retrieval["data_sources"] if item["source_id"] == "catalog.generic.poi")
+    assert poi_source["metadata"]["component_source_ids"] == ["raw.osm.poi", "raw.gns.poi"]
+    assert poi_source["metadata"]["provider_family"] == "local_bundle_catalog"
+    assert plan.tasks[0].algorithm_id == "algo.fusion.poi.v1"
+    assert plan.tasks[0].input.data_type_id == "dt.poi.bundle"
+    assert plan.tasks[0].input.data_source_id == "catalog.generic.poi"
+    assert plan.tasks[0].output.data_type_id == "dt.poi.fused"
+
+
 def test_replan_increments_plan_revision() -> None:
     provider = CapturingProvider()
     planner = WorkflowPlanner(InMemoryKGRepository(), provider)

@@ -12,6 +12,7 @@ TASK_HINTS = (
     "building",
     "road",
     "water",
+    "poi",
     "lake",
     "river",
     "reservoir",
@@ -29,9 +30,22 @@ WATER_HINTS = (
     "wetland",
 )
 
+POI_HINTS = (
+    "poi",
+    "point of interest",
+    "hospital",
+    "clinic",
+    "school",
+    "market",
+)
+
 
 def _has_direct_water_request(content: str) -> bool:
     return any(token in content for token in WATER_HINTS)
+
+
+def _has_direct_poi_request(content: str) -> bool:
+    return any(token in content for token in POI_HINTS)
 
 
 def resolve_planning_mode(trigger: RunTrigger) -> Dict[str, object]:
@@ -39,6 +53,8 @@ def resolve_planning_mode(trigger: RunTrigger) -> Dict[str, object]:
     if trigger.disaster_type:
         return {"planning_mode": "scenario_driven", "profile_source": "disaster_type"}
     if _has_direct_water_request(content):
+        return {"planning_mode": "task_driven", "profile_source": "direct_task"}
+    if _has_direct_poi_request(content):
         return {"planning_mode": "task_driven", "profile_source": "direct_task"}
     if any(token in content for token in TASK_HINTS):
         return {"planning_mode": "task_driven", "profile_source": "direct_task"}

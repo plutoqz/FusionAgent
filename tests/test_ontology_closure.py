@@ -70,3 +70,17 @@ def test_water_seed_records_exist() -> None:
     water_policy_note = OUTPUT_SCHEMA_POLICIES["dt.water.fused"].metadata["notes"]
     assert "uploaded-only" not in water_policy_note
     assert "shared bundle runtime" in water_policy_note
+
+
+def test_poi_seed_records_exist() -> None:
+    assert JobType.poi.value == "poi"
+    assert "dt.poi.bundle" in DATA_TYPES
+    assert "dt.poi.fused" in DATA_TYPES
+    assert "task.poi.fusion" in TASKS
+    assert "algo.fusion.poi.v1" in ALGORITHMS
+    assert OUTPUT_SCHEMA_POLICIES["dt.poi.fused"].policy_id == "osp.poi.fused.v1"
+    poi_pattern = next(pattern for pattern in WORKFLOW_PATTERNS if pattern.job_type == JobType.poi)
+    assert poi_pattern.pattern_id == "wp.generic.poi.default"
+    poi_source = next(source for source in DATA_SOURCES if source.source_id == "catalog.generic.poi")
+    assert poi_source.supported_types == ["dt.poi.bundle"]
+    assert poi_source.metadata["component_source_ids"] == ["raw.osm.poi", "raw.gns.poi"]

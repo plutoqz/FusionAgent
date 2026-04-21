@@ -43,6 +43,12 @@ DATA_TYPES: Dict[str, DataTypeNode] = {
         geometry_type="polygon",
         description="Prepared water polygon fusion input bundle.",
     ),
+    "dt.poi.bundle": DataTypeNode(
+        type_id="dt.poi.bundle",
+        theme="poi",
+        geometry_type="point",
+        description="Prepared point-of-interest fusion input bundle.",
+    ),
     "dt.building.fused": DataTypeNode(
         type_id="dt.building.fused",
         theme="building",
@@ -60,6 +66,12 @@ DATA_TYPES: Dict[str, DataTypeNode] = {
         theme="water",
         geometry_type="polygon",
         description="Fused water polygon output.",
+    ),
+    "dt.poi.fused": DataTypeNode(
+        type_id="dt.poi.fused",
+        theme="poi",
+        geometry_type="point",
+        description="Fused point-of-interest output.",
     ),
 }
 
@@ -82,6 +94,12 @@ TASKS: Dict[str, TaskNode] = {
         task_name="Water Fusion",
         category="fusion",
         description="Fuse multiple water polygon sources into one output.",
+    ),
+    "task.poi.fusion": TaskNode(
+        task_id="task.poi.fusion",
+        task_name="POI Fusion",
+        category="fusion",
+        description="Fuse multiple point-of-interest sources into one output.",
     ),
     "task.vector.download": TaskNode(
         task_id="task.vector.download",
@@ -124,7 +142,7 @@ SCENARIO_PROFILES: List[ScenarioProfileNode] = [
         profile_id="scenario.default.task",
         profile_name="Default Direct Task Profile",
         disaster_types=["generic"],
-        activated_tasks=["task.building.fusion", "task.road.fusion", "task.vector.download"],
+        activated_tasks=["task.building.fusion", "task.road.fusion", "task.poi.fusion", "task.vector.download"],
         preferred_output_fields=["geometry"],
         qos_priority={"accuracy": 0.35, "stability": 0.25, "freshness": 0.2, "speed": 0.2},
         metadata={"entry_mode": "task_driven"},
@@ -211,6 +229,23 @@ ALGORITHMS: Dict[str, AlgorithmNode] = {
         success_rate=0.84,
         accuracy_score=0.82,
         stability_score=0.88,
+        usage_mode="conservative",
+        metadata={
+            "selection_profile": "primary",
+            "evidence_basis": "shared_bundle_runtime",
+            "runtime_scope": "uploaded_or_task_driven_auto",
+        },
+    ),
+    "algo.fusion.poi.v1": AlgorithmNode(
+        algo_id="algo.fusion.poi.v1",
+        algo_name="POI Fusion",
+        input_types=["dt.poi.bundle"],
+        output_type="dt.poi.fused",
+        task_type="poi_fusion",
+        tool_ref="adapters.poi_adapter:run_poi_fusion",
+        success_rate=0.8,
+        accuracy_score=0.78,
+        stability_score=0.86,
         usage_mode="conservative",
         metadata={
             "selection_profile": "primary",
@@ -726,6 +761,31 @@ WORKFLOW_PATTERNS: List[WorkflowPatternNode] = [
         ],
     ),
     WorkflowPatternNode(
+        pattern_id="wp.generic.poi.default",
+        pattern_name="Generic POI Fusion",
+        job_type=JobType.poi,
+        disaster_types=["generic"],
+        success_rate=0.8,
+        metadata={
+            "version": "1.0.0",
+            "runtime_status": "runtime_candidate",
+            "scenario_focus": "generic",
+            "strategy": "conservative",
+            "input_strategy": "task_driven_auto_supported",
+            "source_family": "catalog_poi_bundle",
+        },
+        steps=[
+            PatternStep(
+                order=1,
+                name="poi_fusion",
+                algorithm_id="algo.fusion.poi.v1",
+                input_data_type="dt.poi.bundle",
+                output_data_type="dt.poi.fused",
+                data_source_id="catalog.generic.poi",
+            )
+        ],
+    ),
+    WorkflowPatternNode(
         pattern_id="wp.typhoon.road.default",
         pattern_name="Typhoon Road Fusion",
         job_type=JobType.road,
@@ -847,9 +907,36 @@ OUTPUT_SCHEMA_POLICIES: Dict[str, OutputSchemaPolicy] = {
             ),
         },
     ),
+    "dt.poi.fused": OutputSchemaPolicy(
+        policy_id="osp.poi.fused.v1",
+        output_type="dt.poi.fused",
+        job_type=JobType.poi,
+        retention_mode="preserve_listed",
+        required_fields=["geometry"],
+        optional_fields=[
+            "POI_ID",
+            "OSM_ID",
+            "REF_ID",
+            "MATCH_REF",
+            "DIST_M",
+            "SRC",
+            "NAME",
+            "CATEGORY",
+        ],
+        rename_hints={},
+        compatibility_basis="field_names",
+        metadata={
+            "policy_scope": "current_runtime",
+            "enforcement": "metadata_only",
+            "notes": (
+                "POI output schema documents current shared bundle runtime columns "
+                "for uploaded and task-driven auto runs without enforcing adapter output."
+            ),
+        },
+    ),
 }
 
 
 CAN_TRANSFORM_TO: Dict[str, List[str]] = {
-    "dt.raw.vector": ["dt.building.bundle", "dt.road.bundle"],
+    "dt.raw.vector": ["dt.building.bundle", "dt.road.bundle", "dt.poi.bundle"],
 }

@@ -45,6 +45,7 @@ class WorkflowExecutor:
         self.algorithm_handlers.setdefault("algo.fusion.road.v1", self._handle_road)
         self.algorithm_handlers.setdefault("algo.fusion.road.safe", self._handle_road)
         self.algorithm_handlers.setdefault("algo.fusion.water.v1", self._handle_water)
+        self.algorithm_handlers.setdefault("algo.fusion.poi.v1", self._handle_poi)
 
     def execute_plan(
         self,
@@ -249,6 +250,20 @@ class WorkflowExecutor:
         from adapters.water_adapter import run_water_fusion
 
         return run_water_fusion(
+            osm_shp=context.osm_shp,
+            ref_shp=context.ref_shp,
+            output_dir=context.output_dir,
+            target_crs=context.target_crs,
+            field_mapping=context.field_mapping,
+            debug=context.debug,
+            parameters=dict(context.step_parameters or {}),
+        )
+
+    @staticmethod
+    def _handle_poi(context: ExecutionContext) -> Path:
+        from adapters.poi_adapter import run_poi_fusion
+
+        return run_poi_fusion(
             osm_shp=context.osm_shp,
             ref_shp=context.ref_shp,
             output_dir=context.output_dir,

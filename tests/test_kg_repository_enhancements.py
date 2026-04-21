@@ -47,6 +47,22 @@ def test_inmemory_repository_returns_water_pattern_and_task_driven_bundle_source
     assert "catalog.flood.water" in source_ids
 
 
+def test_inmemory_repository_returns_poi_pattern_and_task_driven_bundle_sources() -> None:
+    repo = InMemoryKGRepository()
+
+    patterns = repo.get_candidate_patterns(job_type=JobType.poi, disaster_type="generic")
+    sources = repo.get_candidate_data_sources(
+        job_type=JobType.poi,
+        disaster_type="generic",
+        required_type="dt.poi.bundle",
+    )
+
+    assert [pattern.pattern_id for pattern in patterns] == ["wp.generic.poi.default"]
+    source_ids = {source.source_id for source in sources}
+    assert "upload.bundle" in source_ids
+    assert "catalog.generic.poi" in source_ids
+
+
 def test_execution_feedback_changes_pattern_ranking() -> None:
     repo = InMemoryKGRepository()
 

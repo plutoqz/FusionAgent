@@ -10,6 +10,7 @@ class JobType(str, Enum):
     building = "building"
     road = "road"
     water = "water"
+    poi = "poi"
 
 
 class JobState(str, Enum):

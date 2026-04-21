@@ -15,7 +15,7 @@ Durability labels:
 
 | Evidence | Path or Command | Supports | Durability | Notes |
 | --- | --- | --- | --- | --- |
-| Full repository test suite | `python -m pytest -q` | Current codebase health after Phase 1 stabilization | strong | Latest fresh verification passed with `189 passed, 1 skipped, 6 warnings` |
+| Full repository test suite | `python -m pytest -q` | Current codebase health after Phase 3 POI vertical slice | strong | Latest fresh verification passed with `199 passed, 1 skipped, 12 warnings` |
 | Warning profile | `tests/test_building_adapter_safe.py` | Known non-blocking baseline noise | medium | Warnings are pyproj/numpy deprecations during building adapter tests |
 | Plan closure scan | `docs/superpowers/plans/*.md` | Prior roadmap phases are closed | strong | All existing plan checkbox counts had `Unchecked = 0` before Phase A |
 
@@ -52,6 +52,7 @@ Durability labels:
 | Phase D durable learning policy hints | `docs/superpowers/plans/2026-04-20-durable-learning-policy-hints.md` | Pattern selection consumes durable learning summaries through bounded `learning_adjustment` evidence | strong | Focused verification passed with `2 passed`; the claim is now promoted into the frozen paper matrix as `c4_learning_hints_pattern_selection` |
 | Phase E ontology data-type closure | `docs/superpowers/plans/2026-04-20-ontology-closure-data-types.md` | KG context exposes data types and seed references resolve to declared `DataTypeNode` records | strong | First Phase E implementation slice; full tests passed with `164 passed, 1 skipped, 6 warnings` |
 | Phase F water vertical slice stabilization | `docs/superpowers/plans/2026-04-20-water-vertical-slice.md`, `tests/test_water_adapter.py`, `tests/test_api_v2_integration.py::test_v2_run_water_task_driven_auto_integration`, `tests/test_neo4j_bootstrap.py::test_bootstrap_cypher_contains_water_vertical_slice`, `tests/test_eval_harness.py::test_materialize_manifest_case_supports_water_theme` | Third task/data vertical slice beyond building and road, stabilized onto the shared task-driven runtime and evidence contract | strong | Proves KG planning, executor dispatch, task-driven acquisition, v2 API artifact writeback, bootstrap closure, and eval-harness alignment for `JobType.water` |
+| Phase F.1 POI vertical slice stabilization | `tests/test_poi_adapter.py`, `tests/test_api_v2_integration.py::test_v2_run_poi_task_driven_auto_integration`, `tests/test_agent_run_service_enhancements.py::test_agent_run_service_poi_task_driven_auto_uses_real_shared_acquisition_chain`, `tests/test_planner_context.py::test_planner_context_exposes_poi_metadata_and_builds_poi_plan`, `tests/test_kg_repository_enhancements.py::test_inmemory_repository_returns_poi_pattern_and_task_driven_bundle_sources`, `tests/test_ontology_closure.py::test_poi_seed_records_exist` | Fourth bounded task/data vertical slice showing POI automatic fusion can reuse the same task-driven runtime backbone without POI-specific orchestration | strong | Proves the bounded `raw.osm.poi + raw.gns.poi -> catalog.generic.poi -> algo.fusion.poi.v1` chain across adapter, KG closure, planner context, acquisition path, v2 API, and ontology/runtime references |
 | Artifact registry tests | `tests/test_artifact_registry.py` | Reusable artifact metadata and lookup | strong | Supports artifact reuse claims |
 | Artifact reuse planner tests | `tests/test_planner_artifact_reuse.py` | Planning-stage reuse reasoning | strong | Use with runtime reuse tests |
 | Workflow validator tests | `tests/test_workflow_validator.py` | Validation constraints and transform insertion | strong | Useful for Phase C replan gate design |
@@ -90,7 +91,8 @@ The runtime wording is now frozen as:
 - `building: task_driven_auto supported`
 - `road: task_driven_auto supported`
 - `water: task_driven_auto supported after Phase 1`
-- all three share the same evidence contract: `run.json`, `plan.json`, `validation.json`, `audit.jsonl`, and artifact bundle
+- `poi: bounded task_driven_auto supported after Phase 3`
+- all four share the same evidence contract: `run.json`, `plan.json`, `validation.json`, `audit.jsonl`, and artifact bundle
 
 ## Operator And Product Evidence
 
@@ -109,5 +111,6 @@ The runtime wording is now frozen as:
 | Replan-loop failure injection evidence with preserved plan revisions and downstream reacquisition | closed in frozen matrix | Promoted into `c3_replan_fault_recovery`; keep frozen outputs and source docs synchronized |
 | Durable-learning policy-hint decision trace | closed in frozen matrix | Promoted into `c4_learning_hints_pattern_selection`; keep frozen outputs and source docs synchronized |
 | Executable ontology closure tests for data types, step IO, sources, scenarios, and schema policy references | E | Bridges research ontology and runtime evidence |
-| One third vertical slice benchmark | F | Shows architecture can extend beyond current building/road center |
+| One third vertical slice benchmark | closed by water slice | Water already proved the third slice beyond building/road |
+| One fourth bounded vertical slice benchmark | F.1 | Shows the shared runtime can absorb another bounded theme without introducing a POI-only orchestration path |
 | Thin operator workflow smoke | H | Shows product-facing usability only after runtime evidence is stable |
