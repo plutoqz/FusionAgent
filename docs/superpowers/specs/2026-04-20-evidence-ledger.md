@@ -30,6 +30,7 @@ Durability labels:
 | Master v2 plan | `docs/superpowers/plans/2026-04-07-fusion-agent-v2-implementation.md` | Prior six-phase v2 roadmap status | strong | Explicitly says baseline roadmap is complete for intended scope |
 | Evaluation contract and claim lock | `docs/superpowers/specs/2026-04-20-evaluation-contract-claim-lock.md` | Scoped thesis/product claims, metrics, baselines, datasets, and Phase C-D authorization | strong | Current control document for post-Phase-A implementation |
 | No-UI maturity target | `docs/superpowers/specs/2026-04-21-no-ui-maturity-target.md` | Defines the gate for calling FusionAgent a mature no-UI vector data fusion agent before frontend work | strong | Must stay synchronized with README positioning |
+| No-UI maturity freeze | `docs/superpowers/specs/2026-04-21-no-ui-maturity-evidence-freeze.json`, `docs/superpowers/specs/2026-04-21-no-ui-maturity-evidence-freeze.md` | Frozen gate package for the achieved no-UI maturity positioning before frontend work | strong | Closed evidence; does not imply production-ready or frontend-complete status |
 
 ## Design And Thesis Alignment Evidence
 
@@ -116,4 +117,3 @@ The runtime wording is now frozen as:
 | One third vertical slice benchmark | closed by water slice | Water already proved the third slice beyond building/road |
 | One fourth bounded vertical slice benchmark | F.1 | Shows the shared runtime can absorb another bounded theme without introducing a POI-only orchestration path |
 | Thin operator workflow smoke | H | Shows product-facing usability only after runtime evidence is stable |
-| No-UI maturity freeze | no-UI maturity plan | Final gate package before README can stop using prototype language for the achieved core |
