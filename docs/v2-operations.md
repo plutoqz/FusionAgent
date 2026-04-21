@@ -10,6 +10,8 @@
 - operator-facing inspection and comparison endpoints in the v2 API
 - stable task-driven support for `building`, `road`, `water`, and bounded `poi` on the shared runtime backbone
 
+For the consolidated no-UI maturity operating workflow, see [FusionAgent No-UI Operations](./no-ui-agent-operations.md).
+
 ## Stability Contract
 
 Freeze the runtime wording to the following contract:

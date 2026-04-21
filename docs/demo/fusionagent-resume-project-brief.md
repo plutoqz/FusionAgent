@@ -10,6 +10,7 @@ FusionAgent is a KG-constrained geospatial fusion agent for disaster-response GI
 - Uses KG retrieval, validation, policy checks, repair, and audit trails to keep agent execution inspectable.
 - Produces scenario-level evidence packages with summaries, KG path traces, workflow traces, source coverage, evaluation metrics, and bilingual reports.
 - Supports repeatable paper/demo runs through checked-in scenario manifests, API harness summaries, and frozen evidence artifacts.
+- Mature no-UI operation through scenario triggers, operator read APIs, reproducible evidence freezes, and documented local runbooks before any final frontend is introduced.
 
 ## Technical Highlights
 
