@@ -32,6 +32,25 @@ def _coerce_repo_relative(value: str | None, *, repo_root: Path) -> str | None:
 
 
 def _normalize_harness_summary(payload: dict[str, Any]) -> dict[str, Any]:
+    cases: list[dict[str, Any]] = []
+    for item in payload.get("cases", []):
+        if not isinstance(item, dict):
+            continue
+        evidence = dict(item.get("evidence") or {})
+        if "planning_validity" not in evidence:
+            evidence["planning_validity"] = item.get("status") == "passed"
+        if "artifact_validity" not in evidence:
+            evidence["artifact_validity"] = bool(item.get("artifact_size")) and item.get("status") == "passed"
+        if "inspection_artifact_available" not in evidence:
+            evidence["inspection_artifact_available"] = bool(item.get("artifact_size"))
+        if "inspection_download_path" not in evidence:
+            run_id = item.get("run_id")
+            if run_id and evidence["inspection_artifact_available"]:
+                evidence["inspection_download_path"] = f"/api/v2/runs/{run_id}/artifact"
+            else:
+                evidence["inspection_download_path"] = None
+        cases.append({**item, "evidence": evidence})
+
     return {
         "source_format": "harness-summary",
         "manifest": payload.get("manifest"),
@@ -39,7 +58,7 @@ def _normalize_harness_summary(payload: dict[str, Any]) -> dict[str, Any]:
         "timeout_sec": payload.get("timeout_sec"),
         "commit_sha": payload.get("commit_sha"),
         "environment": dict(payload.get("environment") or {}),
-        "cases": list(payload.get("cases") or []),
+        "cases": cases,
     }
 
 

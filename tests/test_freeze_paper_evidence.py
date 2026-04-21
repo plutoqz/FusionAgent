@@ -180,6 +180,59 @@ def test_build_freeze_report_supports_single_case_durable_result_json(tmp_path: 
     assert row["raw_artifacts"]["artifact_bundle"] == "runs/run-msft"
 
 
+def test_build_freeze_report_derives_legacy_harness_evidence_when_missing(tmp_path: Path) -> None:
+    summary_path = tmp_path / "docs" / "superpowers" / "specs" / "legacy-summary.json"
+    _write_json(
+        summary_path,
+        {
+            "generated_at": "2026-04-21T00:00:00Z",
+            "base_url": "http://127.0.0.1:8011",
+            "timeout_sec": 1200.0,
+            "commit_sha": "abc123",
+            "cases": [
+                {
+                    "case_id": "legacy_case",
+                    "status": "passed",
+                    "run_id": "run-legacy",
+                    "artifact_size": 2048,
+                    "timeout_sec": 1200.0,
+                }
+            ],
+        },
+    )
+    spec_path = tmp_path / "docs" / "superpowers" / "specs" / "matrix.json"
+    _write_json(
+        spec_path,
+        {
+            "version": "2026-04-21",
+            "rows": [
+                {
+                    "row_id": "legacy_row",
+                    "claim_ids": ["C1"],
+                    "baseline": "full_system",
+                    "dataset": "legacy summary",
+                    "case_id": "legacy_case",
+                    "summary_json": "docs/superpowers/specs/legacy-summary.json",
+                    "command": ["python", "scripts/eval_harness.py", "--case", "legacy_case"],
+                    "artifact_storage": "runs/run-legacy",
+                    "supports_metrics": [
+                        "planning_validity_rate",
+                        "execution_success_rate",
+                        "artifact_validity",
+                    ],
+                }
+            ],
+        },
+    )
+
+    report = freeze_paper_evidence.build_freeze_report(repo_root=tmp_path, spec_path=spec_path)
+    row = report["rows"][0]
+
+    assert row["metrics"]["planning_validity_rate"] == "pass"
+    assert row["metrics"]["artifact_validity"] == "pass"
+    assert row["evidence"]["inspection_download_path"] == "/api/v2/runs/run-legacy/artifact"
+
+
 def test_build_freeze_report_rejects_missing_case_id(tmp_path: Path) -> None:
     summary_path = tmp_path / "docs" / "superpowers" / "specs" / "building-real.json"
     _write_json(summary_path, {"generated_at": "2026-04-21T00:00:00Z", "cases": []})

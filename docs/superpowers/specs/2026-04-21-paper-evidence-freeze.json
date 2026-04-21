@@ -1,0 +1,276 @@
+{
+  "version": "2026-04-21",
+  "spec_path": "docs/superpowers/specs/2026-04-21-paper-experiment-matrix.json",
+  "rows": [
+    {
+      "row_id": "c1_c2_building_google_full_system",
+      "claim_ids": [
+        "C1",
+        "C2"
+      ],
+      "baseline": "full_system",
+      "dataset": "Gitega building OSM vs Google",
+      "case_id": "building_gitega_osm_vs_google_agent",
+      "case_name": null,
+      "expected_status": "passed",
+      "observed_status": "passed",
+      "summary_json": "docs/superpowers/specs/2026-04-08-building-real-benchmark-result.json",
+      "summary_source_format": "harness-summary",
+      "manifest": "docs/superpowers/specs/2026-04-07-real-data-eval-manifest.json",
+      "command": [
+        "python",
+        "scripts/eval_harness.py",
+        "--manifest",
+        "docs/superpowers/specs/2026-04-07-real-data-eval-manifest.json",
+        "--case",
+        "building_gitega_osm_vs_google_agent",
+        "--base-url",
+        "http://127.0.0.1:8011",
+        "--timeout",
+        "1200",
+        "--output-json",
+        "tmp/eval/building-real.json"
+      ],
+      "commit_sha": "08e4cef7618fe9b009201db6231c88d108aca9bd",
+      "base_url": "http://127.0.0.1:8011",
+      "timeout_sec": 1200.0,
+      "environment": {
+        "kg_backend": null,
+        "llm_provider": null,
+        "celery_eager": null
+      },
+      "run_id": "0b4315edf3a8449d940355717ad70fa7",
+      "artifact_storage": "runs/0b4315edf3a8449d940355717ad70fa7",
+      "raw_artifacts": {
+        "run_json": "runs/0b4315edf3a8449d940355717ad70fa7/run.json",
+        "plan_json": "runs/0b4315edf3a8449d940355717ad70fa7/plan.json",
+        "validation_json": "runs/0b4315edf3a8449d940355717ad70fa7/validation.json",
+        "audit_jsonl": "runs/0b4315edf3a8449d940355717ad70fa7/audit.jsonl",
+        "artifact_bundle": "runs/0b4315edf3a8449d940355717ad70fa7"
+      },
+      "metrics": {
+        "planning_validity_rate": "pass",
+        "execution_success_rate": "pass",
+        "artifact_validity": "pass",
+        "evidence_completeness_rate": "pass"
+      },
+      "inputs": null,
+      "notes": null,
+      "evidence": {
+        "planning_validity": true,
+        "artifact_validity": true,
+        "inspection_artifact_available": true,
+        "inspection_download_path": "/api/v2/runs/0b4315edf3a8449d940355717ad70fa7/artifact"
+      },
+      "analysis": null
+    },
+    {
+      "row_id": "c5_building_msft_manual_baseline_contrast",
+      "claim_ids": [
+        "C5"
+      ],
+      "baseline": "manual_input_baseline",
+      "dataset": "Gitega micro building OSM vs Microsoft, source-id materialized",
+      "case_id": "building_gitega_micro_msft_agent",
+      "case_name": "Fresh-checkout reproducibility micro benchmark (Microsoft buildings)",
+      "expected_status": "passed",
+      "observed_status": "passed",
+      "summary_json": "docs/superpowers/specs/2026-04-16-building-micro-msft-fresh-checkout-result.json",
+      "summary_source_format": "single-case-result",
+      "manifest": "docs/superpowers/specs/2026-04-07-real-data-eval-manifest.json",
+      "command": [
+        "python",
+        "scripts/eval_harness.py",
+        "--manifest",
+        "docs/superpowers/specs/2026-04-07-real-data-eval-manifest.json",
+        "--case",
+        "building_gitega_micro_msft_agent",
+        "--base-url",
+        "http://127.0.0.1:8010",
+        "--timeout",
+        "1200",
+        "--output-json",
+        "tmp/eval/fresh-checkout-micro-msft.json"
+      ],
+      "commit_sha": null,
+      "base_url": "http://127.0.0.1:8010",
+      "timeout_sec": 180,
+      "environment": {
+        "kg_backend": "neo4j",
+        "llm_provider": "openai",
+        "celery_eager": 0
+      },
+      "run_id": "60e7afca80e146cd819fe87966d47e8c",
+      "artifact_storage": "runs/60e7afca80e146cd819fe87966d47e8c",
+      "raw_artifacts": {
+        "run_json": "runs/60e7afca80e146cd819fe87966d47e8c/run.json",
+        "plan_json": "runs/60e7afca80e146cd819fe87966d47e8c/plan.json",
+        "validation_json": "runs/60e7afca80e146cd819fe87966d47e8c/validation.json",
+        "audit_jsonl": "runs/60e7afca80e146cd819fe87966d47e8c/audit.jsonl",
+        "artifact_bundle": "runs/60e7afca80e146cd819fe87966d47e8c"
+      },
+      "metrics": {
+        "execution_success_rate": "pass",
+        "artifact_validity": "pass",
+        "evidence_completeness_rate": "pass",
+        "reproducibility_status": "tracked_source_ids"
+      },
+      "inputs": {
+        "bbox": [
+          29.817351,
+          -3.646572,
+          29.931113,
+          -3.412421
+        ],
+        "source_ids": [
+          "raw.osm.building",
+          "raw.microsoft.building"
+        ]
+      },
+      "notes": [
+        "This evidence captures the bounded fresh-checkout reproducibility path for benchmark reruns.",
+        "Scope includes source-id-backed eval harness inputs and source asset materialization/prefetch.",
+        "Scope excludes broader runtime RawVectorSourceService task-driven fallback integration."
+      ],
+      "evidence": {
+        "planning_validity": true,
+        "artifact_validity": true,
+        "inspection_artifact_available": true,
+        "inspection_download_path": null
+      },
+      "analysis": null
+    },
+    {
+      "row_id": "failure_micro_alignment_drift",
+      "claim_ids": [
+        "C2-boundary"
+      ],
+      "baseline": "historical_failure",
+      "dataset": "Gitega micro building OSM vs Google",
+      "case_id": "building_gitega_micro_agent",
+      "case_name": null,
+      "expected_status": "failed",
+      "observed_status": "failed",
+      "summary_json": "docs/superpowers/specs/2026-04-08-building-micro-benchmark-result.json",
+      "summary_source_format": "harness-summary",
+      "manifest": "docs/superpowers/specs/2026-04-07-real-data-eval-manifest.json",
+      "command": [
+        "python",
+        "scripts/eval_harness.py",
+        "--manifest",
+        "docs/superpowers/specs/2026-04-07-real-data-eval-manifest.json",
+        "--case",
+        "building_gitega_micro_agent",
+        "--base-url",
+        "http://127.0.0.1:8012",
+        "--timeout",
+        "1200",
+        "--output-json",
+        "tmp/eval/building-micro.json"
+      ],
+      "commit_sha": "cfe3e5e2799da2147171a6b3180b8dacfc9bfd6c",
+      "base_url": "http://127.0.0.1:8012",
+      "timeout_sec": 1200.0,
+      "environment": {
+        "kg_backend": null,
+        "llm_provider": null,
+        "celery_eager": null
+      },
+      "run_id": null,
+      "artifact_storage": "api-only run 8319c5bba5f64dd1a88ace78debaace5",
+      "raw_artifacts": {
+        "run_json": null,
+        "plan_json": null,
+        "validation_json": null,
+        "audit_jsonl": null,
+        "artifact_bundle": "api-only run 8319c5bba5f64dd1a88ace78debaace5"
+      },
+      "metrics": {
+        "execution_success_rate": "fail"
+      },
+      "inputs": null,
+      "notes": null,
+      "evidence": {
+        "planning_validity": false,
+        "artifact_validity": false,
+        "inspection_artifact_available": false,
+        "inspection_download_path": null
+      },
+      "analysis": "Historical worker/runtime alignment drift, superseded by the clean 2026-04-16 rerun and kept only as a failure-case note."
+    }
+  ],
+  "failure_rows": [
+    {
+      "row_id": "failure_micro_alignment_drift",
+      "claim_ids": [
+        "C2-boundary"
+      ],
+      "baseline": "historical_failure",
+      "dataset": "Gitega micro building OSM vs Google",
+      "case_id": "building_gitega_micro_agent",
+      "case_name": null,
+      "expected_status": "failed",
+      "observed_status": "failed",
+      "summary_json": "docs/superpowers/specs/2026-04-08-building-micro-benchmark-result.json",
+      "summary_source_format": "harness-summary",
+      "manifest": "docs/superpowers/specs/2026-04-07-real-data-eval-manifest.json",
+      "command": [
+        "python",
+        "scripts/eval_harness.py",
+        "--manifest",
+        "docs/superpowers/specs/2026-04-07-real-data-eval-manifest.json",
+        "--case",
+        "building_gitega_micro_agent",
+        "--base-url",
+        "http://127.0.0.1:8012",
+        "--timeout",
+        "1200",
+        "--output-json",
+        "tmp/eval/building-micro.json"
+      ],
+      "commit_sha": "cfe3e5e2799da2147171a6b3180b8dacfc9bfd6c",
+      "base_url": "http://127.0.0.1:8012",
+      "timeout_sec": 1200.0,
+      "environment": {
+        "kg_backend": null,
+        "llm_provider": null,
+        "celery_eager": null
+      },
+      "run_id": null,
+      "artifact_storage": "api-only run 8319c5bba5f64dd1a88ace78debaace5",
+      "raw_artifacts": {
+        "run_json": null,
+        "plan_json": null,
+        "validation_json": null,
+        "audit_jsonl": null,
+        "artifact_bundle": "api-only run 8319c5bba5f64dd1a88ace78debaace5"
+      },
+      "metrics": {
+        "execution_success_rate": "fail"
+      },
+      "inputs": null,
+      "notes": null,
+      "evidence": {
+        "planning_validity": false,
+        "artifact_validity": false,
+        "inspection_artifact_available": false,
+        "inspection_download_path": null
+      },
+      "analysis": "Historical worker/runtime alignment drift, superseded by the clean 2026-04-16 rerun and kept only as a failure-case note."
+    }
+  ],
+  "qualitative_evidence": [
+    {
+      "evidence_id": "c7_water_uploaded_vertical_slice",
+      "claim_ids": [
+        "C7"
+      ],
+      "paths": [
+        "docs/superpowers/plans/2026-04-20-water-vertical-slice.md",
+        "tests/test_water_adapter.py",
+        "docs/superpowers/specs/2026-04-20-evidence-ledger.md"
+      ],
+      "summary": "Uploaded-only water slice proves bounded extensibility beyond building and road without claiming task-driven auto water acquisition."
+    }
+  ]
+}
