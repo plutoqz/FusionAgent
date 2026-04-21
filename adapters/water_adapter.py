@@ -49,6 +49,26 @@ def _resolve_water_parameters(parameters: Dict[str, object] | None) -> WaterFusi
     return WaterFusionParameters(overlap_threshold=min(1.0, max(0.0, overlap_threshold)))
 
 
+def _resolve_feature_ids(gdf: gpd.GeoDataFrame, id_column: str) -> pd.Series:
+    if id_column not in gdf.columns:
+        return pd.Series(np.arange(1, len(gdf) + 1), index=gdf.index, dtype=int)
+
+    mapped_ids = pd.to_numeric(gdf[id_column], errors="coerce")
+    used_ids = {int(value) for value in mapped_ids.dropna().tolist()}
+    next_id = max(used_ids, default=0) + 1
+    resolved = []
+    for value in mapped_ids.tolist():
+        if pd.notna(value):
+            resolved.append(int(value))
+            continue
+        while next_id in used_ids:
+            next_id += 1
+        resolved.append(next_id)
+        used_ids.add(next_id)
+        next_id += 1
+    return pd.Series(resolved, index=gdf.index, dtype=int)
+
+
 def _prepare_water(
     gdf: gpd.GeoDataFrame,
     target_crs: str,
@@ -61,12 +81,7 @@ def _prepare_water(
     gdf = gdf[gdf.geometry.geom_type.isin(["Polygon", "MultiPolygon"])].copy()
     gdf = gdf[gdf.geometry.area > 0].copy()
 
-    generated_ids = pd.Series(np.arange(1, len(gdf) + 1), index=gdf.index)
-    if id_column in gdf.columns:
-        mapped_ids = pd.to_numeric(gdf[id_column], errors="coerce")
-        gdf[id_column] = mapped_ids.fillna(generated_ids).astype(int)
-    else:
-        gdf[id_column] = generated_ids.astype(int)
+    gdf[id_column] = _resolve_feature_ids(gdf, id_column)
     for column, default in {"name": pd.NA, "fclass": "water", "water_ty": pd.NA}.items():
         if column not in gdf.columns:
             gdf[column] = default
