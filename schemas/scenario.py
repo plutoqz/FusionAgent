@@ -40,3 +40,11 @@ class ScenarioRunResponse(BaseModel):
     phase: ScenarioPhase
     output_dir: str
     child_run_ids: List[str] = Field(default_factory=list)
+
+
+class ScenarioRunListResponse(BaseModel):
+    records: List[Dict[str, Any]] = Field(default_factory=list)
+
+
+class ScenarioRunInspectionResponse(BaseModel):
+    summary: Dict[str, Any] = Field(default_factory=dict)

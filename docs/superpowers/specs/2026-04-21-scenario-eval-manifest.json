@@ -1,0 +1,30 @@
+{
+  "manifest_id": "scenario.paper.demo.v1",
+  "metadata": {
+    "purpose": "Small paper/demo scenario regression set for FusionAgent scenario evidence.",
+    "scope": "Stable building/road scenarios only; no self-evolution auto-tuning required."
+  },
+  "cases": [
+    {
+      "case_id": "parakou_earthquake_building_road",
+      "scenario_name": "Parakou earthquake",
+      "trigger_content": "fuse building and road data for Parakou, Benin after an earthquake",
+      "disaster_type": "earthquake",
+      "job_types": [
+        "building",
+        "road"
+      ],
+      "expected_phase": [
+        "succeeded",
+        "partial"
+      ],
+      "tags": [
+        "paper",
+        "demo",
+        "fallback",
+        "bilingual-report"
+      ],
+      "notes": "Regression case for disaster-aware AOI parsing, building+road orchestration, evidence package generation, and graceful partial success."
+    }
+  ]
+}

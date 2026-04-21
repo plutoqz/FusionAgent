@@ -81,6 +81,17 @@ Minimum evidence:
 - failed `case_id`
 - related `run_id` when available
 
+Scenario-level paper/demo harness:
+
+```powershell
+python scripts/scenario_eval_harness.py `
+  --manifest docs/superpowers/specs/2026-04-21-scenario-eval-manifest.json `
+  --base-url http://127.0.0.1:8000 `
+  --output-root E:\fyx\data\fusionagentTEST `
+  --output-json tmp/eval/scenario-harness-summary.json `
+  --timeout 1200
+```
+
 ### Tier 3: Real-Data Benchmark
 
 Use this only when you need durable research evidence.
@@ -224,11 +235,15 @@ The v2 API now has a narrow but practical operator layer.
 ### Scenario Runs
 
 - `POST /api/v2/scenario-runs`: starts a scenario-level orchestration request above one or more v2 child runs
+- `GET /api/v2/scenario-runs`: lists persisted scenario registry records from `scenario_runs_index.jsonl`
+- `GET /api/v2/scenario-runs/{scenario_id}`: loads the canonical `scenario_summary.json` for a scenario
 - request fields include `scenario_name`, `trigger_content`, `disaster_type`, `job_types`, optional `target_crs`, and optional `output_root`
 - output-root order is `request.output_root`, then `GEOFUSION_SCENARIO_OUTPUT_ROOT`, then `E:\fyx\data\fusionagentTEST`
 - scenario output includes `scenario_summary.json`, `kg_path_trace.json`, `workflow_trace.json`, `source_coverage.json`, `evaluation.json`, and bilingual reports under `documents/scenario_report.zh.md` and `documents/scenario_report.en.md`
 - scenario evidence is additive; single-run `run.json`, `plan.json`, `validation.json`, `audit.jsonl`, and artifact bundles remain stable
 - scenario reports expose KG relationship chains, final workflow trace, source coverage and fallback evidence, data-fusion metrics, agentic metrics, and self-evolution evidence
+
+The file inbox runner is an operations demo path, not a production event-feed integration. It proves that scenario requests can be triggered automatically from normalized event records while keeping external feed reliability out of this phase.
 
 ### Single Run Inspection
 

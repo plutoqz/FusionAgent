@@ -2,6 +2,8 @@
 
 [中文说明](./README.md)
 
+Resume/demo project brief: [FusionAgent Resume Project Brief](./docs/demo/fusionagent-resume-project-brief.md).
+
 FusionAgent is a vector-data fusion agent prototype for disaster response workflows.
 The current `main` branch is no longer just a script wrapper. It now provides a
 testable, auditable, and incrementally extensible agentic workflow runtime.

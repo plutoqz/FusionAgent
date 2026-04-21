@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import uuid
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
@@ -12,6 +13,7 @@ from services.agent_run_service import AgentRunService, agent_run_service
 from services.artifact_evaluation_service import evaluate_agentic_run, evaluate_vector_artifact
 from services.kg_path_trace_service import build_kg_path_trace
 from services.scenario_output import resolve_scenario_output_root
+from services.scenario_registry_service import ScenarioRegistryService
 from services.scenario_report_service import render_scenario_reports
 from services.workflow_trace_service import build_workflow_trace
 
@@ -55,12 +57,25 @@ class ScenarioRunService:
         document_paths = render_scenario_reports(summary=summary, documents_dir=output_dir / "documents")
         summary["document_paths"] = document_paths
         self._write_summary_files(output_dir, summary)
+        phase = _phase_from_child_results(child_results)
+        child_run_ids = [str(result["run_id"]) for result in child_results if result.get("run_id")]
+        ScenarioRegistryService(output_root=resolve_scenario_output_root(request.output_root)).record(
+            {
+                "scenario_id": scenario_id,
+                "scenario_name": request.scenario_name,
+                "phase": phase.value,
+                "output_dir": str(output_dir),
+                "child_run_ids": child_run_ids,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "case_id": request.metadata.get("case_id"),
+            }
+        )
 
         return ScenarioRunResponse(
             scenario_id=scenario_id,
-            phase=_phase_from_child_results(child_results),
+            phase=phase,
             output_dir=str(output_dir),
-            child_run_ids=[str(result["run_id"]) for result in child_results if result.get("run_id")],
+            child_run_ids=child_run_ids,
         )
 
     def _run_child(self, output_dir: Path, spec: ScenarioChildRunSpec) -> dict[str, Any]:
