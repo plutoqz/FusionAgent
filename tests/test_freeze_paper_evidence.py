@@ -303,8 +303,18 @@ def test_build_freeze_report_supports_status_evidence_rows_and_renders_metric_de
                     "baseline": "full_system",
                     "dataset": "local file-inbox triggered disaster scenario",
                     "summary_kind": "scenario_trigger_proof",
-                    "observed_status": "pending",
+                    "observed_status": "passed",
                     "summary": "Local trigger event normalizes into a scenario run and freezes reports.",
+                    "verification_command": [
+                        "python",
+                        "-m",
+                        "pytest",
+                        "-q",
+                        "tests/test_scenario_trigger_service.py",
+                        "tests/test_scenario_registry_service.py",
+                        "tests/test_api_scenario_registry.py",
+                    ],
+                    "verification_result": "13 passed",
                     "evidence_paths": [
                         "docs/superpowers/specs/2026-04-21-scenario-trigger-proof.md",
                         "docs/superpowers/specs/2026-04-21-scenario-evidence-freeze.md",
@@ -343,15 +353,27 @@ def test_build_freeze_report_supports_status_evidence_rows_and_renders_metric_de
         "tests/test_agent_run_service_enhancements.py",
     ]
     assert scenario_row["summary_source_format"] == "scenario_trigger_proof"
-    assert scenario_row["observed_status"] == "pending"
+    assert scenario_row["observed_status"] == "passed"
     assert scenario_row["metrics"] == {
-        "planning_validity_rate": "pending",
-        "evidence_completeness_rate": "pending",
-        "decision_trace_completeness": "pending",
+        "planning_validity_rate": "pass",
+        "evidence_completeness_rate": "pass",
+        "decision_trace_completeness": "pass",
     }
+    assert scenario_row["verification_command"] == [
+        "python",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_scenario_trigger_service.py",
+        "tests/test_scenario_registry_service.py",
+        "tests/test_api_scenario_registry.py",
+    ]
+    assert scenario_row["verification_result"] == "13 passed"
+    assert report["failure_rows"] == []
     assert "recovery_success_rate=pass" in markdown
     assert "c1_c2_c7_scenario_trigger_autonomy" in markdown
-    assert "planning_validity_rate=pending" in markdown
+    assert "planning_validity_rate=pass" in markdown
+    assert "13 passed" in markdown
     assert "docs/superpowers/plans/2026-04-20-full-replan-loop-v1.md" in markdown
     assert "Water shares the same task-driven runtime and evidence contract after Phase 1 stabilization." in markdown
 
@@ -378,7 +400,17 @@ def test_repo_paper_experiment_matrix_and_freeze_outputs_promote_c3_c4_and_add_c
     ]
     assert rows_by_id["c1_c2_c7_scenario_trigger_autonomy"]["claim_ids"] == ["C1", "C2", "C7"]
     assert rows_by_id["c1_c2_c7_scenario_trigger_autonomy"]["summary_kind"] == "scenario_trigger_proof"
-    assert rows_by_id["c1_c2_c7_scenario_trigger_autonomy"]["observed_status"] == "pending"
+    assert rows_by_id["c1_c2_c7_scenario_trigger_autonomy"]["observed_status"] == "passed"
+    assert rows_by_id["c1_c2_c7_scenario_trigger_autonomy"]["verification_command"] == [
+        "python",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_scenario_trigger_service.py",
+        "tests/test_scenario_registry_service.py",
+        "tests/test_api_scenario_registry.py",
+    ]
+    assert rows_by_id["c1_c2_c7_scenario_trigger_autonomy"]["verification_result"] == "13 passed"
     assert rows_by_id["c8_no_ui_operator_surface"]["claim_ids"] == ["C8-boundary"]
     assert rows_by_id["c8_no_ui_operator_surface"]["baseline"] == "operator_api_smoke"
     assert rows_by_id["c8_no_ui_operator_surface"]["observed_status"] == "passed"
@@ -389,10 +421,12 @@ def test_repo_paper_experiment_matrix_and_freeze_outputs_promote_c3_c4_and_add_c
     assert frozen_rows["c3_replan_fault_recovery"]["metrics"]["recovery_success_rate"] == "pass"
     assert frozen_rows["c4_learning_hints_pattern_selection"]["observed_status"] == "passed"
     assert frozen_rows["c4_learning_hints_pattern_selection"]["metrics"]["planning_validity_rate"] == "pass"
-    assert frozen_rows["c1_c2_c7_scenario_trigger_autonomy"]["observed_status"] == "pending"
-    assert frozen_rows["c1_c2_c7_scenario_trigger_autonomy"]["metrics"]["planning_validity_rate"] == "pending"
+    assert frozen_rows["c1_c2_c7_scenario_trigger_autonomy"]["observed_status"] == "passed"
+    assert frozen_rows["c1_c2_c7_scenario_trigger_autonomy"]["metrics"]["planning_validity_rate"] == "pass"
+    assert frozen_rows["c1_c2_c7_scenario_trigger_autonomy"]["verification_result"] == "13 passed"
     assert frozen_rows["c8_no_ui_operator_surface"]["observed_status"] == "passed"
     assert frozen_rows["c8_no_ui_operator_surface"]["metrics"]["artifact_validity"] == "pass"
+    assert all(row["row_id"] != "c1_c2_c7_scenario_trigger_autonomy" for row in freeze_report["failure_rows"])
 
     markdown = freeze_md_path.read_text(encoding="utf-8")
     assert "c3_replan_fault_recovery" in markdown
@@ -401,6 +435,6 @@ def test_repo_paper_experiment_matrix_and_freeze_outputs_promote_c3_c4_and_add_c
     assert "c8_no_ui_operator_surface" in markdown
     assert "recovery_success_rate=pass" in markdown
     assert "planning_validity_rate=pass" in markdown
-    assert "planning_validity_rate=pending" in markdown
+    assert "13 passed" in markdown
     assert "artifact_validity=pass" in markdown
     assert "Water shares the same task-driven runtime and evidence contract after Phase 1 stabilization." in markdown

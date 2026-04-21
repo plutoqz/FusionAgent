@@ -1,18 +1,18 @@
 # No-UI Maturity Evidence Freeze
 
-- Generated at: `2026-04-21T16:22:48.353023+00:00`
-- README repositioning ready: not passed
+- Generated at: `2026-04-21T18:20:56.761189+00:00`
+- README repositioning ready: pass
 
 ## Gate Status
 
 - `source_files_present`: pass
   - details: `{"gap_ledger_present": true, "maturity_target_present": true, "paper_evidence_present": true, "scenario_evidence_present": true}`
-- `paper_evidence_no_open_blockers`: not passed
-  - blocking_rows: `[{"analysis": null, "expected_status": "passed", "observed_status": "pending", "row_id": "c1_c2_c7_scenario_trigger_autonomy"}]`
+- `paper_evidence_no_open_blockers`: pass
+  - blocking_rows: `[]`
 - `scenario_evidence_frozen`: pass
   - scenario_count: `5`
   - scenario_names: `["Parakou earthquake", "Nairobi flood road", "Nairobi flood water", "Nairobi poi", "Nairobi building"]`
-- `readme_repositioning_ready`: not passed
+- `readme_repositioning_ready`: pass
   - reason: `"Requires all source freeze files plus no pending/failed paper evidence blockers."`
 
 ## Evidence Sources
@@ -24,7 +24,6 @@
 
 ## Remaining Boundaries
 
-- Paper evidence row `c1_c2_c7_scenario_trigger_autonomy` remains pending against expected passed.
 - Paper evidence row `failure_micro_alignment_drift` remains failed against expected failed.
 - No-UI maturity excludes final visual frontend, multi-user authentication, production cloud guarantees, and arbitrary task-family extensibility.
 - Water and bounded POI evidence retain partial execution semantics and must not be described as zero-cost new-topic expansion.

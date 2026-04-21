@@ -36,6 +36,16 @@ The script prints JSON:
 {"processed": ["scenario_<id>"]}
 ```
 
+## Verification
+
+Validated with:
+
+```powershell
+python -m pytest -q tests/test_scenario_trigger_service.py tests/test_scenario_registry_service.py tests/test_api_scenario_registry.py
+```
+
+Observed result: `13 passed`
+
 ## Processed And Failed Directories
 
 Valid JSON events are normalized into `ScenarioRunRequest` objects, processed or matched by idempotency key, and moved to `--processed-dir`.
@@ -90,4 +100,3 @@ Each created scenario directory is expected to contain:
 - child run evidence referenced by `child_run_ids` and `final_outputs`
 
 Failed event files remain visible in `--failed-dir`; they are not deleted or hidden.
-

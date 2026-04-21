@@ -14,15 +14,8 @@
       }
     },
     "paper_evidence_no_open_blockers": {
-      "passed": false,
-      "blocking_rows": [
-        {
-          "row_id": "c1_c2_c7_scenario_trigger_autonomy",
-          "expected_status": "passed",
-          "observed_status": "pending",
-          "analysis": null
-        }
-      ]
+      "passed": true,
+      "blocking_rows": []
     },
     "scenario_evidence_frozen": {
       "passed": true,
@@ -36,11 +29,11 @@
       ]
     },
     "readme_repositioning_ready": {
-      "passed": false,
+      "passed": true,
       "reason": "Requires all source freeze files plus no pending/failed paper evidence blockers."
     }
   },
-  "generated_at": "2026-04-21T16:22:48.353023+00:00",
+  "generated_at": "2026-04-21T18:20:56.761189+00:00",
   "evidence_sources": {
     "maturity_target": {
       "path": "docs/superpowers/specs/2026-04-21-no-ui-maturity-target.md",
@@ -59,16 +52,8 @@
       "present": true
     }
   },
-  "paper_blocking_rows": [
-    {
-      "row_id": "c1_c2_c7_scenario_trigger_autonomy",
-      "expected_status": "passed",
-      "observed_status": "pending",
-      "analysis": null
-    }
-  ],
+  "paper_blocking_rows": [],
   "remaining_boundaries": [
-    "Paper evidence row `c1_c2_c7_scenario_trigger_autonomy` remains pending against expected passed.",
     "Paper evidence row `failure_micro_alignment_drift` remains failed against expected failed.",
     "No-UI maturity excludes final visual frontend, multi-user authentication, production cloud guarantees, and arbitrary task-family extensibility.",
     "Water and bounded POI evidence retain partial execution semantics and must not be described as zero-cost new-topic expansion.",
