@@ -2,7 +2,7 @@
 
 ## Purpose
 
-This runbook consolidates the mature no-UI operating workflow for FusionAgent before any final visualization frontend is introduced. It covers local runtime modes, scenario triggers, scenario regression, real-data evidence, evidence freezes, operator read APIs, artifact preview, cleanup, retention, and current boundaries.
+This runbook consolidates the no-UI maturity operations path for FusionAgent before any final visualization frontend is introduced. It covers local runtime modes, scenario triggers, scenario regression, real-data evidence, evidence freezes, operator read APIs, artifact preview, cleanup, retention, and current boundaries.
 
 Use this as the no-UI workflow entry point. Keep `docs/v2-operations.md` as the detailed runtime contract and troubleshooting reference rather than duplicating every operational detail here.
 
@@ -194,9 +194,29 @@ If an aggregate endpoint disagrees with raw `run.json`, `plan.json`, `audit.json
 
 ## Artifact Preview
 
-Artifact previews are lightweight operator and future-UI assets generated from canonical artifact bundles. They do not replace the shapefile artifact bundle or the frozen evidence records.
+Artifact previews are lightweight operator and future-UI assets generated from canonical artifact bundles. The current entry point is a service-level utility, not a CLI command, API endpoint, or UI surface.
 
-Use artifact previews for quick no-UI inspection of generated vector products. Keep final dashboard rendering, map interaction, and frontend visualization out of scope.
+Call the service utility from Python when you need a bounded GeoJSON preview:
+
+```python
+from pathlib import Path
+
+from services.artifact_preview_service import build_artifact_preview
+
+summary = build_artifact_preview(
+    Path("runs/<run_id>/artifact.zip"),
+    output_dir=Path("tmp/artifact-previews"),
+    max_features=500,
+)
+```
+
+Input is the canonical artifact ZIP produced by the v2 runtime. Output is a summary dict containing the GeoJSON preview path and metadata such as `feature_count`, `preview_feature_count`, `bbox`, `geometry_types`, and `crs`.
+
+Failure and scope boundaries:
+
+- artifacts without a declared CRS fail clearly because WGS84 preview generation would otherwise be ambiguous
+- preview GeoJSON does not replace the canonical shapefile artifact bundle or frozen evidence records
+- final dashboard rendering, map interaction, and frontend visualization remain out of scope
 
 ## Cleanup And Retention
 
