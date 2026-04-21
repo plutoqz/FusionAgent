@@ -3,11 +3,16 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from schemas.fusion import JobType
+from schemas.scenario import ScenarioRunRequest
 from scripts import watch_scenario_inbox
 from scripts.watch_scenario_inbox import process_inbox_once
 from services.scenario_registry_service import ScenarioRegistryService
+from services.scenario_run_service import ScenarioRunService
 from services.scenario_trigger_service import normalize_trigger_event
+from tests.test_scenario_run_service import _FakeAgentRunService
 
 
 def test_normalize_trigger_event_to_scenario_request():
@@ -74,6 +79,72 @@ def test_process_inbox_once_moves_invalid_events_to_failed_dir(tmp_path, monkeyp
     assert (failed / "bad.json").exists()
 
 
+def test_process_inbox_once_does_not_overwrite_existing_failed_event(tmp_path) -> None:
+    inbox = tmp_path / "inbox"
+    processed = tmp_path / "processed"
+    failed = tmp_path / "failed"
+    inbox.mkdir()
+    failed.mkdir()
+    (inbox / "bad.json").write_text("{not json", encoding="utf-8")
+    (failed / "bad.json").write_text("existing evidence", encoding="utf-8")
+
+    processed_ids = process_inbox_once(inbox, processed, output_root=str(tmp_path / "out"), failed_dir=failed)
+
+    assert processed_ids == []
+    assert (failed / "bad.json").read_text(encoding="utf-8") == "existing evidence"
+    assert (failed / "bad.1.json").read_text(encoding="utf-8") == "{not json"
+    assert not (inbox / "bad.json").exists()
+
+
+def test_process_inbox_once_does_not_overwrite_existing_processed_event(tmp_path: Path, monkeypatch) -> None:
+    inbox = tmp_path / "inbox"
+    processed = tmp_path / "processed"
+    output_root = tmp_path / "out"
+    inbox.mkdir()
+    processed.mkdir()
+    event = {
+        "event_id": "usgs-2026-001",
+        "event_type": "earthquake",
+        "location": "Parakou, Benin",
+        "requested_layers": ["building"],
+    }
+    event_json = json.dumps(event)
+    (inbox / "event.json").write_text(event_json, encoding="utf-8")
+    (processed / "event.json").write_text("existing processed evidence", encoding="utf-8")
+    ScenarioRegistryService(output_root=output_root).record(
+        {
+            "scenario_id": "scenario-existing",
+            "phase": "succeeded",
+            "idempotency_key": "usgs-2026-001",
+        }
+    )
+
+    def fail_create_scenario_run(request):
+        raise AssertionError("duplicate idempotency key should not create a new scenario")
+
+    monkeypatch.setattr(watch_scenario_inbox.scenario_run_service, "create_scenario_run", fail_create_scenario_run)
+
+    processed_ids = process_inbox_once(inbox, processed, output_root=str(output_root))
+
+    assert processed_ids == ["scenario-existing"]
+    assert (processed / "event.json").read_text(encoding="utf-8") == "existing processed evidence"
+    assert (processed / "event.1.json").read_text(encoding="utf-8") == event_json
+    assert not (inbox / "event.json").exists()
+
+
+def test_process_inbox_once_without_failed_dir_keeps_fail_fast_and_leaves_invalid_event(tmp_path) -> None:
+    inbox = tmp_path / "inbox"
+    processed = tmp_path / "processed"
+    inbox.mkdir()
+    (inbox / "bad.json").write_text("{not json", encoding="utf-8")
+
+    with pytest.raises(json.JSONDecodeError):
+        process_inbox_once(inbox, processed, output_root=str(tmp_path / "out"), failed_dir=None)
+
+    assert (inbox / "bad.json").read_text(encoding="utf-8") == "{not json"
+    assert not processed.exists() or not any(processed.iterdir())
+
+
 def test_process_inbox_once_returns_existing_scenario_for_duplicate_idempotency_key(tmp_path: Path, monkeypatch) -> None:
     inbox = tmp_path / "inbox"
     processed = tmp_path / "processed"
@@ -104,3 +175,31 @@ def test_process_inbox_once_returns_existing_scenario_for_duplicate_idempotency_
     assert processed_ids == ["scenario-existing"]
     assert not (inbox / "event.json").exists()
     assert (processed / "event.json").exists()
+
+
+def test_scenario_run_service_registry_record_includes_trigger_metadata(tmp_path: Path) -> None:
+    event = {
+        "event_id": "usgs-2026-001",
+        "event_type": "earthquake",
+        "location": "Parakou, Benin",
+    }
+    service = ScenarioRunService(agent_run_service=_FakeAgentRunService(tmp_path))
+
+    service.create_scenario_run(
+        ScenarioRunRequest(
+            scenario_name="Parakou earthquake",
+            trigger_content="fuse building data for Parakou, Benin after an earthquake",
+            disaster_type="earthquake",
+            job_types=[JobType.building],
+            output_root=str(tmp_path / "scenarios"),
+            metadata={
+                "idempotency_key": "usgs-2026-001",
+                "trigger_event": event,
+            },
+        )
+    )
+
+    records = ScenarioRegistryService(output_root=tmp_path / "scenarios").list_records()
+
+    assert records[0]["idempotency_key"] == "usgs-2026-001"
+    assert records[0]["trigger_event"] == event

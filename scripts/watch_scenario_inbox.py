@@ -54,7 +54,23 @@ def process_inbox_once(
 
 def _move_event_file(event_path: Path, target_dir: Path) -> None:
     target_dir.mkdir(parents=True, exist_ok=True)
-    shutil.move(str(event_path), str(target_dir / event_path.name))
+    shutil.move(str(event_path), str(_unique_target_path(target_dir, event_path.name)))
+
+
+def _unique_target_path(target_dir: Path, filename: str) -> Path:
+    target_path = target_dir / filename
+    if not target_path.exists():
+        return target_path
+
+    source_name = Path(filename)
+    suffix = source_name.suffix
+    stem = source_name.stem
+    counter = 1
+    while True:
+        candidate = target_dir / f"{stem}.{counter}{suffix}"
+        if not candidate.exists():
+            return candidate
+        counter += 1
 
 
 def _parser() -> argparse.ArgumentParser:
