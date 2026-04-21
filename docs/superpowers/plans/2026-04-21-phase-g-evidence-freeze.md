@@ -1,6 +1,6 @@
 # Phase G Evidence Freeze Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Freeze a paper-grade evidence package that maps allowed FusionAgent claims to tracked benchmark summaries, explicit baseline rows, qualitative extension evidence, and reproducible curation commands.
 
@@ -38,7 +38,7 @@
 - Modify: `tests/test_eval_harness.py`
 - Modify: `scripts/eval_harness.py`
 
-- [ ] **Step 1: Write the failing harness test**
+- [x] **Step 1: Write the failing harness test**
 
 Append to `tests/test_eval_harness.py`:
 
@@ -120,7 +120,7 @@ def test_evaluate_manifest_cases_preserves_matrix_ready_case_metadata(monkeypatc
     assert case["evidence"]["observed_output_types"] == ["dt.building.fused"]
 ```
 
-- [ ] **Step 2: Run the test and verify it fails**
+- [x] **Step 2: Run the test and verify it fails**
 
 Run:
 
@@ -130,7 +130,7 @@ python -m pytest -q tests/test_eval_harness.py -k matrix_ready_case_metadata
 
 Expected: FAIL because `evaluate_manifest_cases()` does not preserve `baseline`, `proof_targets`, or nested `evidence`.
 
-- [ ] **Step 3: Implement manifest metadata and evidence emission**
+- [x] **Step 3: Implement manifest metadata and evidence emission**
 
 In `scripts/eval_harness.py`, add helpers:
 
@@ -243,7 +243,7 @@ case_result["evidence"] = _build_manifest_case_evidence(case, case_result)
 results.append(case_result)
 ```
 
-- [ ] **Step 4: Run the harness test and verify it passes**
+- [x] **Step 4: Run the harness test and verify it passes**
 
 Run:
 
@@ -253,7 +253,7 @@ python -m pytest -q tests/test_eval_harness.py -k matrix_ready_case_metadata
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit the harness slice**
+- [x] **Step 5: Commit the harness slice**
 
 Run:
 
@@ -268,7 +268,7 @@ git commit -m "feat: capture matrix-ready eval evidence"
 - Create: `tests/test_freeze_paper_evidence.py`
 - Create: `scripts/freeze_paper_evidence.py`
 
-- [ ] **Step 1: Write the failing freeze-script tests**
+- [x] **Step 1: Write the failing freeze-script tests**
 
 Create `tests/test_freeze_paper_evidence.py`:
 
@@ -407,7 +407,7 @@ def test_build_freeze_report_rejects_missing_case_id(tmp_path: Path) -> None:
         freeze_paper_evidence.build_freeze_report(repo_root=tmp_path, spec_path=spec_path)
 ```
 
-- [ ] **Step 2: Run the tests and verify they fail**
+- [x] **Step 2: Run the tests and verify they fail**
 
 Run:
 
@@ -417,7 +417,7 @@ python -m pytest -q tests/test_freeze_paper_evidence.py
 
 Expected: FAIL with `ModuleNotFoundError: No module named 'scripts.freeze_paper_evidence'`.
 
-- [ ] **Step 3: Implement the freeze script**
+- [x] **Step 3: Implement the freeze script**
 
 Create `scripts/freeze_paper_evidence.py` with these exported functions and CLI:
 
@@ -573,7 +573,7 @@ if __name__ == "__main__":
     raise SystemExit(main())
 ```
 
-- [ ] **Step 4: Run the freeze-script tests and verify they pass**
+- [x] **Step 4: Run the freeze-script tests and verify they pass**
 
 Run:
 
@@ -583,7 +583,7 @@ python -m pytest -q tests/test_freeze_paper_evidence.py
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit the freeze-tooling slice**
+- [x] **Step 5: Commit the freeze-tooling slice**
 
 Run:
 
@@ -599,7 +599,7 @@ git commit -m "feat: add paper evidence freeze tooling"
 - Create: `docs/superpowers/specs/2026-04-21-paper-evidence-freeze.json`
 - Create: `docs/superpowers/specs/2026-04-21-paper-evidence-freeze.md`
 
-- [ ] **Step 1: Write the experiment matrix spec**
+- [x] **Step 1: Write the experiment matrix spec**
 
 Create `docs/superpowers/specs/2026-04-21-paper-experiment-matrix.json`:
 
@@ -709,7 +709,7 @@ Create `docs/superpowers/specs/2026-04-21-paper-experiment-matrix.json`:
 }
 ```
 
-- [ ] **Step 2: Generate the frozen evidence outputs**
+- [x] **Step 2: Generate the frozen evidence outputs**
 
 Run:
 
@@ -722,7 +722,7 @@ python scripts/freeze_paper_evidence.py `
 
 Expected: both output files exist, summary and manifest paths are repo-relative, and the Markdown includes `Failure Analysis` plus `c7_water_uploaded_vertical_slice`.
 
-- [ ] **Step 3: Commit the matrix and freeze artifacts**
+- [x] **Step 3: Commit the matrix and freeze artifacts**
 
 Run:
 
@@ -739,7 +739,7 @@ git commit -m "docs: freeze phase g paper evidence"
 - Modify: `docs/superpowers/specs/2026-04-20-evidence-ledger.md`
 - Modify: `docs/v2-operations.md`
 
-- [ ] **Step 1: Add Phase G entries to the evidence ledger**
+- [x] **Step 1: Add Phase G entries to the evidence ledger**
 
 Add rows in `docs/superpowers/specs/2026-04-20-evidence-ledger.md`:
 
@@ -748,7 +748,7 @@ Add rows in `docs/superpowers/specs/2026-04-20-evidence-ledger.md`:
 | Phase G paper evidence freeze | `docs/superpowers/specs/2026-04-21-paper-evidence-freeze.json`, `docs/superpowers/specs/2026-04-21-paper-evidence-freeze.md` | Paper-grade summary, failure analysis, and raw-artifact traceability notes | strong | Generated from tracked benchmark summaries plus qualitative Phase F references |
 ```
 
-- [ ] **Step 2: Document the freeze command and storage rule**
+- [x] **Step 2: Document the freeze command and storage rule**
 
 Add to `docs/v2-operations.md` after the Tier 3 benchmark guidance:
 
@@ -768,7 +768,7 @@ Track the spec and frozen outputs under `docs/superpowers/specs/`.
 Do not track raw `runs/<run_id>/` directories or source caches; record their storage location inside the frozen JSON instead.
 ````
 
-- [ ] **Step 3: Verify and commit doc alignment**
+- [x] **Step 3: Verify and commit doc alignment**
 
 Run:
 
@@ -786,7 +786,7 @@ Expected: `Select-String` returns matches in both files, then the commit succeed
 **Files:**
 - Modify/Create all files listed in the File Structure section.
 
-- [ ] **Step 1: Run focused verification**
+- [x] **Step 1: Run focused verification**
 
 Run:
 
@@ -796,7 +796,7 @@ python -m pytest -q tests/test_eval_harness.py tests/test_freeze_paper_evidence.
 
 Expected: PASS.
 
-- [ ] **Step 2: Rebuild frozen artifacts**
+- [x] **Step 2: Rebuild frozen artifacts**
 
 Run:
 
@@ -809,7 +809,7 @@ python scripts/freeze_paper_evidence.py `
 
 Expected: command exits `0` and no unexpected diff appears outside the planned Phase G files.
 
-- [ ] **Step 3: Run full repository verification**
+- [x] **Step 3: Run full repository verification**
 
 Run:
 
@@ -825,7 +825,7 @@ Expected:
 
 The only warnings should remain the known `pyproj`/`numpy` deprecation noise from `tests/test_building_adapter_safe.py`.
 
-- [ ] **Step 4: Check diff and placeholder hygiene**
+- [x] **Step 4: Check diff and placeholder hygiene**
 
 Run:
 
@@ -844,7 +844,7 @@ git diff --check: no output
 Select-String: no matches
 ```
 
-- [ ] **Step 5: Create the final implementation commit**
+- [x] **Step 5: Create the final implementation commit**
 
 Run:
 
@@ -874,3 +874,4 @@ If any required claim still lacks frozen evidence, return only to the weakest pr
 - Spec coverage: this plan covers harness evidence capture, frozen matrix generation, tracked spec/report outputs, evidence-ledger alignment, and end-to-end verification.
 - Placeholder scan: all steps name exact files, commands, and expected outputs.
 - Type consistency: claim ids use the `C1`/`C2`/`C5`/`C7` contract from the evaluation spec, while metrics use names from `2026-04-20-evaluation-contract-claim-lock.md`.
+

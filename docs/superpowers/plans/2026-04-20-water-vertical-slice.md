@@ -1,12 +1,14 @@
 # Water Vertical Slice Implementation Plan
 
-> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
+> **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [x]`) syntax for tracking.
 
 **Goal:** Add a third, uploaded-input-only `water` polygon fusion vertical slice that runs through KG planning, v2 uploaded API execution, adapter output, artifact writeback, and ontology/bootstrap closure.
 
 **Architecture:** Keep the slice deliberately narrow: users still upload two polygon shapefile ZIP bundles through `/api/v2/runs`, the planner selects a single KG-backed water workflow pattern, the executor dispatches `algo.fusion.water.v1`, and the new adapter produces a stable `fused_water.shp` bundle. Do not add task-driven auto water materialization, provider download behavior, or v1 `/fusion/water/jobs` routes in this phase.
 
 **Tech Stack:** Python, FastAPI v2 run API, Pydantic models, GeoPandas/Shapely/Rtree geospatial processing, in-memory/Neo4j KG seed/bootstrap, pytest.
+
+**Completion Status:** Implemented on 2026-04-21 and merged to `main` at `cfbc35b`. Focused Phase F verification passed with `37 passed`. Full repository verification on merged `main` passed with `175 passed, 1 skipped, 6 warnings`.
 
 ---
 
@@ -38,7 +40,7 @@
 - Create: `tests/test_water_adapter.py`
 - Create: `adapters/water_adapter.py`
 
-- [ ] **Step 1: Write the failing adapter test**
+- [x] **Step 1: Write the failing adapter test**
 
 Create `tests/test_water_adapter.py`:
 
@@ -140,7 +142,7 @@ def test_run_water_fusion_merges_matched_and_unmatched_polygons(tmp_path: Path) 
     assert unmatched_ref["SRC"] == "ref"
 ```
 
-- [ ] **Step 2: Run the adapter test and verify it fails**
+- [x] **Step 2: Run the adapter test and verify it fails**
 
 Run:
 
@@ -150,7 +152,7 @@ python -m pytest tests/test_water_adapter.py -q
 
 Expected: FAIL with `ModuleNotFoundError: No module named 'adapters.water_adapter'`.
 
-- [ ] **Step 3: Implement the adapter**
+- [x] **Step 3: Implement the adapter**
 
 Create `adapters/water_adapter.py`:
 
@@ -332,7 +334,7 @@ def run_water_fusion(
     return output_shp
 ```
 
-- [ ] **Step 4: Run the adapter test and verify it passes**
+- [x] **Step 4: Run the adapter test and verify it passes**
 
 Run:
 
@@ -342,7 +344,7 @@ python -m pytest tests/test_water_adapter.py -q
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit adapter slice**
+- [x] **Step 5: Commit adapter slice**
 
 Run:
 
@@ -362,7 +364,7 @@ git commit -m "feat: add water polygon adapter"
 - Modify: `tests/test_kg_repository_enhancements.py`
 - Modify: `tests/test_planner_context.py`
 
-- [ ] **Step 1: Write failing KG and planner tests**
+- [x] **Step 1: Write failing KG and planner tests**
 
 Append to `tests/test_ontology_closure.py`:
 
@@ -419,7 +421,7 @@ def test_planner_context_exposes_water_vertical_slice_metadata() -> None:
     assert plan.tasks[0].output.data_type_id == "dt.water.fused"
 ```
 
-- [ ] **Step 2: Run tests and verify they fail**
+- [x] **Step 2: Run tests and verify they fail**
 
 Run:
 
@@ -429,7 +431,7 @@ python -m pytest tests/test_ontology_closure.py tests/test_kg_repository_enhance
 
 Expected: FAIL because `JobType.water` and water KG records do not exist yet.
 
-- [ ] **Step 3: Add water job type and KG seed records**
+- [x] **Step 3: Add water job type and KG seed records**
 
 Modify `schemas/fusion.py`:
 
@@ -563,7 +565,7 @@ Modify `agent/intent_resolver.py` task hints:
 "water": {"water", "lake", "river", "reservoir", "pond"},
 ```
 
-- [ ] **Step 4: Run KG/planner tests and verify they pass**
+- [x] **Step 4: Run KG/planner tests and verify they pass**
 
 Run:
 
@@ -573,7 +575,7 @@ python -m pytest tests/test_ontology_closure.py tests/test_kg_repository_enhance
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit KG slice**
+- [x] **Step 5: Commit KG slice**
 
 Run:
 
@@ -588,7 +590,7 @@ git commit -m "feat: seed water fusion ontology"
 - Modify: `agent/executor.py`
 - Modify: `tests/test_api_v2_integration.py`
 
-- [ ] **Step 1: Write failing v2 uploaded integration test**
+- [x] **Step 1: Write failing v2 uploaded integration test**
 
 In `tests/test_api_v2_integration.py`, add:
 
@@ -673,7 +675,7 @@ def test_v2_run_water_uploaded_integration(tmp_path: Path, client: TestClient) -
     assert artifact_resp.content
 ```
 
-- [ ] **Step 2: Run v2 test and verify it fails**
+- [x] **Step 2: Run v2 test and verify it fails**
 
 Run:
 
@@ -683,7 +685,7 @@ python -m pytest tests/test_api_v2_integration.py::test_v2_run_water_uploaded_in
 
 Expected: FAIL with `No handler registered for algorithm: algo.fusion.water.v1`.
 
-- [ ] **Step 3: Register executor handler**
+- [x] **Step 3: Register executor handler**
 
 Modify `agent/executor.py`:
 
@@ -709,7 +711,7 @@ def _handle_water(context: ExecutionContext) -> Path:
     )
 ```
 
-- [ ] **Step 4: Run v2 test and verify it passes**
+- [x] **Step 4: Run v2 test and verify it passes**
 
 Run:
 
@@ -719,7 +721,7 @@ python -m pytest tests/test_api_v2_integration.py::test_v2_run_water_uploaded_in
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit runtime slice**
+- [x] **Step 5: Commit runtime slice**
 
 Run:
 
@@ -735,7 +737,7 @@ git commit -m "feat: execute uploaded water runs"
 - Modify: `tests/test_neo4j_bootstrap.py`
 - Modify: `docs/superpowers/specs/2026-04-20-evidence-ledger.md`
 
-- [ ] **Step 1: Write failing bootstrap test**
+- [x] **Step 1: Write failing bootstrap test**
 
 Append to `tests/test_neo4j_bootstrap.py`:
 
@@ -751,7 +753,7 @@ def test_bootstrap_cypher_contains_water_vertical_slice() -> None:
     assert "osp.water.fused.v1" in cypher
 ```
 
-- [ ] **Step 2: Run bootstrap test and verify it passes from seed but file diff is stale**
+- [x] **Step 2: Run bootstrap test and verify it passes from seed but file diff is stale**
 
 Run:
 
@@ -769,7 +771,7 @@ Select-String -Path kg/bootstrap/neo4j_bootstrap.cypher -Pattern "dt.water.fused
 
 Expected before regeneration: no match.
 
-- [ ] **Step 3: Regenerate tracked bootstrap Cypher**
+- [x] **Step 3: Regenerate tracked bootstrap Cypher**
 
 Run:
 
@@ -784,7 +786,7 @@ Path("kg/bootstrap/neo4j_bootstrap.cypher").write_text(build_bootstrap_cypher(),
 
 Expected: `kg/bootstrap/neo4j_bootstrap.cypher` now contains water records.
 
-- [ ] **Step 4: Update evidence ledger with Phase F evidence**
+- [x] **Step 4: Update evidence ledger with Phase F evidence**
 
 Append or update the Runtime Capability Evidence section in `docs/superpowers/specs/2026-04-20-evidence-ledger.md`:
 
@@ -792,7 +794,7 @@ Append or update the Runtime Capability Evidence section in `docs/superpowers/sp
 | Phase F water uploaded vertical slice | `docs/superpowers/plans/2026-04-20-water-vertical-slice.md`, `tests/test_water_adapter.py`, `tests/test_api_v2_integration.py::test_v2_run_water_uploaded_integration` | Third task/data vertical slice beyond building/road, limited to uploaded polygon inputs | strong | Proves KG planning, executor dispatch, adapter output, v2 API artifact writeback, and bootstrap closure for `JobType.water`; does not claim task-driven auto water materialization |
 ```
 
-- [ ] **Step 5: Commit bootstrap/docs slice**
+- [x] **Step 5: Commit bootstrap/docs slice**
 
 Run:
 
@@ -806,7 +808,7 @@ git commit -m "docs: record water vertical slice evidence"
 **Files:**
 - No planned source edits.
 
-- [ ] **Step 1: Run focused verification**
+- [x] **Step 1: Run focused verification**
 
 Run:
 
@@ -816,7 +818,7 @@ python -m pytest tests/test_water_adapter.py tests/test_api_v2_integration.py::t
 
 Expected: PASS.
 
-- [ ] **Step 2: Run full verification**
+- [x] **Step 2: Run full verification**
 
 Run:
 
@@ -826,7 +828,7 @@ python -m pytest -q
 
 Expected: PASS with the known pyproj/numpy warnings only.
 
-- [ ] **Step 3: Inspect branch diff**
+- [x] **Step 3: Inspect branch diff**
 
 Run:
 
@@ -838,7 +840,7 @@ git diff --stat main..HEAD
 
 Expected: clean status and only Phase F water vertical slice files changed.
 
-- [ ] **Step 4: Merge and push**
+- [x] **Step 4: Merge and push**
 
 From main worktree `E:\vscode\fusionAgent`:
 
@@ -851,7 +853,7 @@ git push origin main
 
 Expected: fast-forward merge and push succeed.
 
-- [ ] **Step 5: Clean temporary branch/worktree**
+- [x] **Step 5: Clean temporary branch/worktree**
 
 Run:
 
@@ -867,3 +869,4 @@ Expected: only main worktree remains and status is clean.
 ## Gate After Phase F
 
 Continue to Phase G only if the water slice proves architecture extensibility without adding task-driven auto water assumptions. Phase G should freeze the experiment matrix and paper evidence paths; Phase H should remain deferred unless product demonstration requires a thin operator surface.
+
