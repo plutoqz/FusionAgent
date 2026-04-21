@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import json
 import os
+from pathlib import Path
 from typing import Optional
 
-from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
 
 from schemas.agent import (
@@ -23,8 +24,12 @@ from schemas.agent import (
     RunTriggerType,
 )
 from schemas.fusion import FieldMapping, JobType
+from schemas.operator import OperatorRunListResponse, OperatorRuntimeSummaryResponse
 from services.agent_run_service import agent_run_service
 from services.kg_path_trace_service import build_kg_path_trace
+from services.operator_read_model_service import OperatorReadModelService
+from services.run_registry_service import RunRegistryService
+from services.scenario_output import resolve_scenario_output_root
 from utils.crs import normalize_explicit_target_crs
 
 
@@ -73,6 +78,20 @@ def _build_run_inspection_response(run_id: str, status: RunStatus) -> RunInspect
 
 def _selected_decisions(status: RunStatus) -> dict[str, str]:
     return {record.decision_type: record.selected_id for record in status.decision_records}
+
+
+@router.get("/runs", response_model=OperatorRunListResponse)
+async def list_runs(
+    limit: int = Query(default=50, ge=1),
+    phase: Optional[str] = None,
+    job_type: Optional[str] = None,
+) -> OperatorRunListResponse:
+    records = RunRegistryService(runs_root=Path("runs")).list_records(
+        limit=limit,
+        phase=phase,
+        job_type=job_type,
+    )
+    return OperatorRunListResponse(records=records)
 
 
 @router.post("/runs", response_model=RunCreateResponse)
@@ -183,6 +202,15 @@ async def get_run_inspection(run_id: str) -> RunInspectionResponse:
 @router.get("/runtime", response_model=RuntimeMetadataResponse)
 async def get_runtime_metadata() -> RuntimeMetadataResponse:
     return _build_runtime_metadata_response()
+
+
+@router.get("/operator/summary", response_model=OperatorRuntimeSummaryResponse)
+async def get_operator_summary(limit: int = Query(default=10, ge=1)) -> OperatorRuntimeSummaryResponse:
+    service = OperatorReadModelService(
+        runs_root=Path("runs"),
+        scenario_output_root=resolve_scenario_output_root(None),
+    )
+    return OperatorRuntimeSummaryResponse(**service.runtime_summary(limit=limit))
 
 
 @router.get("/runs/{left_run_id}/compare/{right_run_id}", response_model=RunComparisonResponse)
