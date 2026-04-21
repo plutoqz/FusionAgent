@@ -8,7 +8,7 @@
 
 **Tech Stack:** Python 3.9+, FastAPI, Pydantic, pytest, existing scenario run service, existing v2 agent runtime, JSON/Markdown evidence files.
 
-**Completion Status:** Completed on 2026-04-21 with focused verification output `14 passed in 1.97s`, scenario/runtime regression output `49 passed, 6 warnings in 7.94s`, full-suite output `232 passed, 1 skipped, 12 warnings in 99.41s (0:01:39)`, and real scenario harness deferred because local API probe returned `UNAVAILABLE HttpRequestException: 由于目标计算机积极拒绝，无法连接。 (127.0.0.1:8000)`.
+**Completion Status:** Completed on 2026-04-21 with focused verification output `14 passed in 1.97s`, scenario/runtime regression output `49 passed, 6 warnings in 7.94s`, full-suite output `234 passed, 1 skipped, 12 warnings in 104.07s (0:01:44)`, real scenario harness output `5 passed cases and 0 failed cases` from `tmp/eval/scenario-harness-summary.json`, and frozen evidence written to `docs/superpowers/specs/2026-04-21-scenario-evidence-freeze.json` plus `docs/superpowers/specs/2026-04-21-scenario-evidence-freeze.md`.
 
 ---
 
