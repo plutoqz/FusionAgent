@@ -841,7 +841,10 @@ OUTPUT_SCHEMA_POLICIES: Dict[str, OutputSchemaPolicy] = {
         metadata={
             "policy_scope": "current_runtime",
             "enforcement": "metadata_only",
-            "notes": "Water output schema documents current uploaded-only runtime columns without enforcing adapter output.",
+            "notes": (
+                "Water output schema documents current shared bundle runtime columns "
+                "for uploaded and task-driven auto runs without enforcing adapter output."
+            ),
         },
     ),
 }

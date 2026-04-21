@@ -204,6 +204,62 @@ def test_source_asset_service_materializes_kenya_osm_and_clips_to_nairobi(tmp_pa
     assert frame.iloc[0]["road_id"] == 1
 
 
+def test_source_asset_service_water_prefers_local_source_and_clips_request_bbox(tmp_path: Path) -> None:
+    local_shp = tmp_path / "Data" / "burundi-260127-free.shp" / "gis_osm_water_a_free_1.shp"
+    _write_frame(
+        local_shp,
+        geopandas.GeoDataFrame(
+            {"water_id": [1, 2]},
+            geometry=[
+                Polygon([(0.0, 0.0), (0.0, 2.0), (2.0, 2.0), (2.0, 0.0)]),
+                Polygon([(5.0, 5.0), (5.0, 6.0), (6.0, 6.0), (6.0, 5.0)]),
+            ],
+            crs="EPSG:4326",
+        ),
+    )
+    service = SourceAssetService(repo_root=tmp_path, cache_dir=tmp_path / "cache")
+
+    resolved = service.resolve_raw_source_path("raw.osm.water", request_bbox=(0.5, 0.5, 1.5, 1.5))
+    frame = geopandas.read_file(resolved.path)
+
+    assert resolved.source_mode == "local_data_clipped"
+    assert resolved.cache_hit is False
+    assert resolved.feature_count == 1
+    assert resolved.bbox == pytest.approx((0.5, 0.5, 1.5, 1.5))
+    assert resolved.path.parent.name != "burundi-260127-free.shp"
+    assert len(frame) == 1
+
+
+def test_source_asset_service_water_empty_local_clip_does_not_fallback_to_remote(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    local_shp = tmp_path / "Data" / "burundi-260127-free.shp" / "gis_osm_water_a_free_1.shp"
+    _write_frame(
+        local_shp,
+        geopandas.GeoDataFrame(
+            {"water_id": [1]},
+            geometry=[Polygon([(0.0, 0.0), (0.0, 2.0), (2.0, 2.0), (2.0, 0.0)])],
+            crs="EPSG:4326",
+        ),
+    )
+    service = SourceAssetService(repo_root=tmp_path, cache_dir=tmp_path / "cache")
+    monkeypatch.setattr(
+        service,
+        "_download_file",
+        lambda *_args, **_kwargs: pytest.fail("raw.osm.water should not download remote assets when local data exists"),
+    )
+
+    resolved = service.resolve_raw_source_path("raw.osm.water", request_bbox=(10.0, 10.0, 11.0, 11.0))
+    frame = geopandas.read_file(resolved.path)
+
+    assert resolved.source_mode == "coverage_empty"
+    assert resolved.cache_hit is False
+    assert resolved.feature_count == 0
+    assert resolved.bbox is None
+    assert len(frame) == 0
+
+
 def test_source_asset_service_skips_incomplete_local_shapefile_and_uses_remote_asset(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:

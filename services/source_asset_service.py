@@ -64,6 +64,10 @@ _REMOTELY_MATERIALIZABLE_SOURCE_IDS = {
     "raw.microsoft.building",
 }
 
+_LOCAL_PRIORITY_SOURCE_IDS = {
+    "raw.osm.water",
+}
+
 
 @dataclass(frozen=True)
 class SourceAssetResolution:
@@ -218,7 +222,11 @@ class SourceAssetService:
                     local_path=local_path,
                     request_bbox=effective_bbox,
                 )
-                if local_resolution.feature_count != 0 or source_id not in _REMOTELY_MATERIALIZABLE_SOURCE_IDS:
+                if (
+                    local_resolution.feature_count != 0
+                    or source_id not in _REMOTELY_MATERIALIZABLE_SOURCE_IDS
+                    or source_id in _LOCAL_PRIORITY_SOURCE_IDS
+                ):
                     return local_resolution
 
         if source_id in _GEOFABRIK_LAYER_NAMES:

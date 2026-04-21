@@ -39,6 +39,8 @@ def test_bootstrap_cypher_contains_water_vertical_slice() -> None:
     assert "dt.water.fused" in cypher
     assert "task.water.fusion" in cypher
     assert "algo.fusion.water.v1" in cypher
+    assert "current uploaded-only runtime columns" not in cypher
+    assert "shared bundle runtime columns" in cypher
     assert "wp.flood.water.default" in cypher
     assert "osp.water.fused.v1" in cypher
 
