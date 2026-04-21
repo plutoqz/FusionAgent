@@ -59,3 +59,40 @@ def test_run_registry_filters_and_sorts_by_run_json_mtime(tmp_path: Path) -> Non
 
     assert [record["run_id"] for record in records] == ["run-new", "run-old"]
     assert records[0]["run_dir"] == str(newer)
+
+
+def test_run_registry_skips_malformed_and_non_object_run_json(tmp_path: Path) -> None:
+    runs_root = tmp_path / "runs"
+    valid = runs_root / "run-valid"
+    malformed = runs_root / "run-malformed"
+    array_payload = runs_root / "run-array"
+    string_payload = runs_root / "run-string"
+    for run_dir in [valid, malformed, array_payload, string_payload]:
+        run_dir.mkdir(parents=True)
+
+    (valid / "run.json").write_text(
+        '{"run_id":"run-valid","phase":"succeeded","job_type":"building"}',
+        encoding="utf-8",
+    )
+    (malformed / "run.json").write_text('{"run_id":', encoding="utf-8")
+    (array_payload / "run.json").write_text('["run-array"]', encoding="utf-8")
+    (string_payload / "run.json").write_text('"run-string"', encoding="utf-8")
+
+    records = RunRegistryService(runs_root=runs_root).list_records(limit=10)
+
+    assert [record["run_id"] for record in records] == ["run-valid"]
+
+
+def test_run_registry_caps_limit_at_100(tmp_path: Path) -> None:
+    runs_root = tmp_path / "runs"
+    for index in range(105):
+        run_dir = runs_root / f"run-{index:03d}"
+        run_dir.mkdir(parents=True)
+        (run_dir / "run.json").write_text(
+            f'{{"run_id":"run-{index:03d}","phase":"succeeded","job_type":"building"}}',
+            encoding="utf-8",
+        )
+
+    records = RunRegistryService(runs_root=runs_root).list_records(limit=500)
+
+    assert len(records) == 100

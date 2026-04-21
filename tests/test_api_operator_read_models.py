@@ -3,6 +3,8 @@ from pathlib import Path
 from fastapi.testclient import TestClient
 
 from api.app import create_app
+import api.routers.runs_v2 as runs_v2_router
+from schemas.agent import RunPhase, RunStatus, RunTrigger, RunTriggerType
 from services.scenario_registry_service import ScenarioRegistryService
 
 
@@ -60,3 +62,23 @@ def test_api_operator_summary_returns_runtime_and_recent_read_models(
     assert payload["recent_runs"][0]["run_id"] == "run-a"
     assert payload["recent_scenarios"][0]["scenario_id"] == "scenario-a"
     assert payload["evidence_gaps"] == []
+
+
+def test_api_runs_list_route_does_not_shadow_run_status_route(monkeypatch) -> None:
+    class FakeAgentRunService:
+        def get_run(self, run_id: str) -> RunStatus:
+            return RunStatus(
+                run_id=run_id,
+                job_type="building",
+                trigger=RunTrigger(type=RunTriggerType.user_query, content="inspect existing run"),
+                phase=RunPhase.succeeded,
+                target_crs="EPSG:4326",
+                created_at="2026-04-21T00:00:00+00:00",
+            )
+
+    monkeypatch.setattr(runs_v2_router, "agent_run_service", FakeAgentRunService())
+
+    response = TestClient(create_app()).get("/api/v2/runs/run-existing")
+
+    assert response.status_code == 200, response.text
+    assert response.json()["run_id"] == "run-existing"

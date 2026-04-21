@@ -82,7 +82,7 @@ def _selected_decisions(status: RunStatus) -> dict[str, str]:
 
 @router.get("/runs", response_model=OperatorRunListResponse)
 async def list_runs(
-    limit: int = Query(default=50, ge=1),
+    limit: int = Query(default=50, ge=1, le=100),
     phase: Optional[str] = None,
     job_type: Optional[str] = None,
 ) -> OperatorRunListResponse:
@@ -205,7 +205,7 @@ async def get_runtime_metadata() -> RuntimeMetadataResponse:
 
 
 @router.get("/operator/summary", response_model=OperatorRuntimeSummaryResponse)
-async def get_operator_summary(limit: int = Query(default=10, ge=1)) -> OperatorRuntimeSummaryResponse:
+async def get_operator_summary(limit: int = Query(default=10, ge=1, le=100)) -> OperatorRuntimeSummaryResponse:
     service = OperatorReadModelService(
         runs_root=Path("runs"),
         scenario_output_root=resolve_scenario_output_root(None),
