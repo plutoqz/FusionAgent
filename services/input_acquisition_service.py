@@ -4,7 +4,7 @@ import hashlib
 import re
 import shutil
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Optional, Protocol, Sequence
@@ -77,6 +77,10 @@ class MaterializedInputBundle:
     ref_zip_path: Path
     bbox: Optional[BBox]
     target_crs: str
+    source_id: str | None = None
+    fallback_from: str | None = None
+    attempted_sources: list[str] = field(default_factory=list)
+    component_coverage: dict[str, object] = field(default_factory=dict)
 
 
 @dataclass(frozen=True)
@@ -87,6 +91,9 @@ class ResolvedRunInputs:
     source_id: str
     cache_hit: bool
     version_token: str
+    selected_source_id: str | None = None
+    fallback_from_source_id: str | None = None
+    component_coverage: dict[str, object] = field(default_factory=dict)
 
 
 class InputAcquisitionService:
@@ -142,6 +149,9 @@ class InputAcquisitionService:
                     source_id=source_id,
                     cache_hit=True,
                     version_token=version_token,
+                    selected_source_id=str(candidate.meta.get("selected_source_id") or source_id),
+                    fallback_from_source_id=candidate.meta.get("fallback_from_source_id"),
+                    component_coverage=dict(candidate.meta.get("component_coverage") or {}),
                 )
             copied = self._copy_cached_bundle(bundle_dir=bundle_dir, input_dir=input_dir)
             return ResolvedRunInputs(
@@ -151,6 +161,9 @@ class InputAcquisitionService:
                 source_id=source_id,
                 cache_hit=True,
                 version_token=version_token,
+                selected_source_id=str(candidate.meta.get("selected_source_id") or source_id),
+                fallback_from_source_id=candidate.meta.get("fallback_from_source_id"),
+                component_coverage=dict(candidate.meta.get("component_coverage") or {}),
             )
 
         cache_bundle_dir = (
@@ -192,6 +205,9 @@ class InputAcquisitionService:
                 meta={
                     "artifact_role": "input_bundle",
                     "source_id": source_id,
+                    "selected_source_id": materialized.source_id or source_id,
+                    "fallback_from_source_id": materialized.fallback_from,
+                    "component_coverage": _jsonable_component_coverage(materialized.component_coverage),
                     "source_version": version_token,
                     "planning_mode": "task_driven",
                 },
@@ -205,6 +221,9 @@ class InputAcquisitionService:
             source_id=source_id,
             cache_hit=False,
             version_token=version_token,
+            selected_source_id=materialized.source_id or source_id,
+            fallback_from_source_id=materialized.fallback_from,
+            component_coverage=_jsonable_component_coverage(materialized.component_coverage),
         )
 
     def _provider_for(self, source_id: str) -> InputBundleProvider:
@@ -240,6 +259,15 @@ class InputAcquisitionService:
         target_dir: Path,
         target_crs: str,
     ) -> MaterializedInputBundle:
+        materialize_with_fallback = getattr(provider, "materialize_with_fallback", None)
+        if callable(materialize_with_fallback):
+            return materialize_with_fallback(
+                source_id=source_id,
+                request_bbox=request_bbox,
+                resolved_aoi=resolved_aoi,
+                target_dir=target_dir,
+                target_crs=target_crs,
+            )
         try:
             return provider.materialize(
                 source_id=source_id,
@@ -296,3 +324,23 @@ class InputAcquisitionService:
             bbox=request_bbox,
             target_crs=clipped.target_crs,
         )
+
+
+def _jsonable_component_coverage(component_coverage: dict[str, object]) -> dict[str, dict[str, object]]:
+    payload: dict[str, dict[str, object]] = {}
+    for source_id, raw in (component_coverage or {}).items():
+        if hasattr(raw, "__dataclass_fields__"):
+            value = {
+                "source_id": getattr(raw, "source_id", source_id),
+                "source_mode": getattr(raw, "source_mode", None),
+                "feature_count": getattr(raw, "feature_count", None),
+                "coverage_status": getattr(raw, "coverage_status", None),
+                "path": str(getattr(raw, "path", "")) if getattr(raw, "path", None) else None,
+                "error": getattr(raw, "error", None),
+            }
+        elif isinstance(raw, dict):
+            value = dict(raw)
+        else:
+            value = {"source_id": source_id, "value": raw}
+        payload[source_id] = value
+    return payload

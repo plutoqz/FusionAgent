@@ -176,6 +176,14 @@ FusionAgent 当前明确区分：
   - [paper evidence freeze JSON](./docs/superpowers/specs/2026-04-21-paper-evidence-freeze.json)
   - [paper evidence freeze Markdown](./docs/superpowers/specs/2026-04-21-paper-evidence-freeze.md)
 
+### Phase H：Scenario Evidence And Reporting
+
+- 新增 `POST /api/v2/scenario-runs`，可用一个场景请求驱动多个 `task_driven_auto` 子 run，例如 building + road 灾害响应场景
+- 场景输出 root 支持请求级 `output_root`、环境变量 `GEOFUSION_SCENARIO_OUTPUT_ROOT`，默认回退到 `E:\fyx\data\fusionagentTEST`
+- 场景 evidence 会额外写入 `scenario_summary.json`、`kg_path_trace.json`、`workflow_trace.json`、`source_coverage.json`、`evaluation.json`
+- 场景报告同时生成中文与英文 Markdown：`documents/scenario_report.zh.md`、`documents/scenario_report.en.md`
+- 场景层显式呈现 KG 关系链、实际执行 workflow trace、source coverage / fallback、数据融合指标、智能体指标和 self-evolution evidence
+
 ## 每次运行产出的核心证据
 
 每次 run 当前会持久化以下核心证据文件：
@@ -185,6 +193,16 @@ FusionAgent 当前明确区分：
 - `validation.json`
 - `audit.jsonl`
 - artifact bundle
+
+场景级 run 会在上述单 run 证据之外额外持久化：
+
+- `scenario_summary.json`
+- `kg_path_trace.json`
+- `workflow_trace.json`
+- `source_coverage.json`
+- `evaluation.json`
+- `documents/scenario_report.zh.md`
+- `documents/scenario_report.en.md`
 
 ## 当前仍然存在的明确缺口
 
@@ -339,6 +357,12 @@ python -m pytest -q `
 
 - `POST /api/v2/runs`
 - 默认使用上传 bundle；设置 `input_strategy=task_driven_auto` 后，`building`、`road`、`water` 与 bounded `poi` 都会走共享输入准备链路
+
+### Create Scenario Run
+
+- `POST /api/v2/scenario-runs`
+- 用于场景级编排与报告生成，不替代单 run API
+- 输出目录遵循 `output_root -> GEOFUSION_SCENARIO_OUTPUT_ROOT -> E:\fyx\data\fusionagentTEST`
 
 ### Inspect Run
 

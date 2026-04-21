@@ -3,6 +3,7 @@ from fastapi import FastAPI
 from api.routers.fusion import router as fusion_router
 from api.routers.jobs import router as jobs_router
 from api.routers.runs_v2 import router as runs_v2_router
+from api.routers.scenario_runs import router as scenario_runs_router
 
 
 def create_app() -> FastAPI:
@@ -14,4 +15,5 @@ def create_app() -> FastAPI:
     app.include_router(fusion_router, prefix="/api/v1")
     app.include_router(jobs_router, prefix="/api/v1")
     app.include_router(runs_v2_router, prefix="/api/v2")
+    app.include_router(scenario_runs_router, prefix="/api/v2")
     return app

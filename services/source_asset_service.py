@@ -77,6 +77,24 @@ class SourceAssetResolution:
 
 
 @dataclass(frozen=True)
+class SourceCoverageStatus:
+    source_id: str
+    source_mode: str
+    feature_count: int | None
+    coverage_status: str
+    path: Path | None = None
+    error: str | None = None
+
+
+def coverage_status_for_count(feature_count: int | None) -> str:
+    if feature_count is None:
+        return "unknown"
+    if feature_count == 0:
+        return "empty"
+    return "available"
+
+
+@dataclass(frozen=True)
 class _GeofabrikBundle:
     slug: str
     download_url: str

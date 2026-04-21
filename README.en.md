@@ -181,6 +181,14 @@ validator, policy, audit, and healing loops bound correctness and robustness.
   - [paper evidence freeze JSON](./docs/superpowers/specs/2026-04-21-paper-evidence-freeze.json)
   - [paper evidence freeze Markdown](./docs/superpowers/specs/2026-04-21-paper-evidence-freeze.md)
 
+### Phase H: Scenario Evidence And Reporting
+
+- added `POST /api/v2/scenario-runs` to orchestrate multiple `task_driven_auto` child runs from one scenario request, such as building + road disaster response
+- scenario output roots resolve from request `output_root`, then `GEOFUSION_SCENARIO_OUTPUT_ROOT`, then `E:\fyx\data\fusionagentTEST`
+- scenario evidence adds `scenario_summary.json`, `kg_path_trace.json`, `workflow_trace.json`, `source_coverage.json`, and `evaluation.json`
+- bilingual Markdown reports are written to `documents/scenario_report.zh.md` and `documents/scenario_report.en.md`
+- scenario summaries expose KG relationship chains, actual workflow traces, source coverage / fallback evidence, data-fusion metrics, agentic metrics, and self-evolution evidence
+
 ## Evidence Written Per Run
 
 Each run currently persists the following core evidence files:
@@ -190,6 +198,16 @@ Each run currently persists the following core evidence files:
 - `validation.json`
 - `audit.jsonl`
 - artifact bundle
+
+Scenario-level runs additionally persist:
+
+- `scenario_summary.json`
+- `kg_path_trace.json`
+- `workflow_trace.json`
+- `source_coverage.json`
+- `evaluation.json`
+- `documents/scenario_report.zh.md`
+- `documents/scenario_report.en.md`
 
 ## Known Remaining Gaps
 
@@ -334,6 +352,12 @@ python -m pytest -q `
 
 - `POST /api/v2/runs`
 - use uploaded bundles by default, or set `input_strategy=task_driven_auto` to let the shared runtime prepare inputs automatically for `building`, `road`, `water`, and bounded `poi`
+
+### Create Scenario Run
+
+- `POST /api/v2/scenario-runs`
+- use this for scenario-level orchestration and report generation; it does not replace the single-run API
+- output directories follow `output_root -> GEOFUSION_SCENARIO_OUTPUT_ROOT -> E:\fyx\data\fusionagentTEST`
 
 ### Inspect Run State And Evidence
 

@@ -737,6 +737,10 @@ class AgentRunService:
             "input_strategy": request.input_strategy.value,
             "source_mode": resolved_inputs.source_mode,
             "source_id": resolved_inputs.source_id,
+            "requested_source_id": resolved_inputs.source_id,
+            "selected_source_id": resolved_inputs.selected_source_id or resolved_inputs.source_id,
+            "fallback_from_source_id": resolved_inputs.fallback_from_source_id,
+            "component_coverage": resolved_inputs.component_coverage,
             "cache_hit": resolved_inputs.cache_hit,
             "version_token": resolved_inputs.version_token,
             "osm_zip_name": resolved_inputs.osm_zip_path.name,
@@ -750,6 +754,59 @@ class AgentRunService:
                 "country_name": resolved_aoi.country_name,
                 "bbox": list(resolved_aoi.bbox),
             }
+        if resolved_inputs.component_coverage:
+            self._update_status(
+                run_id,
+                RunPhase.running,
+                progress=max(0, progress - 3),
+                plan_revision=self._extract_plan_revision(plan),
+                event_kind="source_coverage_checked",
+                event_message="Source coverage was checked for task-driven inputs.",
+                event_details={
+                    "requested_source_id": resolved_inputs.source_id,
+                    "selected_source_id": resolved_inputs.selected_source_id or resolved_inputs.source_id,
+                    "component_coverage": resolved_inputs.component_coverage,
+                },
+            )
+        if resolved_inputs.fallback_from_source_id:
+            self._update_status(
+                run_id,
+                RunPhase.running,
+                progress=max(0, progress - 2),
+                plan_revision=self._extract_plan_revision(plan),
+                event_kind="source_fallback_selected",
+                event_message="Selected fallback source after empty AOI coverage.",
+                event_details={
+                    "fallback_from_source_id": resolved_inputs.fallback_from_source_id,
+                    "selected_source_id": resolved_inputs.selected_source_id or resolved_inputs.source_id,
+                },
+            )
+        if "clip" in resolved_inputs.source_mode:
+            self._update_status(
+                run_id,
+                RunPhase.running,
+                progress=max(0, progress - 1),
+                plan_revision=self._extract_plan_revision(plan),
+                event_kind="source_clipped",
+                event_message="Source bundle was clipped to the requested AOI.",
+                event_details={
+                    "source_mode": resolved_inputs.source_mode,
+                    "selected_source_id": resolved_inputs.selected_source_id or resolved_inputs.source_id,
+                },
+            )
+        self._update_status(
+            run_id,
+            RunPhase.running,
+            progress=max(0, progress - 1),
+            plan_revision=self._extract_plan_revision(plan),
+            event_kind="input_bundle_created",
+            event_message="Input bundle was created for execution.",
+            event_details={
+                "osm_zip_name": resolved_inputs.osm_zip_path.name,
+                "ref_zip_name": resolved_inputs.ref_zip_path.name,
+                "selected_source_id": resolved_inputs.selected_source_id or resolved_inputs.source_id,
+            },
+        )
         self._update_status(
             run_id,
             RunPhase.running,
@@ -985,6 +1042,23 @@ class AgentRunService:
                 created_at=_utc_now(),
             )
             self.kg_repo.record_durable_learning_record(durable_record)
+            if success:
+                current = self.get_run(run_id)
+                if current is not None:
+                    self._update_status(
+                        run_id,
+                        current.phase,
+                        progress=current.progress,
+                        plan_revision=self._extract_plan_revision(plan),
+                        event_kind="durable_learning_recorded",
+                        event_message="Durable learning record was written for this run.",
+                        event_details={
+                            "record_id": durable_record.record_id,
+                            "pattern_id": durable_record.pattern_id,
+                            "algorithm_id": durable_record.algorithm_id,
+                            "selected_data_source": durable_record.selected_data_source,
+                        },
+                    )
         except Exception as exc:  # noqa: BLE001
             logging.getLogger("geofusion.run").warning("Failed to record execution feedback: %s", exc)
 

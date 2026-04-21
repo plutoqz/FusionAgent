@@ -1,0 +1,51 @@
+# {{ summary.scenario_name }} Scenario Report
+
+## Scenario Overview
+
+- Scenario ID: {{ summary.scenario_id | default("unknown") }}
+- Disaster type: {{ summary.disaster_type | default("unknown", true) }}
+- Child runs: {{ summary.child_runs | length }}
+
+## KG Relationship Chain
+
+{% for trace in summary.kg_path_traces %}
+- {{ trace.workflow_id }}: {{ trace.selected_pattern_id }}
+{% endfor %}
+
+## Final Execution Workflow
+
+{% for trace in summary.workflow_traces %}
+{% for step in trace.steps %}
+- {{ step.step_name }}: {{ step.status }}
+{% endfor %}
+{% endfor %}
+
+## Source Coverage And Fallbacks
+
+{% for item in summary.source_coverage %}
+- {{ item.run_id }}: {{ item.coverage }}
+{% else %}
+- No source coverage evidence was recorded.
+{% endfor %}
+
+## Data Fusion Evaluation Metrics
+
+{% for item in summary.evaluation.data_fusion_metrics %}
+- {{ item.run_id }}: {{ item.metrics }}
+{% else %}
+- No readable data-fusion metrics were generated.
+{% endfor %}
+
+## Agentic Evaluation Metrics
+
+{{ summary.evaluation.agentic_metrics }}
+
+## Self-Evolution Evidence
+
+{{ summary.evaluation.self_evolution }}
+
+## Output Files
+
+{% for path in summary.final_outputs %}
+- {{ path }}
+{% endfor %}

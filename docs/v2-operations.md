@@ -55,6 +55,7 @@ $env:GEOFUSION_CELERY_EAGER='0'
 - use `8012+` only for temporary diagnostics or one-off worktree isolation
 - official benchmark source-asset downloads are cached under `runs/source-assets/`; local `Data/` is still preferred unless you explicitly force remote materialization
 - task-driven AOI runs now resolve a natural-language location before planning and can fall back to official Geofabrik / Microsoft downloads when local `Data/` is incomplete
+- scenario-level runs accept an explicit output root. If omitted, `GEOFUSION_SCENARIO_OUTPUT_ROOT` is used. If that is also unset, scenario outputs are written under `E:\fyx\data\fusionagentTEST`.
 - `docker compose` is a separate path: it uses container-local `redis://redis:6379/0` and API port `8000`, not the host-side `依赖.txt` mapping
 
 ## Evaluation Tiers
@@ -220,13 +221,22 @@ Current non-goals for this slice:
 
 The v2 API now has a narrow but practical operator layer.
 
+### Scenario Runs
+
+- `POST /api/v2/scenario-runs`: starts a scenario-level orchestration request above one or more v2 child runs
+- request fields include `scenario_name`, `trigger_content`, `disaster_type`, `job_types`, optional `target_crs`, and optional `output_root`
+- output-root order is `request.output_root`, then `GEOFUSION_SCENARIO_OUTPUT_ROOT`, then `E:\fyx\data\fusionagentTEST`
+- scenario output includes `scenario_summary.json`, `kg_path_trace.json`, `workflow_trace.json`, `source_coverage.json`, `evaluation.json`, and bilingual reports under `documents/scenario_report.zh.md` and `documents/scenario_report.en.md`
+- scenario evidence is additive; single-run `run.json`, `plan.json`, `validation.json`, `audit.jsonl`, and artifact bundles remain stable
+- scenario reports expose KG relationship chains, final workflow trace, source coverage and fallback evidence, data-fusion metrics, agentic metrics, and self-evolution evidence
+
 ### Single Run Inspection
 
 - `GET /api/v2/runs/{run_id}`: raw run status
 - `GET /api/v2/runs/{run_id}/plan`: persisted plan
 - `GET /api/v2/runs/{run_id}/audit`: full audit event stream
 - `GET /api/v2/runs/{run_id}/artifact`: artifact bundle download
-- `GET /api/v2/runs/{run_id}/inspection`: one-shot operational view of status, plan, audit events, and artifact metadata
+- `GET /api/v2/runs/{run_id}/inspection`: one-shot operational view of status, plan, audit events, KG path trace, and artifact metadata
 - `GET /api/v2/runtime`: non-sensitive runtime metadata for evidence capture and alignment checks (`kg_backend`, `llm_provider`, `celery_eager`, `api_port`)
 
 ### Run Comparison

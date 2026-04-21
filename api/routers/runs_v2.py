@@ -24,6 +24,7 @@ from schemas.agent import (
 )
 from schemas.fusion import FieldMapping, JobType
 from services.agent_run_service import agent_run_service
+from services.kg_path_trace_service import build_kg_path_trace
 from utils.crs import normalize_explicit_target_crs
 
 
@@ -66,6 +67,7 @@ def _build_run_inspection_response(run_id: str, status: RunStatus) -> RunInspect
         plan=plan,
         audit_events=audit_events,
         artifact=artifact,
+        kg_path_trace=build_kg_path_trace(plan) if plan is not None else {},
     )
 
 

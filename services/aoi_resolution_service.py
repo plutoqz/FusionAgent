@@ -9,6 +9,31 @@ from dataclasses import asdict, dataclass
 from typing import Any, Iterable, Protocol
 
 
+_DISASTER_PREFIX_RE = re.compile(
+    r"^\s*(earthquake|flood|typhoon|disaster|emergency)\s+(in|at|near|around)\s+",
+    flags=re.IGNORECASE,
+)
+
+_DISASTER_SUFFIX_RE = re.compile(
+    r"\s+(after|following|during|because of|due to)\s+(an?\s+)?"
+    r"(earthquake|flood|typhoon|disaster|emergency)\b.*$",
+    flags=re.IGNORECASE,
+)
+
+_NEED_SUFFIX_RE = re.compile(
+    r"\s*,?\s*(need|needs|requiring|requires)\s+"
+    r"(building|road|water|poi|data|fusion).*$",
+    flags=re.IGNORECASE,
+)
+
+
+def _clean_location_phrase(value: str) -> str:
+    cleaned = _DISASTER_PREFIX_RE.sub("", value).strip(" .,:;")
+    cleaned = _DISASTER_SUFFIX_RE.sub("", cleaned).strip(" .,:;")
+    cleaned = _NEED_SUFFIX_RE.sub("", cleaned).strip(" .,:;")
+    return cleaned
+
+
 class Geocoder(Protocol):
     def search(self, query: str) -> Iterable[dict[str, Any]]: ...
 
@@ -130,10 +155,10 @@ class AOIResolutionService:
         for pattern in patterns:
             match = re.search(pattern, query, flags=re.IGNORECASE)
             if match:
-                location = match.group("location").strip(" .,:;")
+                location = _clean_location_phrase(match.group("location"))
                 if location:
                     return location
-        return query
+        return _clean_location_phrase(query)
 
     @staticmethod
     def _normalize_candidate(query: str, raw: dict[str, Any]) -> ResolvedAOICandidate:

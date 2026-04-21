@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import uuid
+import shutil
 from pathlib import Path
 from typing import Optional
 
@@ -10,8 +11,14 @@ from kg.source_catalog import CATALOG_BUNDLE_SPECS, CatalogBundleSpec
 from services.aoi_resolution_service import ResolvedAOI
 from services.input_acquisition_service import BBox, MaterializedInputBundle
 from services.raw_vector_source_service import MaterializedRawVectorSource, RawVectorSourceService
+from services.source_asset_service import SourceCoverageStatus, coverage_status_for_count
 from utils.crs import normalize_target_crs
 from utils.shp_zip import validate_zip_has_shapefile, zip_shapefile_bundle
+
+
+BUILDING_SOURCE_FALLBACKS = {
+    "catalog.earthquake.building": ["catalog.flood.building"],
+}
 
 
 class LocalBundleCatalogProvider:
@@ -57,6 +64,76 @@ class LocalBundleCatalogProvider:
         target_dir: Path,
         target_crs: str,
     ) -> MaterializedInputBundle:
+        return self._materialize_bundle(
+            source_id=source_id,
+            request_bbox=request_bbox,
+            resolved_aoi=resolved_aoi,
+            target_dir=target_dir,
+            target_crs=target_crs,
+            require_non_empty_pair=True,
+        )
+
+    def materialize_with_fallback(
+        self,
+        *,
+        source_id: str,
+        request_bbox: Optional[BBox],
+        resolved_aoi: ResolvedAOI | None = None,
+        target_dir: Path,
+        target_crs: str,
+    ) -> MaterializedInputBundle:
+        attempted_sources = [source_id]
+        combined_coverage: dict[str, SourceCoverageStatus] = {}
+        requested = self._materialize_bundle(
+            source_id=source_id,
+            request_bbox=request_bbox,
+            resolved_aoi=resolved_aoi,
+            target_dir=target_dir,
+            target_crs=target_crs,
+            require_non_empty_pair=False,
+        )
+        combined_coverage.update(requested.component_coverage)
+        if not self._has_empty_required_component(source_id, requested.component_coverage):
+            return requested
+
+        for fallback_source_id in BUILDING_SOURCE_FALLBACKS.get(source_id, []):
+            attempted_sources.append(fallback_source_id)
+            if target_dir.exists():
+                shutil.rmtree(target_dir)
+            fallback = self._materialize_bundle(
+                source_id=fallback_source_id,
+                request_bbox=request_bbox,
+                resolved_aoi=resolved_aoi,
+                target_dir=target_dir,
+                target_crs=target_crs,
+                require_non_empty_pair=False,
+            )
+            combined_coverage.update(fallback.component_coverage)
+            if self._has_empty_required_component(fallback_source_id, fallback.component_coverage):
+                continue
+            return MaterializedInputBundle(
+                osm_zip_path=fallback.osm_zip_path,
+                ref_zip_path=fallback.ref_zip_path,
+                bbox=fallback.bbox,
+                target_crs=fallback.target_crs,
+                source_id=fallback_source_id,
+                fallback_from=source_id,
+                attempted_sources=attempted_sources,
+                component_coverage=combined_coverage,
+            )
+
+        raise ValueError(f"AOI-scoped bundle has empty source coverage for {source_id}")
+
+    def _materialize_bundle(
+        self,
+        *,
+        source_id: str,
+        request_bbox: Optional[BBox],
+        resolved_aoi: ResolvedAOI | None = None,
+        target_dir: Path,
+        target_crs: str,
+        require_non_empty_pair: bool,
+    ) -> MaterializedInputBundle:
         spec = self._spec_for(source_id)
         target_dir.mkdir(parents=True, exist_ok=True)
 
@@ -76,19 +153,56 @@ class LocalBundleCatalogProvider:
                 resolved_aoi=resolved_aoi,
             )
             if (osm.feature_count or 0) == 0 or (ref.feature_count or 0) == 0:
-                raise ValueError(f"AOI-scoped bundle has empty source coverage for {source_id}")
+                if require_non_empty_pair:
+                    raise ValueError(f"AOI-scoped bundle has empty source coverage for {source_id}")
         else:
             ref = self._create_empty_reference_bundle(osm=osm, output_zip=target_dir / "ref.zip")
 
+        component_coverage = self._component_coverage(osm, ref, spec.component_source_ids)
         return MaterializedInputBundle(
             osm_zip_path=osm.zip_path,
             ref_zip_path=ref.zip_path,
             bbox=osm.bbox or ref.bbox,
             target_crs=normalize_target_crs(target_crs),
+            source_id=source_id,
+            attempted_sources=[source_id],
+            component_coverage=component_coverage,
         )
 
     def _spec_for(self, source_id: str) -> CatalogBundleSpec:
         return self.specs[source_id]
+
+    @staticmethod
+    def _component_coverage(
+        osm: MaterializedRawVectorSource,
+        ref: MaterializedRawVectorSource,
+        component_source_ids: tuple[str, ...],
+    ) -> dict[str, SourceCoverageStatus]:
+        components = [osm] if len(component_source_ids) == 1 else [osm, ref]
+        return {
+            component.source_id: SourceCoverageStatus(
+                source_id=component.source_id,
+                source_mode=component.source_mode,
+                feature_count=component.feature_count,
+                coverage_status=coverage_status_for_count(component.feature_count),
+                path=component.zip_path,
+            )
+            for component in components
+        }
+
+    def _has_empty_required_component(
+        self,
+        source_id: str,
+        component_coverage: dict[str, SourceCoverageStatus],
+    ) -> bool:
+        spec = self._spec_for(source_id)
+        if spec.ref_source_id is None:
+            return False
+        for component_source_id in spec.component_source_ids:
+            status = component_coverage.get(component_source_id)
+            if status is not None and status.feature_count == 0:
+                return True
+        return False
 
     @staticmethod
     def _create_empty_reference_bundle(

@@ -1,0 +1,51 @@
+# {{ summary.scenario_name }} 场景报告
+
+## 场景概述
+
+- 场景 ID：{{ summary.scenario_id | default("unknown") }}
+- 灾害类型：{{ summary.disaster_type | default("unknown", true) }}
+- 子任务数量：{{ summary.child_runs | length }}
+
+## 知识图谱关系链
+
+{% for trace in summary.kg_path_traces %}
+- {{ trace.workflow_id }}：{{ trace.selected_pattern_id }}
+{% endfor %}
+
+## 最终执行工作流
+
+{% for trace in summary.workflow_traces %}
+{% for step in trace.steps %}
+- {{ step.step_name }}：{{ step.status }}
+{% endfor %}
+{% endfor %}
+
+## 数据源覆盖与退化
+
+{% for item in summary.source_coverage %}
+- {{ item.run_id }}：{{ item.coverage }}
+{% else %}
+- 未记录数据源覆盖信息。
+{% endfor %}
+
+## 数据融合结果评价指标
+
+{% for item in summary.evaluation.data_fusion_metrics %}
+- {{ item.run_id }}：{{ item.metrics }}
+{% else %}
+- 未生成可读取的数据融合指标。
+{% endfor %}
+
+## 智能体评价指标
+
+{{ summary.evaluation.agentic_metrics }}
+
+## 自进化证据
+
+{{ summary.evaluation.self_evolution }}
+
+## 输出文件
+
+{% for path in summary.final_outputs %}
+- {{ path }}
+{% endfor %}

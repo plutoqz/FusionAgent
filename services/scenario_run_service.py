@@ -1,0 +1,269 @@
+from __future__ import annotations
+
+import json
+import uuid
+from pathlib import Path
+from typing import Any
+
+from schemas.agent import RunCreateRequest, RunInputStrategy, RunPhase, RunTrigger, RunTriggerType
+from schemas.fusion import JobType
+from schemas.scenario import ScenarioChildRunSpec, ScenarioPhase, ScenarioRunRequest, ScenarioRunResponse
+from services.agent_run_service import AgentRunService, agent_run_service
+from services.artifact_evaluation_service import evaluate_agentic_run, evaluate_vector_artifact
+from services.kg_path_trace_service import build_kg_path_trace
+from services.scenario_output import resolve_scenario_output_root
+from services.scenario_report_service import render_scenario_reports
+from services.workflow_trace_service import build_workflow_trace
+
+
+def create_scenario_id() -> str:
+    return f"scenario_{uuid.uuid4().hex}"
+
+
+def scenario_output_dir(request: ScenarioRunRequest, scenario_id: str) -> Path:
+    return resolve_scenario_output_root(request.output_root) / scenario_id
+
+
+def build_child_run_specs(request: ScenarioRunRequest) -> list[ScenarioChildRunSpec]:
+    return [
+        ScenarioChildRunSpec(
+            job_type=job_type,
+            trigger_content=request.trigger_content,
+            disaster_type=request.disaster_type,
+            target_crs=request.target_crs,
+            debug=request.debug,
+        )
+        for job_type in _scenario_job_types(request)
+    ]
+
+
+class ScenarioRunService:
+    def __init__(self, *, agent_run_service: AgentRunService) -> None:
+        self.agent_run_service = agent_run_service
+
+    def create_scenario_run(self, request: ScenarioRunRequest) -> ScenarioRunResponse:
+        scenario_id = create_scenario_id()
+        output_dir = scenario_output_dir(request, scenario_id)
+        output_dir.mkdir(parents=True, exist_ok=True)
+        (output_dir / "request.json").write_text(
+            json.dumps(request.model_dump(mode="json"), ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+
+        child_results = [self._run_child(output_dir, spec) for spec in build_child_run_specs(request)]
+        summary = self._build_summary(request, scenario_id, output_dir, child_results)
+        document_paths = render_scenario_reports(summary=summary, documents_dir=output_dir / "documents")
+        summary["document_paths"] = document_paths
+        self._write_summary_files(output_dir, summary)
+
+        return ScenarioRunResponse(
+            scenario_id=scenario_id,
+            phase=_phase_from_child_results(child_results),
+            output_dir=str(output_dir),
+            child_run_ids=[str(result["run_id"]) for result in child_results if result.get("run_id")],
+        )
+
+    def _run_child(self, output_dir: Path, spec: ScenarioChildRunSpec) -> dict[str, Any]:
+        request = RunCreateRequest(
+            job_type=spec.job_type,
+            trigger=RunTrigger(
+                type=RunTriggerType.user_query,
+                content=spec.trigger_content,
+                disaster_type=spec.disaster_type,
+            ),
+            target_crs=spec.target_crs,
+            field_mapping={},
+            debug=spec.debug,
+            input_strategy=RunInputStrategy.task_driven_auto,
+        )
+        try:
+            status = self.agent_run_service.create_run(
+                request=request,
+                osm_zip_name=None,
+                osm_zip_bytes=None,
+                ref_zip_name=None,
+                ref_zip_bytes=None,
+            )
+            run_id = status.run_id
+            return {
+                "run_id": run_id,
+                "job_type": spec.job_type.value,
+                "phase": status.phase.value,
+                "status": status,
+                "plan": self.agent_run_service.get_plan(run_id),
+                "audit_events": self.agent_run_service.get_audit_events(run_id),
+                "artifact_path": self.agent_run_service.get_artifact_path(run_id),
+            }
+        except Exception as exc:  # noqa: BLE001
+            error_path = output_dir / "child_runs" / f"{spec.job_type.value}-failed.json"
+            error_path.parent.mkdir(parents=True, exist_ok=True)
+            error_payload = {"job_type": spec.job_type.value, "error": f"{type(exc).__name__}: {exc}"}
+            error_path.write_text(json.dumps(error_payload, ensure_ascii=False, indent=2), encoding="utf-8")
+            return {
+                "run_id": None,
+                "job_type": spec.job_type.value,
+                "phase": ScenarioPhase.failed.value,
+                "error": error_payload["error"],
+                "plan": None,
+                "audit_events": [],
+                "artifact_path": None,
+            }
+
+    def _build_summary(
+        self,
+        request: ScenarioRunRequest,
+        scenario_id: str,
+        output_dir: Path,
+        child_results: list[dict[str, Any]],
+    ) -> dict[str, Any]:
+        kg_path_traces = [
+            build_kg_path_trace(result["plan"])
+            for result in child_results
+            if result.get("plan") is not None
+        ]
+        workflow_traces = [
+            build_workflow_trace(result.get("audit_events") or [])
+            for result in child_results
+        ]
+        source_coverage = _source_coverage_from_children(child_results)
+        data_fusion_metrics = [_data_fusion_metrics_for_child(result) for result in child_results]
+        agentic_metrics = _merge_agentic_metrics(
+            [
+                evaluate_agentic_run(
+                    plan=result["plan"],
+                    decision_records=getattr(result.get("status"), "decision_records", []),
+                    audit_events=result.get("audit_events") or [],
+                    durable_learning_summary=_durable_learning_summary(result["plan"]),
+                    manual_intervention_count=0,
+                )
+                for result in child_results
+                if result.get("plan") is not None
+            ]
+        )
+        final_outputs = [str(result["artifact_path"]) for result in child_results if result.get("artifact_path")]
+        return {
+            "scenario_id": scenario_id,
+            "scenario_name": request.scenario_name,
+            "trigger_content": request.trigger_content,
+            "disaster_type": request.disaster_type,
+            "output_dir": str(output_dir),
+            "child_runs": [_child_summary(result) for result in child_results],
+            "kg_path_traces": kg_path_traces,
+            "workflow_traces": workflow_traces,
+            "source_coverage": source_coverage,
+            "evaluation": {
+                "data_fusion_metrics": data_fusion_metrics,
+                "agentic_metrics": agentic_metrics,
+                "self_evolution": {
+                    "record_written": bool(agentic_metrics.get("self_evolution_record_written")),
+                    "hint_available": bool(agentic_metrics.get("self_evolution_hint_available")),
+                    "hint_used": bool(agentic_metrics.get("self_evolution_hint_used")),
+                    "policy_adjustment": agentic_metrics.get("self_evolution_policy_adjustment", 0.0),
+                    "learning_opportunity_recorded": bool(agentic_metrics.get("self_evolution_learning_opportunity_recorded")),
+                },
+            },
+            "manual_interventions": 0,
+            "final_outputs": final_outputs,
+            "document_paths": {},
+        }
+
+    @staticmethod
+    def _write_summary_files(output_dir: Path, summary: dict[str, Any]) -> None:
+        files = {
+            "scenario_summary.json": summary,
+            "evaluation.json": summary["evaluation"],
+            "kg_path_trace.json": summary["kg_path_traces"],
+            "workflow_trace.json": summary["workflow_traces"],
+            "source_coverage.json": summary["source_coverage"],
+        }
+        for filename, payload in files.items():
+            (output_dir / filename).write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def _scenario_job_types(request: ScenarioRunRequest) -> list[JobType]:
+    if request.job_types:
+        return list(request.job_types)
+    content = request.trigger_content.casefold()
+    detected = [job_type for job_type in JobType if job_type.value in content]
+    return detected or [JobType.building]
+
+
+def _phase_from_child_results(child_results: list[dict[str, Any]]) -> ScenarioPhase:
+    if not child_results:
+        return ScenarioPhase.failed
+    phases = [str(result.get("phase")) for result in child_results]
+    if all(phase == RunPhase.succeeded.value for phase in phases):
+        return ScenarioPhase.succeeded
+    return ScenarioPhase.partial
+
+
+def _source_coverage_from_children(child_results: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    items = []
+    for result in child_results:
+        for event in result.get("audit_events") or []:
+            if event.kind == "task_inputs_resolved":
+                items.append(
+                    {
+                        "run_id": result.get("run_id"),
+                        "job_type": result.get("job_type"),
+                        "requested_source_id": event.details.get("requested_source_id") or event.details.get("source_id"),
+                        "selected_source_id": event.details.get("selected_source_id") or event.details.get("source_id"),
+                        "fallback_from_source_id": event.details.get("fallback_from_source_id"),
+                        "coverage": event.details.get("component_coverage", {}),
+                    }
+                )
+    return items
+
+
+def _data_fusion_metrics_for_child(result: dict[str, Any]) -> dict[str, Any]:
+    artifact_path = result.get("artifact_path")
+    metrics: dict[str, Any]
+    if artifact_path and Path(artifact_path).suffix.lower() == ".shp":
+        try:
+            metrics = evaluate_vector_artifact(Path(artifact_path), required_fields=["geometry"])
+        except Exception as exc:  # noqa: BLE001
+            metrics = {"artifact_validity": False, "error": f"{type(exc).__name__}: {exc}"}
+    else:
+        metrics = {
+            "artifact_validity": bool(artifact_path and Path(artifact_path).exists()),
+            "artifact_path": str(artifact_path) if artifact_path else None,
+        }
+    return {"run_id": result.get("run_id"), "job_type": result.get("job_type"), "metrics": metrics}
+
+
+def _merge_agentic_metrics(metrics: list[dict[str, Any]]) -> dict[str, Any]:
+    if not metrics:
+        return {"manual_intervention_count": 0}
+    merged: dict[str, Any] = {}
+    keys = set().union(*(item.keys() for item in metrics))
+    for key in keys:
+        values = [item.get(key) for item in metrics if item.get(key) is not None]
+        if all(isinstance(value, bool) for value in values):
+            merged[key] = any(values)
+        elif all(isinstance(value, (int, float)) and not isinstance(value, bool) for value in values):
+            merged[key] = sum(float(value) for value in values) / len(values)
+        else:
+            merged[key] = values[-1] if values else None
+    merged["manual_intervention_count"] = int(sum(item.get("manual_intervention_count", 0) for item in metrics))
+    return merged
+
+
+def _durable_learning_summary(plan) -> dict[str, Any]:
+    if plan is None:
+        return {}
+    retrieval = plan.context.get("retrieval", {}) if isinstance(plan.context, dict) else {}
+    durable = retrieval.get("durable_learning_summaries", {}) if isinstance(retrieval, dict) else {}
+    return durable if isinstance(durable, dict) else {}
+
+
+def _child_summary(result: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "run_id": result.get("run_id"),
+        "job_type": result.get("job_type"),
+        "phase": result.get("phase"),
+        "artifact_path": str(result.get("artifact_path")) if result.get("artifact_path") else None,
+        "error": result.get("error"),
+    }
+
+
+scenario_run_service = ScenarioRunService(agent_run_service=agent_run_service)

@@ -116,3 +116,21 @@ def test_aoi_resolution_service_deduplicates_equivalent_candidates_before_raisin
     assert resolved.display_name == "Nairobi, Kenya"
     assert resolved.country_code == "ke"
     assert resolved.bbox == pytest.approx((36.6647, -1.4448, 37.1048, -1.1606))
+
+
+def test_extract_location_query_removes_disaster_suffix() -> None:
+    assert (
+        AOIResolutionService.extract_location_query(
+            "fuse building and road data for Parakou, Benin after an earthquake"
+        )
+        == "Parakou, Benin"
+    )
+
+
+def test_extract_location_query_supports_disaster_prefix() -> None:
+    assert (
+        AOIResolutionService.extract_location_query(
+            "earthquake in Parakou, Benin, need building and road fusion"
+        )
+        == "Parakou, Benin"
+    )

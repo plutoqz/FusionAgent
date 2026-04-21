@@ -225,6 +225,7 @@ class RunInspectionResponse(BaseModel):
     plan: Optional[WorkflowPlan] = None
     audit_events: List[RunEvent] = Field(default_factory=list)
     artifact: RunInspectionArtifact = Field(default_factory=RunInspectionArtifact)
+    kg_path_trace: Dict[str, Any] = Field(default_factory=dict)
 
 
 class RunComparisonResponse(BaseModel):

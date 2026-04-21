@@ -14,7 +14,7 @@ import geopandas as gpd
 from kg.source_catalog import RAW_VECTOR_SOURCE_SPECS, RawVectorSourceSpec, get_raw_vector_source_spec
 from services.aoi_resolution_service import ResolvedAOI
 from services.artifact_registry import ArtifactLookupRequest, ArtifactRecord, ArtifactRegistry
-from services.source_asset_service import SourceAssetResolution, SourceAssetService
+from services.source_asset_service import SourceAssetResolution, SourceAssetService, coverage_status_for_count
 from utils.crs import normalize_target_crs
 from utils.shp_zip import collect_bundle_files, validate_zip_has_shapefile, zip_shapefile_bundle
 from utils.vector_clip import BBox, REQUEST_BBOX_CRS, clip_frame_to_request_bbox, clip_zip_to_request_bbox, frame_bbox_in_crs
@@ -61,6 +61,7 @@ class MaterializedRawVectorSource:
     cache_hit: bool
     version_token: str
     feature_count: Optional[int] = None
+    coverage_status: str = "unknown"
 
 
 class RawVectorSourceService:
@@ -127,6 +128,7 @@ class RawVectorSourceService:
             cache_zip = Path(candidate.artifact_path)
             if request_bbox is not None and candidate.bbox is not None and tuple(candidate.bbox) != request_bbox:
                 clipped = self._clip_cached_zip(cache_zip=cache_zip, request_bbox=request_bbox, target_path=target_path)
+                feature_count = self._bundle_feature_count(clipped)
                 return MaterializedRawVectorSource(
                     zip_path=clipped,
                     bbox=request_bbox,
@@ -135,9 +137,11 @@ class RawVectorSourceService:
                     source_mode="clip_reused",
                     cache_hit=True,
                     version_token=version_token,
-                    feature_count=self._bundle_feature_count(clipped),
+                    feature_count=feature_count,
+                    coverage_status=coverage_status_for_count(feature_count),
                 )
             copied = self._copy_cached_zip(cache_zip=cache_zip, target_path=target_path)
+            feature_count = self._bundle_feature_count(copied)
             return MaterializedRawVectorSource(
                 zip_path=copied,
                 bbox=tuple(candidate.bbox) if candidate.bbox is not None else None,
@@ -146,7 +150,8 @@ class RawVectorSourceService:
                 source_mode="cache_reused",
                 cache_hit=True,
                 version_token=version_token,
-                feature_count=self._bundle_feature_count(copied),
+                feature_count=feature_count,
+                coverage_status=coverage_status_for_count(feature_count),
             )
 
         cache_zip = self.cache_dir / source_id.replace(".", "_") / version_token / uuid.uuid4().hex / "source.zip"
@@ -185,6 +190,7 @@ class RawVectorSourceService:
             cache_hit=False,
             version_token=version_token,
             feature_count=materialized.feature_count,
+            coverage_status=coverage_status_for_count(materialized.feature_count),
         )
 
     def _materialize_from_source(
@@ -224,6 +230,7 @@ class RawVectorSourceService:
             cache_hit=False,
             version_token=version_token,
             feature_count=feature_count,
+            coverage_status=coverage_status_for_count(feature_count),
         )
 
     def _resolve_source_resolution(
