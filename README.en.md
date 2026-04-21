@@ -6,10 +6,10 @@ FusionAgent is a vector-data fusion agent prototype for disaster response workfl
 The current `main` branch is no longer just a script wrapper. It now provides a
 testable, auditable, and incrementally extensible agentic workflow runtime.
 
-The runtime now stably supports `building`, `road`, and `water` on the same
-task-driven runtime backbone. All three can participate in the same planning,
-validation, execution, healing, replanning, evidence writeback, and artifact
-output contract.
+The runtime now stably supports `building`, `road`, and `water`, and also adds
+a bounded `poi` automatic-fusion slice on the same task-driven runtime
+backbone. All four participate in the same planning, validation, execution,
+healing, replanning, evidence writeback, and artifact output contract.
 
 ## Current Position
 
@@ -29,7 +29,8 @@ The public runtime contract is now frozen as:
 - `building: task_driven_auto supported`
 - `road: task_driven_auto supported`
 - `water: task_driven_auto supported after Phase 1`
-- all three share the same evidence contract: `run.json`, `plan.json`, `validation.json`, `audit.jsonl`, and the artifact bundle
+- `poi: bounded task_driven_auto supported after Phase 3`
+- all four share the same evidence contract: `run.json`, `plan.json`, `validation.json`, `audit.jsonl`, and the artifact bundle
 
 ## Thesis Alignment Note
 
@@ -54,7 +55,7 @@ validator, policy, audit, and healing loops bound correctness and robustness.
 - persisted `run.json`, `plan.json`, `validation.json`, and `audit.jsonl`
 - persisted artifact bundle output
 - explicit run status, decision records, and audit trail
-- stable `building`, `road`, and `water` job support in the v2 runtime
+- stable `building`, `road`, and `water` job support in the v2 runtime, plus a bounded `poi` slice
 - dual-entry intent routing with `task-driven` / `scenario-driven` planning modes
 - shared planning context via `TaskBundle` and `ScenarioProfile`
 
@@ -132,6 +133,12 @@ validator, policy, audit, and healing loops bound correctness and robustness.
 - the runtime path can now also fall back to `SourceAssetService` when local catalog inputs are missing, so official Geofabrik / Microsoft assets can be downloaded, clipped, and bundled in the live task-driven flow
 - `scripts/smoke_agentic_region.py` provides the standard smoke entry for natural-language region runs, with Nairobi, Kenya as the recommended validation example
 
+### Phase 4.8: Trajectory-To-Road Seam Reservation
+
+- the KG now reserves a transform seam `dt.trajectory.raw -> dt.road.candidate -> dt.road.bundle` for future trajectory pretransform work
+- planner retrieval now exposes reserved metadata such as `task.trajectory_to_road` and `algo.transform.trajectory_to_road_candidate`
+- this remains reservation-only in the current runtime: default road execution still starts from `dt.road.bundle`, and there is no live trajectory ingestion, map matching, or road-candidate inference in Phase 4
+
 ### Phase 5: Long-Term Writeback And Learning Loop
 
 - each run writes a compact `DurableLearningRecord`
@@ -158,6 +165,13 @@ validator, policy, audit, and healing loops bound correctness and robustness.
 - `water` supports `task_driven_auto` after Phase 1 stabilization and now shares the same evidence contract as `building` and `road`
 - tracked implementation record: [2026-04-20-water-vertical-slice.md](./docs/superpowers/plans/2026-04-20-water-vertical-slice.md)
 
+### Phase F.1: POI Vertical Slice
+
+- the bounded `poi` automatic-fusion slice is now connected to the shared runtime backbone
+- its current scope remains intentionally narrow: `raw.osm.poi + raw.gns.poi -> catalog.generic.poi -> algo.fusion.poi.v1`
+- planner, KG seed, executor dispatch, task-driven input acquisition, adapter output, and Neo4j bootstrap now form a first closed loop for this slice
+- this should be described as deterministic and bounded, not as proof of general multi-source POI entity resolution
+
 ### Phase G: Experiment Matrix And Paper Evidence Freeze
 
 - manifest-mode `scripts/eval_harness.py` output now preserves matrix-ready metadata and evidence fields
@@ -183,8 +197,9 @@ Even with the current runtime, vertical slices, and paper evidence freeze in pla
 there are still clear gaps:
 
 - paper evidence is now frozen, but stronger robustness, learning, and operator-facing claims remain gated by later phases
-- the search space still focuses on the current `building`, `road`, and `water` themes
-- `water` now sits on the shared task-driven backbone, but that should not be overstated as proof that arbitrary new themes are already free to extend
+- the search space still focuses on the current `building`, `road`, `water`, and bounded `poi` themes
+- `water` and bounded `poi` now sit on the shared task-driven backbone, but that should not be overstated as proof that arbitrary new themes are already free to extend
+- the trajectory-to-road path is only a seam reservation today and must not be described as already supporting real trajectory ingestion or road inference
 - durable learning is still a first-pass capability, not full policy auto-tuning
 - operator-facing productization is still a narrow API layer, not a full frontend
 - `raw.google.building` and some local-only reference / Excel-style inputs still require manual preparation and are not part of the current official materialization set
@@ -196,7 +211,7 @@ there are still clear gaps:
 - `services/`: runtime services, including `AgentRunService`
 - `agent/`: planner, retriever, validator, executor, and policy logic
 - `kg/`: KG models, repositories, seed data, and bootstrap logic
-- `adapters/`: building, road, and water fusion adapters
+- `adapters/`: building, road, water, and poi fusion adapters
 - `worker/`: Celery worker and scheduling entry points
 - `llm/`: LLM provider abstractions and implementations
 - `scripts/`: harness, paper evidence freeze, bootstrap, local start, and inspection scripts
@@ -318,7 +333,7 @@ python -m pytest -q `
 ### Create Run
 
 - `POST /api/v2/runs`
-- use uploaded bundles by default, or set `input_strategy=task_driven_auto` to let the shared runtime prepare inputs automatically for `building`, `road`, and `water`
+- use uploaded bundles by default, or set `input_strategy=task_driven_auto` to let the shared runtime prepare inputs automatically for `building`, `road`, `water`, and bounded `poi`
 
 ### Inspect Run State And Evidence
 

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import sys
 import types
+from pathlib import Path
 
 from kg.bootstrap import (
     MANAGED_LABEL,
@@ -43,6 +44,18 @@ def test_bootstrap_cypher_contains_water_vertical_slice() -> None:
     assert "shared bundle runtime columns" in cypher
     assert "wp.flood.water.default" in cypher
     assert "osp.water.fused.v1" in cypher
+
+
+def test_checked_in_bootstrap_cypher_stays_in_sync_with_generator_and_trajectory_seam() -> None:
+    checked_in = Path("kg/bootstrap/neo4j_bootstrap.cypher").read_text(encoding="utf-8")
+    generated = build_bootstrap_cypher()
+
+    assert checked_in == generated
+    assert 'typeId: "dt.trajectory.raw"' in checked_in
+    assert 'typeId: "dt.road.candidate"' in checked_in
+    assert 'taskId: "task.trajectory_to_road"' in checked_in
+    assert 'algoId: "algo.transform.trajectory_to_road_candidate"' in checked_in
+    assert 'MATCH (src:DataType:FusionAgentManaged {typeId: "dt.trajectory.raw"}), (dst:DataType:FusionAgentManaged {typeId: "dt.road.candidate"})' in checked_in
 
 
 def test_apply_bootstrap_cypher_uses_home_database_by_default(monkeypatch) -> None:
