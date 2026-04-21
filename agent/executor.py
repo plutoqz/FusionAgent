@@ -44,6 +44,7 @@ class WorkflowExecutor:
         self.algorithm_handlers.setdefault("algo.fusion.building.safe", self._handle_building_safe)
         self.algorithm_handlers.setdefault("algo.fusion.road.v1", self._handle_road)
         self.algorithm_handlers.setdefault("algo.fusion.road.safe", self._handle_road)
+        self.algorithm_handlers.setdefault("algo.fusion.water.v1", self._handle_water)
 
     def execute_plan(
         self,
@@ -234,6 +235,20 @@ class WorkflowExecutor:
         from adapters.road_adapter import run_road_fusion
 
         return run_road_fusion(
+            osm_shp=context.osm_shp,
+            ref_shp=context.ref_shp,
+            output_dir=context.output_dir,
+            target_crs=context.target_crs,
+            field_mapping=context.field_mapping,
+            debug=context.debug,
+            parameters=dict(context.step_parameters or {}),
+        )
+
+    @staticmethod
+    def _handle_water(context: ExecutionContext) -> Path:
+        from adapters.water_adapter import run_water_fusion
+
+        return run_water_fusion(
             osm_shp=context.osm_shp,
             ref_shp=context.ref_shp,
             output_dir=context.output_dir,

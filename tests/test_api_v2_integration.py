@@ -71,6 +71,39 @@ def _build_building_sample(tmp_path: Path) -> tuple[Path, Path]:
     return osm_shp, ref_shp
 
 
+def _build_water_sample(tmp_path: Path) -> tuple[Path, Path]:
+    from shapely.geometry import Polygon
+
+    osm = geopandas.GeoDataFrame(
+        {
+            "osm_id": [11, 12],
+            "fclass": ["water", "water"],
+            "name": ["lake-a", "lake-b"],
+            "geometry": [
+                Polygon([(0, 0), (0, 0.02), (0.02, 0.02), (0.02, 0)]),
+                Polygon([(0.03, 0.03), (0.03, 0.05), (0.05, 0.05), (0.05, 0.03)]),
+            ],
+        },
+        crs="EPSG:4326",
+    )
+    ref = geopandas.GeoDataFrame(
+        {
+            "new_id": [101, 102],
+            "name": ["lake-a-ref", "lake-c-ref"],
+            "geometry": [
+                Polygon([(0.001, 0.001), (0.001, 0.021), (0.021, 0.021), (0.021, 0.001)]),
+                Polygon([(0.06, 0.06), (0.06, 0.08), (0.08, 0.08), (0.08, 0.06)]),
+            ],
+        },
+        crs="EPSG:4326",
+    )
+    osm_shp = tmp_path / "osm_water.shp"
+    ref_shp = tmp_path / "ref_water.shp"
+    osm.to_file(osm_shp)
+    ref.to_file(ref_shp)
+    return osm_shp, ref_shp
+
+
 def _build_task_driven_plan() -> WorkflowPlan:
     return WorkflowPlan(
         workflow_id="wf_task_driven_auto",
@@ -215,6 +248,53 @@ def test_v2_run_building_integration(tmp_path: Path, client: TestClient) -> None
     assert inspection["audit_events"][-1]["kind"] == "run_succeeded"
     assert inspection["artifact"]["available"] is True
     assert inspection["artifact"]["download_path"] == f"/api/v2/runs/{run_id}/artifact"
+
+    artifact_resp = client.get(f"/api/v2/runs/{run_id}/artifact")
+    assert artifact_resp.status_code == 200
+    assert artifact_resp.content
+
+
+def test_v2_run_water_uploaded_integration(tmp_path: Path, client: TestClient) -> None:
+    osm_shp, ref_shp = _build_water_sample(tmp_path)
+    osm_zip = _zip_bundle(osm_shp, tmp_path / "osm_water.zip")
+    ref_zip = _zip_bundle(ref_shp, tmp_path / "ref_water.zip")
+
+    with osm_zip.open("rb") as f1, ref_zip.open("rb") as f2:
+        resp = client.post(
+            "/api/v2/runs",
+            files={
+                "osm_zip": ("osm_water.zip", f1.read(), "application/zip"),
+                "ref_zip": ("ref_water.zip", f2.read(), "application/zip"),
+            },
+            data={
+                "job_type": "water",
+                "trigger_type": "user_query",
+                "trigger_content": "融合水体面数据",
+                "disaster_type": "flood",
+                "target_crs": "EPSG:32643",
+                "field_mapping": "{}",
+                "debug": "false",
+            },
+        )
+    assert resp.status_code == 200, resp.text
+    run_id = resp.json()["run_id"]
+
+    status = _wait_run(client, run_id)
+    assert status["phase"] == "succeeded", status.get("error")
+
+    plan_resp = client.get(f"/api/v2/runs/{run_id}/plan")
+    assert plan_resp.status_code == 200
+    plan = plan_resp.json()["plan"]
+    assert plan["tasks"]
+    assert plan["tasks"][0]["algorithm_id"] == "algo.fusion.water.v1"
+    assert plan["tasks"][0]["input"]["data_type_id"] == "dt.water.bundle"
+    assert plan["tasks"][0]["output"]["data_type_id"] == "dt.water.fused"
+
+    inspection_resp = client.get(f"/api/v2/runs/{run_id}/inspection")
+    assert inspection_resp.status_code == 200
+    inspection = inspection_resp.json()
+    assert inspection["run"]["job_type"] == "water"
+    assert inspection["artifact"]["available"] is True
 
     artifact_resp = client.get(f"/api/v2/runs/{run_id}/artifact")
     assert artifact_resp.status_code == 200
