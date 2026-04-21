@@ -108,3 +108,40 @@ def test_run_poi_fusion_preserves_mapped_source_ids(tmp_path: Path) -> None:
     assert result.iloc[0]["OSM_ID"] == 11
     assert result.iloc[0]["REF_ID"] == 101
     assert result.iloc[0]["MATCH_REF"] == 101
+
+
+def test_run_poi_fusion_enforces_greedy_one_to_one_matching(tmp_path: Path) -> None:
+    osm = gpd.GeoDataFrame(
+        {
+            "name": ["osm clinic near", "osm clinic farther"],
+            "category": ["clinic", "clinic"],
+        },
+        geometry=[Point(0, 0), Point(8, 0)],
+        crs="EPSG:3857",
+    )
+    ref = gpd.GeoDataFrame(
+        {
+            "name": ["ref clinic"],
+            "category": ["clinic"],
+        },
+        geometry=[Point(3, 0)],
+        crs="EPSG:3857",
+    )
+    osm_shp = _write_shapefile(osm, tmp_path / "one-to-one-osm" / "osm_poi.shp")
+    ref_shp = _write_shapefile(ref, tmp_path / "one-to-one-ref" / "ref_poi.shp")
+
+    output_shp = run_poi_fusion(
+        osm_shp=osm_shp,
+        ref_shp=ref_shp,
+        output_dir=tmp_path / "one-to-one-output",
+        target_crs="EPSG:3857",
+        parameters={"match_distance_m": 10.0},
+    )
+
+    result = gpd.read_file(output_shp)
+
+    assert len(result) == 2
+    assert list(result["REF_ID"]) == [1, 0]
+    assert list(result["MATCH_REF"]) == [1, 0]
+    assert list(result["OSM_ID"]) == [1, 2]
+    assert list(result["SRC"]) == ["osm", "osm"]

@@ -290,3 +290,69 @@ def test_raw_vector_source_service_materializes_local_water_source_with_stable_v
     assert resolved.cache_hit is False
     assert resolved.version_token == version_a
     assert _extract_bounds(resolved.zip_path) == [2.5, 2.5, 5.5, 5.5]
+
+
+def test_raw_vector_source_service_selects_gns_reference_by_resolved_aoi_country_hint(tmp_path: Path) -> None:
+    registry = ArtifactRegistry(index_path=tmp_path / "artifact_registry.json")
+    _write_frame(
+        tmp_path / "Data" / "POI" / "Kenya" / "GNS.shp",
+        gpd.GeoDataFrame(
+            {"gns_id": [1]},
+            geometry=[Point(36.82, -1.29)],
+            crs="EPSG:4326",
+        ),
+    )
+    _write_frame(
+        tmp_path / "Data" / "POI" / "Uganda" / "GNS.shp",
+        gpd.GeoDataFrame(
+            {"gns_id": [2]},
+            geometry=[Point(32.58, 0.35)],
+            crs="EPSG:4326",
+        ),
+    )
+    service = RawVectorSourceService(root_dir=tmp_path, registry=registry, cache_dir=tmp_path / "cache")
+
+    resolved = service.resolve(
+        source_id="raw.gns.poi",
+        request_bbox=None,
+        target_path=tmp_path / "run" / "poi.zip",
+        target_crs="EPSG:4326",
+        resolved_aoi=_resolved_nairobi_aoi(),
+    )
+
+    assert resolved.zip_path.exists()
+    extract_dir = tmp_path / "extract_gns_selected"
+    with zipfile.ZipFile(resolved.zip_path, "r") as zf:
+        zf.extractall(extract_dir)
+    shp_path = next(extract_dir.glob("*.shp"))
+    frame = gpd.read_file(shp_path)
+    assert frame.iloc[0]["gns_id"] == 1
+
+
+def test_raw_vector_source_service_raises_when_gns_reference_selection_is_ambiguous(tmp_path: Path) -> None:
+    registry = ArtifactRegistry(index_path=tmp_path / "artifact_registry.json")
+    _write_frame(
+        tmp_path / "Data" / "POI" / "shared" / "GNS.shp",
+        gpd.GeoDataFrame(
+            {"gns_id": [1]},
+            geometry=[Point(36.82, -1.29)],
+            crs="EPSG:4326",
+        ),
+    )
+    _write_frame(
+        tmp_path / "Data" / "POI" / "backup" / "GNS.shp",
+        gpd.GeoDataFrame(
+            {"gns_id": [2]},
+            geometry=[Point(32.58, 0.35)],
+            crs="EPSG:4326",
+        ),
+    )
+    service = RawVectorSourceService(root_dir=tmp_path, registry=registry, cache_dir=tmp_path / "cache")
+
+    with pytest.raises(ValueError, match="Ambiguous raw source match for raw.gns.poi"):
+        service.resolve(
+            source_id="raw.gns.poi",
+            request_bbox=None,
+            target_path=tmp_path / "run" / "poi.zip",
+            target_crs="EPSG:4326",
+        )

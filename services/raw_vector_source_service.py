@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import re
 import shutil
 import uuid
 from dataclasses import dataclass
@@ -28,6 +29,18 @@ def _first_shp(directory: Path) -> Path:
     if not matches:
         raise FileNotFoundError(f"No shapefile found in {directory}")
     return matches[0]
+
+
+def _normalize_path_hint(value: str | None) -> str:
+    text = str(value or "").strip().casefold()
+    return re.sub(r"[^a-z0-9]+", " ", text).strip()
+
+
+def _tokenize_path_hint(value: str | None) -> set[str]:
+    normalized = _normalize_path_hint(value)
+    if not normalized:
+        return set()
+    return {token for token in normalized.split() if len(token) >= 3}
 
 
 def _bundle_version_token(shp_path: Path) -> str:
@@ -227,7 +240,7 @@ class RawVectorSourceService:
                 aoi=resolved_aoi,
             )
         spec = get_raw_vector_source_spec(source_id)
-        shp_path = self._resolve_source_path(spec)
+        shp_path = self._resolve_source_path(spec, resolved_aoi=resolved_aoi)
         return SourceAssetResolution(
             source_id=source_id,
             path=shp_path,
@@ -238,7 +251,12 @@ class RawVectorSourceService:
             feature_count=None,
         )
 
-    def _resolve_source_path(self, spec: RawVectorSourceSpec) -> Path:
+    def _resolve_source_path(
+        self,
+        spec: RawVectorSourceSpec,
+        *,
+        resolved_aoi: ResolvedAOI | None,
+    ) -> Path:
         base_path = self.root_dir.joinpath(*spec.relative_path)
         if spec.locator_kind == "exact_path":
             if not base_path.exists():
@@ -252,8 +270,77 @@ class RawVectorSourceService:
             matches = sorted(base_path.glob(spec.glob_pattern or "**/*.shp"))
             if not matches:
                 raise FileNotFoundError(f"No shapefile matched {spec.glob_pattern} under {base_path}")
-            return matches[0]
+            return self._select_recursive_glob_match(
+                source_id=spec.source_id,
+                matches=matches,
+                resolved_aoi=resolved_aoi,
+            )
         raise ValueError(f"Unsupported raw source locator_kind={spec.locator_kind}")
+
+    @staticmethod
+    def _select_recursive_glob_match(
+        *,
+        source_id: str,
+        matches: list[Path],
+        resolved_aoi: ResolvedAOI | None,
+    ) -> Path:
+        if len(matches) == 1:
+            return matches[0]
+
+        ranked = RawVectorSourceService._rank_recursive_glob_matches(matches, resolved_aoi=resolved_aoi)
+        if ranked and ranked[0][0] > 0:
+            top_score = ranked[0][0]
+            top_matches = [path for score, path in ranked if score == top_score]
+            if len(top_matches) == 1:
+                return top_matches[0]
+
+        candidate_list = ", ".join(str(path) for path in matches[:5])
+        suffix = " ..." if len(matches) > 5 else ""
+        raise ValueError(
+            f"Ambiguous raw source match for {source_id}: "
+            f"{candidate_list}{suffix}"
+        )
+
+    @staticmethod
+    def _rank_recursive_glob_matches(
+        matches: list[Path],
+        *,
+        resolved_aoi: ResolvedAOI | None,
+    ) -> list[tuple[int, Path]]:
+        if resolved_aoi is None:
+            return [(0, path) for path in matches]
+
+        exact_hints = [
+            _normalize_path_hint(resolved_aoi.country_name),
+            _normalize_path_hint(resolved_aoi.display_name),
+            _normalize_path_hint(resolved_aoi.query),
+        ]
+        exact_hints = [hint for hint in exact_hints if hint]
+
+        token_hints = set()
+        token_hints.update(_tokenize_path_hint(resolved_aoi.country_name))
+        token_hints.update(_tokenize_path_hint(resolved_aoi.display_name))
+        token_hints.update(_tokenize_path_hint(resolved_aoi.query))
+        if resolved_aoi.country_code:
+            token_hints.add(str(resolved_aoi.country_code).strip().casefold())
+
+        ranked: list[tuple[int, Path]] = []
+        for path in matches:
+            parts = [_normalize_path_hint(part) for part in path.parts]
+            non_empty_parts = [part for part in parts if part]
+            path_tokens = set()
+            for part in non_empty_parts:
+                path_tokens.update(part.split())
+
+            score = 0
+            for hint in exact_hints:
+                if any(hint == part for part in non_empty_parts):
+                    score += 20
+            score += sum(1 for token in token_hints if token in path_tokens)
+            ranked.append((score, path))
+
+        ranked.sort(key=lambda item: (-item[0], str(item[1])))
+        return ranked
 
     @staticmethod
     def _copy_cached_zip(*, cache_zip: Path, target_path: Path) -> Path:

@@ -16,7 +16,7 @@ Durability labels:
 | Evidence | Path or Command | Supports | Durability | Notes |
 | --- | --- | --- | --- | --- |
 | Full repository test suite | `python -m pytest -q` | Current codebase health after Phase 3 POI vertical slice | strong | Latest fresh verification passed with `199 passed, 1 skipped, 12 warnings` |
-| Warning profile | `tests/test_building_adapter_safe.py` | Known non-blocking baseline noise | medium | Warnings are pyproj/numpy deprecations during building adapter tests |
+| Warning profile | `tests/test_agent_run_service_enhancements.py`, `tests/test_building_adapter_safe.py` | Known non-blocking baseline noise | medium | Current full-suite warnings are pyproj/numpy deprecations observed in agent-run-service enhancement coverage and building adapter safe-mode coverage |
 | Plan closure scan | `docs/superpowers/plans/*.md` | Prior roadmap phases are closed | strong | All existing plan checkbox counts had `Unchecked = 0` before Phase A |
 
 ## Roadmap And Positioning Evidence

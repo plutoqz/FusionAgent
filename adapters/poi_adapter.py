@@ -125,25 +125,33 @@ def _fuse_poi(
     match_distance_m: float,
 ) -> gpd.GeoDataFrame:
     rows: List[Dict[str, object]] = []
-    matched_ref_positions: set[int] = set()
     ref_sindex = ref_data.sindex if not ref_data.empty else None
     next_poi_id = 1
+    assignments: Dict[int, tuple[int, int, float]] = {}
+    used_ref_positions: set[int] = set()
+    candidate_pairs: List[tuple[float, int, int, int]] = []
 
-    for _, osm_row in osm_data.iterrows():
-        osm_geom = osm_row.geometry
-        matches: List[tuple[int, int, float]] = []
-
-        if ref_sindex is not None:
+    if ref_sindex is not None:
+        for osm_pos, (_, osm_row) in enumerate(osm_data.iterrows()):
+            osm_geom = osm_row.geometry
             for ref_pos in ref_sindex.intersection(osm_geom.buffer(match_distance_m).bounds):
                 ref_row = ref_data.iloc[int(ref_pos)]
                 distance_m = float(osm_geom.distance(ref_row.geometry))
                 if distance_m <= match_distance_m:
-                    matches.append((int(ref_pos), int(ref_row["REF_ID"]), distance_m))
+                    candidate_pairs.append((distance_m, osm_pos, int(ref_pos), int(ref_row["REF_ID"])))
 
-        matches.sort(key=lambda item: (item[2], item[1]))
-        if matches:
-            best_ref_pos, best_ref_id, best_distance = matches[0]
-            matched_ref_positions.add(best_ref_pos)
+    candidate_pairs.sort(key=lambda item: (item[0], item[1], item[3]))
+    for distance_m, osm_pos, ref_pos, ref_id in candidate_pairs:
+        if osm_pos in assignments or ref_pos in used_ref_positions:
+            continue
+        assignments[osm_pos] = (ref_pos, ref_id, distance_m)
+        used_ref_positions.add(ref_pos)
+
+    for osm_pos, (_, osm_row) in enumerate(osm_data.iterrows()):
+        osm_geom = osm_row.geometry
+        assigned = assignments.get(osm_pos)
+        if assigned is not None:
+            _, best_ref_id, best_distance = assigned
         else:
             best_ref_id = 0
             best_distance = 0.0
@@ -164,7 +172,7 @@ def _fuse_poi(
         next_poi_id += 1
 
     for ref_pos, (_, ref_row) in enumerate(ref_data.iterrows()):
-        if ref_pos in matched_ref_positions:
+        if ref_pos in used_ref_positions:
             continue
         ref_id = int(ref_row["REF_ID"])
         rows.append(
