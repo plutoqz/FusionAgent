@@ -596,7 +596,7 @@ def _resolve_manifest_input_path(
 def _materialize_manifest_case(case: dict[str, Any], root: Path) -> Path:
     case_id = str(case.get("case_id") or "manifest_case")
     theme = str(case.get("theme") or "")
-    if theme not in {"building", "road"}:
+    if theme not in {"building", "road", "water"}:
         raise ValueError(f"Unsupported manifest theme for agent execution: {theme}")
 
     inputs = case.get("inputs") or {}
@@ -644,6 +644,10 @@ def _materialize_manifest_case(case: dict[str, Any], root: Path) -> Path:
         payload["expected_plan_checks"]["required_algorithms"] = [
             "algo.fusion.road.v1",
             "algo.fusion.road.safe",
+        ]
+    if theme == "water":
+        payload["expected_plan_checks"]["required_algorithms"] = [
+            "algo.fusion.water.v1",
         ]
     if clip_bbox is not None:
         payload["trigger"]["spatial_extent"] = _bbox_to_text(clip_bbox)

@@ -15,7 +15,7 @@ Durability labels:
 
 | Evidence | Path or Command | Supports | Durability | Notes |
 | --- | --- | --- | --- | --- |
-| Full repository test suite | `python -m pytest -q` | Current codebase health after PR #1 and PR #2 | strong | Passed on 2026-04-20 with `158 passed, 1 skipped, 6 warnings` |
+| Full repository test suite | `python -m pytest -q` | Current codebase health after Phase 1 stabilization | strong | Latest fresh verification passed with `189 passed, 1 skipped, 6 warnings` |
 | Warning profile | `tests/test_building_adapter_safe.py` | Known non-blocking baseline noise | medium | Warnings are pyproj/numpy deprecations during building adapter tests |
 | Plan closure scan | `docs/superpowers/plans/*.md` | Prior roadmap phases are closed | strong | All existing plan checkbox counts had `Unchecked = 0` before Phase A |
 
@@ -46,12 +46,12 @@ Durability labels:
 | --- | --- | --- | --- | --- |
 | v2 API integration tests | `tests/test_api_v2_integration.py` | Run creation, inspection, task-driven input paths, AOI target CRS behavior | strong | Good regression gate for API/runtime contract |
 | Agent run service tests | `tests/test_agent_run_service_enhancements.py` | Planning, audit, input acquisition, reuse, AOI, runtime orchestration, partial replan behavior | strong | Main runtime behavior test file |
-| Phase C replan input refresh | `docs/superpowers/plans/2026-04-20-full-replan-loop-v1.md` | Replanned task-driven runs refresh input bundles when source/type changes and preserve `plan-revision-N.json` snapshots | strong | First Phase C implementation slice; full tests passed with `159 passed, 1 skipped, 6 warnings` |
+| Phase C replan input refresh | `docs/superpowers/plans/2026-04-20-full-replan-loop-v1.md` | Replanned task-driven runs refresh input bundles when source/type changes and preserve `plan-revision-N.json` snapshots | strong | Focused verification passed with `2 passed`; the claim is now promoted into the frozen paper matrix as `c3_replan_fault_recovery` |
 | Planner context tests | `tests/test_planner_context.py` | KG/context evidence exposed to planner | strong | Useful for Phase D and E |
 | Policy engine tests | `tests/test_policy_engine.py` | Explicit policy decision behavior | strong | Useful for Phase D policy hints |
-| Phase D durable learning policy hints | `docs/superpowers/plans/2026-04-20-durable-learning-policy-hints.md` | Pattern selection consumes durable learning summaries through bounded `learning_adjustment` evidence | strong | First Phase D implementation slice; full tests passed with `161 passed, 1 skipped, 6 warnings` |
+| Phase D durable learning policy hints | `docs/superpowers/plans/2026-04-20-durable-learning-policy-hints.md` | Pattern selection consumes durable learning summaries through bounded `learning_adjustment` evidence | strong | Focused verification passed with `2 passed`; the claim is now promoted into the frozen paper matrix as `c4_learning_hints_pattern_selection` |
 | Phase E ontology data-type closure | `docs/superpowers/plans/2026-04-20-ontology-closure-data-types.md` | KG context exposes data types and seed references resolve to declared `DataTypeNode` records | strong | First Phase E implementation slice; full tests passed with `164 passed, 1 skipped, 6 warnings` |
-| Phase F water uploaded vertical slice | `docs/superpowers/plans/2026-04-20-water-vertical-slice.md`, `tests/test_water_adapter.py`, `tests/test_api_v2_integration.py::test_v2_run_water_uploaded_integration`, `tests/test_neo4j_bootstrap.py::test_bootstrap_cypher_contains_water_vertical_slice` | Third task/data vertical slice beyond building and road, limited to uploaded polygon inputs | strong | Proves KG planning, executor dispatch, adapter output, v2 API artifact writeback, and bootstrap closure for `JobType.water`; does not claim task-driven auto water materialization |
+| Phase F water vertical slice stabilization | `docs/superpowers/plans/2026-04-20-water-vertical-slice.md`, `tests/test_water_adapter.py`, `tests/test_api_v2_integration.py::test_v2_run_water_task_driven_auto_integration`, `tests/test_neo4j_bootstrap.py::test_bootstrap_cypher_contains_water_vertical_slice`, `tests/test_eval_harness.py::test_materialize_manifest_case_supports_water_theme` | Third task/data vertical slice beyond building and road, stabilized onto the shared task-driven runtime and evidence contract | strong | Proves KG planning, executor dispatch, task-driven acquisition, v2 API artifact writeback, bootstrap closure, and eval-harness alignment for `JobType.water` |
 | Artifact registry tests | `tests/test_artifact_registry.py` | Reusable artifact metadata and lookup | strong | Supports artifact reuse claims |
 | Artifact reuse planner tests | `tests/test_planner_artifact_reuse.py` | Planning-stage reuse reasoning | strong | Use with runtime reuse tests |
 | Workflow validator tests | `tests/test_workflow_validator.py` | Validation constraints and transform insertion | strong | Useful for Phase C replan gate design |
@@ -81,7 +81,16 @@ Durability labels:
 | Historical Google-backed building benchmark result | `docs/superpowers/specs/2026-04-08-building-real-benchmark-result.json` | Historical real-data pass with Google-backed reference | medium | Useful but depends on restored local `Data/` assets |
 | Benchmark follow-up summary | `docs/superpowers/specs/2026-04-08-benchmark-followup-summary.md` | Timeout correction and evidence discipline history | medium | Historical narrative evidence |
 | Phase G experiment matrix spec | `docs/superpowers/specs/2026-04-21-paper-experiment-matrix.json` | Frozen claim/baseline/case contract for paper evidence | strong | Source of truth for Phase G evidence curation |
-| Phase G paper evidence freeze | `docs/superpowers/specs/2026-04-21-paper-evidence-freeze.json`, `docs/superpowers/specs/2026-04-21-paper-evidence-freeze.md` | Paper-grade summary, failure analysis, and raw-artifact traceability notes | strong | Generated from tracked benchmark summaries plus qualitative Phase F references |
+| Phase G paper evidence freeze | `docs/superpowers/specs/2026-04-21-paper-evidence-freeze.json`, `docs/superpowers/specs/2026-04-21-paper-evidence-freeze.md` | Paper-grade summary, failure analysis, raw-artifact traceability notes, and promoted C3/C4 verification rows | strong | Generated from tracked benchmark summaries plus frozen Phase C/D verification rows and the explicit water extensibility note |
+
+## Shared Stability Contract
+
+The runtime wording is now frozen as:
+
+- `building: task_driven_auto supported`
+- `road: task_driven_auto supported`
+- `water: task_driven_auto supported after Phase 1`
+- all three share the same evidence contract: `run.json`, `plan.json`, `validation.json`, `audit.jsonl`, and artifact bundle
 
 ## Operator And Product Evidence
 
@@ -97,8 +106,8 @@ Durability labels:
 | Missing Evidence | Phase | Why It Is Needed |
 | --- | --- | --- |
 | Evaluation contract mapping thesis claims to metrics and baselines | B | Prevents future implementation from drifting away from provable claims |
-| Replan-loop failure injection evidence with preserved plan revisions and downstream reacquisition | C | Proves reactive healing can replace or amend a plan under explicit gates |
-| Durable-learning policy-hint decision trace | D | Proves memory can influence future planning/policy without hidden auto-tuning |
+| Replan-loop failure injection evidence with preserved plan revisions and downstream reacquisition | closed in frozen matrix | Promoted into `c3_replan_fault_recovery`; keep frozen outputs and source docs synchronized |
+| Durable-learning policy-hint decision trace | closed in frozen matrix | Promoted into `c4_learning_hints_pattern_selection`; keep frozen outputs and source docs synchronized |
 | Executable ontology closure tests for data types, step IO, sources, scenarios, and schema policy references | E | Bridges research ontology and runtime evidence |
 | One third vertical slice benchmark | F | Shows architecture can extend beyond current building/road center |
 | Thin operator workflow smoke | H | Shows product-facing usability only after runtime evidence is stable |

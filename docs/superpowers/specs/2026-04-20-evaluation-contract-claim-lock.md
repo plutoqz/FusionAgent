@@ -17,33 +17,33 @@ This document locks the claims FusionAgent is allowed to pursue in the next impl
 | --- | --- | --- | --- | --- | --- | --- | --- |
 | C1 | FusionAgent can generate executable geospatial fusion workflows through KG-constrained planning and validation | in_scope_now | Tests plus harness summaries plus plan/audit artifacts | planning_validity_rate, decision_trace_completeness | full_system, kg_top_pattern_only, weak_llm_without_runtime_constraints | Planner, validator, policy, API, and harness tests exist | Final run matrix must archive plan and validation artifacts |
 | C2 | FusionAgent produces auditable execution evidence for each run | in_scope_now | Run artifact inspection and API evidence | evidence_completeness_rate, artifact_validity | full_system | `run.json`, `plan.json`, `validation.json`, `audit.jsonl`, artifact bundle are documented and tested | Final evidence freeze must trace every benchmark row to raw run artifacts |
-| C3 | FusionAgent improves robustness through reactive healing and full replan V1 | requires_next_phase | Fault-injection tests and ablation comparison | recovery_success_rate, execution_success_rate, decision_trace_completeness | full_system, no_repair_or_replan | Current executor has repair/fallback and run service has partial replan retry | Phase C must prove downstream re-entry, plan revision evidence, and explicit acceptance gates |
-| C4 | Durable learning can influence future planning or policy in an auditable way | requires_next_phase | Deterministic policy-hint tests and decision traces | decision_trace_completeness, recovery_success_rate, planning_validity_rate | full_system, no_durable_learning_hints | Durable records and aggregate summaries exist | Phase D must add explicit learning hints or scoped policy adjustments |
+| C3 | FusionAgent improves robustness through reactive healing and full replan V1 | in_scope_now | Fault-injection tests and ablation comparison | recovery_success_rate, execution_success_rate, decision_trace_completeness | full_system, no_repair_or_replan | Phase C focused regressions now prove downstream re-entry, task-driven input refresh, and preserved `plan-revision-N.json` evidence | Keep the frozen paper matrix aligned with the Phase C verification slice |
+| C4 | Durable learning can influence future planning or policy in an auditable way | in_scope_now | Deterministic policy-hint tests and decision traces | decision_trace_completeness, recovery_success_rate, planning_validity_rate | full_system, no_durable_learning_hints | Phase D focused regressions now prove bounded `learning_adjustment` evidence and auditable pattern-selection influence | Keep the frozen paper matrix aligned with the Phase D verification slice |
 | C5 | Task-driven AOI and source acquisition reduce manual input preparation for bounded official sources | in_scope_now | Source materialization tests plus real-data benchmark | reproducibility_status, execution_success_rate, runtime_duration_ms | full_system, manual_input_baseline | Fresh-checkout Microsoft building benchmark and source asset tests exist | Final benchmark should rerun and archive direct summary JSON |
 | C6 | Executable ontology and research ontology are aligned enough to support the paper narrative | conditional | KG seed/query tests and ontology closure checks | planning_validity_rate, decision_trace_completeness | full_system | Current docs distinguish executable subset and target ontology | Phase E should only proceed if Phase B/G needs stronger ontology evidence |
-| C7 | FusionAgent architecture can extend beyond building/road | conditional | One new vertical-slice benchmark | planning_validity_rate, execution_success_rate, artifact_validity | full_system | Current runtime is strong for building/road; water algorithms exist but are not adapterized | Phase F should implement exactly one extra vertical slice if evidence demands extensibility proof |
+| C7 | FusionAgent architecture can extend beyond building/road | conditional | One new vertical-slice benchmark | planning_validity_rate, execution_success_rate, artifact_validity | full_system | Water now runs on the shared task-driven runtime and evidence contract after Phase 1 stabilization | Keep the water extensibility claim bounded to the current building/road/water slice |
 | C8 | FusionAgent has a usable operator-facing product surface | boundary_only | Operator API smoke and product demo evidence | evidence_completeness_rate, artifact_validity | full_system | Inspection and comparison endpoints exist | A full UI, auth, retention, listing, retry/cancel, and observability are product future work unless Phase H is activated |
 
 ## Phase C Decision
 
-Full Replan Loop V1 is required before FusionAgent can make a strong robustness claim beyond bounded repair/fallback behavior.
+Full Replan Loop V1 is now implemented and frozen as part of the paper evidence path.
 
-The current repository already has useful repair and partial replan evidence. The missing proof is not "any replan function exists"; the missing proof is that a failed plan revision can re-enter downstream runtime stages safely, preserve old/new plan evidence, refresh task-driven inputs or reuse decisions when source/type changes, and record why the revised plan was accepted or rejected.
+The repository no longer stops at generic repair/fallback evidence. The frozen Phase C slice proves that a failed plan revision can re-enter downstream runtime stages safely, preserve old/new plan evidence, refresh task-driven inputs when source/type changes, and keep the acceptance path auditable.
 
 Therefore:
 
 ```text
-Phase C is authorized as the next implementation phase after Phase B.
+Phase C evidence is now in scope for paper-facing C3 rows and should stay frozen in the experiment matrix.
 ```
 
 ## Phase D Decision
 
-Durable learning is important, but it should not become speculative auto-tuning. Phase D is authorized only as a narrow policy-hint slice after Phase C is stable.
+Durable learning is now frozen as a narrow, non-speculative policy-hint slice.
 
-The first acceptable implementation target is:
+The implemented scope remains intentionally bounded:
 
 ```text
-Add a capped, explainable learning adjustment for one decision type, preferably pattern_selection, and record the adjustment in candidate evidence.
+Apply a capped, explainable learning adjustment to pattern_selection and record the adjustment in candidate evidence.
 ```
 
 ## Metrics Contract
@@ -58,6 +58,15 @@ Add a capped, explainable learning adjustment for one decision type, preferably 
 | runtime_duration_ms | Run duration in milliseconds, split by case and runtime mode | harness summary | C5, C7 |
 | artifact_validity | Whether output artifact contains expected shapefile members and readable vector data | harness, smoke scripts, adapter tests | C2, C7, C8 |
 | decision_trace_completeness | Whether key decisions include selected id, candidates, metrics, metadata, and rationale | `run.json`, audit, policy tests | C1, C3, C4, C6 |
+
+## Shared Stability Contract
+
+The stable runtime wording is now frozen as:
+
+- `building: task_driven_auto supported`
+- `road: task_driven_auto supported`
+- `water: task_driven_auto supported after Phase 1`
+- all three share the same evidence contract: `run.json`, `plan.json`, `validation.json`, `audit.jsonl`, and artifact bundle
 
 ## Baseline Matrix
 
@@ -185,18 +194,12 @@ artifact storage location
 
 ## Next Authorized Work
 
-Phase C is the next implementation phase.
+Phase C and Phase D evidence are now frozen into the paper matrix.
 
-The first Phase C plan should target the smallest safe replan improvement:
-
-```text
-After `replan_applied`, re-run input acquisition when `input_strategy=task_driven_auto` and the selected source or required input type changed. Preserve old and new plan evidence and add a focused regression test.
-```
-
-Phase D remains queued after Phase C:
+The current follow-up rule is:
 
 ```text
-Add a capped learning adjustment for one decision type and emit it in candidate evidence.
+Do not widen the claim surface beyond the stabilized building/road/water contract until the frozen C1-C7 evidence is reviewed.
 ```
 
-Phase E-H remain conditional and should not start before Phase C/D evidence is reviewed.
+Phase E-H remain conditional and should not start before the current frozen evidence set is reviewed.

@@ -61,6 +61,62 @@
       ]
     },
     {
+      "row_id": "c3_replan_fault_recovery",
+      "claim_ids": ["C3"],
+      "baseline": "no_repair_or_replan",
+      "dataset": "fault-injected task-driven water/building/road runtime",
+      "summary_kind": "verification",
+      "observed_status": "passed",
+      "summary": "Focused Phase C regression proves source-changing replans refresh task-driven inputs and preserve plan revision evidence.",
+      "verification_command": [
+        "python",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_agent_run_service_enhancements.py::test_agent_run_service_replans_after_execution_failure",
+        "tests/test_agent_run_service_enhancements.py::test_task_driven_replan_refreshes_inputs_when_source_changes"
+      ],
+      "verification_result": "2 passed",
+      "evidence_paths": [
+        "docs/superpowers/plans/2026-04-20-full-replan-loop-v1.md",
+        "tests/test_agent_run_service_enhancements.py",
+        "docs/superpowers/specs/2026-04-20-evaluation-contract-claim-lock.md"
+      ],
+      "supports_metrics": [
+        "recovery_success_rate",
+        "decision_trace_completeness",
+        "execution_success_rate"
+      ]
+    },
+    {
+      "row_id": "c4_learning_hints_pattern_selection",
+      "claim_ids": ["C4"],
+      "baseline": "no_durable_learning_hints",
+      "dataset": "durable summary seeded policy-hint contrast",
+      "summary_kind": "verification",
+      "observed_status": "passed",
+      "summary": "Focused Phase D regression proves durable learning summaries emit bounded learning hints that influence pattern selection through an auditable score adjustment.",
+      "verification_command": [
+        "python",
+        "-m",
+        "pytest",
+        "-q",
+        "tests/test_policy_engine.py::test_policy_engine_applies_learning_adjustment_and_emits_it_in_evidence",
+        "tests/test_agent_run_service_enhancements.py::test_pattern_selection_uses_durable_learning_summaries_as_policy_hints"
+      ],
+      "verification_result": "2 passed",
+      "evidence_paths": [
+        "docs/superpowers/plans/2026-04-20-durable-learning-policy-hints.md",
+        "tests/test_policy_engine.py",
+        "tests/test_agent_run_service_enhancements.py",
+        "docs/superpowers/specs/2026-04-20-evaluation-contract-claim-lock.md"
+      ],
+      "supports_metrics": [
+        "decision_trace_completeness",
+        "planning_validity_rate"
+      ]
+    },
+    {
       "row_id": "failure_micro_alignment_drift",
       "claim_ids": ["C2-boundary"],
       "baseline": "historical_failure",
@@ -96,7 +152,7 @@
         "tests/test_water_adapter.py",
         "docs/superpowers/specs/2026-04-20-evidence-ledger.md"
       ],
-      "summary": "Uploaded-only water slice proves bounded extensibility beyond building and road without claiming task-driven auto water acquisition."
+      "summary": "Water shares the same task-driven runtime and evidence contract after Phase 1 stabilization. Keep the bounded extensibility note explicit even though the runtime contract is now shared."
     }
   ]
 }

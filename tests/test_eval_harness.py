@@ -595,6 +595,34 @@ def test_materialize_manifest_case_supports_source_id_inputs(tmp_path: Path, mon
     assert (case_dir / "input" / "ref.zip").exists()
 
 
+def test_materialize_manifest_case_supports_water_theme(tmp_path: Path) -> None:
+    osm_shp = tmp_path / "src" / "osm_water.shp"
+    ref_shp = tmp_path / "src" / "ref_water.shp"
+    _write_dummy_shapefile_bundle(osm_shp)
+    _write_dummy_shapefile_bundle(ref_shp)
+
+    case = {
+        "case_id": "water_case",
+        "theme": "water",
+        "execution_mode": "agent",
+        "readiness": "agent-ready",
+        "inputs": {
+            "osm": str(osm_shp),
+            "reference": str(ref_shp),
+        },
+    }
+
+    case_dir = eval_harness._materialize_manifest_case(case, tmp_path / "work")
+    payload = json.loads((case_dir / "case.json").read_text(encoding="utf-8"))
+
+    assert payload["case_id"] == "water_case"
+    assert payload["job_type"] == "water"
+    assert payload["expected_plan_checks"]["required_algorithms"] == ["algo.fusion.water.v1"]
+    assert payload["expected_plan_checks"]["required_output_type"] == "dt.water.fused"
+    assert (case_dir / "input" / "osm.zip").exists()
+    assert (case_dir / "input" / "ref.zip").exists()
+
+
 def test_materialize_manifest_case_clips_inputs_when_clip_bbox_is_provided(tmp_path: Path) -> None:
     src_dir = tmp_path / "src"
     src_dir.mkdir(parents=True, exist_ok=True)

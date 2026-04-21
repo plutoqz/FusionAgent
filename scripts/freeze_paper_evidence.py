@@ -103,6 +103,14 @@ def _normalize_summary_payload(payload: dict[str, Any]) -> dict[str, Any]:
 
 def _metric_value(name: str, *, case: dict[str, Any], row: dict[str, Any]) -> str:
     evidence = case.get("evidence") or {}
+    if row.get("summary_kind") == "verification":
+        if name in {
+            "execution_success_rate",
+            "planning_validity_rate",
+            "recovery_success_rate",
+            "decision_trace_completeness",
+        }:
+            return "pass" if row.get("observed_status") == "passed" else "fail"
     if name == "execution_success_rate":
         return "pass" if case.get("status") == "passed" else "fail"
     if name == "planning_validity_rate":
@@ -116,12 +124,64 @@ def _metric_value(name: str, *, case: dict[str, Any], row: dict[str, Any]) -> st
     return "n/a"
 
 
+def _freeze_verification_row(row: dict[str, Any], *, repo_root: Path) -> dict[str, Any]:
+    observed_status = str(row.get("observed_status") or "unknown")
+    return {
+        "row_id": row["row_id"],
+        "claim_ids": list(row.get("claim_ids") or []),
+        "baseline": row["baseline"],
+        "dataset": row["dataset"],
+        "case_id": row.get("case_id"),
+        "case_name": row.get("case_name"),
+        "expected_status": row.get("expected_status") or "passed",
+        "observed_status": observed_status,
+        "summary_json": None,
+        "summary_source_format": "verification",
+        "manifest": None,
+        "command": row.get("command"),
+        "verification_command": list(row.get("verification_command") or []),
+        "verification_result": row.get("verification_result"),
+        "summary": row.get("summary"),
+        "commit_sha": row.get("commit_sha"),
+        "base_url": row.get("base_url"),
+        "timeout_sec": row.get("timeout_sec"),
+        "environment": dict(row.get("environment") or {}),
+        "run_id": row.get("run_id"),
+        "artifact_storage": row.get("artifact_storage"),
+        "raw_artifacts": {
+            "run_json": None,
+            "plan_json": None,
+            "validation_json": None,
+            "audit_jsonl": None,
+            "artifact_bundle": row.get("artifact_storage"),
+        },
+        "metrics": {
+            metric: _metric_value(metric, case={"status": observed_status, "evidence": row.get("evidence") or {}}, row=row)
+            for metric in row.get("supports_metrics", [])
+        },
+        "inputs": row.get("inputs"),
+        "notes": list(row.get("notes") or []),
+        "evidence": dict(row.get("evidence") or {}),
+        "evidence_paths": [
+            _coerce_repo_relative(str(path), repo_root=repo_root)
+            for path in row.get("evidence_paths", [])
+        ],
+        "analysis": row.get("analysis"),
+    }
+
+
 def build_freeze_report(*, repo_root: Path, spec_path: Path) -> dict[str, Any]:
     spec = _load_json(spec_path)
     rows: list[dict[str, Any]] = []
     failure_rows: list[dict[str, Any]] = []
 
     for row in spec.get("rows", []):
+        if row.get("summary_kind") == "verification":
+            frozen_row = _freeze_verification_row(row, repo_root=repo_root)
+            rows.append(frozen_row)
+            if frozen_row["expected_status"] != "passed" or frozen_row["observed_status"] != "passed":
+                failure_rows.append(frozen_row)
+            continue
         summary_rel = _coerce_repo_relative(str(row["summary_json"]), repo_root=repo_root)
         summary_payload = _load_json(repo_root / summary_rel)
         summary = _normalize_summary_payload(summary_payload)
@@ -199,10 +259,39 @@ def render_markdown(report: dict[str, Any]) -> str:
         "| --- | --- | --- | --- | --- | --- |",
     ]
     for row in report["rows"]:
+        summary_label = f"`{row['summary_json']}`" if row["summary_json"] else "verification evidence"
         lines.append(
             f"| {row['row_id']} | {', '.join(row['claim_ids'])} | {row['baseline']} | "
-            f"{row['dataset']} | {row['observed_status']} | `{row['summary_json']}` |"
+            f"{row['dataset']} | {row['observed_status']} | {summary_label} |"
         )
+
+    lines.extend(["", "## Frozen Rows", ""])
+    for row in report["rows"]:
+        lines.append(f"### `{row['row_id']}`")
+        lines.append("")
+        lines.append(f"- Claims: {', '.join(row['claim_ids'])}")
+        lines.append(f"- Baseline: {row['baseline']}")
+        lines.append(f"- Dataset: {row['dataset']}")
+        lines.append(f"- Observed status: {row['observed_status']}")
+        if row.get("summary"):
+            lines.append(f"- Summary: {row['summary']}")
+        metrics = row.get("metrics") or {}
+        if metrics:
+            metric_summary = ", ".join(f"{name}={value}" for name, value in metrics.items())
+            lines.append(f"- Metrics: {metric_summary}")
+        if row.get("verification_command"):
+            command = " ".join(str(part) for part in row["verification_command"])
+            lines.append(f"- Verification command: `{command}`")
+        if row.get("verification_result"):
+            lines.append(f"- Verification result: {row['verification_result']}")
+        evidence_paths = row.get("evidence_paths") or []
+        if evidence_paths:
+            lines.append(f"- Evidence paths: {', '.join(f'`{path}`' for path in evidence_paths)}")
+        raw_artifacts = row.get("raw_artifacts") or {}
+        available_artifacts = [f"{name}=`{value}`" for name, value in raw_artifacts.items() if value]
+        if available_artifacts:
+            lines.append(f"- Raw artifacts: {', '.join(available_artifacts)}")
+        lines.append("")
 
     lines.extend(["", "## Failure Analysis", ""])
     if report["failure_rows"]:
@@ -215,7 +304,11 @@ def render_markdown(report: dict[str, Any]) -> str:
     if report["qualitative_evidence"]:
         for item in report["qualitative_evidence"]:
             claims = ", ".join(item.get("claim_ids", []))
-            lines.append(f"- `{item['evidence_id']}` ({claims}): {item['summary']}")
+            paths = ", ".join(f"`{path}`" for path in item.get("paths", []))
+            if paths:
+                lines.append(f"- `{item['evidence_id']}` ({claims}): {item['summary']} Paths: {paths}")
+            else:
+                lines.append(f"- `{item['evidence_id']}` ({claims}): {item['summary']}")
     else:
         lines.append("- No qualitative evidence rows.")
 

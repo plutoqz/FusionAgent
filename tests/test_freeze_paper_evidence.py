@@ -8,6 +8,9 @@ import pytest
 from scripts import freeze_paper_evidence
 
 
+_REPO_ROOT = Path(__file__).resolve().parents[1]
+
+
 def _write_json(path: Path, payload: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -259,3 +262,103 @@ def test_build_freeze_report_rejects_missing_case_id(tmp_path: Path) -> None:
 
     with pytest.raises(ValueError, match="Case 'missing_case' not found"):
         freeze_paper_evidence.build_freeze_report(repo_root=tmp_path, spec_path=spec_path)
+
+
+def test_build_freeze_report_supports_verification_rows_and_renders_metric_details(tmp_path: Path) -> None:
+    spec_path = tmp_path / "docs" / "superpowers" / "specs" / "matrix.json"
+    _write_json(
+        spec_path,
+        {
+            "version": "2026-04-21",
+            "rows": [
+                {
+                    "row_id": "c3_replan_fault_recovery",
+                    "claim_ids": ["C3"],
+                    "baseline": "no_repair_or_replan",
+                    "dataset": "fault-injected task-driven water/building/road runtime",
+                    "summary_kind": "verification",
+                    "observed_status": "passed",
+                    "summary": "Focused replan regression checks passed and preserved plan revisions.",
+                    "verification_command": [
+                        "python",
+                        "-m",
+                        "pytest",
+                        "-q",
+                        "tests/test_agent_run_service_enhancements.py::test_task_driven_replan_refreshes_inputs_when_source_changes",
+                    ],
+                    "verification_result": "2 passed",
+                    "evidence_paths": [
+                        "docs/superpowers/plans/2026-04-20-full-replan-loop-v1.md",
+                        "tests/test_agent_run_service_enhancements.py",
+                    ],
+                    "supports_metrics": [
+                        "recovery_success_rate",
+                        "decision_trace_completeness",
+                        "execution_success_rate",
+                    ],
+                }
+            ],
+            "qualitative_evidence": [
+                {
+                    "evidence_id": "c7_water_task_driven_auto_extensibility",
+                    "claim_ids": ["C7"],
+                    "paths": ["docs/superpowers/specs/2026-04-20-evidence-ledger.md"],
+                    "summary": "Water shares the same task-driven runtime and evidence contract after Phase 1 stabilization.",
+                }
+            ],
+        },
+    )
+
+    report = freeze_paper_evidence.build_freeze_report(repo_root=tmp_path, spec_path=spec_path)
+    markdown = freeze_paper_evidence.render_markdown(report)
+    row = report["rows"][0]
+
+    assert row["summary_source_format"] == "verification"
+    assert row["metrics"] == {
+        "recovery_success_rate": "pass",
+        "decision_trace_completeness": "pass",
+        "execution_success_rate": "pass",
+    }
+    assert row["evidence_paths"] == [
+        "docs/superpowers/plans/2026-04-20-full-replan-loop-v1.md",
+        "tests/test_agent_run_service_enhancements.py",
+    ]
+    assert "recovery_success_rate=pass" in markdown
+    assert "docs/superpowers/plans/2026-04-20-full-replan-loop-v1.md" in markdown
+    assert "Water shares the same task-driven runtime and evidence contract after Phase 1 stabilization." in markdown
+
+
+def test_repo_paper_experiment_matrix_and_freeze_outputs_promote_c3_c4_rows() -> None:
+    matrix_path = _REPO_ROOT / "docs" / "superpowers" / "specs" / "2026-04-21-paper-experiment-matrix.json"
+    freeze_json_path = _REPO_ROOT / "docs" / "superpowers" / "specs" / "2026-04-21-paper-evidence-freeze.json"
+    freeze_md_path = _REPO_ROOT / "docs" / "superpowers" / "specs" / "2026-04-21-paper-evidence-freeze.md"
+
+    matrix = json.loads(matrix_path.read_text(encoding="utf-8"))
+    rows_by_id = {row["row_id"]: row for row in matrix["rows"]}
+    assert rows_by_id["c3_replan_fault_recovery"]["claim_ids"] == ["C3"]
+    assert rows_by_id["c3_replan_fault_recovery"]["baseline"] == "no_repair_or_replan"
+    assert rows_by_id["c3_replan_fault_recovery"]["supports_metrics"] == [
+        "recovery_success_rate",
+        "decision_trace_completeness",
+        "execution_success_rate",
+    ]
+    assert rows_by_id["c4_learning_hints_pattern_selection"]["claim_ids"] == ["C4"]
+    assert rows_by_id["c4_learning_hints_pattern_selection"]["baseline"] == "no_durable_learning_hints"
+    assert rows_by_id["c4_learning_hints_pattern_selection"]["supports_metrics"] == [
+        "decision_trace_completeness",
+        "planning_validity_rate",
+    ]
+
+    freeze_report = json.loads(freeze_json_path.read_text(encoding="utf-8"))
+    frozen_rows = {row["row_id"]: row for row in freeze_report["rows"]}
+    assert frozen_rows["c3_replan_fault_recovery"]["observed_status"] == "passed"
+    assert frozen_rows["c3_replan_fault_recovery"]["metrics"]["recovery_success_rate"] == "pass"
+    assert frozen_rows["c4_learning_hints_pattern_selection"]["observed_status"] == "passed"
+    assert frozen_rows["c4_learning_hints_pattern_selection"]["metrics"]["planning_validity_rate"] == "pass"
+
+    markdown = freeze_md_path.read_text(encoding="utf-8")
+    assert "c3_replan_fault_recovery" in markdown
+    assert "c4_learning_hints_pattern_selection" in markdown
+    assert "recovery_success_rate=pass" in markdown
+    assert "planning_validity_rate=pass" in markdown
+    assert "Water shares the same task-driven runtime and evidence contract after Phase 1 stabilization." in markdown
