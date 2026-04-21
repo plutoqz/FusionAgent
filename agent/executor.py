@@ -46,6 +46,10 @@ class WorkflowExecutor:
         self.algorithm_handlers.setdefault("algo.fusion.road.safe", self._handle_road)
         self.algorithm_handlers.setdefault("algo.fusion.water.v1", self._handle_water)
         self.algorithm_handlers.setdefault("algo.fusion.poi.v1", self._handle_poi)
+        self.algorithm_handlers.setdefault(
+            "algo.transform.trajectory_to_road_candidate",
+            self._handle_reserved_trajectory_pretransform,
+        )
 
     def execute_plan(
         self,
@@ -271,4 +275,10 @@ class WorkflowExecutor:
             field_mapping=context.field_mapping,
             debug=context.debug,
             parameters=dict(context.step_parameters or {}),
+        )
+
+    @staticmethod
+    def _handle_reserved_trajectory_pretransform(context: ExecutionContext) -> Path:
+        raise RuntimeError(
+            "Trajectory-to-road pretransform is a reserved seam in Phase 4 and is not executable at runtime."
         )

@@ -172,6 +172,24 @@ def _build_poi_task_driven_plan(*, workflow_id: str = "wf_poi_auto_inputs", revi
     return plan
 
 
+def _build_road_task_driven_plan(*, workflow_id: str = "wf_road_auto_inputs", revision: int = 1) -> WorkflowPlan:
+    plan = _build_plan(workflow_id=workflow_id, revision=revision, algorithm_id="algo.fusion.road.v1")
+    plan.trigger = RunTrigger(type=RunTriggerType.user_query, content="need road data for Gilgit, Pakistan")
+    plan.context["intent"]["job_type"] = "road"
+    plan.context["intent"]["profile_source"] = "direct_task"
+    plan.context["intent"]["task_bundle"]["requested_tasks"] = ["task.road.fusion"]
+    plan.context["retrieval"]["candidate_patterns"] = [{"pattern_id": "wp.flood.road.default", "success_rate": 0.86}]
+    plan.tasks[0].name = "road_fusion"
+    plan.tasks[0].description = "road fusion"
+    plan.tasks[0].algorithm_id = "algo.fusion.road.v1"
+    plan.tasks[0].input.data_type_id = "dt.road.bundle"
+    plan.tasks[0].input.data_source_id = "catalog.flood.road"
+    plan.tasks[0].output.data_type_id = "dt.road.fused"
+    plan.tasks[0].alternatives = ["algo.fusion.road.safe"]
+    plan.expected_output = "road result"
+    return plan
+
+
 def _seed_water_runtime_tree(root: Path) -> None:
     _write_frame(
         root / "Data" / "burundi-260127-free.shp" / "gis_osm_water_a_free_1.shp",
@@ -511,6 +529,79 @@ def test_agent_run_service_water_task_driven_auto_fails_at_materialization_time_
     audit_events = service.get_audit_events(status.run_id)
     assert not any(event.kind == "task_inputs_resolved" for event in audit_events)
     assert audit_events[-1].kind == "run_failed"
+
+
+def test_agent_run_service_road_task_driven_auto_keeps_trajectory_seam_reserved(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    service = AgentRunService(base_dir=tmp_path / "runs")
+    fused_shp = tmp_path / "fused_road_reserved.shp"
+    artifact_zip = tmp_path / "artifact_road_reserved.zip"
+    fused_shp.write_text("dummy", encoding="utf-8")
+    artifact_zip.write_bytes(b"zip")
+
+    plan = _build_road_task_driven_plan()
+    plan.context["retrieval"]["algorithms"] = {
+        "algo.transform.trajectory_to_road_candidate": {
+            "algo_id": "algo.transform.trajectory_to_road_candidate",
+            "tool_ref": "builtin:trajectory_pretransform_reserved",
+        }
+    }
+
+    monkeypatch.setattr(service.planner, "create_plan", lambda **_kwargs: plan.model_copy(deep=True))
+    monkeypatch.setattr(service.validator, "validate_and_repair", lambda input_plan: input_plan)
+    monkeypatch.setattr(
+        service.executor,
+        "execute_plan",
+        lambda **_kwargs: fused_shp,
+    )
+    monkeypatch.setattr("services.agent_run_service.zip_shapefile_bundle", lambda *_args, **_kwargs: artifact_zip)
+
+    captured: dict[str, object] = {}
+
+    def fake_resolve_task_driven_inputs(**kwargs):
+        captured["source_id"] = kwargs["source_id"]
+        captured["required_output_type"] = kwargs["required_output_type"]
+        captured["request_content"] = kwargs["request"].trigger.content
+        osm_zip = tmp_path / "catalog_flood_road_osm.zip"
+        ref_zip = tmp_path / "catalog_flood_road_ref.zip"
+        _write_dummy_zip(osm_zip)
+        _write_dummy_zip(ref_zip)
+        return ResolvedRunInputs(
+            osm_zip_path=osm_zip,
+            ref_zip_path=ref_zip,
+            source_mode="generated",
+            source_id=kwargs["source_id"],
+            cache_hit=False,
+            version_token="road-v1",
+        )
+
+    monkeypatch.setattr(service.input_acquisition_service, "resolve_task_driven_inputs", fake_resolve_task_driven_inputs)
+    monkeypatch.setattr("services.agent_run_service.validate_zip_has_shapefile", lambda zip_path, *_args, **_kwargs: Path(str(zip_path) + ".shp"))
+
+    status = service.create_run(
+        request=_build_auto_request(
+            spatial_extent="bbox(74.1,35.8,74.3,36.0)",
+            job_type=JobType.road,
+            content="need road data for Gilgit, Pakistan",
+        ),
+        osm_zip_name=None,
+        osm_zip_bytes=None,
+        ref_zip_name=None,
+        ref_zip_bytes=None,
+    )
+
+    latest = service.get_run(status.run_id)
+    assert latest is not None
+    assert latest.phase == RunPhase.succeeded
+    assert captured["source_id"] == "catalog.flood.road"
+    assert captured["required_output_type"] == "dt.road.bundle"
+
+    saved_plan = service.get_plan(status.run_id)
+    assert saved_plan is not None
+    assert saved_plan.tasks[0].algorithm_id == "algo.fusion.road.v1"
+    assert all(task.algorithm_id != "algo.transform.trajectory_to_road_candidate" for task in saved_plan.tasks)
 
 
 def _resolved_nairobi_aoi() -> ResolvedAOI:

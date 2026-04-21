@@ -187,6 +187,31 @@ def test_planner_context_exposes_poi_metadata_and_builds_poi_plan() -> None:
     assert plan.tasks[0].output.data_type_id == "dt.poi.fused"
 
 
+def test_planner_context_exposes_reserved_trajectory_to_road_seams_without_changing_default_runtime_plan() -> None:
+    provider = CapturingProvider()
+    planner = WorkflowPlanner(InMemoryKGRepository(), provider)
+    trigger = RunTrigger(
+        type=RunTriggerType.user_query,
+        content="need road data for Gilgit, Pakistan",
+    )
+
+    plan = planner.create_plan(run_id="run-trajectory-road-seam", job_type=JobType.road, trigger=trigger)
+
+    assert provider.last_context is not None
+    retrieval = provider.last_context["retrieval"]
+    assert any(item["type_id"] == "dt.trajectory.raw" for item in retrieval["data_types"])
+    assert any(item["type_id"] == "dt.road.candidate" for item in retrieval["data_types"])
+    assert any(item["task_id"] == "task.trajectory_to_road" for item in retrieval["task_nodes"])
+    assert "algo.transform.trajectory_to_road_candidate" in retrieval["algorithms"]
+    assert retrieval["algorithms"]["algo.transform.trajectory_to_road_candidate"]["tool_ref"] == (
+        "builtin:trajectory_pretransform_reserved"
+    )
+    assert plan.tasks[0].algorithm_id == "algo.fusion.road.v1"
+    assert plan.tasks[0].input.data_type_id == "dt.road.bundle"
+    assert plan.tasks[0].input.data_source_id == "upload.bundle"
+    assert all(task.algorithm_id != "algo.transform.trajectory_to_road_candidate" for task in plan.tasks)
+
+
 def test_replan_increments_plan_revision() -> None:
     provider = CapturingProvider()
     planner = WorkflowPlanner(InMemoryKGRepository(), provider)

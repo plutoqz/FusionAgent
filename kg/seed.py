@@ -37,6 +37,18 @@ DATA_TYPES: Dict[str, DataTypeNode] = {
         geometry_type="line",
         description="Prepared road fusion input bundle.",
     ),
+    "dt.trajectory.raw": DataTypeNode(
+        type_id="dt.trajectory.raw",
+        theme="transportation",
+        geometry_type="line",
+        description="Reserved pretransform trajectory observations for future road candidate generation.",
+    ),
+    "dt.road.candidate": DataTypeNode(
+        type_id="dt.road.candidate",
+        theme="transportation",
+        geometry_type="line",
+        description="Reserved intermediate road candidates derived from trajectory pretransform.",
+    ),
     "dt.water.bundle": DataTypeNode(
         type_id="dt.water.bundle",
         theme="water",
@@ -106,6 +118,12 @@ TASKS: Dict[str, TaskNode] = {
         task_name="Vector Data Download",
         category="acquisition",
         description="Acquire vector data required by downstream fusion or enrichment tasks.",
+    ),
+    "task.trajectory_to_road": TaskNode(
+        task_id="task.trajectory_to_road",
+        task_name="Trajectory To Road Candidate",
+        category="transform",
+        description="Reserved seam for future trajectory-to-road candidate pretransform before road fusion.",
     ),
 }
 
@@ -283,6 +301,24 @@ ALGORITHMS: Dict[str, AlgorithmNode] = {
         metadata={
             "selection_profile": "preparation",
             "evidence_basis": "deterministic_transform",
+        },
+    ),
+    "algo.transform.trajectory_to_road_candidate": AlgorithmNode(
+        algo_id="algo.transform.trajectory_to_road_candidate",
+        algo_name="Trajectory To Road Candidate Reserved Seam",
+        input_types=["dt.trajectory.raw"],
+        output_type="dt.road.candidate",
+        task_type="transform",
+        tool_ref="builtin:trajectory_pretransform_reserved",
+        success_rate=0.0,
+        accuracy_score=0.0,
+        stability_score=1.0,
+        usage_mode="reserved",
+        metadata={
+            "selection_profile": "reserved_seam",
+            "evidence_basis": "phase4_transform_reservation",
+            "runtime_scope": "metadata_only",
+            "activation": "non_default",
         },
     ),
 }
@@ -939,4 +975,6 @@ OUTPUT_SCHEMA_POLICIES: Dict[str, OutputSchemaPolicy] = {
 
 CAN_TRANSFORM_TO: Dict[str, List[str]] = {
     "dt.raw.vector": ["dt.building.bundle", "dt.road.bundle", "dt.poi.bundle"],
+    "dt.trajectory.raw": ["dt.road.candidate"],
+    "dt.road.candidate": ["dt.road.bundle"],
 }

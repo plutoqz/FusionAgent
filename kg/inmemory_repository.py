@@ -220,6 +220,22 @@ class InMemoryKGRepository(KGRepository):
             records = [record for record in records if record.success is success]
         return list(records[:limit])
 
+    def _collect_upstream_transform_types(self, target_types: Set[str], max_depth: int = 3) -> Set[str]:
+        frontier = set(target_types)
+        discovered = set(target_types)
+        for _ in range(max(0, max_depth)):
+            next_frontier: Set[str] = set()
+            for source_type, dest_types in self.can_transform_to.items():
+                if source_type in discovered:
+                    continue
+                if any(dest in frontier for dest in dest_types):
+                    next_frontier.add(source_type)
+            if not next_frontier:
+                break
+            discovered.update(next_frontier)
+            frontier = next_frontier
+        return discovered
+
     def build_context(self, job_type: JobType, disaster_type: Optional[str]) -> KGContext:
         patterns = self.get_candidate_patterns(job_type=job_type, disaster_type=disaster_type, limit=3)
         algo_ids = {step.algorithm_id for p in patterns for step in p.steps}
@@ -227,6 +243,16 @@ class InMemoryKGRepository(KGRepository):
         parameter_specs = {algo_id: self.get_parameter_specs(algo_id) for algo_id in sorted(algorithms)}
         required_types = {step.input_data_type for pattern in patterns for step in pattern.steps}
         output_types = {step.output_data_type for pattern in patterns for step in pattern.steps}
+        upstream_types = self._collect_upstream_transform_types(required_types)
+        for algo in self.algorithms.values():
+            if algo.task_type != "transform":
+                continue
+            if algo.output_type not in upstream_types:
+                continue
+            if not any(input_type in upstream_types for input_type in algo.input_types):
+                continue
+            algorithms.setdefault(algo.algo_id, algo)
+            parameter_specs.setdefault(algo.algo_id, self.get_parameter_specs(algo.algo_id))
         sources: Dict[str, DataSourceNode] = {}
         for required_type in sorted(required_types):
             for source in self.get_candidate_data_sources(

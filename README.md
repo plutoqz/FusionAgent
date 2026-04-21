@@ -128,6 +128,12 @@ FusionAgent 当前明确区分：
 - runtime 侧现在也能在 local catalog 缺失时回退到 `SourceAssetService`，把官方 Geofabrik / Microsoft 数据下载、裁剪后接入 bundle 组装
 - `scripts/smoke_agentic_region.py` 提供了自然语言区域请求的标准本机冒烟入口，推荐用 Nairobi, Kenya 做验证
 
+### Phase 4.8：Trajectory-To-Road Seam Reservation
+
+- KG 已预留 `dt.trajectory.raw -> dt.road.candidate -> dt.road.bundle` 的 transform seam，用于后续 trajectory pretransform 研究
+- planner retrieval 现可暴露 `task.trajectory_to_road` 与 `algo.transform.trajectory_to_road_candidate` 等 metadata
+- 当前实现刻意保持为 reservation only：默认 road runtime 仍以 `dt.road.bundle` 为执行输入，不自动启用 trajectory ingestion 或 road candidate inference
+
 ### Phase 5：长期写回与学习闭环
 
 - 每次 run 都会写入紧凑版 `DurableLearningRecord`
@@ -187,6 +193,7 @@ FusionAgent 当前明确区分：
 - paper evidence 已冻结，但更强的 robustness / learning / operator-facing claim 仍受后续 phase gate 约束
 - search space 仍然集中在当前 `building`、`road`、`water` 与 bounded `poi` 范围
 - `water` 与 bounded `poi` 已进入 shared task-driven backbone，但不应被表述为已证明“任意新主题都能零成本扩展”
+- trajectory-to-road 当前仅完成 seam reservation，不应被表述为已支持真实轨迹摄取、地图匹配或 road candidate 推断
 - durable learning 仍是 first-pass 能力，不是完整 policy auto-tuning
 - operator-facing productization 目前仍是窄 API 层，不是完整前端产品
 - `raw.google.building` 与部分本地 reference / Excel 类输入仍需要人工准备，不在当前官方自动物化集合内

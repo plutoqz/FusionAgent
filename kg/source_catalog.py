@@ -176,6 +176,8 @@ def build_data_sources() -> List[DataSourceNode]:
             supported_types=[
                 "dt.building.bundle",
                 "dt.road.bundle",
+                "dt.trajectory.raw",
+                "dt.road.candidate",
                 "dt.water.bundle",
                 "dt.poi.bundle",
                 "dt.raw.vector",
@@ -193,6 +195,7 @@ def build_data_sources() -> List[DataSourceNode]:
                 "kind": "local",
                 "provider_family": "manual_upload",
                 "bundle_strategy": "operator_supplied",
+                "reserved_transform_inputs": ["dt.trajectory.raw", "dt.road.candidate"],
             },
         ),
         DataSourceNode(

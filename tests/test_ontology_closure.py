@@ -84,3 +84,12 @@ def test_poi_seed_records_exist() -> None:
     poi_source = next(source for source in DATA_SOURCES if source.source_id == "catalog.generic.poi")
     assert poi_source.supported_types == ["dt.poi.bundle"]
     assert poi_source.metadata["component_source_ids"] == ["raw.osm.poi", "raw.gns.poi"]
+
+
+def test_trajectory_to_road_seam_seed_records_exist() -> None:
+    assert "dt.trajectory.raw" in DATA_TYPES
+    assert "dt.road.candidate" in DATA_TYPES
+    assert "task.trajectory_to_road" in TASKS
+    assert "algo.transform.trajectory_to_road_candidate" in ALGORITHMS
+    assert "dt.trajectory.raw" in CAN_TRANSFORM_TO
+    assert CAN_TRANSFORM_TO["dt.trajectory.raw"] == ["dt.road.candidate"]
