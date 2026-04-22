@@ -22,7 +22,8 @@ class ScenarioRegistryService:
             return []
 
         records: List[Dict[str, Any]] = []
-        for line in self.index_path.read_text(encoding="utf-8").splitlines():
+        lines = self.index_path.read_text(encoding="utf-8").splitlines()
+        for line in reversed(lines):
             if not line.strip():
                 continue
             record = json.loads(line)

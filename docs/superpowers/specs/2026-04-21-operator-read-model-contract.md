@@ -61,7 +61,7 @@ Contract notes:
 
 - `runtime` exposes selected environment-derived operator signals only.
 - `recent_runs` is populated from the persisted single-run registry.
-- `recent_scenarios` is populated from the scenario registry.
+- `recent_scenarios` is populated from the scenario registry in recent-first order.
 - `evidence_gaps` is a first-class field for missing run or scenario evidence rather than an implicit failure hidden in logs.
 - `limit` bounds the number of recent run and scenario records returned.
 
@@ -73,7 +73,7 @@ Contract notes:
 
 ### Scenario Registry
 
-`services/scenario_registry_service.py` reads the scenario index under the configured scenario output root. The operator summary uses it for recent scenario visibility and for detecting whether scenario evidence exists at all.
+`services/scenario_registry_service.py` reads the scenario index under the configured scenario output root, returns newest records first, and powers recent scenario visibility plus scenario-evidence presence checks.
 
 ### Runtime Environment
 
