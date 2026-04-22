@@ -199,6 +199,22 @@ def test_readme_negated_agent_prototype_reference_is_not_opening(
     assert status["stale_readme_phrases"][str(readme)] == []
 
 
+def test_readme_historical_agent_prototype_heading_is_not_opening(
+    tmp_path: Path,
+) -> None:
+    readme = tmp_path / "README.en.md"
+    readme.write_text(
+        "Mature no-UI vector data fusion agent: reached.\n"
+        "## Historical agent prototype references",
+        encoding="utf-8",
+    )
+
+    status = collect_readme_stale_wording_status([readme])
+
+    assert status["readme_wording_passed"] is True
+    assert status["stale_readme_phrases"][str(readme)] == []
+
+
 def test_readme_heading_agent_prototype_reference_still_counts_as_opening(
     tmp_path: Path,
 ) -> None:

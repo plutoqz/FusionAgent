@@ -43,7 +43,14 @@ STALE_README_PHRASES = [
 ]
 
 STALE_README_OPENING_PATTERNS = [
-    re.compile(r"^\s{0,3}#{1,6}\s+.*\bagent prototype\b", re.IGNORECASE),
+    re.compile(
+        r"^\s{0,3}#{1,6}\s+"
+        r"(?:fusionagent|this project|this repository)\b\s+"
+        r"(?:is|remains)\b(?!\s+(?:no\b|not\b|never\b|no\s+longer\b))\s+"
+        r"(?:an?\s+)?(?:[\w-]+\s+){0,4}agent prototype\b"
+        r"(?:\s*(?:[.,:;!?]|$)|\s+(?:for|as|to|used\s+in)\b.*)$",
+        re.IGNORECASE,
+    ),
     re.compile(r"^\s{0,3}#{1,6}\s+.*智能体原型"),
 ]
 
