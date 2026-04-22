@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 from pathlib import Path
@@ -41,9 +42,22 @@ STALE_README_PHRASES = [
     "仅仅是原型",
 ]
 
-STALE_README_CONTEXT_PATTERNS = [
-    ("agent prototype opening", ["agent prototype"]),
-    ("agent prototype opening", ["智能体原型"]),
+STALE_README_OPENING_PATTERNS = [
+    re.compile(r"^\s{0,3}#{1,6}\s+.*\bagent prototype\b", re.IGNORECASE),
+    re.compile(r"^\s{0,3}#{1,6}\s+.*智能体原型"),
+]
+
+STALE_README_CURRENT_POSITIONING_PATTERNS = [
+    re.compile(
+        r"^(?!.*\b(?:archive|archived|historical|history|legacy|past)\b)"
+        r"(?!.*\bexamples?\b)"
+        r"^\s*(?:fusionagent|this project|this repository)\b\s+"
+        r"(?:is|remains)\b(?!\s+(?:no\b|not\b|never\b|no\s+longer\b))\s+"
+        r"(?:an?\s+)?(?:[\w-]+\s+){0,4}agent prototype\b"
+        r"(?:\s*(?:[.,:;!?]|$)|\s+(?:for|as|to|used\s+in)\b.*)$",
+        re.IGNORECASE,
+    ),
+    re.compile(r"^\s*(?:fusionagent|本项目|本仓库|该仓库)\s*(?:是|作为).*(?:智能体原型)"),
 ]
 
 README_MATURITY_MARKERS = [
@@ -53,6 +67,19 @@ README_MATURITY_MARKERS = [
     "No-UI mature vector data fusion agent: achieved",
     "FusionAgent can now run as a mature no-UI vector data fusion agent",
 ]
+
+
+def _is_stale_readme_opening(line: str) -> bool:
+    stripped_line = line.strip()
+    if not stripped_line or stripped_line.startswith(">"):
+        return False
+    return any(
+        pattern.search(stripped_line)
+        for pattern in (
+            STALE_README_OPENING_PATTERNS
+            + STALE_README_CURRENT_POSITIONING_PATTERNS
+        )
+    )
 
 
 def collect_static_maturity_status(required_files: list[Path]) -> dict[str, Any]:
@@ -76,9 +103,8 @@ def collect_readme_stale_wording_status(readme_files: list[Path]) -> dict[str, A
             for phrase in STALE_README_PHRASES
             if phrase.lower() in normalized_text
         ]
-        for label, patterns in STALE_README_CONTEXT_PATTERNS:
-            if any(pattern.lower() in normalized_text for pattern in patterns):
-                found.append(label)
+        if any(_is_stale_readme_opening(line) for line in text.splitlines()):
+            found.append("agent prototype opening")
         markers = [
             marker
             for marker in README_MATURITY_MARKERS
@@ -88,6 +114,9 @@ def collect_readme_stale_wording_status(readme_files: list[Path]) -> dict[str, A
         marker_matches[str(path)] = markers
 
     has_maturity_markers = any(marker_matches.values())
+    readme_repositioning_complete = bool(marker_matches) and all(
+        markers for markers in marker_matches.values()
+    )
     stale_wording_found = any(matches.values())
     readme_wording_passed = (
         not missing_files and (not has_maturity_markers or not stale_wording_found)
@@ -98,7 +127,7 @@ def collect_readme_stale_wording_status(readme_files: list[Path]) -> dict[str, A
         "readme_repositioning_status": (
             "enforced" if has_maturity_markers else "pending"
         ),
-        "readme_repositioning_complete": has_maturity_markers,
+        "readme_repositioning_complete": readme_repositioning_complete,
         "readme_wording_passed": readme_wording_passed,
     }
 

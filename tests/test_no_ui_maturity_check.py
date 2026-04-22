@@ -81,6 +81,41 @@ def test_readme_stale_wording_fails_when_maturity_markers_exist(
     assert status["stale_readme_phrases"][str(readme)] == ["prototype only"]
 
 
+def test_readme_repositioning_requires_all_checked_readmes_to_have_markers(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    present = tmp_path / "present.md"
+    readme_cn = tmp_path / "README.md"
+    readme_en = tmp_path / "README.en.md"
+    present.write_text("ok", encoding="utf-8")
+    readme_cn.write_text("这是中性说明，没有 maturity marker。", encoding="utf-8")
+    readme_en.write_text(
+        "Mature no-UI vector data fusion agent: reached.",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(
+        "scripts.run_no_ui_maturity_check.DEFAULT_REQUIRED_FILES",
+        [present],
+    )
+    monkeypatch.setattr(
+        "scripts.run_no_ui_maturity_check.README_FILES",
+        [readme_cn, readme_en],
+    )
+
+    status = collect_readme_stale_wording_status([readme_cn, readme_en])
+    summary = build_summary(run_tests=False, require_readme_repositioning=True)
+
+    assert status["readme_repositioning_complete"] is False
+    assert status["readme_maturity_markers"][str(readme_cn)] == []
+    assert status["readme_maturity_markers"][str(readme_en)] == [
+        "Mature no-UI vector data fusion agent: reached"
+    ]
+    assert summary["static"]["readme_repositioning_complete"] is False
+    assert summary["maturity_gate_passed"] is False
+    assert summary["passed"] is False
+
+
 def test_readme_opening_prototype_wording_fails_when_maturity_markers_exist(
     tmp_path: Path,
 ) -> None:
@@ -95,6 +130,124 @@ def test_readme_opening_prototype_wording_fails_when_maturity_markers_exist(
 
     assert status["readme_wording_passed"] is False
     assert status["readme_repositioning_status"] == "enforced"
+    assert status["stale_readme_phrases"][str(readme)] == [
+        "agent prototype opening"
+    ]
+
+
+def test_readme_historical_agent_prototype_reference_does_not_count_as_opening(
+    tmp_path: Path,
+) -> None:
+    readme = tmp_path / "README.en.md"
+    readme.write_text(
+        "Mature no-UI vector data fusion agent: reached.\n"
+        "Early drafts called it an agent prototype before the maturity work landed.",
+        encoding="utf-8",
+    )
+
+    status = collect_readme_stale_wording_status([readme])
+
+    assert status["readme_wording_passed"] is True
+    assert status["stale_readme_phrases"][str(readme)] == []
+
+
+def test_readme_subject_led_historical_prototype_reference_is_not_opening(
+    tmp_path: Path,
+) -> None:
+    readme = tmp_path / "README.en.md"
+    readme.write_text(
+        "Mature no-UI vector data fusion agent: reached.\n"
+        "This project was once described as an agent prototype during early exploration.",
+        encoding="utf-8",
+    )
+
+    status = collect_readme_stale_wording_status([readme])
+
+    assert status["readme_wording_passed"] is True
+    assert status["stale_readme_phrases"][str(readme)] == []
+
+
+def test_readme_archive_example_prototype_reference_is_not_opening(
+    tmp_path: Path,
+) -> None:
+    readme = tmp_path / "README.en.md"
+    readme.write_text(
+        "Mature no-UI vector data fusion agent: reached.\n"
+        "FusionAgent is an agent prototype used in the 2024 archive example.",
+        encoding="utf-8",
+    )
+
+    status = collect_readme_stale_wording_status([readme])
+
+    assert status["readme_wording_passed"] is True
+    assert status["stale_readme_phrases"][str(readme)] == []
+
+
+def test_readme_negated_agent_prototype_reference_is_not_opening(
+    tmp_path: Path,
+) -> None:
+    readme = tmp_path / "README.en.md"
+    readme.write_text(
+        "Mature no-UI vector data fusion agent: reached.\n"
+        "This project is no longer an agent prototype.",
+        encoding="utf-8",
+    )
+
+    status = collect_readme_stale_wording_status([readme])
+
+    assert status["readme_wording_passed"] is True
+    assert status["stale_readme_phrases"][str(readme)] == []
+
+
+def test_readme_heading_agent_prototype_reference_still_counts_as_opening(
+    tmp_path: Path,
+) -> None:
+    readme = tmp_path / "README.en.md"
+    readme.write_text(
+        "Mature no-UI vector data fusion agent: reached.\n"
+        "# FusionAgent is an agent prototype for disaster response workflows.",
+        encoding="utf-8",
+    )
+
+    status = collect_readme_stale_wording_status([readme])
+
+    assert status["readme_wording_passed"] is False
+    assert status["stale_readme_phrases"][str(readme)] == [
+        "agent prototype opening"
+    ]
+
+
+def test_readme_first_sentence_agent_prototype_reference_still_counts_as_opening(
+    tmp_path: Path,
+) -> None:
+    readme = tmp_path / "README.en.md"
+    readme.write_text(
+        "Mature no-UI vector data fusion agent: reached.\n"
+        "FusionAgent is an agent prototype for disaster response workflows.",
+        encoding="utf-8",
+    )
+
+    status = collect_readme_stale_wording_status([readme])
+
+    assert status["readme_wording_passed"] is False
+    assert status["stale_readme_phrases"][str(readme)] == [
+        "agent prototype opening"
+    ]
+
+
+def test_readme_used_in_production_agent_prototype_reference_counts_as_opening(
+    tmp_path: Path,
+) -> None:
+    readme = tmp_path / "README.en.md"
+    readme.write_text(
+        "Mature no-UI vector data fusion agent: reached.\n"
+        "FusionAgent is an agent prototype used in production workflows.",
+        encoding="utf-8",
+    )
+
+    status = collect_readme_stale_wording_status([readme])
+
+    assert status["readme_wording_passed"] is False
     assert status["stale_readme_phrases"][str(readme)] == [
         "agent prototype opening"
     ]
