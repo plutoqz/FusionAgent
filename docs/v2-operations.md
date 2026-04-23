@@ -27,6 +27,15 @@ Freeze the runtime wording to the following contract:
 
 The no-UI maturity path can generate lightweight GeoJSON previews from artifact bundles before any final dashboard exists. These previews are operator and future-UI assets; they do not replace the canonical shapefile artifact bundle.
 
+### System-Next Improvement Boundary
+
+The next system-improvement chain is controlled by:
+
+- [System-Next Improvement Review](./superpowers/specs/2026-04-23-system-next-improvement-review.md), which maps each review challenge to required evidence before claims can be promoted.
+- [Complexity Boundary Ledger](./superpowers/specs/2026-04-23-complexity-boundary-ledger.md), which separates core runtime proof from deferred or optional complexity.
+
+The authorized next additions are registered tool contracts, KG grounding reports, unsupported-intent rejection, token/latency telemetry, checkpoint recovery inspection, and ablation evidence. In runtime terms, that means a `ToolSpec` registry, per-step grounding artifacts, unsupported-request guards, run telemetry, and checkpoint or stale-run recovery scanning. These additions strengthen the current no-UI operating layer; they do not authorize production `7x24` operation wording, arbitrary off-domain request claims, final UI completion claims, external event-feed integration claims, live trajectory-to-road ingestion claims, or autonomous durable learning claims beyond bounded policy hints.
+
 ## Runtime Modes
 
 ### Local Fast Mode
@@ -77,6 +86,12 @@ Minimum evidence:
 - failing test names when red
 - for AOI work, the resolved place name and selected source id when available
 
+Focused system-next regression command:
+
+```powershell
+python -m pytest -q tests/test_tool_registry.py tests/test_plan_grounding_service.py tests/test_unsupported_intent_guard.py tests/test_run_telemetry_service.py tests/test_run_recovery_service.py tests/test_eval_kg_ablation.py
+```
+
 ### Tier 2: Golden-Case Harness
 
 Use this when you need an API-to-runtime closed loop without paying the cost of a real-data benchmark.
@@ -98,7 +113,7 @@ python scripts/scenario_eval_harness.py `
   --timeout 1200
 ```
 
-The checked-in scenario regression set now validates capability evidence in addition to the top-level phase. Building, road, and mixed execution cases require execution-level evidence such as `task_inputs_resolved`, `source_coverage`, and a minimum successful child-run count; water and bounded-POI cases currently use planner-level capability checks such as `aoi_resolved`, `kg_path_selected`, and `plan_validated` when local raw source materialization is not yet stable in the default fast-mode environment.
+The checked-in scenario regression set now validates capability evidence in addition to the top-level phase. Building, road, and mixed execution cases require execution-level evidence such as `task_inputs_resolved`, `source_coverage`, and a minimum successful child-run count; water and bounded POI cases currently use planner-level capability checks such as `aoi_resolved`, `kg_path_selected`, and `plan_validated` when local raw source materialization is not yet stable in the default fast-mode environment.
 
 Task 5 live scenario harness deferral record:
 
@@ -116,7 +131,7 @@ python scripts/scenario_eval_harness.py `
 
 - Deferred reason: `http://127.0.0.1:8000/api/v2/runtime` returned connection refused; local API was unavailable.
 - This deferral is not counted as a passing live scenario harness result.
-- Water and bounded-POI scenario capability checks were not upgraded to execution-level claims.
+- Water and bounded POI scenario capability checks were not upgraded to execution-level claims.
 
 ### Tier 3: Real-Data Benchmark
 
@@ -143,7 +158,7 @@ python scripts/freeze_paper_evidence.py `
 
 Track the matrix spec and frozen outputs under `docs/superpowers/specs/`.
 Do not track raw `runs/<run_id>/` directories or source caches; record their storage location inside the frozen JSON instead.
-Keep the water and bounded-POI extensibility notes explicit even though both now share the stable task-driven contract.
+Keep the water and bounded POI extensibility notes explicit even though both now share the stable task-driven contract.
 Do not describe the trajectory-to-road seam reservation as a live runtime ingestion path.
 
 ## Timeout Guidance
@@ -278,7 +293,7 @@ The v2 API now has a narrow but practical operator layer.
 - output-root order is `request.output_root`, then `GEOFUSION_SCENARIO_OUTPUT_ROOT`, then `E:\fyx\data\fusionagentTEST`
 - scenario output includes `scenario_summary.json`, `kg_path_trace.json`, `workflow_trace.json`, `source_coverage.json`, `evaluation.json`, and bilingual reports under `documents/scenario_report.zh.md` and `documents/scenario_report.en.md`
 - scenario evidence is additive; single-run `run.json`, `plan.json`, `validation.json`, `audit.jsonl`, and artifact bundles remain stable
-- scenario reports expose KG relationship chains, final workflow trace, source coverage and fallback evidence, data-fusion metrics, agentic metrics, and self-evolution evidence
+- scenario reports expose KG relationship chains, final workflow trace, source coverage and fallback evidence, data-fusion metrics, agentic metrics, and durable learning summary or policy-hint evidence
 
 The file inbox runner is an operations demo path, not a production event-feed integration. It proves that scenario requests can be triggered automatically from normalized event records while keeping external feed reliability out of this phase.
 

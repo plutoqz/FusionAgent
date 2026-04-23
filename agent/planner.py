@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import json
 import logging
+import time
 import uuid
+from threading import Lock
 from typing import Any, Dict, List, Optional
 
 from agent.parameter_binding import bind_plan_parameters
@@ -13,6 +15,7 @@ from llm.providers.base import LLMProvider
 from schemas.agent import RunTrigger, WorkflowPlan, WorkflowTask
 from schemas.fusion import JobType
 from services.artifact_registry import ArtifactRegistry
+from services.run_telemetry_service import estimate_json_size_bytes, normalize_llm_usage
 
 
 SYSTEM_PROMPT = """
@@ -27,12 +30,20 @@ Rules:
 """
 
 
+class _ProviderPlanningCallError(RuntimeError):
+    def __init__(self, cause: Exception, telemetry: Dict[str, Any]) -> None:
+        super().__init__(str(cause))
+        self.telemetry = telemetry
+        self.__cause__ = cause
+
+
 class WorkflowPlanner:
     def __init__(self, kg_repo: KGRepository, llm_provider: LLMProvider, artifact_registry: ArtifactRegistry | None = None) -> None:
         self.kg_repo = kg_repo
         self.llm_provider = llm_provider
         self.context_builder = PlanningContextBuilder(kg_repo, artifact_registry=artifact_registry)
         self.logger = logging.getLogger("geofusion.planner")
+        self._provider_call_lock = Lock()
 
     def create_plan(self, run_id: str, job_type: JobType, trigger: RunTrigger) -> WorkflowPlan:
         planning_context, selection_reason = self.context_builder.build(job_type=job_type, trigger=trigger)
@@ -40,16 +51,30 @@ class WorkflowPlanner:
         if not candidate_patterns:
             raise ValueError(f"No workflow pattern found for job_type={job_type.value}")
 
+        planning_telemetry: Dict[str, Any] | None = None
         try:
-            plan_payload = self.llm_provider.generate_workflow_plan(SYSTEM_PROMPT, planning_context)
+            plan_payload, planning_telemetry = self._generate_plan_payload(planning_context)
             plan = WorkflowPlan.model_validate(plan_payload)
             if not plan.tasks:
                 raise ValueError("LLM returned plan with no tasks.")
             plan.trigger = trigger
+            planning_source = "llm"
+        except _ProviderPlanningCallError as exc:
+            planning_telemetry = exc.telemetry
+            self.logger.warning("LLM planning failed (%s), fallback to top KG pattern.", exc)
+            top_pattern = self.kg_repo.get_candidate_patterns(job_type=job_type, disaster_type=trigger.disaster_type, limit=1)[0]
+            plan = self._build_skeleton_plan(top_pattern, trigger=trigger)
+            planning_source = "kg_fallback"
         except Exception as exc:  # noqa: BLE001
             self.logger.warning("LLM planning failed (%s), fallback to top KG pattern.", exc)
             top_pattern = self.kg_repo.get_candidate_patterns(job_type=job_type, disaster_type=trigger.disaster_type, limit=1)[0]
             plan = self._build_skeleton_plan(top_pattern, trigger=trigger)
+            planning_source = "kg_fallback"
+        if planning_telemetry is None:
+            planning_telemetry = self._build_planning_telemetry(
+                planning_context=planning_context,
+                started_at=time.perf_counter(),
+            )
 
         plan = self._finalize_plan(plan)
         plan = bind_plan_parameters(plan, self.kg_repo)
@@ -57,6 +82,9 @@ class WorkflowPlanner:
             planning_context=planning_context,
             selection_reason=selection_reason,
             revision=1,
+            planning_telemetry=planning_telemetry,
+            planning_source=planning_source,
+            existing_context=plan.context,
         )
         return plan
 
@@ -73,8 +101,9 @@ class WorkflowPlanner:
         planning_context["execution_hints"]["previous_plan"] = previous_plan.model_dump(mode="json")
         planning_context["execution_hints"]["failed_step"] = failed_step
         planning_context["execution_hints"]["error"] = error_message
+        planning_telemetry: Dict[str, Any] | None = None
         try:
-            payload = self.llm_provider.generate_workflow_plan(SYSTEM_PROMPT, planning_context)
+            payload, planning_telemetry = self._generate_plan_payload(planning_context)
             plan = WorkflowPlan.model_validate(payload)
             if not plan.tasks:
                 raise ValueError("LLM returned plan with no tasks.")
@@ -86,13 +115,32 @@ class WorkflowPlanner:
                 planning_context=planning_context,
                 selection_reason="replanned_after_failure",
                 revision=revision,
+                planning_telemetry=planning_telemetry,
+                planning_source="llm",
+                existing_context=plan.context,
                 failed_step=failed_step,
                 error_message=error_message,
             )
             return plan
+        except _ProviderPlanningCallError as exc:
+            planning_telemetry = exc.telemetry
+            self.logger.warning("Replan failed (%s), returning previous plan.", exc)
         except Exception as exc:  # noqa: BLE001
             self.logger.warning("Replan failed (%s), returning previous plan.", exc)
-            return previous_plan
+        if planning_telemetry is None:
+            planning_telemetry = self._build_planning_telemetry(
+                planning_context=planning_context,
+                started_at=time.perf_counter(),
+            )
+        return previous_plan.model_copy(
+            update={
+                "context": {
+                    **previous_plan.context,
+                    "failed_replan_telemetry": planning_telemetry,
+                }
+            },
+            deep=True,
+        )
 
     @staticmethod
     def _pattern_to_dict(pattern: WorkflowPatternNode) -> Dict[str, Any]:
@@ -172,6 +220,9 @@ class WorkflowPlanner:
         planning_context: Dict[str, Any],
         selection_reason: str,
         revision: int,
+        planning_telemetry: Dict[str, Any],
+        planning_source: str,
+        existing_context: Optional[Dict[str, Any]] = None,
         failed_step: Optional[int] = None,
         error_message: Optional[str] = None,
     ) -> Dict[str, Any]:
@@ -182,9 +233,51 @@ class WorkflowPlanner:
             "llm_provider": self.llm_provider.provider_name,
             "plan_revision": revision,
             "planning_mode": planning_context["intent"]["planning_mode"],
+            "planning_source": planning_source,
+            "planning_telemetry": planning_telemetry,
         }
+        if isinstance(existing_context, dict):
+            for key in ("pattern_id", "pattern_name", "source"):
+                value = existing_context.get(key)
+                if value is not None:
+                    normalized[key] = value
         if failed_step is not None:
             normalized["failed_step"] = failed_step
         if error_message is not None:
             normalized["error_message"] = error_message
         return normalized
+
+    def _reset_provider_telemetry(self) -> None:
+        self.llm_provider.last_usage = None
+        self.llm_provider.last_model = None
+
+    def _generate_plan_payload(self, planning_context: Dict[str, Any]) -> tuple[Dict[str, Any], Dict[str, Any]]:
+        with self._provider_call_lock:
+            self._reset_provider_telemetry()
+            started_at = time.perf_counter()
+            try:
+                payload = self.llm_provider.generate_workflow_plan(SYSTEM_PROMPT, planning_context)
+            except Exception as exc:  # noqa: BLE001
+                telemetry = self._build_planning_telemetry(
+                    planning_context=planning_context,
+                    started_at=started_at,
+                )
+                raise _ProviderPlanningCallError(exc, telemetry) from exc
+            telemetry = self._build_planning_telemetry(
+                planning_context=planning_context,
+                started_at=started_at,
+            )
+            return payload, telemetry
+
+    def _build_planning_telemetry(self, planning_context: Dict[str, Any], started_at: float) -> Dict[str, Any]:
+        elapsed_ms = max(0, int((time.perf_counter() - started_at) * 1000))
+        model = self.llm_provider.last_model
+        if model is None:
+            model = getattr(self.llm_provider, "model", None)
+        return {
+            "elapsed_ms": elapsed_ms,
+            "context_size_bytes": estimate_json_size_bytes(planning_context),
+            "provider": self.llm_provider.provider_name,
+            "model": model,
+            "llm_usage": normalize_llm_usage(self.llm_provider.last_usage),
+        }

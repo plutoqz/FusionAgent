@@ -8,6 +8,7 @@ import geopandas as gpd
 import pytest
 from shapely.geometry import box
 
+from agent.executor import ExecutionContext, WorkflowExecutor
 from schemas.agent import (
     RepairRecord,
     RunCreateRequest,
@@ -97,6 +98,7 @@ def _build_plan(
             "llm_provider": "mock",
             "plan_revision": revision,
             "planning_mode": "task_driven",
+            "planning_source": "llm",
         },
         tasks=[
             WorkflowTask(
@@ -115,6 +117,53 @@ def _build_plan(
         expected_output="building result",
         validation=ValidationReport(valid=True, inserted_transform_steps=0, issues=[]),
     )
+
+
+class _NoHealingKG:
+    def get_alternative_algorithms(self, *_args, **_kwargs):
+        return []
+
+    def get_algorithm(self, *_args, **_kwargs):
+        return None
+
+    def find_transform_path(self, *_args, **_kwargs):
+        return None
+
+
+def _seed_run_status(service: AgentRunService, run_id: str, request: RunCreateRequest) -> None:
+    run_dir = service.base_dir / run_id
+    (run_dir / "logs").mkdir(parents=True, exist_ok=True)
+    status = RunStatus(
+        run_id=run_id,
+        job_type=request.job_type,
+        trigger=request.trigger,
+        phase=RunPhase.running,
+        progress=40,
+        target_crs=request.target_crs or "EPSG:4326",
+        debug=request.debug,
+        error=None,
+        log_path=str(run_dir / "logs" / "run.log"),
+        plan_path=None,
+        validation_path=None,
+        audit_path=str(run_dir / "audit.jsonl"),
+        artifact=None,
+        decision_records=[],
+        artifact_reuse=None,
+        repair_records=[],
+        current_step=0,
+        attempt_no=0,
+        healing_summary={},
+        failure_summary=None,
+        planning_telemetry={},
+        plan_revision=0,
+        event_count=0,
+        last_event=None,
+        created_at=_iso_now_minus(),
+        started_at=_iso_now_minus(),
+        finished_at=None,
+    )
+    service._runs[run_id] = status
+    service._persist_status(status)
 
 
 def _build_auto_request(
@@ -307,6 +356,22 @@ def test_agent_run_service_allows_water_task_driven_auto_and_records_task_inputs
     assert latest is not None
     assert latest.phase == RunPhase.succeeded
     assert any(event.kind == "task_inputs_resolved" for event in service.get_audit_events(status.run_id))
+
+
+def test_agent_run_service_rejects_unsupported_intent_before_creating_run_dirs(tmp_path: Path) -> None:
+    service = AgentRunService(base_dir=tmp_path / "runs")
+    existing_children = sorted(path.name for path in service.base_dir.iterdir())
+
+    with pytest.raises(ValueError, match="OFF_DOMAIN_REQUEST"):
+        service.create_run(
+            request=_build_auto_request(content="请融合建筑数据，同时给我某国家GDP数据"),
+            osm_zip_name=None,
+            osm_zip_bytes=None,
+            ref_zip_name=None,
+            ref_zip_bytes=None,
+        )
+
+    assert sorted(path.name for path in service.base_dir.iterdir()) == existing_children
 
 
 def test_agent_run_service_water_task_driven_auto_uses_real_shared_acquisition_chain(
@@ -654,6 +719,7 @@ def test_agent_run_service_updates_status_and_records_feedback(tmp_path: Path, m
             "llm_provider": "mock",
             "plan_revision": 1,
             "planning_mode": "task_driven",
+            "planning_source": "llm",
         },
         tasks=[
             WorkflowTask(
@@ -765,6 +831,7 @@ def test_agent_run_service_updates_status_and_records_feedback(tmp_path: Path, m
     assert plan_created.details["effective_parameters"]["1"]["match_similarity_threshold"] == 0.5
     assert plan_created.details["effective_parameters"]["1"]["one_to_one_min_overlap_similarity"] == 0.3
     assert plan_created.details["planning_mode"] == "task_driven"
+    assert plan_created.details["planning_source"] == "llm"
     assert plan_created.details["profile_source"] == "default_task"
     assert plan_created.details["task_bundle"]["bundle_id"] == "task_bundle.direct_request"
     registry_path = (tmp_path / "runs" / "artifact_registry.json")
@@ -1711,6 +1778,243 @@ def test_agent_run_service_replans_after_execution_failure(tmp_path: Path, monke
     ]
     assert audit_events[-1].kind == "run_succeeded"
     assert audit_events[-1].plan_revision == 2
+
+
+def test_agent_run_service_copies_planning_telemetry_to_status_and_audit(tmp_path: Path, monkeypatch) -> None:
+    service = AgentRunService(base_dir=tmp_path / "runs")
+
+    osm_shp = tmp_path / "osm.shp"
+    ref_shp = tmp_path / "ref.shp"
+    fused_shp = tmp_path / "fused.shp"
+    artifact_zip = tmp_path / "artifact.zip"
+    for path in [osm_shp, ref_shp, fused_shp]:
+        path.write_text("dummy", encoding="utf-8")
+    artifact_zip.write_bytes(b"zip")
+
+    plan = _build_plan(workflow_id="wf_telemetry", revision=1)
+    plan.context["planning_telemetry"] = {
+        "elapsed_ms": 12,
+        "context_size_bytes": 345,
+        "provider": "capturing",
+        "model": "telemetry-model",
+        "llm_usage": {
+            "prompt_tokens": 10,
+            "completion_tokens": 4,
+            "total_tokens": 14,
+        },
+    }
+
+    monkeypatch.setattr("services.agent_run_service.validate_zip_has_shapefile", lambda *_args, **_kwargs: osm_shp)
+    monkeypatch.setattr(service.planner, "create_plan", lambda **_kwargs: plan.model_copy(deep=True))
+    monkeypatch.setattr(service.validator, "validate_and_repair", lambda input_plan: input_plan)
+    monkeypatch.setattr(service.executor, "execute_plan", lambda **_kwargs: fused_shp)
+    monkeypatch.setattr("services.agent_run_service.zip_shapefile_bundle", lambda *_args, **_kwargs: artifact_zip)
+
+    status = service.create_run(
+        request=RunCreateRequest(
+            job_type=JobType.building,
+            trigger=RunTrigger(type=RunTriggerType.user_query, content="building"),
+            target_crs="EPSG:32643",
+            field_mapping={},
+            debug=False,
+        ),
+        osm_zip_name="osm.zip",
+        osm_zip_bytes=_write_dummy_zip(tmp_path / "osm.zip"),
+        ref_zip_name="ref.zip",
+        ref_zip_bytes=_write_dummy_zip(tmp_path / "ref.zip"),
+    )
+
+    latest = service.get_run(status.run_id)
+    assert latest is not None
+    assert latest.planning_telemetry == plan.context["planning_telemetry"]
+    audit_events = service.get_audit_events(status.run_id)
+    plan_created = next(event for event in audit_events if event.kind == "plan_created")
+    assert plan_created.details["planning_telemetry"] == plan.context["planning_telemetry"]
+    assert plan_created.details["planning_source"] == "llm"
+
+
+def test_workflow_executor_emits_step_lifecycle_events_for_executable_tasks(tmp_path: Path) -> None:
+    output_path = tmp_path / "fused.shp"
+    output_path.write_text("dummy", encoding="utf-8")
+    plan = _build_plan(workflow_id="wf_step_callback", revision=1)
+    plan.tasks.insert(
+        0,
+        WorkflowTask(
+            step=0,
+            name="reserved_transform",
+            description="reserved transform",
+            algorithm_id="algo.transform.trajectory_to_road_candidate",
+            input=WorkflowTaskInput(data_type_id="dt.trajectory.raw", data_source_id="catalog.trajectory", parameters={}),
+            output=WorkflowTaskOutput(data_type_id="dt.road.candidate", description=""),
+            depends_on=[],
+            is_transform=True,
+            kg_validated=True,
+            alternatives=[],
+        ),
+    )
+    executor = WorkflowExecutor(
+        _NoHealingKG(),
+        algorithm_handlers={"algo.fusion.building.v1": lambda _context: output_path},
+    )
+    context = ExecutionContext(
+        run_id="run-step-callback",
+        job_type=JobType.building,
+        osm_shp=tmp_path / "osm.shp",
+        ref_shp=tmp_path / "ref.shp",
+        output_dir=tmp_path,
+        target_crs="EPSG:32643",
+    )
+    events: list[dict[str, object]] = []
+
+    result = executor.execute_plan(plan=plan, context=context, repair_records=[], on_step_event=events.append)
+
+    assert result == output_path
+    assert [event["status"] for event in events] == ["started", "succeeded"]
+    assert all(event["step"] == 1 for event in events)
+    assert all(event["algorithm_id"] == "algo.fusion.building.v1" for event in events)
+    assert all(event["data_source_id"] == "upload.bundle" for event in events)
+
+
+def test_workflow_executor_emits_step_failed_before_final_step_error(tmp_path: Path) -> None:
+    plan = _build_plan(workflow_id="wf_step_failure_callback", revision=1)
+    plan.tasks[0].alternatives = []
+
+    def failing_handler(_context):
+        raise RuntimeError("primary failed")
+
+    executor = WorkflowExecutor(
+        _NoHealingKG(),
+        algorithm_handlers={"algo.fusion.building.v1": failing_handler},
+    )
+    context = ExecutionContext(
+        run_id="run-step-failure-callback",
+        job_type=JobType.building,
+        osm_shp=tmp_path / "osm.shp",
+        ref_shp=tmp_path / "ref.shp",
+        output_dir=tmp_path,
+        target_crs="EPSG:32643",
+    )
+    events: list[dict[str, object]] = []
+
+    with pytest.raises(RuntimeError, match="Task failed after healing strategies"):
+        executor.execute_plan(plan=plan, context=context, repair_records=[], on_step_event=events.append)
+
+    assert [event["status"] for event in events] == ["started", "failed"]
+    assert events[-1]["step"] == 1
+    assert events[-1]["algorithm_id"] == "algo.fusion.building.v1"
+    assert events[-1]["data_source_id"] == "upload.bundle"
+    assert events[-1]["error"] == "RuntimeError: primary failed"
+
+
+def test_execution_stage_writes_step_started_and_succeeded_audit_events(tmp_path: Path, monkeypatch) -> None:
+    service = AgentRunService(base_dir=tmp_path / "runs")
+    run_id = "run-step-audit-success"
+    request = RunCreateRequest(
+        job_type=JobType.building,
+        trigger=RunTrigger(type=RunTriggerType.user_query, content="building"),
+        target_crs="EPSG:32643",
+        field_mapping={},
+        debug=False,
+    )
+    _seed_run_status(service, run_id, request)
+
+    plan = _build_plan(workflow_id="wf_step_audit_success", revision=1)
+    osm_shp = tmp_path / "osm.shp"
+    ref_shp = tmp_path / "ref.shp"
+    fused_shp = tmp_path / "fused.shp"
+    for path in [osm_shp, ref_shp, fused_shp]:
+        path.write_text("dummy", encoding="utf-8")
+
+    monkeypatch.setattr("services.agent_run_service.validate_zip_has_shapefile", lambda zip_path, *_args, **_kwargs: osm_shp if Path(zip_path).name.startswith("osm") else ref_shp)
+
+    def fake_execute_plan(*, plan, context, repair_records, on_step_event):
+        task = plan.tasks[0]
+        payload = {
+            "status": "started",
+            "step": task.step,
+            "algorithm_id": task.algorithm_id,
+            "data_source_id": task.input.data_source_id,
+        }
+        on_step_event(payload)
+        on_step_event({**payload, "status": "succeeded", "effective_algorithm_id": "algo.fusion.building.safe"})
+        return fused_shp
+
+    monkeypatch.setattr(service.executor, "execute_plan", fake_execute_plan)
+
+    service.run_execution_stage(
+        run_id=run_id,
+        request=request,
+        plan=plan,
+        osm_zip_path=tmp_path / "osm.zip",
+        ref_zip_path=tmp_path / "ref.zip",
+        intermediate_dir=tmp_path / "intermediate",
+        output_dir=tmp_path / "output",
+        repair_records=[],
+    )
+
+    step_events = [event for event in service.get_audit_events(run_id) if event.kind.startswith("step_")]
+    assert [event.kind for event in step_events] == ["step_started", "step_succeeded"]
+    assert [event.current_step for event in step_events] == [1, 1]
+    assert step_events[0].details == {
+        "status": "started",
+        "step": 1,
+        "algorithm_id": "algo.fusion.building.v1",
+        "data_source_id": "upload.bundle",
+    }
+    assert step_events[1].details["effective_algorithm_id"] == "algo.fusion.building.safe"
+
+
+def test_execution_stage_writes_step_failed_audit_event_before_raising(tmp_path: Path, monkeypatch) -> None:
+    service = AgentRunService(base_dir=tmp_path / "runs")
+    run_id = "run-step-audit-failure"
+    request = RunCreateRequest(
+        job_type=JobType.building,
+        trigger=RunTrigger(type=RunTriggerType.user_query, content="building"),
+        target_crs="EPSG:32643",
+        field_mapping={},
+        debug=False,
+    )
+    _seed_run_status(service, run_id, request)
+
+    plan = _build_plan(workflow_id="wf_step_audit_failure", revision=1)
+    plan.tasks[0].alternatives = []
+    osm_shp = tmp_path / "osm.shp"
+    ref_shp = tmp_path / "ref.shp"
+    for path in [osm_shp, ref_shp]:
+        path.write_text("dummy", encoding="utf-8")
+
+    monkeypatch.setattr("services.agent_run_service.validate_zip_has_shapefile", lambda zip_path, *_args, **_kwargs: osm_shp if Path(zip_path).name.startswith("osm") else ref_shp)
+
+    service.executor = WorkflowExecutor(
+        _NoHealingKG(),
+        algorithm_handlers={
+            "algo.fusion.building.v1": lambda _context: (_ for _ in ()).throw(RuntimeError("primary failed"))
+        },
+    )
+
+    with pytest.raises(RuntimeError, match="Task failed after healing strategies"):
+        service.run_execution_stage(
+            run_id=run_id,
+            request=request,
+            plan=plan,
+            osm_zip_path=tmp_path / "osm.zip",
+            ref_zip_path=tmp_path / "ref.zip",
+            intermediate_dir=tmp_path / "intermediate",
+            output_dir=tmp_path / "output",
+            repair_records=[],
+        )
+
+    audit_events = service.get_audit_events(run_id)
+    step_failed = next(event for event in audit_events if event.kind == "step_failed")
+    assert step_failed.current_step == 1
+    assert step_failed.details == {
+        "status": "failed",
+        "step": 1,
+        "algorithm_id": "algo.fusion.building.v1",
+        "data_source_id": "upload.bundle",
+        "error": "RuntimeError: primary failed",
+    }
+    assert not any(event.kind == "execution_completed" for event in audit_events)
 
 
 def test_task_driven_replan_refreshes_inputs_when_source_changes(tmp_path: Path, monkeypatch) -> None:

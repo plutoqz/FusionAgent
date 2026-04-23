@@ -45,6 +45,8 @@ class OpenAICompatibleProvider(LLMProvider):
         return cls(api_key=api_key, model=model, base_url=base_url, timeout_sec=timeout_sec)
 
     def generate_workflow_plan(self, system_prompt: str, context: Dict[str, Any]) -> Dict[str, Any]:
+        self.last_usage = None
+        self.last_model = self.model
         endpoint = f"{self.base_url}/chat/completions"
         payload = {
             "model": self.model,
@@ -77,5 +79,7 @@ class OpenAICompatibleProvider(LLMProvider):
             raise RuntimeError(f"LLM request failed: {exc}") from exc
 
         payload_resp = json.loads(body)
+        self.last_usage = payload_resp.get("usage")
+        self.last_model = str(payload_resp.get("model") or self.model)
         content = payload_resp["choices"][0]["message"]["content"]
         return _extract_json_block(content)

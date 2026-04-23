@@ -10,7 +10,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
 from threading import Lock
-from typing import Dict, List, Optional
+from typing import Any, Dict, List, Optional
 
 from agent.policy import CandidateScoreInput, PolicyEngine
 from agent.executor import ExecutionContext, WorkflowExecutor
@@ -40,7 +40,10 @@ from services.artifact_reuse_service import ArtifactReuseService, ReuseResult
 from services.aoi_resolution_service import AOIResolutionService, NominatimGeocoder, ResolvedAOI
 from services.input_acquisition_service import InputAcquisitionService, ResolvedRunInputs
 from services.local_bundle_catalog import LocalBundleCatalogProvider
+from services.plan_grounding_service import ensure_plan_grounding_report
 from services.raw_vector_source_service import RawVectorSourceService
+from services.run_recovery_service import collect_recoverable_runs
+from services.unsupported_intent_guard import classify_unsupported_intent
 from utils.crs import normalize_target_crs, resolve_target_crs
 from utils.shp_zip import validate_zip_has_shapefile, zip_shapefile_bundle
 
@@ -111,6 +114,10 @@ class AgentRunService:
         ref_zip_name: str | None,
         ref_zip_bytes: bytes | None,
     ) -> RunStatus:
+        issues = classify_unsupported_intent(request.trigger.content, job_type=request.job_type)
+        if issues:
+            raise ValueError(f"Unsupported intent: {json.dumps(issues, ensure_ascii=False)}")
+
         run_id = uuid.uuid4().hex
         run_dir = self.base_dir / run_id
         input_dir = run_dir / "input"
@@ -136,6 +143,7 @@ class AgentRunService:
             raise ValueError(f"Unsupported input strategy: {request.input_strategy}")
         self._persist_request(run_dir / "request.json", request)
 
+        created_at = _utc_now()
         status = RunStatus(
             run_id=run_id,
             job_type=request.job_type,
@@ -157,10 +165,13 @@ class AgentRunService:
             attempt_no=0,
             healing_summary={},
             failure_summary=None,
+            planning_telemetry={},
             plan_revision=0,
             event_count=0,
             last_event=None,
-            created_at=_utc_now(),
+            checkpoint=self._checkpoint(stage="queued", plan_revision=0),
+            created_at=created_at,
+            updated_at=created_at,
             started_at=None,
             finished_at=None,
         )
@@ -233,6 +244,7 @@ class AgentRunService:
                 error=None,
                 failure_summary=None,
                 current_step=0,
+                checkpoint=self._checkpoint(stage="planning", plan_revision=0, current_step=0),
                 event_kind="run_started",
                 event_message=f"Run started for job_type={request.job_type.value}.",
             )
@@ -285,6 +297,12 @@ class AgentRunService:
                     failure_summary=None,
                     error=None,
                     plan_revision=self._extract_plan_revision(plan),
+                    checkpoint=self._checkpoint(
+                        stage="completed",
+                        plan_revision=self._extract_plan_revision(plan),
+                        current_step=0,
+                        attempt_no=self._max_attempt_no(repair_records),
+                    ),
                     event_kind="run_succeeded",
                     event_message=f"Run completed successfully via {reuse_result.mode} artifact reuse.",
                 )
@@ -359,6 +377,12 @@ class AgentRunService:
                             failure_summary=self._build_failure_summary(failure_message, repair_records),
                             plan_revision=current_revision,
                             append_decision_record=replan_decision,
+                            checkpoint=self._checkpoint(
+                                stage="healing",
+                                plan_revision=current_revision,
+                                current_step=failed_step,
+                                attempt_no=self._max_attempt_no(repair_records),
+                            ),
                             event_kind="replan_rejected",
                             event_message="Execution failed and policy selected fail (replan unavailable).",
                             event_details={
@@ -385,6 +409,13 @@ class AgentRunService:
                         failure_summary=self._build_failure_summary(failure_message, repair_records),
                         plan_revision=current_revision,
                         append_decision_record=replan_decision,
+                        checkpoint=self._checkpoint(
+                            stage="healing",
+                            resume_stage="replanning",
+                            plan_revision=current_revision,
+                            current_step=failed_step,
+                            attempt_no=self._max_attempt_no(repair_records),
+                        ),
                         event_kind="replan_requested",
                         event_message="Execution failed after exhausting repair strategies; requesting replanning.",
                         event_details={
@@ -429,6 +460,13 @@ class AgentRunService:
                         healing_summary=self._build_healing_summary(repair_records),
                         failure_summary=self._build_failure_summary(failure_message, repair_records),
                         plan_revision=replanned_revision,
+                        checkpoint=self._checkpoint(
+                            stage="healing",
+                            resume_stage="validation",
+                            plan_revision=replanned_revision,
+                            current_step=failed_step,
+                            attempt_no=self._max_attempt_no(repair_records),
+                        ),
                         event_kind="replan_applied",
                         event_message=f"Applied replanned workflow revision {replanned_revision}.",
                         event_details={"failed_step": failed_step, "previous_revision": current_revision},
@@ -482,6 +520,12 @@ class AgentRunService:
                 failure_summary=None,
                 error=None,
                 plan_revision=self._extract_plan_revision(plan),
+                checkpoint=self._checkpoint(
+                    stage="completed",
+                    plan_revision=self._extract_plan_revision(plan),
+                    current_step=self._count_executable_steps(plan),
+                    attempt_no=self._max_attempt_no(repair_records),
+                ),
                 event_kind="run_succeeded",
                 event_message="Run completed successfully and artifact is ready.",
             )
@@ -502,6 +546,12 @@ class AgentRunService:
                 error=err,
                 current_step=self._infer_failed_step(repair_records),
                 plan_revision=self._extract_plan_revision(plan),
+                checkpoint=self._checkpoint(
+                    stage="failed",
+                    plan_revision=self._extract_plan_revision(plan),
+                    current_step=self._infer_failed_step(repair_records),
+                    attempt_no=self._max_attempt_no(repair_records),
+                ),
                 event_kind="run_failed",
                 event_message="Run failed.",
                 event_details={"error": err},
@@ -529,6 +579,7 @@ class AgentRunService:
                     run_id,
                     RunPhase.planning,
                     progress=12,
+                    checkpoint=self._checkpoint(stage="planning"),
                     event_kind="aoi_resolved",
                     event_message=f"Resolved AOI for {resolved_aoi.display_name}.",
                     event_details={
@@ -546,6 +597,7 @@ class AgentRunService:
                     run_id,
                     RunPhase.planning,
                     progress=12,
+                    checkpoint=self._checkpoint(stage="planning"),
                     event_kind="aoi_resolution_failed",
                     event_message="AOI resolution failed before planning.",
                     event_details={
@@ -570,6 +622,7 @@ class AgentRunService:
             RunPhase.planning,
             progress=14,
             target_crs=effective_target_crs,
+            checkpoint=self._checkpoint(stage="planning"),
             event_kind="target_crs_resolved",
             event_message=f"Resolved target CRS {effective_target_crs}.",
             event_details={
@@ -591,15 +644,21 @@ class AgentRunService:
                 plan.context = {**plan.context, "intent": intent}
         planning_decisions = self._build_planning_decisions(plan)
         artifact_reuse = self._build_artifact_reuse_decision(plan)
+        grounding_report = ensure_plan_grounding_report(plan)
+        planning_telemetry = dict(plan.context.get("planning_telemetry") or {})
         plan_path = self._plan_path(run_id)
         self._persist_plan(plan_path, plan)
         event_details = {
             "workflow_id": plan.workflow_id,
+            "grounded": grounding_report["grounded"],
+            "grounding_score": grounding_report["grounding_score"],
+            "planning_telemetry": planning_telemetry,
             "effective_parameters": self._extract_effective_parameters(plan),
             "selected_decisions": {
                 decision.decision_type: decision.selected_id for decision in planning_decisions
             },
             "planning_mode": plan.context.get("planning_mode"),
+            "planning_source": plan.context.get("planning_source"),
             "profile_source": plan.context.get("intent", {}).get("profile_source"),
             "task_bundle": plan.context.get("intent", {}).get("task_bundle"),
         }
@@ -617,6 +676,8 @@ class AgentRunService:
             plan_revision=self._extract_plan_revision(plan),
             decision_records=planning_decisions,
             artifact_reuse=artifact_reuse,
+            planning_telemetry=planning_telemetry,
+            checkpoint=self._checkpoint(stage="validation", plan_revision=self._extract_plan_revision(plan)),
             event_kind="plan_created",
             event_message=f"Workflow plan revision {self._extract_plan_revision(plan)} created.",
             event_details=event_details,
@@ -636,6 +697,7 @@ class AgentRunService:
             plan_path=str(plan_path),
             validation_path=str(validation_path),
             plan_revision=self._extract_plan_revision(validated),
+            checkpoint=self._checkpoint(stage="validation", plan_revision=self._extract_plan_revision(validated)),
             event_kind="plan_validated",
             event_message=f"Workflow plan revision {self._extract_plan_revision(validated)} validated.",
             event_details={
@@ -673,7 +735,35 @@ class AgentRunService:
             debug=request.debug,
             alternative_data_sources=self._extract_alternative_sources(plan),
         )
-        fused_shp = self.executor.execute_plan(plan=plan, context=context, repair_records=repair_records)
+        self._update_status(
+            run_id,
+            RunPhase.running,
+            progress=55,
+            repair_records=repair_records,
+            current_step=0,
+            attempt_no=self._max_attempt_no(repair_records),
+            healing_summary=self._build_healing_summary(repair_records),
+            plan_revision=self._extract_plan_revision(plan),
+            checkpoint=self._checkpoint(
+                stage="execution",
+                plan_revision=self._extract_plan_revision(plan),
+                current_step=0,
+                attempt_no=self._max_attempt_no(repair_records),
+            ),
+            event_kind="execution_started",
+            event_message="Execution stage started.",
+        )
+        fused_shp = self.executor.execute_plan(
+            plan=plan,
+            context=context,
+            repair_records=repair_records,
+            on_step_event=lambda payload: self._record_execution_step_event(
+                run_id=run_id,
+                plan=plan,
+                repair_records=repair_records,
+                payload=payload,
+            ),
+        )
         self._update_status(
             run_id,
             RunPhase.running,
@@ -683,12 +773,60 @@ class AgentRunService:
             attempt_no=self._max_attempt_no(repair_records),
             healing_summary=self._build_healing_summary(repair_records),
             plan_revision=self._extract_plan_revision(plan),
+            checkpoint=self._checkpoint(
+                stage="execution",
+                plan_revision=self._extract_plan_revision(plan),
+                current_step=self._count_executable_steps(plan),
+                attempt_no=self._max_attempt_no(repair_records),
+            ),
             event_kind="execution_completed",
             event_message="Execution stage completed and produced an output artifact.",
             event_details={"repair_count": len(repair_records)},
         )
         self._persist_plan(self._plan_path(run_id), plan)
         return fused_shp, repair_records
+
+    def _record_execution_step_event(
+        self,
+        *,
+        run_id: str,
+        plan: WorkflowPlan,
+        repair_records: List[RepairRecord],
+        payload: Dict[str, object],
+    ) -> None:
+        raw_status = str(payload.get("status") or "").strip().lower()
+        if raw_status not in {"started", "succeeded", "failed"}:
+            return
+        step = payload.get("step")
+        current_step = int(step) if isinstance(step, int) else None
+        event_details = dict(payload)
+        if raw_status == "failed" and not str(event_details.get("error") or "").strip():
+            event_details["error"] = self._summarize_step_failure(
+                repair_records=repair_records,
+                current_step=current_step,
+            )
+        if raw_status == "failed":
+            event_message = f"Execution step failed: step={current_step}; error={event_details['error']}."
+        else:
+            event_message = f"Execution step {raw_status}: step={current_step}."
+        self._update_status(
+            run_id,
+            RunPhase.running,
+            repair_records=repair_records,
+            current_step=current_step,
+            attempt_no=self._max_attempt_no(repair_records),
+            healing_summary=self._build_healing_summary(repair_records),
+            plan_revision=self._extract_plan_revision(plan),
+            checkpoint=self._checkpoint(
+                stage="execution",
+                plan_revision=self._extract_plan_revision(plan),
+                current_step=current_step,
+                attempt_no=self._max_attempt_no(repair_records),
+            ),
+            event_kind=f"step_{raw_status}",
+            event_message=event_message,
+            event_details=event_details,
+        )
 
     def _resolve_execution_inputs(
         self,
@@ -760,6 +898,7 @@ class AgentRunService:
                 RunPhase.running,
                 progress=max(0, progress - 3),
                 plan_revision=self._extract_plan_revision(plan),
+                checkpoint=self._checkpoint(stage="execution", plan_revision=self._extract_plan_revision(plan)),
                 event_kind="source_coverage_checked",
                 event_message="Source coverage was checked for task-driven inputs.",
                 event_details={
@@ -774,6 +913,7 @@ class AgentRunService:
                 RunPhase.running,
                 progress=max(0, progress - 2),
                 plan_revision=self._extract_plan_revision(plan),
+                checkpoint=self._checkpoint(stage="execution", plan_revision=self._extract_plan_revision(plan)),
                 event_kind="source_fallback_selected",
                 event_message="Selected fallback source after empty AOI coverage.",
                 event_details={
@@ -787,6 +927,7 @@ class AgentRunService:
                 RunPhase.running,
                 progress=max(0, progress - 1),
                 plan_revision=self._extract_plan_revision(plan),
+                checkpoint=self._checkpoint(stage="execution", plan_revision=self._extract_plan_revision(plan)),
                 event_kind="source_clipped",
                 event_message="Source bundle was clipped to the requested AOI.",
                 event_details={
@@ -799,6 +940,7 @@ class AgentRunService:
             RunPhase.running,
             progress=max(0, progress - 1),
             plan_revision=self._extract_plan_revision(plan),
+            checkpoint=self._checkpoint(stage="execution", plan_revision=self._extract_plan_revision(plan)),
             event_kind="input_bundle_created",
             event_message="Input bundle was created for execution.",
             event_details={
@@ -812,6 +954,7 @@ class AgentRunService:
             RunPhase.running,
             progress=progress,
             plan_revision=self._extract_plan_revision(plan),
+            checkpoint=self._checkpoint(stage="execution", plan_revision=self._extract_plan_revision(plan)),
             event_kind="task_inputs_resolved",
             event_message=message,
             event_details=event_details,
@@ -956,6 +1099,12 @@ class AgentRunService:
             events.append(RunEvent.model_validate(json.loads(raw)))
         return events
 
+    def collect_recoverable_runs(self, stale_after_seconds: int = 300) -> list[dict[str, Any]]:
+        return collect_recoverable_runs(
+            runs_root=self.base_dir,
+            stale_after_seconds=stale_after_seconds,
+        )
+
     def _dispatch_run(
         self,
         run_id: str,
@@ -1082,7 +1231,9 @@ class AgentRunService:
         attempt_no: Optional[int] = None,
         healing_summary: Optional[Dict[str, object]] = None,
         failure_summary: Optional[str] = None,
+        planning_telemetry: Optional[Dict[str, object]] = None,
         plan_revision: Optional[int] = None,
+        checkpoint: Optional[Dict[str, object]] = None,
         event_kind: Optional[str] = None,
         event_message: Optional[str] = None,
         event_details: Optional[Dict[str, object]] = None,
@@ -1093,6 +1244,7 @@ class AgentRunService:
         with self._lock:
             current = self._runs[run_id]
             previous_phase = current.phase
+            status_updated_at = _utc_now()
             current.phase = phase
             if progress is not None:
                 current.progress = progress
@@ -1126,11 +1278,16 @@ class AgentRunService:
                 current.healing_summary = healing_summary
             if failure_summary is not None or phase == RunPhase.succeeded:
                 current.failure_summary = failure_summary
+            if planning_telemetry is not None:
+                current.planning_telemetry = dict(planning_telemetry)
             if plan_revision is not None:
                 current.plan_revision = plan_revision
+            if checkpoint is not None:
+                current.checkpoint = dict(checkpoint)
+            current.updated_at = status_updated_at
             if event_kind or phase != previous_phase:
                 event = RunEvent(
-                    timestamp=_utc_now(),
+                    timestamp=status_updated_at,
                     kind=event_kind or "status_updated",
                     phase=current.phase,
                     message=event_message or f"Run phase updated to {current.phase.value}.",
@@ -1166,6 +1323,7 @@ class AgentRunService:
 
     @staticmethod
     def _persist_plan(path: Path, plan: WorkflowPlan) -> None:
+        ensure_plan_grounding_report(plan)
         payload = json.dumps(plan.model_dump(mode="json"), ensure_ascii=False, indent=2)
         path.write_text(payload, encoding="utf-8")
         revision = AgentRunService._extract_plan_revision(plan)
@@ -1185,6 +1343,37 @@ class AgentRunService:
 
     def _audit_path(self, run_id: str) -> Path:
         return self.base_dir / run_id / "audit.jsonl"
+
+    @staticmethod
+    def _checkpoint(
+        *,
+        stage: str,
+        resume_stage: Optional[str] = None,
+        plan_revision: Optional[int] = None,
+        current_step: Optional[int] = None,
+        attempt_no: Optional[int] = None,
+    ) -> Dict[str, object]:
+        checkpoint: Dict[str, object] = {"stage": stage}
+        if resume_stage is not None:
+            checkpoint["resume_stage"] = resume_stage
+        if plan_revision is not None:
+            checkpoint["plan_revision"] = plan_revision
+        if current_step is not None:
+            checkpoint["current_step"] = current_step
+        if attempt_no is not None:
+            checkpoint["attempt_no"] = attempt_no
+        return checkpoint
+
+    @staticmethod
+    def _summarize_step_failure(*, repair_records: List[RepairRecord], current_step: int | None) -> str:
+        for record in reversed(repair_records):
+            if current_step is not None and record.step != current_step:
+                continue
+            if record.message:
+                return record.message
+        if current_step is None:
+            return "Execution step failed."
+        return f"Execution step {current_step} failed."
 
     def _append_audit_event(self, status: RunStatus, event: RunEvent) -> None:
         path = Path(status.audit_path) if status.audit_path else self._audit_path(status.run_id)
@@ -1632,6 +1821,7 @@ class AgentRunService:
                 RunPhase.running,
                 progress=45,
                 plan_revision=self._extract_plan_revision(plan),
+                checkpoint=self._checkpoint(stage="execution", plan_revision=self._extract_plan_revision(plan)),
                 event_kind="artifact_reuse_fallback",
                 event_message="Artifact reuse candidate was available but reuse materialization failed; falling back to fresh execution.",
                 event_details={"error": f"{type(exc).__name__}: {exc}"},
@@ -1656,6 +1846,7 @@ class AgentRunService:
             progress=75,
             artifact_reuse=decision,
             plan_revision=self._extract_plan_revision(plan),
+            checkpoint=self._checkpoint(stage="execution", plan_revision=self._extract_plan_revision(plan)),
             event_kind="artifact_reuse_applied",
             event_message=f"Applied {reuse_result.mode} artifact reuse and skipped fresh execution.",
             event_details={

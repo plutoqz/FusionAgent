@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from schemas.agent import WorkflowPlan
+from services.plan_grounding_service import build_plan_grounding_report, grounding_report_matches_plan
 
 
 def build_kg_path_trace(plan: WorkflowPlan) -> dict[str, Any]:
@@ -33,6 +34,7 @@ def build_kg_path_trace(plan: WorkflowPlan) -> dict[str, Any]:
     return {
         "workflow_id": plan.workflow_id,
         "selected_pattern_id": selected_pattern_id,
+        "grounding_report": _grounding_report(plan),
         "chains": chains,
     }
 
@@ -91,3 +93,11 @@ def _edges_for_chain(nodes: list[dict[str, Any]]) -> list[dict[str, str]]:
         }
         for index in range(min(len(nodes) - 1, len(relationships)))
     ]
+
+
+def _grounding_report(plan: WorkflowPlan) -> dict[str, Any]:
+    if isinstance(plan.context, dict):
+        cached_report = plan.context.get("grounding_report")
+        if grounding_report_matches_plan(plan, cached_report):
+            return dict(cached_report)
+    return build_plan_grounding_report(plan)

@@ -30,6 +30,7 @@ from services.kg_path_trace_service import build_kg_path_trace
 from services.operator_read_model_service import OperatorReadModelService
 from services.run_registry_service import RunRegistryService
 from services.scenario_output import resolve_scenario_output_root
+from services.unsupported_intent_guard import classify_unsupported_intent
 from utils.crs import normalize_explicit_target_crs
 
 
@@ -143,6 +144,10 @@ async def create_run(
         debug=debug,
         input_strategy=input_strategy,
     )
+
+    issues = classify_unsupported_intent(request.trigger.content, job_type=request.job_type)
+    if issues:
+        raise HTTPException(status_code=422, detail={"unsupported_intent": issues})
 
     osm_bytes = await osm_zip.read() if osm_zip is not None else None
     ref_bytes = await ref_zip.read() if ref_zip is not None else None

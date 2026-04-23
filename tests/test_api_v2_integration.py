@@ -119,8 +119,23 @@ def _build_task_driven_plan() -> WorkflowPlan:
                 },
             },
             "retrieval": {
-                "candidate_patterns": [{"pattern_id": "wp.flood.building.default", "success_rate": 0.91}],
+                "candidate_patterns": [
+                    {
+                        "pattern_id": "wp.flood.building.default",
+                        "success_rate": 0.91,
+                        "steps": [
+                            {
+                                "algorithm_id": "algo.fusion.building.v1",
+                                "input_data_type": "dt.building.bundle",
+                                "output_data_type": "dt.building.fused",
+                                "data_source_id": "catalog.flood.building",
+                            }
+                        ],
+                    }
+                ],
                 "data_sources": [{"source_id": "catalog.flood.building"}],
+                "algorithms": {"algo.fusion.building.v1": {"tool_ref": "builtin:building"}},
+                "output_schema_policies": {"dt.building.fused": {"policy_id": "schema.building.fused"}},
             },
             "selection_reason": "initial",
             "llm_provider": "mock",
@@ -596,6 +611,42 @@ def test_v2_task_driven_run_allows_missing_uploads_when_auto_acquire_is_requeste
     assert captured["ref_zip_bytes"] is None
 
 
+def test_v2_run_rejects_unsupported_intent_with_structured_422(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    def fail_if_called(**_kwargs):
+        raise AssertionError("agent_run_service.create_run should not be called for unsupported intent")
+
+    monkeypatch.setattr(runs_v2_router.agent_run_service, "create_run", fail_if_called)
+
+    resp = client.post(
+        "/api/v2/runs",
+        data={
+            "job_type": "building",
+            "trigger_type": "user_query",
+            "trigger_content": "请融合建筑数据，同时给我某国家GDP数据",
+            "input_strategy": "task_driven_auto",
+            "field_mapping": "{}",
+            "debug": "false",
+        },
+    )
+
+    assert resp.status_code == 422
+    assert resp.json() == {
+        "detail": {
+            "unsupported_intent": [
+                {
+                    "code": "OFF_DOMAIN_REQUEST",
+                    "message": "Request includes off-domain content that the fusion workflow does not support.",
+                    "matched_keyword": "gdp",
+                    "job_type": "building",
+                }
+            ]
+        }
+    }
+
+
 def test_v2_run_task_driven_auto_input_integration(
     tmp_path: Path,
     client: TestClient,
@@ -624,7 +675,35 @@ def test_v2_run_task_driven_auto_input_integration(
     resolved.ref_zip_path.write_bytes(b"ref")
 
     monkeypatch.setattr(service.planner, "create_plan", lambda **_kwargs: _build_task_driven_plan().model_copy(deep=True))
-    monkeypatch.setattr(service.validator, "validate_and_repair", lambda input_plan: input_plan)
+    def _validated_plan(input_plan: WorkflowPlan) -> WorkflowPlan:
+        validated = input_plan.model_copy(deep=True)
+        validated.tasks[0].step = 2
+        validated.context["grounding_report"] = {
+            "grounded": True,
+            "grounded_step_count": 1,
+            "total_step_count": 1,
+            "grounding_score": 1.0,
+            "steps": [
+                {
+                    "step": 1,
+                    "algorithm_id": "algo.fusion.building.v1",
+                    "input_data_type": "dt.building.bundle",
+                    "data_source_id": "catalog.flood.building",
+                    "output_data_type": "dt.building.fused",
+                    "algorithm_grounded": True,
+                    "algorithm_known": True,
+                    "data_source_known": True,
+                    "output_type_matches_intent": True,
+                    "schema_policy_known": True,
+                    "pattern_ids": ["wp.flood.building.default"],
+                    "issue_codes": [],
+                    "evidence_refs": ["plan.task(step=1).algorithm_id"],
+                }
+            ],
+        }
+        return validated
+
+    monkeypatch.setattr(service.validator, "validate_and_repair", _validated_plan)
     monkeypatch.setattr(service.input_acquisition_service, "resolve_task_driven_inputs", lambda **_kwargs: resolved)
     monkeypatch.setattr(
         "services.agent_run_service.validate_zip_has_shapefile",
@@ -663,6 +742,15 @@ def test_v2_run_task_driven_auto_input_integration(
     assert resolved_event["details"]["source_id"] == "catalog.flood.building"
     assert resolved_event["details"]["cache_hit"] is False
     assert resolved_event["details"]["version_token"] == "v1"
+    plan_grounding = inspection["plan"]["context"]["grounding_report"]
+    assert plan_grounding["grounded"] is True
+    assert plan_grounding["steps"][0]["step"] == 2
+    assert plan_grounding["steps"][0]["evidence_refs"][0] == "plan.task(step=2).algorithm_id"
+    assert inspection["kg_path_trace"]["grounding_report"] == plan_grounding
+    assert inspection["kg_path_trace"]["chains"][0]["task_step"] == 2
+    plan_created = next(event for event in inspection["audit_events"] if event["kind"] == "plan_created")
+    assert plan_created["details"]["grounded"] is True
+    assert plan_created["details"]["grounding_score"] == 1.0
 
 
 def test_v2_run_task_driven_auto_nairobi_query_records_aoi_resolution(

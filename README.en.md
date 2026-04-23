@@ -33,6 +33,11 @@ execution/healing/replanning/learning evidence, scenario-level evidence
 freeze, operator read APIs, and a local operations runbook. The final
 visualization UI remains future work.
 
+The next engineering increment stays narrowly scoped to operating and evidence
+improvements: registered tool contracts, KG grounding reports,
+unsupported-intent rejection, token/latency telemetry, checkpoint recovery
+inspection, and ablation evidence.
+
 ## Stability Contract
 
 The public runtime contract is now frozen as:
@@ -230,11 +235,13 @@ remain:
 - external provider event feeds are not integrated
 - production deployment, auth, multi-tenant isolation, and full production
   operations are not claimed
+- no claim of 7x24 production operation, arbitrary off-domain request support,
+  or final UI completion
 - the search space still focuses on the current `building`, `road`, `water`, and bounded `poi` themes
 - `water` and bounded `poi` now sit on the shared task-driven backbone, but
   that should not be overstated as proof that arbitrary new task families are
   already free to extend
-- the trajectory-to-road path is only a seam reservation today and must not be described as already supporting real trajectory ingestion or road inference
+- the trajectory-to-road path is only a seam reservation today and must not be described as already supporting real trajectory ingestion, live trajectory-to-road ingestion, or road inference
 - durable learning is still a first-pass capability, not full policy auto-tuning
 - `raw.google.building` and some local-only reference / Excel-style inputs still require manual preparation and are not part of the current official materialization set
 - AOI resolution still depends on an external geocoder, so availability and latency remain sensitive to network conditions
@@ -308,6 +315,12 @@ Notes:
 ## Evaluation Tiers
 
 ### Tier 1: Targeted Tests
+
+For the focused system-next regression set, run:
+
+```powershell
+python -m pytest -q tests/test_tool_registry.py tests/test_plan_grounding_service.py tests/test_unsupported_intent_guard.py tests/test_run_telemetry_service.py tests/test_run_recovery_service.py tests/test_eval_kg_ablation.py
+```
 
 Use for everyday regression checking.
 

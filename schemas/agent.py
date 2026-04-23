@@ -194,10 +194,13 @@ class RunStatus(BaseModel):
     attempt_no: int = 0
     healing_summary: Dict[str, Any] = Field(default_factory=dict)
     failure_summary: Optional[str] = None
+    planning_telemetry: Dict[str, Any] = Field(default_factory=dict)
     plan_revision: int = 0
     event_count: int = 0
     last_event: Optional[RunEvent] = None
+    checkpoint: Dict[str, Any] = Field(default_factory=dict)
     created_at: str
+    updated_at: Optional[str] = None
     started_at: Optional[str] = None
     finished_at: Optional[str] = None
 

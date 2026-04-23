@@ -1,3 +1,6 @@
+import time
+from concurrent.futures import ThreadPoolExecutor
+from threading import Lock
 from typing import Any, Dict
 
 from agent.planner import WorkflowPlanner
@@ -7,14 +10,18 @@ from llm.providers.base import LLMProvider
 from schemas.agent import RunTrigger, RunTriggerType, WorkflowPlan
 from schemas.fusion import JobType
 from services.aoi_resolution_service import AOIResolutionService
+from services.run_telemetry_service import estimate_json_size_bytes
 
 
 class CapturingProvider(LLMProvider):
     def __init__(self) -> None:
         self.last_context: Dict[str, Any] | None = None
+        self.model = "capturing-model"
 
     def generate_workflow_plan(self, system_prompt: str, context: Dict[str, Any]) -> Dict[str, Any]:
         self.last_context = context
+        self.last_usage = {"prompt_tokens": 10, "completion_tokens": 4, "total_tokens": 14}
+        self.last_model = "capturing-plan-model"
         candidate = context["retrieval"]["candidate_patterns"][0]
         first_step = candidate["steps"][0]
         return {
@@ -55,6 +62,72 @@ class StubGeocoder:
         return list(self.results)
 
 
+class FailingProvider(LLMProvider):
+    def __init__(self) -> None:
+        self.model = "failing-model"
+
+    def generate_workflow_plan(self, system_prompt: str, context: Dict[str, Any]) -> Dict[str, Any]:
+        raise RuntimeError("simulated planning failure")
+
+
+class SlowObservableProvider(CapturingProvider):
+    def __init__(self) -> None:
+        super().__init__()
+        self._lock = Lock()
+        self._active_calls = 0
+        self.max_active_calls = 0
+        self._call_no = 0
+
+    def generate_workflow_plan(self, system_prompt: str, context: Dict[str, Any]) -> Dict[str, Any]:
+        with self._lock:
+            self._call_no += 1
+            call_no = self._call_no
+            self._active_calls += 1
+            self.max_active_calls = max(self.max_active_calls, self._active_calls)
+        try:
+            time.sleep(0.05)
+            self.last_context = context
+            self.last_usage = {
+                "prompt_tokens": call_no,
+                "completion_tokens": call_no + 100,
+                "total_tokens": call_no + 200,
+            }
+            self.last_model = f"observable-model-{call_no}"
+            candidate = context["retrieval"]["candidate_patterns"][0]
+            first_step = candidate["steps"][0]
+            return {
+                "workflow_id": f"wf_observable_{call_no}",
+                "trigger": context["intent"]["trigger"],
+                "context": {"legacy": "llm"},
+                "tasks": [
+                    {
+                        "step": 1,
+                        "name": first_step["name"],
+                        "description": "execute selected workflow",
+                        "algorithm_id": first_step["algorithm_id"],
+                        "input": {
+                            "data_type_id": first_step["input_data_type"],
+                            "data_source_id": first_step["data_source_id"],
+                            "parameters": {},
+                        },
+                        "output": {
+                            "data_type_id": first_step["output_data_type"],
+                            "description": "selected output",
+                        },
+                        "depends_on": [],
+                        "is_transform": False,
+                        "kg_validated": False,
+                        "alternatives": [],
+                    }
+                ],
+                "expected_output": "building fused shapefile",
+                "estimated_time": "5m",
+            }
+        finally:
+            with self._lock:
+                self._active_calls -= 1
+
+
 def test_planner_builds_stable_context_fields() -> None:
     provider = CapturingProvider()
     planner = WorkflowPlanner(InMemoryKGRepository(), provider)
@@ -72,8 +145,54 @@ def test_planner_builds_stable_context_fields() -> None:
     assert set(plan.context.keys()) >= {"intent", "retrieval", "selection_reason", "llm_provider", "plan_revision"}
     assert plan.context["plan_revision"] == 1
     assert plan.context["llm_provider"] == "capturing"
+    assert plan.context["planning_source"] == "llm"
     assert plan.context["planning_mode"] == "scenario_driven"
     assert plan.context["intent"]["profile_source"] == "disaster_type"
+    assert plan.context["planning_telemetry"] == {
+        "elapsed_ms": plan.context["planning_telemetry"]["elapsed_ms"],
+        "context_size_bytes": estimate_json_size_bytes(provider.last_context),
+        "provider": "capturing",
+        "model": "capturing-plan-model",
+        "llm_usage": {
+            "prompt_tokens": 10,
+            "completion_tokens": 4,
+            "total_tokens": 14,
+        },
+    }
+    assert isinstance(plan.context["planning_telemetry"]["elapsed_ms"], int)
+    assert plan.context["planning_telemetry"]["elapsed_ms"] >= 0
+
+
+def test_planner_serializes_shared_provider_usage_capture() -> None:
+    provider = SlowObservableProvider()
+    planner = WorkflowPlanner(InMemoryKGRepository(), provider)
+    triggers = [
+        RunTrigger(
+            type=RunTriggerType.disaster_event,
+            content=f"flood response building fusion {idx}",
+            disaster_type="flood",
+        )
+        for idx in range(2)
+    ]
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        plans = list(
+            pool.map(
+                lambda trigger: planner.create_plan(
+                    run_id=f"run-{trigger.content[-1]}",
+                    job_type=JobType.building,
+                    trigger=trigger,
+                ),
+                triggers,
+            )
+        )
+
+    assert provider.max_active_calls == 1
+    for plan in plans:
+        call_no = int(plan.workflow_id.rsplit("_", 1)[1])
+        telemetry = plan.context["planning_telemetry"]
+        assert telemetry["model"] == f"observable-model-{call_no}"
+        assert telemetry["llm_usage"]["total_tokens"] == call_no + 200
 
 
 def test_planner_context_records_task_driven_mode_for_direct_data_request() -> None:
@@ -262,7 +381,102 @@ def test_replan_increments_plan_revision() -> None:
     assert replanned.context["plan_revision"] == 2
     assert replanned.context["selection_reason"] == "replanned_after_failure"
     assert replanned.context["failed_step"] == 1
+    assert replanned.context["planning_telemetry"]["provider"] == "capturing"
+    assert replanned.context["planning_telemetry"]["model"] == "capturing-plan-model"
+    assert replanned.context["planning_telemetry"]["llm_usage"]["total_tokens"] == 14
     assert "algo.fusion.road.safe" in replanned.tasks[0].alternatives
+
+
+def test_planner_fallback_context_records_telemetry_when_llm_call_fails() -> None:
+    planner = WorkflowPlanner(InMemoryKGRepository(), FailingProvider())
+    trigger = RunTrigger(
+        type=RunTriggerType.disaster_event,
+        content="flood response building fusion",
+        disaster_type="flood",
+    )
+
+    plan = planner.create_plan(run_id="run-fallback-telemetry", job_type=JobType.building, trigger=trigger)
+
+    telemetry = plan.context["planning_telemetry"]
+    assert plan.context["llm_provider"] == "failing"
+    assert plan.context["planning_source"] == "kg_fallback"
+    assert telemetry["provider"] == "failing"
+    assert telemetry["model"] == "failing-model"
+    assert telemetry["context_size_bytes"] > 0
+    assert telemetry["elapsed_ms"] >= 0
+    assert telemetry["llm_usage"] == {
+        "prompt_tokens": None,
+        "completion_tokens": None,
+        "total_tokens": None,
+    }
+
+
+def test_replan_failure_preserves_previous_planning_telemetry_and_records_failed_attempt() -> None:
+    planner = WorkflowPlanner(InMemoryKGRepository(), FailingProvider())
+    trigger = RunTrigger(type=RunTriggerType.user_query, content="fuse roads")
+    previous_telemetry = {
+        "elapsed_ms": 7,
+        "context_size_bytes": 123,
+        "provider": "previous",
+        "model": "previous-model",
+        "llm_usage": {
+            "prompt_tokens": 1,
+            "completion_tokens": 2,
+            "total_tokens": 3,
+        },
+    }
+    previous_plan = WorkflowPlan.model_validate(
+        {
+            "workflow_id": "wf_prev",
+            "trigger": trigger.model_dump(),
+            "context": {
+                "intent": {"job_type": "road"},
+                "retrieval": {"candidate_patterns": []},
+                "selection_reason": "initial",
+                "llm_provider": "capturing",
+                "plan_revision": 1,
+                "planning_telemetry": previous_telemetry,
+            },
+            "tasks": [
+                {
+                    "step": 1,
+                    "name": "road_fusion",
+                    "description": "execute road fusion",
+                    "algorithm_id": "algo.fusion.road.v1",
+                    "input": {
+                        "data_type_id": "dt.road.bundle",
+                        "data_source_id": "upload.bundle",
+                        "parameters": {},
+                    },
+                    "output": {"data_type_id": "dt.road.fused", "description": "road output"},
+                    "depends_on": [],
+                    "is_transform": False,
+                    "kg_validated": True,
+                    "alternatives": [],
+                }
+            ],
+            "expected_output": "road fused shapefile",
+            "estimated_time": "5m",
+        }
+    )
+
+    replanned = planner.replan_from_error(
+        run_id="run-replan-failed",
+        job_type=JobType.road,
+        trigger=trigger,
+        previous_plan=previous_plan,
+        failed_step=1,
+        error_message="simulated execution failure",
+    )
+
+    assert replanned.context["planning_telemetry"] == previous_telemetry
+    assert replanned.context["failed_replan_telemetry"]["provider"] == "failing"
+    assert replanned.context["failed_replan_telemetry"]["model"] == "failing-model"
+    assert replanned.context["failed_replan_telemetry"]["llm_usage"] == {
+        "prompt_tokens": None,
+        "completion_tokens": None,
+        "total_tokens": None,
+    }
 
 
 def test_planner_context_surfaces_multiple_pattern_candidates_when_policy_choice_should_matter() -> None:

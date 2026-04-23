@@ -5,6 +5,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Callable, Dict, List, Optional
 
+from agent.tooling import ToolRegistry, build_default_tool_registry
 from kg.repository import KGRepository
 from schemas.agent import RepairRecord, WorkflowPlan, WorkflowTask
 from schemas.fusion import JobType
@@ -36,26 +37,19 @@ class WorkflowExecutor:
         kg_repo: KGRepository,
         planner: Optional[object] = None,
         algorithm_handlers: Optional[Dict[str, Callable[[ExecutionContext], Path]]] = None,
+        tool_registry: Optional[ToolRegistry] = None,
     ) -> None:
         self.kg_repo = kg_repo
         self.planner = planner
-        self.algorithm_handlers = algorithm_handlers or {}
-        self.algorithm_handlers.setdefault("algo.fusion.building.v1", self._handle_building)
-        self.algorithm_handlers.setdefault("algo.fusion.building.safe", self._handle_building_safe)
-        self.algorithm_handlers.setdefault("algo.fusion.road.v1", self._handle_road)
-        self.algorithm_handlers.setdefault("algo.fusion.road.safe", self._handle_road)
-        self.algorithm_handlers.setdefault("algo.fusion.water.v1", self._handle_water)
-        self.algorithm_handlers.setdefault("algo.fusion.poi.v1", self._handle_poi)
-        self.algorithm_handlers.setdefault(
-            "algo.transform.trajectory_to_road_candidate",
-            self._handle_reserved_trajectory_pretransform,
-        )
+        self.algorithm_handlers = dict(algorithm_handlers or {})
+        self.tool_registry = tool_registry or build_default_tool_registry()
 
     def execute_plan(
         self,
         plan: WorkflowPlan,
         context: ExecutionContext,
         repair_records: List[RepairRecord],
+        on_step_event: Optional[Callable[[Dict[str, Any]], None]] = None,
     ) -> Path:
         last_output: Optional[Path] = None
         attempt_no = len(repair_records)
@@ -64,15 +58,22 @@ class WorkflowExecutor:
             if task.is_transform or task.algorithm_id.startswith("algo.transform."):
                 continue
 
+            step_output: Optional[Path] = None
+            failure_error_summary: Optional[str] = None
+
             # Bind the step-scoped parameters so handlers/adapters can consume them.
             context.active_step = task.step
             context.step_parameters = dict(task.input.parameters or {})
+            self._emit_step_event(on_step_event, task=task, status="started")
 
             try:
-                last_output = self._execute_algorithm(task.algorithm_id, context)
+                step_output = self._execute_algorithm(task.algorithm_id, context)
+                last_output = step_output
+                self._emit_step_event(on_step_event, task=task, status="succeeded")
                 continue
             except Exception as first_error:  # noqa: BLE001
                 attempt_no += 1
+                failure_error_summary = self._summarize_error(first_error)
                 repair_records.append(
                     RepairRecord(
                         attempt_no=attempt_no,
@@ -109,7 +110,8 @@ class WorkflowExecutor:
                 alt_algos = [a.algo_id for a in self.kg_repo.get_alternative_algorithms(task.algorithm_id, limit=3)]
             for alt_algo in alt_algos:
                 try:
-                    last_output = self._execute_algorithm(alt_algo, context)
+                    step_output = self._execute_algorithm(alt_algo, context)
+                    last_output = step_output
                     attempt_no += 1
                     repair_records.append(
                         RepairRecord(
@@ -124,9 +126,16 @@ class WorkflowExecutor:
                             to_algorithm=alt_algo,
                         )
                     )
+                    self._emit_step_event(
+                        on_step_event,
+                        task=task,
+                        status="succeeded",
+                        effective_algorithm_id=alt_algo,
+                    )
                     break
                 except Exception as alt_error:  # noqa: BLE001
                     attempt_no += 1
+                    failure_error_summary = self._summarize_error(alt_error)
                     repair_records.append(
                         RepairRecord(
                             attempt_no=attempt_no,
@@ -140,7 +149,7 @@ class WorkflowExecutor:
                             to_algorithm=alt_algo,
                         )
                     )
-            if last_output is not None:
+            if step_output is not None:
                 continue
 
             # Strategy 3: transform insertion attempt.
@@ -150,7 +159,8 @@ class WorkflowExecutor:
             if transform_path:
                 task.input.data_type_id = expected_type
                 try:
-                    last_output = self._execute_algorithm(task.algorithm_id, context)
+                    step_output = self._execute_algorithm(task.algorithm_id, context)
+                    last_output = step_output
                     attempt_no += 1
                     repair_records.append(
                         RepairRecord(
@@ -164,9 +174,11 @@ class WorkflowExecutor:
                             from_algorithm=task.algorithm_id,
                         )
                     )
+                    self._emit_step_event(on_step_event, task=task, status="succeeded")
                     continue
                 except Exception as transform_error:  # noqa: BLE001
                     attempt_no += 1
+                    failure_error_summary = self._summarize_error(transform_error)
                     repair_records.append(
                         RepairRecord(
                             attempt_no=attempt_no,
@@ -193,8 +205,16 @@ class WorkflowExecutor:
                         from_algorithm=task.algorithm_id,
                     )
                 )
+                if failure_error_summary is None:
+                    failure_error_summary = "RuntimeError: No transform path found."
 
             # If still not recoverable after strategies, fail this run.
+            self._emit_step_event(
+                on_step_event,
+                task=task,
+                status="failed",
+                error=failure_error_summary or "RuntimeError: Step failed during execution.",
+            )
             raise RuntimeError(f"Task failed after healing strategies: step={task.step}, algo={task.algorithm_id}")
 
         if last_output is None:
@@ -202,10 +222,40 @@ class WorkflowExecutor:
         return last_output
 
     def _execute_algorithm(self, algorithm_id: str, context: ExecutionContext) -> Path:
+        spec = self.tool_registry.require(algorithm_id)
         handler = self.algorithm_handlers.get(algorithm_id)
+        if handler is None:
+            handler = getattr(self, spec.handler_name, None)
         if handler is None:
             raise ValueError(f"No handler registered for algorithm: {algorithm_id}")
         return handler(context)
+
+    @staticmethod
+    def _emit_step_event(
+        on_step_event: Optional[Callable[[Dict[str, Any]], None]],
+        *,
+        task: WorkflowTask,
+        status: str,
+        effective_algorithm_id: Optional[str] = None,
+        error: Optional[str] = None,
+    ) -> None:
+        if on_step_event is None:
+            return
+        payload: Dict[str, Any] = {
+            "status": status,
+            "step": task.step,
+            "algorithm_id": task.algorithm_id,
+            "data_source_id": task.input.data_source_id,
+        }
+        if effective_algorithm_id and effective_algorithm_id != task.algorithm_id:
+            payload["effective_algorithm_id"] = effective_algorithm_id
+        if error:
+            payload["error"] = error
+        on_step_event(payload)
+
+    @staticmethod
+    def _summarize_error(error: Exception) -> str:
+        return f"{type(error).__name__}: {error}"
 
     @staticmethod
     def _handle_building(context: ExecutionContext) -> Path:

@@ -55,9 +55,29 @@ def test_run_status_accepts_decision_and_reuse_states() -> None:
     assert record.evidence_refs == []
     assert record.candidates[0].evidence["meta"]["source"] == "test"
     assert status.artifact_reuse and status.artifact_reuse.reused
+    assert status.planning_telemetry == {}
+    assert status.checkpoint == {}
+    assert status.updated_at is None
 
     round_trip = RunStatus.model_validate(status.model_dump())
     assert round_trip == status
+
+
+def test_run_status_accepts_legacy_payload_without_planning_telemetry() -> None:
+    payload = {
+        "run_id": "run-legacy",
+        "job_type": JobType.building,
+        "trigger": RunTrigger(type=RunTriggerType.user_query, content="verify schema").model_dump(),
+        "phase": RunPhase.queued,
+        "target_crs": "EPSG:4326",
+        "created_at": "2026-04-07T00:00:00Z",
+    }
+
+    status = RunStatus.model_validate(payload)
+
+    assert status.planning_telemetry == {}
+    assert status.checkpoint == {}
+    assert status.updated_at is None
 
 
 def test_decision_validators_reject_inconsistencies() -> None:

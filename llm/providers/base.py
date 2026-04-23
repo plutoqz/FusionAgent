@@ -5,6 +5,9 @@ from typing import Any, Dict
 
 
 class LLMProvider(ABC):
+    last_usage: object | None = None
+    last_model: str | None = None
+
     @property
     def provider_name(self) -> str:
         raw = self.__class__.__name__.replace("Provider", "")
