@@ -23,7 +23,7 @@ class RuntimeSettingsService:
         self.snapshots_dir = snapshots_dir or DEFAULT_RUNTIME_SNAPSHOTS_DIR
 
     def save_llm_settings(self, settings: PersistedLLMSettings) -> MaskedLLMSettings:
-        persisted = self._merge_persisted_settings_patch(PersistedLLMSettings.model_validate(settings))
+        persisted = self.preview_persisted_llm_settings(settings)
         self.settings_path.parent.mkdir(parents=True, exist_ok=True)
         self.settings_path.write_text(
             json.dumps(persisted.model_dump(mode="json"), ensure_ascii=False, indent=2),
@@ -35,14 +35,16 @@ class RuntimeSettingsService:
         return self._load_persisted_settings().masked_view()
 
     def get_effective_llm_settings(self) -> EffectiveLLMSettings:
+        return self._build_effective_llm_settings(self._load_persisted_settings())
+
+    def preview_persisted_llm_settings(self, settings: PersistedLLMSettings) -> PersistedLLMSettings:
+        return self._merge_persisted_settings_patch(PersistedLLMSettings.model_validate(settings))
+
+    def preview_effective_llm_settings(self, settings: PersistedLLMSettings | None = None) -> EffectiveLLMSettings:
         persisted = self._load_persisted_settings()
-        return EffectiveLLMSettings(
-            provider=self._read_env_value("GEOFUSION_LLM_PROVIDER") or persisted.provider,
-            base_url=self._read_env_value("GEOFUSION_LLM_BASE_URL") or persisted.base_url,
-            api_key=self._read_api_key() or persisted.api_key,
-            model=self._read_env_value("GEOFUSION_LLM_MODEL") or persisted.model,
-            timeout_sec=self._read_env_int("GEOFUSION_LLM_TIMEOUT_SEC", persisted.timeout_sec),
-        )
+        if settings is not None:
+            persisted = self._merge_persisted_settings_patch(PersistedLLMSettings.model_validate(settings))
+        return self._build_effective_llm_settings(persisted)
 
     def store_runtime_snapshot(self, settings: EffectiveLLMSettings) -> str:
         effective = EffectiveLLMSettings.model_validate(settings)
@@ -91,6 +93,15 @@ class RuntimeSettingsService:
         for field_name in provided_fields:
             merged_payload[field_name] = getattr(patch, field_name)
         return PersistedLLMSettings.model_validate(merged_payload)
+
+    def _build_effective_llm_settings(self, persisted: PersistedLLMSettings) -> EffectiveLLMSettings:
+        return EffectiveLLMSettings(
+            provider=self._read_env_value("GEOFUSION_LLM_PROVIDER") or persisted.provider,
+            base_url=self._read_env_value("GEOFUSION_LLM_BASE_URL") or persisted.base_url,
+            api_key=self._read_api_key() or persisted.api_key,
+            model=self._read_env_value("GEOFUSION_LLM_MODEL") or persisted.model,
+            timeout_sec=self._read_env_int("GEOFUSION_LLM_TIMEOUT_SEC", persisted.timeout_sec),
+        )
 
     def _runtime_snapshot_path(self, snapshot_id: str) -> Path:
         return self.snapshots_dir / f"{snapshot_id}.json"

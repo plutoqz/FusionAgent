@@ -86,3 +86,8 @@ class EffectiveLLMSettings(BaseModel):
     @classmethod
     def normalize_provider(cls, value: str | None) -> str | None:
         return _normalize_provider(value)
+
+
+class LLMSettingsValidationResponse(BaseModel):
+    valid: bool = True
+    settings: MaskedLLMSettings
