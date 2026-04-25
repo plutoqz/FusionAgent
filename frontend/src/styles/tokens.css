@@ -1,0 +1,24 @@
+:root {
+  color-scheme: light;
+  --bg-canvas: #f2ebdf;
+  --bg-elevated: rgba(254, 251, 247, 0.78);
+  --bg-rail: rgba(248, 242, 233, 0.92);
+  --bg-strong: #f8f3ea;
+  --ink-strong: #1d2730;
+  --ink-soft: #55616c;
+  --ink-faint: #7c8791;
+  --line-soft: rgba(29, 39, 48, 0.1);
+  --line-strong: rgba(29, 39, 48, 0.18);
+  --accent-teal: #0d6e73;
+  --accent-amber: #c77828;
+  --accent-slate: #314451;
+  --accent-moss: #5f7a61;
+  --shadow-soft: 0 20px 48px rgba(36, 45, 51, 0.08);
+  --shadow-rail: 0 18px 40px rgba(36, 45, 51, 0.06);
+  --radius-sm: 8px;
+  --radius-md: 16px;
+  --radius-lg: 24px;
+  --font-body: "Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI", sans-serif;
+  --font-display: "Segoe UI Variable Display", "Segoe UI", "Microsoft YaHei UI", sans-serif;
+  --content-width: 1440px;
+}

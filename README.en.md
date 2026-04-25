@@ -4,9 +4,10 @@
 
 Resume/demo project brief: [FusionAgent Resume Project Brief](./docs/demo/fusionagent-resume-project-brief.md).
 
-FusionAgent is a mature no-UI vector-data fusion agent for bounded disaster response workflows.
-The current `main` branch is no longer just a script wrapper. It now provides a
-testable, auditable, and incrementally extensible agentic workflow runtime.
+FusionAgent is a mature vector-data fusion agent runtime for bounded disaster
+response workflows, and the current codebase now includes an operator-facing
+web workbench foundation. The code is no longer just a script wrapper. It now
+provides a testable, auditable, and incrementally extensible agentic workflow runtime.
 
 The runtime now stably supports `building`, `road`, and `water`, and also adds
 a bounded `poi` automatic-fusion slice on the same task-driven runtime
@@ -26,17 +27,30 @@ FusionAgent has now reached the engineering MVP, research prototype, and mature
 no-UI vector data fusion agent bar, but it should still not be described as the
 final visualization product.
 
-FusionAgent can now operate as a mature no-UI vector data fusion agent within
-its bounded scope: it provides natural-language and local scenario-trigger
-entry points, KG-constrained planning, task-driven data acquisition,
+FusionAgent can now operate as a mature vector data fusion agent within its
+bounded scope: it provides natural-language and local scenario-trigger entry
+points, KG-constrained planning, task-driven data acquisition,
 execution/healing/replanning/learning evidence, scenario-level evidence
-freeze, operator read APIs, and a local operations runbook. The final
-visualization UI remains future work.
+freeze, operator read APIs, a local operations runbook, and an operator-facing
+v2 web workbench foundation. The final product-grade visualization UI remains
+future work.
 
 The next engineering increment stays narrowly scoped to operating and evidence
 improvements: registered tool contracts, KG grounding reports,
 unsupported-intent rejection, token/latency telemetry, checkpoint recovery
 inspection, and ablation evidence.
+
+## Web Workbench
+
+The repo now ships an operator-facing frontend foundation with:
+
+- home overview, run creation, run list, run detail, and run comparison pages
+- scenario report browsing, GeoJSON map previews, KG overview, and run path graph pages
+- LLM settings read, validation, and persistence flows
+- Simplified Chinese as the default locale, with an `English` toggle in the sidebar and persisted browser preference
+
+This frontend is intended to close the operator control-plane gap. It should
+not be described as the final product UI.
 
 ## Stability Contract
 
@@ -230,8 +244,10 @@ Scenario-level runs additionally persist:
 Even after reaching no-UI maturity, these product and research boundaries still
 remain:
 
-- the final frontend and final visualization product shape are not built; the
-  current operator surface is still centered on read APIs and a local runbook
+- the final product-grade frontend and final visualization shape are still not
+  complete; the current operator surface now includes a web workbench
+  foundation, but it is still focused on run inspection, evidence browsing,
+  and settings management
 - external provider event feeds are not integrated
 - production deployment, auth, multi-tenant isolation, and full production
   operations are not claimed
@@ -299,6 +315,46 @@ To reset the managed graph during setup checks:
 ```powershell
 python scripts/start_local.py --check-only --reset-managed-graph
 ```
+
+### Frontend Workbench
+
+Use this for local UI development and API integration.
+
+Terminal A:
+
+```powershell
+$env:GEOFUSION_KG_BACKEND='memory'
+$env:GEOFUSION_LLM_PROVIDER='mock'
+$env:GEOFUSION_CELERY_EAGER='1'
+uvicorn main:app --reload --host 127.0.0.1 --port 8000
+```
+
+Terminal B:
+
+```powershell
+Set-Location frontend
+npm install
+npm run dev
+```
+
+Conventions:
+
+- default Vite entrypoint: `http://127.0.0.1:5173/`
+- the frontend defaults to Simplified Chinese, with an `English` switch in the sidebar
+- the Vite dev server proxies `/api` to `http://127.0.0.1:8000`
+- FastAPI allows `http://127.0.0.1:5173` and `http://localhost:5173` by default; override with `GEOFUSION_CORS_ORIGINS` when needed
+
+To serve the built frontend from FastAPI on the same origin:
+
+```powershell
+Set-Location frontend
+npm run build
+Set-Location ..
+uvicorn main:app --host 127.0.0.1 --port 8000
+```
+
+After the build, open `http://127.0.0.1:8000/`. Any non-`/api/*` route falls
+back to `frontend/dist/index.html`, so direct navigation to SPA routes works.
 
 ### Docker Compose
 

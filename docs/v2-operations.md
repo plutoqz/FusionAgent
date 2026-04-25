@@ -8,6 +8,7 @@
 - persisted `run.json`, `plan.json`, `validation.json`, and `audit.jsonl`
 - durable learning summaries for long-term planning evidence
 - operator-facing inspection and comparison endpoints in the v2 API
+- an operator-facing web workbench for runs, scenarios, KG views, and LLM settings
 - stable task-driven support for `building`, `road`, `water`, and bounded `poi` on the shared runtime backbone
 
 For the consolidated no-UI maturity operating workflow, see [FusionAgent No-UI Operations](./no-ui-agent-operations.md).
@@ -61,6 +62,7 @@ $env:GEOFUSION_CELERY_EAGER='0'
 ## Standard Local Conventions
 
 - default day-to-day API port: `8000`
+- default frontend dev port: `5173`
 - standard full-loop startup command: `python scripts/start_local.py --port 8000`
 - `main.py`, `worker/celery_app.py`, and `scripts/start_local.py` auto-load repo-local dependency defaults, so local broker / backend settings follow `依赖.txt` before falling back to the generic code default
 - the current repo-local example uses Redis on `localhost:6380`; the generic code fallback remains `redis://localhost:6379/0`
@@ -71,6 +73,9 @@ $env:GEOFUSION_CELERY_EAGER='0'
 - official benchmark source-asset downloads are cached under `runs/source-assets/`; local `Data/` is still preferred unless you explicitly force remote materialization
 - task-driven AOI runs now resolve a natural-language location before planning and can fall back to official Geofabrik / Microsoft downloads when local `Data/` is incomplete
 - scenario-level runs accept an explicit output root. If omitted, `GEOFUSION_SCENARIO_OUTPUT_ROOT` is used. If that is also unset, scenario outputs are written under `E:\fyx\data\fusionagentTEST`.
+- the frontend defaults to Simplified Chinese, and users can switch to English from the sidebar
+- FastAPI allows `http://127.0.0.1:5173` and `http://localhost:5173` for local frontend development by default; override with `GEOFUSION_CORS_ORIGINS` when needed
+- when `frontend/dist/` exists, FastAPI serves it on `/` and falls back to `index.html` for non-`/api/*` SPA routes
 - `docker compose` is a separate path: it uses container-local `redis://redis:6379/0` and API port `8000`, not the host-side `依赖.txt` mapping
 
 ## Evaluation Tiers
@@ -169,6 +174,34 @@ Do not describe the trajectory-to-road seam reservation as a live runtime ingest
 - when a benchmark times out, verify timeout policy and runtime alignment before blaming the algorithm
 
 ## Recommended Commands
+
+### Frontend Workbench
+
+Terminal A:
+
+```powershell
+$env:GEOFUSION_KG_BACKEND='memory'
+$env:GEOFUSION_LLM_PROVIDER='mock'
+$env:GEOFUSION_CELERY_EAGER='1'
+uvicorn main:app --host 127.0.0.1 --port 8000
+```
+
+Terminal B:
+
+```powershell
+Set-Location frontend
+npm install
+npm run dev
+```
+
+For same-origin serving:
+
+```powershell
+Set-Location frontend
+npm run build
+Set-Location ..
+uvicorn main:app --host 127.0.0.1 --port 8000
+```
 
 ### Fast Confidence
 

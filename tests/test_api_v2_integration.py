@@ -282,6 +282,17 @@ def _wait_run(client: TestClient, run_id: str, timeout_sec: float = 60.0) -> dic
     raise TimeoutError(f"Run timeout: {run_id}")
 
 
+def _bind_current_default_runtime(service: AgentRunService, monkeypatch: pytest.MonkeyPatch) -> None:
+    original_build_runtime_dependencies = service._build_runtime_dependencies
+
+    def _build_runtime_dependencies(*, settings, llm_provider=None):
+        if settings == service._default_runtime.settings:
+            return service._default_runtime
+        return original_build_runtime_dependencies(settings=settings, llm_provider=llm_provider)
+
+    monkeypatch.setattr(service, "_build_runtime_dependencies", _build_runtime_dependencies)
+
+
 @pytest.fixture()
 def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("GEOFUSION_KG_BACKEND", "memory")
@@ -290,6 +301,7 @@ def client(tmp_path: Path, monkeypatch: pytest.MonkeyPatch):
     monkeypatch.setenv("GEOFUSION_API_PORT", "8000")
 
     svc = AgentRunService(base_dir=tmp_path / "runs")
+    _bind_current_default_runtime(svc, monkeypatch)
     monkeypatch.setattr(runs_v2_router, "agent_run_service", svc)
     app = create_app()
     return TestClient(app)
