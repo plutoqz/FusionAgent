@@ -199,6 +199,7 @@ def test_execute_run_task_passes_bound_runtime_settings(monkeypatch, tmp_path: P
             intermediate_dir: Path,
             output_dir: Path,
             log_dir: Path,
+            runtime_snapshot_id: str | None = None,
             runtime_settings: EffectiveLLMSettings | None = None,
         ) -> None:
             captured["run_id"] = run_id
@@ -208,6 +209,7 @@ def test_execute_run_task_passes_bound_runtime_settings(monkeypatch, tmp_path: P
             captured["intermediate_dir"] = intermediate_dir
             captured["output_dir"] = output_dir
             captured["log_dir"] = log_dir
+            captured["runtime_snapshot_id"] = runtime_snapshot_id
             captured["runtime_settings"] = runtime_settings
 
     monkeypatch.setattr(service_module, "agent_run_service", StubService())
@@ -230,4 +232,51 @@ def test_execute_run_task_passes_bound_runtime_settings(monkeypatch, tmp_path: P
     assert captured["intermediate_dir"] == tmp_path / "intermediate"
     assert captured["output_dir"] == tmp_path / "output"
     assert captured["log_dir"] == tmp_path / "logs"
+    assert captured["runtime_snapshot_id"] is None
     assert captured["runtime_settings"] == EffectiveLLMSettings(provider="mock")
+
+
+def test_execute_run_task_passes_runtime_snapshot_id_without_runtime_settings(monkeypatch, tmp_path: Path) -> None:
+    worker_tasks = importlib.import_module("worker.tasks")
+    service_module = importlib.import_module("services.agent_run_service")
+
+    run_request = RunCreateRequest(
+        job_type=JobType.road,
+        trigger=RunTrigger(type=RunTriggerType.user_query, content="fuse roads"),
+        target_crs="EPSG:32643",
+        field_mapping={},
+        debug=False,
+    )
+    captured: dict[str, object] = {}
+
+    class StubService:
+        def execute_run(
+            self,
+            run_id: str,
+            request: RunCreateRequest,
+            osm_zip_path: Path | None,
+            ref_zip_path: Path | None,
+            intermediate_dir: Path,
+            output_dir: Path,
+            log_dir: Path,
+            runtime_snapshot_id: str | None = None,
+            runtime_settings: EffectiveLLMSettings | None = None,
+        ) -> None:
+            captured["runtime_snapshot_id"] = runtime_snapshot_id
+            captured["runtime_settings"] = runtime_settings
+
+    monkeypatch.setattr(service_module, "agent_run_service", StubService())
+
+    worker_tasks.execute_run_task(
+        run_id="run-queued",
+        request=run_request.model_dump(mode="json"),
+        osm_zip_path=str(tmp_path / "osm.zip"),
+        ref_zip_path=str(tmp_path / "ref.zip"),
+        intermediate_dir=str(tmp_path / "intermediate"),
+        output_dir=str(tmp_path / "output"),
+        log_dir=str(tmp_path / "logs"),
+        runtime_snapshot_id="snapshot-123",
+    )
+
+    assert captured["runtime_snapshot_id"] == "snapshot-123"
+    assert captured["runtime_settings"] is None

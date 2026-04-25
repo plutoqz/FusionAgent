@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import os
 from pathlib import Path
@@ -8,11 +9,13 @@ from schemas.settings import EffectiveLLMSettings, MaskedLLMSettings, PersistedL
 
 
 DEFAULT_RUNTIME_SETTINGS_PATH = Path("tmp/runtime-settings/llm-settings.json")
+DEFAULT_RUNTIME_SNAPSHOTS_DIR = DEFAULT_RUNTIME_SETTINGS_PATH.parent / "snapshots"
 
 
 class RuntimeSettingsService:
-    def __init__(self, settings_path: Path | None = None) -> None:
+    def __init__(self, settings_path: Path | None = None, snapshots_dir: Path | None = None) -> None:
         self.settings_path = settings_path or DEFAULT_RUNTIME_SETTINGS_PATH
+        self.snapshots_dir = snapshots_dir or DEFAULT_RUNTIME_SNAPSHOTS_DIR
 
     def save_llm_settings(self, settings: PersistedLLMSettings) -> MaskedLLMSettings:
         persisted = self._merge_persisted_settings_patch(PersistedLLMSettings.model_validate(settings))
@@ -36,6 +39,27 @@ class RuntimeSettingsService:
             timeout_sec=self._read_env_int("GEOFUSION_LLM_TIMEOUT_SEC", persisted.timeout_sec),
         )
 
+    def store_runtime_snapshot(self, settings: EffectiveLLMSettings) -> str:
+        effective = EffectiveLLMSettings.model_validate(settings)
+        serialized = self._serialize_runtime_snapshot(effective)
+        snapshot_id = hashlib.sha256(serialized.encode("utf-8")).hexdigest()
+        path = self._runtime_snapshot_path(snapshot_id)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        if not path.exists():
+            path.write_text(serialized, encoding="utf-8")
+        return snapshot_id
+
+    def load_runtime_snapshot(self, snapshot_id: str | None) -> EffectiveLLMSettings | None:
+        if not snapshot_id:
+            return None
+        path = self._runtime_snapshot_path(snapshot_id)
+        if not path.exists():
+            return None
+        raw = path.read_text(encoding="utf-8").strip()
+        if not raw:
+            return None
+        return EffectiveLLMSettings.model_validate(json.loads(raw))
+
     def _load_persisted_settings(self) -> PersistedLLMSettings:
         if not self.settings_path.exists():
             return PersistedLLMSettings()
@@ -54,6 +78,18 @@ class RuntimeSettingsService:
         for field_name in provided_fields:
             merged_payload[field_name] = getattr(patch, field_name)
         return PersistedLLMSettings.model_validate(merged_payload)
+
+    def _runtime_snapshot_path(self, snapshot_id: str) -> Path:
+        return self.snapshots_dir / f"{snapshot_id}.json"
+
+    @staticmethod
+    def _serialize_runtime_snapshot(settings: EffectiveLLMSettings) -> str:
+        return json.dumps(
+            settings.model_dump(mode="json"),
+            ensure_ascii=False,
+            sort_keys=True,
+            separators=(",", ":"),
+        )
 
     @staticmethod
     def _read_env_value(name: str) -> str | None:

@@ -134,6 +134,27 @@ def test_runtime_settings_service_explicit_empty_api_key_clears_existing_secret(
     assert effective.api_key is None
 
 
+def test_runtime_settings_service_deduplicates_runtime_snapshots(tmp_path: Path) -> None:
+    service = RuntimeSettingsService(
+        settings_path=tmp_path / "tmp" / "runtime-settings" / "llm-settings.json",
+        snapshots_dir=tmp_path / "tmp" / "runtime-settings" / "snapshots",
+    )
+    settings = EffectiveLLMSettings(
+        provider="openai",
+        base_url="https://snapshot.example/v1",
+        api_key="sk-snapshot-secret-1234",
+        model="gpt-snapshot",
+        timeout_sec=20,
+    )
+
+    first_snapshot_id = service.store_runtime_snapshot(settings)
+    second_snapshot_id = service.store_runtime_snapshot(settings.model_copy(deep=True))
+
+    assert first_snapshot_id == second_snapshot_id
+    assert service.load_runtime_snapshot(first_snapshot_id) == settings
+    assert sorted(path.name for path in service.snapshots_dir.glob("*.json")) == [f"{first_snapshot_id}.json"]
+
+
 @pytest.mark.parametrize("settings_cls", [PersistedLLMSettings, EffectiveLLMSettings])
 def test_llm_settings_provider_rejects_unknown_values(settings_cls: type[PersistedLLMSettings | EffectiveLLMSettings]) -> None:
     with pytest.raises(ValidationError, match="provider"):

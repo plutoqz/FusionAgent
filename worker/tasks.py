@@ -106,12 +106,12 @@ def execute_run_task(
     intermediate_dir: str,
     output_dir: str,
     log_dir: str,
-    runtime_settings: Dict[str, Any],
+    runtime_snapshot_id: str | None = None,
+    runtime_settings: Dict[str, Any] | None = None,
 ) -> None:
     from services.agent_run_service import agent_run_service
 
     run_request = RunCreateRequest.model_validate(request)
-    effective_settings = EffectiveLLMSettings.model_validate(runtime_settings)
     agent_run_service.execute_run(
         run_id=run_id,
         request=run_request,
@@ -120,7 +120,8 @@ def execute_run_task(
         intermediate_dir=Path(intermediate_dir),
         output_dir=Path(output_dir),
         log_dir=Path(log_dir),
-        runtime_settings=effective_settings,
+        runtime_snapshot_id=runtime_snapshot_id,
+        runtime_settings=EffectiveLLMSettings.model_validate(runtime_settings) if runtime_settings is not None else None,
     )
 
 

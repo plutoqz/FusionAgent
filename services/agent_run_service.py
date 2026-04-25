@@ -44,6 +44,7 @@ from services.input_acquisition_service import InputAcquisitionService, Resolved
 from services.local_bundle_catalog import LocalBundleCatalogProvider
 from services.plan_grounding_service import ensure_plan_grounding_report
 from services.raw_vector_source_service import RawVectorSourceService
+from services.runtime_settings_service import RuntimeSettingsService
 from services.run_recovery_service import collect_recoverable_runs
 from services.unsupported_intent_guard import classify_unsupported_intent
 from utils.crs import normalize_target_crs, resolve_target_crs
@@ -83,12 +84,14 @@ class AgentRunService:
         base_dir: Path,
         max_workers: int = 2,
         kg_repo: Optional[KGRepository] = None,
+        runtime_settings_service: RuntimeSettingsService | None = None,
     ) -> None:
         self.base_dir = base_dir
         self.base_dir.mkdir(parents=True, exist_ok=True)
         self._runs: Dict[str, RunStatus] = {}
         self._lock = Lock()
         self._pool = ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="agent-run")
+        self.runtime_settings_service = runtime_settings_service or RuntimeSettingsService()
 
         self.kg_repo = kg_repo or self._create_kg_repo()
         self.llm_provider = create_llm_provider()
@@ -121,8 +124,8 @@ class AgentRunService:
             close()
 
     def refresh_runtime_dependencies(self, llm_settings: EffectiveLLMSettings) -> None:
-        runtime = self._build_runtime_dependencies(settings=llm_settings)
         with self._lock:
+            runtime = self._build_runtime_dependencies(settings=llm_settings)
             self._apply_default_runtime(runtime)
 
     def create_run(
@@ -196,6 +199,7 @@ class AgentRunService:
         )
         with self._lock:
             runtime_settings = self._snapshot_default_runtime_settings()
+            runtime_snapshot_id = self.runtime_settings_service.store_runtime_snapshot(runtime_settings)
             self._append_audit_event(
                 status,
                 RunEvent(
@@ -227,7 +231,7 @@ class AgentRunService:
                 intermediate_dir=intermediate_dir,
                 output_dir=output_dir,
                 log_dir=log_dir,
-                runtime_settings=runtime_settings,
+                runtime_snapshot_id=runtime_snapshot_id,
             )
         else:
             self._dispatch_run(
@@ -238,7 +242,7 @@ class AgentRunService:
                 intermediate_dir=intermediate_dir,
                 output_dir=output_dir,
                 log_dir=log_dir,
-                runtime_settings=runtime_settings,
+                runtime_snapshot_id=runtime_snapshot_id,
             )
         return self.get_run(run_id) or status
 
@@ -251,14 +255,19 @@ class AgentRunService:
         intermediate_dir: Path,
         output_dir: Path,
         log_dir: Path,
-        runtime_settings: EffectiveLLMSettings | None = None,
+        runtime_snapshot_id: str | None = None,
+        runtime_settings: EffectiveLLMSettings | Dict[str, Any] | None = None,
     ) -> None:
         logger = self._build_logger(run_id, log_dir / "run.log")
         plan: Optional[WorkflowPlan] = None
         repair_records: List[RepairRecord] = []
         runtime_request = request
         runtime_dependencies = self._build_runtime_dependencies(
-            settings=runtime_settings or self._snapshot_default_runtime_settings()
+            settings=self._resolve_run_runtime_settings(
+                run_id=run_id,
+                runtime_snapshot_id=runtime_snapshot_id,
+                runtime_settings=runtime_settings,
+            )
         )
 
         try:
@@ -1112,6 +1121,24 @@ class AgentRunService:
     def _snapshot_default_runtime_settings(self) -> EffectiveLLMSettings:
         return self._default_runtime.settings.model_copy(deep=True)
 
+    def _resolve_run_runtime_settings(
+        self,
+        *,
+        run_id: str,
+        runtime_snapshot_id: str | None = None,
+        runtime_settings: EffectiveLLMSettings | Dict[str, Any] | None = None,
+    ) -> EffectiveLLMSettings:
+        if runtime_settings is not None:
+            return EffectiveLLMSettings.model_validate(runtime_settings)
+        snapshot_settings = self.runtime_settings_service.load_runtime_snapshot(runtime_snapshot_id)
+        if snapshot_settings is not None:
+            return snapshot_settings
+        legacy_settings = self._load_run_runtime_settings(run_id)
+        if legacy_settings is not None:
+            return legacy_settings
+        with self._lock:
+            return self._snapshot_default_runtime_settings()
+
     def _build_runtime_dependencies(
         self,
         *,
@@ -1157,6 +1184,18 @@ class AgentRunService:
             model=model,
             timeout_sec=timeout_sec,
         )
+
+    def _load_run_runtime_settings(self, run_id: str) -> EffectiveLLMSettings | None:
+        path = self._runtime_settings_path(run_id)
+        if not path.exists():
+            return None
+        raw = path.read_text(encoding="utf-8").strip()
+        if not raw:
+            return None
+        return EffectiveLLMSettings.model_validate(json.loads(raw))
+
+    def _runtime_settings_path(self, run_id: str) -> Path:
+        return self.base_dir / run_id / "runtime_settings.json"
 
     @staticmethod
     def _read_env_value(name: str) -> str | None:
@@ -1223,7 +1262,7 @@ class AgentRunService:
         intermediate_dir: Path,
         output_dir: Path,
         log_dir: Path,
-        runtime_settings: EffectiveLLMSettings,
+        runtime_snapshot_id: str,
     ) -> None:
         try:
             from worker.tasks import execute_run_task
@@ -1236,19 +1275,19 @@ class AgentRunService:
                 intermediate_dir=str(intermediate_dir),
                 output_dir=str(output_dir),
                 log_dir=str(log_dir),
-                runtime_settings=runtime_settings.model_dump(mode="json"),
+                runtime_snapshot_id=runtime_snapshot_id,
             )
         except Exception:  # noqa: BLE001
             self._pool.submit(
                 self.execute_run,
-                run_id,
-                request,
-                osm_zip_path,
-                ref_zip_path,
-                intermediate_dir,
-                output_dir,
-                log_dir,
-                runtime_settings,
+                run_id=run_id,
+                request=request,
+                osm_zip_path=osm_zip_path,
+                ref_zip_path=ref_zip_path,
+                intermediate_dir=intermediate_dir,
+                output_dir=output_dir,
+                log_dir=log_dir,
+                runtime_snapshot_id=runtime_snapshot_id,
             )
 
     def _record_feedback(
