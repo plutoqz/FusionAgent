@@ -90,6 +90,20 @@ def _build_plan() -> WorkflowPlan:
     )
 
 
+def _build_status(phase: RunPhase) -> RunStatus:
+    return RunStatus(
+        run_id="run-kg",
+        job_type=JobType.building,
+        trigger=RunTrigger(type=RunTriggerType.user_query, content="need building data"),
+        phase=phase,
+        progress=100 if phase == RunPhase.succeeded else 0,
+        target_crs="EPSG:32643",
+        debug=False,
+        created_at="2026-04-25T00:00:00+00:00",
+        updated_at="2026-04-25T00:05:00+00:00",
+    )
+
+
 class StubRunService:
     def __init__(self, status: RunStatus, plan: WorkflowPlan | None) -> None:
         self._status = status
@@ -114,17 +128,7 @@ class StubRunService:
 def client(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> TestClient:
     monkeypatch.setenv("GEOFUSION_KG_BACKEND", "memory")
     monkeypatch.setattr(kg_router, "create_kg_repository", lambda: InMemoryKGRepository())
-    status = RunStatus(
-        run_id="run-kg",
-        job_type=JobType.building,
-        trigger=RunTrigger(type=RunTriggerType.user_query, content="need building data"),
-        phase=RunPhase.succeeded,
-        progress=100,
-        target_crs="EPSG:32643",
-        debug=False,
-        created_at="2026-04-25T00:00:00+00:00",
-        updated_at="2026-04-25T00:05:00+00:00",
-    )
+    status = _build_status(RunPhase.succeeded)
     monkeypatch.setattr(runs_v2_router, "agent_run_service", StubRunService(status=status, plan=_build_plan()))
     return TestClient(create_app())
 
@@ -153,17 +157,7 @@ def test_run_kg_graph_endpoint_returns_per_run_graph(client: TestClient) -> None
 def test_run_kg_graph_endpoint_returns_404_when_plan_missing(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    status = RunStatus(
-        run_id="run-kg",
-        job_type=JobType.building,
-        trigger=RunTrigger(type=RunTriggerType.user_query, content="need building data"),
-        phase=RunPhase.succeeded,
-        progress=100,
-        target_crs="EPSG:32643",
-        debug=False,
-        created_at="2026-04-25T00:00:00+00:00",
-        updated_at="2026-04-25T00:05:00+00:00",
-    )
+    status = _build_status(RunPhase.succeeded)
     monkeypatch.setattr(kg_router, "create_kg_repository", lambda: InMemoryKGRepository())
     monkeypatch.setattr(runs_v2_router, "agent_run_service", StubRunService(status=status, plan=None))
     client = TestClient(create_app())
@@ -172,3 +166,18 @@ def test_run_kg_graph_endpoint_returns_404_when_plan_missing(
 
     assert resp.status_code == 404
     assert resp.json() == {"detail": "Plan not found"}
+
+
+@pytest.mark.parametrize("phase", [RunPhase.queued, RunPhase.planning])
+def test_run_kg_graph_endpoint_returns_409_when_plan_not_ready(
+    monkeypatch: pytest.MonkeyPatch,
+    phase: RunPhase,
+) -> None:
+    monkeypatch.setattr(kg_router, "create_kg_repository", lambda: InMemoryKGRepository())
+    monkeypatch.setattr(runs_v2_router, "agent_run_service", StubRunService(status=_build_status(phase), plan=None))
+    client = TestClient(create_app())
+
+    resp = client.get("/api/v2/runs/run-kg/kg-graph")
+
+    assert resp.status_code == 409
+    assert resp.json() == {"detail": f"Plan not ready yet: {phase.value}"}

@@ -83,6 +83,22 @@ def _selected_decisions(status: RunStatus) -> dict[str, str]:
     return {record.decision_type: record.selected_id for record in status.decision_records}
 
 
+def _require_run_status(run_id: str) -> RunStatus:
+    status = agent_run_service.get_run(run_id)
+    if status is None:
+        raise HTTPException(status_code=404, detail=f"Run not found: {run_id}")
+    return status
+
+
+def _require_run_plan(run_id: str, status: RunStatus) -> "WorkflowPlan":
+    plan = agent_run_service.get_plan(run_id)
+    if plan is None:
+        if status.phase in {RunPhase.queued, RunPhase.planning}:
+            raise HTTPException(status_code=409, detail=f"Plan not ready yet: {status.phase.value}")
+        raise HTTPException(status_code=404, detail="Plan not found")
+    return plan
+
+
 @router.get("/runs", response_model=OperatorRunListResponse)
 async def list_runs(
     limit: int = Query(default=50, ge=1, le=100),
@@ -171,49 +187,32 @@ async def create_run(
 
 @router.get("/runs/{run_id}", response_model=RunStatus)
 async def get_run_status(run_id: str) -> RunStatus:
-    status = agent_run_service.get_run(run_id)
-    if status is None:
-        raise HTTPException(status_code=404, detail=f"Run not found: {run_id}")
-    return status
+    return _require_run_status(run_id)
 
 
 @router.get("/runs/{run_id}/plan", response_model=RunPlanResponse)
 async def get_run_plan(run_id: str) -> RunPlanResponse:
-    status = agent_run_service.get_run(run_id)
-    if status is None:
-        raise HTTPException(status_code=404, detail=f"Run not found: {run_id}")
-    plan = agent_run_service.get_plan(run_id)
-    if plan is None:
-        if status.phase in {RunPhase.queued, RunPhase.planning}:
-            raise HTTPException(status_code=409, detail=f"Plan not ready yet: {status.phase.value}")
-        raise HTTPException(status_code=404, detail="Plan not found")
+    status = _require_run_status(run_id)
+    plan = _require_run_plan(run_id, status)
     return RunPlanResponse(run_id=run_id, plan=plan)
 
 
 @router.get("/runs/{run_id}/audit", response_model=RunAuditResponse)
 async def get_run_audit(run_id: str) -> RunAuditResponse:
-    status = agent_run_service.get_run(run_id)
-    if status is None:
-        raise HTTPException(status_code=404, detail=f"Run not found: {run_id}")
+    status = _require_run_status(run_id)
     return RunAuditResponse(run_id=run_id, events=agent_run_service.get_audit_events(run_id))
 
 
 @router.get("/runs/{run_id}/inspection", response_model=RunInspectionResponse)
 async def get_run_inspection(run_id: str) -> RunInspectionResponse:
-    status = agent_run_service.get_run(run_id)
-    if status is None:
-        raise HTTPException(status_code=404, detail=f"Run not found: {run_id}")
+    status = _require_run_status(run_id)
     return _build_run_inspection_response(run_id, status)
 
 
 @router.get("/runs/{run_id}/kg-graph", response_model=KgGraphResponse)
 async def get_run_kg_graph(run_id: str) -> KgGraphResponse:
-    status = agent_run_service.get_run(run_id)
-    if status is None:
-        raise HTTPException(status_code=404, detail=f"Run not found: {run_id}")
-    plan = agent_run_service.get_plan(run_id)
-    if plan is None:
-        raise HTTPException(status_code=404, detail="Plan not found")
+    status = _require_run_status(run_id)
+    plan = _require_run_plan(run_id, status)
     return build_run_path_graph(plan)
 
 
