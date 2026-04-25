@@ -617,7 +617,7 @@ class AgentRunService:
         request: RunCreateRequest,
         runtime_dependencies: RuntimeDependencies | None = None,
     ) -> WorkflowPlan:
-        runtime = runtime_dependencies or self._default_runtime
+        runtime = runtime_dependencies or self._bound_default_runtime()
         planner = runtime.planner
         resolved_aoi: ResolvedAOI | None = None
         if self._should_resolve_aoi(request):
@@ -767,7 +767,7 @@ class AgentRunService:
         repair_records: Optional[List[RepairRecord]] = None,
         runtime_dependencies: RuntimeDependencies | None = None,
     ) -> tuple[Path, List[RepairRecord]]:
-        runtime = runtime_dependencies or self._default_runtime
+        runtime = runtime_dependencies or self._bound_default_runtime()
         osm_extract = intermediate_dir / "osm"
         ref_extract = intermediate_dir / "ref"
         osm_shp = validate_zip_has_shapefile(osm_zip_path, osm_extract)
@@ -1117,6 +1117,14 @@ class AgentRunService:
             return request
         return request.model_copy(update={"target_crs": target_crs})
 
+    def _bound_default_runtime(self) -> RuntimeDependencies:
+        return RuntimeDependencies(
+            settings=self._snapshot_default_runtime_settings(),
+            llm_provider=self.llm_provider,
+            planner=self.planner,
+            executor=self.executor,
+        )
+
     def _apply_default_runtime(self, runtime: RuntimeDependencies) -> None:
         self._default_runtime = runtime
         self.llm_provider = runtime.llm_provider
@@ -1162,6 +1170,9 @@ class AgentRunService:
         settings: EffectiveLLMSettings,
         llm_provider: Any | None = None,
     ) -> RuntimeDependencies:
+        current_default = getattr(self, "_default_runtime", None)
+        if llm_provider is None and current_default is not None and settings == current_default.settings:
+            return self._bound_default_runtime()
         provider = llm_provider if llm_provider is not None else create_llm_provider(settings)
         planner = WorkflowPlanner(self.kg_repo, provider, artifact_registry=self.artifact_registry)
         executor = WorkflowExecutor(self.kg_repo, planner=planner)
