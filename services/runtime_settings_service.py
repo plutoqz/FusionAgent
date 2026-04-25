@@ -24,6 +24,32 @@ class RuntimeSettingsService:
 
     def save_llm_settings(self, settings: PersistedLLMSettings) -> MaskedLLMSettings:
         persisted = self.preview_persisted_llm_settings(settings)
+        return self.write_persisted_llm_settings(persisted)
+
+    def get_llm_settings(self) -> MaskedLLMSettings:
+        return self._load_persisted_settings().masked_view()
+
+    def get_persisted_llm_settings(self) -> PersistedLLMSettings:
+        return self._load_persisted_settings()
+
+    def get_effective_llm_settings(self) -> EffectiveLLMSettings:
+        return self._build_effective_llm_settings(self._load_persisted_settings())
+
+    def preview_persisted_llm_settings(self, settings: PersistedLLMSettings) -> PersistedLLMSettings:
+        current = self._load_persisted_settings()
+        return self.merge_persisted_llm_settings(current, settings)
+
+    def merge_persisted_llm_settings(
+        self,
+        current: PersistedLLMSettings,
+        patch: PersistedLLMSettings,
+    ) -> PersistedLLMSettings:
+        current_settings = PersistedLLMSettings.model_validate(current)
+        patch_settings = PersistedLLMSettings.model_validate(patch)
+        return self._merge_persisted_settings_patch(current_settings, patch_settings)
+
+    def write_persisted_llm_settings(self, settings: PersistedLLMSettings) -> MaskedLLMSettings:
+        persisted = PersistedLLMSettings.model_validate(settings)
         self.settings_path.parent.mkdir(parents=True, exist_ok=True)
         self.settings_path.write_text(
             json.dumps(persisted.model_dump(mode="json"), ensure_ascii=False, indent=2),
@@ -31,19 +57,10 @@ class RuntimeSettingsService:
         )
         return persisted.masked_view()
 
-    def get_llm_settings(self) -> MaskedLLMSettings:
-        return self._load_persisted_settings().masked_view()
-
-    def get_effective_llm_settings(self) -> EffectiveLLMSettings:
-        return self._build_effective_llm_settings(self._load_persisted_settings())
-
-    def preview_persisted_llm_settings(self, settings: PersistedLLMSettings) -> PersistedLLMSettings:
-        return self._merge_persisted_settings_patch(PersistedLLMSettings.model_validate(settings))
-
     def preview_effective_llm_settings(self, settings: PersistedLLMSettings | None = None) -> EffectiveLLMSettings:
         persisted = self._load_persisted_settings()
         if settings is not None:
-            persisted = self._merge_persisted_settings_patch(PersistedLLMSettings.model_validate(settings))
+            persisted = self.merge_persisted_llm_settings(persisted, settings)
         return self._build_effective_llm_settings(persisted)
 
     def store_runtime_snapshot(self, settings: EffectiveLLMSettings) -> str:
@@ -83,8 +100,11 @@ class RuntimeSettingsService:
             return PersistedLLMSettings()
         return PersistedLLMSettings.model_validate(json.loads(raw))
 
-    def _merge_persisted_settings_patch(self, patch: PersistedLLMSettings) -> PersistedLLMSettings:
-        current = self._load_persisted_settings()
+    def _merge_persisted_settings_patch(
+        self,
+        current: PersistedLLMSettings,
+        patch: PersistedLLMSettings,
+    ) -> PersistedLLMSettings:
         provided_fields = set(patch.model_fields_set)
         if not provided_fields:
             return current

@@ -301,3 +301,40 @@ def test_put_llm_settings_explicit_empty_api_key_clears_persisted_secret(
             timeout_sec=None,
         )
     ]
+
+
+def test_put_llm_settings_rolls_back_persisted_settings_when_refresh_fails(
+    settings_client: tuple[TestClient, RuntimeSettingsService, list[EffectiveLLMSettings]],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _client, runtime_service, _refresh_calls = settings_client
+    runtime_service.save_llm_settings(
+        PersistedLLMSettings(
+            provider="mock",
+            model="persisted-model",
+            timeout_sec=30,
+        )
+    )
+
+    class FailingAgentRunService:
+        def refresh_runtime_dependencies(self, llm_settings: EffectiveLLMSettings) -> None:
+            raise RuntimeError(f"refresh failed for {llm_settings.model}")
+
+    monkeypatch.setattr(settings_router, "agent_run_service", FailingAgentRunService())
+    client = TestClient(create_app(), raise_server_exceptions=False)
+
+    response = client.put(
+        "/api/v2/settings/llm",
+        json={
+            "model": "new-model",
+            "timeout_sec": 45,
+        },
+    )
+
+    assert response.status_code == 500, response.text
+    assert "refresh failed" in response.text
+    assert runtime_service.get_llm_settings() == PersistedLLMSettings(
+        provider="mock",
+        model="persisted-model",
+        timeout_sec=30,
+    ).masked_view()
