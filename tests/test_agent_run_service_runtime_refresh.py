@@ -157,7 +157,9 @@ def test_execute_run_uses_bound_runtime_snapshot_after_refresh_for_queued_run(tm
     )
 
     runtime_settings_path = service.base_dir / status.run_id / "runtime_settings.json"
+    runtime_snapshot_id_path = service.base_dir / status.run_id / "runtime_snapshot_id.txt"
     assert runtime_settings_path.exists() is False
+    assert runtime_snapshot_id_path.read_text(encoding="utf-8").strip() == queued_dispatch["runtime_snapshot_id"]
     assert queued_dispatch["run_id"] == status.run_id
     assert "runtime_settings" not in queued_dispatch
     assert queued_dispatch["runtime_snapshot_id"]
@@ -240,6 +242,144 @@ def test_execute_run_uses_bound_runtime_snapshot_after_refresh_for_queued_run(tm
     assert service.executor is executor_instances[1]
     assert service.executor.planner is service.planner
     assert runtime_settings_path.exists() is False
+
+
+def test_execute_run_uses_persisted_runtime_snapshot_id_for_redispatch(tmp_path: Path, monkeypatch) -> None:
+    create_provider_calls: list[object] = []
+    captured_runtime_providers: list[str | None] = []
+    initial_provider = object()
+    refreshed_provider = object()
+
+    class FakePlanner:
+        def __init__(self, kg_repo, llm_provider, artifact_registry=None) -> None:
+            self.kg_repo = kg_repo
+            self.llm_provider = llm_provider
+            self.artifact_registry = artifact_registry
+            self.context_builder = type("ContextBuilder", (), {"resolved_aoi_override": None})()
+
+    class FakeExecutor:
+        def __init__(self, kg_repo, planner=None, algorithm_handlers=None, tool_registry=None) -> None:
+            self.kg_repo = kg_repo
+            self.planner = planner
+
+    def fake_create_llm_provider(settings=None):
+        create_provider_calls.append(settings)
+        if settings is None or settings.provider == "mock":
+            return initial_provider
+        return refreshed_provider
+
+    monkeypatch.setattr("services.agent_run_service.create_llm_provider", fake_create_llm_provider)
+    monkeypatch.setattr("services.agent_run_service.WorkflowPlanner", FakePlanner)
+    monkeypatch.setattr("services.agent_run_service.WorkflowExecutor", FakeExecutor)
+    monkeypatch.setattr("services.agent_run_service.AgentRunService._build_geocoder", lambda self: object())
+    monkeypatch.setattr("services.agent_run_service.AgentRunService._build_raw_vector_source_service", lambda self: object())
+    monkeypatch.setattr("services.agent_run_service.AgentRunService._build_input_bundle_providers", lambda self: [])
+
+    runtime_settings_service = RuntimeSettingsService(
+        settings_path=tmp_path / "tmp" / "runtime-settings" / "llm-settings.json",
+        snapshots_dir=tmp_path / "tmp" / "runtime-settings" / "snapshots",
+    )
+    service = AgentRunService(
+        base_dir=tmp_path / "runs",
+        kg_repo=object(),
+        runtime_settings_service=runtime_settings_service,
+    )
+    service.dispatch_eager = False
+    monkeypatch.setattr(service, "_dispatch_run", lambda **kwargs: None)
+
+    request = RunCreateRequest(
+        job_type=JobType.building,
+        trigger=RunTrigger(type=RunTriggerType.user_query, content="building"),
+        target_crs="EPSG:4326",
+        field_mapping={},
+        debug=False,
+        input_strategy=RunInputStrategy.uploaded,
+    )
+    status = service.create_run(
+        request=request,
+        osm_zip_name="osm.zip",
+        osm_zip_bytes=b"osm",
+        ref_zip_name="ref.zip",
+        ref_zip_bytes=b"ref",
+    )
+    service.refresh_runtime_dependencies(
+        EffectiveLLMSettings(
+            provider="openai",
+            base_url="https://runtime.example/v1",
+            api_key="sk-runtime-secret",
+            model="gpt-runtime",
+            timeout_sec=33,
+        )
+    )
+
+    def fake_run_planning_stage(run_id: str, request: RunCreateRequest, runtime_dependencies=None) -> WorkflowPlan:
+        captured_runtime_providers.append(runtime_dependencies.settings.provider if runtime_dependencies else None)
+        return WorkflowPlan.model_validate(
+            {
+                "workflow_id": "wf_runtime_snapshot_redispatch",
+                "trigger": request.trigger.model_dump(mode="json"),
+                "context": {"plan_revision": 1},
+                "tasks": [],
+                "expected_output": "snapshot",
+            }
+        )
+
+    def fake_run_validation_stage(run_id: str, plan: WorkflowPlan) -> WorkflowPlan:
+        return plan
+
+    def fake_run_execution_stage(
+        run_id: str,
+        request: RunCreateRequest,
+        plan: WorkflowPlan,
+        osm_zip_path: Path,
+        ref_zip_path: Path,
+        intermediate_dir: Path,
+        output_dir: Path,
+        repair_records=None,
+        runtime_dependencies=None,
+    ):
+        captured_runtime_providers.append(runtime_dependencies.settings.provider if runtime_dependencies else None)
+        fused = output_dir / "fused.shp"
+        output_dir.mkdir(parents=True, exist_ok=True)
+        fused.write_text("ok", encoding="utf-8")
+        return fused, []
+
+    monkeypatch.setattr(service, "run_planning_stage", fake_run_planning_stage)
+    monkeypatch.setattr(service, "run_validation_stage", fake_run_validation_stage)
+    monkeypatch.setattr(service, "_attempt_artifact_reuse", lambda **kwargs: None)
+    monkeypatch.setattr(
+        service,
+        "_resolve_execution_inputs",
+        lambda **kwargs: (kwargs["osm_zip_path"], kwargs["ref_zip_path"], None),
+    )
+    monkeypatch.setattr(service, "run_execution_stage", fake_run_execution_stage)
+    monkeypatch.setattr(
+        service,
+        "run_writeback_stage",
+        lambda **kwargs: RunArtifactMeta(filename="artifact.zip", path=str(kwargs["output_dir"] / "artifact.zip"), size_bytes=1),
+    )
+
+    run_dir = service.base_dir / status.run_id
+    service.execute_run(
+        run_id=status.run_id,
+        request=request,
+        osm_zip_path=run_dir / "input" / "osm.zip",
+        ref_zip_path=run_dir / "input" / "ref.zip",
+        intermediate_dir=run_dir / "intermediate",
+        output_dir=run_dir / "output",
+        log_dir=run_dir / "logs",
+    )
+
+    assert create_provider_calls[0] is None
+    assert create_provider_calls[1] == EffectiveLLMSettings(
+        provider="openai",
+        base_url="https://runtime.example/v1",
+        api_key="sk-runtime-secret",
+        model="gpt-runtime",
+        timeout_sec=33,
+    )
+    assert create_provider_calls[2] == EffectiveLLMSettings(provider="mock")
+    assert captured_runtime_providers == ["mock", "mock"]
 
 
 def test_create_run_queues_only_runtime_snapshot_id_not_secret_payload(tmp_path: Path, monkeypatch) -> None:

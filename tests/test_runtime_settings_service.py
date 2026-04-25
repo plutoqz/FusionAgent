@@ -155,6 +155,54 @@ def test_runtime_settings_service_deduplicates_runtime_snapshots(tmp_path: Path)
     assert sorted(path.name for path in service.snapshots_dir.glob("*.json")) == [f"{first_snapshot_id}.json"]
 
 
+def test_runtime_settings_service_publishes_runtime_snapshot_via_atomic_replace(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    service = RuntimeSettingsService(
+        settings_path=tmp_path / "tmp" / "runtime-settings" / "llm-settings.json",
+        snapshots_dir=tmp_path / "tmp" / "runtime-settings" / "snapshots",
+    )
+    settings = EffectiveLLMSettings(
+        provider="openai",
+        base_url="https://snapshot.example/v1",
+        api_key="sk-snapshot-secret-1234",
+        model="gpt-snapshot",
+        timeout_sec=20,
+    )
+    replace_calls: list[tuple[str, str]] = []
+    original_replace = os.replace
+
+    def tracking_replace(src: str, dst: str) -> None:
+        replace_calls.append((src, dst))
+        assert Path(src).exists()
+        assert Path(src).read_text(encoding="utf-8").strip()
+        assert Path(src).name != Path(dst).name
+        original_replace(src, dst)
+
+    monkeypatch.setattr(os, "replace", tracking_replace)
+
+    snapshot_id = service.store_runtime_snapshot(settings)
+
+    assert len(replace_calls) == 1
+    assert Path(replace_calls[0][1]) == service.snapshots_dir / f"{snapshot_id}.json"
+    assert service.load_runtime_snapshot(snapshot_id) == settings
+
+
+def test_runtime_settings_service_load_runtime_snapshot_rejects_invalid_id_and_corrupt_file(tmp_path: Path) -> None:
+    service = RuntimeSettingsService(
+        settings_path=tmp_path / "tmp" / "runtime-settings" / "llm-settings.json",
+        snapshots_dir=tmp_path / "tmp" / "runtime-settings" / "snapshots",
+    )
+    service.snapshots_dir.mkdir(parents=True, exist_ok=True)
+    invalid_snapshot_id = "../not-a-snapshot"
+    corrupt_snapshot_id = "a" * 64
+    (service.snapshots_dir / f"{corrupt_snapshot_id}.json").write_text("{not-json", encoding="utf-8")
+
+    assert service.load_runtime_snapshot(invalid_snapshot_id) is None
+    assert service.load_runtime_snapshot("xyz") is None
+    assert service.load_runtime_snapshot(corrupt_snapshot_id) is None
+
+
 @pytest.mark.parametrize("settings_cls", [PersistedLLMSettings, EffectiveLLMSettings])
 def test_llm_settings_provider_rejects_unknown_values(settings_cls: type[PersistedLLMSettings | EffectiveLLMSettings]) -> None:
     with pytest.raises(ValidationError, match="provider"):

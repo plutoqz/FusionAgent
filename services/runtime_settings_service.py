@@ -3,13 +3,18 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
+import uuid
 from pathlib import Path
+
+from pydantic import ValidationError
 
 from schemas.settings import EffectiveLLMSettings, MaskedLLMSettings, PersistedLLMSettings
 
 
 DEFAULT_RUNTIME_SETTINGS_PATH = Path("tmp/runtime-settings/llm-settings.json")
 DEFAULT_RUNTIME_SNAPSHOTS_DIR = DEFAULT_RUNTIME_SETTINGS_PATH.parent / "snapshots"
+SNAPSHOT_ID_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 
 
 class RuntimeSettingsService:
@@ -44,21 +49,29 @@ class RuntimeSettingsService:
         serialized = self._serialize_runtime_snapshot(effective)
         snapshot_id = hashlib.sha256(serialized.encode("utf-8")).hexdigest()
         path = self._runtime_snapshot_path(snapshot_id)
+        temp_path = path.with_name(f"{path.name}.{uuid.uuid4().hex}.tmp")
         path.parent.mkdir(parents=True, exist_ok=True)
-        if not path.exists():
-            path.write_text(serialized, encoding="utf-8")
+        try:
+            temp_path.write_text(serialized, encoding="utf-8")
+            os.replace(temp_path, path)
+        finally:
+            if temp_path.exists():
+                temp_path.unlink(missing_ok=True)
         return snapshot_id
 
     def load_runtime_snapshot(self, snapshot_id: str | None) -> EffectiveLLMSettings | None:
-        if not snapshot_id:
+        if not self._is_valid_snapshot_id(snapshot_id):
             return None
         path = self._runtime_snapshot_path(snapshot_id)
         if not path.exists():
             return None
-        raw = path.read_text(encoding="utf-8").strip()
-        if not raw:
+        try:
+            raw = path.read_text(encoding="utf-8").strip()
+            if not raw:
+                return None
+            return EffectiveLLMSettings.model_validate(json.loads(raw))
+        except (OSError, json.JSONDecodeError, ValidationError):
             return None
-        return EffectiveLLMSettings.model_validate(json.loads(raw))
 
     def _load_persisted_settings(self) -> PersistedLLMSettings:
         if not self.settings_path.exists():
@@ -90,6 +103,12 @@ class RuntimeSettingsService:
             sort_keys=True,
             separators=(",", ":"),
         )
+
+    @staticmethod
+    def _is_valid_snapshot_id(snapshot_id: str | None) -> bool:
+        if not snapshot_id:
+            return False
+        return SNAPSHOT_ID_PATTERN.fullmatch(snapshot_id) is not None
 
     @staticmethod
     def _read_env_value(name: str) -> str | None:

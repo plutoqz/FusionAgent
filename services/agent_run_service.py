@@ -200,6 +200,7 @@ class AgentRunService:
         with self._lock:
             runtime_settings = self._snapshot_default_runtime_settings()
             runtime_snapshot_id = self.runtime_settings_service.store_runtime_snapshot(runtime_settings)
+            self._persist_run_runtime_snapshot_id(run_id, runtime_snapshot_id)
             self._append_audit_event(
                 status,
                 RunEvent(
@@ -1133,6 +1134,10 @@ class AgentRunService:
         snapshot_settings = self.runtime_settings_service.load_runtime_snapshot(runtime_snapshot_id)
         if snapshot_settings is not None:
             return snapshot_settings
+        persisted_snapshot_id = self._load_run_runtime_snapshot_id(run_id)
+        snapshot_settings = self.runtime_settings_service.load_runtime_snapshot(persisted_snapshot_id)
+        if snapshot_settings is not None:
+            return snapshot_settings
         legacy_settings = self._load_run_runtime_settings(run_id)
         if legacy_settings is not None:
             return legacy_settings
@@ -1196,6 +1201,21 @@ class AgentRunService:
 
     def _runtime_settings_path(self, run_id: str) -> Path:
         return self.base_dir / run_id / "runtime_settings.json"
+
+    def _persist_run_runtime_snapshot_id(self, run_id: str, runtime_snapshot_id: str) -> None:
+        path = self._runtime_snapshot_id_path(run_id)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(runtime_snapshot_id, encoding="utf-8")
+
+    def _load_run_runtime_snapshot_id(self, run_id: str) -> str | None:
+        path = self._runtime_snapshot_id_path(run_id)
+        if not path.exists():
+            return None
+        raw = path.read_text(encoding="utf-8").strip()
+        return raw or None
+
+    def _runtime_snapshot_id_path(self, run_id: str) -> Path:
+        return self.base_dir / run_id / "runtime_snapshot_id.txt"
 
     @staticmethod
     def _read_env_value(name: str) -> str | None:
