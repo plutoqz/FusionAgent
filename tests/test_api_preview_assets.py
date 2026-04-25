@@ -75,6 +75,9 @@ def test_run_preview_metadata_endpoint_returns_preview_summary(tmp_path: Path, c
     assert payload["preview_feature_count"] == 3
     assert payload["bbox"] == [0.0, 0.0, 2.01, 2.01]
     assert payload["geometry_types"] == ["Polygon"]
+    assert "artifact_zip" not in payload
+    assert "output_dir" not in payload
+    assert "geojson_file_path" not in payload
 
 
 def test_run_preview_geojson_endpoint_serves_generated_geojson(tmp_path: Path, client: TestClient) -> None:
@@ -89,6 +92,22 @@ def test_run_preview_geojson_endpoint_serves_generated_geojson(tmp_path: Path, c
     payload = response.json()
     assert payload["type"] == "FeatureCollection"
     assert len(payload["features"]) == 2
+
+
+def test_run_preview_geojson_endpoint_serves_cached_preview_file(tmp_path: Path, client: TestClient) -> None:
+    service = runs_v2_router.agent_run_service
+    artifact_zip = _build_polygon_zip(tmp_path, count=2)
+    service.register_run(run_id="run-geojson-cached", phase=RunPhase.succeeded, artifact_path=artifact_zip)
+
+    preview_response = client.get("/api/v2/runs/run-geojson-cached/preview")
+
+    assert preview_response.status_code == 200, preview_response.text
+    assert "geojson_file_path" not in preview_response.json()
+
+    response = client.get("/api/v2/runs/run-geojson-cached/preview.geojson")
+
+    assert response.status_code == 200, response.text
+    assert response.headers["content-type"].startswith("application/geo+json")
 
 
 def test_run_preview_endpoint_rejects_unsucceeded_runs(tmp_path: Path, client: TestClient) -> None:

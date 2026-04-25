@@ -124,7 +124,15 @@ def _preview_route_path(run_id: str) -> str:
     return f"/api/v2/runs/{run_id}/preview.geojson"
 
 
-def _load_run_preview(run_id: str) -> ArtifactPreviewResponse:
+def _build_public_preview_payload(payload: dict[str, object]) -> dict[str, object]:
+    return {
+        key: value
+        for key, value in payload.items()
+        if key not in {"artifact_zip", "output_dir", "geojson_file_path"}
+    }
+
+
+def _load_run_preview_payload(run_id: str) -> dict[str, object]:
     artifact = _require_succeeded_artifact(run_id)
     preview_dir = _preview_output_dir(run_id)
     preview_dir.mkdir(parents=True, exist_ok=True)
@@ -133,7 +141,7 @@ def _load_run_preview(run_id: str) -> ArtifactPreviewResponse:
         payload = json.loads(metadata_path.read_text(encoding="utf-8"))
         geojson_file_path = payload.get("geojson_file_path")
         if geojson_file_path and Path(geojson_file_path).exists():
-            return ArtifactPreviewResponse.model_validate(payload)
+            return payload
 
     preview = build_artifact_preview(artifact, output_dir=preview_dir)
     geojson_file_path = str(Path(preview["geojson_path"]).resolve())
@@ -144,7 +152,12 @@ def _load_run_preview(run_id: str) -> ArtifactPreviewResponse:
         "geojson_file_path": geojson_file_path,
     }
     metadata_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
-    return ArtifactPreviewResponse.model_validate(payload)
+    return payload
+
+
+def _load_run_preview(run_id: str) -> ArtifactPreviewResponse:
+    payload = _load_run_preview_payload(run_id)
+    return ArtifactPreviewResponse.model_validate(_build_public_preview_payload(payload))
 
 
 @router.get("/runs", response_model=OperatorRunListResponse)
@@ -271,10 +284,11 @@ async def get_run_preview(run_id: str) -> ArtifactPreviewResponse:
 
 @router.get("/runs/{run_id}/preview.geojson")
 async def get_run_preview_geojson(run_id: str) -> FileResponse:
-    preview = _load_run_preview(run_id)
-    if preview.geojson_file_path is None or not Path(preview.geojson_file_path).exists():
+    preview = _load_run_preview_payload(run_id)
+    geojson_file_path = preview.get("geojson_file_path")
+    if geojson_file_path is None or not Path(geojson_file_path).exists():
         raise HTTPException(status_code=404, detail="Preview GeoJSON not found")
-    geojson_path = Path(preview.geojson_file_path)
+    geojson_path = Path(geojson_file_path)
     return FileResponse(path=str(geojson_path), filename=geojson_path.name, media_type="application/geo+json")
 
 

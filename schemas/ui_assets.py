@@ -7,11 +7,8 @@ from pydantic import BaseModel, Field
 
 class ArtifactPreviewResponse(BaseModel):
     run_id: str
-    artifact_zip: Optional[str] = None
-    output_dir: Optional[str] = None
     shapefile_name: Optional[str] = None
     geojson_path: str
-    geojson_file_path: Optional[str] = None
     max_features: int = 0
     preview_feature_count: int = 0
     feature_count: int = 0
