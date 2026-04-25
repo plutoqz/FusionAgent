@@ -139,6 +139,27 @@ def test_put_llm_settings_rejects_openai_without_api_key(
     assert refresh_calls == []
 
 
+def test_put_llm_settings_does_not_use_environment_api_key_for_validation(
+    settings_client: tuple[TestClient, RuntimeSettingsService, list[EffectiveLLMSettings]],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client, runtime_service, refresh_calls = settings_client
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-env-secret-9999")
+
+    response = client.put(
+        "/api/v2/settings/llm",
+        json={
+            "provider": "openai",
+            "model": "gpt-updated",
+        },
+    )
+
+    assert response.status_code == 422, response.text
+    assert "api_key is required" in response.text
+    assert runtime_service.get_llm_settings().has_api_key is False
+    assert refresh_calls == []
+
+
 def test_validate_llm_settings_returns_masked_preview_without_persisting(
     settings_client: tuple[TestClient, RuntimeSettingsService, list[EffectiveLLMSettings]],
     monkeypatch: pytest.MonkeyPatch,
@@ -213,3 +234,70 @@ def test_validate_llm_settings_rejects_openai_without_api_key(
     assert "api_key is required" in response.text
     assert runtime_service.get_llm_settings().has_api_key is False
     assert refresh_calls == []
+
+
+def test_validate_llm_settings_does_not_use_environment_api_key_for_validation(
+    settings_client: tuple[TestClient, RuntimeSettingsService, list[EffectiveLLMSettings]],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    client, runtime_service, refresh_calls = settings_client
+    monkeypatch.setenv("OPENAI_API_KEY", "sk-env-secret-9999")
+
+    response = client.post(
+        "/api/v2/settings/llm/validate",
+        json={
+            "provider": "openai",
+            "model": "gpt-validated",
+        },
+    )
+
+    assert response.status_code == 422, response.text
+    assert "api_key is required" in response.text
+    assert runtime_service.get_llm_settings().has_api_key is False
+    assert refresh_calls == []
+
+
+def test_put_llm_settings_explicit_empty_api_key_clears_persisted_secret(
+    settings_client: tuple[TestClient, RuntimeSettingsService, list[EffectiveLLMSettings]]
+) -> None:
+    client, runtime_service, refresh_calls = settings_client
+    runtime_service.save_llm_settings(
+        PersistedLLMSettings(
+            provider="mock",
+            api_key="sk-persisted-secret-1234",
+            model="persisted-model",
+        )
+    )
+
+    response = client.put(
+        "/api/v2/settings/llm",
+        json={
+            "api_key": "",
+        },
+    )
+
+    assert response.status_code == 200, response.text
+    assert response.json() == {
+        "provider": "mock",
+        "base_url": None,
+        "model": "persisted-model",
+        "timeout_sec": None,
+        "has_api_key": False,
+        "api_key_masked": None,
+    }
+    assert runtime_service.get_llm_settings() == PersistedLLMSettings(
+        provider="mock",
+        base_url=None,
+        api_key=None,
+        model="persisted-model",
+        timeout_sec=None,
+    ).masked_view()
+    assert refresh_calls == [
+        EffectiveLLMSettings(
+            provider="mock",
+            base_url=None,
+            api_key=None,
+            model="persisted-model",
+            timeout_sec=None,
+        )
+    ]
