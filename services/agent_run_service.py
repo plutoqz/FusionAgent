@@ -34,6 +34,7 @@ from schemas.agent import (
     RunTriggerType,
     WorkflowPlan,
 )
+from schemas.settings import EffectiveLLMSettings
 from services.artifact_registry import ArtifactRecord, ArtifactRegistry
 from services.artifact_reuse_policy import get_artifact_reuse_max_age_seconds
 from services.artifact_reuse_service import ArtifactReuseService, ReuseResult
@@ -91,9 +92,8 @@ class AgentRunService:
             cache_dir=self.base_dir / "input_bundle_cache",
         )
         self.artifact_reuse_service = ArtifactReuseService(self.artifact_registry)
-        self.planner = WorkflowPlanner(self.kg_repo, self.llm_provider, artifact_registry=self.artifact_registry)
         self.validator = WorkflowValidator(self.kg_repo)
-        self.executor = WorkflowExecutor(self.kg_repo, planner=self.planner)
+        self._rebuild_llm_runtime()
         self.policy_engine = PolicyEngine(policy_version="v2")
 
         self.dispatch_eager = _as_bool(os.getenv("GEOFUSION_CELERY_EAGER", "1"), default=True)
@@ -105,6 +105,14 @@ class AgentRunService:
         close = getattr(self.kg_repo, "close", None)
         if callable(close):
             close()
+
+    def refresh_runtime_dependencies(self, llm_settings: EffectiveLLMSettings) -> None:
+        self.llm_provider = create_llm_provider(llm_settings)
+        self._rebuild_llm_runtime()
+
+    def _rebuild_llm_runtime(self) -> None:
+        self.planner = WorkflowPlanner(self.kg_repo, self.llm_provider, artifact_registry=self.artifact_registry)
+        self.executor = WorkflowExecutor(self.kg_repo, planner=self.planner)
 
     def create_run(
         self,

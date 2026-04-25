@@ -29,6 +29,7 @@ jobs/*/
 
 runs/*/
 !runs/.gitkeep
+tmp/runtime-settings/
 
 .DS_Store
 Thumbs.db
