@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import os
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Optional
 
 from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
@@ -128,7 +128,7 @@ def _build_public_preview_payload(payload: dict[str, object]) -> dict[str, objec
     return {
         key: value
         for key, value in payload.items()
-        if key not in {"artifact_zip", "output_dir", "geojson_file_path", "artifact_identity"}
+        if key not in {"artifact_zip", "output_dir", "geojson_filename", "artifact_identity"}
     }
 
 
@@ -150,10 +150,16 @@ def _read_preview_metadata(metadata_path: Path) -> dict[str, object] | None:
 
 
 def _resolve_preview_geojson_path(payload: dict[str, object], preview_dir: Path) -> Path | None:
-    geojson_file_path = payload.get("geojson_file_path")
-    if not isinstance(geojson_file_path, str) or not geojson_file_path:
+    geojson_filename = payload.get("geojson_filename")
+    if not isinstance(geojson_filename, str) or not geojson_filename:
         return None
-    candidate = Path(geojson_file_path).resolve()
+    normalized = PurePosixPath(geojson_filename.replace("\\", "/"))
+    if normalized.is_absolute() or len(normalized.parts) != 1:
+        return None
+    filename = normalized.parts[0]
+    if filename in {"", ".", ".."} or Path(filename).suffix.lower() != ".geojson":
+        return None
+    candidate = (preview_dir / filename).resolve()
     try:
         candidate.relative_to(preview_dir)
     except ValueError:
@@ -180,17 +186,17 @@ def _load_run_preview_payload(run_id: str) -> dict[str, object]:
         if payload is not None:
             geojson_path = _resolve_preview_geojson_path(payload, preview_dir)
             if geojson_path is not None and _payload_matches_artifact(payload, artifact_identity):
-                payload["geojson_file_path"] = str(geojson_path)
+                payload["geojson_filename"] = geojson_path.name
                 return payload
 
     preview = build_artifact_preview(artifact, output_dir=preview_dir)
-    geojson_file_path = str(Path(preview["geojson_path"]).resolve())
+    geojson_filename = Path(preview["geojson_path"]).name
     payload = {
         "run_id": run_id,
         **preview,
         "artifact_identity": artifact_identity,
         "geojson_path": _preview_route_path(run_id),
-        "geojson_file_path": geojson_file_path,
+        "geojson_filename": geojson_filename,
     }
     metadata_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     return payload

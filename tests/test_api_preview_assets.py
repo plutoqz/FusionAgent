@@ -196,6 +196,38 @@ def test_run_preview_endpoint_treats_invalid_metadata_as_cache_miss(tmp_path: Pa
     assert payload["preview_feature_count"] == 2
 
 
+def test_run_preview_geojson_endpoint_does_not_serve_non_geojson_file_from_metadata(
+    tmp_path: Path, client: TestClient
+) -> None:
+    service = runs_v2_router.agent_run_service
+    artifact_zip = _build_polygon_zip(tmp_path / "artifact-non-geojson", count=2)
+    service.register_run(run_id="run-preview-non-geojson", phase=RunPhase.succeeded, artifact_path=artifact_zip)
+
+    preview_dir = service.base_dir / "run-preview-non-geojson" / "preview"
+    preview_dir.mkdir(parents=True, exist_ok=True)
+    metadata_path = preview_dir / "preview_metadata.json"
+    metadata_path.write_text(
+        json.dumps(
+            {
+                "run_id": "run-preview-non-geojson",
+                "artifact_identity": _artifact_identity_payload(artifact_zip),
+                "geojson_filename": metadata_path.name,
+                "geojson_path": "/api/v2/runs/run-preview-non-geojson/preview.geojson",
+                "feature_count": 1,
+                "preview_feature_count": 1,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    response = client.get("/api/v2/runs/run-preview-non-geojson/preview.geojson")
+
+    assert response.status_code == 200, response.text
+    payload = response.json()
+    assert payload["type"] == "FeatureCollection"
+    assert len(payload["features"]) == 2
+
+
 def test_run_preview_endpoint_rejects_unsucceeded_runs(tmp_path: Path, client: TestClient) -> None:
     service = runs_v2_router.agent_run_service
     artifact_zip = _build_polygon_zip(tmp_path, count=1)
@@ -235,3 +267,12 @@ def _zip_bundle(shp_path: Path, out_zip: Path) -> Path:
         for file in shp_path.parent.glob(f"{base.name}.*"):
             zf.write(file, arcname=file.name)
     return out_zip
+
+
+def _artifact_identity_payload(artifact_path: Path) -> dict[str, object]:
+    stat = artifact_path.stat()
+    return {
+        "path": str(artifact_path.resolve()),
+        "size_bytes": stat.st_size,
+        "mtime_ns": stat.st_mtime_ns,
+    }
