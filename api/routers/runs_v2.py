@@ -26,7 +26,9 @@ from schemas.agent import (
 from schemas.fusion import FieldMapping, JobType
 from schemas.kg_graph import KgGraphResponse
 from schemas.operator import OperatorRunListResponse, OperatorRuntimeSummaryResponse
+from schemas.ui_assets import ArtifactPreviewResponse
 from services.agent_run_service import agent_run_service
+from services.artifact_preview_service import build_artifact_preview
 from services.kg_graph_service import build_run_path_graph
 from services.kg_path_trace_service import build_kg_path_trace
 from services.operator_read_model_service import OperatorReadModelService
@@ -97,6 +99,52 @@ def _require_run_plan(run_id: str, status: RunStatus) -> "WorkflowPlan":
             raise HTTPException(status_code=409, detail=f"Plan not ready yet: {status.phase.value}")
         raise HTTPException(status_code=404, detail="Plan not found")
     return plan
+
+
+def _require_succeeded_artifact(run_id: str) -> Path:
+    status = _require_run_status(run_id)
+    if status.phase != RunPhase.succeeded:
+        raise HTTPException(status_code=409, detail=f"Run is not succeeded yet: {status.phase.value}")
+    artifact = agent_run_service.get_artifact_path(run_id)
+    if artifact is None or not artifact.exists():
+        raise HTTPException(status_code=404, detail="Artifact not found")
+    return artifact
+
+
+def _preview_output_dir(run_id: str) -> Path:
+    base_dir = Path(getattr(agent_run_service, "base_dir", Path("runs")))
+    return base_dir / run_id / "preview"
+
+
+def _preview_metadata_path(run_id: str) -> Path:
+    return _preview_output_dir(run_id) / "preview_metadata.json"
+
+
+def _preview_route_path(run_id: str) -> str:
+    return f"/api/v2/runs/{run_id}/preview.geojson"
+
+
+def _load_run_preview(run_id: str) -> ArtifactPreviewResponse:
+    artifact = _require_succeeded_artifact(run_id)
+    preview_dir = _preview_output_dir(run_id)
+    preview_dir.mkdir(parents=True, exist_ok=True)
+    metadata_path = _preview_metadata_path(run_id)
+    if metadata_path.exists():
+        payload = json.loads(metadata_path.read_text(encoding="utf-8"))
+        geojson_file_path = payload.get("geojson_file_path")
+        if geojson_file_path and Path(geojson_file_path).exists():
+            return ArtifactPreviewResponse.model_validate(payload)
+
+    preview = build_artifact_preview(artifact, output_dir=preview_dir)
+    geojson_file_path = str(Path(preview["geojson_path"]).resolve())
+    payload = {
+        "run_id": run_id,
+        **preview,
+        "geojson_path": _preview_route_path(run_id),
+        "geojson_file_path": geojson_file_path,
+    }
+    metadata_path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    return ArtifactPreviewResponse.model_validate(payload)
 
 
 @router.get("/runs", response_model=OperatorRunListResponse)
@@ -214,6 +262,20 @@ async def get_run_kg_graph(run_id: str) -> KgGraphResponse:
     status = _require_run_status(run_id)
     plan = _require_run_plan(run_id, status)
     return build_run_path_graph(plan)
+
+
+@router.get("/runs/{run_id}/preview", response_model=ArtifactPreviewResponse)
+async def get_run_preview(run_id: str) -> ArtifactPreviewResponse:
+    return _load_run_preview(run_id)
+
+
+@router.get("/runs/{run_id}/preview.geojson")
+async def get_run_preview_geojson(run_id: str) -> FileResponse:
+    preview = _load_run_preview(run_id)
+    if preview.geojson_file_path is None or not Path(preview.geojson_file_path).exists():
+        raise HTTPException(status_code=404, detail="Preview GeoJSON not found")
+    geojson_path = Path(preview.geojson_file_path)
+    return FileResponse(path=str(geojson_path), filename=geojson_path.name, media_type="application/geo+json")
 
 
 @router.get("/runtime", response_model=RuntimeMetadataResponse)
