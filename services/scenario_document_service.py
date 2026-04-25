@@ -7,7 +7,7 @@ from schemas.ui_assets import MarkdownDocumentResponse, ScenarioDocumentEntry
 
 class ScenarioDocumentService:
     def __init__(self, *, output_root: Path) -> None:
-        self.output_root = Path(output_root)
+        self.output_root = Path(output_root).resolve()
 
     def list_documents(self, scenario_id: str) -> list[ScenarioDocumentEntry]:
         documents_dir = self._documents_dir(scenario_id)
@@ -38,7 +38,12 @@ class ScenarioDocumentService:
         )
 
     def _documents_dir(self, scenario_id: str) -> Path:
-        scenario_dir = self.output_root / scenario_id
+        normalized_scenario_id = _normalize_scenario_id(scenario_id)
+        scenario_dir = (self.output_root / normalized_scenario_id).resolve()
+        try:
+            scenario_dir.relative_to(self.output_root)
+        except ValueError as exc:
+            raise FileNotFoundError(f"Scenario run not found: {scenario_id}") from exc
         summary_path = scenario_dir / "scenario_summary.json"
         if not summary_path.exists():
             raise FileNotFoundError(f"Scenario run not found: {scenario_id}")
@@ -70,6 +75,16 @@ def _normalize_filename(filename: str) -> PurePosixPath:
     if any(part in {"", ".", ".."} for part in normalized.parts):
         raise FileNotFoundError(f"Document not found: {filename}")
     return normalized
+
+
+def _normalize_scenario_id(scenario_id: str) -> str:
+    normalized = PurePosixPath((scenario_id or "").replace("\\", "/"))
+    if normalized.is_absolute() or len(normalized.parts) != 1:
+        raise FileNotFoundError(f"Scenario run not found: {scenario_id}")
+    part = normalized.parts[0]
+    if part in {"", ".", ".."}:
+        raise FileNotFoundError(f"Scenario run not found: {scenario_id}")
+    return part
 
 
 def _infer_language(filename: str) -> str | None:

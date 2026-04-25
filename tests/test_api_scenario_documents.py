@@ -64,6 +64,17 @@ def test_get_scenario_document_returns_404_when_missing(tmp_path: Path, client: 
     assert response.json()["detail"] == "Document not found: not-found.md"
 
 
+def test_list_scenario_documents_rejects_backslash_path_traversal_in_scenario_id(
+    tmp_path: Path, client: TestClient
+) -> None:
+    leak_target = _build_scenario_documents(tmp_path.parent, scenario_id=f"{tmp_path.name}-leak-target")
+
+    response = client.get(f"/api/v2/scenario-runs/..%5C{leak_target.name}/documents")
+
+    assert response.status_code == 404
+    assert response.json()["detail"] == f"Scenario run not found: ..\\{leak_target.name}"
+
+
 def _build_scenario_documents(root: Path, *, scenario_id: str) -> Path:
     scenario_dir = root / scenario_id
     documents_dir = scenario_dir / "documents"

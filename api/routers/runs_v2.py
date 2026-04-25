@@ -128,26 +128,67 @@ def _build_public_preview_payload(payload: dict[str, object]) -> dict[str, objec
     return {
         key: value
         for key, value in payload.items()
-        if key not in {"artifact_zip", "output_dir", "geojson_file_path"}
+        if key not in {"artifact_zip", "output_dir", "geojson_file_path", "artifact_identity"}
     }
 
 
+def _artifact_identity(artifact: Path) -> dict[str, object]:
+    stat = artifact.stat()
+    return {
+        "path": str(artifact.resolve()),
+        "size_bytes": stat.st_size,
+        "mtime_ns": stat.st_mtime_ns,
+    }
+
+
+def _read_preview_metadata(metadata_path: Path) -> dict[str, object] | None:
+    try:
+        payload = json.loads(metadata_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    return payload if isinstance(payload, dict) else None
+
+
+def _resolve_preview_geojson_path(payload: dict[str, object], preview_dir: Path) -> Path | None:
+    geojson_file_path = payload.get("geojson_file_path")
+    if not isinstance(geojson_file_path, str) or not geojson_file_path:
+        return None
+    candidate = Path(geojson_file_path).resolve()
+    try:
+        candidate.relative_to(preview_dir)
+    except ValueError:
+        return None
+    if not candidate.exists() or not candidate.is_file():
+        return None
+    return candidate
+
+
+def _payload_matches_artifact(payload: dict[str, object], artifact_identity: dict[str, object]) -> bool:
+    cached_identity = payload.get("artifact_identity")
+    return isinstance(cached_identity, dict) and cached_identity == artifact_identity
+
+
 def _load_run_preview_payload(run_id: str) -> dict[str, object]:
-    artifact = _require_succeeded_artifact(run_id)
+    artifact = _require_succeeded_artifact(run_id).resolve()
     preview_dir = _preview_output_dir(run_id)
     preview_dir.mkdir(parents=True, exist_ok=True)
+    preview_dir = preview_dir.resolve()
     metadata_path = _preview_metadata_path(run_id)
+    artifact_identity = _artifact_identity(artifact)
     if metadata_path.exists():
-        payload = json.loads(metadata_path.read_text(encoding="utf-8"))
-        geojson_file_path = payload.get("geojson_file_path")
-        if geojson_file_path and Path(geojson_file_path).exists():
-            return payload
+        payload = _read_preview_metadata(metadata_path)
+        if payload is not None:
+            geojson_path = _resolve_preview_geojson_path(payload, preview_dir)
+            if geojson_path is not None and _payload_matches_artifact(payload, artifact_identity):
+                payload["geojson_file_path"] = str(geojson_path)
+                return payload
 
     preview = build_artifact_preview(artifact, output_dir=preview_dir)
     geojson_file_path = str(Path(preview["geojson_path"]).resolve())
     payload = {
         "run_id": run_id,
         **preview,
+        "artifact_identity": artifact_identity,
         "geojson_path": _preview_route_path(run_id),
         "geojson_file_path": geojson_file_path,
     }
@@ -285,10 +326,9 @@ async def get_run_preview(run_id: str) -> ArtifactPreviewResponse:
 @router.get("/runs/{run_id}/preview.geojson")
 async def get_run_preview_geojson(run_id: str) -> FileResponse:
     preview = _load_run_preview_payload(run_id)
-    geojson_file_path = preview.get("geojson_file_path")
-    if geojson_file_path is None or not Path(geojson_file_path).exists():
+    geojson_path = _resolve_preview_geojson_path(preview, _preview_output_dir(run_id).resolve())
+    if geojson_path is None:
         raise HTTPException(status_code=404, detail="Preview GeoJSON not found")
-    geojson_path = Path(geojson_file_path)
     return FileResponse(path=str(geojson_path), filename=geojson_path.name, media_type="application/geo+json")
 
 
