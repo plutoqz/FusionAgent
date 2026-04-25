@@ -7,6 +7,7 @@ import pytest
 
 from llm.factory import create_llm_provider
 from llm.providers.openai_compatible import OpenAICompatibleProvider
+from llm.providers.mock_provider import MockLLMProvider
 from schemas.settings import EffectiveLLMSettings, PersistedLLMSettings
 from services.runtime_settings_service import RuntimeSettingsService
 
@@ -87,6 +88,51 @@ def test_runtime_settings_service_merges_environment_overrides_into_effective_se
     )
 
 
+def test_runtime_settings_service_partial_save_preserves_existing_api_key(tmp_path: Path) -> None:
+    service = RuntimeSettingsService(settings_path=tmp_path / "tmp" / "runtime-settings" / "llm-settings.json")
+    service.save_llm_settings(
+        PersistedLLMSettings(
+            provider="openai",
+            base_url="https://persisted.example/v1",
+            api_key="sk-persisted-secret-1234",
+            model="persisted-model",
+            timeout_sec=45,
+        )
+    )
+
+    stored = service.save_llm_settings(
+        PersistedLLMSettings(
+            provider="mock",
+            model="patched-model",
+        )
+    )
+    effective = service.get_effective_llm_settings()
+
+    assert stored.provider == "mock"
+    assert stored.model == "patched-model"
+    assert stored.has_api_key is True
+    assert effective.api_key == "sk-persisted-secret-1234"
+    assert effective.base_url == "https://persisted.example/v1"
+
+
+def test_runtime_settings_service_explicit_empty_api_key_clears_existing_secret(tmp_path: Path) -> None:
+    service = RuntimeSettingsService(settings_path=tmp_path / "tmp" / "runtime-settings" / "llm-settings.json")
+    service.save_llm_settings(
+        PersistedLLMSettings(
+            provider="openai",
+            api_key="sk-persisted-secret-1234",
+            model="persisted-model",
+        )
+    )
+
+    stored = service.save_llm_settings(PersistedLLMSettings(api_key=""))
+    effective = service.get_effective_llm_settings()
+
+    assert stored.has_api_key is False
+    assert stored.api_key_masked is None
+    assert effective.api_key is None
+
+
 def test_create_llm_provider_prefers_explicit_settings_over_environment(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("GEOFUSION_LLM_PROVIDER", "mock")
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
@@ -107,3 +153,26 @@ def test_create_llm_provider_prefers_explicit_settings_over_environment(monkeypa
     assert provider.api_key == "sk-explicit-secret"
     assert provider.model == "gpt-explicit"
     assert provider.timeout_sec == 12
+
+
+def test_create_llm_provider_raises_for_explicit_openai_settings_without_api_key() -> None:
+    with pytest.raises(RuntimeError, match="api_key is required"):
+        create_llm_provider(
+            EffectiveLLMSettings(
+                provider="openai",
+                base_url="https://explicit.example/v1",
+                model="gpt-explicit",
+                timeout_sec=12,
+            )
+        )
+
+
+def test_create_llm_provider_explicit_auto_without_api_key_still_resolves_to_mock() -> None:
+    provider = create_llm_provider(
+        EffectiveLLMSettings(
+            provider="auto",
+            model="ignored",
+        )
+    )
+
+    assert isinstance(provider, MockLLMProvider)

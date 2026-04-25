@@ -7,6 +7,7 @@ import re
 import traceback
 import uuid
 from concurrent.futures import ThreadPoolExecutor
+from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
 from threading import Lock
@@ -68,6 +69,14 @@ def _as_int(value: str | None, default: int) -> int:
         return default
 
 
+@dataclass(frozen=True)
+class RuntimeDependencies:
+    settings: EffectiveLLMSettings
+    llm_provider: Any
+    planner: WorkflowPlanner
+    executor: WorkflowExecutor
+
+
 class AgentRunService:
     def __init__(
         self,
@@ -93,7 +102,12 @@ class AgentRunService:
         )
         self.artifact_reuse_service = ArtifactReuseService(self.artifact_registry)
         self.validator = WorkflowValidator(self.kg_repo)
-        self._rebuild_llm_runtime()
+        self._apply_default_runtime(
+            self._build_runtime_dependencies(
+                settings=self._resolve_default_llm_settings(),
+                llm_provider=self.llm_provider,
+            )
+        )
         self.policy_engine = PolicyEngine(policy_version="v2")
 
         self.dispatch_eager = _as_bool(os.getenv("GEOFUSION_CELERY_EAGER", "1"), default=True)
@@ -107,12 +121,7 @@ class AgentRunService:
             close()
 
     def refresh_runtime_dependencies(self, llm_settings: EffectiveLLMSettings) -> None:
-        self.llm_provider = create_llm_provider(llm_settings)
-        self._rebuild_llm_runtime()
-
-    def _rebuild_llm_runtime(self) -> None:
-        self.planner = WorkflowPlanner(self.kg_repo, self.llm_provider, artifact_registry=self.artifact_registry)
-        self.executor = WorkflowExecutor(self.kg_repo, planner=self.planner)
+        self._apply_default_runtime(self._build_runtime_dependencies(settings=llm_settings))
 
     def create_run(
         self,
@@ -205,6 +214,7 @@ class AgentRunService:
             )
             self._runs[run_id] = status
             self._persist_status(status)
+        self._persist_run_runtime_settings(run_id, self._default_runtime.settings)
 
         if self.dispatch_eager:
             self.execute_run(
@@ -242,6 +252,7 @@ class AgentRunService:
         plan: Optional[WorkflowPlan] = None
         repair_records: List[RepairRecord] = []
         runtime_request = request
+        runtime_dependencies = self._load_run_runtime_dependencies(run_id)
 
         try:
             self._update_status(
@@ -258,7 +269,7 @@ class AgentRunService:
             )
             logger.info("Run started: %s (%s)", run_id, request.job_type.value)
 
-            plan = self.run_planning_stage(run_id=run_id, request=request)
+            plan = self.run_planning_stage(run_id=run_id, request=request, runtime_dependencies=runtime_dependencies)
             logger.info("Planning stage completed with revision=%s", plan.context.get("plan_revision", 0))
 
             plan = self.run_validation_stage(run_id=run_id, plan=plan)
@@ -359,6 +370,7 @@ class AgentRunService:
                         intermediate_dir=intermediate_dir,
                         output_dir=output_dir,
                         repair_records=repair_records,
+                        runtime_dependencies=runtime_dependencies,
                     )
                     break
                 except Exception as exec_error:  # noqa: BLE001
@@ -439,7 +451,7 @@ class AgentRunService:
                         failure_message,
                     )
 
-                    replanned = self.planner.replan_from_error(
+                    replanned = runtime_dependencies.planner.replan_from_error(
                         run_id=run_id,
                         job_type=request.job_type,
                         trigger=request.trigger,
@@ -578,7 +590,14 @@ class AgentRunService:
                 logger.removeHandler(handler)
                 handler.close()
 
-    def run_planning_stage(self, run_id: str, request: RunCreateRequest) -> WorkflowPlan:
+    def run_planning_stage(
+        self,
+        run_id: str,
+        request: RunCreateRequest,
+        runtime_dependencies: RuntimeDependencies | None = None,
+    ) -> WorkflowPlan:
+        runtime = runtime_dependencies or self._default_runtime
+        planner = runtime.planner
         resolved_aoi: ResolvedAOI | None = None
         if self._should_resolve_aoi(request):
             try:
@@ -639,12 +658,12 @@ class AgentRunService:
             },
         )
 
-        previous_override = self.planner.context_builder.resolved_aoi_override
-        self.planner.context_builder.resolved_aoi_override = resolved_aoi
+        previous_override = planner.context_builder.resolved_aoi_override
+        planner.context_builder.resolved_aoi_override = resolved_aoi
         try:
-            plan = self.planner.create_plan(run_id=run_id, job_type=request.job_type, trigger=request.trigger)
+            plan = planner.create_plan(run_id=run_id, job_type=request.job_type, trigger=request.trigger)
         finally:
-            self.planner.context_builder.resolved_aoi_override = previous_override
+            planner.context_builder.resolved_aoi_override = previous_override
         if resolved_aoi is not None:
             intent = dict(plan.context.get("intent", {}))
             if intent.get("resolved_aoi") is None:
@@ -725,7 +744,9 @@ class AgentRunService:
         intermediate_dir: Path,
         output_dir: Path,
         repair_records: Optional[List[RepairRecord]] = None,
+        runtime_dependencies: RuntimeDependencies | None = None,
     ) -> tuple[Path, List[RepairRecord]]:
+        runtime = runtime_dependencies or self._default_runtime
         osm_extract = intermediate_dir / "osm"
         ref_extract = intermediate_dir / "ref"
         osm_shp = validate_zip_has_shapefile(osm_zip_path, osm_extract)
@@ -761,7 +782,7 @@ class AgentRunService:
             event_kind="execution_started",
             event_message="Execution stage started.",
         )
-        fused_shp = self.executor.execute_plan(
+        fused_shp = runtime.executor.execute_plan(
             plan=plan,
             context=context,
             repair_records=repair_records,
@@ -1074,6 +1095,103 @@ class AgentRunService:
         if request.target_crs == target_crs:
             return request
         return request.model_copy(update={"target_crs": target_crs})
+
+    def _apply_default_runtime(self, runtime: RuntimeDependencies) -> None:
+        self._default_runtime = runtime
+        self.llm_provider = runtime.llm_provider
+        self.planner = runtime.planner
+        self.executor = runtime.executor
+
+    def _build_runtime_dependencies(
+        self,
+        *,
+        settings: EffectiveLLMSettings,
+        llm_provider: Any | None = None,
+    ) -> RuntimeDependencies:
+        provider = llm_provider if llm_provider is not None else create_llm_provider(settings)
+        planner = WorkflowPlanner(self.kg_repo, provider, artifact_registry=self.artifact_registry)
+        executor = WorkflowExecutor(self.kg_repo, planner=planner)
+        return RuntimeDependencies(
+            settings=settings.model_copy(deep=True),
+            llm_provider=provider,
+            planner=planner,
+            executor=executor,
+        )
+
+    def _resolve_default_llm_settings(self) -> EffectiveLLMSettings:
+        provider_name = (self._read_env_value("GEOFUSION_LLM_PROVIDER") or "").lower()
+        api_key = self._read_env_value("OPENAI_API_KEY") or self._read_env_value("GEOFUSION_LLM_API_KEY")
+        base_url = self._read_env_value("GEOFUSION_LLM_BASE_URL")
+        model = self._read_env_value("GEOFUSION_LLM_MODEL")
+        timeout_sec = self._read_env_int("GEOFUSION_LLM_TIMEOUT_SEC")
+
+        if provider_name in {"", "auto"}:
+            provider_name = "openai" if api_key else "mock"
+        elif provider_name == "openai" and not api_key:
+            provider_name = "mock"
+        elif provider_name not in {"openai", "mock"}:
+            provider_name = "mock"
+
+        if provider_name == "openai":
+            return EffectiveLLMSettings(
+                provider="openai",
+                base_url=base_url or "https://api.openai.com/v1",
+                api_key=api_key,
+                model=model or "gpt-5.4-mini",
+                timeout_sec=timeout_sec or 60,
+            )
+        return EffectiveLLMSettings(
+            provider="mock",
+            base_url=base_url,
+            api_key=api_key,
+            model=model,
+            timeout_sec=timeout_sec,
+        )
+
+    def _persist_run_runtime_settings(self, run_id: str, settings: EffectiveLLMSettings) -> None:
+        path = self._runtime_settings_path(run_id)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            json.dumps(settings.model_dump(mode="json"), ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+
+    def _load_run_runtime_dependencies(self, run_id: str) -> RuntimeDependencies:
+        settings = self._load_run_runtime_settings(run_id)
+        if settings is None:
+            settings = self._default_runtime.settings.model_copy(deep=True)
+            self._persist_run_runtime_settings(run_id, settings)
+        return self._build_runtime_dependencies(settings=settings)
+
+    def _load_run_runtime_settings(self, run_id: str) -> EffectiveLLMSettings | None:
+        path = self._runtime_settings_path(run_id)
+        if not path.exists():
+            return None
+        raw = path.read_text(encoding="utf-8").strip()
+        if not raw:
+            return None
+        return EffectiveLLMSettings.model_validate(json.loads(raw))
+
+    def _runtime_settings_path(self, run_id: str) -> Path:
+        return self.base_dir / run_id / "runtime_settings.json"
+
+    @staticmethod
+    def _read_env_value(name: str) -> str | None:
+        value = os.getenv(name)
+        if value is None:
+            return None
+        value = value.strip()
+        return value or None
+
+    @classmethod
+    def _read_env_int(cls, name: str) -> int | None:
+        value = cls._read_env_value(name)
+        if value is None:
+            return None
+        try:
+            return int(value)
+        except ValueError:
+            return None
 
     def get_run(self, run_id: str) -> Optional[RunStatus]:
         path = self.base_dir / run_id / "run.json"

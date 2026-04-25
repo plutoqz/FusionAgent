@@ -15,7 +15,7 @@ class RuntimeSettingsService:
         self.settings_path = settings_path or DEFAULT_RUNTIME_SETTINGS_PATH
 
     def save_llm_settings(self, settings: PersistedLLMSettings) -> MaskedLLMSettings:
-        persisted = PersistedLLMSettings.model_validate(settings)
+        persisted = self._merge_persisted_settings_patch(PersistedLLMSettings.model_validate(settings))
         self.settings_path.parent.mkdir(parents=True, exist_ok=True)
         self.settings_path.write_text(
             json.dumps(persisted.model_dump(mode="json"), ensure_ascii=False, indent=2),
@@ -43,6 +43,17 @@ class RuntimeSettingsService:
         if not raw:
             return PersistedLLMSettings()
         return PersistedLLMSettings.model_validate(json.loads(raw))
+
+    def _merge_persisted_settings_patch(self, patch: PersistedLLMSettings) -> PersistedLLMSettings:
+        current = self._load_persisted_settings()
+        provided_fields = set(patch.model_fields_set)
+        if not provided_fields:
+            return current
+
+        merged_payload = current.model_dump(mode="python")
+        for field_name in provided_fields:
+            merged_payload[field_name] = getattr(patch, field_name)
+        return PersistedLLMSettings.model_validate(merged_payload)
 
     @staticmethod
     def _read_env_value(name: str) -> str | None:

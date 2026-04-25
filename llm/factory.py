@@ -52,24 +52,19 @@ def _create_llm_provider_from_settings(settings: EffectiveLLMSettings) -> LLMPro
         provider_name = "openai" if settings.api_key else "mock"
 
     if provider_name == "openai":
-        try:
-            if not settings.api_key:
-                raise RuntimeError("api_key is required for openai provider.")
-            provider = OpenAICompatibleProvider(
-                api_key=settings.api_key,
-                model=settings.model or "gpt-5.4-mini",
-                base_url=settings.base_url or "https://api.openai.com/v1",
-                timeout_sec=settings.timeout_sec or 60,
-            )
-            logger.info("LLM provider: openai-compatible")
-            return provider
-        except Exception as exc:  # noqa: BLE001
-            logger.warning("Failed to initialize openai provider (%s); fallback to mock", exc)
-            return MockLLMProvider()
+        if not settings.api_key:
+            raise RuntimeError("api_key is required for openai provider.")
+        provider = OpenAICompatibleProvider(
+            api_key=settings.api_key,
+            model=settings.model or "gpt-5.4-mini",
+            base_url=settings.base_url or "https://api.openai.com/v1",
+            timeout_sec=settings.timeout_sec or 60,
+        )
+        logger.info("LLM provider: openai-compatible")
+        return provider
 
     if provider_name == "mock":
         logger.info("LLM provider: mock")
         return MockLLMProvider()
 
-    logger.warning("Unknown LLM provider '%s'; fallback to mock", provider_name)
-    return MockLLMProvider()
+    raise ValueError(f"Unknown LLM provider '{provider_name}'.")
