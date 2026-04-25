@@ -5,6 +5,9 @@ from typing import Optional
 from pydantic import BaseModel, Field, field_validator
 
 
+ALLOWED_LLM_PROVIDERS = {"auto", "mock", "openai"}
+
+
 def _normalize_optional_str(value: object) -> object:
     if value is None or not isinstance(value, str):
         return value
@@ -18,6 +21,16 @@ def mask_secret(value: str | None) -> str | None:
     if len(value) <= 8:
         return "*" * len(value)
     return f"{value[:4]}...{value[-4:]}"
+
+
+def _normalize_provider(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = value.lower()
+    if normalized not in ALLOWED_LLM_PROVIDERS:
+        allowed = ", ".join(sorted(ALLOWED_LLM_PROVIDERS))
+        raise ValueError(f"provider must be one of: {allowed}")
+    return normalized
 
 
 class PersistedLLMSettings(BaseModel):
@@ -35,7 +48,7 @@ class PersistedLLMSettings(BaseModel):
     @field_validator("provider")
     @classmethod
     def normalize_provider(cls, value: str | None) -> str | None:
-        return value.lower() if value else None
+        return _normalize_provider(value)
 
     def masked_view(self) -> "MaskedLLMSettings":
         return MaskedLLMSettings(
@@ -72,4 +85,4 @@ class EffectiveLLMSettings(BaseModel):
     @field_validator("provider")
     @classmethod
     def normalize_provider(cls, value: str | None) -> str | None:
-        return value.lower() if value else None
+        return _normalize_provider(value)

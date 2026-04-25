@@ -82,6 +82,7 @@ def test_execute_run_uses_bound_runtime_snapshot_after_refresh_for_queued_run(tm
     executor_instances: list[object] = []
     create_provider_calls: list[object] = []
     captured_runtime_providers: list[str | None] = []
+    queued_dispatch: dict[str, object] = {}
     initial_provider = object()
     refreshed_provider = object()
 
@@ -114,7 +115,11 @@ def test_execute_run_uses_bound_runtime_snapshot_after_refresh_for_queued_run(tm
 
     service = AgentRunService(base_dir=tmp_path / "runs", kg_repo=object())
     service.dispatch_eager = False
-    monkeypatch.setattr(service, "_dispatch_run", lambda *args, **kwargs: None)
+
+    def fake_dispatch_run(**kwargs) -> None:
+        queued_dispatch.update(kwargs)
+
+    monkeypatch.setattr(service, "_dispatch_run", fake_dispatch_run)
 
     request = RunCreateRequest(
         job_type=JobType.building,
@@ -132,6 +137,11 @@ def test_execute_run_uses_bound_runtime_snapshot_after_refresh_for_queued_run(tm
         ref_zip_name="ref.zip",
         ref_zip_bytes=b"ref",
     )
+
+    runtime_settings_path = service.base_dir / status.run_id / "runtime_settings.json"
+    assert runtime_settings_path.exists() is False
+    assert queued_dispatch["run_id"] == status.run_id
+    assert queued_dispatch["runtime_settings"] == EffectiveLLMSettings(provider="mock")
 
     refreshed_settings = EffectiveLLMSettings(
         provider="openai",
@@ -198,6 +208,7 @@ def test_execute_run_uses_bound_runtime_snapshot_after_refresh_for_queued_run(tm
         intermediate_dir=run_dir / "intermediate",
         output_dir=run_dir / "output",
         log_dir=run_dir / "logs",
+        runtime_settings=EffectiveLLMSettings.model_validate(queued_dispatch["runtime_settings"]),
     )
 
     assert create_provider_calls[0] is None
@@ -208,6 +219,7 @@ def test_execute_run_uses_bound_runtime_snapshot_after_refresh_for_queued_run(tm
     assert service.planner.llm_provider is refreshed_provider
     assert service.executor is executor_instances[1]
     assert service.executor.planner is service.planner
+    assert runtime_settings_path.exists() is False
 
 
 def test_refresh_runtime_dependencies_raises_and_keeps_current_default_runtime(tmp_path: Path, monkeypatch) -> None:

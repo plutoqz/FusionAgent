@@ -8,6 +8,7 @@ from typing import Any, Dict, List
 
 from schemas.agent import RepairRecord, RunCreateRequest, RunTrigger, RunTriggerType, WorkflowPlan
 from schemas.fusion import JobType
+from schemas.settings import EffectiveLLMSettings
 from worker.celery_app import celery_app
 
 
@@ -105,10 +106,12 @@ def execute_run_task(
     intermediate_dir: str,
     output_dir: str,
     log_dir: str,
+    runtime_settings: Dict[str, Any],
 ) -> None:
     from services.agent_run_service import agent_run_service
 
     run_request = RunCreateRequest.model_validate(request)
+    effective_settings = EffectiveLLMSettings.model_validate(runtime_settings)
     agent_run_service.execute_run(
         run_id=run_id,
         request=run_request,
@@ -117,6 +120,7 @@ def execute_run_task(
         intermediate_dir=Path(intermediate_dir),
         output_dir=Path(output_dir),
         log_dir=Path(log_dir),
+        runtime_settings=effective_settings,
     )
 
 

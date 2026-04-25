@@ -4,6 +4,7 @@ import os
 from pathlib import Path
 
 import pytest
+from pydantic import ValidationError
 
 from llm.factory import create_llm_provider
 from llm.providers.openai_compatible import OpenAICompatibleProvider
@@ -131,6 +132,12 @@ def test_runtime_settings_service_explicit_empty_api_key_clears_existing_secret(
     assert stored.has_api_key is False
     assert stored.api_key_masked is None
     assert effective.api_key is None
+
+
+@pytest.mark.parametrize("settings_cls", [PersistedLLMSettings, EffectiveLLMSettings])
+def test_llm_settings_provider_rejects_unknown_values(settings_cls: type[PersistedLLMSettings | EffectiveLLMSettings]) -> None:
+    with pytest.raises(ValidationError, match="provider"):
+        settings_cls(provider="invalid-provider")
 
 
 def test_create_llm_provider_prefers_explicit_settings_over_environment(monkeypatch: pytest.MonkeyPatch) -> None:
