@@ -60,6 +60,15 @@ class InMemoryKGRepository(KGRepository):
         self._algorithm_scores: Dict[str, float] = {}
         self._data_source_scores: Dict[str, float] = {}
 
+    def list_algorithms(self) -> List[AlgorithmNode]:
+        return [self.algorithms[algo_id] for algo_id in sorted(self.algorithms)]
+
+    def list_workflow_patterns(self) -> List[WorkflowPatternNode]:
+        return sorted(list(self.patterns), key=lambda item: item.pattern_id)
+
+    def list_data_sources(self) -> List[DataSourceNode]:
+        return sorted(list(self.data_sources), key=lambda item: item.source_id)
+
     def list_data_types(self) -> List[DataTypeNode]:
         return [self.data_types[type_id] for type_id in sorted(self.data_types)]
 

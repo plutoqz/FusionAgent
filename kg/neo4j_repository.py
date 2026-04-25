@@ -74,6 +74,108 @@ class Neo4jKGRepository(KGRepository):
             return payload if isinstance(payload, dict) else {}
         return {}
 
+    def list_algorithms(self) -> List[AlgorithmNode]:
+        rows = self._execute(
+            f"""
+            MATCH (a:Algorithm:{MANAGED_LABEL})
+            OPTIONAL MATCH (a)-[:ALTERNATIVE_TO]->(alt:Algorithm:{MANAGED_LABEL})
+            RETURN a AS algo, collect(alt.algoId) AS alternatives
+            ORDER BY algo.algoId ASC
+            """
+        )
+        result: List[AlgorithmNode] = []
+        for row in rows:
+            algo = row["algo"]
+            result.append(
+                AlgorithmNode(
+                    algo_id=str(algo.get("algoId")),
+                    algo_name=str(algo.get("algoName", algo.get("algoId"))),
+                    input_types=list(algo.get("inputTypes", [])),
+                    output_type=str(algo.get("outputType", "")),
+                    task_type=str(algo.get("taskType", "")),
+                    tool_ref=str(algo.get("toolRef", "")),
+                    success_rate=float(algo.get("successRate", 0.0)),
+                    accuracy_score=float(algo.get("accuracyScore")) if algo.get("accuracyScore") is not None else None,
+                    stability_score=float(algo.get("stabilityScore")) if algo.get("stabilityScore") is not None else None,
+                    usage_mode=str(algo.get("usageMode", "balanced")),
+                    metadata=self._parse_metadata_json(algo.get("metadataJson")),
+                    alternatives=[value for value in row.get("alternatives", []) if value],
+                )
+            )
+        return result
+
+    def list_workflow_patterns(self) -> List[WorkflowPatternNode]:
+        rows = self._execute(
+            f"""
+            MATCH (wp:WorkflowPattern:{MANAGED_LABEL})
+            OPTIONAL MATCH (wp)-[hs:HAS_STEP]->(st:StepTemplate:{MANAGED_LABEL})
+            WITH wp, st, hs ORDER BY wp.patternId ASC, hs.order ASC
+            RETURN wp, collect(st) AS steps
+            ORDER BY wp.patternId ASC
+            """
+        )
+        patterns: List[WorkflowPatternNode] = []
+        for row in rows:
+            wp = row["wp"]
+            step_nodes = row["steps"] or []
+            steps: List[PatternStep] = []
+            for idx, sn in enumerate(step_nodes, start=1):
+                if sn is None:
+                    continue
+                steps.append(
+                    PatternStep(
+                        order=int(sn.get("order", idx)),
+                        name=str(sn.get("name", f"step_{idx}")),
+                        algorithm_id=str(sn.get("algorithmId", "")),
+                        input_data_type=str(sn.get("inputDataType", "dt.raw.vector")),
+                        output_data_type=str(sn.get("outputDataType", "dt.raw.vector")),
+                        data_source_id=str(sn.get("dataSourceId", "upload.bundle")),
+                        depends_on=list(sn.get("dependsOn", [])),
+                        is_optional=bool(sn.get("isOptional", False)),
+                    )
+                )
+            patterns.append(
+                WorkflowPatternNode(
+                    pattern_id=str(wp.get("patternId")),
+                    pattern_name=str(wp.get("patternName", wp.get("patternId"))),
+                    job_type=JobType(str(wp.get("jobType"))),
+                    disaster_types=list(wp.get("disasterTypes", ["generic"])),
+                    steps=steps,
+                    success_rate=float(wp.get("successRate", 0.0)),
+                    metadata=self._parse_metadata_json(wp.get("metadataJson")),
+                )
+            )
+        return patterns
+
+    def list_data_sources(self) -> List[DataSourceNode]:
+        rows = self._execute(
+            f"""
+            MATCH (ds:DataSource:{MANAGED_LABEL})
+            RETURN ds
+            ORDER BY ds.sourceId ASC
+            """
+        )
+        return [
+            DataSourceNode(
+                source_id=str(row["ds"].get("sourceId")),
+                source_name=str(row["ds"].get("sourceName", row["ds"].get("sourceId"))),
+                supported_types=list(row["ds"].get("supportedTypes", [])),
+                disaster_types=list(row["ds"].get("disasterTypes", [])),
+                quality_score=float(row["ds"].get("qualityScore", 0.0)),
+                source_kind=str(row["ds"].get("sourceKind", "catalog")),
+                quality_tier=str(row["ds"].get("qualityTier", "standard")),
+                freshness_category=str(row["ds"].get("freshnessCategory", "static")),
+                freshness_hours=int(row["ds"].get("freshnessHours")) if row["ds"].get("freshnessHours") is not None else None,
+                freshness_score=(
+                    float(row["ds"].get("freshnessScore")) if row["ds"].get("freshnessScore") is not None else None
+                ),
+                supported_job_types=list(row["ds"].get("supportedJobTypes", [])),
+                supported_geometry_types=list(row["ds"].get("supportedGeometryTypes", [])),
+                metadata=self._parse_metadata_json(row["ds"].get("metadataJson")),
+            )
+            for row in rows
+        ]
+
     def list_data_types(self) -> List[DataTypeNode]:
         rows = self._execute(
             f"""

@@ -24,6 +24,18 @@ from kg.models import (
 
 class KGRepository(ABC):
     @abstractmethod
+    def list_algorithms(self) -> List[AlgorithmNode]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def list_workflow_patterns(self) -> List[WorkflowPatternNode]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def list_data_sources(self) -> List[DataSourceNode]:
+        raise NotImplementedError
+
+    @abstractmethod
     def list_data_types(self) -> List[DataTypeNode]:
         raise NotImplementedError
 

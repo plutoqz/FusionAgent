@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from kg.models import AlgorithmParameterSpec, DurableLearningRecord
+from kg.models import AlgorithmNode, AlgorithmParameterSpec, DataSourceNode, DurableLearningRecord, PatternStep, WorkflowPatternNode
 from kg.neo4j_repository import Neo4jKGRepository
 from schemas.fusion import JobType
 
@@ -97,6 +97,153 @@ def test_get_parameter_specs_maps_rows_from_fake_driver() -> None:
     assert "AlgorithmParameterSpec" in captured[0][0]
     assert "HAS_PARAMETER_SPEC" in captured[0][0]
     assert captured[0][1] == {"algo_id": "algo.test"}
+
+
+def test_list_methods_map_rows_from_fake_driver() -> None:
+    captured: list[tuple[str, object]] = []
+
+    class FakeSession:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def run(self, cypher: str, parameters=None, **kwargs):
+            captured.append((cypher, parameters))
+            if "MATCH (a:Algorithm" in cypher:
+                return [
+                    {
+                        "algo": {
+                            "algoId": "algo.fusion.building.v1",
+                            "algoName": "Building Fusion Legacy",
+                            "inputTypes": ["dt.building.bundle"],
+                            "outputType": "dt.building.fused",
+                            "taskType": "building_fusion",
+                            "toolRef": "adapters.building_adapter:run_building_fusion",
+                            "successRate": 0.92,
+                            "accuracyScore": 0.89,
+                            "stabilityScore": 0.74,
+                            "usageMode": "throughput",
+                            "metadataJson": "{\"selection_profile\": \"primary\"}",
+                        },
+                        "alternatives": ["algo.fusion.building.safe"],
+                    }
+                ]
+            if "MATCH (wp:WorkflowPattern" in cypher:
+                return [
+                    {
+                        "wp": {
+                            "patternId": "wp.flood.building.default",
+                            "patternName": "Flood Building Default",
+                            "jobType": "building",
+                            "disasterTypes": ["flood"],
+                            "successRate": 0.91,
+                            "metadataJson": "{\"entry_mode\": \"scenario_driven\"}",
+                        },
+                        "steps": [
+                            {
+                                "order": 1,
+                                "name": "building_fusion",
+                                "algorithmId": "algo.fusion.building.v1",
+                                "inputDataType": "dt.building.bundle",
+                                "outputDataType": "dt.building.fused",
+                                "dataSourceId": "upload.bundle",
+                                "dependsOn": [],
+                                "isOptional": False,
+                            }
+                        ],
+                    }
+                ]
+            if "MATCH (ds:DataSource" in cypher:
+                return [
+                    {
+                        "ds": {
+                            "sourceId": "catalog.flood.building",
+                            "sourceName": "Flood Building Bundle",
+                            "supportedTypes": ["dt.building.bundle"],
+                            "disasterTypes": ["flood"],
+                            "qualityScore": 0.88,
+                            "sourceKind": "catalog",
+                            "qualityTier": "curated",
+                            "freshnessCategory": "event_snapshot",
+                            "freshnessHours": 96,
+                            "freshnessScore": 0.71,
+                            "supportedJobTypes": ["building"],
+                            "supportedGeometryTypes": ["polygon"],
+                            "metadataJson": "{\"bundle_strategy\": \"osm_ref_pair\"}",
+                        }
+                    }
+                ]
+            return []
+
+    class FakeDriver:
+        def session(self, database=None):
+            return FakeSession()
+
+    repo = Neo4jKGRepository.__new__(Neo4jKGRepository)
+    repo._driver = FakeDriver()
+    repo.database = None
+
+    assert repo.list_algorithms() == [
+        AlgorithmNode(
+            algo_id="algo.fusion.building.v1",
+            algo_name="Building Fusion Legacy",
+            input_types=["dt.building.bundle"],
+            output_type="dt.building.fused",
+            task_type="building_fusion",
+            tool_ref="adapters.building_adapter:run_building_fusion",
+            success_rate=0.92,
+            accuracy_score=0.89,
+            stability_score=0.74,
+            usage_mode="throughput",
+            metadata={"selection_profile": "primary"},
+            alternatives=["algo.fusion.building.safe"],
+        )
+    ]
+    assert repo.list_workflow_patterns() == [
+        WorkflowPatternNode(
+            pattern_id="wp.flood.building.default",
+            pattern_name="Flood Building Default",
+            job_type=JobType.building,
+            disaster_types=["flood"],
+            steps=[
+                PatternStep(
+                    order=1,
+                    name="building_fusion",
+                    algorithm_id="algo.fusion.building.v1",
+                    input_data_type="dt.building.bundle",
+                    output_data_type="dt.building.fused",
+                    data_source_id="upload.bundle",
+                    depends_on=[],
+                    is_optional=False,
+                )
+            ],
+            success_rate=0.91,
+            metadata={"entry_mode": "scenario_driven"},
+        )
+    ]
+    assert repo.list_data_sources() == [
+        DataSourceNode(
+            source_id="catalog.flood.building",
+            source_name="Flood Building Bundle",
+            supported_types=["dt.building.bundle"],
+            disaster_types=["flood"],
+            quality_score=0.88,
+            source_kind="catalog",
+            quality_tier="curated",
+            freshness_category="event_snapshot",
+            freshness_hours=96,
+            freshness_score=0.71,
+            supported_job_types=["building"],
+            supported_geometry_types=["polygon"],
+            metadata={"bundle_strategy": "osm_ref_pair"},
+        )
+    ]
+    assert len(captured) == 3
+    assert "MATCH (a:Algorithm" in captured[0][0]
+    assert "MATCH (wp:WorkflowPattern" in captured[1][0]
+    assert "MATCH (ds:DataSource" in captured[2][0]
 
 
 def test_record_durable_learning_record_emits_managed_summary_node() -> None:

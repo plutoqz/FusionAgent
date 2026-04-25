@@ -24,8 +24,10 @@ from schemas.agent import (
     RunTriggerType,
 )
 from schemas.fusion import FieldMapping, JobType
+from schemas.kg_graph import KgGraphResponse
 from schemas.operator import OperatorRunListResponse, OperatorRuntimeSummaryResponse
 from services.agent_run_service import agent_run_service
+from services.kg_graph_service import build_run_path_graph
 from services.kg_path_trace_service import build_kg_path_trace
 from services.operator_read_model_service import OperatorReadModelService
 from services.run_registry_service import RunRegistryService
@@ -202,6 +204,17 @@ async def get_run_inspection(run_id: str) -> RunInspectionResponse:
     if status is None:
         raise HTTPException(status_code=404, detail=f"Run not found: {run_id}")
     return _build_run_inspection_response(run_id, status)
+
+
+@router.get("/runs/{run_id}/kg-graph", response_model=KgGraphResponse)
+async def get_run_kg_graph(run_id: str) -> KgGraphResponse:
+    status = agent_run_service.get_run(run_id)
+    if status is None:
+        raise HTTPException(status_code=404, detail=f"Run not found: {run_id}")
+    plan = agent_run_service.get_plan(run_id)
+    if plan is None:
+        raise HTTPException(status_code=404, detail="Plan not found")
+    return build_run_path_graph(plan)
 
 
 @router.get("/runtime", response_model=RuntimeMetadataResponse)
