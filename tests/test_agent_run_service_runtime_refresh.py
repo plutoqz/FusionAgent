@@ -382,6 +382,93 @@ def test_execute_run_uses_persisted_runtime_snapshot_id_for_redispatch(tmp_path:
     assert captured_runtime_providers == ["mock", "mock"]
 
 
+def test_execute_run_fails_closed_when_persisted_runtime_snapshot_is_missing(tmp_path: Path, monkeypatch) -> None:
+    initial_provider = object()
+    refreshed_provider = object()
+
+    class FakePlanner:
+        def __init__(self, kg_repo, llm_provider, artifact_registry=None) -> None:
+            self.kg_repo = kg_repo
+            self.llm_provider = llm_provider
+            self.artifact_registry = artifact_registry
+            self.context_builder = type("ContextBuilder", (), {"resolved_aoi_override": None})()
+
+    class FakeExecutor:
+        def __init__(self, kg_repo, planner=None, algorithm_handlers=None, tool_registry=None) -> None:
+            self.kg_repo = kg_repo
+            self.planner = planner
+
+    def fake_create_llm_provider(settings=None):
+        if settings is None or settings.provider == "mock":
+            return initial_provider
+        return refreshed_provider
+
+    monkeypatch.setattr("services.agent_run_service.create_llm_provider", fake_create_llm_provider)
+    monkeypatch.setattr("services.agent_run_service.WorkflowPlanner", FakePlanner)
+    monkeypatch.setattr("services.agent_run_service.WorkflowExecutor", FakeExecutor)
+    monkeypatch.setattr("services.agent_run_service.AgentRunService._build_geocoder", lambda self: object())
+    monkeypatch.setattr("services.agent_run_service.AgentRunService._build_raw_vector_source_service", lambda self: object())
+    monkeypatch.setattr("services.agent_run_service.AgentRunService._build_input_bundle_providers", lambda self: [])
+
+    runtime_settings_service = RuntimeSettingsService(
+        settings_path=tmp_path / "tmp" / "runtime-settings" / "llm-settings.json",
+        snapshots_dir=tmp_path / "tmp" / "runtime-settings" / "snapshots",
+    )
+    service = AgentRunService(
+        base_dir=tmp_path / "runs",
+        kg_repo=object(),
+        runtime_settings_service=runtime_settings_service,
+    )
+    service.dispatch_eager = False
+    monkeypatch.setattr(service, "_dispatch_run", lambda **kwargs: None)
+
+    request = RunCreateRequest(
+        job_type=JobType.building,
+        trigger=RunTrigger(type=RunTriggerType.user_query, content="building"),
+        target_crs="EPSG:4326",
+        field_mapping={},
+        debug=False,
+        input_strategy=RunInputStrategy.uploaded,
+    )
+    status = service.create_run(
+        request=request,
+        osm_zip_name="osm.zip",
+        osm_zip_bytes=b"osm",
+        ref_zip_name="ref.zip",
+        ref_zip_bytes=b"ref",
+    )
+    service.refresh_runtime_dependencies(
+        EffectiveLLMSettings(
+            provider="openai",
+            base_url="https://runtime.example/v1",
+            api_key="sk-runtime-secret",
+            model="gpt-runtime",
+            timeout_sec=33,
+        )
+    )
+
+    run_dir = service.base_dir / status.run_id
+    runtime_snapshot_id = (run_dir / "runtime_snapshot_id.txt").read_text(encoding="utf-8").strip()
+    (runtime_settings_service.snapshots_dir / f"{runtime_snapshot_id}.json").unlink()
+
+    service.execute_run(
+        run_id=status.run_id,
+        request=request,
+        osm_zip_path=run_dir / "input" / "osm.zip",
+        ref_zip_path=run_dir / "input" / "ref.zip",
+        intermediate_dir=run_dir / "intermediate",
+        output_dir=run_dir / "output",
+        log_dir=run_dir / "logs",
+    )
+
+    failed_status = service.get_run(status.run_id)
+    assert failed_status is not None
+    assert failed_status.phase == RunPhase.failed
+    assert failed_status.error is not None
+    assert "runtime snapshot" in failed_status.error.lower()
+    assert runtime_snapshot_id in failed_status.error
+
+
 def test_create_run_queues_only_runtime_snapshot_id_not_secret_payload(tmp_path: Path, monkeypatch) -> None:
     initial_provider = object()
     openai_provider = object()

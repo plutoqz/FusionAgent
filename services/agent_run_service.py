@@ -78,6 +78,10 @@ class RuntimeDependencies:
     executor: WorkflowExecutor
 
 
+class RuntimeSnapshotUnavailableError(RuntimeError):
+    pass
+
+
 class AgentRunService:
     def __init__(
         self,
@@ -263,15 +267,15 @@ class AgentRunService:
         plan: Optional[WorkflowPlan] = None
         repair_records: List[RepairRecord] = []
         runtime_request = request
-        runtime_dependencies = self._build_runtime_dependencies(
-            settings=self._resolve_run_runtime_settings(
-                run_id=run_id,
-                runtime_snapshot_id=runtime_snapshot_id,
-                runtime_settings=runtime_settings,
-            )
-        )
 
         try:
+            runtime_dependencies = self._build_runtime_dependencies(
+                settings=self._resolve_run_runtime_settings(
+                    run_id=run_id,
+                    runtime_snapshot_id=runtime_snapshot_id,
+                    runtime_settings=runtime_settings,
+                )
+            )
             self._update_status(
                 run_id,
                 RunPhase.planning,
@@ -1131,12 +1135,20 @@ class AgentRunService:
     ) -> EffectiveLLMSettings:
         if runtime_settings is not None:
             return EffectiveLLMSettings.model_validate(runtime_settings)
-        snapshot_settings = self.runtime_settings_service.load_runtime_snapshot(runtime_snapshot_id)
-        if snapshot_settings is not None:
+        if runtime_snapshot_id:
+            snapshot_settings = self.runtime_settings_service.load_runtime_snapshot(runtime_snapshot_id)
+            if snapshot_settings is None:
+                raise RuntimeSnapshotUnavailableError(
+                    f"Runtime snapshot unavailable for run {run_id}: {runtime_snapshot_id}"
+                )
             return snapshot_settings
         persisted_snapshot_id = self._load_run_runtime_snapshot_id(run_id)
-        snapshot_settings = self.runtime_settings_service.load_runtime_snapshot(persisted_snapshot_id)
-        if snapshot_settings is not None:
+        if persisted_snapshot_id:
+            snapshot_settings = self.runtime_settings_service.load_runtime_snapshot(persisted_snapshot_id)
+            if snapshot_settings is None:
+                raise RuntimeSnapshotUnavailableError(
+                    f"Runtime snapshot unavailable for run {run_id}: {persisted_snapshot_id}"
+                )
             return snapshot_settings
         legacy_settings = self._load_run_runtime_settings(run_id)
         if legacy_settings is not None:
