@@ -1,11 +1,12 @@
-import { NavLink, Outlet } from "react-router-dom";
+import { Link, Outlet, useLocation } from "react-router-dom";
 
 import { Locale, locales, useI18n } from "../../app/i18n";
 
 export function AppShell() {
   const { copy, locale, setLocale } = useI18n();
+  const location = useLocation();
   const navigation = [
-    { to: "/", ...copy.shell.nav.overview },
+    { to: "/", ...copy.shell.nav.dashboard },
     { to: "/runs/new", ...copy.shell.nav.newRun },
     { to: "/runs", ...copy.shell.nav.runs },
     { to: "/scenarios", ...copy.shell.nav.scenarios },
@@ -13,6 +14,22 @@ export function AppShell() {
     { to: "/guide", ...copy.shell.nav.guide },
     { to: "/settings/llm", ...copy.shell.nav.settings },
   ];
+
+  function isActivePath(path: string) {
+    if (path === "/") {
+      return location.pathname === "/";
+    }
+
+    if (path === "/runs/new") {
+      return location.pathname === "/runs/new";
+    }
+
+    if (path === "/runs") {
+      return location.pathname === "/runs" || (location.pathname.startsWith("/runs/") && location.pathname !== "/runs/new");
+    }
+
+    return location.pathname === path || location.pathname.startsWith(`${path}/`);
+  }
 
   return (
     <div className="app-shell">
@@ -44,17 +61,21 @@ export function AppShell() {
         </div>
 
         <nav className="shell-nav">
-          {navigation.map((item) => (
-            <NavLink
-              key={item.to}
-              to={item.to}
-              end={item.to === "/"}
-              className={({ isActive }) => (isActive ? "active" : undefined)}
-            >
-              <span className="nav-label">{item.label}</span>
-              <span className="nav-meta">{item.meta}</span>
-            </NavLink>
-          ))}
+          {navigation.map((item) => {
+            const isCurrent = isActivePath(item.to);
+
+            return (
+              <Link
+                key={item.to}
+                to={item.to}
+                className={isCurrent ? "active" : undefined}
+                aria-current={isCurrent ? "page" : undefined}
+              >
+                <span className="nav-label">{item.label}</span>
+                <span className="nav-meta">{item.meta}</span>
+              </Link>
+            );
+          })}
         </nav>
       </aside>
 
