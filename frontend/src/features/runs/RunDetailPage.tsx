@@ -6,6 +6,12 @@ import { ArtifactPreviewMap } from "../../components/maps/ArtifactPreviewMap";
 import { getRunInspection, getRunPreview } from "../../lib/api/client";
 import { PhaseBadge } from "../../components/status/PhaseBadge";
 
+function summarizeTrace(trace: Record<string, unknown>) {
+  return Object.entries(trace)
+    .filter(([, value]) => value !== null && value !== undefined && value !== "")
+    .slice(0, 4);
+}
+
 export function RunDetailPage() {
   const { copy } = useI18n();
   const { runId = "" } = useParams();
@@ -24,6 +30,7 @@ export function RunDetailPage() {
 
   const inspection = inspectionQuery.data;
   const preview = previewQuery.data;
+  const traceSummary = summarizeTrace(inspection?.kg_path_trace ?? {});
 
   return (
     <section className="surface-page">
@@ -47,8 +54,22 @@ export function RunDetailPage() {
             <span className="panel-marker">{inspection?.run.progress ?? 0}%</span>
           </div>
           <strong className="panel-state">{inspection?.run.trigger.content ?? copy.runs.detail.selectRun}</strong>
+          <dl className="status-list status-list--compact">
+            <div>
+              <dt>{copy.runs.detail.summaryItems.jobType}</dt>
+              <dd>{inspection?.run.job_type ? copy.runs.meta.jobTypes[inspection.run.job_type] : "-"}</dd>
+            </div>
+            <div>
+              <dt>{copy.runs.detail.summaryItems.createdAt}</dt>
+              <dd>{inspection?.run.created_at ?? "-"}</dd>
+            </div>
+            <div>
+              <dt>{copy.runs.detail.summaryItems.updatedAt}</dt>
+              <dd>{inspection?.run.updated_at ?? "-"}</dd>
+            </div>
+          </dl>
           <p className="muted-text">
-            {inspection?.run.failure_summary ?? inspection?.run.created_at ?? copy.runs.detail.noSnapshot}
+            {inspection?.run.failure_summary ?? copy.runs.detail.noSnapshot}
           </p>
         </article>
 
@@ -69,9 +90,16 @@ export function RunDetailPage() {
                 featureCount={preview.preview_feature_count}
                 crs={preview.crs}
               />
-              <a className="inline-action" href={preview.geojson_path} target="_blank" rel="noreferrer">
-                {copy.runs.detail.openGeojson}
-              </a>
+              <div className="inline-actions">
+                <a className="inline-action" href={preview.geojson_path} target="_blank" rel="noreferrer">
+                  {copy.runs.detail.openGeojson}
+                </a>
+                {inspection?.artifact.download_path ? (
+                  <a className="inline-action inline-action--primary" href={inspection.artifact.download_path} target="_blank" rel="noreferrer">
+                    {copy.runs.detail.downloadArtifact}
+                  </a>
+                ) : null}
+              </div>
             </>
           ) : (
             <p className="muted-text">
@@ -91,6 +119,16 @@ export function RunDetailPage() {
           <p className="muted-text">
             {inspection?.artifact.download_path ?? copy.runs.detail.noDownloadPath}
           </p>
+          <div className="inline-actions">
+            <Link className="inline-action" to="/runs">
+              {copy.runs.detail.actions.backToHistory}
+            </Link>
+            {runId ? (
+              <Link className="inline-action" to={`/runs/compare?left=${runId}`}>
+                {copy.runs.detail.actions.compareFromHere}
+              </Link>
+            ) : null}
+          </div>
         </article>
       </section>
 
@@ -114,9 +152,26 @@ export function RunDetailPage() {
           ) : (
             <p className="muted-text">{copy.runs.detail.planUnavailable}</p>
           )}
+          <div className="panel-divider" />
+          <div className="panel-heading panel-heading--tight">
+            <p className="panel-label">{copy.runs.detail.reasoningTrace}</p>
+            <span className="panel-marker">{traceSummary.length}</span>
+          </div>
+          {traceSummary.length ? (
+            <dl className="status-list status-list--compact">
+              {traceSummary.map(([key, value]) => (
+                <div key={key}>
+                  <dt>{key}</dt>
+                  <dd>{Array.isArray(value) ? value.join(", ") : String(value)}</dd>
+                </div>
+              ))}
+            </dl>
+          ) : (
+            <p className="muted-text">{copy.runs.detail.reasoningPending}</p>
+          )}
           {runId ? (
             <div className="inline-actions">
-              <Link className="inline-action" to={`/kg/runs/${runId}`}>
+              <Link className="inline-action inline-action--primary" to={`/kg/runs/${runId}`}>
                 {copy.kgPage.runPath.title}
               </Link>
             </div>
@@ -140,6 +195,19 @@ export function RunDetailPage() {
           ) : (
             <p className="muted-text">{copy.runs.detail.auditPending}</p>
           )}
+          <div className="panel-divider" />
+          <div className="panel-heading panel-heading--tight">
+            <p className="panel-label">{copy.runs.detail.relatedActions}</p>
+            <span className="panel-marker">{copy.runs.detail.relatedMarker}</span>
+          </div>
+          <div className="inline-actions">
+            <Link className="inline-action" to="/scenarios">
+              {copy.runs.detail.actions.openReports}
+            </Link>
+            <Link className="inline-action" to="/guide">
+              {copy.runs.detail.actions.openGuide}
+            </Link>
+          </div>
         </article>
       </section>
     </section>

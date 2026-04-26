@@ -47,10 +47,11 @@ test("默认渲染知识图谱总览图例", async () => {
   renderWithProviders(<KnowledgeGraphOverviewPage />);
 
   expect(await screen.findByText(/工作流模式/i)).toBeInTheDocument();
-  expect(screen.getByText(/算法/i)).toBeInTheDocument();
+  expect(screen.getAllByText(/算法/i).length).toBeGreaterThan(0);
   expect(screen.getByText(/数据源/i)).toBeInTheDocument();
   expect(screen.getByRole("button", { name: /缩小图谱/i })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: /适配视图/i })).toBeInTheDocument();
   expect(screen.getByRole("button", { name: /放大图谱/i })).toBeInTheDocument();
   expect(screen.getByText(/拖动画布查看上下游关系/i)).toBeInTheDocument();
+  expect(screen.getByRole("link", { name: /回到历史任务/i })).toBeInTheDocument();
 });

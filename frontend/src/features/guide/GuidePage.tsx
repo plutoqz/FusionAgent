@@ -44,6 +44,23 @@ export function GuidePage() {
 
         <article className="surface-panel section-stack">
           <div className="panel-heading">
+            <p className="panel-label">{copy.guidePage.workflowMap.label}</p>
+            <span className="panel-marker">{copy.guidePage.workflowMap.marker}</span>
+          </div>
+          <div className="route-list">
+            {copy.guidePage.workflowMap.items.map((item) => (
+              <Link className="route-card" key={item.title} to={item.href} onMouseUp={(event) => event.currentTarget.blur()}>
+                <span>{item.title}</span>
+                <strong>{item.description}</strong>
+              </Link>
+            ))}
+          </div>
+        </article>
+      </section>
+
+      <section className="surface-grid surface-grid--two-up">
+        <article className="surface-panel section-stack">
+          <div className="panel-heading">
             <p className="panel-label">{copy.guidePage.surfaces.label}</p>
             <span className="panel-marker">{copy.guidePage.surfaces.marker}</span>
           </div>
@@ -56,24 +73,27 @@ export function GuidePage() {
             ))}
           </div>
         </article>
-      </section>
 
-      <article className="surface-panel section-stack">
-        <div className="panel-heading">
-          <p className="panel-label">{copy.guidePage.graphTips.label}</p>
-          <span className="panel-marker">{copy.guidePage.graphTips.marker}</span>
-        </div>
-        <ul className="guide-bullets">
-          {copy.guidePage.graphTips.items.map((item) => (
-            <li key={item}>{item}</li>
-          ))}
-        </ul>
-        <div className="inline-actions">
-          <Link className="inline-action" to="/kg">
-            {copy.guidePage.actions.knowledgeGraph}
-          </Link>
-        </div>
-      </article>
+        <article className="surface-panel section-stack">
+          <div className="panel-heading">
+            <p className="panel-label">{copy.guidePage.graphTips.label}</p>
+            <span className="panel-marker">{copy.guidePage.graphTips.marker}</span>
+          </div>
+          <ul className="guide-bullets">
+            {copy.guidePage.graphTips.items.map((item) => (
+              <li key={item}>{item}</li>
+            ))}
+          </ul>
+          <div className="inline-actions">
+            <Link className="inline-action" to="/kg">
+              {copy.guidePage.actions.knowledgeGraph}
+            </Link>
+            <Link className="inline-action" to="/scenarios">
+              {copy.guidePage.actions.reports}
+            </Link>
+          </div>
+        </article>
+      </section>
     </section>
   );
 }

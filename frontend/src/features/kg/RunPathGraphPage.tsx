@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 
 import { useI18n } from "../../app/i18n";
 import { KnowledgeGraphView } from "../../components/graphs/KnowledgeGraphView";
@@ -42,7 +42,7 @@ export function RunPathGraphPage() {
             <p className="panel-label">{copy.kgPage.runPath.groundingLabel}</p>
             <span className="panel-marker">{String(query.data?.meta.workflow_id ?? "-")}</span>
           </div>
-          <dl className="status-list">
+          <dl className="status-list status-list--compact">
             <div>
               <dt>{copy.kgPage.runPath.selectedPattern}</dt>
               <dd>{String(query.data?.meta.selected_pattern_id ?? "-")}</dd>
@@ -56,6 +56,17 @@ export function RunPathGraphPage() {
               <dd>{String(groundingReport.total_step_count ?? query.data?.meta.task_count ?? "-")}</dd>
             </div>
           </dl>
+          <p className="muted-text">{copy.kgPage.runPath.hint}</p>
+          <div className="inline-actions">
+            {runId ? (
+              <Link className="inline-action" to={`/runs/${runId}`}>
+                {copy.kgPage.runPath.actions.backToRun}
+              </Link>
+            ) : null}
+            <Link className="inline-action" to="/kg">
+              {copy.kgPage.runPath.actions.overview}
+            </Link>
+          </div>
         </article>
       </section>
     </section>

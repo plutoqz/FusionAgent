@@ -1,10 +1,12 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
 import { useMutation, useQuery } from "@tanstack/react-query";
 import ReactMarkdown from "react-markdown";
+import { Link } from "react-router-dom";
 
 import { useI18n } from "../../app/i18n";
 import { createScenarioRun, getScenarioDocument, listScenarioDocuments, listScenarioRuns } from "../../lib/api/client";
 import { JobType, ScenarioDocumentEntry } from "../../lib/api/types";
+import { PhaseBadge } from "../../components/status/PhaseBadge";
 
 const jobTypes: JobType[] = ["building", "road", "water", "poi"];
 
@@ -69,6 +71,7 @@ export function ScenarioPage() {
     mutationFn: createScenarioRun,
     onSuccess: (result) => {
       setSelectedScenarioId(result.scenario_id);
+      setSelectedDocument("");
     },
   });
 
@@ -105,74 +108,7 @@ export function ScenarioPage() {
         <p className="surface-status">{copy.scenarioPage.status(scenarioQuery.data?.records.length ?? 0)}</p>
       </header>
 
-      <section className="surface-grid surface-grid--two-up">
-        <article className="surface-panel section-stack">
-          <div className="panel-heading">
-            <p className="panel-label">{copy.scenarioPage.form.label}</p>
-            <span className="panel-marker">{copy.scenarioPage.form.marker}</span>
-          </div>
-
-          <form className="section-stack" onSubmit={handleSubmit}>
-            <label className="field">
-              <span>{copy.scenarioPage.form.labels.scenarioName}</span>
-              <input
-                aria-label={copy.scenarioPage.form.labels.scenarioName}
-                value={scenarioName}
-                onChange={(event) => setScenarioName(event.target.value)}
-              />
-            </label>
-
-            <label className="field">
-              <span>{copy.scenarioPage.form.labels.triggerContent}</span>
-              <textarea
-                rows={4}
-                value={triggerContent}
-                onChange={(event) => setTriggerContent(event.target.value)}
-              />
-            </label>
-
-            <div className="field-row">
-              <label className="field">
-                <span>{copy.scenarioPage.form.labels.disasterType}</span>
-                <input value={disasterType} onChange={(event) => setDisasterType(event.target.value)} />
-              </label>
-              <label className="field">
-                <span>{copy.scenarioPage.form.labels.targetCrs}</span>
-                <input value={targetCrs} onChange={(event) => setTargetCrs(event.target.value)} />
-              </label>
-            </div>
-
-            <div className="field">
-              <span>{copy.scenarioPage.form.labels.jobTypes}</span>
-              <div className="checkbox-grid">
-                {jobTypes.map((jobType) => (
-                  <label className="checkbox-chip" key={jobType}>
-                    <input
-                      type="checkbox"
-                      checked={selectedJobTypes.includes(jobType)}
-                      onChange={() => toggleJobType(jobType)}
-                    />
-                    <span>{copy.runs.meta.jobTypes[jobType]}</span>
-                  </label>
-                ))}
-              </div>
-            </div>
-
-            <label className="toggle-field">
-              <input type="checkbox" checked={debug} onChange={(event) => setDebug(event.target.checked)} />
-              <span>{copy.scenarioPage.form.labels.debug}</span>
-            </label>
-
-            <div className="inline-actions">
-              <button className="inline-action inline-action--primary" type="submit">
-                {createScenarioMutation.isPending
-                  ? copy.scenarioPage.form.actions.submitting
-                  : copy.scenarioPage.form.actions.submit}
-              </button>
-            </div>
-          </form>
-        </article>
-
+      <section className="surface-grid surface-grid--two-up scenario-layout">
         <article className="surface-panel section-stack">
           <div className="panel-heading">
             <p className="panel-label">{copy.scenarioPage.recent.label}</p>
@@ -189,7 +125,7 @@ export function ScenarioPage() {
             {scenarioQuery.data?.records.map((record) => (
               <button
                 key={record.scenario_id}
-                className={record.scenario_id === selectedScenarioId ? "run-row active" : "run-row"}
+                className={record.scenario_id === selectedScenarioId ? "run-row active run-row--stacked" : "run-row run-row--stacked"}
                 type="button"
                 onClick={() => {
                   setSelectedScenarioId(record.scenario_id);
@@ -200,12 +136,53 @@ export function ScenarioPage() {
                   <strong>{record.scenario_name ?? record.scenario_id}</strong>
                   <span>{record.scenario_id}</span>
                 </div>
-                <div className="run-row__meta">
-                  <span>{record.phase}</span>
+                <div className="run-row__meta run-row__meta--start">
+                  <PhaseBadge phase={record.phase} />
+                  <span>{copy.scenarioPage.recent.childRuns(record.child_run_ids?.length ?? 0)}</span>
                 </div>
               </button>
             ))}
           </div>
+        </article>
+
+        <article className="surface-panel section-stack">
+          <div className="panel-heading">
+            <p className="panel-label">{copy.scenarioPage.overview.label}</p>
+            <span className="panel-marker">{copy.scenarioPage.overview.marker}</span>
+          </div>
+
+          {selectedScenario ? (
+            <>
+              <strong className="panel-state">{selectedScenario.scenario_name ?? selectedScenario.scenario_id}</strong>
+              <dl className="status-list status-list--compact">
+                <div>
+                  <dt>{copy.scenarioPage.overview.items.scenarioId}</dt>
+                  <dd>{selectedScenario.scenario_id}</dd>
+                </div>
+                <div>
+                  <dt>{copy.scenarioPage.overview.items.phase}</dt>
+                  <dd>{selectedScenario.phase}</dd>
+                </div>
+                <div>
+                  <dt>{copy.scenarioPage.overview.items.reports}</dt>
+                  <dd>{documentsQuery.data?.documents.length ?? 0}</dd>
+                </div>
+              </dl>
+              <div className="chip-row">
+                {(selectedScenario.child_run_ids ?? []).length ? (
+                  selectedScenario.child_run_ids?.map((childRunId) => (
+                    <Link className="filter-chip filter-chip--link" key={childRunId} to={`/runs/${childRunId}`}>
+                      {childRunId}
+                    </Link>
+                  ))
+                ) : (
+                  <span className="muted-text">{copy.scenarioPage.overview.noChildRuns}</span>
+                )}
+              </div>
+            </>
+          ) : (
+            <p className="muted-text">{copy.scenarioPage.overview.empty}</p>
+          )}
         </article>
       </section>
 
@@ -215,7 +192,6 @@ export function ScenarioPage() {
           <span className="panel-marker">{copy.scenarioPage.reports.marker}</span>
         </div>
 
-        {selectedScenario ? <strong className="panel-state">{selectedScenario.scenario_name ?? selectedScenario.scenario_id}</strong> : null}
         {documentsQuery.isLoading ? <p className="muted-text">{copy.scenarioPage.reports.loadingList}</p> : null}
         {documentsQuery.isError ? <p className="status-error">{copy.scenarioPage.reports.error}</p> : null}
         {documentsQuery.data && documentsQuery.data.documents.length === 0 ? (
@@ -245,6 +221,74 @@ export function ScenarioPage() {
             <ReactMarkdown>{documentQuery.data.content}</ReactMarkdown>
           </article>
         ) : null}
+      </article>
+
+      <article className="surface-panel section-stack">
+        <div className="panel-heading">
+          <p className="panel-label">{copy.scenarioPage.form.label}</p>
+          <span className="panel-marker">{copy.scenarioPage.form.marker}</span>
+        </div>
+        <p className="muted-text">{copy.scenarioPage.form.helper}</p>
+
+        <form className="section-stack" onSubmit={handleSubmit}>
+          <label className="field">
+            <span>{copy.scenarioPage.form.labels.scenarioName}</span>
+            <input
+              aria-label={copy.scenarioPage.form.labels.scenarioName}
+              value={scenarioName}
+              onChange={(event) => setScenarioName(event.target.value)}
+            />
+          </label>
+
+          <label className="field">
+            <span>{copy.scenarioPage.form.labels.triggerContent}</span>
+            <textarea
+              rows={4}
+              value={triggerContent}
+              onChange={(event) => setTriggerContent(event.target.value)}
+            />
+          </label>
+
+          <div className="field-row">
+            <label className="field">
+              <span>{copy.scenarioPage.form.labels.disasterType}</span>
+              <input value={disasterType} onChange={(event) => setDisasterType(event.target.value)} />
+            </label>
+            <label className="field">
+              <span>{copy.scenarioPage.form.labels.targetCrs}</span>
+              <input value={targetCrs} onChange={(event) => setTargetCrs(event.target.value)} />
+            </label>
+          </div>
+
+          <div className="field">
+            <span>{copy.scenarioPage.form.labels.jobTypes}</span>
+            <div className="checkbox-grid">
+              {jobTypes.map((jobType) => (
+                <label className="checkbox-chip" key={jobType}>
+                  <input
+                    type="checkbox"
+                    checked={selectedJobTypes.includes(jobType)}
+                    onChange={() => toggleJobType(jobType)}
+                  />
+                  <span>{copy.runs.meta.jobTypes[jobType]}</span>
+                </label>
+              ))}
+            </div>
+          </div>
+
+          <label className="toggle-field">
+            <input type="checkbox" checked={debug} onChange={(event) => setDebug(event.target.checked)} />
+            <span>{copy.scenarioPage.form.labels.debug}</span>
+          </label>
+
+          <div className="inline-actions">
+            <button className="inline-action inline-action--primary" type="submit">
+              {createScenarioMutation.isPending
+                ? copy.scenarioPage.form.actions.submitting
+                : copy.scenarioPage.form.actions.submit}
+            </button>
+          </div>
+        </form>
       </article>
     </section>
   );

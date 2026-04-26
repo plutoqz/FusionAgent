@@ -93,7 +93,7 @@ export interface RunListRecord {
 export interface OperatorRuntimeSummaryResponse {
   runtime: Record<string, unknown>;
   recent_runs: RunListRecord[];
-  recent_scenarios: Array<Record<string, unknown>>;
+  recent_scenarios: ScenarioRunRecord[];
   evidence_gaps: string[];
 }
 
