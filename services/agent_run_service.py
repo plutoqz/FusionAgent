@@ -35,6 +35,7 @@ from schemas.agent import (
     RunTriggerType,
     WorkflowPlan,
 )
+from schemas.fusion import JobType
 from schemas.settings import EffectiveLLMSettings
 from services.artifact_registry import ArtifactRecord, ArtifactRegistry
 from services.artifact_reuse_policy import get_artifact_reuse_max_age_seconds
@@ -46,9 +47,12 @@ from services.plan_grounding_service import ensure_plan_grounding_report
 from services.raw_vector_source_service import RawVectorSourceService
 from services.runtime_settings_service import RuntimeSettingsService
 from services.run_recovery_service import collect_recoverable_runs
+from services.tile_partition_service import TilePartitionService
+from services.tiled_building_runtime_service import TiledBuildingRuntimeService
 from services.unsupported_intent_guard import classify_unsupported_intent
 from utils.crs import normalize_target_crs, resolve_target_crs
 from utils.shp_zip import validate_zip_has_shapefile, zip_shapefile_bundle
+from utils.vector_clip import clip_zip_to_request_bbox
 
 
 def _utc_now() -> str:
@@ -107,6 +111,8 @@ class AgentRunService:
             providers=self._build_input_bundle_providers(),
             cache_dir=self.base_dir / "input_bundle_cache",
         )
+        self.tile_partition_service = TilePartitionService()
+        self.tiled_building_runtime_service = TiledBuildingRuntimeService(max_workers=max_workers)
         self.artifact_reuse_service = ArtifactReuseService(self.artifact_registry)
         self.validator = WorkflowValidator(self.kg_repo)
         self._apply_default_runtime(
@@ -379,20 +385,40 @@ class AgentRunService:
                     resolved_inputs.source_id,
                     resolved_inputs.cache_hit,
                 )
+            should_tile = self._should_use_tiled_building_runtime(
+                request=runtime_request,
+                plan=plan,
+                resolved_inputs=resolved_inputs,
+                resolved_aoi=resolved_aoi,
+            )
 
             while True:
                 try:
-                    fused_shp, repair_records = self.run_execution_stage(
-                        run_id=run_id,
-                        request=runtime_request,
-                        plan=plan,
-                        osm_zip_path=osm_zip_path,
-                        ref_zip_path=ref_zip_path,
-                        intermediate_dir=intermediate_dir,
-                        output_dir=output_dir,
-                        repair_records=repair_records,
-                        runtime_dependencies=runtime_dependencies,
-                    )
+                    if should_tile:
+                        fused_shp, repair_records = self.run_tiled_execution_stage(
+                            run_id=run_id,
+                            request=runtime_request,
+                            plan=plan,
+                            osm_zip_path=osm_zip_path,
+                            ref_zip_path=ref_zip_path,
+                            intermediate_dir=intermediate_dir,
+                            output_dir=output_dir,
+                            repair_records=repair_records,
+                            resolved_inputs=resolved_inputs,
+                            resolved_aoi=resolved_aoi,
+                        )
+                    else:
+                        fused_shp, repair_records = self.run_execution_stage(
+                            run_id=run_id,
+                            request=runtime_request,
+                            plan=plan,
+                            osm_zip_path=osm_zip_path,
+                            ref_zip_path=ref_zip_path,
+                            intermediate_dir=intermediate_dir,
+                            output_dir=output_dir,
+                            repair_records=repair_records,
+                            runtime_dependencies=runtime_dependencies,
+                        )
                     break
                 except Exception as exec_error:  # noqa: BLE001
                     failed_step = self._infer_failed_step(repair_records)
@@ -536,6 +562,12 @@ class AgentRunService:
                                 progress=68,
                                 message="Task-driven input bundles refreshed after replan.",
                             )
+                    should_tile = self._should_use_tiled_building_runtime(
+                        request=runtime_request,
+                        plan=plan,
+                        resolved_inputs=resolved_inputs,
+                        resolved_aoi=resolved_aoi,
+                    )
                     logger.info("Healing replan completed with revision=%s", self._extract_plan_revision(plan))
             logger.info("Execution stage completed: %s", fused_shp)
 
@@ -709,6 +741,12 @@ class AgentRunService:
             "planning_source": plan.context.get("planning_source"),
             "profile_source": plan.context.get("intent", {}).get("profile_source"),
             "task_bundle": plan.context.get("intent", {}).get("task_bundle"),
+            "selectable_source_ids": plan.context.get("execution_hints", {}).get("selectable_source_ids", []),
+            "reserved_source_ids": plan.context.get("execution_hints", {}).get("reserved_source_ids", []),
+            "required_reserved_capabilities": plan.context.get("execution_hints", {}).get(
+                "required_reserved_capabilities",
+                [],
+            ),
         }
         if plan.context.get("intent", {}).get("resolved_aoi") is not None:
             event_details["resolved_aoi"] = plan.context["intent"]["resolved_aoi"]
@@ -836,6 +874,131 @@ class AgentRunService:
         self._persist_plan(self._plan_path(run_id), plan)
         return fused_shp, repair_records
 
+    def run_tiled_execution_stage(
+        self,
+        *,
+        run_id: str,
+        request: RunCreateRequest,
+        plan: WorkflowPlan,
+        osm_zip_path: Path,
+        ref_zip_path: Path,
+        intermediate_dir: Path,
+        output_dir: Path,
+        repair_records: Optional[List[RepairRecord]] = None,
+        resolved_inputs: ResolvedRunInputs | None,
+        resolved_aoi: ResolvedAOI | None,
+    ) -> tuple[Path, List[RepairRecord]]:
+        repair_records = repair_records if repair_records is not None else []
+        request_bbox = self._resolve_request_bbox(request, resolved_aoi=resolved_aoi)
+        if request_bbox is None:
+            raise ValueError("Tiled building runtime requires an AOI bbox.")
+        selected_source_id = None
+        if resolved_inputs is not None:
+            selected_source_id = resolved_inputs.selected_source_id or resolved_inputs.source_id
+        target_crs = self._request_with_effective_target_crs(run_id, request).target_crs
+        tile_manifest = self.tile_partition_service.partition_bbox(
+            bbox=request_bbox,
+            bbox_crs="EPSG:4326",
+            working_crs=target_crs,
+        )
+        manifest_path = intermediate_dir / "tile_manifest.json"
+        manifest_path.write_text(json.dumps(tile_manifest.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8")
+
+        self._update_status(
+            run_id,
+            RunPhase.running,
+            progress=55,
+            repair_records=repair_records,
+            current_step=0,
+            attempt_no=self._max_attempt_no(repair_records),
+            healing_summary=self._build_healing_summary(repair_records),
+            plan_revision=self._extract_plan_revision(plan),
+            checkpoint=self._checkpoint(
+                stage="execution",
+                plan_revision=self._extract_plan_revision(plan),
+                current_step=0,
+                attempt_no=self._max_attempt_no(repair_records),
+            ),
+            event_kind="execution_started",
+            event_message="Execution stage started.",
+        )
+        self._update_status(
+            run_id,
+            RunPhase.running,
+            progress=58,
+            repair_records=repair_records,
+            current_step=0,
+            attempt_no=self._max_attempt_no(repair_records),
+            healing_summary=self._build_healing_summary(repair_records),
+            plan_revision=self._extract_plan_revision(plan),
+            checkpoint=self._checkpoint(
+                stage="execution",
+                plan_revision=self._extract_plan_revision(plan),
+                current_step=0,
+                attempt_no=self._max_attempt_no(repair_records),
+            ),
+            event_kind="tile_manifest_created",
+            event_message="Tile manifest created for tiled building execution.",
+            event_details={
+                "tile_count": len(tile_manifest.tiles),
+                "tile_manifest_path": str(manifest_path),
+                "selected_source_id": selected_source_id,
+                "request_bbox": list(request_bbox),
+            },
+        )
+
+        def _bundle_factory(source_zip: Path):
+            def _factory(tile, target_path: Path) -> Path:
+                return clip_zip_to_request_bbox(source_zip, target_path, request_bbox=tile.buffered_bbox)
+
+            return _factory
+
+        tile_parameters = self._extract_step_parameters(plan)
+        result = self.tiled_building_runtime_service.run_tiled_building_job(
+            run_id=run_id,
+            tile_manifest=tile_manifest,
+            osm_bundle_factory=_bundle_factory(osm_zip_path),
+            ref_bundle_factory=_bundle_factory(ref_zip_path),
+            output_dir=output_dir,
+            target_crs=target_crs,
+            field_mapping=request.field_mapping,
+            debug=request.debug,
+            parameters=tile_parameters,
+            on_event=lambda kind, details: self._record_tiled_runtime_event(
+                run_id=run_id,
+                plan=plan,
+                repair_records=repair_records,
+                kind=kind,
+                details=details,
+            ),
+        )
+        fused_shp = result.output_shp
+        self._update_status(
+            run_id,
+            RunPhase.running,
+            progress=80,
+            repair_records=repair_records,
+            current_step=self._count_executable_steps(plan),
+            attempt_no=self._max_attempt_no(repair_records),
+            healing_summary=self._build_healing_summary(repair_records),
+            plan_revision=self._extract_plan_revision(plan),
+            checkpoint=self._checkpoint(
+                stage="execution",
+                plan_revision=self._extract_plan_revision(plan),
+                current_step=self._count_executable_steps(plan),
+                attempt_no=self._max_attempt_no(repair_records),
+            ),
+            event_kind="execution_completed",
+            event_message="Execution stage completed and produced an output artifact.",
+            event_details={
+                "repair_count": len(repair_records),
+                "tile_count": result.tile_count,
+                "stitched_feature_count": result.stitched_feature_count,
+            },
+        )
+        self._persist_plan(self._plan_path(run_id), plan)
+        return fused_shp, repair_records
+
     def _record_execution_step_event(
         self,
         *,
@@ -909,6 +1072,40 @@ class AgentRunService:
             resolved_aoi=resolved_aoi,
         )
         return resolved.osm_zip_path, resolved.ref_zip_path, resolved
+
+    def _record_tiled_runtime_event(
+        self,
+        *,
+        run_id: str,
+        plan: WorkflowPlan,
+        repair_records: List[RepairRecord],
+        kind: str,
+        details: Dict[str, object],
+    ) -> None:
+        progress_by_kind = {
+            "tile_execution_started": 62,
+            "tile_execution_completed": 72,
+            "tile_stitch_completed": 78,
+        }
+        message_by_kind = {
+            "tile_execution_started": "Tile execution started.",
+            "tile_execution_completed": "Tile execution completed.",
+            "tile_stitch_completed": "Tile stitch completed.",
+        }
+        self._update_status(
+            run_id,
+            RunPhase.running,
+            progress=progress_by_kind.get(kind, 60),
+            repair_records=repair_records,
+            current_step=0,
+            attempt_no=self._max_attempt_no(repair_records),
+            healing_summary=self._build_healing_summary(repair_records),
+            plan_revision=self._extract_plan_revision(plan),
+            checkpoint=self._checkpoint(stage="execution", plan_revision=self._extract_plan_revision(plan)),
+            event_kind=kind,
+            event_message=message_by_kind.get(kind, kind),
+            event_details=details,
+        )
 
     def _record_task_inputs_resolved(
         self,
@@ -1116,6 +1313,77 @@ class AgentRunService:
         if request.target_crs == target_crs:
             return request
         return request.model_copy(update={"target_crs": target_crs})
+
+    def _should_use_tiled_building_runtime(
+        self,
+        *,
+        request: RunCreateRequest,
+        plan: WorkflowPlan,
+        resolved_inputs: ResolvedRunInputs | None,
+        resolved_aoi: ResolvedAOI | None,
+    ) -> bool:
+        if request.job_type != JobType.building:
+            return False
+        if request.input_strategy != RunInputStrategy.task_driven_auto:
+            return False
+        if resolved_inputs is None:
+            return False
+        request_bbox = self._resolve_request_bbox(request, resolved_aoi=resolved_aoi)
+        if request_bbox is None:
+            return False
+        selected_source_id = (
+            resolved_inputs.selected_source_id
+            or resolved_inputs.source_id
+            or self._resolve_task_driven_source_id(plan)
+        )
+        if selected_source_id not in {"catalog.flood.building", "catalog.earthquake.building"}:
+            return False
+        threshold = self._read_env_int("GEOFUSION_BUILDING_TILING_MIN_FEATURES") or 250000
+        return self._max_component_feature_count(resolved_inputs.component_coverage) >= threshold
+
+    @staticmethod
+    def _resolve_request_bbox(
+        request: RunCreateRequest,
+        *,
+        resolved_aoi: ResolvedAOI | None,
+    ) -> tuple[float, float, float, float] | None:
+        if resolved_aoi is not None:
+            return tuple(float(value) for value in resolved_aoi.bbox)
+        value = request.trigger.spatial_extent
+        if not value:
+            return None
+        match = re.match(r"^bbox\(\s*([-\d.]+)\s*,\s*([-\d.]+)\s*,\s*([-\d.]+)\s*,\s*([-\d.]+)\s*\)\s*$", value)
+        if not match:
+            return None
+        return (
+            float(match.group(1)),
+            float(match.group(2)),
+            float(match.group(3)),
+            float(match.group(4)),
+        )
+
+    @staticmethod
+    def _max_component_feature_count(component_coverage: Dict[str, object]) -> int:
+        counts: list[int] = []
+        for raw in (component_coverage or {}).values():
+            if isinstance(raw, dict):
+                value = raw.get("feature_count")
+            else:
+                value = getattr(raw, "feature_count", None)
+            try:
+                if value is not None:
+                    counts.append(int(value))
+            except Exception:  # noqa: BLE001
+                continue
+        return max(counts) if counts else 0
+
+    @staticmethod
+    def _extract_step_parameters(plan: WorkflowPlan) -> Dict[str, object]:
+        for task in sorted(plan.tasks, key=lambda item: item.step):
+            if task.is_transform or task.algorithm_id.startswith("algo.transform."):
+                continue
+            return dict(task.input.parameters or {})
+        return {}
 
     def _bound_default_runtime(self) -> RuntimeDependencies:
         return RuntimeDependencies(

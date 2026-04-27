@@ -16,6 +16,7 @@ import geopandas as gpd
 from shapely.geometry import shape
 
 from services.aoi_resolution_service import ResolvedAOI
+from utils.raster_cli import gdalinfo_json
 from utils.shp_zip import collect_bundle_files, safe_extract_zip
 from utils.vector_clip import BBox, clip_frame_to_request_bbox, frame_bbox_in_crs
 
@@ -220,6 +221,18 @@ class SourceAssetService:
 
     def can_materialize(self, source_id: str) -> bool:
         return source_id in _REMOTELY_MATERIALIZABLE_SOURCE_IDS or source_id in _LOCAL_SOURCE_CANDIDATES
+
+    def inspect_local_raster_profile(self, source_id: str, path: Path) -> dict[str, object]:
+        info = gdalinfo_json(path)
+        bands = info.get("bands", [])
+        band_count = len(bands) if isinstance(bands, list) else 0
+        return {
+            "source_id": source_id,
+            "path": str(path),
+            "source_form": "raster",
+            "runtime_status": "reservation_only",
+            "band_count": band_count,
+        }
 
     def resolve_raw_source_path(
         self,

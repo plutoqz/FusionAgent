@@ -33,12 +33,31 @@ class PlanningContextBuilder:
         location_query = self._extract_location_query(trigger)
         resolved_aoi = self._resolve_aoi(trigger)
         selection_reason = self._select_reason(kg_context.patterns)
+        relevant_sources = self._collect_relevant_data_sources(
+            job_type=job_type,
+            disaster_type=trigger.disaster_type,
+            kg_context=kg_context,
+        )
+        reserved_capability_hints = self._build_reserved_capability_hints(
+            job_type=job_type,
+            relevant_sources=relevant_sources,
+        )
         return (
             {
                 "intent": self._extract_intent(job_type, trigger, location_query, resolved_aoi),
-                "retrieval": self._build_retrieval_payload(job_type, trigger, kg_context, resolved_aoi),
+                "retrieval": self._build_retrieval_payload(
+                    job_type,
+                    trigger,
+                    kg_context,
+                    resolved_aoi,
+                ),
                 "constraints": self._build_constraints(job_type),
-                "execution_hints": self._build_execution_hints(kg_context, resolved_aoi),
+                "execution_hints": self._build_execution_hints(
+                    kg_context,
+                    resolved_aoi,
+                    relevant_sources=relevant_sources,
+                    reserved_capability_hints=reserved_capability_hints,
+                ),
             },
             selection_reason,
         )
@@ -103,6 +122,15 @@ class PlanningContextBuilder:
         resolved_aoi: ResolvedAOI | None,
     ) -> Dict[str, Any]:
         required_types = sorted({step.input_data_type for pattern in kg_context.patterns for step in pattern.steps})
+        relevant_sources = self._collect_relevant_data_sources(
+            job_type=job_type,
+            disaster_type=trigger.disaster_type,
+            kg_context=kg_context,
+        )
+        reserved_capability_hints = self._build_reserved_capability_hints(
+            job_type=job_type,
+            relevant_sources=relevant_sources,
+        )
         transform_paths = {
             required_type: self.kg_repo.find_transform_path("dt.raw.vector", required_type, max_depth=3)
             for required_type in required_types
@@ -121,7 +149,7 @@ class PlanningContextBuilder:
                 algo_id: [self._parameter_spec_to_dict(spec) for spec in specs]
                 for algo_id, specs in kg_context.parameter_specs.items()
             },
-            "data_sources": [self._data_source_to_dict(source) for source in kg_context.data_sources],
+            "data_sources": [self._data_source_to_dict(source) for source in relevant_sources],
             "output_schema_policies": {
                 output_type: self._output_schema_policy_to_dict(policy)
                 for output_type, policy in kg_context.output_schema_policies.items()
@@ -132,13 +160,14 @@ class PlanningContextBuilder:
             },
             "data_types": [self._data_type_to_dict(item) for item in kg_context.data_types],
             "source_coverage_hints": self._build_source_coverage_hints(
-                kg_context,
-                job_type=job_type,
+                relevant_sources,
                 resolved_aoi=resolved_aoi,
             ),
             "transform_paths": transform_paths,
             "knowledge_hits": self.kg_repo.search_knowledge(search_query, limit=5),
         }
+        if reserved_capability_hints:
+            payload["reserved_capability_hints"] = reserved_capability_hints
         reusable = self._find_reusable_artifacts(job_type=job_type, trigger=trigger, limit=3)
         if reusable:
             payload["reusable_artifacts"] = [self._artifact_to_dict(item) for item in reusable]
@@ -204,12 +233,37 @@ class PlanningContextBuilder:
         }
 
     @staticmethod
-    def _build_execution_hints(kg_context: KGContext, resolved_aoi: ResolvedAOI | None) -> Dict[str, Any]:
+    def _build_execution_hints(
+        kg_context: KGContext,
+        resolved_aoi: ResolvedAOI | None,
+        *,
+        relevant_sources: List[DataSourceNode] | None = None,
+        reserved_capability_hints: List[Dict[str, Any]] | None = None,
+    ) -> Dict[str, Any]:
+        sources = relevant_sources or kg_context.data_sources
         hints = {
             "preferred_pattern_id": kg_context.patterns[0].pattern_id if kg_context.patterns else None,
             "fallback_pattern_ids": [pattern.pattern_id for pattern in kg_context.patterns[1:]],
-            "available_data_source_ids": [source.source_id for source in kg_context.data_sources],
+            "available_data_source_ids": [source.source_id for source in sources],
+            "selectable_source_ids": [
+                source.source_id
+                for source in sources
+                if source.metadata.get("selectable_now", False)
+                and source.metadata.get("runtime_status", "runtime_candidate") != "reservation_only"
+            ],
+            "reserved_source_ids": [
+                source.source_id
+                for source in sources
+                if source.metadata.get("runtime_status") == "reservation_only"
+                or source.metadata.get("selectable_now") is False
+            ],
         }
+        if reserved_capability_hints:
+            hints["required_reserved_capabilities"] = [
+                item["capability_id"]
+                for item in reserved_capability_hints
+                if item.get("runtime_status") == "reservation_only"
+            ]
         if resolved_aoi is not None:
             hints["available_aoi"] = resolved_aoi.to_dict()
         return hints
@@ -337,15 +391,12 @@ class PlanningContextBuilder:
 
     @staticmethod
     def _build_source_coverage_hints(
-        kg_context: KGContext,
+        sources: List[DataSourceNode],
         *,
-        job_type: JobType,
         resolved_aoi: ResolvedAOI | None,
     ) -> List[Dict[str, Any]]:
         hints: List[Dict[str, Any]] = []
-        for source in kg_context.data_sources:
-            if job_type.value not in source.supported_job_types and source.source_id != "upload.bundle":
-                continue
+        for source in sources:
             metadata = dict(source.metadata or {})
             hint = {
                 "source_id": source.source_id,
@@ -356,6 +407,11 @@ class PlanningContextBuilder:
                 "supports_aoi": metadata.get("supports_aoi"),
                 "materialization_scope": metadata.get("materialization_scope"),
                 "materialization_provider": metadata.get("materialization_provider"),
+                "source_form": metadata.get("source_form"),
+                "runtime_status": metadata.get("runtime_status"),
+                "selectable_now": metadata.get("selectable_now"),
+                "supports_tiling": metadata.get("supports_tiling"),
+                "height_semantics": metadata.get("height_semantics"),
                 "supported_job_types": source.supported_job_types,
                 "supported_geometry_types": source.supported_geometry_types,
                 "quality_score": source.quality_score,
@@ -370,6 +426,132 @@ class PlanningContextBuilder:
                 }
             hints.append(hint)
         return hints
+
+    def _collect_relevant_data_sources(
+        self,
+        *,
+        job_type: JobType,
+        disaster_type: str | None,
+        kg_context: KGContext,
+    ) -> List[DataSourceNode]:
+        dtype = (disaster_type or "generic").lower()
+        sources: Dict[str, DataSourceNode] = {source.source_id: source for source in kg_context.data_sources}
+        for source in self.kg_repo.list_data_sources():
+            if source.source_id in sources:
+                continue
+            supported_disasters = [item.lower() for item in source.disaster_types]
+            if dtype not in supported_disasters and "generic" not in supported_disasters:
+                continue
+            metadata = dict(source.metadata or {})
+            source_theme = str(metadata.get("theme") or "").lower()
+            job_support = job_type.value in source.supported_job_types
+            typed_support = any(
+                supported_type.startswith(f"dt.{job_type.value}.")
+                for supported_type in source.supported_types
+            )
+            if source.source_id != "upload.bundle" and not job_support and not typed_support and source_theme != job_type.value:
+                continue
+            sources[source.source_id] = source
+
+        def _sort_key(item: DataSourceNode) -> tuple[int, float, str]:
+            selectable = 1 if item.metadata.get("selectable_now", False) else 0
+            return (selectable, item.quality_score, item.source_id)
+
+        return sorted(sources.values(), key=_sort_key, reverse=True)
+
+    def _build_reserved_capability_hints(
+        self,
+        *,
+        job_type: JobType,
+        relevant_sources: List[DataSourceNode],
+    ) -> List[Dict[str, Any]]:
+        if job_type != JobType.building:
+            return []
+
+        reserved_vectors = [
+            source.source_id
+            for source in relevant_sources
+            if source.metadata.get("runtime_status") == "reservation_only"
+            and source.metadata.get("source_form") == "vector"
+        ]
+        reserved_rasters = [
+            source.source_id
+            for source in relevant_sources
+            if source.metadata.get("runtime_status") == "reservation_only"
+            and source.metadata.get("source_form") == "raster"
+        ]
+        tiling_sources = [
+            source.source_id
+            for source in relevant_sources
+            if bool(source.metadata.get("supports_tiling"))
+        ]
+
+        hints: List[Dict[str, Any]] = []
+        if tiling_sources:
+            hints.append(
+                self._reserved_capability_hint(
+                    capability_id="algo.partition.aoi.grid.v1",
+                    capability_kind="algorithm",
+                    reason="Large building AOIs need deterministic tiling before fan-out execution.",
+                    activated_source_ids=tiling_sources,
+                )
+            )
+            hints.append(
+                self._reserved_capability_hint(
+                    capability_id="algo.merge.building.tiles.reserved",
+                    capability_kind="algorithm",
+                    reason="Tile-scoped outputs need a controlled stitch step before final building delivery.",
+                    activated_source_ids=tiling_sources,
+                )
+            )
+        if reserved_vectors:
+            hints.append(
+                self._reserved_capability_hint(
+                    capability_id="algo.fusion.building.multi_source.reserved",
+                    capability_kind="algorithm",
+                    reason="Additional building vector sources are indexed, but multi-source fusion semantics remain reserved.",
+                    activated_source_ids=reserved_vectors,
+                )
+            )
+        if reserved_rasters:
+            hints.append(
+                self._reserved_capability_hint(
+                    capability_id="algo.clip.raster.tile.v1",
+                    capability_kind="algorithm",
+                    reason="Raster-assisted building workflows require tiled raster clipping control that is not executable yet.",
+                    activated_source_ids=reserved_rasters,
+                )
+            )
+            hints.append(
+                self._reserved_capability_hint(
+                    capability_id="algo.enrich.building.height_from_raster.reserved",
+                    capability_kind="algorithm",
+                    reason="Raster-backed building height extraction remains a reserved enrichment seam.",
+                    activated_source_ids=reserved_rasters,
+                )
+            )
+        return hints
+
+    def _reserved_capability_hint(
+        self,
+        *,
+        capability_id: str,
+        capability_kind: str,
+        reason: str,
+        activated_source_ids: List[str],
+    ) -> Dict[str, Any]:
+        runtime_status = "reservation_only"
+        if capability_kind == "algorithm":
+            algo = self.kg_repo.get_algorithm(capability_id)
+            if algo is not None:
+                runtime_status = str(algo.metadata.get("runtime_status") or runtime_status)
+        return {
+            "capability_id": capability_id,
+            "capability_kind": capability_kind,
+            "runtime_status": runtime_status,
+            "activated_source_ids": activated_source_ids,
+            "reason": reason,
+        }
 
     @staticmethod
     def _pattern_to_dict(pattern: WorkflowPatternNode) -> Dict[str, Any]:

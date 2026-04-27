@@ -51,6 +51,21 @@ def _bundle_version_token(shp_path: Path) -> str:
     return hashlib.sha1(payload.encode("utf-8")).hexdigest()
 
 
+def _tile_meta(request_bbox: Optional[BBox]) -> dict[str, object]:
+    if request_bbox is None:
+        return {
+            "tile_scope": "full",
+            "tile_bbox": None,
+            "tile_key": "full",
+        }
+    key = hashlib.sha1(repr(tuple(request_bbox)).encode("utf-8")).hexdigest()[:12]
+    return {
+        "tile_scope": "request_bbox",
+        "tile_bbox": [float(value) for value in request_bbox],
+        "tile_key": key,
+    }
+
+
 @dataclass(frozen=True)
 class MaterializedRawVectorSource:
     zip_path: Path
@@ -177,6 +192,7 @@ class RawVectorSourceService:
                     "source_id": source_id,
                     "source_version": version_token,
                     "source_mode": source_resolution.source_mode,
+                    **_tile_meta(request_bbox),
                 },
             )
         )

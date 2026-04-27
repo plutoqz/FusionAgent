@@ -204,6 +204,39 @@ def test_repository_exposes_bundle_and_raw_sources_for_catalog_expansion() -> No
     assert water_bundle.metadata["bundle_strategy"] == "osm_ref_pair"
 
 
+def test_repository_exposes_reserved_building_sources_and_raster_inputs() -> None:
+    repo = InMemoryKGRepository()
+
+    raw_sources = repo.get_candidate_data_sources(
+        job_type=JobType.building,
+        disaster_type="generic",
+        required_type="dt.raw.vector",
+        limit=16,
+    )
+    raster_sources = repo.get_candidate_data_sources(
+        job_type=JobType.building,
+        disaster_type="generic",
+        required_type="dt.raster.building_presence",
+        limit=4,
+    )
+
+    raw_ids = {source.source_id for source in raw_sources}
+    assert "raw.openbuildingmap.building" in raw_ids
+    assert "raw.local.microsoft.building" in raw_ids
+    assert "raw.google.open_buildings.vector" in raw_ids
+
+    openbuildingmap = next(source for source in raw_sources if source.source_id == "raw.openbuildingmap.building")
+    assert openbuildingmap.metadata["runtime_status"] == "reservation_only"
+    assert openbuildingmap.metadata["selectable_now"] is False
+    assert openbuildingmap.metadata["height_semantics"] == "estimated_height"
+
+    raster = next(source for source in raster_sources if source.source_id == "raw.google.building_presence.raster")
+    assert raster.metadata["runtime_status"] == "reservation_only"
+    assert raster.metadata["selectable_now"] is False
+    assert raster.metadata["source_form"] == "raster"
+    assert raster.metadata["height_semantics"] == "presence_only"
+
+
 def test_inmemory_repository_persists_and_filters_durable_learning_records() -> None:
     repo = InMemoryKGRepository()
 

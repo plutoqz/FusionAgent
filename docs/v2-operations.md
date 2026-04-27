@@ -24,6 +24,26 @@ Freeze the runtime wording to the following contract:
 - all four share the same evidence contract: `run.json`, `plan.json`, `validation.json`, `audit.jsonl`, and the artifact bundle
 - `trajectory-to-road` remains reservation-only in Phase 4 and is not part of the stable runtime contract
 
+### Benin Preparation Boundary
+
+For the Benin building-runtime preparation slice, keep the capability wording frozen as:
+
+| Capability | Status |
+| --- | --- |
+| tiled parallel execution for the current `OSM + single-ref` building runtime | supported |
+| Benin canonical source profiling | supported |
+| KG exposure for OpenBuildingMap / local Microsoft / Google Open Buildings | supported in KG, not executable |
+| Google building-presence raster inspection and profiling | inspect-only |
+| raster-based building height extraction | reserved |
+| true 4-source building fusion semantics | reserved |
+
+Operator commands:
+
+```powershell
+python scripts/profile_benin_sources.py --source-root E:\fyx\data\Benin --output runs\benin-source-profile.json
+python scripts/benchmark_tiled_building.py --source-root E:\fyx\data\Benin --bbox 2.48,9.23,2.77,9.44 --target-crs EPSG:32631 --output-root runs\benin-benchmark
+```
+
 ### Artifact Preview Products
 
 The no-UI maturity path can generate lightweight GeoJSON previews from artifact bundles before any final dashboard exists. These previews are operator and future-UI assets; they do not replace the canonical shapefile artifact bundle.

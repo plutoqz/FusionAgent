@@ -270,6 +270,32 @@ def test_raw_vector_source_service_reuses_cached_water_source_and_clips_bbox(tmp
     assert _extract_bounds(reused.zip_path) == [1.25, 1.25, 2.75, 2.75]
 
 
+def test_raw_vector_source_service_preserves_tile_cache_metadata(tmp_path: Path) -> None:
+    _seed_raw_source_tree(tmp_path)
+    registry = ArtifactRegistry(index_path=tmp_path / "artifact_registry.json")
+    service = RawVectorSourceService(root_dir=tmp_path, registry=registry, cache_dir=tmp_path / "cache")
+
+    resolved = service.resolve(
+        source_id="raw.osm.building",
+        request_bbox=(1.0, 1.0, 2.0, 2.0),
+        target_path=tmp_path / "tile_001" / "osm.zip",
+        target_crs="EPSG:4326",
+    )
+
+    assert resolved.coverage_status in {"available", "empty"}
+    assert resolved.source_mode in {"downloaded", "clip_reused", "cache_reused"}
+
+    payload = json.loads((tmp_path / "artifact_registry.json").read_text(encoding="utf-8"))
+    raw_record = next(
+        record
+        for record in payload.get("records", [])
+        if record.get("meta", {}).get("artifact_role") == "raw_vector"
+    )
+    assert raw_record["meta"]["tile_scope"] == "request_bbox"
+    assert raw_record["meta"]["tile_bbox"] == [1.0, 1.0, 2.0, 2.0]
+    assert raw_record["meta"]["tile_key"]
+
+
 def test_raw_vector_source_service_materializes_local_water_source_with_stable_version_token(tmp_path: Path) -> None:
     _seed_raw_source_tree(tmp_path)
     registry = ArtifactRegistry(index_path=tmp_path / "artifact_registry.json")

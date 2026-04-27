@@ -62,6 +62,26 @@ The public runtime contract is now frozen as:
 - `poi: bounded task_driven_auto supported after Phase 3`
 - all four share the same evidence contract: `run.json`, `plan.json`, `validation.json`, `audit.jsonl`, and the artifact bundle
 
+## Benin Building Runtime Preparation
+
+The current Benin large-building-runtime preparation boundary is:
+
+| Capability | Status |
+| --- | --- |
+| tiled parallel execution for the current `OSM + single-ref` building runtime | supported |
+| Benin canonical source profiling | supported |
+| KG exposure for OpenBuildingMap / local Microsoft / Google Open Buildings | supported in KG, not executable |
+| Google building-presence raster inspection and profiling | inspect-only |
+| raster-based building height extraction | reserved |
+| true 4-source building fusion semantics | reserved |
+
+Benin preparation commands:
+
+```powershell
+python scripts/profile_benin_sources.py --source-root E:\fyx\data\Benin --output runs\benin-source-profile.json
+python scripts/benchmark_tiled_building.py --source-root E:\fyx\data\Benin --bbox 2.48,9.23,2.77,9.44 --target-crs EPSG:32631 --output-root runs\benin-benchmark
+```
+
 ## Thesis Alignment Note
 
 FusionAgent now distinguishes:
