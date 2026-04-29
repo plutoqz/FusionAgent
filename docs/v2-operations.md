@@ -34,8 +34,10 @@ For the Benin building-runtime preparation slice, keep the capability wording fr
 | Benin canonical source profiling | supported |
 | KG exposure for OpenBuildingMap / local Microsoft / Google Open Buildings | supported in KG, not executable |
 | Google building-presence raster inspection and profiling | inspect-only |
-| raster-based building height extraction | reserved |
-| true 4-source building fusion semantics | reserved |
+| raster-based building presence validation and height extraction | executable via FusionCode decomposed primitives once raster artifacts are materialized |
+| true multi-source building fusion semantics | executable via `wp.building.drs4br.decomposed.v1` and `algo.fusion.building.multi_source.decomposed.v1` |
+
+FusionCode integration is deliberately decomposed in KG. The planner can surface the executable primitives for source normalization, presence-raster validation, V8 candidate graph generation, component solving, cascade geometry-priority fusion, conflict optimization, post-conflict refinements, height-raster enrichment, and quality metrics. Raster and extra vector catalog entries may still be marked `reservation_only` as data sources when local materialization is unavailable; that is distinct from the algorithm capability, which is now represented by executable runtime-candidate nodes.
 
 Operator commands:
 

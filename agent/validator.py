@@ -16,7 +16,10 @@ from schemas.agent import (
 class WorkflowValidator:
     def __init__(self, kg_repo: KGRepository) -> None:
         self.kg_repo = kg_repo
-        self._data_sources = {source.source_id: source for source in kg_repo.list_data_sources()}
+        if hasattr(kg_repo, "list_data_sources"):
+            self._data_sources = {source.source_id: source for source in kg_repo.list_data_sources()}
+        else:
+            self._data_sources = {}
 
     def validate_and_repair(self, plan: WorkflowPlan) -> WorkflowPlan:
         issues: List[ValidationIssue] = []

@@ -822,6 +822,9 @@ class AgentRunService:
             field_mapping=request.field_mapping,
             debug=request.debug,
             alternative_data_sources=self._extract_alternative_sources(plan),
+            named_vectors=self._extract_named_paths(plan, "named_vectors"),
+            named_rasters=self._extract_named_paths(plan, "named_rasters"),
+            context_vectors=self._extract_named_paths(plan, "context_vectors"),
         )
         self._update_status(
             run_id,
@@ -1972,6 +1975,17 @@ class AgentRunService:
             if source_id not in ordered and source_id != "upload.bundle":
                 ordered.append(source_id)
         return ordered
+
+    @staticmethod
+    def _extract_named_paths(plan: WorkflowPlan, key: str) -> Dict[str, Path]:
+        raw = plan.context.get(key, {})
+        if not isinstance(raw, dict):
+            return {}
+        paths: Dict[str, Path] = {}
+        for name, value in raw.items():
+            if isinstance(name, str) and isinstance(value, (str, Path)) and str(value).strip():
+                paths[name] = Path(value)
+        return paths
 
     def _build_planning_decisions(self, plan: WorkflowPlan) -> List[DecisionRecord]:
         decisions: List[DecisionRecord] = []

@@ -1075,3 +1075,18 @@ CAN_TRANSFORM_TO: Dict[str, List[str]] = {
     "dt.trajectory.raw": ["dt.road.candidate"],
     "dt.road.candidate": ["dt.road.bundle"],
 }
+
+
+from fusion_algorithms.registry_metadata import (  # noqa: E402
+    FUSIONCODE_ALGORITHMS,
+    FUSIONCODE_DATA_TYPES,
+    FUSIONCODE_PARAMETER_SPECS,
+    FUSIONCODE_WORKFLOW_PATTERNS,
+)
+
+
+DATA_TYPES.update(FUSIONCODE_DATA_TYPES)
+ALGORITHMS.update(FUSIONCODE_ALGORITHMS)
+for _algo_id, _specs in FUSIONCODE_PARAMETER_SPECS.items():
+    PARAMETER_SPECS.setdefault(_algo_id, []).extend(_specs)
+WORKFLOW_PATTERNS.extend(FUSIONCODE_WORKFLOW_PATTERNS)

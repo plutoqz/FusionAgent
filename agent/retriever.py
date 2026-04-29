@@ -259,6 +259,11 @@ class PlanningContextBuilder:
             ],
         }
         if reserved_capability_hints:
+            hints["runtime_candidate_capabilities"] = [
+                item["capability_id"]
+                for item in reserved_capability_hints
+                if item.get("runtime_status") == "runtime_candidate"
+            ]
             hints["required_reserved_capabilities"] = [
                 item["capability_id"]
                 for item in reserved_capability_hints
@@ -507,9 +512,9 @@ class PlanningContextBuilder:
         if reserved_vectors:
             hints.append(
                 self._reserved_capability_hint(
-                    capability_id="algo.fusion.building.multi_source.reserved",
+                    capability_id="algo.fusion.building.multi_source.decomposed.v1",
                     capability_kind="algorithm",
-                    reason="Additional building vector sources are indexed, but multi-source fusion semantics remain reserved.",
+                    reason="Additional building vector sources can be routed through the decomposed FusionCode multi-source workflow.",
                     activated_source_ids=reserved_vectors,
                 )
             )
@@ -524,9 +529,17 @@ class PlanningContextBuilder:
             )
             hints.append(
                 self._reserved_capability_hint(
-                    capability_id="algo.enrich.building.height_from_raster.reserved",
+                    capability_id="algo.validate.building.presence_raster.v1",
                     capability_kind="algorithm",
-                    reason="Raster-backed building height extraction remains a reserved enrichment seam.",
+                    reason="Building presence rasters can be used by the executable FusionCode raster validation primitive once materialized.",
+                    activated_source_ids=reserved_rasters,
+                )
+            )
+            hints.append(
+                self._reserved_capability_hint(
+                    capability_id="algo.enrich.building.height_from_raster.v1",
+                    capability_kind="algorithm",
+                    reason="Building height rasters can be used by the executable FusionCode height enrichment primitive once materialized.",
                     activated_source_ids=reserved_rasters,
                 )
             )

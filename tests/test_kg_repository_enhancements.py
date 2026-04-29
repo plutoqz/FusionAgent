@@ -39,9 +39,12 @@ def test_inmemory_repository_returns_water_pattern_and_task_driven_bundle_source
         required_type="dt.water.bundle",
     )
 
-    assert [pattern.pattern_id for pattern in patterns] == ["wp.flood.water.default"]
-    assert patterns[0].metadata["input_strategy"] == "task_driven_auto_supported"
-    assert patterns[0].metadata["source_family"] == "catalog_water_bundle"
+    pattern_ids = [pattern.pattern_id for pattern in patterns]
+    assert "wp.flood.water.default" in pattern_ids
+    assert "wp.water.fusioncode.line_and_polygon.v1" in pattern_ids
+    default_pattern = next(pattern for pattern in patterns if pattern.pattern_id == "wp.flood.water.default")
+    assert default_pattern.metadata["input_strategy"] == "task_driven_auto_supported"
+    assert default_pattern.metadata["source_family"] == "catalog_water_bundle"
     source_ids = {source.source_id for source in sources}
     assert "upload.bundle" in source_ids
     assert "catalog.flood.water" in source_ids
@@ -57,7 +60,9 @@ def test_inmemory_repository_returns_poi_pattern_and_task_driven_bundle_sources(
         required_type="dt.poi.bundle",
     )
 
-    assert [pattern.pattern_id for pattern in patterns] == ["wp.generic.poi.default"]
+    pattern_ids = [pattern.pattern_id for pattern in patterns]
+    assert "wp.generic.poi.default" in pattern_ids
+    assert "wp.poi.fusioncode.geohash_priority.v1" in pattern_ids
     source_ids = {source.source_id for source in sources}
     assert "upload.bundle" in source_ids
     assert "catalog.generic.poi" in source_ids
