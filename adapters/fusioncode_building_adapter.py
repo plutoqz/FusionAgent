@@ -11,6 +11,7 @@ from fusion_algorithms.building_matching_v8 import (
     build_v8_candidate_graph,
     run_cascaded_multi_source_fusion,
 )
+from fusion_algorithms.building_height import attach_source_heights_and_final
 from fusion_algorithms.building_optimization import (
     optimize_building_conflict_graph,
     optimize_building_road_topology,
@@ -199,6 +200,7 @@ def run_building_multi_source_decomposed(context: ExecutionContext) -> Path:
                 frames.append(frame)
         fused = gpd.GeoDataFrame(pd.concat(frames, ignore_index=True), geometry="geometry", crs=context.target_crs)
         fused["fusion_runtime_mode"] = "fallback_missing_dependency"
+    fused = attach_source_heights_and_final(fused, sources, _height_params(context))
     return _write_gdf(fused, context, "building_multi_source_decomposed")
 
 

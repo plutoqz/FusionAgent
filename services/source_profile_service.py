@@ -41,7 +41,7 @@ def classify_height_semantics(
     if "presence" in description or "presence" in lowered_name:
         return "presence_only"
     if "height" in description or "height" in lowered_name:
-        return "height_unknown"
+        return "estimated_height"
     return "unknown"
 
 
@@ -53,6 +53,7 @@ class _BeninSourceSpec:
     runtime_status: str
     selectable_now: bool
     path_patterns: tuple[str, ...]
+    required: bool = True
 
 
 _BENIN_SOURCE_SPECS: tuple[_BeninSourceSpec, ...] = (
@@ -95,6 +96,15 @@ _BENIN_SOURCE_SPECS: tuple[_BeninSourceSpec, ...] = (
         runtime_status="reservation_only",
         selectable_now=False,
         path_patterns=("_processing/google_open_buildings_temporal_2023/building_presence_2023_benin_4m.tif",),
+    ),
+    _BeninSourceSpec(
+        source_id="raw.google.building_height.raster",
+        source_name="Google Building Height Raster",
+        source_form="raster",
+        runtime_status="reservation_only",
+        selectable_now=False,
+        path_patterns=("_processing/google_open_buildings_temporal_2023/building_height_2023_benin_4m.tif",),
+        required=False,
     ),
 )
 
@@ -194,6 +204,8 @@ class SourceProfileService:
         profiles: list[SourceProfile] = []
         for spec in _BENIN_SOURCE_SPECS:
             matches = self._resolve_matches(base, spec.path_patterns)
+            if not matches and not spec.required:
+                continue
             if spec.source_form == "vector":
                 profile = self._profile_vector_candidates(spec, matches)
             else:

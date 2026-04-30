@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import geopandas as gpd
 
+from fusion_algorithms.building_height import attach_source_heights_and_final
 from fusion_algorithms.contracts import BuildingHeightParams, BuildingRasterPresenceParams, RasterSpec
 from fusion_algorithms.fusioncode_loader import load_module
 
@@ -55,6 +56,4 @@ def enrich_height_from_raster(
         enriched.loc[enriched[source_field].fillna(params.fallback_height) < 0, source_field] = params.fallback_height
     if source_field in enriched.columns and params.height_output_field != source_field:
         enriched[params.height_output_field] = enriched[source_field]
-    if params.height_output_field in enriched.columns:
-        enriched[params.canonical_height_field] = enriched[params.height_output_field]
-    return enriched
+    return attach_source_heights_and_final(enriched, {}, params)

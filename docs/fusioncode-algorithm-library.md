@@ -49,3 +49,30 @@ KG parameter specs cover the main FusionCode controls:
 ## Runtime Notes
 
 Full FusionCode execution requires the optional geospatial stack declared in `requirements.txt`: `networkx`, `joblib`, `rasterio`, and `python-geohash` in addition to GeoPandas/Shapely/SciPy. Unit tests avoid requiring those heavy modules by testing wrappers, KG metadata, and fallback paths separately.
+
+## Benin National Building Runtime
+
+Use `scripts/run_benin_multisource_building_fusion.py` for large Benin building jobs that need the four national vector sources plus optional Google rasters:
+
+```powershell
+python scripts/run_benin_multisource_building_fusion.py `
+  --source-root E:\fyx\data\Benin `
+  --output-root runs\benin-national-multisource `
+  --target-crs EPSG:32631 `
+  --tile-width-m 10000 `
+  --tile-height-m 10000 `
+  --overlap-m 96 `
+  --max-workers 4
+```
+
+The script profiles the source root, selects `MS`, `OBM`, `GG`, and `OSM` building vectors, discovers available Google `building_presence` and `building_height` rasters, partitions the Benin bbox into buffered tiles, runs the decomposed multi-source FusionCode flow per tile, and stitches tile-owned features into `runtime_output/fused_buildings.gpkg`.
+
+Height fields are intentionally non-destructive:
+
+- `height_ms`, `height_obm`, `height_google`, `height_osm`: source-specific vector heights when available.
+- `height_raster`: Google height raster extraction when a height raster profile exists.
+- `height_vector_fused`: maximum valid vector height seen for the fused feature.
+- `height_final`: final height used by downstream consumers.
+- `height_final_source`: provenance for `height_final`, normally `raster` when a positive raster height is available, otherwise the winning vector height field.
+
+The local `building_presence_2023_benin_4m.tif` can validate building presence. The height raster is optional; if `building_height_2023_benin_4m.tif` is absent, vector heights are still preserved and `height_final` falls back to the best vector value.

@@ -46,6 +46,21 @@ python scripts/profile_benin_sources.py --source-root E:\fyx\data\Benin --output
 python scripts/benchmark_tiled_building.py --source-root E:\fyx\data\Benin --bbox 2.48,9.23,2.77,9.44 --target-crs EPSG:32631 --output-root runs\benin-benchmark
 ```
 
+For the Benin national multi-source building workflow, use the FusionCode tiled runtime instead of the legacy two-source benchmark:
+
+```powershell
+python scripts/run_benin_multisource_building_fusion.py `
+  --source-root E:\fyx\data\Benin `
+  --output-root runs\benin-national-multisource `
+  --target-crs EPSG:32631 `
+  --tile-width-m 10000 `
+  --tile-height-m 10000 `
+  --overlap-m 96 `
+  --max-workers 4
+```
+
+This writes `runtime_output/fused_buildings.gpkg` and preserves `height_ms`, `height_obm`, `height_google`, `height_osm`, optional `height_raster`, plus `height_final` and `height_final_source`.
+
 ### Artifact Preview Products
 
 The no-UI maturity path can generate lightweight GeoJSON previews from artifact bundles before any final dashboard exists. These previews are operator and future-UI assets; they do not replace the canonical shapefile artifact bundle.

@@ -45,3 +45,24 @@ def test_height_wrapper_maps_height_field(monkeypatch) -> None:
     )
     assert float(result.iloc[0]["height_m"]) == 12.5
     assert float(result.iloc[0]["height"]) == 12.5
+
+
+def test_height_wrapper_preserves_vector_height_and_marks_raster_final(monkeypatch) -> None:
+    def fake_height(gdf, raster_path, n_jobs):
+        out = gdf.copy()
+        out["H_Raster"] = [12.5]
+        return out
+
+    source = _gdf()
+    source["height_ms"] = [6.0]
+    monkeypatch.setattr("fusion_algorithms.building_raster._extract_height_parallel", fake_height)
+    result = enrich_height_from_raster(
+        source,
+        RasterSpec(kind="building_height", path="height.vrt"),
+        BuildingHeightParams(height_output_field="height_raster"),
+    )
+
+    assert float(result.iloc[0]["height_ms"]) == 6.0
+    assert float(result.iloc[0]["height_raster"]) == 12.5
+    assert float(result.iloc[0]["height_final"]) == 12.5
+    assert result.iloc[0]["height_final_source"] == "raster"
