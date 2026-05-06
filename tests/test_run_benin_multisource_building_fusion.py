@@ -5,6 +5,7 @@ from pathlib import Path
 import pytest
 
 from scripts.run_benin_multisource_building_fusion import (
+    _select_benin_context_vectors,
     _select_benin_rasters,
     _select_benin_vector_sources,
 )
@@ -60,3 +61,14 @@ def test_select_benin_rasters_includes_height_only_when_profile_exists(tmp_path:
         "building_presence": tmp_path / "presence.tif",
         "building_height": tmp_path / "height.tif",
     }
+
+
+def test_select_benin_context_vectors_includes_optional_roads(tmp_path: Path) -> None:
+    road_path = tmp_path / "roads.shp"
+    road_path.write_text("placeholder", encoding="utf-8")
+
+    assert _select_benin_context_vectors(road_path) == {"roads": road_path}
+
+
+def test_select_benin_context_vectors_omits_missing_roads() -> None:
+    assert _select_benin_context_vectors(None) == {}

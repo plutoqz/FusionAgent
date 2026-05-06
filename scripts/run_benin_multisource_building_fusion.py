@@ -82,6 +82,15 @@ def _select_benin_rasters(profile_map: dict[str, dict[str, object]]) -> dict[str
     return rasters
 
 
+def _select_benin_context_vectors(road_shp: Path | None) -> dict[str, Path]:
+    if road_shp is None:
+        return {}
+    road_path = Path(road_shp)
+    if not road_path.exists():
+        raise FileNotFoundError(f"Road shapefile does not exist: {road_path}")
+    return {"roads": road_path}
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run tiled FusionCode building fusion for Benin national data")
     parser.add_argument("--source-root", required=True, help="Benin source root, e.g. E:\\fyx\\data\\Benin")
@@ -94,6 +103,7 @@ def main() -> None:
     parser.add_argument("--max-workers", type=int, default=4)
     parser.add_argument("--height-output-field", default="height_raster")
     parser.add_argument("--n-jobs", type=int, default=-1)
+    parser.add_argument("--road-shp", default=None, help="Optional road shapefile for building-road conflict resolution")
     args = parser.parse_args()
 
     source_root = Path(args.source_root)
@@ -108,6 +118,7 @@ def main() -> None:
     profile_map = _profile_map(profile_payload)
     vector_sources = _select_benin_vector_sources(profile_map)
     raster_sources = _select_benin_rasters(profile_map)
+    context_vectors = _select_benin_context_vectors(Path(args.road_shp) if args.road_shp else None)
     timing["profile"] = time.perf_counter() - started
     (output_root / "source_profile_snapshot.json").write_text(
         json.dumps(profile_payload, ensure_ascii=False, indent=2),
@@ -118,6 +129,7 @@ def main() -> None:
             {
                 "vector_sources": {key: str(value) for key, value in vector_sources.items()},
                 "raster_sources": {key: str(value) for key, value in raster_sources.items()},
+                "context_vectors": {key: str(value) for key, value in context_vectors.items()},
                 "source_priority_order": list(DEFAULT_SOURCE_PRIORITY_ORDER),
             },
             ensure_ascii=False,
@@ -151,6 +163,7 @@ def main() -> None:
         tile_manifest=tile_manifest,
         vector_sources=vector_sources,
         raster_sources=raster_sources,
+        context_vectors=context_vectors,
         output_dir=output_root / "runtime_output",
         target_crs=args.target_crs,
         source_priority_order=DEFAULT_SOURCE_PRIORITY_ORDER,
@@ -190,6 +203,7 @@ def main() -> None:
                 f"- max workers: `{args.max_workers}`",
                 f"- source priority order: `{', '.join(DEFAULT_SOURCE_PRIORITY_ORDER)}`",
                 f"- raster inputs: `{', '.join(sorted(raster_sources)) or 'none'}`",
+                f"- context vectors: `{', '.join(sorted(context_vectors)) or 'none'}`",
                 f"- tile count: `{result.tile_count}`",
                 f"- stitched feature count: `{result.stitched_feature_count}`",
                 f"- profile sec: `{timing['profile']:.3f}`",
