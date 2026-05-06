@@ -32,6 +32,7 @@ from services.local_bundle_catalog import LocalBundleCatalogProvider
 from services.raw_vector_source_service import RawVectorSourceService
 from services.source_asset_service import SourceAssetResolution
 from services.input_acquisition_service import ResolvedRunInputs
+from services.tiled_building_runtime_service import TiledBuildingRunResult
 
 
 def _write_dummy_zip(path: Path) -> bytes:
@@ -1831,6 +1832,170 @@ def test_agent_run_service_copies_planning_telemetry_to_status_and_audit(tmp_pat
     plan_created = next(event for event in audit_events if event.kind == "plan_created")
     assert plan_created.details["planning_telemetry"] == plan.context["planning_telemetry"]
     assert plan_created.details["planning_source"] == "llm"
+
+
+def test_plan_created_audit_includes_selectable_and_reserved_capability_hints(tmp_path: Path, monkeypatch) -> None:
+    service = AgentRunService(base_dir=tmp_path / "runs")
+
+    osm_shp = tmp_path / "osm.shp"
+    ref_shp = tmp_path / "ref.shp"
+    fused_shp = tmp_path / "fused.shp"
+    artifact_zip = tmp_path / "artifact.zip"
+    for path in [osm_shp, ref_shp, fused_shp]:
+        path.write_text("dummy", encoding="utf-8")
+    artifact_zip.write_bytes(b"zip")
+
+    plan = _build_plan(workflow_id="wf_reserved_hints", revision=1)
+    plan.context["execution_hints"] = {
+        "preferred_pattern_id": "wp.flood.building.default",
+        "fallback_pattern_ids": ["wp.flood.building.safe"],
+        "available_data_source_ids": [
+            "catalog.flood.building",
+            "raw.openbuildingmap.building",
+            "raw.google.building_presence.raster",
+        ],
+        "selectable_source_ids": ["catalog.flood.building"],
+        "reserved_source_ids": [
+            "raw.openbuildingmap.building",
+            "raw.google.building_presence.raster",
+        ],
+        "required_reserved_capabilities": [
+            "algo.fusion.building.multi_source.reserved",
+            "algo.enrich.building.height_from_raster.reserved",
+        ],
+    }
+
+    monkeypatch.setattr("services.agent_run_service.validate_zip_has_shapefile", lambda *_args, **_kwargs: osm_shp)
+    monkeypatch.setattr(service.planner, "create_plan", lambda **_kwargs: plan.model_copy(deep=True))
+    monkeypatch.setattr(service.validator, "validate_and_repair", lambda input_plan: input_plan)
+    monkeypatch.setattr(service.executor, "execute_plan", lambda **_kwargs: fused_shp)
+    monkeypatch.setattr("services.agent_run_service.zip_shapefile_bundle", lambda *_args, **_kwargs: artifact_zip)
+
+    status = service.create_run(
+        request=RunCreateRequest(
+            job_type=JobType.building,
+            trigger=RunTrigger(type=RunTriggerType.user_query, content="building"),
+            target_crs="EPSG:32643",
+            field_mapping={},
+            debug=False,
+        ),
+        osm_zip_name="osm.zip",
+        osm_zip_bytes=_write_dummy_zip(tmp_path / "osm.zip"),
+        ref_zip_name="ref.zip",
+        ref_zip_bytes=_write_dummy_zip(tmp_path / "ref.zip"),
+    )
+
+    audit_events = service.get_audit_events(status.run_id)
+    plan_created = next(event for event in audit_events if event.kind == "plan_created")
+    assert plan_created.details["selectable_source_ids"] == ["catalog.flood.building"]
+    assert plan_created.details["reserved_source_ids"] == [
+        "raw.openbuildingmap.building",
+        "raw.google.building_presence.raster",
+    ]
+    assert plan_created.details["required_reserved_capabilities"] == [
+        "algo.fusion.building.multi_source.reserved",
+        "algo.enrich.building.height_from_raster.reserved",
+    ]
+
+
+def test_agent_run_service_routes_large_building_runs_to_tiled_runtime(tmp_path: Path, monkeypatch) -> None:
+    service = AgentRunService(base_dir=tmp_path / "runs")
+
+    osm_bundle = _write_polygon_bundle_zip(
+        tmp_path / "prepared" / "osm.zip",
+        [box(2.500, 9.250, 2.505, 9.255), box(2.700, 9.360, 2.705, 9.365)],
+    )
+    ref_bundle = _write_polygon_bundle_zip(
+        tmp_path / "prepared" / "ref.zip",
+        [box(2.500, 9.250, 2.505, 9.255), box(2.700, 9.360, 2.705, 9.365)],
+    )
+    fused_shp = tmp_path / "tiled-output" / "fused_buildings.shp"
+    fused_shp.parent.mkdir(parents=True, exist_ok=True)
+    gpd.GeoDataFrame(
+        {"osm_id": [1], "confidence": [1.0]},
+        geometry=[box(2.500, 9.250, 2.505, 9.255)],
+        crs="EPSG:32631",
+    ).to_file(fused_shp)
+    artifact_zip = tmp_path / "artifact.zip"
+    artifact_zip.write_bytes(b"zip")
+
+    plan = _build_plan(workflow_id="wf_tiled", revision=1)
+    plan.tasks[0].input.data_source_id = "catalog.flood.building"
+
+    resolved = ResolvedRunInputs(
+        osm_zip_path=osm_bundle,
+        ref_zip_path=ref_bundle,
+        source_mode="downloaded",
+        source_id="catalog.flood.building",
+        cache_hit=False,
+        version_token="v1",
+        selected_source_id="catalog.flood.building",
+        component_coverage={
+            "raw.osm.building": {"feature_count": 300000, "coverage_status": "available"},
+            "raw.google.building": {"feature_count": 520000, "coverage_status": "available"},
+        },
+    )
+
+    monkeypatch.setattr(service.planner, "create_plan", lambda **_kwargs: plan.model_copy(deep=True))
+    monkeypatch.setattr(service.validator, "validate_and_repair", lambda input_plan: input_plan)
+    monkeypatch.setattr(
+        service.input_acquisition_service,
+        "resolve_task_driven_inputs",
+        lambda **_kwargs: resolved,
+    )
+    monkeypatch.setattr("services.agent_run_service.zip_shapefile_bundle", lambda *_args, **_kwargs: artifact_zip)
+    monkeypatch.setattr(
+        service,
+        "run_execution_stage",
+        lambda **_kwargs: (_ for _ in ()).throw(AssertionError("direct execution path should not be used")),
+    )
+
+    def fake_tiled_run(**kwargs):
+        on_event = kwargs["on_event"]
+        on_event("tile_execution_started", {"tile_id": "tile_000_000"})
+        on_event("tile_execution_completed", {"tile_id": "tile_000_000", "feature_count": 1})
+        on_event(
+            "tile_stitch_completed",
+            {
+                "tile_count": len(kwargs["tile_manifest"].tiles),
+                "stitched_feature_count": 1,
+                "output_shp": str(fused_shp),
+            },
+        )
+        return TiledBuildingRunResult(
+            output_shp=fused_shp,
+            tile_count=len(kwargs["tile_manifest"].tiles),
+            stitched_feature_count=1,
+            tile_outputs=[],
+        )
+
+    monkeypatch.setattr(service.tiled_building_runtime_service, "run_tiled_building_job", fake_tiled_run)
+
+    status = service.create_run(
+        request=RunCreateRequest(
+            job_type=JobType.building,
+            trigger=RunTrigger(
+                type=RunTriggerType.user_query,
+                content="need building data for Benin",
+                spatial_extent="bbox(2.48,9.23,2.77,9.44)",
+            ),
+            target_crs="EPSG:32631",
+            field_mapping={},
+            debug=False,
+            input_strategy=RunInputStrategy.task_driven_auto,
+        ),
+        osm_zip_name=None,
+        osm_zip_bytes=None,
+        ref_zip_name=None,
+        ref_zip_bytes=None,
+    )
+
+    audit_events = service.get_audit_events(status.run_id)
+    event_kinds = [event.kind for event in audit_events]
+    assert "tile_manifest_created" in event_kinds
+    assert "tile_execution_started" in event_kinds
+    assert "tile_execution_completed" in event_kinds
+    assert "tile_stitch_completed" in event_kinds
 
 
 def test_workflow_executor_emits_step_lifecycle_events_for_executable_tasks(tmp_path: Path) -> None:

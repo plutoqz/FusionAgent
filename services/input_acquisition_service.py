@@ -49,6 +49,21 @@ def _safe_cache_component(value: str) -> str:
         return f"{normalized[:48]}_{digest}"
     return digest
 
+
+def _tile_meta(request_bbox: Optional[BBox]) -> dict[str, object]:
+    if request_bbox is None:
+        return {
+            "tile_scope": "full",
+            "tile_bbox": None,
+            "tile_key": "full",
+        }
+    key = hashlib.sha1(repr(tuple(request_bbox)).encode("utf-8")).hexdigest()[:12]
+    return {
+        "tile_scope": "request_bbox",
+        "tile_bbox": [float(value) for value in request_bbox],
+        "tile_key": key,
+    }
+
 class InputBundleProvider(Protocol):
     def can_handle(self, source_id: str) -> bool: ...
 
@@ -210,6 +225,7 @@ class InputAcquisitionService:
                     "component_coverage": _jsonable_component_coverage(materialized.component_coverage),
                     "source_version": version_token,
                     "planning_mode": "task_driven",
+                    **_tile_meta(effective_request_bbox),
                 },
             )
         )

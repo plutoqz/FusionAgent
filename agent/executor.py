@@ -26,6 +26,10 @@ class ExecutionContext:
     field_mapping: Dict[str, Dict[str, str]] = field(default_factory=dict)
     debug: bool = False
     alternative_data_sources: List[str] = field(default_factory=list)
+    named_vectors: Dict[str, Path] = field(default_factory=dict)
+    named_rasters: Dict[str, Path] = field(default_factory=dict)
+    context_vectors: Dict[str, Path] = field(default_factory=dict)
+    intermediate_artifacts: Dict[str, Path] = field(default_factory=dict)
     # Bound at execution time for the currently active step.
     active_step: Optional[int] = None
     step_parameters: Dict[str, Any] = field(default_factory=dict)
@@ -69,7 +73,9 @@ class WorkflowExecutor:
             try:
                 step_output = self._execute_algorithm(task.algorithm_id, context)
                 last_output = step_output
-                self._emit_step_event(on_step_event, task=task, status="succeeded")
+                context.intermediate_artifacts[f"step:{task.step}"] = step_output
+                context.intermediate_artifacts[f"algorithm:{task.algorithm_id}"] = step_output
+                self._emit_step_event(on_step_event, task=task, status="succeeded", output_path=step_output)
                 continue
             except Exception as first_error:  # noqa: BLE001
                 attempt_no += 1
@@ -112,6 +118,8 @@ class WorkflowExecutor:
                 try:
                     step_output = self._execute_algorithm(alt_algo, context)
                     last_output = step_output
+                    context.intermediate_artifacts[f"step:{task.step}"] = step_output
+                    context.intermediate_artifacts[f"algorithm:{alt_algo}"] = step_output
                     attempt_no += 1
                     repair_records.append(
                         RepairRecord(
@@ -131,6 +139,7 @@ class WorkflowExecutor:
                         task=task,
                         status="succeeded",
                         effective_algorithm_id=alt_algo,
+                        output_path=step_output,
                     )
                     break
                 except Exception as alt_error:  # noqa: BLE001
@@ -238,6 +247,7 @@ class WorkflowExecutor:
         status: str,
         effective_algorithm_id: Optional[str] = None,
         error: Optional[str] = None,
+        output_path: Optional[Path] = None,
     ) -> None:
         if on_step_event is None:
             return
@@ -251,6 +261,8 @@ class WorkflowExecutor:
             payload["effective_algorithm_id"] = effective_algorithm_id
         if error:
             payload["error"] = error
+        if output_path is not None:
+            payload["output_path"] = str(output_path)
         on_step_event(payload)
 
     @staticmethod
@@ -332,3 +344,117 @@ class WorkflowExecutor:
         raise RuntimeError(
             "Trajectory-to-road pretransform is a reserved seam in Phase 4 and is not executable at runtime."
         )
+
+    @staticmethod
+    def _handle_building_source_normalize(context: ExecutionContext) -> Path:
+        from adapters.fusioncode_building_adapter import run_building_source_normalize
+
+        return run_building_source_normalize(context)
+
+    @staticmethod
+    def _handle_building_obm_attributes(context: ExecutionContext) -> Path:
+        from adapters.fusioncode_building_adapter import run_passthrough_latest_vector
+
+        return run_passthrough_latest_vector(context, "building_obm_attributes")
+
+    @staticmethod
+    def _handle_building_presence_raster(context: ExecutionContext) -> Path:
+        from adapters.fusioncode_building_adapter import run_building_presence_raster
+
+        return run_building_presence_raster(context)
+
+    @staticmethod
+    def _handle_building_v8_candidate_graph(context: ExecutionContext) -> Path:
+        from adapters.fusioncode_building_adapter import run_building_v8_candidate_graph
+
+        return run_building_v8_candidate_graph(context)
+
+    @staticmethod
+    def _handle_building_v8_component_solver(context: ExecutionContext) -> Path:
+        from adapters.fusioncode_building_adapter import run_passthrough_latest_vector
+
+        return run_passthrough_latest_vector(context, "building_v8_component_solver")
+
+    @staticmethod
+    def _handle_building_cascade_fusion(context: ExecutionContext) -> Path:
+        from adapters.fusioncode_building_adapter import run_building_multi_source_decomposed
+
+        return run_building_multi_source_decomposed(context)
+
+    @staticmethod
+    def _handle_building_residual_priority(context: ExecutionContext) -> Path:
+        from adapters.fusioncode_building_adapter import run_passthrough_latest_vector
+
+        return run_passthrough_latest_vector(context, "building_residual_priority")
+
+    @staticmethod
+    def _handle_building_road_topology(context: ExecutionContext) -> Path:
+        from adapters.fusioncode_building_adapter import run_building_road_topology
+
+        return run_building_road_topology(context)
+
+    @staticmethod
+    def _handle_building_conflict_graph(context: ExecutionContext) -> Path:
+        from adapters.fusioncode_building_adapter import run_building_conflict_graph
+
+        return run_building_conflict_graph(context)
+
+    @staticmethod
+    def _handle_building_post_conflict_shrink(context: ExecutionContext) -> Path:
+        from adapters.fusioncode_building_adapter import run_building_post_conflict_shrink
+
+        return run_building_post_conflict_shrink(context)
+
+    @staticmethod
+    def _handle_building_road_tail(context: ExecutionContext) -> Path:
+        from adapters.fusioncode_building_adapter import run_building_road_tail
+
+        return run_building_road_tail(context)
+
+    @staticmethod
+    def _handle_building_height_from_raster(context: ExecutionContext) -> Path:
+        from adapters.fusioncode_building_adapter import run_building_height_from_raster
+
+        return run_building_height_from_raster(context)
+
+    @staticmethod
+    def _handle_building_quality_metrics(context: ExecutionContext) -> Path:
+        from adapters.fusioncode_building_adapter import run_building_quality_metrics
+
+        return run_building_quality_metrics(context)
+
+    @staticmethod
+    def _handle_building_multi_source_decomposed(context: ExecutionContext) -> Path:
+        from adapters.fusioncode_building_adapter import run_building_multi_source_decomposed
+
+        return run_building_multi_source_decomposed(context)
+
+    @staticmethod
+    def _handle_road_segment_match_topology(context: ExecutionContext) -> Path:
+        from adapters.fusioncode_linear_adapter import run_road_segment_topology
+
+        return run_road_segment_topology(context)
+
+    @staticmethod
+    def _handle_water_line_three_source(context: ExecutionContext) -> Path:
+        from adapters.fusioncode_linear_adapter import run_water_line_three_source
+
+        return run_water_line_three_source(context)
+
+    @staticmethod
+    def _handle_water_polygon_priority_merge(context: ExecutionContext) -> Path:
+        from adapters.fusioncode_polygon_adapter import run_water_polygon_priority_merge
+
+        return run_water_polygon_priority_merge(context)
+
+    @staticmethod
+    def _handle_poi_geohash_neighbor_match(context: ExecutionContext) -> Path:
+        from adapters.fusioncode_poi_adapter import run_poi_geohash_neighbor_match
+
+        return run_poi_geohash_neighbor_match(context)
+
+    @staticmethod
+    def _handle_spatial_conflicts(context: ExecutionContext) -> Path:
+        from adapters.fusioncode_building_adapter import run_building_quality_metrics
+
+        return run_building_quality_metrics(context)

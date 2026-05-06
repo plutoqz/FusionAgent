@@ -39,9 +39,12 @@ def test_inmemory_repository_returns_water_pattern_and_task_driven_bundle_source
         required_type="dt.water.bundle",
     )
 
-    assert [pattern.pattern_id for pattern in patterns] == ["wp.flood.water.default"]
-    assert patterns[0].metadata["input_strategy"] == "task_driven_auto_supported"
-    assert patterns[0].metadata["source_family"] == "catalog_water_bundle"
+    pattern_ids = [pattern.pattern_id for pattern in patterns]
+    assert "wp.flood.water.default" in pattern_ids
+    assert "wp.water.fusioncode.line_and_polygon.v1" in pattern_ids
+    default_pattern = next(pattern for pattern in patterns if pattern.pattern_id == "wp.flood.water.default")
+    assert default_pattern.metadata["input_strategy"] == "task_driven_auto_supported"
+    assert default_pattern.metadata["source_family"] == "catalog_water_bundle"
     source_ids = {source.source_id for source in sources}
     assert "upload.bundle" in source_ids
     assert "catalog.flood.water" in source_ids
@@ -57,7 +60,9 @@ def test_inmemory_repository_returns_poi_pattern_and_task_driven_bundle_sources(
         required_type="dt.poi.bundle",
     )
 
-    assert [pattern.pattern_id for pattern in patterns] == ["wp.generic.poi.default"]
+    pattern_ids = [pattern.pattern_id for pattern in patterns]
+    assert "wp.generic.poi.default" in pattern_ids
+    assert "wp.poi.fusioncode.geohash_priority.v1" in pattern_ids
     source_ids = {source.source_id for source in sources}
     assert "upload.bundle" in source_ids
     assert "catalog.generic.poi" in source_ids
@@ -202,6 +207,39 @@ def test_repository_exposes_bundle_and_raw_sources_for_catalog_expansion() -> No
     water_bundle = next(source for source in water_bundle_sources if source.source_id == "catalog.flood.water")
     assert water_bundle.metadata["component_source_ids"] == ["raw.osm.water", "raw.local.water"]
     assert water_bundle.metadata["bundle_strategy"] == "osm_ref_pair"
+
+
+def test_repository_exposes_reserved_building_sources_and_raster_inputs() -> None:
+    repo = InMemoryKGRepository()
+
+    raw_sources = repo.get_candidate_data_sources(
+        job_type=JobType.building,
+        disaster_type="generic",
+        required_type="dt.raw.vector",
+        limit=16,
+    )
+    raster_sources = repo.get_candidate_data_sources(
+        job_type=JobType.building,
+        disaster_type="generic",
+        required_type="dt.raster.building_presence",
+        limit=4,
+    )
+
+    raw_ids = {source.source_id for source in raw_sources}
+    assert "raw.openbuildingmap.building" in raw_ids
+    assert "raw.local.microsoft.building" in raw_ids
+    assert "raw.google.open_buildings.vector" in raw_ids
+
+    openbuildingmap = next(source for source in raw_sources if source.source_id == "raw.openbuildingmap.building")
+    assert openbuildingmap.metadata["runtime_status"] == "reservation_only"
+    assert openbuildingmap.metadata["selectable_now"] is False
+    assert openbuildingmap.metadata["height_semantics"] == "estimated_height"
+
+    raster = next(source for source in raster_sources if source.source_id == "raw.google.building_presence.raster")
+    assert raster.metadata["runtime_status"] == "reservation_only"
+    assert raster.metadata["selectable_now"] is False
+    assert raster.metadata["source_form"] == "raster"
+    assert raster.metadata["height_semantics"] == "presence_only"
 
 
 def test_inmemory_repository_persists_and_filters_durable_learning_records() -> None:

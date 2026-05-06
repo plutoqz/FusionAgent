@@ -260,9 +260,12 @@ def test_planner_context_exposes_water_metadata_and_builds_water_plan() -> None:
     assert provider.last_context["intent"]["planning_mode"] == "task_driven"
     assert provider.last_context["intent"]["profile_source"] == "direct_task"
     retrieval = provider.last_context["retrieval"]
-    assert [item["pattern_id"] for item in retrieval["candidate_patterns"]] == ["wp.flood.water.default"]
-    assert retrieval["candidate_patterns"][0]["metadata"]["input_strategy"] == "task_driven_auto_supported"
-    assert retrieval["candidate_patterns"][0]["metadata"]["source_family"] == "catalog_water_bundle"
+    pattern_ids = [item["pattern_id"] for item in retrieval["candidate_patterns"]]
+    assert "wp.flood.water.default" in pattern_ids
+    assert "wp.water.fusioncode.line_and_polygon.v1" in pattern_ids
+    default_pattern = next(item for item in retrieval["candidate_patterns"] if item["pattern_id"] == "wp.flood.water.default")
+    assert default_pattern["metadata"]["input_strategy"] == "task_driven_auto_supported"
+    assert default_pattern["metadata"]["source_family"] == "catalog_water_bundle"
     assert any(item["type_id"] == "dt.water.bundle" for item in retrieval["data_types"])
     assert any(item["type_id"] == "dt.water.fused" for item in retrieval["data_types"])
     assert "algo.fusion.water.v1" in retrieval["algorithms"]
@@ -291,7 +294,9 @@ def test_planner_context_exposes_poi_metadata_and_builds_poi_plan() -> None:
     assert provider.last_context["intent"]["planning_mode"] == "task_driven"
     assert provider.last_context["intent"]["profile_source"] == "direct_task"
     retrieval = provider.last_context["retrieval"]
-    assert [item["pattern_id"] for item in retrieval["candidate_patterns"]] == ["wp.generic.poi.default"]
+    pattern_ids = [item["pattern_id"] for item in retrieval["candidate_patterns"]]
+    assert "wp.generic.poi.default" in pattern_ids
+    assert "wp.poi.fusioncode.geohash_priority.v1" in pattern_ids
     assert any(item["type_id"] == "dt.poi.bundle" for item in retrieval["data_types"])
     assert any(item["type_id"] == "dt.poi.fused" for item in retrieval["data_types"])
     assert "algo.fusion.poi.v1" in retrieval["algorithms"]
@@ -547,6 +552,49 @@ def test_planner_context_exposes_component_source_metadata_for_catalog_sources()
     assert source["metadata"]["component_source_ids"] == ["raw.osm.building", "raw.google.building"]
     assert source["metadata"]["bundle_strategy"] == "osm_ref_pair"
     assert source["metadata"]["provider_family"] == "local_bundle_catalog"
+
+
+def test_planner_context_exposes_reserved_building_sources_and_execution_hints() -> None:
+    provider = CapturingProvider()
+    planner = WorkflowPlanner(InMemoryKGRepository(), provider)
+    trigger = RunTrigger(
+        type=RunTriggerType.user_query,
+        content="need building data for Benin",
+    )
+
+    plan = planner.create_plan(run_id="run-benin-reserved-sources", job_type=JobType.building, trigger=trigger)
+
+    assert provider.last_context is not None
+    retrieval = provider.last_context["retrieval"]
+    data_sources = retrieval["data_sources"]
+    source_ids = {item["source_id"] for item in data_sources}
+    assert "raw.openbuildingmap.building" in source_ids
+    assert "raw.local.microsoft.building" in source_ids
+    assert "raw.google.open_buildings.vector" in source_ids
+    assert "raw.google.building_presence.raster" in source_ids
+
+    raster = next(item for item in data_sources if item["source_id"] == "raw.google.building_presence.raster")
+    assert raster["metadata"]["runtime_status"] == "reservation_only"
+    assert raster["metadata"]["selectable_now"] is False
+    assert raster["metadata"]["source_form"] == "raster"
+    assert raster["metadata"]["height_semantics"] == "presence_only"
+
+    reserved_capabilities = {
+        item["capability_id"] for item in retrieval["reserved_capability_hints"]
+    }
+    assert "algo.fusion.building.multi_source.decomposed.v1" in reserved_capabilities
+    assert "algo.validate.building.presence_raster.v1" in reserved_capabilities
+    assert "algo.enrich.building.height_from_raster.v1" in reserved_capabilities
+
+    execution_hints = provider.last_context["execution_hints"]
+    assert "raw.google.building_presence.raster" in execution_hints["reserved_source_ids"]
+    assert "raw.google.building_presence.raster" not in execution_hints["selectable_source_ids"]
+    assert "catalog.earthquake.building" in execution_hints["selectable_source_ids"]
+    assert "algo.fusion.building.multi_source.decomposed.v1" in execution_hints["runtime_candidate_capabilities"]
+    assert "algo.validate.building.presence_raster.v1" in execution_hints["runtime_candidate_capabilities"]
+    assert "algo.enrich.building.height_from_raster.v1" in execution_hints["runtime_candidate_capabilities"]
+    assert "algo.fusion.building.multi_source.decomposed.v1" not in execution_hints["required_reserved_capabilities"]
+    assert plan.context["execution_hints"]["reserved_source_ids"] == execution_hints["reserved_source_ids"]
 
 
 def test_planner_context_exposes_parameter_specs_and_output_schema_policy_metadata() -> None:

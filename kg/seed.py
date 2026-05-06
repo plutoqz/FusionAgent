@@ -61,6 +61,24 @@ DATA_TYPES: Dict[str, DataTypeNode] = {
         geometry_type="point",
         description="Prepared point-of-interest fusion input bundle.",
     ),
+    "dt.building.source_set": DataTypeNode(
+        type_id="dt.building.source_set",
+        theme="building",
+        geometry_type="mixed",
+        description="Reserved multi-source building input set for future fusion algorithms.",
+    ),
+    "dt.raster.building_presence": DataTypeNode(
+        type_id="dt.raster.building_presence",
+        theme="building",
+        geometry_type="raster",
+        description="Reserved building-presence raster input.",
+    ),
+    "dt.partition.tile_manifest": DataTypeNode(
+        type_id="dt.partition.tile_manifest",
+        theme="runtime",
+        geometry_type="none",
+        description="Reserved deterministic AOI tile partition manifest.",
+    ),
     "dt.building.fused": DataTypeNode(
         type_id="dt.building.fused",
         theme="building",
@@ -124,6 +142,30 @@ TASKS: Dict[str, TaskNode] = {
         task_name="Trajectory To Road Candidate",
         category="transform",
         description="Reserved seam for future trajectory-to-road candidate pretransform before road fusion.",
+    ),
+    "task.partition.aoi": TaskNode(
+        task_id="task.partition.aoi",
+        task_name="AOI Partition",
+        category="runtime",
+        description="Reserved AOI partition task for future tiled execution workflows.",
+    ),
+    "task.clip.raster.by_tile": TaskNode(
+        task_id="task.clip.raster.by_tile",
+        task_name="Raster Clip By Tile",
+        category="runtime",
+        description="Reserved tiled raster clipping task for future building enrichment workflows.",
+    ),
+    "task.merge.building.tiles.reserved": TaskNode(
+        task_id="task.merge.building.tiles.reserved",
+        task_name="Merge Building Tiles",
+        category="runtime",
+        description="Reserved seam for future tile-level building artifact stitching.",
+    ),
+    "task.enrich.building.height.reserved": TaskNode(
+        task_id="task.enrich.building.height.reserved",
+        task_name="Enrich Building Height",
+        category="enrichment",
+        description="Reserved seam for future raster-backed building height enrichment.",
     ),
 }
 
@@ -270,6 +312,61 @@ ALGORITHMS: Dict[str, AlgorithmNode] = {
             "evidence_basis": "shared_bundle_runtime",
             "runtime_scope": "uploaded_or_task_driven_auto",
         },
+    ),
+    "algo.partition.aoi.grid.v1": AlgorithmNode(
+        algo_id="algo.partition.aoi.grid.v1",
+        algo_name="AOI Grid Partition Reserved",
+        input_types=["dt.raw.vector"],
+        output_type="dt.partition.tile_manifest",
+        task_type="runtime_partition",
+        tool_ref="reserved:aoi_grid_partition",
+        success_rate=0.0,
+        usage_mode="reserved",
+        metadata={"runtime_status": "reservation_only"},
+    ),
+    "algo.clip.raster.tile.v1": AlgorithmNode(
+        algo_id="algo.clip.raster.tile.v1",
+        algo_name="Raster Tile Clip Reserved",
+        input_types=["dt.raster.building_presence"],
+        output_type="dt.raster.building_presence",
+        task_type="raster_clip",
+        tool_ref="reserved:raster_tile_clip",
+        success_rate=0.0,
+        usage_mode="reserved",
+        metadata={"runtime_status": "reservation_only"},
+    ),
+    "algo.fusion.building.multi_source.reserved": AlgorithmNode(
+        algo_id="algo.fusion.building.multi_source.reserved",
+        algo_name="Multi-Source Building Fusion Reserved",
+        input_types=["dt.building.source_set"],
+        output_type="dt.building.fused",
+        task_type="building_fusion",
+        tool_ref="reserved:multi_source_building_fusion",
+        success_rate=0.0,
+        usage_mode="reserved",
+        metadata={"runtime_status": "reservation_only"},
+    ),
+    "algo.merge.building.tiles.reserved": AlgorithmNode(
+        algo_id="algo.merge.building.tiles.reserved",
+        algo_name="Building Tile Merge Reserved",
+        input_types=["dt.partition.tile_manifest"],
+        output_type="dt.building.fused",
+        task_type="runtime_merge",
+        tool_ref="reserved:building_tile_merge",
+        success_rate=0.0,
+        usage_mode="reserved",
+        metadata={"runtime_status": "reservation_only"},
+    ),
+    "algo.enrich.building.height_from_raster.reserved": AlgorithmNode(
+        algo_id="algo.enrich.building.height_from_raster.reserved",
+        algo_name="Building Height Enrichment From Raster Reserved",
+        input_types=["dt.raster.building_presence"],
+        output_type="dt.building.fused",
+        task_type="enrichment",
+        tool_ref="reserved:building_height_from_raster",
+        success_rate=0.0,
+        usage_mode="reserved",
+        metadata={"runtime_status": "reservation_only"},
     ),
     "algo.transform.raw_to_building_bundle": AlgorithmNode(
         algo_id="algo.transform.raw_to_building_bundle",
@@ -978,3 +1075,18 @@ CAN_TRANSFORM_TO: Dict[str, List[str]] = {
     "dt.trajectory.raw": ["dt.road.candidate"],
     "dt.road.candidate": ["dt.road.bundle"],
 }
+
+
+from fusion_algorithms.registry_metadata import (  # noqa: E402
+    FUSIONCODE_ALGORITHMS,
+    FUSIONCODE_DATA_TYPES,
+    FUSIONCODE_PARAMETER_SPECS,
+    FUSIONCODE_WORKFLOW_PATTERNS,
+)
+
+
+DATA_TYPES.update(FUSIONCODE_DATA_TYPES)
+ALGORITHMS.update(FUSIONCODE_ALGORITHMS)
+for _algo_id, _specs in FUSIONCODE_PARAMETER_SPECS.items():
+    PARAMETER_SPECS.setdefault(_algo_id, []).extend(_specs)
+WORKFLOW_PATTERNS.extend(FUSIONCODE_WORKFLOW_PATTERNS)

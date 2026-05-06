@@ -16,6 +16,10 @@ from schemas.agent import (
 class WorkflowValidator:
     def __init__(self, kg_repo: KGRepository) -> None:
         self.kg_repo = kg_repo
+        if hasattr(kg_repo, "list_data_sources"):
+            self._data_sources = {source.source_id: source for source in kg_repo.list_data_sources()}
+        else:
+            self._data_sources = {}
 
     def validate_and_repair(self, plan: WorkflowPlan) -> WorkflowPlan:
         issues: List[ValidationIssue] = []
@@ -38,6 +42,52 @@ class WorkflowValidator:
                     ValidationIssue(
                         code="UNKNOWN_ALGORITHM",
                         message=f"Algorithm not found in KG: {task.algorithm_id}",
+                        step=task.step,
+                    )
+                )
+                continue
+
+            source = self._data_sources.get(task.input.data_source_id)
+            if source is None:
+                task.kg_validated = False
+                task.depends_on = normalized_deps
+                task.step = len(output_tasks) + 1
+                output_tasks.append(task)
+                step_map[original_step] = task.step
+                issues.append(
+                    ValidationIssue(
+                        code="UNKNOWN_DATA_SOURCE",
+                        message=f"Data source not found in KG: {task.input.data_source_id}",
+                        step=task.step,
+                    )
+                )
+                continue
+
+            if self._is_reservation_only(source.metadata):
+                task.kg_validated = False
+                task.depends_on = normalized_deps
+                task.step = len(output_tasks) + 1
+                output_tasks.append(task)
+                step_map[original_step] = task.step
+                issues.append(
+                    ValidationIssue(
+                        code="UNSELECTABLE_DATA_SOURCE",
+                        message=f"Data source is reservation_only and cannot execute now: {task.input.data_source_id}",
+                        step=task.step,
+                    )
+                )
+                continue
+
+            if self._is_reservation_only(algo.metadata):
+                task.kg_validated = False
+                task.depends_on = normalized_deps
+                task.step = len(output_tasks) + 1
+                output_tasks.append(task)
+                step_map[original_step] = task.step
+                issues.append(
+                    ValidationIssue(
+                        code="RESERVED_ALGORITHM",
+                        message=f"Algorithm is reservation_only and cannot execute now: {task.algorithm_id}",
                         step=task.step,
                     )
                 )
@@ -109,3 +159,6 @@ class WorkflowValidator:
         plan.validation = report
         return plan
 
+    @staticmethod
+    def _is_reservation_only(metadata: Dict[str, object] | None) -> bool:
+        return str((metadata or {}).get("runtime_status") or "").lower() == "reservation_only"

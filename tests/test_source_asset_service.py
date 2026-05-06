@@ -126,6 +126,27 @@ def test_source_asset_service_prefers_existing_local_data_tree(tmp_path: Path) -
     assert resolved.cache_hit is True
 
 
+def test_source_asset_service_inspects_local_raster_profile_without_materializing(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    raster_path = tmp_path / "presence.tif"
+    raster_path.write_bytes(b"fake-raster")
+    service = SourceAssetService(repo_root=tmp_path, cache_dir=tmp_path / "cache")
+
+    monkeypatch.setattr(
+        "services.source_asset_service.gdalinfo_json",
+        lambda path: {"bands": [{"description": "building presence"}], "path": str(path)},
+    )
+
+    profile = service.inspect_local_raster_profile("raw.google.building_presence.raster", raster_path)
+
+    assert profile["source_id"] == "raw.google.building_presence.raster"
+    assert profile["source_form"] == "raster"
+    assert profile["runtime_status"] == "reservation_only"
+    assert profile["band_count"] == 1
+
+
 def test_source_asset_service_downloads_and_extracts_geofabrik_bundle_once(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     archive_path = tmp_path / "fixtures" / "burundi-latest-free.shp.zip"
     _write_geofabrik_zip(archive_path)

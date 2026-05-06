@@ -229,6 +229,7 @@ class WorkflowPlanner:
         normalized = {
             "intent": planning_context["intent"],
             "retrieval": planning_context["retrieval"],
+            "execution_hints": planning_context["execution_hints"],
             "selection_reason": selection_reason,
             "llm_provider": self.llm_provider.provider_name,
             "plan_revision": revision,
