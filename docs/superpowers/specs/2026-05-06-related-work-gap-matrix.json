@@ -1,0 +1,76 @@
+{
+  "fields": [
+    "paper",
+    "problem_focus",
+    "system_type",
+    "our_advantage",
+    "our_gap",
+    "borrow_direction",
+    "non_goal"
+  ],
+  "papers": [
+    "Geo-Agent",
+    "CyVerACT",
+    "OntoLLM",
+    "PathMind",
+    "UniAI-GraphRAG",
+    "地下车站洪水脆弱性级联效应分析"
+  ],
+  "entries": [
+    {
+      "paper": "Geo-Agent",
+      "problem_focus": "natural-language GIS interaction and spatial reasoning",
+      "system_type": "interactive geo-agent",
+      "our_advantage": "FusionAgent ends in executable fusion artifacts with audit evidence instead of only interactive GIS outputs",
+      "our_gap": "less emphasis on polished spatial interaction UX",
+      "borrow_direction": "spatial intent decomposition and graph-aware retrieval",
+      "non_goal": "do not turn FusionAgent into a general GIS copilot"
+    },
+    {
+      "paper": "CyVerACT",
+      "problem_focus": "schema-aware deterministic verification",
+      "system_type": "verification-heavy graph query workflow",
+      "our_advantage": "FusionAgent already carries bounded execution and artifact evidence beyond query verification",
+      "our_gap": "tool and failure contracts are not yet uniformly enforced",
+      "borrow_direction": "structured error metadata and deterministic verification loops",
+      "non_goal": "do not reduce the system story to text-to-query correctness alone"
+    },
+    {
+      "paper": "OntoLLM",
+      "problem_focus": "ontology-grounded constraint and digression prevention",
+      "system_type": "ontology-guided reasoning layer",
+      "our_advantage": "FusionAgent already binds ontology-like KG structure to executable tasks and outputs",
+      "our_gap": "unsupported-intent guard and ontology-backed rejection can be stronger",
+      "borrow_direction": "ontology-grounded rejection and bounded reasoning discipline",
+      "non_goal": "do not expand into a large off-task ontology engineering program"
+    },
+    {
+      "paper": "PathMind",
+      "problem_focus": "path prioritization and token-efficient retrieval",
+      "system_type": "reasoning-path prioritization",
+      "our_advantage": "FusionAgent already has bounded runtime evidence and explicit execution stages",
+      "our_gap": "planner retrieval can still be lower-noise and more priority-aware",
+      "borrow_direction": "path prioritization and token-efficiency heuristics",
+      "non_goal": "do not introduce costly multi-round self-dialogue just to resemble path-search papers"
+    },
+    {
+      "paper": "UniAI-GraphRAG",
+      "problem_focus": "ontology-guided extraction and dual-channel retrieval",
+      "system_type": "GraphRAG knowledge workflow",
+      "our_advantage": "FusionAgent is centered on executable geospatial fusion rather than QA or report generation",
+      "our_gap": "community-level reporting and retrieval explainability can be sharper",
+      "borrow_direction": "dual-channel retrieval summaries and structured extraction patterns",
+      "non_goal": "do not shift the runtime into a text QA system"
+    },
+    {
+      "paper": "地下车站洪水脆弱性级联效应分析",
+      "problem_focus": "infrastructure dependency and flood cascade reasoning",
+      "system_type": "domain cascade analysis",
+      "our_advantage": "FusionAgent already has a bounded scenario runtime that can host dependency-aware evidence later",
+      "our_gap": "scenario dependency reasoning is still comparatively shallow",
+      "borrow_direction": "facility dependency modeling and bounded cascade reasoning",
+      "non_goal": "do not expand the scenario layer into a full digital twin simulation platform"
+    }
+  ]
+}
+

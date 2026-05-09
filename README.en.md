@@ -7,7 +7,8 @@ Resume/demo project brief: [FusionAgent Resume Project Brief](./docs/demo/fusion
 FusionAgent is a mature vector-data fusion agent runtime for bounded disaster
 response workflows, and the current codebase now includes an operator-facing
 web workbench foundation. The code is no longer just a script wrapper. It now
-provides a testable, auditable, and incrementally extensible agentic workflow runtime.
+provides a testable, auditable, and incrementally extensible KG-grounded,
+contract-bounded agentic workflow runtime.
 
 The runtime now stably supports `building`, `road`, and `water`, and also adds
 a bounded `poi` automatic-fusion slice on the same task-driven runtime
@@ -25,7 +26,7 @@ The most accurate description of the project today is:
 
 FusionAgent has now reached the engineering MVP, research prototype, and mature
 no-UI vector data fusion agent bar, but it should still not be described as the
-final visualization product.
+final visualization product or as an unbounded general-purpose agent.
 
 FusionAgent can now operate as a mature vector data fusion agent within its
 bounded scope: it provides natural-language and local scenario-trigger entry
@@ -81,6 +82,10 @@ Benin preparation commands:
 python scripts/profile_benin_sources.py --source-root E:\fyx\data\Benin --output runs\benin-source-profile.json
 python scripts/benchmark_tiled_building.py --source-root E:\fyx\data\Benin --bbox 2.48,9.23,2.77,9.44 --target-crs EPSG:32631 --output-root runs\benin-benchmark
 ```
+
+Benin cleanup, profiling, and research scripts should be treated as bounded
+research utilities or preparation capabilities. They do not, by themselves,
+expand the stable main-runtime claim.
 
 ## Thesis Alignment Note
 

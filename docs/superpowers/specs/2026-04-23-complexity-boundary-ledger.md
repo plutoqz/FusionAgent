@@ -15,9 +15,12 @@ This ledger separates core runtime proof from optional or deferred complexity. U
 | plan grounding report | core next | add | proves KG evidence per step |
 | unsupported request guard | core next | add | prevents silent misuse |
 | step heartbeat and recovery scanner | core next | add | minimum credible long-run operations layer |
+| Benin source profiling and cleanup scripts | optional | keep but demote | useful research utilities, not the main runtime contract |
+| Benin multi-source building scripts | deferred | freeze runtime claim | do not promote into the stable runtime story without shared evidence |
 | trajectory-to-road seam | deferred | metadata only | not executable at runtime |
 | durable learning | optional | simplify claims | bounded policy hints, not autonomous self-evolution |
 | artifact reuse branches | optional | keep but document | useful, but not the core proof |
+| operator web workbench polish | optional | keep bounded | useful operator surface, but not the main thesis or runtime proof |
 
 ## Operating Rule
 

@@ -2178,6 +2178,9 @@ def test_execution_stage_writes_step_failed_audit_event_before_raising(tmp_path:
         "algorithm_id": "algo.fusion.building.v1",
         "data_source_id": "upload.bundle",
         "error": "RuntimeError: primary failed",
+        "root_cause": "PRIMARY_EXECUTION_FAILED",
+        "action": "replan",
+        "recoverable": True,
     }
     assert not any(event.kind == "execution_completed" for event in audit_events)
 

@@ -18,3 +18,15 @@ This review locks the next evidence requirements for the system-level improvemen
 ## Claim Lock
 
 The next implementation may strengthen the existing no-UI runtime claim only through the evidence above. It must not widen the stable runtime surface beyond the current task-driven building, road, water, and bounded POI slices, and it must keep trajectory-to-road as a reserved seam until executable runtime evidence exists.
+
+## P0 Proof Hooks
+
+Each core-next item must land in four places before it is promoted into the stable claim.
+
+| P0 Item | Tests | Runtime Artifact | Inspection Surface | Operations Wording |
+| --- | --- | --- | --- | --- |
+| ToolSpec registry | registry and executor dispatch tests | tool contract evidence in `plan.json` or `audit.jsonl` | inspection output shows contract failure cause | registered tool contracts |
+| KG grounding report | per-step grounding tests | grounding payload in `plan.json` and `audit.jsonl` | inspection output shows step grounding summary | KG grounding report |
+| unsupported-intent rejection | API and service guard tests | unsupported-intent audit event | inspection output shows rejection or clarification reason | unsupported-intent rejection |
+| telemetry | telemetry service and runtime tests | phase, token, or latency markers in run artifacts | inspection output shows progress and stale-run signals | token or latency telemetry |
+| checkpoint recovery inspection | stale-run scan and recovery-action tests | checkpoint or stale-run metadata | inspection output shows recovery recommendation | checkpoint recovery inspection |

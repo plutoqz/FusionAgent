@@ -1022,6 +1022,8 @@ class AgentRunService:
                 current_step=current_step,
             )
         if raw_status == "failed":
+            event_details.update(self._build_step_failure_operator_note(repair_records=repair_records, current_step=current_step))
+        if raw_status == "failed":
             event_message = f"Execution step failed: step={current_step}; error={event_details['error']}."
         else:
             event_message = f"Execution step {raw_status}: step={current_step}."
@@ -1839,6 +1841,31 @@ class AgentRunService:
         if current_step is None:
             return "Execution step failed."
         return f"Execution step {current_step} failed."
+
+    @staticmethod
+    def _build_step_failure_operator_note(
+        *, repair_records: List[RepairRecord], current_step: int | None
+    ) -> Dict[str, object]:
+        matching_records = [
+            record
+            for record in repair_records
+            if current_step is None or record.step == current_step
+        ]
+        reason_code = "primary_execution_failed"
+        for record in matching_records:
+            if record.reason_code == "primary_execution_failed":
+                reason_code = record.reason_code
+                break
+        else:
+            for record in reversed(matching_records):
+                if record.reason_code:
+                    reason_code = record.reason_code
+                    break
+        return {
+            "root_cause": reason_code.upper(),
+            "action": "replan",
+            "recoverable": True,
+        }
 
     def _append_audit_event(self, status: RunStatus, event: RunEvent) -> None:
         path = Path(status.audit_path) if status.audit_path else self._audit_path(status.run_id)

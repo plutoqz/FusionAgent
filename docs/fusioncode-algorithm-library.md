@@ -2,6 +2,24 @@
 
 This document records how `E:\vscode\fusioncode` is represented in FusionAgent without treating the external pipeline as one monolithic function.
 
+## Inventory Mapping
+
+Use the same vocabulary as the capability inventory:
+
+- `status`: `core`, `core_next`, `optional`, `deferred`
+- `claim_state`: `runtime_supported`, `bounded_supported`, `kg_only`, `inspect_only`, `reservation_only`, `research_utility`
+
+| Capability | status | claim_state | Note |
+| --- | --- | --- | --- |
+| `algo.fusion.road.segment_match_topology.v1` | `core` | `runtime_supported` | aligned with the current road runtime slice |
+| `algo.fusion.water.line_three_source_priority.v1` | `core` | `runtime_supported` | aligned with the current water runtime family |
+| `algo.fusion.water.polygon_priority_merge.v1` | `core` | `runtime_supported` | aligned with the current water polygon slice |
+| `algo.fusion.poi.geohash_neighbor_match.v1` | `core` | `bounded_supported` | bounded POI slice only |
+| `wp.building.drs4br.decomposed.v1` | `deferred` | `reservation_only` | visible in KG but not part of the current stable runtime claim |
+| `algo.fusion.building.multi_source.decomposed.v1` | `deferred` | `reservation_only` | do not describe as stable executable runtime support |
+| `algo.validate.building.presence_raster.v1` | `deferred` | `reservation_only` | raster validation remains outside the stable runtime contract |
+| `algo.enrich.building.height_from_raster.v1` | `deferred` | `reservation_only` | raster height extraction remains outside the stable runtime contract |
+
 ## Architecture
 
 FusionAgent stores FusionCode capabilities as KG-backed algorithm primitives. The `fusion_algorithms/` package wraps or ports the algorithm phases, while `kg/seed.py` registers data types, algorithms, parameter specs, and workflow patterns. `algorithm_adapter.run_full_pipeline()` remains a behavior reference only; KG execution is routed through decomposed nodes.
@@ -52,7 +70,9 @@ Full FusionCode execution requires the optional geospatial stack declared in `re
 
 ## Benin National Building Runtime
 
-Use `scripts/run_benin_multisource_building_fusion.py` for large Benin building jobs that need the four national vector sources plus optional Google rasters:
+`scripts/run_benin_multisource_building_fusion.py` remains a research utility for large Benin building experiments. It is not part of the current stable runtime contract.
+
+If you need to inspect the current research utility path:
 
 ```powershell
 python scripts/run_benin_multisource_building_fusion.py `
@@ -65,7 +85,7 @@ python scripts/run_benin_multisource_building_fusion.py `
   --max-workers 4
 ```
 
-The script profiles the source root, selects `MS`, `OBM`, `GG`, and `OSM` building vectors, discovers available Google `building_presence` and `building_height` rasters, partitions the Benin bbox into buffered tiles, runs the decomposed multi-source FusionCode flow per tile, and stitches tile-owned features into `runtime_output/fused_buildings.gpkg`.
+The script profiles the source root, selects `MS`, `OBM`, `GG`, and `OSM` building vectors, discovers available Google `building_presence` and `building_height` rasters, partitions the Benin bbox into buffered tiles, runs the decomposed multi-source FusionCode flow per tile, and stitches tile-owned features into `runtime_output/fused_buildings.gpkg`. Keep this as a research utility description unless the same capability is promoted through shared runtime evidence, tests, and operations wording.
 
 Height fields are intentionally non-destructive:
 

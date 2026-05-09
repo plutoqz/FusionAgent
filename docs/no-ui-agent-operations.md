@@ -234,6 +234,8 @@ Keep checked-in evidence small and reproducible.
 - This is not a production SaaS, authentication, or multi-tenant deployment guide.
 - The local trigger inbox is not an external event-feed provider integration.
 - `trajectory-to-road` remains reservation-only and is not a live runtime ingestion path.
+- In plain language: trajectory-to-road remains reservation-only and is not a live runtime ingestion path.
 - Search space remains bounded to documented building, road, water, and bounded POI slices.
+- Benin preparation and cleanup scripts may support research validation or data preparation, but they do not expand the stable runtime claim by themselves.
 - Historical Google-backed building cases still depend on restored local `Data/` assets.
 - AOI geocoding can depend on external availability and latency unless a deterministic local fixture/cache path is used.

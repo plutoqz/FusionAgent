@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import math
 from typing import Dict, List
 
 from kg.repository import KGRepository
@@ -93,6 +94,35 @@ class WorkflowValidator:
                 )
                 continue
 
+            if task.output.data_type_id != algo.output_type:
+                task.kg_validated = False
+                task.depends_on = normalized_deps
+                task.step = len(output_tasks) + 1
+                output_tasks.append(task)
+                step_map[original_step] = task.step
+                issues.append(
+                    ValidationIssue(
+                        code="TOOL_OUTPUT_TYPE_MISMATCH",
+                        message=(
+                            f"Task declares output {task.output.data_type_id} but "
+                            f"tool registry expects {algo.output_type} for {task.algorithm_id}"
+                        ),
+                        step=task.step,
+                    )
+                )
+                continue
+
+            parameter_issue = self._validate_parameters(task)
+            if parameter_issue is not None:
+                task.kg_validated = False
+                task.depends_on = normalized_deps
+                task.step = len(output_tasks) + 1
+                output_tasks.append(task)
+                step_map[original_step] = task.step
+                parameter_issue.step = task.step
+                issues.append(parameter_issue)
+                continue
+
             input_type = task.input.data_type_id
             expected_inputs = algo.input_types or []
             if input_type in expected_inputs:
@@ -162,3 +192,39 @@ class WorkflowValidator:
     @staticmethod
     def _is_reservation_only(metadata: Dict[str, object] | None) -> bool:
         return str((metadata or {}).get("runtime_status") or "").lower() == "reservation_only"
+
+    def _validate_parameters(self, task: WorkflowTask) -> ValidationIssue | None:
+        specs = {spec.key: spec for spec in self.kg_repo.get_parameter_specs(task.algorithm_id)}
+        for key, value in (task.input.parameters or {}).items():
+            spec = specs.get(key)
+            if spec is None:
+                continue
+            if spec.required and value is None:
+                return ValidationIssue(
+                    code="PARAM_REQUIRED_MISSING",
+                    message=f"Required parameter {key} is missing for {task.algorithm_id}",
+                )
+            numeric_value = self._coerce_numeric(value)
+            if numeric_value is None:
+                continue
+            if spec.min_value is not None and numeric_value < spec.min_value:
+                return ValidationIssue(
+                    code="PARAM_OUT_OF_RANGE",
+                    message=f"Parameter {key}={numeric_value} is below min {spec.min_value} for {task.algorithm_id}",
+                )
+            if spec.max_value is not None and numeric_value > spec.max_value:
+                return ValidationIssue(
+                    code="PARAM_OUT_OF_RANGE",
+                    message=f"Parameter {key}={numeric_value} exceeds max {spec.max_value} for {task.algorithm_id}",
+                )
+        return None
+
+    @staticmethod
+    def _coerce_numeric(value: object) -> float | None:
+        try:
+            numeric = float(value)
+        except (TypeError, ValueError):
+            return None
+        if not math.isfinite(numeric):
+            return None
+        return numeric

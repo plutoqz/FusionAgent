@@ -24,6 +24,8 @@ Freeze the runtime wording to the following contract:
 - all four share the same evidence contract: `run.json`, `plan.json`, `validation.json`, `audit.jsonl`, and the artifact bundle
 - `trajectory-to-road` remains reservation-only in Phase 4 and is not part of the stable runtime contract
 
+In plain language: trajectory-to-road remains reservation-only and is not a live runtime ingestion path.
+
 ### Benin Preparation Boundary
 
 For the Benin building-runtime preparation slice, keep the capability wording frozen as:
@@ -34,10 +36,10 @@ For the Benin building-runtime preparation slice, keep the capability wording fr
 | Benin canonical source profiling | supported |
 | KG exposure for OpenBuildingMap / local Microsoft / Google Open Buildings | supported in KG, not executable |
 | Google building-presence raster inspection and profiling | inspect-only |
-| raster-based building presence validation and height extraction | executable via FusionCode decomposed primitives once raster artifacts are materialized |
-| true multi-source building fusion semantics | executable via `wp.building.drs4br.decomposed.v1` and `algo.fusion.building.multi_source.decomposed.v1` |
+| raster-based building presence validation and height extraction | reserved |
+| true multi-source building fusion semantics | reserved |
 
-FusionCode integration is deliberately decomposed in KG. The planner can surface the executable primitives for source normalization, presence-raster validation, V8 candidate graph generation, component solving, cascade geometry-priority fusion, conflict optimization, post-conflict refinements, height-raster enrichment, and quality metrics. Raster and extra vector catalog entries may still be marked `reservation_only` as data sources when local materialization is unavailable; that is distinct from the algorithm capability, which is now represented by executable runtime-candidate nodes.
+FusionCode integration and Benin research utilities may expose richer metadata or reserved seams in KG, but the stable runtime wording stays bounded. Raster and extra vector catalog entries may be visible to retrieval as `reservation_only`, but that does not promote them into the current executable contract.
 
 Operator commands:
 
@@ -46,20 +48,7 @@ python scripts/profile_benin_sources.py --source-root E:\fyx\data\Benin --output
 python scripts/benchmark_tiled_building.py --source-root E:\fyx\data\Benin --bbox 2.48,9.23,2.77,9.44 --target-crs EPSG:32631 --output-root runs\benin-benchmark
 ```
 
-For the Benin national multi-source building workflow, use the FusionCode tiled runtime instead of the legacy two-source benchmark:
-
-```powershell
-python scripts/run_benin_multisource_building_fusion.py `
-  --source-root E:\fyx\data\Benin `
-  --output-root runs\benin-national-multisource `
-  --target-crs EPSG:32631 `
-  --tile-width-m 10000 `
-  --tile-height-m 10000 `
-  --overlap-m 96 `
-  --max-workers 4
-```
-
-This writes `runtime_output/fused_buildings.gpkg` and preserves `height_ms`, `height_obm`, `height_google`, `height_osm`, optional `height_raster`, plus `height_final` and `height_final_source`.
+Do not describe Benin national multi-source building scripts as part of the stable runtime contract unless the same capability is explicitly frozen in README, tests, and the evidence contract.
 
 ### Artifact Preview Products
 

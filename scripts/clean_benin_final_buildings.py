@@ -24,15 +24,17 @@ DEFAULT_INPUT_GPKG = Path(
 DEFAULT_INPUT_SHP = Path(r"E:\fyx\data\Benin\final_shp\fusionbuildings\conflictresolution\final\cut.shp")
 DEFAULT_KEEP_DOCX = Path(r"E:\fyx\data\Benin\拟保留 数据列 及问题.docx")
 DEFAULT_OUTPUT_DIR = Path(r"E:\fyx\data\Benin\final_shp\fusionbuildings\conflictresolution\final")
-DEFAULT_OUTPUT_GPKG = "fused_buildings_final_height_cleaned.gpkg"
-DEFAULT_OUTPUT_SHP = "cut_cleaned.shp"
-DEFAULT_REPORT_TXT = "final_fields_cleaning_report.txt"
+DEFAULT_OUTPUT_GPKG = "final_buildings.gpkg"
+DEFAULT_OUTPUT_SHP = "final_buildings.shp"
+DEFAULT_REPORT_TXT = "final_buildings_report.txt"
+DEFAULT_NAME_REVIEW_CSV = "benin_name_nonbuilding_candidates_v2.csv"
 
 HEIGHT_FLOOR_SOURCE_COLUMN = "height_conflict_3d_final"
 HEIGHT_GPKG_SOURCE_FALLBACK = "height_raster_centroid"
 HEIGHT_GPKG_TARGET_COLUMN = "final_height"
 HEIGHT_SHP_SOURCE_FALLBACK = "height_r_2"
 HEIGHT_SHP_TARGET_COLUMN = "final_heig"
+HEIGHT_FLOOR_THRESHOLD = 2.5
 HEIGHT_EQUAL_VALUE = 3.0
 HEIGHT_EXACT_THREE_REMAP = 3.01
 NUMERIC_ROUND_COLUMNS = {
@@ -79,6 +81,11 @@ NON_BUILDING_PATTERNS = [
     r"\bpompe\b",
     r"\bplace\b",
     r"\bvod[ùu]n\b",
+    r"\bbuanderie\b",
+    r"\blocal cuisson\b",
+    r"\bs[ée]choir\b",
+    r"\babris famille\b",
+    r"\bpaillote\b",
     r"\bwell\b",
     r"\btank\b",
     r"\bforage\b",
@@ -111,11 +118,48 @@ KEEP_FIELDS = [
     "name_fused",
     "name_candidates",
     "fusion_lineage",
-    "height_final",
-    "height_final_source",
     "fusion_source",
     "final_height",
 ]
+
+LOW_HEIGHT_DELETE_NAMES = {
+    "clôture du cimetière",
+    "séchoir à riz de sinsinkou-tora",
+}
+
+
+@dataclass(frozen=True)
+class CandidateNameRule:
+    name: str
+    name_zh: str
+    suggested_action: str
+    risk_category: str
+    suggested_non_building_category: str
+    reason: str
+
+
+@dataclass(frozen=True)
+class CandidateScoreResult:
+    should_drop: bool
+    delete_threshold: int
+    total_points: int
+    name_points: int
+    height_points: int
+    area_points: int
+    shape_points: int
+    area_penalty_points: int
+    matched_rule_kind: str
+    matched_name_signal: str
+
+
+@dataclass(frozen=True)
+class CandidateFeatureDecision:
+    source_fid: int
+    resolved_name: str
+    raw_height: float | None
+    area_m2: float | None
+    aspect_ratio: float | None
+    score: CandidateScoreResult
 
 
 def _log(message: str) -> None:
@@ -168,6 +212,22 @@ def _normalize_text(value: object) -> str:
     return text
 
 
+def _normalize_ascii_text(value: object) -> str:
+    text = _normalize_text(value)
+    return (
+        text.replace("ô", "o")
+        .replace("é", "e")
+        .replace("è", "e")
+        .replace("ê", "e")
+        .replace("à", "a")
+        .replace("ù", "u")
+        .replace("û", "u")
+        .replace("ï", "i")
+        .replace("î", "i")
+        .replace("ç", "c")
+    )
+
+
 def extract_keep_fields_from_docx(path: Path) -> list[str]:
     document = Document(path)
     ordered: list[str] = []
@@ -198,6 +258,123 @@ def _text_is_non_building(name: str) -> bool:
     return any(re.search(pattern, lowered, flags=re.IGNORECASE) for pattern in NON_BUILDING_PATTERNS)
 
 
+def _classify_candidate_name_signal(name: str, rule: CandidateNameRule) -> tuple[int, str, str]:
+    normalized = _normalize_ascii_text(name or rule.name)
+    combined = " ".join(
+        part
+        for part in [
+            normalized,
+            _normalize_ascii_text(rule.risk_category),
+            _normalize_ascii_text(rule.suggested_non_building_category),
+            _normalize_ascii_text(rule.reason),
+        ]
+        if part
+    )
+
+    explicit_patterns = [
+        r"\bcloture\b",
+        r"\bcimeti",
+        r"\bparking\b",
+        r"\bsite pompe\b",
+        r"\bpompe\b",
+        r"\breservoir\b",
+        r"\btank\b",
+        r"\bforage\b",
+        r"\bwell\b",
+    ]
+    open_shelter_patterns = [
+        r"\bauvent\b",
+        r"\babri",
+        r"\bpaillot",
+        r"\bapatam\b",
+    ]
+    service_patterns = [
+        r"\bbuanderie\b",
+        r"\blocal cuisson\b",
+        r"\bsechoir\b",
+        r"\bdouche",
+        r"\btoilet",
+        r"\blatrine",
+    ]
+    ambiguous_site_patterns = [
+        r"\bplace\b",
+        r"\bvodun\b",
+        r"\bsite\b",
+        r"\bexperimentation\b",
+    ]
+
+    if any(re.search(pattern, combined, flags=re.IGNORECASE) for pattern in explicit_patterns):
+        return 6, "explicit_non_building", "明确非建筑名称"
+    if any(re.search(pattern, combined, flags=re.IGNORECASE) for pattern in open_shelter_patterns):
+        return 5, "open_shelter", "棚亭/开放式构筑物名称"
+    if any(re.search(pattern, combined, flags=re.IGNORECASE) for pattern in service_patterns):
+        return 3, "service_accessory", "附属服务设施名称"
+    if any(re.search(pattern, combined, flags=re.IGNORECASE) for pattern in ambiguous_site_patterns):
+        return 3, "ambiguous_site", "场地/地点名称"
+    if rule.suggested_action == "建议删除":
+        return 4, "explicit_non_building", "候选表已标注建议删除"
+    if rule.suggested_action == "建议人工复核":
+        return 3, "service_accessory", "候选表已标注建议人工复核"
+    return 2, "candidate", "候选表待复核名称"
+
+
+def score_candidate_non_building(
+    *,
+    name: str,
+    rule: CandidateNameRule,
+    raw_height: float | None,
+    area_m2: float | None,
+    aspect_ratio: float | None,
+) -> CandidateScoreResult:
+    name_points, rule_kind, signal = _classify_candidate_name_signal(name, rule)
+
+    height_points = 0
+    if raw_height is not None:
+        if raw_height < 2.5:
+            height_points = 3
+        elif raw_height < 3.5:
+            height_points = 2
+        elif raw_height < 5.0:
+            height_points = 1
+
+    area_points = 0
+    area_penalty_points = 0
+    if area_m2 is not None:
+        if area_m2 < 25:
+            area_points = 3
+        elif area_m2 < 80:
+            area_points = 2
+        elif area_m2 < 250:
+            area_points = 1
+
+        if rule_kind == "explicit_non_building" and area_m2 > 1000:
+            area_penalty_points = 2
+        elif rule_kind == "ambiguous_site" and area_m2 > 500:
+            area_penalty_points = 1
+
+    shape_points = 0
+    if aspect_ratio is not None:
+        if aspect_ratio > 5:
+            shape_points = 2
+        elif aspect_ratio > 3:
+            shape_points = 1
+
+    total_points = name_points + height_points + area_points + shape_points + area_penalty_points
+    delete_threshold = 7
+    return CandidateScoreResult(
+        should_drop=total_points >= delete_threshold,
+        delete_threshold=delete_threshold,
+        total_points=total_points,
+        name_points=name_points,
+        height_points=height_points,
+        area_points=area_points,
+        shape_points=shape_points,
+        area_penalty_points=area_penalty_points,
+        matched_rule_kind=rule_kind,
+        matched_name_signal=signal,
+    )
+
+
 def should_drop_non_building_record(name: str | None, source_height: float | None) -> bool:
     if not name:
         return False
@@ -212,7 +389,7 @@ def build_final_height_value(value: object) -> float | None:
         return None
     if abs(numeric - HEIGHT_EQUAL_VALUE) < 1e-9:
         return HEIGHT_EXACT_THREE_REMAP
-    if numeric < HEIGHT_EQUAL_VALUE:
+    if numeric < HEIGHT_FLOOR_THRESHOLD:
         return HEIGHT_EQUAL_VALUE
     return round(numeric, 2)
 
@@ -257,6 +434,12 @@ def _non_building_name_patterns() -> list[str]:
         "place",
         "vodùn",
         "vodun",
+        "buanderie",
+        "local cuisson",
+        "séchoir",
+        "sechoir",
+        "abris famille",
+        "paillote",
         "well",
         "tank",
         "forage",
@@ -279,12 +462,12 @@ def _build_final_height_expr(source_column: str, fallback_column: str) -> str:
     return (
         f"CASE WHEN {resolved} IS NULL THEN NULL "
         f"WHEN ABS({resolved} - {HEIGHT_EQUAL_VALUE}) < 1e-9 THEN {HEIGHT_EXACT_THREE_REMAP} "
-        f"WHEN {resolved} < {HEIGHT_EQUAL_VALUE} THEN {HEIGHT_EQUAL_VALUE} "
+        f"WHEN {resolved} < {HEIGHT_FLOOR_THRESHOLD} THEN {HEIGHT_EQUAL_VALUE} "
         f"ELSE ROUND({resolved}, 2) END"
     )
 
 
-def _build_gpkg_sql() -> tuple[str, str]:
+def _build_gpkg_sql(drop_fids: Iterable[int]) -> tuple[str, str]:
     keep_columns = [
         '"detail_side"',
         '"source_layer"',
@@ -293,13 +476,16 @@ def _build_gpkg_sql() -> tuple[str, str]:
         '"name_fused"',
         '"name_candidates"',
         '"fusion_lineage"',
-        f"{_sqlite_round_expr('height_final')} AS \"height_final\"",
-        '"height_final_source"',
         '"fusion_source"',
         f"{_build_final_height_expr('height_conflict_3d_final', 'height_final')} AS \"final_height\"",
         '"geom"',
     ]
-    where_clause = f"NOT {_build_non_building_filter_sql(['name_fused', 'name_candidates'], 'height_conflict_3d_final')}"
+    drop_list = sorted(set(int(fid) for fid in drop_fids))
+    if drop_list:
+        fid_filter = ", ".join(str(fid) for fid in drop_list)
+        where_clause = f"fid NOT IN ({fid_filter})"
+    else:
+        where_clause = "1=1"
     sql = f"SELECT {', '.join(keep_columns)} FROM fused_buildings WHERE {where_clause}"
     return sql, "fused_buildings"
 
@@ -327,8 +513,6 @@ def _shp_output_fields() -> dict[str, str]:
         "name_fused": "name_fused",
         "name_candidates": "name_candi",
         "fusion_lineage": "fusion_lin",
-        "height_final": "height_fin",
-        "height_final_source": "height_f_1",
         "fusion_source": "fusion_sou",
         "final_height": "final_heig",
     }
@@ -345,8 +529,6 @@ def shp_source_columns_for_keep_fields(columns: Iterable[str]) -> dict[str, str]
         "name_fused": ["name_fused"],
         "name_candidates": ["name_candidates", "name_candi"],
         "fusion_lineage": ["fusion_lineage", "fusion_lin"],
-        "height_final": ["height_final", "height_fin"],
-        "height_final_source": ["height_final_source", "height_f_1"],
         "fusion_source": ["fusion_source", "fusion_sou"],
         "final_height": ["final_height", "final_heig"],
     }
@@ -370,7 +552,156 @@ def _detect_shp_source_columns(columns: Iterable[str]) -> tuple[str, str]:
     return source_height, "name_fused" if "name_fused" in column_set else "name_candi"
 
 
-def _apply_shp_cleaning(frame: gpd.GeoDataFrame) -> tuple[gpd.GeoDataFrame, dict[str, int]]:
+def load_candidate_name_rules(path: Path) -> dict[str, CandidateNameRule]:
+    if not path.exists():
+        raise FileNotFoundError(path)
+    frame = pd.read_csv(path, encoding="utf-8-sig")
+    rules: dict[str, CandidateNameRule] = {}
+    for _, row in frame.iterrows():
+        name = str(row.get("name") or "").strip()
+        if not name:
+            continue
+        normalized = _normalize_text(name)
+        suggested_action = str(row.get("suggested_action") or "").strip()
+        if normalized in LOW_HEIGHT_DELETE_NAMES:
+            suggested_action = "建议删除"
+        else:
+            suggested_action = "恢复保留"
+        rules[normalized] = CandidateNameRule(
+            name=name,
+            name_zh=str(row.get("name_zh") or "").strip(),
+            suggested_action=suggested_action,
+            risk_category=str(row.get("risk_category") or "").strip(),
+            suggested_non_building_category=str(row.get("suggested_non_building_category_v2") or "").strip(),
+            reason=str(row.get("reason") or "").strip(),
+        )
+    if not rules:
+        raise ValueError(f"No candidate name rules found in {path}")
+    return rules
+
+
+def _sql_quote(value: str) -> str:
+    return "'" + value.replace("'", "''") + "'"
+
+
+def _resolve_candidate_name(name_fused: object, name_candidates: object) -> str:
+    primary = str(name_fused or "").strip()
+    if primary:
+        return primary
+    return str(name_candidates or "").strip()
+
+
+def _compute_aspect_ratio(minx: float, miny: float, maxx: float, maxy: float) -> float | None:
+    width = maxx - minx
+    height = maxy - miny
+    min_side = min(width, height)
+    max_side = max(width, height)
+    if min_side <= 0:
+        return None
+    return max_side / min_side
+
+
+def score_candidate_features_from_gpkg(
+    input_path: Path,
+    candidate_rules: dict[str, CandidateNameRule],
+) -> list[CandidateFeatureDecision]:
+    normalized_names = sorted(candidate_rules.keys())
+    quoted_names = ", ".join(_sql_quote(name) for name in normalized_names)
+    where = f"LOWER(TRIM(COALESCE(NULLIF(name_fused, ''), NULLIF(name_candidates, '')))) IN ({quoted_names})"
+    frame = gpd.read_file(input_path, layer="fused_buildings", where=where, fid_as_index=True)
+    decisions: list[CandidateFeatureDecision] = []
+    for _, row in frame.iterrows():
+        resolved_name = _resolve_candidate_name(row.get("name_fused"), row.get("name_candidates"))
+        normalized = _normalize_text(resolved_name)
+        rule = candidate_rules.get(normalized)
+        if rule is None:
+            continue
+        raw_height = _safe_float(row.get("height_conflict_3d_final"))
+        if rule.suggested_action != "建议删除":
+            continue
+        geometry = row.geometry
+        area_m2 = _safe_float(getattr(geometry, "area", None))
+        minx, miny, maxx, maxy = geometry.bounds
+        aspect_ratio = _compute_aspect_ratio(minx, miny, maxx, maxy)
+        score = score_candidate_non_building(
+            name=resolved_name,
+            rule=rule,
+            raw_height=raw_height,
+            area_m2=area_m2,
+            aspect_ratio=aspect_ratio,
+        )
+        if raw_height is None or raw_height >= 2.5:
+            score = CandidateScoreResult(
+                should_drop=False,
+                delete_threshold=score.delete_threshold,
+                total_points=score.total_points,
+                name_points=score.name_points,
+                height_points=score.height_points,
+                area_points=score.area_points,
+                shape_points=score.shape_points,
+                area_penalty_points=score.area_penalty_points,
+                matched_rule_kind=score.matched_rule_kind,
+                matched_name_signal=score.matched_name_signal,
+            )
+        decisions.append(
+            CandidateFeatureDecision(
+                source_fid=int(row.name),
+                resolved_name=resolved_name,
+                raw_height=raw_height,
+                area_m2=area_m2,
+                aspect_ratio=aspect_ratio,
+                score=score,
+            )
+        )
+    return decisions
+
+
+def _candidate_decision_summary(
+    decisions: Iterable[CandidateFeatureDecision],
+    candidate_rules: dict[str, CandidateNameRule],
+) -> pd.DataFrame:
+    rows: list[dict[str, object]] = []
+    for decision in decisions:
+        rule = candidate_rules.get(_normalize_text(decision.resolved_name))
+        rows.append(
+            {
+                "name": decision.resolved_name,
+                "name_zh": rule.name_zh if rule else "",
+                "source_fid": decision.source_fid,
+                "raw_height": decision.raw_height,
+                "area_m2": decision.area_m2,
+                "aspect_ratio": decision.aspect_ratio,
+                "score": decision.score.total_points,
+                "delete_threshold": decision.score.delete_threshold,
+                "should_drop": decision.score.should_drop,
+                "risk_category": rule.risk_category if rule else "",
+                "non_building_category_zh": rule.suggested_non_building_category if rule else "",
+                "rule_kind": decision.score.matched_rule_kind,
+                "signal": decision.score.matched_name_signal,
+            }
+        )
+    if not rows:
+        return pd.DataFrame(
+            columns=[
+                "name",
+                "source_fid",
+                "name_zh",
+                "raw_height",
+                "area_m2",
+                "aspect_ratio",
+                "score",
+                "delete_threshold",
+                "should_drop",
+                "risk_category",
+                "non_building_category_zh",
+                "rule_kind",
+                "signal",
+            ]
+        )
+    return pd.DataFrame(rows)
+
+
+def _apply_shp_cleaning(frame: gpd.GeoDataFrame, drop_fids: set[int]) -> tuple[gpd.GeoDataFrame, dict[str, int]]:
     source_height_column, name_primary_column = _detect_shp_source_columns(frame.columns)
     fallback_height_column = "height_fin" if "height_fin" in frame.columns else None
     if fallback_height_column is None:
@@ -392,19 +723,16 @@ def _apply_shp_cleaning(frame: gpd.GeoDataFrame) -> tuple[gpd.GeoDataFrame, dict
     if "group_scor" in frame.columns:
         frame["group_scor"] = pd.to_numeric(frame["group_scor"], errors="coerce").round(2)
 
+    fid_column = "fid" if "fid" in frame.columns else None
     drop_mask = pd.Series(False, index=frame.index)
-    for idx in frame.index:
-        name = str(frame.at[idx, name_primary_column] or "")
-        if not name and "name_candi" in frame.columns:
-            name = str(frame.at[idx, "name_candi"] or "")
-        if should_drop_non_building_record(name, _safe_float(source_height.loc[idx])):
-            drop_mask.at[idx] = True
+    if fid_column is not None and drop_fids:
+        drop_mask = pd.to_numeric(frame[fid_column], errors="coerce").isin(drop_fids)
 
     resolved_height = source_height.where(source_height.notna(), fallback_height)
     stats = {
         "input_count": int(len(frame)),
         "dropped_non_building": int(drop_mask.sum()),
-        "floor_to_3": int(((resolved_height.notna()) & (resolved_height < HEIGHT_EQUAL_VALUE) & (~drop_mask)).sum()),
+        "floor_to_3": int(((resolved_height.notna()) & (resolved_height < HEIGHT_FLOOR_THRESHOLD) & (~drop_mask)).sum()),
         "exact_three_to_3_01": int(((resolved_height.notna()) & (abs(resolved_height - HEIGHT_EQUAL_VALUE) < 1e-9) & (~drop_mask)).sum()),
     }
     if stats["dropped_non_building"]:
@@ -450,12 +778,18 @@ def _update_final_height(frame: gpd.GeoDataFrame, source_column: str, target_col
     return output, floor_to_3, exact_three_to_3_01
 
 
-def clean_gpkg(input_path: Path, output_path: Path, keep_fields: list[str], report: dict[str, object]) -> Path:
+def clean_gpkg(
+    input_path: Path,
+    output_path: Path,
+    keep_fields: list[str],
+    report: dict[str, object],
+    drop_fids: set[int],
+) -> Path:
     ogr2ogr = _find_ogr2ogr()
     if output_path.exists():
         output_path.unlink()
 
-    sql, layer_name = _build_gpkg_sql()
+    sql, layer_name = _build_gpkg_sql(drop_fids)
     _log("writing cleaned GPKG with ogr2ogr")
     subprocess.run(
         [
@@ -479,11 +813,7 @@ def clean_gpkg(input_path: Path, output_path: Path, keep_fields: list[str], repo
         {
             "gpkg_input_count": read_info(input_path, layer="fused_buildings")["features"],
             "gpkg_output_count": read_info(output_path, layer="fused_buildings")["features"],
-            "gpkg_dropped_non_building": _gpkg_counts(
-                input_path,
-                "fused_buildings",
-                _build_non_building_filter_sql(["name_fused", "name_candidates"], "height_conflict_3d_final"),
-            ),
+            "gpkg_dropped_non_building": len(drop_fids),
             "gpkg_floor_to_3": _gpkg_counts(
                 output_path,
                 "fused_buildings",
@@ -499,12 +829,18 @@ def clean_gpkg(input_path: Path, output_path: Path, keep_fields: list[str], repo
     return output_path
 
 
-def clean_shp(input_path: Path, output_path: Path, keep_fields: list[str], report: dict[str, object]) -> Path:
+def clean_shp(
+    input_path: Path,
+    output_path: Path,
+    keep_fields: list[str],
+    report: dict[str, object],
+    drop_fids: set[int],
+) -> Path:
     frame = gpd.read_file(input_path)
     if frame.crs is None:
         frame = frame.set_crs("EPSG:32631")
 
-    frame, stats = _apply_shp_cleaning(frame)
+    frame, stats = _apply_shp_cleaning(frame, drop_fids)
     if output_path.exists():
         for suffix in (".shp", ".shx", ".dbf", ".prj", ".cpg", ".qpj", ".shp.xml"):
             candidate = output_path.with_suffix(suffix)
@@ -537,14 +873,28 @@ def write_report(path: Path, report: dict[str, object]) -> None:
         "- " + ", ".join(report["keep_fields"]),
         "",
         "高度规则：",
-        f"- 以 {HEIGHT_FLOOR_SOURCE_COLUMN} 作为 3m 语义修订来源；若该字段缺失，SHP 使用其自身的高度冲突字段回退。",
-        f"- 小于 3.00m 置为 3.00m。",
+        f"- 以 {HEIGHT_FLOOR_SOURCE_COLUMN} 作为最终高度来源；若该字段缺失，SHP 使用其自身的高度冲突字段回退。",
+        f"- 仅小于 2.50m 的记录置为 3.00m。",
+        f"- 原先被统一赋值 3.00m 的 2.50m 至 3.00m 建筑高度现恢复原值。",
         f"- 恰好等于 3.00m 的记录改为 3.01m，以区分原始 3m 与 floor 后 3m。",
         f"- 其余值保留并四舍五入到 2 位小数。",
         "",
         "名称清理：",
-        "- 基于非建筑词典和模式识别清理 OSM/名称字段中的非建筑对象。",
-        "- 命中且原高度 < 2.5m 的记录已删除。",
+        f"- 仅对候选表 {report['name_review_csv']} 中的可疑名称对象做对象级复核打分。",
+        "- 当前仅删除两类同时满足“名称为指定非建筑物且原始高度 < 2.5m”的对象：Clôture du cimetière、Séchoir à riz de Sinsinkou-Tora。",
+        "- 其余此前疑似非建筑名称对象全部恢复保留。",
+        "",
+        "打分方法：",
+        "- 本版结果不再按总分批量删除候选对象；下面的分值说明仅保留为候选名称复核背景。",
+        "- 名称分：明确非建筑/设备/场地类记 6 分；棚亭/开放式构筑物类记 5 分；附属服务设施类记 3 分；模糊场地/地点类记 3 分；其余候选名记 2 分。",
+        "- 原始高度分：height_conflict_3d_final < 2.5m 记 3 分；2.5m-3.5m 记 2 分；3.5m-5.0m 记 1 分；>= 5.0m 记 0 分。",
+        "- 面积分：面积 < 25m² 记 3 分；25-80m² 记 2 分；80-250m² 记 1 分；>= 250m² 记 0 分。",
+        "- 形态分：包围盒长宽比 > 5 记 2 分；> 3 记 1 分；其余记 0 分。",
+        "- 大面积惩罚修正：明确非建筑类且面积 > 1000m² 加 2 分；模糊场地/地点类且面积 > 500m² 加 1 分。",
+        "",
+        "删除指标：",
+        "- 本版仅删除 Clôture du cimetière 与 Séchoir à riz de Sinsinkou-Tora 两类对象中原始高度 < 2.5m 的记录。",
+        "- 不再按总分 >= 7 的规则批量删除其他疑似非建筑名称对象。",
         "",
         "统计：",
         f"- GPKG 输入: {report.get('gpkg_input_count', 0)}",
@@ -558,6 +908,38 @@ def write_report(path: Path, report: dict[str, object]) -> None:
         f"- SHP floor 到 3.00m: {report.get('shp_floor_to_3', 0)}",
         f"- SHP 原始 3.00m -> 3.01m: {report.get('shp_exact_three_to_3_01', 0)}",
     ]
+    candidate_summary = report.get("candidate_summary")
+    if isinstance(candidate_summary, pd.DataFrame) and not candidate_summary.empty:
+        lines.extend(
+            [
+                "",
+                "候选名称删除明细：",
+                f"- 候选对象总数: {len(candidate_summary)}",
+                f"- 达到删除阈值对象数: {int(candidate_summary['should_drop'].sum())}",
+            ]
+        )
+        grouped = (
+            candidate_summary.groupby("name", dropna=False)
+            .agg(
+                name_zh=("name_zh", "first"),
+                risk_category=("risk_category", "first"),
+                non_building_category_zh=("non_building_category_zh", "first"),
+                total=("name", "size"),
+                dropped=("should_drop", "sum"),
+                min_score=("score", "min"),
+                max_score=("score", "max"),
+            )
+            .reset_index()
+            .sort_values(["dropped", "name"], ascending=[False, True], kind="mergesort")
+        )
+        for _, row in grouped.iterrows():
+            display_name = row["name"]
+            if row["name_zh"]:
+                display_name = f"{display_name}（{row['name_zh']}）"
+            lines.append(
+                f"- {display_name}: 类别={row['risk_category'] or '未分类'}；中文删除类别={row['non_building_category_zh'] or '未标注'}；"
+                f"删除 {int(row['dropped'])}/{int(row['total'])} 条；分数范围 {int(row['min_score'])}-{int(row['max_score'])}。"
+            )
     path.write_text("\n".join(lines) + "\n", encoding="utf-8")
 
 
@@ -569,12 +951,15 @@ def run(args: argparse.Namespace) -> dict[str, Path]:
     if not args.keep_docx.exists():
         raise FileNotFoundError(args.keep_docx)
 
-    keep_fields = extract_keep_fields_from_docx(args.keep_docx)
+    keep_fields = [field for field in extract_keep_fields_from_docx(args.keep_docx) if field in KEEP_FIELDS]
     output_dir = args.output_dir
     output_dir.mkdir(parents=True, exist_ok=True)
     output_gpkg = output_dir / args.output_gpkg
     output_shp = output_dir / args.output_shp
     report_txt = output_dir / args.report_txt
+    candidate_rules = load_candidate_name_rules(args.name_review_csv)
+    candidate_decisions = score_candidate_features_from_gpkg(args.input_gpkg, candidate_rules)
+    drop_fids = {decision.source_fid for decision in candidate_decisions if decision.score.should_drop}
 
     report: dict[str, object] = {
         "gpkg_input_path": str(args.input_gpkg),
@@ -583,10 +968,12 @@ def run(args: argparse.Namespace) -> dict[str, Path]:
         "shp_output_path": str(output_shp),
         "docx_path": str(args.keep_docx),
         "keep_fields": keep_fields,
+        "name_review_csv": str(args.name_review_csv),
+        "candidate_summary": _candidate_decision_summary(candidate_decisions, candidate_rules),
     }
 
-    clean_gpkg(args.input_gpkg, output_gpkg, keep_fields, report)
-    clean_shp(args.input_shp, output_shp, keep_fields, report)
+    clean_gpkg(args.input_gpkg, output_gpkg, keep_fields, report, drop_fids)
+    clean_shp(args.input_shp, output_shp, keep_fields, report, drop_fids)
     write_report(report_txt, report)
     return {"gpkg": output_gpkg, "shp": output_shp, "report": report_txt}
 
@@ -600,6 +987,7 @@ def _parse_args() -> argparse.Namespace:
     parser.add_argument("--output-gpkg", default=DEFAULT_OUTPUT_GPKG)
     parser.add_argument("--output-shp", default=DEFAULT_OUTPUT_SHP)
     parser.add_argument("--report-txt", default=DEFAULT_REPORT_TXT)
+    parser.add_argument("--name-review-csv", type=Path, default=DEFAULT_OUTPUT_DIR / DEFAULT_NAME_REVIEW_CSV)
     return parser.parse_args()
 
 
