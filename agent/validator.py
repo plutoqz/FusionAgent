@@ -27,10 +27,34 @@ class WorkflowValidator:
         inserted = 0
         output_tasks: List[WorkflowTask] = []
         step_map: Dict[int, int] = {}
+        active_task_ids = {
+            str(item).strip()
+            for item in plan.context.get("intent", {}).get("effective_activated_tasks", [])
+            if str(item).strip()
+        }
+        expected_task_id = self._expected_task_id(plan)
 
         for task in sorted(plan.tasks, key=lambda t: t.step):
             original_step = task.step
             normalized_deps = [step_map[d] for d in task.depends_on if d in step_map]
+
+            if expected_task_id is not None and active_task_ids and expected_task_id not in active_task_ids:
+                task.kg_validated = False
+                task.depends_on = normalized_deps
+                task.step = len(output_tasks) + 1
+                output_tasks.append(task)
+                step_map[original_step] = task.step
+                issues.append(
+                    ValidationIssue(
+                        code="SCENARIO_PROFILE_TASK_MISMATCH",
+                        message=(
+                            "Selected ScenarioProfile does not activate the requested task bundle: "
+                            f"{expected_task_id}"
+                        ),
+                        step=task.step,
+                    )
+                )
+                continue
 
             algo = self.kg_repo.get_algorithm(task.algorithm_id)
             if algo is None:
@@ -228,3 +252,10 @@ class WorkflowValidator:
         if not math.isfinite(numeric):
             return None
         return numeric
+
+    @staticmethod
+    def _expected_task_id(plan: WorkflowPlan) -> str | None:
+        job_type = str(plan.context.get("intent", {}).get("job_type") or "").strip()
+        if not job_type:
+            return None
+        return f"task.{job_type}.fusion"

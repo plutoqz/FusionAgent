@@ -330,7 +330,7 @@ Expected: file exists
 - [x] **Step 4: Commit**
 
 ```bash
-git add schemas/agent.py api/routers/runs_v2.py scripts/eval_harness.py tests/test_api_v2_integration.py tests/test_eval_harness.py README.md README.en.md docs/v2-operations.md docs/local-direct-run.md docs/superpowers/specs/2026-04-08-benchmark-followup-summary.md docs/superpowers/plans/2026-04-07-fusion-agent-v2-implementation.md docs/superpowers/plans/2026-04-08-benchmark-followup-and-runtime-alignment.md docs/superpowers/plans/2026-04-12-reproducible-micro-building-benchmark.md docs/superpowers/specs/2026-04-16-building-micro-alignment-result.json
+git add schemas/agent.py api/routers/runs_v2.py scripts/eval_harness.py tests/test_api_v2_integration.py tests/test_eval_harness.py README.md README.en.md docs/v2-operations.md docs/local-direct-run.md docs/superpowers/specs/2026-04-08-benchmark-followup-summary.md docs/superpowers/plans/done/2026-04-07-fusion-agent-v2-implementation.md docs/superpowers/plans/done/2026-04-08-benchmark-followup-and-runtime-alignment.md docs/superpowers/plans/done/2026-04-12-reproducible-micro-building-benchmark.md docs/superpowers/specs/2026-04-16-building-micro-alignment-result.json
 git commit -m "docs: harden benchmark evidence discipline"
 ```
 
@@ -353,7 +353,7 @@ git commit -m "docs: harden benchmark evidence discipline"
 
 ## Execution Handoff
 
-Plan complete and saved to `docs/superpowers/plans/2026-04-16-benchmark-evidence-discipline-closure.md`. Two execution options:
+Plan complete and saved to `docs/superpowers/plans/done/2026-04-16-benchmark-evidence-discipline-closure.md`. Two execution options:
 
 **1. Subagent-Driven (recommended)** - I dispatch a fresh subagent per task, review between tasks, fast iteration
 

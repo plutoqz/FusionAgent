@@ -791,7 +791,7 @@ Expected: `kg/bootstrap/neo4j_bootstrap.cypher` now contains water records.
 Append or update the Runtime Capability Evidence section in `docs/superpowers/specs/2026-04-20-evidence-ledger.md`:
 
 ```markdown
-| Phase F water uploaded vertical slice | `docs/superpowers/plans/2026-04-20-water-vertical-slice.md`, `tests/test_water_adapter.py`, `tests/test_api_v2_integration.py::test_v2_run_water_uploaded_integration` | Third task/data vertical slice beyond building/road, limited to uploaded polygon inputs | strong | Proves KG planning, executor dispatch, adapter output, v2 API artifact writeback, and bootstrap closure for `JobType.water`; does not claim task-driven auto water materialization |
+| Phase F water uploaded vertical slice | `docs/superpowers/plans/done/2026-04-20-water-vertical-slice.md`, `tests/test_water_adapter.py`, `tests/test_api_v2_integration.py::test_v2_run_water_uploaded_integration` | Third task/data vertical slice beyond building/road, limited to uploaded polygon inputs | strong | Proves KG planning, executor dispatch, adapter output, v2 API artifact writeback, and bootstrap closure for `JobType.water`; does not claim task-driven auto water materialization |
 ```
 
 - [x] **Step 5: Commit bootstrap/docs slice**
@@ -799,7 +799,7 @@ Append or update the Runtime Capability Evidence section in `docs/superpowers/sp
 Run:
 
 ```powershell
-git add kg/bootstrap/neo4j_bootstrap.cypher tests/test_neo4j_bootstrap.py docs/superpowers/specs/2026-04-20-evidence-ledger.md docs/superpowers/plans/2026-04-20-water-vertical-slice.md
+git add kg/bootstrap/neo4j_bootstrap.cypher tests/test_neo4j_bootstrap.py docs/superpowers/specs/2026-04-20-evidence-ledger.md docs/superpowers/plans/done/2026-04-20-water-vertical-slice.md
 git commit -m "docs: record water vertical slice evidence"
 ```
 

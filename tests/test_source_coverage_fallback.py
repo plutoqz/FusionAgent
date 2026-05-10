@@ -29,6 +29,52 @@ def test_building_catalog_falls_back_from_empty_microsoft_to_google(tmp_path):
     assert bundle.component_coverage["raw.google.building"].feature_count == 8
 
 
+def test_water_catalog_accepts_empty_reference_when_osm_has_coverage(tmp_path):
+    provider = _make_provider_with_component_counts(
+        tmp_path,
+        counts={
+            "raw.osm.water": 12,
+            "raw.local.water": 0,
+        },
+    )
+
+    bundle = provider.materialize_with_fallback(
+        source_id="catalog.flood.water",
+        request_bbox=(36.66, -1.44, 37.10, -1.16),
+        resolved_aoi=_make_resolved_aoi("Nairobi, Kenya", country_name="Kenya", country_code="ke"),
+        target_dir=tmp_path / "water-bundle",
+        target_crs="EPSG:32737",
+    )
+
+    assert bundle.source_id == "catalog.flood.water"
+    assert bundle.fallback_from is None
+    assert bundle.component_coverage["raw.osm.water"].feature_count == 12
+    assert bundle.component_coverage["raw.local.water"].feature_count == 0
+
+
+def test_poi_catalog_accepts_empty_reference_when_osm_has_coverage(tmp_path):
+    provider = _make_provider_with_component_counts(
+        tmp_path,
+        counts={
+            "raw.osm.poi": 25,
+            "raw.gns.poi": 0,
+        },
+    )
+
+    bundle = provider.materialize_with_fallback(
+        source_id="catalog.generic.poi",
+        request_bbox=(36.66, -1.44, 37.10, -1.16),
+        resolved_aoi=_make_resolved_aoi("Nairobi, Kenya", country_name="Kenya", country_code="ke"),
+        target_dir=tmp_path / "poi-bundle",
+        target_crs="EPSG:32737",
+    )
+
+    assert bundle.source_id == "catalog.generic.poi"
+    assert bundle.fallback_from is None
+    assert bundle.component_coverage["raw.osm.poi"].feature_count == 25
+    assert bundle.component_coverage["raw.gns.poi"].feature_count == 0
+
+
 def _make_provider_with_component_counts(tmp_path: Path, *, counts: dict[str, int]) -> LocalBundleCatalogProvider:
     return LocalBundleCatalogProvider(
         tmp_path,
@@ -58,12 +104,17 @@ class _FakeRawVectorSourceService:
         )
 
 
-def _make_resolved_aoi(query: str) -> ResolvedAOI:
+def _make_resolved_aoi(
+    query: str,
+    *,
+    country_name: str = "Benin",
+    country_code: str = "bj",
+) -> ResolvedAOI:
     return ResolvedAOI(
         query=query,
         display_name=query,
-        country_name="Benin",
-        country_code="bj",
+        country_name=country_name,
+        country_code=country_code,
         bbox=(2.48, 9.23, 2.77, 9.44),
         confidence=0.9,
         selection_reason="test",

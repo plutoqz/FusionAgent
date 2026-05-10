@@ -29,6 +29,15 @@ def test_evaluate_vector_artifact_reports_line_metrics(tmp_path):
     assert metrics["total_length_km"] > 0
 
 
+def test_evaluate_vector_artifact_marks_missing_required_fields_invalid(tmp_path):
+    shp_path = _write_polygon_fixture(tmp_path / "missing_fields.shp", count=1, crs="EPSG:32631")
+
+    metrics = evaluate_vector_artifact(shp_path, required_fields=["geometry", "confidence"])
+
+    assert metrics["artifact_validity"] is False
+    assert metrics["missing_fields"] == ["confidence"]
+
+
 def test_evaluate_agentic_run_reports_trace_and_self_evolution_metrics() -> None:
     result = evaluate_agentic_run(
         plan=_make_plan_with_kg_path(),

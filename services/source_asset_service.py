@@ -5,14 +5,18 @@ import gzip
 import hashlib
 import json
 import math
+import shutil
+import subprocess
 import time
 import urllib.parse
 import urllib.request
+import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Iterable, Optional
 
 import geopandas as gpd
+import httpx
 from shapely.geometry import shape
 
 from services.aoi_resolution_service import ResolvedAOI
@@ -414,13 +418,45 @@ class SourceAssetService:
             return layer_path, True
 
         asset_dir.mkdir(parents=True, exist_ok=True)
-        if not zip_path.exists():
-            self._download_file(bundle.download_url, zip_path)
-        safe_extract_zip(zip_path, extract_dir)
+        for attempt in range(1, self.http_max_retries + 1):
+            if extract_dir.exists():
+                shutil.rmtree(extract_dir, ignore_errors=True)
+            if not self._is_valid_geofabrik_zip(zip_path):
+                try:
+                    if zip_path.exists():
+                        zip_path.unlink()
+                except FileNotFoundError:
+                    pass
+                self._download_file(bundle.download_url, zip_path)
+            try:
+                safe_extract_zip(zip_path, extract_dir)
+                break
+            except zipfile.BadZipFile:
+                try:
+                    if zip_path.exists():
+                        zip_path.unlink()
+                except FileNotFoundError:
+                    pass
+                if attempt >= self.http_max_retries:
+                    raise
+                time.sleep(min(2 ** (attempt - 1), 3))
         marker_path.write_text("ready\n", encoding="utf-8")
         if not layer_path.exists():
             raise FileNotFoundError(f"Expected Geofabrik layer missing after extraction: {layer_path}")
         return layer_path, False
+
+    @staticmethod
+    def _is_valid_geofabrik_zip(zip_path: Path) -> bool:
+        if not zip_path.exists():
+            return False
+        if not zipfile.is_zipfile(zip_path):
+            return False
+        try:
+            with zipfile.ZipFile(zip_path, "r") as archive:
+                archive.namelist()
+        except zipfile.BadZipFile:
+            return False
+        return True
 
     def _resolve_msft_buildings(
         self,
@@ -572,17 +608,15 @@ class SourceAssetService:
 
     def _download_file(self, url: str, target_path: Path) -> None:
         target_path.parent.mkdir(parents=True, exist_ok=True)
-        request = urllib.request.Request(url, method="GET")
         temp_path = target_path.with_suffix(target_path.suffix + ".part")
+        scheme = urllib.parse.urlparse(url).scheme.lower()
         last_error: Exception | None = None
         for attempt in range(1, self.http_max_retries + 1):
             try:
-                with urllib.request.urlopen(request, timeout=120) as response, temp_path.open("wb") as handle:
-                    while True:
-                        chunk = response.read(1024 * 1024)
-                        if not chunk:
-                            break
-                        handle.write(chunk)
+                if scheme in {"http", "https"}:
+                    self._download_http_stream(url, temp_path)
+                else:
+                    self._download_via_urllib(url, temp_path)
                 temp_path.replace(target_path)
                 return
             except Exception as exc:  # noqa: BLE001
@@ -597,6 +631,49 @@ class SourceAssetService:
                 time.sleep(min(2 ** (attempt - 1), 3))
         if last_error is not None:
             raise last_error
+
+    @staticmethod
+    def _download_http_stream(url: str, target_path: Path) -> None:
+        try:
+            with httpx.stream("GET", url, timeout=120.0, follow_redirects=True) as response:
+                response.raise_for_status()
+                with target_path.open("wb") as handle:
+                    for chunk in response.iter_bytes(chunk_size=1024 * 1024):
+                        if chunk:
+                            handle.write(chunk)
+            return
+        except Exception:
+            pass
+
+        SourceAssetService._download_http_via_curl(url, target_path)
+
+    @staticmethod
+    def _download_via_urllib(url: str, target_path: Path) -> None:
+        request = urllib.request.Request(url, method="GET")
+        with urllib.request.urlopen(request, timeout=120) as response, target_path.open("wb") as handle:
+            while True:
+                chunk = response.read(1024 * 1024)
+                if not chunk:
+                    break
+                handle.write(chunk)
+
+    @staticmethod
+    def _download_http_via_curl(url: str, target_path: Path) -> None:
+        curl_bin = shutil.which("curl.exe") or shutil.which("curl")
+        if not curl_bin:
+            raise RuntimeError("curl binary is not available for HTTPS download fallback")
+        completed = subprocess.run(
+            [curl_bin, "-L", "--fail", "--output", str(target_path), url],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+            check=False,
+            text=True,
+        )
+        if completed.returncode != 0:
+            stderr = (completed.stderr or "").strip()
+            stdout = (completed.stdout or "").strip()
+            message = stderr or stdout or f"curl exited with code {completed.returncode}"
+            raise RuntimeError(message)
 
     def _read_text(self, url: str) -> str:
         return self._read_binary(url).decode("utf-8")

@@ -682,6 +682,16 @@ class Neo4jKGRepository(KGRepository):
         parameter_specs = {algo_id: self.get_parameter_specs(algo_id) for algo_id in sorted(algorithms)}
         required_types = {step.input_data_type for pattern in patterns for step in pattern.steps}
         output_types = {step.output_data_type for pattern in patterns for step in pattern.steps}
+        upstream_types = self._collect_upstream_transform_types(required_types)
+        for algo in self.list_algorithms():
+            if algo.task_type != "transform":
+                continue
+            if algo.output_type not in upstream_types:
+                continue
+            if not any(input_type in upstream_types for input_type in algo.input_types):
+                continue
+            algorithms.setdefault(algo.algo_id, algo)
+            parameter_specs.setdefault(algo.algo_id, self.get_parameter_specs(algo.algo_id))
         sources: Dict[str, DataSourceNode] = {}
         for required_type in required_types:
             for source in self.get_candidate_data_sources(job_type, disaster_type, required_type, limit=3):
@@ -707,3 +717,23 @@ class Neo4jKGRepository(KGRepository):
             scenario_profiles=self.get_scenario_profiles(disaster_type),
             disaster_type=disaster_type,
         )
+
+    def _collect_upstream_transform_types(self, target_types: set[str], max_depth: int = 3) -> set[str]:
+        discovered = set(target_types)
+        frontier = set(target_types)
+        for _ in range(max(0, max_depth)):
+            next_frontier: set[str] = set()
+            for data_type in self.list_data_types():
+                source_type = data_type.type_id
+                if source_type in discovered:
+                    continue
+                for destination in frontier:
+                    path = self.find_transform_path(source_type, destination, max_depth=max_depth)
+                    if len(path) >= 2:
+                        next_frontier.add(source_type)
+                        break
+            if not next_frontier:
+                break
+            discovered.update(next_frontier)
+            frontier = next_frontier
+        return discovered

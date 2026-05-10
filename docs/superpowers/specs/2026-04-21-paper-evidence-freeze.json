@@ -187,7 +187,7 @@
       "notes": [],
       "evidence": {},
       "evidence_paths": [
-        "docs/superpowers/plans/2026-04-20-full-replan-loop-v1.md",
+        "docs/superpowers/plans/done/2026-04-20-full-replan-loop-v1.md",
         "tests/test_agent_run_service_enhancements.py",
         "docs/superpowers/specs/2026-04-20-evaluation-contract-claim-lock.md"
       ],
@@ -239,7 +239,7 @@
       "notes": [],
       "evidence": {},
       "evidence_paths": [
-        "docs/superpowers/plans/2026-04-20-durable-learning-policy-hints.md",
+        "docs/superpowers/plans/done/2026-04-20-durable-learning-policy-hints.md",
         "tests/test_policy_engine.py",
         "tests/test_agent_run_service_enhancements.py",
         "docs/superpowers/specs/2026-04-20-evaluation-contract-claim-lock.md"
@@ -476,7 +476,7 @@
         "C7"
       ],
       "paths": [
-        "docs/superpowers/plans/2026-04-20-water-vertical-slice.md",
+        "docs/superpowers/plans/done/2026-04-20-water-vertical-slice.md",
         "tests/test_water_adapter.py",
         "docs/superpowers/specs/2026-04-20-evidence-ledger.md"
       ],

@@ -14,7 +14,7 @@
 
 ### New Files
 
-- `E:/vscode/fusionAgent/docs/superpowers/plans/2026-04-08-benchmark-followup-and-runtime-alignment.md`
+- `E:/vscode/fusionAgent/docs/superpowers/plans/done/2026-04-08-benchmark-followup-and-runtime-alignment.md`
 - `E:/vscode/fusionAgent/docs/superpowers/specs/2026-04-08-benchmark-followup-summary.md`
 - `E:/vscode/fusionAgent/docs/superpowers/specs/2026-04-08-building-micro-benchmark-result.json`
 

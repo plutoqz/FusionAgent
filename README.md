@@ -198,7 +198,7 @@ FusionAgent 当前明确区分：
 - `water` polygon fusion 垂直切片已接入 shared runtime backbone
 - planner、KG seed、executor dispatch、adapter 输出、artifact writeback 与 Neo4j bootstrap 已形成闭环
 - `water` 在 Phase 1 稳定化后已支持 `task_driven_auto`，并共享相同 evidence contract
-- 跟踪文档见 [2026-04-20-water-vertical-slice.md](./docs/superpowers/plans/2026-04-20-water-vertical-slice.md)
+- 跟踪文档见 [2026-04-20-water-vertical-slice.md](./docs/superpowers/plans/done/2026-04-20-water-vertical-slice.md)
 
 ### Phase F.1：POI Vertical Slice
 

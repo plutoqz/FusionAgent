@@ -22,7 +22,12 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     )
     parser.add_argument("--base-url", default="http://127.0.0.1:8000", help="API base URL.")
     parser.add_argument("--query", required=True, help="Natural-language region request.")
-    parser.add_argument("--job-type", choices=["building", "road"], default="building", help="Fusion job type.")
+    parser.add_argument(
+        "--job-type",
+        choices=["building", "road", "water", "poi"],
+        default="building",
+        help="Fusion job type.",
+    )
     parser.add_argument("--target-crs", default="", help="Optional explicit target CRS override.")
     parser.add_argument("--timeout", type=float, default=1200.0, help="Overall timeout in seconds.")
     parser.add_argument("--poll-interval", type=float, default=2.0, help="Polling interval in seconds.")
@@ -115,6 +120,11 @@ def run_smoke(
 
 
 def _print_summary(result: dict[str, Any]) -> None:
+    def _safe_text(value: object) -> str:
+        text = "" if value is None else str(value)
+        encoding = getattr(sys.stdout, "encoding", None) or "utf-8"
+        return text.encode(encoding, errors="backslashreplace").decode(encoding, errors="ignore")
+
     inspection = result["inspection"]
     audit_events = inspection.get("audit_events", [])
     aoi_event = _extract_event(audit_events, "aoi_resolved")
@@ -125,13 +135,13 @@ def _print_summary(result: dict[str, Any]) -> None:
     print(f"phase={result['status']['phase']}")
     if aoi_event is not None:
         details = aoi_event.get("details", {})
-        print(f"aoi={details.get('display_name')}")
-        print(f"aoi_country={details.get('country_code')}")
+        print(f"aoi={_safe_text(details.get('display_name'))}")
+        print(f"aoi_country={_safe_text(details.get('country_code'))}")
     if source_event is not None:
         details = source_event.get("details", {})
-        print(f"source_id={details.get('source_id')}")
-        print(f"source_mode={details.get('source_mode')}")
-    print(f"artifact_path={artifact.get('path')}")
+        print(f"source_id={_safe_text(details.get('source_id'))}")
+        print(f"source_mode={_safe_text(details.get('source_mode'))}")
+    print(f"artifact_path={_safe_text(artifact.get('path'))}")
 
 
 def main(argv: list[str] | None = None) -> int:

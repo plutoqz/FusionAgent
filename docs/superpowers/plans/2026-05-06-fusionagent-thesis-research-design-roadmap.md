@@ -844,7 +844,7 @@ Expected: PASS
 ### Task 6: Define The Handshake Between Research Plan And Capability Plan
 
 **Files:**
-- Modify: `docs/superpowers/plans/2026-05-06-fusionagent-capability-consolidation-roadmap.md`
+- Modify: `docs/superpowers/plans/done/2026-05-06-fusionagent-capability-consolidation-roadmap.md`
 - Create: `docs/superpowers/specs/2026-05-06-plan-handshake.md`
 - Test: `tests/test_plan_handshake.py`
 

@@ -61,6 +61,16 @@ def _write_frame(path: Path, frame: gpd.GeoDataFrame) -> None:
     frame.to_file(path)
 
 
+def _write_minimal_polygon_shapefile(path: Path, *, crs: str = "EPSG:4326", with_confidence: bool = False) -> Path:
+    data = {"fid": [1]}
+    if with_confidence:
+        data["confidence"] = [0.9]
+    frame = gpd.GeoDataFrame(data, geometry=[box(0, 0, 1, 1)], crs=crs)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    frame.to_file(path)
+    return path
+
+
 def _iso_now_minus(*, days: int = 0, hours: int = 0) -> str:
     return (datetime.now(timezone.utc) - timedelta(days=days, hours=hours)).isoformat()
 
@@ -88,6 +98,9 @@ def _build_plan(
             "intent": {
                 "job_type": "building",
                 "profile_source": "default_task",
+                "effective_scenario_profile_id": "scenario.default.task",
+                "effective_activated_tasks": ["task.building.fusion", "task.road.fusion", "task.poi.fusion", "task.vector.download"],
+                "effective_preferred_output_fields": ["geometry"],
                 "task_bundle": {
                     "bundle_id": "task_bundle.direct_request",
                     "requested_tasks": ["task.building.fusion"],
@@ -312,8 +325,9 @@ def test_agent_run_service_allows_water_task_driven_auto_and_records_task_inputs
     ref_shp = tmp_path / "resolved_ref_water.shp"
     fused_shp = tmp_path / "fused_water.shp"
     artifact_zip = tmp_path / "artifact_water.zip"
-    for path in [osm_shp, ref_shp, fused_shp]:
+    for path in [osm_shp, ref_shp]:
         path.write_text("dummy", encoding="utf-8")
+    _write_minimal_polygon_shapefile(fused_shp)
     artifact_zip.write_bytes(b"zip")
 
     plan = _build_water_task_driven_plan()
@@ -604,7 +618,7 @@ def test_agent_run_service_road_task_driven_auto_keeps_trajectory_seam_reserved(
     service = AgentRunService(base_dir=tmp_path / "runs")
     fused_shp = tmp_path / "fused_road_reserved.shp"
     artifact_zip = tmp_path / "artifact_road_reserved.zip"
-    fused_shp.write_text("dummy", encoding="utf-8")
+    _write_minimal_polygon_shapefile(fused_shp)
     artifact_zip.write_bytes(b"zip")
 
     plan = _build_road_task_driven_plan()
@@ -690,8 +704,9 @@ def test_agent_run_service_updates_status_and_records_feedback(tmp_path: Path, m
     ref_shp = tmp_path / "ref.shp"
     fused_shp = tmp_path / "fused.shp"
     artifact_zip = tmp_path / "artifact.zip"
-    for path in [osm_shp, ref_shp, fused_shp]:
+    for path in [osm_shp, ref_shp]:
         path.write_text("dummy", encoding="utf-8")
+    _write_minimal_polygon_shapefile(fused_shp)
 
     plan = WorkflowPlan(
         workflow_id="wf_service",
@@ -848,8 +863,9 @@ def test_run_status_records_planning_mode_and_profile_source(tmp_path: Path, mon
     ref_shp = tmp_path / "ref.shp"
     fused_shp = tmp_path / "fused.shp"
     artifact_zip = tmp_path / "artifact.zip"
-    for path in [osm_shp, ref_shp, fused_shp]:
+    for path in [osm_shp, ref_shp]:
         path.write_text("dummy", encoding="utf-8")
+    _write_minimal_polygon_shapefile(fused_shp)
     artifact_zip.write_bytes(b"zip")
 
     plan = _build_plan(workflow_id="wf_task_mode", revision=1)
@@ -879,10 +895,71 @@ def test_run_status_records_planning_mode_and_profile_source(tmp_path: Path, mon
     assert saved_plan.context["planning_mode"] == "task_driven"
     assert saved_plan.context["intent"]["profile_source"] == "default_task"
     assert saved_plan.context["intent"]["task_bundle"]["bundle_id"] == "task_bundle.direct_request"
+    assert saved_plan.context["intent"]["effective_scenario_profile_id"] == "scenario.default.task"
     durable_record = service.kg_repo.durable_learning_records[-1]
     assert durable_record.metadata["planning_mode"] == "task_driven"
     assert durable_record.metadata["profile_source"] == "default_task"
     assert durable_record.metadata["task_bundle"]["bundle_id"] == "task_bundle.direct_request"
+
+
+def test_agent_run_service_rejects_artifact_when_output_schema_required_fields_are_missing(tmp_path: Path, monkeypatch) -> None:
+    service = AgentRunService(base_dir=tmp_path / "runs")
+    osm_shp = tmp_path / "osm.shp"
+    ref_shp = tmp_path / "ref.shp"
+    fused_shp = tmp_path / "fused_missing_confidence.shp"
+    artifact_zip = tmp_path / "artifact.zip"
+    for path in [osm_shp, ref_shp]:
+        path.write_text("dummy", encoding="utf-8")
+    artifact_zip.write_bytes(b"zip")
+
+    frame = gpd.GeoDataFrame(
+        {"fid": [1]},
+        geometry=[box(0, 0, 1, 1)],
+        crs="EPSG:4326",
+    )
+    frame.to_file(fused_shp)
+
+    plan = _build_plan(workflow_id="wf_schema_gate", revision=1)
+    plan.context["retrieval"]["output_schema_policies"] = {
+        "dt.building.fused": {
+            "policy_id": "osp.building.fused.v1",
+            "output_type": "dt.building.fused",
+            "job_type": "building",
+            "retention_mode": "preserve_listed",
+            "required_fields": ["geometry", "confidence"],
+            "optional_fields": [],
+            "rename_hints": {},
+            "compatibility_basis": "field_names",
+        }
+    }
+
+    monkeypatch.setattr("services.agent_run_service.validate_zip_has_shapefile", lambda *_args, **_kwargs: osm_shp)
+    monkeypatch.setattr(service.planner, "create_plan", lambda **_kwargs: plan.model_copy(deep=True))
+    monkeypatch.setattr(service.validator, "validate_and_repair", lambda input_plan: input_plan)
+    monkeypatch.setattr(service.executor, "execute_plan", lambda **_kwargs: fused_shp)
+    monkeypatch.setattr("services.agent_run_service.zip_shapefile_bundle", lambda *_args, **_kwargs: artifact_zip)
+
+    status = service.create_run(
+        request=RunCreateRequest(
+            job_type=JobType.building,
+            trigger=RunTrigger(type=RunTriggerType.user_query, content="building"),
+            target_crs="EPSG:32643",
+            field_mapping={},
+            debug=False,
+        ),
+        osm_zip_name="osm.zip",
+        osm_zip_bytes=_write_dummy_zip(tmp_path / "osm.zip"),
+        ref_zip_name="ref.zip",
+        ref_zip_bytes=_write_dummy_zip(tmp_path / "ref.zip"),
+    )
+
+    latest = service.get_run(status.run_id)
+    assert latest is not None
+    assert latest.phase == RunPhase.failed
+    assert latest.error is not None
+    assert "Artifact schema validation failed" in latest.error
+    audit_events = service.get_audit_events(status.run_id)
+    assert any(event.kind == "run_failed" for event in audit_events)
 
 
 def test_agent_run_service_task_driven_auto_prepares_inputs_before_execution(tmp_path: Path, monkeypatch) -> None:
@@ -891,8 +968,9 @@ def test_agent_run_service_task_driven_auto_prepares_inputs_before_execution(tmp
     ref_shp = tmp_path / "resolved_ref.shp"
     fused_shp = tmp_path / "fused.shp"
     artifact_zip = tmp_path / "artifact.zip"
-    for path in [osm_shp, ref_shp, fused_shp]:
+    for path in [osm_shp, ref_shp]:
         path.write_text("dummy", encoding="utf-8")
+    _write_minimal_polygon_shapefile(fused_shp)
     artifact_zip.write_bytes(b"zip")
 
     plan = _build_plan(workflow_id="wf_auto_inputs", revision=1)
@@ -959,14 +1037,86 @@ def test_agent_run_service_task_driven_auto_prepares_inputs_before_execution(tmp
     assert resolved_event.details["ref_zip_name"] == "ref.zip"
 
 
+def test_task_driven_building_source_selection_prefers_bundle_compatible_catalog_source(tmp_path: Path) -> None:
+    service = AgentRunService(base_dir=tmp_path / "runs")
+    plan = _build_plan(workflow_id="wf_task_driven_catalog_only", revision=1)
+    plan.context["intent"]["request_input_strategy"] = "task_driven_auto"
+    plan.context["retrieval"]["data_sources"] = [
+        {
+            "source_id": "upload.bundle",
+            "supported_types": ["dt.building.bundle"],
+            "quality_score": 1.0,
+            "freshness_score": 1.0,
+            "source_name": "Uploaded Bundle",
+            "source_kind": "local_upload",
+            "quality_tier": "operator_provided",
+            "freshness_category": "request_bound",
+            "metadata": {
+                "selectable_now": True,
+                "runtime_status": "runtime_candidate",
+            },
+        },
+        {
+            "source_id": "raw.microsoft.building",
+            "supported_types": ["dt.raw.vector"],
+            "quality_score": 0.88,
+            "freshness_score": 0.59,
+            "source_name": "Microsoft Building Footprints",
+            "source_kind": "open_data",
+            "quality_tier": "provider_curated",
+            "freshness_category": "sample_snapshot",
+            "metadata": {
+                "selectable_now": True,
+                "runtime_status": "runtime_candidate",
+            },
+        },
+        {
+            "source_id": "catalog.earthquake.building",
+            "supported_types": ["dt.building.bundle"],
+            "quality_score": 0.88,
+            "freshness_score": 0.71,
+            "source_name": "Earthquake Building Bundle (OSM + Microsoft)",
+            "source_kind": "catalog",
+            "quality_tier": "curated",
+            "freshness_category": "event_snapshot",
+            "metadata": {
+                "selectable_now": True,
+                "runtime_status": "runtime_candidate",
+            },
+        },
+        {
+            "source_id": "catalog.flood.building",
+            "supported_types": ["dt.building.bundle"],
+            "quality_score": 0.86,
+            "freshness_score": 0.74,
+            "source_name": "Flood Building Bundle (OSM + Google)",
+            "source_kind": "catalog",
+            "quality_tier": "curated",
+            "freshness_category": "event_snapshot",
+            "metadata": {
+                "selectable_now": True,
+                "runtime_status": "runtime_candidate",
+            },
+        },
+    ]
+
+    decisions = service._build_planning_decisions(plan)
+    selected = next(item for item in decisions if item.decision_type == "data_source_selection")
+
+    assert selected.selected_id == "catalog.earthquake.building"
+    assert service._resolve_task_driven_source_id(plan) == "catalog.earthquake.building"
+    assert service._extract_alternative_sources(plan) == ["catalog.flood.building"]
+
+
 def test_agent_run_service_resolves_nairobi_before_input_materialization(tmp_path: Path, monkeypatch) -> None:
     service = AgentRunService(base_dir=tmp_path / "runs")
     osm_shp = tmp_path / "resolved_osm.shp"
     ref_shp = tmp_path / "resolved_ref.shp"
     fused_shp = tmp_path / "fused.shp"
     artifact_zip = tmp_path / "artifact.zip"
-    for path in [osm_shp, ref_shp, fused_shp]:
+    for path in [osm_shp, ref_shp]:
         path.write_text("dummy", encoding="utf-8")
+    _write_minimal_polygon_shapefile(fused_shp)
     artifact_zip.write_bytes(b"zip")
 
     plan = _build_plan(workflow_id="wf_nairobi_auto", revision=1)
@@ -1051,8 +1201,9 @@ def test_agent_run_service_auto_selects_target_crs_from_nairobi_aoi_when_omitted
     ref_shp = tmp_path / "resolved_ref_auto.shp"
     fused_shp = tmp_path / "fused_auto.shp"
     artifact_zip = tmp_path / "artifact_auto.zip"
-    for path in [osm_shp, ref_shp, fused_shp]:
+    for path in [osm_shp, ref_shp]:
         path.write_text("dummy", encoding="utf-8")
+    _write_minimal_polygon_shapefile(fused_shp)
     artifact_zip.write_bytes(b"zip")
 
     plan = _build_plan(workflow_id="wf_nairobi_auto_crs", revision=1)
@@ -1128,8 +1279,9 @@ def test_agent_run_service_preserves_explicit_target_crs_override(tmp_path: Path
     ref_shp = tmp_path / "resolved_ref_override.shp"
     fused_shp = tmp_path / "fused_override.shp"
     artifact_zip = tmp_path / "artifact_override.zip"
-    for path in [osm_shp, ref_shp, fused_shp]:
+    for path in [osm_shp, ref_shp]:
         path.write_text("dummy", encoding="utf-8")
+    _write_minimal_polygon_shapefile(fused_shp)
     artifact_zip.write_bytes(b"zip")
 
     plan = _build_plan(workflow_id="wf_nairobi_override_crs", revision=1)
@@ -1362,8 +1514,9 @@ def test_agent_run_service_falls_back_to_fresh_execution_when_clip_reuse_materia
     ref_shp = tmp_path / "ref.shp"
     fused_shp = tmp_path / "fresh-fused.shp"
     artifact_zip = tmp_path / "artifact.zip"
-    for path in [osm_shp, ref_shp, fused_shp]:
+    for path in [osm_shp, ref_shp]:
         path.write_text("dummy", encoding="utf-8")
+    _write_minimal_polygon_shapefile(fused_shp)
     artifact_zip.write_bytes(b"zip")
 
     # Deliberately lie in the registry bbox so candidate selection passes but clipping fails.
@@ -1448,8 +1601,9 @@ def test_agent_run_service_skips_stale_reuse_candidates_using_job_type_policy(tm
     ref_shp = tmp_path / "ref.shp"
     fused_shp = tmp_path / "fresh-road.shp"
     artifact_zip = tmp_path / "road-artifact.zip"
-    for path in [osm_shp, ref_shp, fused_shp]:
+    for path in [osm_shp, ref_shp]:
         path.write_text("dummy", encoding="utf-8")
+    _write_minimal_polygon_shapefile(fused_shp)
     artifact_zip.write_bytes(b"zip")
 
     source_artifact = _write_polygon_bundle_zip(
@@ -1534,8 +1688,9 @@ def test_agent_run_service_skips_reuse_candidates_with_unsafe_crs(tmp_path: Path
     ref_shp = tmp_path / "ref.shp"
     fused_shp = tmp_path / "fresh-crs.shp"
     artifact_zip = tmp_path / "artifact.zip"
-    for path in [osm_shp, ref_shp, fused_shp]:
+    for path in [osm_shp, ref_shp]:
         path.write_text("dummy", encoding="utf-8")
+    _write_minimal_polygon_shapefile(fused_shp)
     artifact_zip.write_bytes(b"zip")
 
     reusable_created_at = _iso_now_minus(hours=1)
@@ -1661,8 +1816,9 @@ def test_agent_run_service_replans_after_execution_failure(tmp_path: Path, monke
     ref_shp = tmp_path / "ref.shp"
     fused_shp = tmp_path / "fused.shp"
     artifact_zip = tmp_path / "artifact.zip"
-    for path in [osm_shp, ref_shp, fused_shp]:
+    for path in [osm_shp, ref_shp]:
         path.write_text("dummy", encoding="utf-8")
+    _write_minimal_polygon_shapefile(fused_shp)
 
     initial_plan = _build_plan(workflow_id="wf_initial", revision=1, include_reusable_artifacts=True)
     replanned_plan = _build_plan(workflow_id="wf_replanned", revision=2, algorithm_id="algo.fusion.building.safe")
@@ -1788,8 +1944,9 @@ def test_agent_run_service_copies_planning_telemetry_to_status_and_audit(tmp_pat
     ref_shp = tmp_path / "ref.shp"
     fused_shp = tmp_path / "fused.shp"
     artifact_zip = tmp_path / "artifact.zip"
-    for path in [osm_shp, ref_shp, fused_shp]:
+    for path in [osm_shp, ref_shp]:
         path.write_text("dummy", encoding="utf-8")
+    _write_minimal_polygon_shapefile(fused_shp)
     artifact_zip.write_bytes(b"zip")
 
     plan = _build_plan(workflow_id="wf_telemetry", revision=1)
@@ -1841,8 +1998,9 @@ def test_plan_created_audit_includes_selectable_and_reserved_capability_hints(tm
     ref_shp = tmp_path / "ref.shp"
     fused_shp = tmp_path / "fused.shp"
     artifact_zip = tmp_path / "artifact.zip"
-    for path in [osm_shp, ref_shp, fused_shp]:
+    for path in [osm_shp, ref_shp]:
         path.write_text("dummy", encoding="utf-8")
+    _write_minimal_polygon_shapefile(fused_shp)
     artifact_zip.write_bytes(b"zip")
 
     plan = _build_plan(workflow_id="wf_reserved_hints", revision=1)
@@ -2191,7 +2349,7 @@ def test_task_driven_replan_refreshes_inputs_when_source_changes(tmp_path: Path,
 
     fused_shp = tmp_path / "fused.shp"
     artifact_zip = tmp_path / "artifact.zip"
-    fused_shp.write_text("dummy", encoding="utf-8")
+    _write_minimal_polygon_shapefile(fused_shp)
     artifact_zip.write_bytes(b"zip")
 
     initial_plan = _build_plan(workflow_id="wf_initial", revision=1)

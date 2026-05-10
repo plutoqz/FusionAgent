@@ -104,6 +104,30 @@ def _build_water_sample(tmp_path: Path) -> tuple[Path, Path]:
     return osm_shp, ref_shp
 
 
+def _write_minimal_polygon_shapefile(path: Path) -> Path:
+    from shapely.geometry import Polygon
+
+    frame = geopandas.GeoDataFrame(
+        {"fid": [1]},
+        geometry=[Polygon([(0, 0), (0, 0.01), (0.01, 0.01), (0.01, 0)])],
+        crs="EPSG:4326",
+    )
+    frame.to_file(path)
+    return path
+
+
+def _write_minimal_point_shapefile(path: Path) -> Path:
+    from shapely.geometry import Point
+
+    frame = geopandas.GeoDataFrame(
+        {"fid": [1]},
+        geometry=[Point(36.8, -1.3)],
+        crs="EPSG:4326",
+    )
+    frame.to_file(path)
+    return path
+
+
 def _build_task_driven_plan() -> WorkflowPlan:
     return WorkflowPlan(
         workflow_id="wf_task_driven_auto",
@@ -430,8 +454,9 @@ def test_v2_run_water_task_driven_auto_integration(
     ref_shp = tmp_path / "resolved_ref_water.shp"
     fused_shp = tmp_path / "fused_water.shp"
     artifact_zip = tmp_path / "artifact_water.zip"
-    for path in [osm_shp, ref_shp, fused_shp]:
+    for path in [osm_shp, ref_shp]:
         path.write_text("dummy", encoding="utf-8")
+    _write_minimal_polygon_shapefile(fused_shp)
     artifact_zip.write_bytes(b"zip")
 
     prepared_dir = tmp_path / "prepared_water"
@@ -500,8 +525,9 @@ def test_v2_run_poi_task_driven_auto_integration(
     ref_shp = tmp_path / "resolved_ref_poi.shp"
     fused_shp = tmp_path / "fused_poi.shp"
     artifact_zip = tmp_path / "artifact_poi.zip"
-    for path in [osm_shp, ref_shp, fused_shp]:
+    for path in [osm_shp, ref_shp]:
         path.write_text("dummy", encoding="utf-8")
+    _write_minimal_point_shapefile(fused_shp)
     artifact_zip.write_bytes(b"zip")
 
     prepared_dir = tmp_path / "prepared_poi"
@@ -669,8 +695,9 @@ def test_v2_run_task_driven_auto_input_integration(
     ref_shp = tmp_path / "resolved_ref.shp"
     fused_shp = tmp_path / "fused.shp"
     artifact_zip = tmp_path / "artifact.zip"
-    for path in [osm_shp, ref_shp, fused_shp]:
+    for path in [osm_shp, ref_shp]:
         path.write_text("dummy", encoding="utf-8")
+    _write_minimal_polygon_shapefile(fused_shp)
     artifact_zip.write_bytes(b"zip")
 
     prepared_dir = tmp_path / "prepared"
@@ -775,8 +802,9 @@ def test_v2_run_task_driven_auto_nairobi_query_records_aoi_resolution(
     ref_shp = tmp_path / "resolved_ref.shp"
     fused_shp = tmp_path / "fused.shp"
     artifact_zip = tmp_path / "artifact.zip"
-    for path in [osm_shp, ref_shp, fused_shp]:
+    for path in [osm_shp, ref_shp]:
         path.write_text("dummy", encoding="utf-8")
+    _write_minimal_polygon_shapefile(fused_shp)
     artifact_zip.write_bytes(b"zip")
 
     plan = _build_task_driven_plan()
@@ -850,8 +878,9 @@ def test_v2_run_task_driven_auto_nairobi_query_uses_auto_target_crs_when_omitted
     ref_shp = tmp_path / "resolved_ref_auto.shp"
     fused_shp = tmp_path / "fused_auto.shp"
     artifact_zip = tmp_path / "artifact_auto.zip"
-    for path in [osm_shp, ref_shp, fused_shp]:
+    for path in [osm_shp, ref_shp]:
         path.write_text("dummy", encoding="utf-8")
+    _write_minimal_polygon_shapefile(fused_shp)
     artifact_zip.write_bytes(b"zip")
 
     plan = _build_task_driven_plan()

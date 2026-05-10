@@ -12,6 +12,7 @@ from utils.local_runtime import (
     find_missing_runtime_dependencies,
     read_local_dependency_config,
 )
+from scripts.start_local import _prepare_neo4j
 
 
 MANAGED_ENV_KEYS = [
@@ -155,3 +156,11 @@ def test_apply_runtime_entrypoint_defaults_is_noop_during_pytest(
 
     assert applied == {}
     assert "GEOFUSION_LLM_PROVIDER" not in applied
+
+
+def test_prepare_neo4j_memory_summary_marks_contract_as_passed() -> None:
+    summary = _prepare_neo4j({"GEOFUSION_KG_BACKEND": "memory"})
+
+    assert summary["isolation_mode"] == "memory"
+    assert summary["kg_contract_ok"] is True
+    assert summary["missing_seed_labels"] == {}

@@ -239,7 +239,40 @@ class AOIResolutionService:
                 candidates=ordered,
             )
 
+        nested_specific = AOIResolutionService._select_nested_specific_candidate(ordered)
+        if nested_specific is not None:
+            return ResolvedAOI(
+                query=query,
+                display_name=nested_specific.display_name,
+                country_name=nested_specific.country_name,
+                country_code=nested_specific.country_code,
+                bbox=nested_specific.bbox,
+                confidence=nested_specific.confidence,
+                selection_reason="nested_specificity_preference",
+                candidates=ordered,
+            )
+
         raise AOIAmbiguityError(query, ordered)
+
+    @staticmethod
+    def _select_nested_specific_candidate(
+        candidates: tuple[ResolvedAOICandidate, ...],
+    ) -> ResolvedAOICandidate | None:
+        if len(candidates) < 2:
+            return None
+        for candidate in candidates:
+            if candidate.admin_level != "city":
+                continue
+            for other in candidates:
+                if other is candidate:
+                    continue
+                if candidate.country_code != other.country_code:
+                    continue
+                if candidate.display_name.strip().casefold() != other.display_name.strip().casefold():
+                    continue
+                if _bbox_contains(other.bbox, candidate.bbox) and candidate.bbox != other.bbox:
+                    return candidate
+        return None
 
 
 def _extract_bbox(raw: dict[str, Any]) -> tuple[float, float, float, float]:
@@ -281,3 +314,12 @@ def _as_float(value: Any, default: float | None) -> float | None:
         return float(value)
     except Exception:  # noqa: BLE001
         return default
+
+
+def _bbox_contains(outer: tuple[float, float, float, float], inner: tuple[float, float, float, float]) -> bool:
+    return (
+        outer[0] <= inner[0]
+        and outer[1] <= inner[1]
+        and outer[2] >= inner[2]
+        and outer[3] >= inner[3]
+    )

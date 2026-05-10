@@ -62,3 +62,29 @@ def test_smoke_agentic_region_omits_target_crs_when_not_provided() -> None:
     assert payload["trigger_content"] == "fuse building and road data for Nairobi, Kenya"
     assert payload["input_strategy"] == "task_driven_auto"
     assert "target_crs" not in payload
+
+
+def test_smoke_agentic_region_accepts_water_and_poi_job_types() -> None:
+    water = parse_args(
+        [
+            "--base-url",
+            "http://127.0.0.1:8010",
+            "--query",
+            "need water polygons for Nairobi, Kenya",
+            "--job-type",
+            "water",
+        ]
+    )
+    poi = parse_args(
+        [
+            "--base-url",
+            "http://127.0.0.1:8010",
+            "--query",
+            "show hospitals in Nairobi, Kenya",
+            "--job-type",
+            "poi",
+        ]
+    )
+
+    assert build_create_run_form(water)["job_type"] == "water"
+    assert build_create_run_form(poi)["job_type"] == "poi"

@@ -1,0 +1,3713 @@
+{
+  "run": {
+    "run_id": "be933f08aa694d6c9eb4c73ed100aa52",
+    "job_type": "building",
+    "trigger": {
+      "type": "user_query",
+      "content": "need building data for Gitega, Burundi",
+      "disaster_type": null,
+      "spatial_extent": null,
+      "temporal_start": null,
+      "temporal_end": null
+    },
+    "phase": "succeeded",
+    "progress": 100,
+    "target_crs": "EPSG:32735",
+    "debug": false,
+    "error": null,
+    "log_path": "runs\\be933f08aa694d6c9eb4c73ed100aa52\\logs\\run.log",
+    "plan_path": "runs\\be933f08aa694d6c9eb4c73ed100aa52\\plan.json",
+    "validation_path": "runs\\be933f08aa694d6c9eb4c73ed100aa52\\validation.json",
+    "audit_path": "runs\\be933f08aa694d6c9eb4c73ed100aa52\\audit.jsonl",
+    "artifact": {
+      "filename": "building_fusion_result.zip",
+      "path": "runs\\be933f08aa694d6c9eb4c73ed100aa52\\output\\building_fusion_result.zip",
+      "size_bytes": 11331147
+    },
+    "decision_records": [
+      {
+        "decision_type": "pattern_selection",
+        "selected_id": "wp.flood.building.default",
+        "selected_score": 0.5854000000000001,
+        "rationale": "Selected 'wp.flood.building.default' with score=0.585400 using deterministic weighted scoring. Major factors: success_rate/accuracy (strongest), data_quality and stability, then freshness and reuse, then speed and cost. Durable-learning hints were applied as bounded learning_adjustment values. Runner-up 'wp.earthquake.building.safe' score=0.543000; winner had higher weighted sum on the major factors.",
+        "candidates": [
+          {
+            "candidate_id": "wp.flood.building.default",
+            "score": 0.5854000000000001,
+            "reason": "weighted_sum=0.58*(success/accuracy=0.880) + 0.20*(data_quality=0.000) + 0.12*(stability=0.000) + 0.05*(freshness=0.500) + 0.03*(reuse=0.500) + 0.01*(speed=0.500) + 0.01*(cost=0.500) + learning_adjustment=0.025",
+            "evidence": {
+              "metrics": {
+                "success_rate": 0.88,
+                "accuracy": 0.88,
+                "data_quality": null,
+                "stability": null,
+                "freshness": null,
+                "reuse": null,
+                "speed": null,
+                "cost": null,
+                "learning_adjustment": 0.025
+              },
+              "meta": {
+                "durable_learning_summary": {
+                  "entity_kind": "pattern",
+                  "entity_id": "wp.flood.building.default",
+                  "job_type": "building",
+                  "disaster_type": null,
+                  "total_runs": 8,
+                  "success_count": 5,
+                  "failure_count": 3,
+                  "repaired_count": 0,
+                  "last_run_at": "2026-04-27T08:32:29.954373+00:00",
+                  "last_failure_reason": "NameError: name 'JobType' is not defined"
+                }
+              }
+            }
+          },
+          {
+            "candidate_id": "wp.earthquake.building.safe",
+            "score": 0.5429999999999999,
+            "reason": "weighted_sum=0.58*(success/accuracy=0.850) + 0.20*(data_quality=0.000) + 0.12*(stability=0.000) + 0.05*(freshness=0.500) + 0.03*(reuse=0.500) + 0.01*(speed=0.500) + 0.01*(cost=0.500) + learning_adjustment=0.000",
+            "evidence": {
+              "metrics": {
+                "success_rate": 0.85,
+                "accuracy": 0.85,
+                "data_quality": null,
+                "stability": null,
+                "freshness": null,
+                "reuse": null,
+                "speed": null,
+                "cost": null,
+                "learning_adjustment": null
+              },
+              "meta": {}
+            }
+          },
+          {
+            "candidate_id": "wp.earthquake.building.default",
+            "score": 0.5378,
+            "reason": "weighted_sum=0.58*(success/accuracy=0.910) + 0.20*(data_quality=0.000) + 0.12*(stability=0.000) + 0.05*(freshness=0.500) + 0.03*(reuse=0.500) + 0.01*(speed=0.500) + 0.01*(cost=0.500) + learning_adjustment=-0.040",
+            "evidence": {
+              "metrics": {
+                "success_rate": 0.91,
+                "accuracy": 0.91,
+                "data_quality": null,
+                "stability": null,
+                "freshness": null,
+                "reuse": null,
+                "speed": null,
+                "cost": null,
+                "learning_adjustment": -0.04
+              },
+              "meta": {
+                "durable_learning_summary": {
+                  "entity_kind": "pattern",
+                  "entity_id": "wp.earthquake.building.default",
+                  "job_type": "building",
+                  "disaster_type": null,
+                  "total_runs": 10,
+                  "success_count": 3,
+                  "failure_count": 7,
+                  "repaired_count": 0,
+                  "last_run_at": "2026-05-10T09:38:16.344073+00:00",
+                  "last_failure_reason": "FeatureError: Could not add feature to layer at index 6770: Attempt to write non-polygon (LINESTRING) geometry to POLYGON type shapefile."
+                }
+              }
+            }
+          }
+        ],
+        "policy_version": "v2",
+        "evidence_refs": [
+          "context.retrieval.candidate_patterns",
+          "policy:deterministic_weighted_sum",
+          "context.retrieval.durable_learning_summaries.patterns"
+        ]
+      },
+      {
+        "decision_type": "data_source_selection",
+        "selected_id": "catalog.earthquake.building",
+        "selected_score": 0.23650000000000004,
+        "rationale": "Selected 'catalog.earthquake.building' with score=0.236500 using deterministic weighted scoring. Major factors: success_rate/accuracy (strongest), data_quality and stability, then freshness and reuse, then speed and cost. Runner-up 'catalog.flood.building' score=0.234000; winner had higher weighted sum on the major factors.",
+        "candidates": [
+          {
+            "candidate_id": "catalog.earthquake.building",
+            "score": 0.23650000000000004,
+            "reason": "weighted_sum=0.58*(success/accuracy=0.000) + 0.20*(data_quality=0.880) + 0.12*(stability=0.000) + 0.05*(freshness=0.710) + 0.03*(reuse=0.500) + 0.01*(speed=0.500) + 0.01*(cost=0.500) + learning_adjustment=0.000",
+            "evidence": {
+              "metrics": {
+                "success_rate": null,
+                "accuracy": null,
+                "data_quality": 0.88,
+                "stability": null,
+                "freshness": 0.71,
+                "reuse": null,
+                "speed": null,
+                "cost": null,
+                "learning_adjustment": null
+              },
+              "meta": {
+                "source_name": "Earthquake Building Bundle (OSM + Microsoft)",
+                "source_kind": "catalog",
+                "quality_tier": "curated",
+                "freshness_category": "event_snapshot",
+                "supported_types": [
+                  "dt.building.bundle"
+                ]
+              }
+            }
+          },
+          {
+            "candidate_id": "catalog.flood.building",
+            "score": 0.23400000000000004,
+            "reason": "weighted_sum=0.58*(success/accuracy=0.000) + 0.20*(data_quality=0.860) + 0.12*(stability=0.000) + 0.05*(freshness=0.740) + 0.03*(reuse=0.500) + 0.01*(speed=0.500) + 0.01*(cost=0.500) + learning_adjustment=0.000",
+            "evidence": {
+              "metrics": {
+                "success_rate": null,
+                "accuracy": null,
+                "data_quality": 0.86,
+                "stability": null,
+                "freshness": 0.74,
+                "reuse": null,
+                "speed": null,
+                "cost": null,
+                "learning_adjustment": null
+              },
+              "meta": {
+                "source_name": "Flood Building Bundle (OSM + Google)",
+                "source_kind": "catalog",
+                "quality_tier": "curated",
+                "freshness_category": "event_snapshot",
+                "supported_types": [
+                  "dt.building.bundle"
+                ]
+              }
+            }
+          }
+        ],
+        "policy_version": "v2",
+        "evidence_refs": [
+          "context.retrieval.data_sources",
+          "policy:deterministic_weighted_sum"
+        ]
+      },
+      {
+        "decision_type": "artifact_reuse_selection",
+        "selected_id": "4eeae468919b4f9a8e8a6e7f29cea760",
+        "selected_score": 0.187,
+        "rationale": "Selected '4eeae468919b4f9a8e8a6e7f29cea760' with score=0.187000 using deterministic weighted scoring. Major factors: success_rate/accuracy (strongest), data_quality and stability, then freshness and reuse, then speed and cost. Runner-up '86d224bb483b4078b8526c4be24373c2' score=0.187000; winner had higher weighted sum on the major factors.",
+        "candidates": [
+          {
+            "candidate_id": "4eeae468919b4f9a8e8a6e7f29cea760",
+            "score": 0.187,
+            "reason": "weighted_sum=0.58*(success/accuracy=0.000) + 0.20*(data_quality=0.000) + 0.12*(stability=0.850) + 0.05*(freshness=0.900) + 0.03*(reuse=1.000) + 0.01*(speed=0.500) + 0.01*(cost=0.500) + learning_adjustment=0.000",
+            "evidence": {
+              "metrics": {
+                "success_rate": null,
+                "accuracy": null,
+                "data_quality": null,
+                "stability": 0.85,
+                "freshness": 0.9,
+                "reuse": 1.0,
+                "speed": null,
+                "cost": null,
+                "learning_adjustment": null
+              },
+              "meta": {
+                "artifact_path": "runs\\4eeae468919b4f9a8e8a6e7f29cea760\\output\\building_fusion_result.zip",
+                "created_at": "2026-05-09T11:13:38.888573+00:00",
+                "bbox": [
+                  29.817351,
+                  -3.646572,
+                  29.931113,
+                  -3.412421
+                ],
+                "output_data_type": "dt.building.fused",
+                "target_crs": "EPSG:32643",
+                "schema_policy_id": "osp.building.fused.v1",
+                "compatibility_basis": "field_names"
+              }
+            }
+          },
+          {
+            "candidate_id": "86d224bb483b4078b8526c4be24373c2",
+            "score": 0.187,
+            "reason": "weighted_sum=0.58*(success/accuracy=0.000) + 0.20*(data_quality=0.000) + 0.12*(stability=0.850) + 0.05*(freshness=0.900) + 0.03*(reuse=1.000) + 0.01*(speed=0.500) + 0.01*(cost=0.500) + learning_adjustment=0.000",
+            "evidence": {
+              "metrics": {
+                "success_rate": null,
+                "accuracy": null,
+                "data_quality": null,
+                "stability": 0.85,
+                "freshness": 0.9,
+                "reuse": 1.0,
+                "speed": null,
+                "cost": null,
+                "learning_adjustment": null
+              },
+              "meta": {
+                "artifact_path": "runs\\86d224bb483b4078b8526c4be24373c2\\output\\building_fusion_result.zip",
+                "created_at": "2026-05-10T09:38:16.377984+00:00",
+                "bbox": null,
+                "output_data_type": "dt.building.fused",
+                "target_crs": "EPSG:32735",
+                "schema_policy_id": "osp.building.fused.v1",
+                "compatibility_basis": "field_names"
+              }
+            }
+          },
+          {
+            "candidate_id": "d6308d853c2d4481bbbfac3fd2b020af",
+            "score": 0.187,
+            "reason": "weighted_sum=0.58*(success/accuracy=0.000) + 0.20*(data_quality=0.000) + 0.12*(stability=0.850) + 0.05*(freshness=0.900) + 0.03*(reuse=1.000) + 0.01*(speed=0.500) + 0.01*(cost=0.500) + learning_adjustment=0.000",
+            "evidence": {
+              "metrics": {
+                "success_rate": null,
+                "accuracy": null,
+                "data_quality": null,
+                "stability": 0.85,
+                "freshness": 0.9,
+                "reuse": 1.0,
+                "speed": null,
+                "cost": null,
+                "learning_adjustment": null
+              },
+              "meta": {
+                "artifact_path": "runs\\d6308d853c2d4481bbbfac3fd2b020af\\output\\building_fusion_result.zip",
+                "created_at": "2026-05-09T11:28:03.146105+00:00",
+                "bbox": [
+                  29.817351,
+                  -3.646572,
+                  29.931113,
+                  -3.412421
+                ],
+                "output_data_type": "dt.building.fused",
+                "target_crs": "EPSG:32643",
+                "schema_policy_id": "osp.building.fused.v1",
+                "compatibility_basis": "field_names"
+              }
+            }
+          },
+          {
+            "candidate_id": "fresh_execution",
+            "score": 0.131,
+            "reason": "weighted_sum=0.58*(success/accuracy=0.000) + 0.20*(data_quality=0.000) + 0.12*(stability=0.800) + 0.05*(freshness=0.500) + 0.03*(reuse=0.000) + 0.01*(speed=0.500) + 0.01*(cost=0.500) + learning_adjustment=0.000",
+            "evidence": {
+              "metrics": {
+                "success_rate": null,
+                "accuracy": null,
+                "data_quality": null,
+                "stability": 0.8,
+                "freshness": 0.5,
+                "reuse": 0.0,
+                "speed": null,
+                "cost": null,
+                "learning_adjustment": null
+              },
+              "meta": {
+                "selection_source": "fallback_when_no_safe_reuse_candidate"
+              }
+            }
+          }
+        ],
+        "policy_version": "v2",
+        "evidence_refs": [
+          "context.retrieval.reusable_artifacts",
+          "policy:deterministic_weighted_sum"
+        ]
+      },
+      {
+        "decision_type": "parameter_strategy",
+        "selected_id": "kg_defaults_only",
+        "selected_score": 0.547,
+        "rationale": "Selected 'kg_defaults_only' with score=0.547000 using deterministic weighted scoring. Major factors: success_rate/accuracy (strongest), data_quality and stability, then freshness and reuse, then speed and cost.",
+        "candidates": [
+          {
+            "candidate_id": "kg_defaults_only",
+            "score": 0.547,
+            "reason": "weighted_sum=0.58*(success/accuracy=0.650) + 0.20*(data_quality=0.000) + 0.12*(stability=1.000) + 0.05*(freshness=0.500) + 0.03*(reuse=0.500) + 0.01*(speed=0.500) + 0.01*(cost=0.500) + learning_adjustment=0.000",
+            "evidence": {
+              "metrics": {
+                "success_rate": 1.0,
+                "accuracy": null,
+                "data_quality": null,
+                "stability": 1.0,
+                "freshness": null,
+                "reuse": null,
+                "speed": null,
+                "cost": null,
+                "learning_adjustment": null
+              },
+              "meta": {
+                "steps": [
+                  {
+                    "step": 1,
+                    "algorithm_id": "algo.fusion.building.v1",
+                    "parameter_keys": [
+                      "match_similarity_threshold",
+                      "one_to_one_min_area_similarity",
+                      "one_to_one_min_overlap_similarity",
+                      "one_to_one_min_shape_similarity"
+                    ],
+                    "overridden_keys": []
+                  }
+                ],
+                "overridden_keys": [],
+                "total_specs": 4,
+                "total_bound": 4
+              }
+            }
+          }
+        ],
+        "policy_version": "v2",
+        "evidence_refs": [
+          "plan.tasks.input.parameters",
+          "kg.parameter_specs",
+          "policy:deterministic_weighted_sum"
+        ]
+      },
+      {
+        "decision_type": "output_schema_policy",
+        "selected_id": "osp.building.fused.v1",
+        "selected_score": 0.16999999999999998,
+        "rationale": "Selected 'osp.building.fused.v1' with score=0.170000 using deterministic weighted scoring. Major factors: success_rate/accuracy (strongest), data_quality and stability, then freshness and reuse, then speed and cost.",
+        "candidates": [
+          {
+            "candidate_id": "osp.building.fused.v1",
+            "score": 0.16999999999999998,
+            "reason": "weighted_sum=0.58*(success/accuracy=0.000) + 0.20*(data_quality=0.000) + 0.12*(stability=1.000) + 0.05*(freshness=0.500) + 0.03*(reuse=0.500) + 0.01*(speed=0.500) + 0.01*(cost=0.500) + learning_adjustment=0.000",
+            "evidence": {
+              "metrics": {
+                "success_rate": null,
+                "accuracy": null,
+                "data_quality": null,
+                "stability": 1.0,
+                "freshness": null,
+                "reuse": null,
+                "speed": null,
+                "cost": null,
+                "learning_adjustment": null
+              },
+              "meta": {
+                "output_type": "dt.building.fused",
+                "retention_mode": "preserve_listed",
+                "required_fields": [
+                  "geometry"
+                ],
+                "optional_fields": [
+                  "osm_id",
+                  "fclass",
+                  "name",
+                  "type",
+                  "longitude",
+                  "latitude",
+                  "area_in_me",
+                  "confidence"
+                ],
+                "rename_hints": {
+                  "geometry_x": "geometry",
+                  "geometry_y": "geometry"
+                },
+                "compatibility_basis": "field_names"
+              }
+            }
+          }
+        ],
+        "policy_version": "v2",
+        "evidence_refs": [
+          "context.retrieval.output_schema_policies",
+          "policy:deterministic_weighted_sum"
+        ]
+      }
+    ],
+    "artifact_reuse": {
+      "reused": false,
+      "artifact_id": null,
+      "freshness_status": "candidate_available",
+      "rationale": "Planner found 3 reusable artifact candidate(s) (top=86d224bb483b4078b8526c4be24373c2). Runtime will attempt reuse before falling back to fresh execution."
+    },
+    "repair_records": [],
+    "current_step": 1,
+    "attempt_no": 0,
+    "healing_summary": {
+      "attempted_repairs": 0,
+      "successful_repairs": 0,
+      "failed_repairs": 0,
+      "last_reason_code": null,
+      "strategies": []
+    },
+    "failure_summary": null,
+    "planning_telemetry": {
+      "elapsed_ms": 35326,
+      "context_size_bytes": 56567,
+      "provider": "open_a_i_compatible",
+      "model": "gpt-5-mini-2025-08-07",
+      "llm_usage": {
+        "prompt_tokens": 16184,
+        "completion_tokens": 2776,
+        "total_tokens": 18960
+      }
+    },
+    "plan_revision": 1,
+    "event_count": 15,
+    "last_event": {
+      "timestamp": "2026-05-10T10:45:48.326858+00:00",
+      "kind": "run_succeeded",
+      "phase": "succeeded",
+      "message": "Run completed successfully and artifact is ready.",
+      "plan_revision": 1,
+      "progress": 100,
+      "attempt_no": 0,
+      "current_step": 1,
+      "details": {}
+    },
+    "checkpoint": {
+      "stage": "completed",
+      "plan_revision": 1,
+      "current_step": 1,
+      "attempt_no": 0
+    },
+    "created_at": "2026-05-10T10:42:40.169814+00:00",
+    "updated_at": "2026-05-10T10:45:48.326858+00:00",
+    "started_at": "2026-05-10T10:42:55.582256+00:00",
+    "finished_at": "2026-05-10T10:45:48.326252+00:00"
+  },
+  "plan": {
+    "workflow_id": "wf_wp.earthquake.building.default_6fe1a1ce",
+    "trigger": {
+      "type": "user_query",
+      "content": "need building data for Gitega, Burundi",
+      "disaster_type": null,
+      "spatial_extent": null,
+      "temporal_start": null,
+      "temporal_end": null
+    },
+    "context": {
+      "intent": {
+        "job_type": "building",
+        "trigger": {
+          "type": "user_query",
+          "content": "need building data for Gitega, Burundi",
+          "disaster_type": null,
+          "spatial_extent": null,
+          "temporal_start": null,
+          "temporal_end": null
+        },
+        "location_query": "Gitega, Burundi",
+        "resolved_aoi": {
+          "query": "Gitega, Burundi",
+          "display_name": "Gitega, Burundi",
+          "country_name": "Burundi",
+          "country_code": "bi",
+          "bbox": [
+            29.7649718,
+            -3.5884953,
+            30.0849718,
+            -3.2684953
+          ],
+          "confidence": 0.5101626528522342,
+          "selection_reason": "nested_specificity_preference",
+          "candidates": [
+            {
+              "query": "Gitega, Burundi",
+              "display_name": "Gitega, Burundi",
+              "country_name": "Burundi",
+              "country_code": "bi",
+              "admin_level": "city",
+              "bbox": [
+                29.7649718,
+                -3.5884953,
+                30.0849718,
+                -3.2684953
+              ],
+              "source": "geocoder",
+              "confidence": 0.5101626528522342,
+              "raw": {
+                "place_id": 38676915,
+                "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+                "osm_type": "node",
+                "osm_id": 301351574,
+                "lat": "-3.4284953",
+                "lon": "29.9249718",
+                "category": "place",
+                "type": "city",
+                "place_rank": 15,
+                "importance": 0.5101626528522342,
+                "addresstype": "city",
+                "name": "Gitega",
+                "display_name": "Gitega, Burundi",
+                "address": {
+                  "city": "Gitega",
+                  "state": "Gitega",
+                  "ISO3166-2-lvl4": "BI-GI",
+                  "country": "Burundi",
+                  "country_code": "bi"
+                },
+                "boundingbox": [
+                  "-3.5884953",
+                  "-3.2684953",
+                  "29.7649718",
+                  "30.0849718"
+                ]
+              }
+            },
+            {
+              "query": "Gitega, Burundi",
+              "display_name": "Gitega, Burundi",
+              "country_name": "Burundi",
+              "country_code": "bi",
+              "admin_level": "state",
+              "bbox": [
+                29.7178599,
+                -3.8447564,
+                30.1040215,
+                -3.0565759
+              ],
+              "source": "geocoder",
+              "confidence": 0.455650219131522,
+              "raw": {
+                "place_id": 38707012,
+                "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+                "osm_type": "relation",
+                "osm_id": 1700324,
+                "lat": "-3.5382336",
+                "lon": "29.9107010",
+                "category": "boundary",
+                "type": "administrative",
+                "place_rank": 8,
+                "importance": 0.455650219131522,
+                "addresstype": "state",
+                "name": "Gitega",
+                "display_name": "Gitega, Burundi",
+                "address": {
+                  "state": "Gitega",
+                  "ISO3166-2-lvl4": "BI-GI",
+                  "country": "Burundi",
+                  "country_code": "bi"
+                },
+                "boundingbox": [
+                  "-3.8447564",
+                  "-3.0565759",
+                  "29.7178599",
+                  "30.1040215"
+                ]
+              }
+            }
+          ]
+        },
+        "expected_output_type": "dt.building.fused",
+        "spatial_extent": null,
+        "temporal_start": null,
+        "temporal_end": null,
+        "planning_mode": "task_driven",
+        "profile_source": "direct_task",
+        "task_bundle": {
+          "bundle_id": "task_bundle.direct_request",
+          "requested_tasks": [
+            "task.building.fusion"
+          ],
+          "requires_disaster_profile": false
+        },
+        "effective_scenario_profile_id": "scenario.default.task",
+        "effective_activated_tasks": [
+          "task.building.fusion",
+          "task.road.fusion",
+          "task.poi.fusion",
+          "task.vector.download"
+        ],
+        "effective_preferred_output_fields": [
+          "geometry"
+        ],
+        "effective_qos_priority": {
+          "accuracy": 0.35,
+          "stability": 0.25,
+          "freshness": 0.2,
+          "speed": 0.2
+        },
+        "request_input_strategy": "task_driven_auto"
+      },
+      "retrieval": {
+        "candidate_patterns": [
+          {
+            "pattern_id": "wp.earthquake.building.default",
+            "pattern_name": "Earthquake Building Fusion",
+            "job_type": "building",
+            "disaster_types": [
+              "earthquake"
+            ],
+            "success_rate": 0.91,
+            "metadata": {
+              "version": "1.0.0",
+              "runtime_status": "runtime_candidate",
+              "scenario_focus": "earthquake",
+              "strategy": "throughput"
+            },
+            "steps": [
+              {
+                "order": 1,
+                "name": "building_fusion_earthquake",
+                "algorithm_id": "algo.fusion.building.v1",
+                "input_data_type": "dt.building.bundle",
+                "output_data_type": "dt.building.fused",
+                "data_source_id": "upload.bundle",
+                "depends_on": [],
+                "is_optional": false
+              }
+            ]
+          },
+          {
+            "pattern_id": "wp.flood.building.default",
+            "pattern_name": "Flood Building Fusion",
+            "job_type": "building",
+            "disaster_types": [
+              "flood",
+              "typhoon",
+              "generic"
+            ],
+            "success_rate": 0.88,
+            "metadata": {
+              "version": "1.0.0",
+              "runtime_status": "runtime_candidate",
+              "scenario_focus": "flood",
+              "strategy": "throughput"
+            },
+            "steps": [
+              {
+                "order": 1,
+                "name": "building_fusion",
+                "algorithm_id": "algo.fusion.building.v1",
+                "input_data_type": "dt.building.bundle",
+                "output_data_type": "dt.building.fused",
+                "data_source_id": "upload.bundle",
+                "depends_on": [],
+                "is_optional": false
+              }
+            ]
+          },
+          {
+            "pattern_id": "wp.earthquake.building.safe",
+            "pattern_name": "Earthquake Building Fusion Safe Route",
+            "job_type": "building",
+            "disaster_types": [
+              "earthquake"
+            ],
+            "success_rate": 0.85,
+            "metadata": {
+              "version": "1.0.0",
+              "runtime_status": "runtime_candidate",
+              "scenario_focus": "earthquake",
+              "mode": "safe",
+              "strategy": "conservative"
+            },
+            "steps": [
+              {
+                "order": 1,
+                "name": "building_fusion_safe",
+                "algorithm_id": "algo.fusion.building.safe",
+                "input_data_type": "dt.building.bundle",
+                "output_data_type": "dt.building.fused",
+                "data_source_id": "upload.bundle",
+                "depends_on": [],
+                "is_optional": false
+              }
+            ]
+          }
+        ],
+        "algorithms": {
+          "algo.fusion.building.v1": {
+            "algo_id": "algo.fusion.building.v1",
+            "algo_name": "Building Fusion Legacy",
+            "input_types": [
+              "dt.building.bundle"
+            ],
+            "output_type": "dt.building.fused",
+            "task_type": "building_fusion",
+            "tool_ref": "adapters.building_adapter:run_building_fusion",
+            "success_rate": 0.92,
+            "accuracy_score": 0.89,
+            "stability_score": 0.74,
+            "usage_mode": "throughput",
+            "metadata": {
+              "selection_profile": "primary",
+              "evidence_basis": "legacy_default_runtime"
+            },
+            "alternatives": [
+              "algo.fusion.building.safe"
+            ]
+          },
+          "algo.fusion.building.safe": {
+            "algo_id": "algo.fusion.building.safe",
+            "algo_name": "Building Fusion Safe Fallback",
+            "input_types": [
+              "dt.building.bundle"
+            ],
+            "output_type": "dt.building.fused",
+            "task_type": "building_fusion",
+            "tool_ref": "adapters.building_adapter:run_building_fusion",
+            "success_rate": 0.75,
+            "accuracy_score": 0.79,
+            "stability_score": 0.91,
+            "usage_mode": "conservative",
+            "metadata": {
+              "selection_profile": "fallback",
+              "evidence_basis": "conservative_thresholds"
+            },
+            "alternatives": [
+              "algo.fusion.building.v1"
+            ]
+          },
+          "algo.transform.raw_to_building_bundle": {
+            "algo_id": "algo.transform.raw_to_building_bundle",
+            "algo_name": "Raw Vector to Building Bundle",
+            "input_types": [
+              "dt.raw.vector"
+            ],
+            "output_type": "dt.building.bundle",
+            "task_type": "transform",
+            "tool_ref": "builtin:transform",
+            "success_rate": 0.98,
+            "accuracy_score": 0.97,
+            "stability_score": 0.96,
+            "usage_mode": "normalization",
+            "metadata": {
+              "selection_profile": "preparation",
+              "evidence_basis": "deterministic_transform"
+            },
+            "alternatives": []
+          }
+        },
+        "task_nodes": [
+          {
+            "task_id": "task.building.fusion",
+            "task_name": "Building Fusion",
+            "category": "fusion",
+            "description": "Fuse multiple building vector sources into one output."
+          },
+          {
+            "task_id": "task.clip.raster.by_tile",
+            "task_name": "Raster Clip By Tile",
+            "category": "runtime",
+            "description": "Reserved tiled raster clipping task for future building enrichment workflows."
+          },
+          {
+            "task_id": "task.enrich.building.height.reserved",
+            "task_name": "Enrich Building Height",
+            "category": "enrichment",
+            "description": "Reserved seam for future raster-backed building height enrichment."
+          },
+          {
+            "task_id": "task.merge.building.tiles.reserved",
+            "task_name": "Merge Building Tiles",
+            "category": "runtime",
+            "description": "Reserved seam for future tile-level building artifact stitching."
+          },
+          {
+            "task_id": "task.partition.aoi",
+            "task_name": "AOI Partition",
+            "category": "runtime",
+            "description": "Reserved AOI partition task for future tiled execution workflows."
+          },
+          {
+            "task_id": "task.poi.fusion",
+            "task_name": "POI Fusion",
+            "category": "fusion",
+            "description": "Fuse multiple point-of-interest sources into one output."
+          },
+          {
+            "task_id": "task.road.fusion",
+            "task_name": "Road Fusion",
+            "category": "fusion",
+            "description": "Fuse multiple road vector sources into one output."
+          },
+          {
+            "task_id": "task.trajectory_to_road",
+            "task_name": "Trajectory To Road Candidate",
+            "category": "transform",
+            "description": "Reserved seam for future trajectory-to-road candidate pretransform before road fusion."
+          },
+          {
+            "task_id": "task.vector.download",
+            "task_name": "Vector Data Download",
+            "category": "acquisition",
+            "description": "Acquire vector data required by downstream fusion or enrichment tasks."
+          },
+          {
+            "task_id": "task.water.fusion",
+            "task_name": "Water Fusion",
+            "category": "fusion",
+            "description": "Fuse multiple water polygon sources into one output."
+          }
+        ],
+        "scenario_profiles": [
+          {
+            "profile_id": "scenario.default.task",
+            "profile_name": "Default Direct Task Profile",
+            "disaster_types": [
+              "generic"
+            ],
+            "activated_tasks": [
+              "task.building.fusion",
+              "task.road.fusion",
+              "task.poi.fusion",
+              "task.vector.download"
+            ],
+            "preferred_output_fields": [
+              "geometry"
+            ],
+            "qos_priority": {
+              "accuracy": 0.35,
+              "stability": 0.25,
+              "freshness": 0.2,
+              "speed": 0.2
+            },
+            "metadata": {
+              "entry_mode": "task_driven"
+            }
+          },
+          {
+            "profile_id": "scenario.earthquake.default",
+            "profile_name": "Earthquake Default Scenario",
+            "disaster_types": [
+              "earthquake"
+            ],
+            "activated_tasks": [
+              "task.building.fusion",
+              "task.road.fusion"
+            ],
+            "preferred_output_fields": [
+              "geometry",
+              "confidence",
+              "timestamp"
+            ],
+            "qos_priority": {
+              "accuracy": 0.4,
+              "stability": 0.3,
+              "freshness": 0.15,
+              "speed": 0.15
+            },
+            "metadata": {
+              "entry_mode": "scenario_driven"
+            }
+          },
+          {
+            "profile_id": "scenario.flood.default",
+            "profile_name": "Flood Default Scenario",
+            "disaster_types": [
+              "flood"
+            ],
+            "activated_tasks": [
+              "task.building.fusion",
+              "task.road.fusion"
+            ],
+            "preferred_output_fields": [
+              "geometry",
+              "confidence",
+              "timestamp"
+            ],
+            "qos_priority": {
+              "accuracy": 0.35,
+              "stability": 0.25,
+              "freshness": 0.25,
+              "speed": 0.15
+            },
+            "metadata": {
+              "entry_mode": "scenario_driven"
+            }
+          },
+          {
+            "profile_id": "scenario.typhoon.default",
+            "profile_name": "Typhoon Default Scenario",
+            "disaster_types": [
+              "typhoon"
+            ],
+            "activated_tasks": [
+              "task.building.fusion",
+              "task.road.fusion"
+            ],
+            "preferred_output_fields": [
+              "geometry",
+              "confidence",
+              "timestamp"
+            ],
+            "qos_priority": {
+              "accuracy": 0.3,
+              "stability": 0.25,
+              "freshness": 0.3,
+              "speed": 0.15
+            },
+            "metadata": {
+              "entry_mode": "scenario_driven"
+            }
+          }
+        ],
+        "parameter_specs": {
+          "algo.fusion.building.safe": [
+            {
+              "spec_id": "ps.algo.fusion.building.safe.match_similarity_threshold",
+              "algo_id": "algo.fusion.building.safe",
+              "key": "match_similarity_threshold",
+              "label": "Match Similarity Threshold",
+              "param_type": "float",
+              "default": 0.4,
+              "min_value": 0.0,
+              "max_value": 1.0,
+              "unit": "ratio",
+              "description": "Conservative match threshold for safe mode.",
+              "required": false,
+              "choices": null,
+              "tunable": true,
+              "optimization_tags": [
+                "precision",
+                "stability",
+                "matching"
+              ],
+              "order": 10
+            },
+            {
+              "spec_id": "ps.algo.fusion.building.safe.one_to_one_min_area_similarity",
+              "algo_id": "algo.fusion.building.safe",
+              "key": "one_to_one_min_area_similarity",
+              "label": "One-to-One Min Area Similarity",
+              "param_type": "float",
+              "default": 0.45,
+              "min_value": 0.0,
+              "max_value": 1.0,
+              "unit": "ratio",
+              "description": "Conservative area similarity threshold for safe mode.",
+              "required": false,
+              "choices": null,
+              "tunable": true,
+              "optimization_tags": [
+                "precision",
+                "stability",
+                "shape_consistency"
+              ],
+              "order": 20
+            },
+            {
+              "spec_id": "ps.algo.fusion.building.safe.one_to_one_min_shape_similarity",
+              "algo_id": "algo.fusion.building.safe",
+              "key": "one_to_one_min_shape_similarity",
+              "label": "One-to-One Min Shape Similarity",
+              "param_type": "float",
+              "default": 0.45,
+              "min_value": 0.0,
+              "max_value": 1.0,
+              "unit": "ratio",
+              "description": "Conservative shape similarity threshold for safe mode.",
+              "required": false,
+              "choices": null,
+              "tunable": true,
+              "optimization_tags": [
+                "precision",
+                "stability",
+                "shape_consistency"
+              ],
+              "order": 30
+            },
+            {
+              "spec_id": "ps.algo.fusion.building.safe.one_to_one_min_overlap_similarity",
+              "algo_id": "algo.fusion.building.safe",
+              "key": "one_to_one_min_overlap_similarity",
+              "label": "One-to-One Min Overlap Similarity",
+              "param_type": "float",
+              "default": 0.4,
+              "min_value": 0.0,
+              "max_value": 1.0,
+              "unit": "ratio",
+              "description": "Conservative one-to-one overlap threshold for safe mode.",
+              "required": false,
+              "choices": null,
+              "tunable": true,
+              "optimization_tags": [
+                "precision",
+                "stability",
+                "overlap_consistency"
+              ],
+              "order": 40
+            }
+          ],
+          "algo.fusion.building.v1": [
+            {
+              "spec_id": "ps.algo.fusion.building.v1.match_similarity_threshold",
+              "algo_id": "algo.fusion.building.v1",
+              "key": "match_similarity_threshold",
+              "label": "Match Similarity Threshold",
+              "param_type": "float",
+              "default": 0.3,
+              "min_value": 0.0,
+              "max_value": 1.0,
+              "unit": "ratio",
+              "description": "Pairs with similarity > this value are treated as matched (legacy label=1).",
+              "required": false,
+              "choices": null,
+              "tunable": true,
+              "optimization_tags": [
+                "precision",
+                "recall",
+                "matching"
+              ],
+              "order": 10
+            },
+            {
+              "spec_id": "ps.algo.fusion.building.v1.one_to_one_min_area_similarity",
+              "algo_id": "algo.fusion.building.v1",
+              "key": "one_to_one_min_area_similarity",
+              "label": "One-to-One Min Area Similarity",
+              "param_type": "float",
+              "default": 0.3,
+              "min_value": 0.0,
+              "max_value": 1.0,
+              "unit": "ratio",
+              "description": "For 1:1 matches, sim_area must be >= this value to fuse as one-to-one.",
+              "required": false,
+              "choices": null,
+              "tunable": true,
+              "optimization_tags": [
+                "precision",
+                "stability",
+                "shape_consistency"
+              ],
+              "order": 20
+            },
+            {
+              "spec_id": "ps.algo.fusion.building.v1.one_to_one_min_shape_similarity",
+              "algo_id": "algo.fusion.building.v1",
+              "key": "one_to_one_min_shape_similarity",
+              "label": "One-to-One Min Shape Similarity",
+              "param_type": "float",
+              "default": 0.3,
+              "min_value": 0.0,
+              "max_value": 1.0,
+              "unit": "ratio",
+              "description": "For 1:1 matches, sim_shape must be >= this value to fuse as one-to-one.",
+              "required": false,
+              "choices": null,
+              "tunable": true,
+              "optimization_tags": [
+                "precision",
+                "stability",
+                "shape_consistency"
+              ],
+              "order": 30
+            },
+            {
+              "spec_id": "ps.algo.fusion.building.v1.one_to_one_min_overlap_similarity",
+              "algo_id": "algo.fusion.building.v1",
+              "key": "one_to_one_min_overlap_similarity",
+              "label": "One-to-One Min Overlap Similarity",
+              "param_type": "float",
+              "default": 0.3,
+              "min_value": 0.0,
+              "max_value": 1.0,
+              "unit": "ratio",
+              "description": "For 1:1 matches, sim_overlap must be >= this value to fuse as one-to-one.",
+              "required": false,
+              "choices": null,
+              "tunable": true,
+              "optimization_tags": [
+                "precision",
+                "recall",
+                "overlap_consistency"
+              ],
+              "order": 40
+            }
+          ],
+          "algo.transform.raw_to_building_bundle": []
+        },
+        "data_sources": [
+          {
+            "source_id": "upload.bundle",
+            "source_name": "Uploaded Bundle",
+            "supported_types": [
+              "dt.building.bundle",
+              "dt.building.source_set",
+              "dt.building.normalized_set",
+              "dt.building.presence_validated_set",
+              "dt.building.fused_raw",
+              "dt.building.conflict_optimized",
+              "dt.raster.building_presence",
+              "dt.raster.building_height",
+              "dt.road.network",
+              "dt.road.bundle",
+              "dt.water.line_bundle",
+              "dt.trajectory.raw",
+              "dt.road.candidate",
+              "dt.water.bundle",
+              "dt.poi.bundle",
+              "dt.raw.vector"
+            ],
+            "disaster_types": [
+              "generic",
+              "flood",
+              "earthquake",
+              "typhoon"
+            ],
+            "quality_score": 1.0,
+            "source_kind": "local_upload",
+            "quality_tier": "operator_provided",
+            "freshness_category": "request_bound",
+            "freshness_hours": 0,
+            "freshness_score": 1.0,
+            "supported_job_types": [
+              "building",
+              "road",
+              "water",
+              "poi"
+            ],
+            "supported_geometry_types": [
+              "mixed",
+              "polygon",
+              "line",
+              "point"
+            ],
+            "metadata": {
+              "kind": "local",
+              "provider_family": "manual_upload",
+              "bundle_strategy": "operator_supplied",
+              "reserved_transform_inputs": [
+                "dt.trajectory.raw",
+                "dt.road.candidate"
+              ],
+              "source_form": "mixed",
+              "runtime_status": "runtime_candidate",
+              "selectable_now": true
+            }
+          },
+          {
+            "source_id": "raw.microsoft.building",
+            "source_name": "Microsoft Building Footprints",
+            "supported_types": [
+              "dt.raw.vector"
+            ],
+            "disaster_types": [
+              "generic",
+              "flood",
+              "earthquake",
+              "typhoon"
+            ],
+            "quality_score": 0.88,
+            "source_kind": "open_data",
+            "quality_tier": "provider_curated",
+            "freshness_category": "sample_snapshot",
+            "freshness_hours": 240,
+            "freshness_score": 0.59,
+            "supported_job_types": [
+              "building"
+            ],
+            "supported_geometry_types": [
+              "polygon"
+            ],
+            "metadata": {
+              "kind": "raw_vector",
+              "provider_family": "microsoft",
+              "theme": "building",
+              "source_role": "reference_candidate",
+              "path_hint": "Data/buildings/Microsoft",
+              "supports_aoi": true,
+              "materialization_scope": "country_tiles_then_clip",
+              "materialization_provider": "microsoft_global_buildings",
+              "source_form": "vector",
+              "runtime_status": "runtime_candidate",
+              "selectable_now": true,
+              "supports_tiling": true,
+              "height_fields": [
+                "height"
+              ],
+              "height_semantics": "estimated_height",
+              "coverage_scope": "country_tiles"
+            }
+          },
+          {
+            "source_id": "catalog.earthquake.building",
+            "source_name": "Earthquake Building Bundle (OSM + Microsoft)",
+            "supported_types": [
+              "dt.building.bundle"
+            ],
+            "disaster_types": [
+              "earthquake",
+              "generic"
+            ],
+            "quality_score": 0.88,
+            "source_kind": "catalog",
+            "quality_tier": "curated",
+            "freshness_category": "event_snapshot",
+            "freshness_hours": 96,
+            "freshness_score": 0.71,
+            "supported_job_types": [
+              "building"
+            ],
+            "supported_geometry_types": [
+              "polygon"
+            ],
+            "metadata": {
+              "kind": "catalog",
+              "priority": 2,
+              "provider_family": "local_bundle_catalog",
+              "bundle_strategy": "osm_ref_pair",
+              "component_source_ids": [
+                "raw.osm.building",
+                "raw.microsoft.building"
+              ],
+              "path_hints": [
+                "Data/buildings/OSM",
+                "Data/buildings/Microsoft"
+              ],
+              "supports_aoi": true,
+              "materialization_scope": "resolved_aoi_clip",
+              "source_form": "bundle",
+              "runtime_status": "runtime_candidate",
+              "selectable_now": true,
+              "supports_tiling": true,
+              "height_semantics": "confidence_only"
+            }
+          },
+          {
+            "source_id": "raw.google.building",
+            "source_name": "Google Open Buildings",
+            "supported_types": [
+              "dt.raw.vector"
+            ],
+            "disaster_types": [
+              "generic",
+              "flood",
+              "earthquake",
+              "typhoon"
+            ],
+            "quality_score": 0.87,
+            "source_kind": "open_data",
+            "quality_tier": "foundation_model_extracted",
+            "freshness_category": "sample_snapshot",
+            "freshness_hours": 240,
+            "freshness_score": 0.58,
+            "supported_job_types": [
+              "building"
+            ],
+            "supported_geometry_types": [
+              "polygon"
+            ],
+            "metadata": {
+              "kind": "raw_vector",
+              "provider_family": "google",
+              "theme": "building",
+              "source_role": "reference_candidate",
+              "path_hint": "Data/buildings/Google",
+              "supports_aoi": false,
+              "materialization_scope": "local_only",
+              "source_form": "vector",
+              "runtime_status": "runtime_candidate",
+              "selectable_now": true,
+              "supports_tiling": true,
+              "height_semantics": "unknown",
+              "coverage_scope": "local_only"
+            }
+          },
+          {
+            "source_id": "catalog.flood.building",
+            "source_name": "Flood Building Bundle (OSM + Google)",
+            "supported_types": [
+              "dt.building.bundle"
+            ],
+            "disaster_types": [
+              "flood",
+              "generic"
+            ],
+            "quality_score": 0.86,
+            "source_kind": "catalog",
+            "quality_tier": "curated",
+            "freshness_category": "event_snapshot",
+            "freshness_hours": 72,
+            "freshness_score": 0.74,
+            "supported_job_types": [
+              "building"
+            ],
+            "supported_geometry_types": [
+              "polygon"
+            ],
+            "metadata": {
+              "kind": "catalog",
+              "priority": 2,
+              "provider_family": "local_bundle_catalog",
+              "bundle_strategy": "osm_ref_pair",
+              "component_source_ids": [
+                "raw.osm.building",
+                "raw.google.building"
+              ],
+              "path_hints": [
+                "Data/buildings/OSM",
+                "Data/buildings/Google"
+              ],
+              "supports_aoi": true,
+              "materialization_scope": "resolved_aoi_clip",
+              "source_form": "bundle",
+              "runtime_status": "runtime_candidate",
+              "selectable_now": true,
+              "supports_tiling": true,
+              "height_semantics": "confidence_only"
+            }
+          },
+          {
+            "source_id": "raw.osm.building",
+            "source_name": "OSM Building Footprints",
+            "supported_types": [
+              "dt.raw.vector"
+            ],
+            "disaster_types": [
+              "generic",
+              "flood",
+              "earthquake",
+              "typhoon"
+            ],
+            "quality_score": 0.84,
+            "source_kind": "open_data",
+            "quality_tier": "community_curated",
+            "freshness_category": "sample_snapshot",
+            "freshness_hours": 168,
+            "freshness_score": 0.62,
+            "supported_job_types": [
+              "building"
+            ],
+            "supported_geometry_types": [
+              "polygon"
+            ],
+            "metadata": {
+              "kind": "raw_vector",
+              "provider_family": "osm",
+              "theme": "building",
+              "source_role": "osm_primary",
+              "path_hint": "Data/buildings/OSM",
+              "supports_aoi": true,
+              "materialization_scope": "country_bundle_then_clip",
+              "materialization_provider": "geofabrik",
+              "source_form": "vector",
+              "runtime_status": "runtime_candidate",
+              "selectable_now": true,
+              "supports_tiling": true,
+              "height_semantics": "unknown",
+              "coverage_scope": "country_bundle"
+            }
+          },
+          {
+            "source_id": "raw.gns.poi",
+            "source_name": "GNS Place Names",
+            "supported_types": [
+              "dt.raw.vector"
+            ],
+            "disaster_types": [
+              "generic",
+              "flood",
+              "earthquake",
+              "typhoon"
+            ],
+            "quality_score": 0.81,
+            "source_kind": "open_data",
+            "quality_tier": "gazetteer",
+            "freshness_category": "sample_snapshot",
+            "freshness_hours": 720,
+            "freshness_score": 0.42,
+            "supported_job_types": [
+              "building",
+              "road",
+              "poi"
+            ],
+            "supported_geometry_types": [
+              "point"
+            ],
+            "metadata": {
+              "kind": "raw_vector",
+              "provider_family": "gns",
+              "theme": "poi",
+              "source_role": "reference_candidate",
+              "path_hint": "Data/POI/**/GNS.shp",
+              "supports_aoi": false,
+              "materialization_scope": "local_only",
+              "source_form": "vector",
+              "runtime_status": "runtime_candidate",
+              "selectable_now": true
+            }
+          },
+          {
+            "source_id": "raw.osm.water",
+            "source_name": "OSM Water Features",
+            "supported_types": [
+              "dt.raw.vector"
+            ],
+            "disaster_types": [
+              "generic",
+              "flood",
+              "earthquake",
+              "typhoon"
+            ],
+            "quality_score": 0.8,
+            "source_kind": "open_data",
+            "quality_tier": "community_curated",
+            "freshness_category": "sample_snapshot",
+            "freshness_hours": 168,
+            "freshness_score": 0.61,
+            "supported_job_types": [
+              "building",
+              "road",
+              "water"
+            ],
+            "supported_geometry_types": [
+              "polygon",
+              "line"
+            ],
+            "metadata": {
+              "kind": "raw_vector",
+              "provider_family": "osm",
+              "theme": "water",
+              "source_role": "environmental_context",
+              "path_hint": "Data/burundi-260127-free.shp/gis_osm_water_a_free_1.shp",
+              "supports_aoi": true,
+              "materialization_scope": "country_bundle_then_clip",
+              "materialization_provider": "geofabrik",
+              "source_form": "vector",
+              "runtime_status": "runtime_candidate",
+              "selectable_now": true
+            }
+          },
+          {
+            "source_id": "raw.local.water",
+            "source_name": "Local Open Water Sample",
+            "supported_types": [
+              "dt.raw.vector"
+            ],
+            "disaster_types": [
+              "generic",
+              "flood",
+              "earthquake",
+              "typhoon"
+            ],
+            "quality_score": 0.79,
+            "source_kind": "open_data",
+            "quality_tier": "local_sample",
+            "freshness_category": "sample_snapshot",
+            "freshness_hours": 240,
+            "freshness_score": 0.55,
+            "supported_job_types": [
+              "building",
+              "road",
+              "water"
+            ],
+            "supported_geometry_types": [
+              "polygon"
+            ],
+            "metadata": {
+              "kind": "raw_vector",
+              "provider_family": "local_open_data",
+              "theme": "water",
+              "source_role": "reference_candidate",
+              "path_hint": "Data/water",
+              "supports_aoi": false,
+              "materialization_scope": "local_only",
+              "source_form": "vector",
+              "runtime_status": "runtime_candidate",
+              "selectable_now": true
+            }
+          },
+          {
+            "source_id": "raw.osm.poi",
+            "source_name": "OSM Points Of Interest",
+            "supported_types": [
+              "dt.raw.vector"
+            ],
+            "disaster_types": [
+              "generic",
+              "flood",
+              "earthquake",
+              "typhoon"
+            ],
+            "quality_score": 0.78,
+            "source_kind": "open_data",
+            "quality_tier": "community_curated",
+            "freshness_category": "sample_snapshot",
+            "freshness_hours": 168,
+            "freshness_score": 0.6,
+            "supported_job_types": [
+              "building",
+              "road",
+              "poi"
+            ],
+            "supported_geometry_types": [
+              "point"
+            ],
+            "metadata": {
+              "kind": "raw_vector",
+              "provider_family": "osm",
+              "theme": "poi",
+              "source_role": "osm_primary",
+              "path_hint": "Data/burundi-260127-free.shp/gis_osm_pois_free_1.shp",
+              "supports_aoi": true,
+              "materialization_scope": "country_bundle_then_clip",
+              "materialization_provider": "geofabrik",
+              "source_form": "vector",
+              "runtime_status": "runtime_candidate",
+              "selectable_now": true
+            }
+          },
+          {
+            "source_id": "raw.rh.poi",
+            "source_name": "RH Points Of Interest",
+            "supported_types": [
+              "dt.raw.vector"
+            ],
+            "disaster_types": [
+              "generic",
+              "flood",
+              "earthquake",
+              "typhoon"
+            ],
+            "quality_score": 0.76,
+            "source_kind": "open_data",
+            "quality_tier": "local_sample",
+            "freshness_category": "sample_snapshot",
+            "freshness_hours": 720,
+            "freshness_score": 0.4,
+            "supported_job_types": [
+              "building",
+              "road",
+              "poi"
+            ],
+            "supported_geometry_types": [
+              "point"
+            ],
+            "metadata": {
+              "kind": "raw_vector",
+              "provider_family": "rh",
+              "theme": "poi",
+              "source_role": "reference_candidate",
+              "path_hint": "Data/POI/**/RH.shp",
+              "supports_aoi": false,
+              "materialization_scope": "local_only",
+              "source_form": "vector",
+              "runtime_status": "runtime_candidate",
+              "selectable_now": true
+            }
+          },
+          {
+            "source_id": "raw.openbuildingmap.building",
+            "source_name": "OpenBuildingMap Building Footprints",
+            "supported_types": [
+              "dt.raw.vector"
+            ],
+            "disaster_types": [
+              "generic",
+              "flood",
+              "earthquake",
+              "typhoon"
+            ],
+            "quality_score": 0.9,
+            "source_kind": "open_data",
+            "quality_tier": "provider_curated",
+            "freshness_category": "sample_snapshot",
+            "freshness_hours": 240,
+            "freshness_score": 0.6,
+            "supported_job_types": [
+              "building"
+            ],
+            "supported_geometry_types": [
+              "polygon"
+            ],
+            "metadata": {
+              "kind": "raw_vector",
+              "provider_family": "openbuildingmap",
+              "theme": "building",
+              "source_role": "reference_candidate",
+              "path_hint": "Benin/final_shp/openbuildingmap/openbuildingmap_benin.shp",
+              "supports_aoi": false,
+              "materialization_scope": "reservation_only",
+              "source_form": "vector",
+              "runtime_status": "reservation_only",
+              "selectable_now": false,
+              "supports_tiling": true,
+              "height_fields": [
+                "height"
+              ],
+              "height_semantics": "estimated_height",
+              "coverage_scope": "national_clip"
+            }
+          },
+          {
+            "source_id": "raw.local.microsoft.building",
+            "source_name": "Local Microsoft Building Footprints",
+            "supported_types": [
+              "dt.raw.vector"
+            ],
+            "disaster_types": [
+              "generic",
+              "flood",
+              "earthquake",
+              "typhoon"
+            ],
+            "quality_score": 0.89,
+            "source_kind": "open_data",
+            "quality_tier": "local_curated",
+            "freshness_category": "sample_snapshot",
+            "freshness_hours": 240,
+            "freshness_score": 0.58,
+            "supported_job_types": [
+              "building"
+            ],
+            "supported_geometry_types": [
+              "polygon"
+            ],
+            "metadata": {
+              "kind": "raw_vector",
+              "provider_family": "microsoft_local",
+              "theme": "building",
+              "source_role": "reference_candidate",
+              "path_hint": "Benin/final_shp/microsoft_global_ml_building_footprints/Microsoft_benin.shp",
+              "supports_aoi": false,
+              "materialization_scope": "reservation_only",
+              "source_form": "vector",
+              "runtime_status": "reservation_only",
+              "selectable_now": false,
+              "supports_tiling": true,
+              "height_fields": [
+                "height"
+              ],
+              "height_semantics": "estimated_height",
+              "coverage_scope": "national_clip"
+            }
+          },
+          {
+            "source_id": "raw.google.open_buildings.vector",
+            "source_name": "Google Open Buildings Vector",
+            "supported_types": [
+              "dt.raw.vector"
+            ],
+            "disaster_types": [
+              "generic",
+              "flood",
+              "earthquake",
+              "typhoon"
+            ],
+            "quality_score": 0.87,
+            "source_kind": "open_data",
+            "quality_tier": "foundation_model_extracted",
+            "freshness_category": "sample_snapshot",
+            "freshness_hours": 240,
+            "freshness_score": 0.57,
+            "supported_job_types": [
+              "building"
+            ],
+            "supported_geometry_types": [
+              "polygon"
+            ],
+            "metadata": {
+              "kind": "raw_vector",
+              "provider_family": "google_open_buildings",
+              "theme": "building",
+              "source_role": "reference_candidate",
+              "path_hint": "Benin/final_shp/google_open_buildings_v3/google_open_buildings_v3_benin.shp",
+              "supports_aoi": false,
+              "materialization_scope": "reservation_only",
+              "source_form": "vector",
+              "runtime_status": "reservation_only",
+              "selectable_now": false,
+              "supports_tiling": true,
+              "height_semantics": "unknown",
+              "coverage_scope": "national_clip"
+            }
+          },
+          {
+            "source_id": "raw.google.building_presence.raster",
+            "source_name": "Google Building Presence Raster",
+            "supported_types": [
+              "dt.raster.building_presence"
+            ],
+            "disaster_types": [
+              "generic",
+              "flood",
+              "earthquake",
+              "typhoon"
+            ],
+            "quality_score": 0.78,
+            "source_kind": "open_data",
+            "quality_tier": "foundation_model_extracted",
+            "freshness_category": "sample_snapshot",
+            "freshness_hours": 240,
+            "freshness_score": 0.5,
+            "supported_job_types": [
+              "building"
+            ],
+            "supported_geometry_types": [
+              "raster"
+            ],
+            "metadata": {
+              "kind": "raw_raster",
+              "provider_family": "google_temporal",
+              "theme": "building",
+              "source_role": "height_signal_candidate",
+              "path_hint": "Benin/_processing/google_open_buildings_temporal_2023/building_presence_2023_benin_4m.tif",
+              "supports_aoi": false,
+              "materialization_scope": "reservation_only",
+              "source_form": "raster",
+              "runtime_status": "reservation_only",
+              "selectable_now": false,
+              "supports_tiling": true,
+              "height_semantics": "presence_only",
+              "coverage_scope": "national_clip"
+            }
+          },
+          {
+            "source_id": "raw.google.building_height.raster",
+            "source_name": "Google Building Height Raster",
+            "supported_types": [
+              "dt.raster.building_height"
+            ],
+            "disaster_types": [
+              "generic",
+              "flood",
+              "earthquake",
+              "typhoon"
+            ],
+            "quality_score": 0.76,
+            "source_kind": "open_data",
+            "quality_tier": "foundation_model_extracted",
+            "freshness_category": "sample_snapshot",
+            "freshness_hours": 240,
+            "freshness_score": 0.5,
+            "supported_job_types": [
+              "building"
+            ],
+            "supported_geometry_types": [
+              "raster"
+            ],
+            "metadata": {
+              "kind": "raw_raster",
+              "provider_family": "google_temporal",
+              "theme": "building",
+              "source_role": "height_enrichment_candidate",
+              "path_hint": "Benin/_processing/google_open_buildings_temporal_2023/building_height_2023_benin_4m.tif",
+              "supports_aoi": false,
+              "materialization_scope": "reservation_only",
+              "source_form": "raster",
+              "runtime_status": "reservation_only",
+              "selectable_now": false,
+              "supports_tiling": true,
+              "height_semantics": "estimated_height",
+              "coverage_scope": "national_clip"
+            }
+          }
+        ],
+        "output_schema_policies": {
+          "dt.building.fused": {
+            "policy_id": "osp.building.fused.v1",
+            "output_type": "dt.building.fused",
+            "job_type": "building",
+            "retention_mode": "preserve_listed",
+            "required_fields": [
+              "geometry"
+            ],
+            "optional_fields": [
+              "osm_id",
+              "fclass",
+              "name",
+              "type",
+              "longitude",
+              "latitude",
+              "area_in_me",
+              "confidence"
+            ],
+            "rename_hints": {
+              "geometry_x": "geometry",
+              "geometry_y": "geometry"
+            },
+            "compatibility_basis": "field_names",
+            "metadata": {
+              "policy_scope": "current_runtime",
+              "notes": "Expose stable fused building columns without changing adapter behavior."
+            }
+          }
+        },
+        "durable_learning_summaries": {
+          "patterns": [
+            {
+              "entity_kind": "pattern",
+              "entity_id": "wp.earthquake.building.default",
+              "job_type": "building",
+              "disaster_type": null,
+              "total_runs": 10,
+              "success_count": 3,
+              "failure_count": 7,
+              "repaired_count": 0,
+              "last_run_at": "2026-05-10T09:38:16.344073+00:00",
+              "last_failure_reason": "FeatureError: Could not add feature to layer at index 6770: Attempt to write non-polygon (LINESTRING) geometry to POLYGON type shapefile."
+            },
+            {
+              "entity_kind": "pattern",
+              "entity_id": "wp.flood.building.default",
+              "job_type": "building",
+              "disaster_type": null,
+              "total_runs": 8,
+              "success_count": 5,
+              "failure_count": 3,
+              "repaired_count": 0,
+              "last_run_at": "2026-04-27T08:32:29.954373+00:00",
+              "last_failure_reason": "NameError: name 'JobType' is not defined"
+            }
+          ],
+          "algorithms": [
+            {
+              "entity_kind": "algorithm",
+              "entity_id": "algo.fusion.building.v1",
+              "job_type": "building",
+              "disaster_type": null,
+              "total_runs": 18,
+              "success_count": 8,
+              "failure_count": 10,
+              "repaired_count": 0,
+              "last_run_at": "2026-05-10T09:38:16.344073+00:00",
+              "last_failure_reason": "FeatureError: Could not add feature to layer at index 6770: Attempt to write non-polygon (LINESTRING) geometry to POLYGON type shapefile."
+            }
+          ],
+          "data_sources": [
+            {
+              "entity_kind": "data_source",
+              "entity_id": "upload.bundle",
+              "job_type": "building",
+              "disaster_type": null,
+              "total_runs": 12,
+              "success_count": 7,
+              "failure_count": 5,
+              "repaired_count": 0,
+              "last_run_at": "2026-05-09T11:28:03.102322+00:00",
+              "last_failure_reason": "ValueError: No input bundle provider registered for source_id=raw.microsoft.building"
+            },
+            {
+              "entity_kind": "data_source",
+              "entity_id": "catalog.earthquake.building",
+              "job_type": "building",
+              "disaster_type": null,
+              "total_runs": 6,
+              "success_count": 1,
+              "failure_count": 5,
+              "repaired_count": 0,
+              "last_run_at": "2026-05-10T09:38:16.344073+00:00",
+              "last_failure_reason": "FeatureError: Could not add feature to layer at index 6770: Attempt to write non-polygon (LINESTRING) geometry to POLYGON type shapefile."
+            }
+          ]
+        },
+        "data_types": [
+          {
+            "type_id": "dt.building.bundle",
+            "theme": "building",
+            "geometry_type": "polygon",
+            "description": "Prepared building fusion input bundle."
+          },
+          {
+            "type_id": "dt.building.conflict_optimized",
+            "theme": "building",
+            "geometry_type": "polygon",
+            "description": "Fused buildings after spatial conflict graph optimization."
+          },
+          {
+            "type_id": "dt.building.fused",
+            "theme": "building",
+            "geometry_type": "polygon",
+            "description": "Fused building output."
+          },
+          {
+            "type_id": "dt.building.fused_raw",
+            "theme": "building",
+            "geometry_type": "polygon",
+            "description": "Raw cascaded building fusion rows before conflict optimization."
+          },
+          {
+            "type_id": "dt.building.height_enriched",
+            "theme": "building",
+            "geometry_type": "polygon",
+            "description": "Fused buildings enriched with height raster values."
+          },
+          {
+            "type_id": "dt.building.match_candidate_graph",
+            "theme": "building",
+            "geometry_type": "graph",
+            "description": "FusionCode V8 candidate edge graph for a pair of building sources."
+          },
+          {
+            "type_id": "dt.building.match_components",
+            "theme": "building",
+            "geometry_type": "graph",
+            "description": "Accepted V8 building match components and relationship groups."
+          },
+          {
+            "type_id": "dt.building.normalized_set",
+            "theme": "building",
+            "geometry_type": "polygon",
+            "description": "Normalized named building sources after CRS, geometry and source-label preparation."
+          },
+          {
+            "type_id": "dt.building.presence_validated_set",
+            "theme": "building",
+            "geometry_type": "polygon",
+            "description": "Building sources enriched with presence-raster support and existence status."
+          },
+          {
+            "type_id": "dt.building.quality_report",
+            "theme": "building",
+            "geometry_type": "none",
+            "description": "Quality and conflict metrics for the building fusion run."
+          },
+          {
+            "type_id": "dt.building.road_topology_adjusted",
+            "theme": "building",
+            "geometry_type": "polygon",
+            "description": "Fused buildings after road-aware topology adjustment."
+          },
+          {
+            "type_id": "dt.building.source_set",
+            "theme": "building",
+            "geometry_type": "mixed",
+            "description": "Reserved multi-source building input set for future fusion algorithms."
+          },
+          {
+            "type_id": "dt.partition.tile_manifest",
+            "theme": "runtime",
+            "geometry_type": "none",
+            "description": "Reserved deterministic AOI tile partition manifest."
+          },
+          {
+            "type_id": "dt.poi.bundle",
+            "theme": "poi",
+            "geometry_type": "point",
+            "description": "Prepared point-of-interest fusion input bundle."
+          },
+          {
+            "type_id": "dt.poi.fused",
+            "theme": "poi",
+            "geometry_type": "point",
+            "description": "Fused point-of-interest output."
+          },
+          {
+            "type_id": "dt.raster.building_height",
+            "theme": "building",
+            "geometry_type": "raster",
+            "description": "Building height raster input."
+          },
+          {
+            "type_id": "dt.raster.building_presence",
+            "theme": "building",
+            "geometry_type": "raster",
+            "description": "Reserved building-presence raster input."
+          },
+          {
+            "type_id": "dt.raw.vector",
+            "theme": "generic",
+            "geometry_type": "mixed",
+            "description": "Uploaded raw vector bundle."
+          },
+          {
+            "type_id": "dt.road.bundle",
+            "theme": "transportation",
+            "geometry_type": "line",
+            "description": "Prepared road fusion input bundle."
+          },
+          {
+            "type_id": "dt.road.candidate",
+            "theme": "transportation",
+            "geometry_type": "line",
+            "description": "Reserved intermediate road candidates derived from trajectory pretransform."
+          },
+          {
+            "type_id": "dt.road.fused",
+            "theme": "transportation",
+            "geometry_type": "line",
+            "description": "Fused road output."
+          },
+          {
+            "type_id": "dt.road.network",
+            "theme": "transportation",
+            "geometry_type": "line",
+            "description": "Road network used as contextual constraint for building fusion."
+          },
+          {
+            "type_id": "dt.trajectory.raw",
+            "theme": "transportation",
+            "geometry_type": "line",
+            "description": "Reserved pretransform trajectory observations for future road candidate generation."
+          },
+          {
+            "type_id": "dt.water.bundle",
+            "theme": "water",
+            "geometry_type": "polygon",
+            "description": "Prepared water polygon fusion input bundle."
+          },
+          {
+            "type_id": "dt.water.fused",
+            "theme": "water",
+            "geometry_type": "polygon",
+            "description": "Fused water polygon output."
+          },
+          {
+            "type_id": "dt.water.line_bundle",
+            "theme": "water",
+            "geometry_type": "line",
+            "description": "Prepared river or water-line source bundle."
+          },
+          {
+            "type_id": "dt.water.line_fused",
+            "theme": "water",
+            "geometry_type": "line",
+            "description": "Fused river or water-line output."
+          }
+        ],
+        "source_coverage_hints": [
+          {
+            "source_id": "upload.bundle",
+            "source_name": "Uploaded Bundle",
+            "source_kind": "local_upload",
+            "provider_family": "manual_upload",
+            "path_hint": null,
+            "supports_aoi": null,
+            "materialization_scope": null,
+            "materialization_provider": null,
+            "source_form": "mixed",
+            "runtime_status": "runtime_candidate",
+            "selectable_now": true,
+            "supports_tiling": null,
+            "height_semantics": null,
+            "supported_job_types": [
+              "building",
+              "road",
+              "water",
+              "poi"
+            ],
+            "supported_geometry_types": [
+              "mixed",
+              "polygon",
+              "line",
+              "point"
+            ],
+            "quality_score": 1.0,
+            "freshness_score": 1.0,
+            "resolved_aoi": {
+              "display_name": "Gitega, Burundi",
+              "country_code": "bi",
+              "country_name": "Burundi",
+              "bbox": [
+                29.7649718,
+                -3.5884953,
+                30.0849718,
+                -3.2684953
+              ]
+            }
+          },
+          {
+            "source_id": "raw.microsoft.building",
+            "source_name": "Microsoft Building Footprints",
+            "source_kind": "open_data",
+            "provider_family": "microsoft",
+            "path_hint": "Data/buildings/Microsoft",
+            "supports_aoi": true,
+            "materialization_scope": "country_tiles_then_clip",
+            "materialization_provider": "microsoft_global_buildings",
+            "source_form": "vector",
+            "runtime_status": "runtime_candidate",
+            "selectable_now": true,
+            "supports_tiling": true,
+            "height_semantics": "estimated_height",
+            "supported_job_types": [
+              "building"
+            ],
+            "supported_geometry_types": [
+              "polygon"
+            ],
+            "quality_score": 0.88,
+            "freshness_score": 0.59,
+            "resolved_aoi": {
+              "display_name": "Gitega, Burundi",
+              "country_code": "bi",
+              "country_name": "Burundi",
+              "bbox": [
+                29.7649718,
+                -3.5884953,
+                30.0849718,
+                -3.2684953
+              ]
+            }
+          },
+          {
+            "source_id": "catalog.earthquake.building",
+            "source_name": "Earthquake Building Bundle (OSM + Microsoft)",
+            "source_kind": "catalog",
+            "provider_family": "local_bundle_catalog",
+            "path_hint": [
+              "Data/buildings/OSM",
+              "Data/buildings/Microsoft"
+            ],
+            "supports_aoi": true,
+            "materialization_scope": "resolved_aoi_clip",
+            "materialization_provider": null,
+            "source_form": "bundle",
+            "runtime_status": "runtime_candidate",
+            "selectable_now": true,
+            "supports_tiling": true,
+            "height_semantics": "confidence_only",
+            "supported_job_types": [
+              "building"
+            ],
+            "supported_geometry_types": [
+              "polygon"
+            ],
+            "quality_score": 0.88,
+            "freshness_score": 0.71,
+            "resolved_aoi": {
+              "display_name": "Gitega, Burundi",
+              "country_code": "bi",
+              "country_name": "Burundi",
+              "bbox": [
+                29.7649718,
+                -3.5884953,
+                30.0849718,
+                -3.2684953
+              ]
+            }
+          },
+          {
+            "source_id": "raw.google.building",
+            "source_name": "Google Open Buildings",
+            "source_kind": "open_data",
+            "provider_family": "google",
+            "path_hint": "Data/buildings/Google",
+            "supports_aoi": false,
+            "materialization_scope": "local_only",
+            "materialization_provider": null,
+            "source_form": "vector",
+            "runtime_status": "runtime_candidate",
+            "selectable_now": true,
+            "supports_tiling": true,
+            "height_semantics": "unknown",
+            "supported_job_types": [
+              "building"
+            ],
+            "supported_geometry_types": [
+              "polygon"
+            ],
+            "quality_score": 0.87,
+            "freshness_score": 0.58,
+            "resolved_aoi": {
+              "display_name": "Gitega, Burundi",
+              "country_code": "bi",
+              "country_name": "Burundi",
+              "bbox": [
+                29.7649718,
+                -3.5884953,
+                30.0849718,
+                -3.2684953
+              ]
+            }
+          },
+          {
+            "source_id": "catalog.flood.building",
+            "source_name": "Flood Building Bundle (OSM + Google)",
+            "source_kind": "catalog",
+            "provider_family": "local_bundle_catalog",
+            "path_hint": [
+              "Data/buildings/OSM",
+              "Data/buildings/Google"
+            ],
+            "supports_aoi": true,
+            "materialization_scope": "resolved_aoi_clip",
+            "materialization_provider": null,
+            "source_form": "bundle",
+            "runtime_status": "runtime_candidate",
+            "selectable_now": true,
+            "supports_tiling": true,
+            "height_semantics": "confidence_only",
+            "supported_job_types": [
+              "building"
+            ],
+            "supported_geometry_types": [
+              "polygon"
+            ],
+            "quality_score": 0.86,
+            "freshness_score": 0.74,
+            "resolved_aoi": {
+              "display_name": "Gitega, Burundi",
+              "country_code": "bi",
+              "country_name": "Burundi",
+              "bbox": [
+                29.7649718,
+                -3.5884953,
+                30.0849718,
+                -3.2684953
+              ]
+            }
+          },
+          {
+            "source_id": "raw.osm.building",
+            "source_name": "OSM Building Footprints",
+            "source_kind": "open_data",
+            "provider_family": "osm",
+            "path_hint": "Data/buildings/OSM",
+            "supports_aoi": true,
+            "materialization_scope": "country_bundle_then_clip",
+            "materialization_provider": "geofabrik",
+            "source_form": "vector",
+            "runtime_status": "runtime_candidate",
+            "selectable_now": true,
+            "supports_tiling": true,
+            "height_semantics": "unknown",
+            "supported_job_types": [
+              "building"
+            ],
+            "supported_geometry_types": [
+              "polygon"
+            ],
+            "quality_score": 0.84,
+            "freshness_score": 0.62,
+            "resolved_aoi": {
+              "display_name": "Gitega, Burundi",
+              "country_code": "bi",
+              "country_name": "Burundi",
+              "bbox": [
+                29.7649718,
+                -3.5884953,
+                30.0849718,
+                -3.2684953
+              ]
+            }
+          },
+          {
+            "source_id": "raw.gns.poi",
+            "source_name": "GNS Place Names",
+            "source_kind": "open_data",
+            "provider_family": "gns",
+            "path_hint": "Data/POI/**/GNS.shp",
+            "supports_aoi": false,
+            "materialization_scope": "local_only",
+            "materialization_provider": null,
+            "source_form": "vector",
+            "runtime_status": "runtime_candidate",
+            "selectable_now": true,
+            "supports_tiling": null,
+            "height_semantics": null,
+            "supported_job_types": [
+              "building",
+              "road",
+              "poi"
+            ],
+            "supported_geometry_types": [
+              "point"
+            ],
+            "quality_score": 0.81,
+            "freshness_score": 0.42,
+            "resolved_aoi": {
+              "display_name": "Gitega, Burundi",
+              "country_code": "bi",
+              "country_name": "Burundi",
+              "bbox": [
+                29.7649718,
+                -3.5884953,
+                30.0849718,
+                -3.2684953
+              ]
+            }
+          },
+          {
+            "source_id": "raw.osm.water",
+            "source_name": "OSM Water Features",
+            "source_kind": "open_data",
+            "provider_family": "osm",
+            "path_hint": "Data/burundi-260127-free.shp/gis_osm_water_a_free_1.shp",
+            "supports_aoi": true,
+            "materialization_scope": "country_bundle_then_clip",
+            "materialization_provider": "geofabrik",
+            "source_form": "vector",
+            "runtime_status": "runtime_candidate",
+            "selectable_now": true,
+            "supports_tiling": null,
+            "height_semantics": null,
+            "supported_job_types": [
+              "building",
+              "road",
+              "water"
+            ],
+            "supported_geometry_types": [
+              "polygon",
+              "line"
+            ],
+            "quality_score": 0.8,
+            "freshness_score": 0.61,
+            "resolved_aoi": {
+              "display_name": "Gitega, Burundi",
+              "country_code": "bi",
+              "country_name": "Burundi",
+              "bbox": [
+                29.7649718,
+                -3.5884953,
+                30.0849718,
+                -3.2684953
+              ]
+            }
+          },
+          {
+            "source_id": "raw.local.water",
+            "source_name": "Local Open Water Sample",
+            "source_kind": "open_data",
+            "provider_family": "local_open_data",
+            "path_hint": "Data/water",
+            "supports_aoi": false,
+            "materialization_scope": "local_only",
+            "materialization_provider": null,
+            "source_form": "vector",
+            "runtime_status": "runtime_candidate",
+            "selectable_now": true,
+            "supports_tiling": null,
+            "height_semantics": null,
+            "supported_job_types": [
+              "building",
+              "road",
+              "water"
+            ],
+            "supported_geometry_types": [
+              "polygon"
+            ],
+            "quality_score": 0.79,
+            "freshness_score": 0.55,
+            "resolved_aoi": {
+              "display_name": "Gitega, Burundi",
+              "country_code": "bi",
+              "country_name": "Burundi",
+              "bbox": [
+                29.7649718,
+                -3.5884953,
+                30.0849718,
+                -3.2684953
+              ]
+            }
+          },
+          {
+            "source_id": "raw.osm.poi",
+            "source_name": "OSM Points Of Interest",
+            "source_kind": "open_data",
+            "provider_family": "osm",
+            "path_hint": "Data/burundi-260127-free.shp/gis_osm_pois_free_1.shp",
+            "supports_aoi": true,
+            "materialization_scope": "country_bundle_then_clip",
+            "materialization_provider": "geofabrik",
+            "source_form": "vector",
+            "runtime_status": "runtime_candidate",
+            "selectable_now": true,
+            "supports_tiling": null,
+            "height_semantics": null,
+            "supported_job_types": [
+              "building",
+              "road",
+              "poi"
+            ],
+            "supported_geometry_types": [
+              "point"
+            ],
+            "quality_score": 0.78,
+            "freshness_score": 0.6,
+            "resolved_aoi": {
+              "display_name": "Gitega, Burundi",
+              "country_code": "bi",
+              "country_name": "Burundi",
+              "bbox": [
+                29.7649718,
+                -3.5884953,
+                30.0849718,
+                -3.2684953
+              ]
+            }
+          },
+          {
+            "source_id": "raw.rh.poi",
+            "source_name": "RH Points Of Interest",
+            "source_kind": "open_data",
+            "provider_family": "rh",
+            "path_hint": "Data/POI/**/RH.shp",
+            "supports_aoi": false,
+            "materialization_scope": "local_only",
+            "materialization_provider": null,
+            "source_form": "vector",
+            "runtime_status": "runtime_candidate",
+            "selectable_now": true,
+            "supports_tiling": null,
+            "height_semantics": null,
+            "supported_job_types": [
+              "building",
+              "road",
+              "poi"
+            ],
+            "supported_geometry_types": [
+              "point"
+            ],
+            "quality_score": 0.76,
+            "freshness_score": 0.4,
+            "resolved_aoi": {
+              "display_name": "Gitega, Burundi",
+              "country_code": "bi",
+              "country_name": "Burundi",
+              "bbox": [
+                29.7649718,
+                -3.5884953,
+                30.0849718,
+                -3.2684953
+              ]
+            }
+          },
+          {
+            "source_id": "raw.openbuildingmap.building",
+            "source_name": "OpenBuildingMap Building Footprints",
+            "source_kind": "open_data",
+            "provider_family": "openbuildingmap",
+            "path_hint": "Benin/final_shp/openbuildingmap/openbuildingmap_benin.shp",
+            "supports_aoi": false,
+            "materialization_scope": "reservation_only",
+            "materialization_provider": null,
+            "source_form": "vector",
+            "runtime_status": "reservation_only",
+            "selectable_now": false,
+            "supports_tiling": true,
+            "height_semantics": "estimated_height",
+            "supported_job_types": [
+              "building"
+            ],
+            "supported_geometry_types": [
+              "polygon"
+            ],
+            "quality_score": 0.9,
+            "freshness_score": 0.6,
+            "resolved_aoi": {
+              "display_name": "Gitega, Burundi",
+              "country_code": "bi",
+              "country_name": "Burundi",
+              "bbox": [
+                29.7649718,
+                -3.5884953,
+                30.0849718,
+                -3.2684953
+              ]
+            }
+          },
+          {
+            "source_id": "raw.local.microsoft.building",
+            "source_name": "Local Microsoft Building Footprints",
+            "source_kind": "open_data",
+            "provider_family": "microsoft_local",
+            "path_hint": "Benin/final_shp/microsoft_global_ml_building_footprints/Microsoft_benin.shp",
+            "supports_aoi": false,
+            "materialization_scope": "reservation_only",
+            "materialization_provider": null,
+            "source_form": "vector",
+            "runtime_status": "reservation_only",
+            "selectable_now": false,
+            "supports_tiling": true,
+            "height_semantics": "estimated_height",
+            "supported_job_types": [
+              "building"
+            ],
+            "supported_geometry_types": [
+              "polygon"
+            ],
+            "quality_score": 0.89,
+            "freshness_score": 0.58,
+            "resolved_aoi": {
+              "display_name": "Gitega, Burundi",
+              "country_code": "bi",
+              "country_name": "Burundi",
+              "bbox": [
+                29.7649718,
+                -3.5884953,
+                30.0849718,
+                -3.2684953
+              ]
+            }
+          },
+          {
+            "source_id": "raw.google.open_buildings.vector",
+            "source_name": "Google Open Buildings Vector",
+            "source_kind": "open_data",
+            "provider_family": "google_open_buildings",
+            "path_hint": "Benin/final_shp/google_open_buildings_v3/google_open_buildings_v3_benin.shp",
+            "supports_aoi": false,
+            "materialization_scope": "reservation_only",
+            "materialization_provider": null,
+            "source_form": "vector",
+            "runtime_status": "reservation_only",
+            "selectable_now": false,
+            "supports_tiling": true,
+            "height_semantics": "unknown",
+            "supported_job_types": [
+              "building"
+            ],
+            "supported_geometry_types": [
+              "polygon"
+            ],
+            "quality_score": 0.87,
+            "freshness_score": 0.57,
+            "resolved_aoi": {
+              "display_name": "Gitega, Burundi",
+              "country_code": "bi",
+              "country_name": "Burundi",
+              "bbox": [
+                29.7649718,
+                -3.5884953,
+                30.0849718,
+                -3.2684953
+              ]
+            }
+          },
+          {
+            "source_id": "raw.google.building_presence.raster",
+            "source_name": "Google Building Presence Raster",
+            "source_kind": "open_data",
+            "provider_family": "google_temporal",
+            "path_hint": "Benin/_processing/google_open_buildings_temporal_2023/building_presence_2023_benin_4m.tif",
+            "supports_aoi": false,
+            "materialization_scope": "reservation_only",
+            "materialization_provider": null,
+            "source_form": "raster",
+            "runtime_status": "reservation_only",
+            "selectable_now": false,
+            "supports_tiling": true,
+            "height_semantics": "presence_only",
+            "supported_job_types": [
+              "building"
+            ],
+            "supported_geometry_types": [
+              "raster"
+            ],
+            "quality_score": 0.78,
+            "freshness_score": 0.5,
+            "resolved_aoi": {
+              "display_name": "Gitega, Burundi",
+              "country_code": "bi",
+              "country_name": "Burundi",
+              "bbox": [
+                29.7649718,
+                -3.5884953,
+                30.0849718,
+                -3.2684953
+              ]
+            }
+          },
+          {
+            "source_id": "raw.google.building_height.raster",
+            "source_name": "Google Building Height Raster",
+            "source_kind": "open_data",
+            "provider_family": "google_temporal",
+            "path_hint": "Benin/_processing/google_open_buildings_temporal_2023/building_height_2023_benin_4m.tif",
+            "supports_aoi": false,
+            "materialization_scope": "reservation_only",
+            "materialization_provider": null,
+            "source_form": "raster",
+            "runtime_status": "reservation_only",
+            "selectable_now": false,
+            "supports_tiling": true,
+            "height_semantics": "estimated_height",
+            "supported_job_types": [
+              "building"
+            ],
+            "supported_geometry_types": [
+              "raster"
+            ],
+            "quality_score": 0.76,
+            "freshness_score": 0.5,
+            "resolved_aoi": {
+              "display_name": "Gitega, Burundi",
+              "country_code": "bi",
+              "country_name": "Burundi",
+              "bbox": [
+                29.7649718,
+                -3.5884953,
+                30.0849718,
+                -3.2684953
+              ]
+            }
+          }
+        ],
+        "transform_paths": {
+          "dt.building.bundle": [
+            "dt.raw.vector",
+            "dt.building.bundle"
+          ]
+        },
+        "knowledge_hits": [
+          {
+            "kind": "algorithm",
+            "id": "algo.optimize.road.topology_for_buildings.v1",
+            "label": "FusionCode Road Topology For Buildings",
+            "score": 1.3744875192642212
+          },
+          {
+            "kind": "pattern",
+            "id": "wp.earthquake.building.default",
+            "label": "Earthquake Building Fusion",
+            "score": 1.0396912097930908
+          },
+          {
+            "kind": "pattern",
+            "id": "wp.flood.building.default",
+            "label": "Flood Building Fusion",
+            "score": 1.0396912097930908
+          },
+          {
+            "kind": "data_source",
+            "id": "raw.osm.building",
+            "label": "OSM Building Footprints",
+            "score": 1.0040838718414307
+          },
+          {
+            "kind": "data_source",
+            "id": "raw.microsoft.building",
+            "label": "Microsoft Building Footprints",
+            "score": 1.0040838718414307
+          }
+        ],
+        "reserved_capability_hints": [
+          {
+            "capability_id": "algo.partition.aoi.grid.v1",
+            "capability_kind": "algorithm",
+            "runtime_status": "reservation_only",
+            "activated_source_ids": [
+              "raw.microsoft.building",
+              "catalog.earthquake.building",
+              "raw.google.building",
+              "catalog.flood.building",
+              "raw.osm.building",
+              "raw.openbuildingmap.building",
+              "raw.local.microsoft.building",
+              "raw.google.open_buildings.vector",
+              "raw.google.building_presence.raster",
+              "raw.google.building_height.raster"
+            ],
+            "reason": "Large building AOIs need deterministic tiling before fan-out execution."
+          },
+          {
+            "capability_id": "algo.merge.building.tiles.reserved",
+            "capability_kind": "algorithm",
+            "runtime_status": "reservation_only",
+            "activated_source_ids": [
+              "raw.microsoft.building",
+              "catalog.earthquake.building",
+              "raw.google.building",
+              "catalog.flood.building",
+              "raw.osm.building",
+              "raw.openbuildingmap.building",
+              "raw.local.microsoft.building",
+              "raw.google.open_buildings.vector",
+              "raw.google.building_presence.raster",
+              "raw.google.building_height.raster"
+            ],
+            "reason": "Tile-scoped outputs need a controlled stitch step before final building delivery."
+          },
+          {
+            "capability_id": "algo.fusion.building.multi_source.decomposed.v1",
+            "capability_kind": "algorithm",
+            "runtime_status": "runtime_candidate",
+            "activated_source_ids": [
+              "raw.openbuildingmap.building",
+              "raw.local.microsoft.building",
+              "raw.google.open_buildings.vector"
+            ],
+            "reason": "Additional building vector sources can be routed through the decomposed FusionCode multi-source workflow."
+          },
+          {
+            "capability_id": "algo.clip.raster.tile.v1",
+            "capability_kind": "algorithm",
+            "runtime_status": "reservation_only",
+            "activated_source_ids": [
+              "raw.google.building_presence.raster",
+              "raw.google.building_height.raster"
+            ],
+            "reason": "Raster-assisted building workflows require tiled raster clipping control that is not executable yet."
+          },
+          {
+            "capability_id": "algo.validate.building.presence_raster.v1",
+            "capability_kind": "algorithm",
+            "runtime_status": "runtime_candidate",
+            "activated_source_ids": [
+              "raw.google.building_presence.raster",
+              "raw.google.building_height.raster"
+            ],
+            "reason": "Building presence rasters can be used by the executable FusionCode raster validation primitive once materialized."
+          },
+          {
+            "capability_id": "algo.enrich.building.height_from_raster.v1",
+            "capability_kind": "algorithm",
+            "runtime_status": "runtime_candidate",
+            "activated_source_ids": [
+              "raw.google.building_presence.raster",
+              "raw.google.building_height.raster"
+            ],
+            "reason": "Building height rasters can be used by the executable FusionCode height enrichment primitive once materialized."
+          }
+        ],
+        "reusable_artifacts": [
+          {
+            "artifact_id": "86d224bb483b4078b8526c4be24373c2",
+            "artifact_path": "runs\\86d224bb483b4078b8526c4be24373c2\\output\\building_fusion_result.zip",
+            "job_type": "building",
+            "disaster_type": null,
+            "created_at": "2026-05-10T09:38:16.377984+00:00",
+            "output_fields": [
+              "geometry"
+            ],
+            "output_data_type": "dt.building.fused",
+            "target_crs": "EPSG:32735",
+            "schema_policy_id": "osp.building.fused.v1",
+            "compatibility_basis": "field_names",
+            "bbox": null,
+            "meta": {
+              "run_id": "86d224bb483b4078b8526c4be24373c2",
+              "workflow_id": "wf_wp.earthquake.building.default_ef1350f8",
+              "plan_revision": 1,
+              "pattern_id": "wp.earthquake.building.default",
+              "algorithm_id": "algo.fusion.building.v1",
+              "selected_data_source": "catalog.earthquake.building",
+              "trigger_type": "user_query",
+              "output_data_type": "dt.building.fused",
+              "target_crs": "EPSG:32735",
+              "schema_policy_id": "osp.building.fused.v1",
+              "compatibility_basis": "field_names",
+              "freshness_policy_seconds": 259200
+            }
+          },
+          {
+            "artifact_id": "d6308d853c2d4481bbbfac3fd2b020af",
+            "artifact_path": "runs\\d6308d853c2d4481bbbfac3fd2b020af\\output\\building_fusion_result.zip",
+            "job_type": "building",
+            "disaster_type": null,
+            "created_at": "2026-05-09T11:28:03.146105+00:00",
+            "output_fields": [
+              "geometry"
+            ],
+            "output_data_type": "dt.building.fused",
+            "target_crs": "EPSG:32643",
+            "schema_policy_id": "osp.building.fused.v1",
+            "compatibility_basis": "field_names",
+            "bbox": [
+              29.817351,
+              -3.646572,
+              29.931113,
+              -3.412421
+            ],
+            "meta": {
+              "run_id": "d6308d853c2d4481bbbfac3fd2b020af",
+              "workflow_id": "wf_wp.earthquake.building.default_189fd2d2",
+              "plan_revision": 1,
+              "pattern_id": "wp.earthquake.building.default",
+              "algorithm_id": "algo.fusion.building.v1",
+              "selected_data_source": "upload.bundle",
+              "trigger_type": "user_query",
+              "output_data_type": "dt.building.fused",
+              "target_crs": "EPSG:32643",
+              "schema_policy_id": "osp.building.fused.v1",
+              "compatibility_basis": "field_names",
+              "freshness_policy_seconds": 259200,
+              "reuse_mode": "direct",
+              "parent_artifact_id": "4eeae468919b4f9a8e8a6e7f29cea760"
+            }
+          },
+          {
+            "artifact_id": "4eeae468919b4f9a8e8a6e7f29cea760",
+            "artifact_path": "runs\\4eeae468919b4f9a8e8a6e7f29cea760\\output\\building_fusion_result.zip",
+            "job_type": "building",
+            "disaster_type": null,
+            "created_at": "2026-05-09T11:13:38.888573+00:00",
+            "output_fields": [
+              "geometry"
+            ],
+            "output_data_type": "dt.building.fused",
+            "target_crs": "EPSG:32643",
+            "schema_policy_id": "osp.building.fused.v1",
+            "compatibility_basis": "field_names",
+            "bbox": [
+              29.817351,
+              -3.646572,
+              29.931113,
+              -3.412421
+            ],
+            "meta": {
+              "run_id": "4eeae468919b4f9a8e8a6e7f29cea760",
+              "workflow_id": "wf_wp.earthquake.building.default_f9cc64d1",
+              "plan_revision": 1,
+              "pattern_id": "wp.earthquake.building.default",
+              "algorithm_id": "algo.fusion.building.v1",
+              "selected_data_source": "upload.bundle",
+              "trigger_type": "user_query",
+              "output_data_type": "dt.building.fused",
+              "target_crs": "EPSG:32643",
+              "schema_policy_id": "osp.building.fused.v1",
+              "compatibility_basis": "field_names",
+              "freshness_policy_seconds": 259200
+            }
+          }
+        ]
+      },
+      "execution_hints": {
+        "preferred_pattern_id": "wp.earthquake.building.default",
+        "fallback_pattern_ids": [
+          "wp.flood.building.default",
+          "wp.earthquake.building.safe"
+        ],
+        "available_data_source_ids": [
+          "upload.bundle",
+          "raw.microsoft.building",
+          "catalog.earthquake.building",
+          "raw.google.building",
+          "catalog.flood.building",
+          "raw.osm.building",
+          "raw.gns.poi",
+          "raw.osm.water",
+          "raw.local.water",
+          "raw.osm.poi",
+          "raw.rh.poi",
+          "raw.openbuildingmap.building",
+          "raw.local.microsoft.building",
+          "raw.google.open_buildings.vector",
+          "raw.google.building_presence.raster",
+          "raw.google.building_height.raster"
+        ],
+        "selectable_source_ids": [
+          "upload.bundle",
+          "raw.microsoft.building",
+          "catalog.earthquake.building",
+          "raw.google.building",
+          "catalog.flood.building",
+          "raw.osm.building",
+          "raw.gns.poi",
+          "raw.osm.water",
+          "raw.local.water",
+          "raw.osm.poi",
+          "raw.rh.poi"
+        ],
+        "reserved_source_ids": [
+          "raw.openbuildingmap.building",
+          "raw.local.microsoft.building",
+          "raw.google.open_buildings.vector",
+          "raw.google.building_presence.raster",
+          "raw.google.building_height.raster"
+        ],
+        "runtime_candidate_capabilities": [
+          "algo.fusion.building.multi_source.decomposed.v1",
+          "algo.validate.building.presence_raster.v1",
+          "algo.enrich.building.height_from_raster.v1"
+        ],
+        "required_reserved_capabilities": [
+          "algo.partition.aoi.grid.v1",
+          "algo.merge.building.tiles.reserved",
+          "algo.clip.raster.tile.v1"
+        ],
+        "available_aoi": {
+          "query": "Gitega, Burundi",
+          "display_name": "Gitega, Burundi",
+          "country_name": "Burundi",
+          "country_code": "bi",
+          "bbox": [
+            29.7649718,
+            -3.5884953,
+            30.0849718,
+            -3.2684953
+          ],
+          "confidence": 0.5101626528522342,
+          "selection_reason": "nested_specificity_preference",
+          "candidates": [
+            {
+              "query": "Gitega, Burundi",
+              "display_name": "Gitega, Burundi",
+              "country_name": "Burundi",
+              "country_code": "bi",
+              "admin_level": "city",
+              "bbox": [
+                29.7649718,
+                -3.5884953,
+                30.0849718,
+                -3.2684953
+              ],
+              "source": "geocoder",
+              "confidence": 0.5101626528522342,
+              "raw": {
+                "place_id": 38676915,
+                "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+                "osm_type": "node",
+                "osm_id": 301351574,
+                "lat": "-3.4284953",
+                "lon": "29.9249718",
+                "category": "place",
+                "type": "city",
+                "place_rank": 15,
+                "importance": 0.5101626528522342,
+                "addresstype": "city",
+                "name": "Gitega",
+                "display_name": "Gitega, Burundi",
+                "address": {
+                  "city": "Gitega",
+                  "state": "Gitega",
+                  "ISO3166-2-lvl4": "BI-GI",
+                  "country": "Burundi",
+                  "country_code": "bi"
+                },
+                "boundingbox": [
+                  "-3.5884953",
+                  "-3.2684953",
+                  "29.7649718",
+                  "30.0849718"
+                ]
+              }
+            },
+            {
+              "query": "Gitega, Burundi",
+              "display_name": "Gitega, Burundi",
+              "country_name": "Burundi",
+              "country_code": "bi",
+              "admin_level": "state",
+              "bbox": [
+                29.7178599,
+                -3.8447564,
+                30.1040215,
+                -3.0565759
+              ],
+              "source": "geocoder",
+              "confidence": 0.455650219131522,
+              "raw": {
+                "place_id": 38707012,
+                "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+                "osm_type": "relation",
+                "osm_id": 1700324,
+                "lat": "-3.5382336",
+                "lon": "29.9107010",
+                "category": "boundary",
+                "type": "administrative",
+                "place_rank": 8,
+                "importance": 0.455650219131522,
+                "addresstype": "state",
+                "name": "Gitega",
+                "display_name": "Gitega, Burundi",
+                "address": {
+                  "state": "Gitega",
+                  "ISO3166-2-lvl4": "BI-GI",
+                  "country": "Burundi",
+                  "country_code": "bi"
+                },
+                "boundingbox": [
+                  "-3.8447564",
+                  "-3.0565759",
+                  "29.7178599",
+                  "30.1040215"
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "selection_reason": "preferred_wp.earthquake.building.default_by_context_order",
+      "llm_provider": "open_a_i_compatible",
+      "plan_revision": 1,
+      "planning_mode": "task_driven",
+      "planning_source": "kg_fallback",
+      "planning_telemetry": {
+        "elapsed_ms": 35326,
+        "context_size_bytes": 56567,
+        "provider": "open_a_i_compatible",
+        "model": "gpt-5-mini-2025-08-07",
+        "llm_usage": {
+          "prompt_tokens": 16184,
+          "completion_tokens": 2776,
+          "total_tokens": 18960
+        }
+      },
+      "pattern_id": "wp.earthquake.building.default",
+      "pattern_name": "Earthquake Building Fusion",
+      "source": "kg_fallback",
+      "grounding_report": {
+        "grounded": false,
+        "grounded_step_count": 0,
+        "total_step_count": 1,
+        "grounding_score": 0.0,
+        "steps": [
+          {
+            "step": 1,
+            "algorithm_id": "algo.fusion.building.v1",
+            "input_data_type": "dt.building.bundle",
+            "data_source_id": "catalog.earthquake.building",
+            "output_data_type": "dt.building.fused",
+            "algorithm_grounded": true,
+            "algorithm_known": true,
+            "data_source_known": true,
+            "output_type_matches_intent": true,
+            "schema_policy_known": true,
+            "pattern_ids": [
+              "wp.earthquake.building.default",
+              "wp.flood.building.default"
+            ],
+            "issue_codes": [
+              "CANDIDATE_PATTERN_STEP_MISMATCH"
+            ],
+            "evidence_refs": [
+              "plan.task(step=1).algorithm_id",
+              "plan.task(step=1).input.data_type_id",
+              "plan.task(step=1).input.data_source_id",
+              "plan.task(step=1).output.data_type_id",
+              "context.retrieval.candidate_patterns",
+              "context.retrieval.data_sources",
+              "context.retrieval.output_schema_policies",
+              "context.intent.expected_output_type"
+            ]
+          }
+        ]
+      }
+    },
+    "tasks": [
+      {
+        "step": 1,
+        "name": "building_fusion_earthquake",
+        "description": "Execute algo.fusion.building.v1",
+        "algorithm_id": "algo.fusion.building.v1",
+        "input": {
+          "data_type_id": "dt.building.bundle",
+          "data_source_id": "catalog.earthquake.building",
+          "parameters": {
+            "match_similarity_threshold": 0.3,
+            "one_to_one_min_area_similarity": 0.3,
+            "one_to_one_min_shape_similarity": 0.3,
+            "one_to_one_min_overlap_similarity": 0.3
+          }
+        },
+        "output": {
+          "data_type_id": "dt.building.fused",
+          "description": "Output generated by workflow step"
+        },
+        "depends_on": [],
+        "is_transform": false,
+        "kg_validated": true,
+        "alternatives": [
+          "algo.fusion.building.safe"
+        ]
+      }
+    ],
+    "expected_output": "building fusion result",
+    "estimated_time": "unknown",
+    "validation": {
+      "valid": true,
+      "inserted_transform_steps": 0,
+      "issues": []
+    }
+  },
+  "audit_events": [
+    {
+      "timestamp": "2026-05-10T10:42:40.171819+00:00",
+      "kind": "run_created",
+      "phase": "queued",
+      "message": "Run created and input bundles persisted.",
+      "plan_revision": 0,
+      "progress": 0,
+      "attempt_no": 0,
+      "current_step": null,
+      "details": {
+        "request_path": "runs\\be933f08aa694d6c9eb4c73ed100aa52\\request.json",
+        "input_strategy": "task_driven_auto",
+        "osm_zip_name": null,
+        "ref_zip_name": null
+      }
+    },
+    {
+      "timestamp": "2026-05-10T10:42:55.582256+00:00",
+      "kind": "run_started",
+      "phase": "planning",
+      "message": "Run started for job_type=building.",
+      "plan_revision": 0,
+      "progress": 5,
+      "attempt_no": 0,
+      "current_step": 0,
+      "details": {}
+    },
+    {
+      "timestamp": "2026-05-10T10:43:06.535192+00:00",
+      "kind": "aoi_resolved",
+      "phase": "planning",
+      "message": "Resolved AOI for Gitega, Burundi.",
+      "plan_revision": 0,
+      "progress": 12,
+      "attempt_no": 0,
+      "current_step": 0,
+      "details": {
+        "query": "Gitega, Burundi",
+        "display_name": "Gitega, Burundi",
+        "country_name": "Burundi",
+        "country_code": "bi",
+        "bbox": [
+          29.7649718,
+          -3.5884953,
+          30.0849718,
+          -3.2684953
+        ],
+        "selection_reason": "nested_specificity_preference",
+        "confidence": 0.5101626528522342
+      }
+    },
+    {
+      "timestamp": "2026-05-10T10:43:06.537224+00:00",
+      "kind": "target_crs_resolved",
+      "phase": "planning",
+      "message": "Resolved target CRS EPSG:32735.",
+      "plan_revision": 0,
+      "progress": 14,
+      "attempt_no": 0,
+      "current_step": 0,
+      "details": {
+        "target_crs": "EPSG:32735",
+        "source": "resolved_aoi_default"
+      }
+    },
+    {
+      "timestamp": "2026-05-10T10:43:41.999771+00:00",
+      "kind": "plan_created",
+      "phase": "validating",
+      "message": "Workflow plan revision 1 created.",
+      "plan_revision": 1,
+      "progress": 25,
+      "attempt_no": 0,
+      "current_step": 0,
+      "details": {
+        "workflow_id": "wf_wp.earthquake.building.default_6fe1a1ce",
+        "grounded": false,
+        "grounding_score": 0.0,
+        "planning_telemetry": {
+          "elapsed_ms": 35326,
+          "context_size_bytes": 56567,
+          "provider": "open_a_i_compatible",
+          "model": "gpt-5-mini-2025-08-07",
+          "llm_usage": {
+            "prompt_tokens": 16184,
+            "completion_tokens": 2776,
+            "total_tokens": 18960
+          }
+        },
+        "effective_parameters": {
+          "1": {
+            "match_similarity_threshold": 0.3,
+            "one_to_one_min_area_similarity": 0.3,
+            "one_to_one_min_shape_similarity": 0.3,
+            "one_to_one_min_overlap_similarity": 0.3
+          }
+        },
+        "selected_decisions": {
+          "pattern_selection": "wp.flood.building.default",
+          "data_source_selection": "catalog.earthquake.building",
+          "artifact_reuse_selection": "4eeae468919b4f9a8e8a6e7f29cea760",
+          "parameter_strategy": "kg_defaults_only",
+          "output_schema_policy": "osp.building.fused.v1"
+        },
+        "planning_mode": "task_driven",
+        "planning_source": "kg_fallback",
+        "profile_source": "direct_task",
+        "task_bundle": {
+          "bundle_id": "task_bundle.direct_request",
+          "requested_tasks": [
+            "task.building.fusion"
+          ],
+          "requires_disaster_profile": false
+        },
+        "selectable_source_ids": [
+          "upload.bundle",
+          "raw.microsoft.building",
+          "catalog.earthquake.building",
+          "raw.google.building",
+          "catalog.flood.building",
+          "raw.osm.building",
+          "raw.gns.poi",
+          "raw.osm.water",
+          "raw.local.water",
+          "raw.osm.poi",
+          "raw.rh.poi"
+        ],
+        "reserved_source_ids": [
+          "raw.openbuildingmap.building",
+          "raw.local.microsoft.building",
+          "raw.google.open_buildings.vector",
+          "raw.google.building_presence.raster",
+          "raw.google.building_height.raster"
+        ],
+        "required_reserved_capabilities": [
+          "algo.partition.aoi.grid.v1",
+          "algo.merge.building.tiles.reserved",
+          "algo.clip.raster.tile.v1"
+        ],
+        "resolved_aoi": {
+          "query": "Gitega, Burundi",
+          "display_name": "Gitega, Burundi",
+          "country_name": "Burundi",
+          "country_code": "bi",
+          "bbox": [
+            29.7649718,
+            -3.5884953,
+            30.0849718,
+            -3.2684953
+          ],
+          "confidence": 0.5101626528522342,
+          "selection_reason": "nested_specificity_preference",
+          "candidates": [
+            {
+              "query": "Gitega, Burundi",
+              "display_name": "Gitega, Burundi",
+              "country_name": "Burundi",
+              "country_code": "bi",
+              "admin_level": "city",
+              "bbox": [
+                29.7649718,
+                -3.5884953,
+                30.0849718,
+                -3.2684953
+              ],
+              "source": "geocoder",
+              "confidence": 0.5101626528522342,
+              "raw": {
+                "place_id": 38676915,
+                "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+                "osm_type": "node",
+                "osm_id": 301351574,
+                "lat": "-3.4284953",
+                "lon": "29.9249718",
+                "category": "place",
+                "type": "city",
+                "place_rank": 15,
+                "importance": 0.5101626528522342,
+                "addresstype": "city",
+                "name": "Gitega",
+                "display_name": "Gitega, Burundi",
+                "address": {
+                  "city": "Gitega",
+                  "state": "Gitega",
+                  "ISO3166-2-lvl4": "BI-GI",
+                  "country": "Burundi",
+                  "country_code": "bi"
+                },
+                "boundingbox": [
+                  "-3.5884953",
+                  "-3.2684953",
+                  "29.7649718",
+                  "30.0849718"
+                ]
+              }
+            },
+            {
+              "query": "Gitega, Burundi",
+              "display_name": "Gitega, Burundi",
+              "country_name": "Burundi",
+              "country_code": "bi",
+              "admin_level": "state",
+              "bbox": [
+                29.7178599,
+                -3.8447564,
+                30.1040215,
+                -3.0565759
+              ],
+              "source": "geocoder",
+              "confidence": 0.455650219131522,
+              "raw": {
+                "place_id": 38707012,
+                "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+                "osm_type": "relation",
+                "osm_id": 1700324,
+                "lat": "-3.5382336",
+                "lon": "29.9107010",
+                "category": "boundary",
+                "type": "administrative",
+                "place_rank": 8,
+                "importance": 0.455650219131522,
+                "addresstype": "state",
+                "name": "Gitega",
+                "display_name": "Gitega, Burundi",
+                "address": {
+                  "state": "Gitega",
+                  "ISO3166-2-lvl4": "BI-GI",
+                  "country": "Burundi",
+                  "country_code": "bi"
+                },
+                "boundingbox": [
+                  "-3.8447564",
+                  "-3.0565759",
+                  "29.7178599",
+                  "30.1040215"
+                ]
+              }
+            }
+          ]
+        },
+        "selected_pattern": "wp.flood.building.default",
+        "artifact_reuse": {
+          "reused": false,
+          "artifact_id": null,
+          "freshness_status": "candidate_available",
+          "rationale": "Planner found 3 reusable artifact candidate(s) (top=86d224bb483b4078b8526c4be24373c2). Runtime will attempt reuse before falling back to fresh execution."
+        }
+      }
+    },
+    {
+      "timestamp": "2026-05-10T10:43:42.011744+00:00",
+      "kind": "plan_validated",
+      "phase": "running",
+      "message": "Workflow plan revision 1 validated.",
+      "plan_revision": 1,
+      "progress": 45,
+      "attempt_no": 0,
+      "current_step": 0,
+      "details": {
+        "valid": true,
+        "inserted_transform_steps": 0
+      }
+    },
+    {
+      "timestamp": "2026-05-10T10:43:44.070268+00:00",
+      "kind": "input_bundle_created",
+      "phase": "running",
+      "message": "Input bundle was created for execution.",
+      "plan_revision": 1,
+      "progress": 49,
+      "attempt_no": 0,
+      "current_step": 0,
+      "details": {
+        "osm_zip_name": "osm.zip",
+        "ref_zip_name": "ref.zip",
+        "selected_source_id": "catalog.earthquake.building"
+      }
+    },
+    {
+      "timestamp": "2026-05-10T10:43:44.073304+00:00",
+      "kind": "task_inputs_resolved",
+      "phase": "running",
+      "message": "Task-driven input bundles prepared for execution.",
+      "plan_revision": 1,
+      "progress": 50,
+      "attempt_no": 0,
+      "current_step": 0,
+      "details": {
+        "input_strategy": "task_driven_auto",
+        "source_mode": "cache_reused",
+        "source_id": "catalog.earthquake.building",
+        "requested_source_id": "catalog.earthquake.building",
+        "selected_source_id": "catalog.earthquake.building",
+        "fallback_from_source_id": null,
+        "component_coverage": {},
+        "cache_hit": true,
+        "version_token": "68e94a99303a661cb579fb80510717211e7c2d53|1cea819222f161e2abda492aae8a80f302f4b089",
+        "osm_zip_name": "osm.zip",
+        "ref_zip_name": "ref.zip",
+        "target_crs": "EPSG:32735",
+        "resolved_aoi": {
+          "display_name": "Gitega, Burundi",
+          "country_code": "bi",
+          "country_name": "Burundi",
+          "bbox": [
+            29.7649718,
+            -3.5884953,
+            30.0849718,
+            -3.2684953
+          ]
+        }
+      }
+    },
+    {
+      "timestamp": "2026-05-10T10:43:44.229488+00:00",
+      "kind": "execution_started",
+      "phase": "running",
+      "message": "Execution stage started.",
+      "plan_revision": 1,
+      "progress": 55,
+      "attempt_no": 0,
+      "current_step": 0,
+      "details": {}
+    },
+    {
+      "timestamp": "2026-05-10T10:43:44.231487+00:00",
+      "kind": "step_started",
+      "phase": "running",
+      "message": "Execution step started: step=1.",
+      "plan_revision": 1,
+      "progress": 55,
+      "attempt_no": 0,
+      "current_step": 1,
+      "details": {
+        "status": "started",
+        "step": 1,
+        "algorithm_id": "algo.fusion.building.v1",
+        "data_source_id": "catalog.earthquake.building"
+      }
+    },
+    {
+      "timestamp": "2026-05-10T10:45:45.031815+00:00",
+      "kind": "step_succeeded",
+      "phase": "running",
+      "message": "Execution step succeeded: step=1.",
+      "plan_revision": 1,
+      "progress": 55,
+      "attempt_no": 0,
+      "current_step": 1,
+      "details": {
+        "status": "succeeded",
+        "step": 1,
+        "algorithm_id": "algo.fusion.building.v1",
+        "data_source_id": "catalog.earthquake.building",
+        "output_path": "runs\\be933f08aa694d6c9eb4c73ed100aa52\\output\\fused_buildings.shp"
+      }
+    },
+    {
+      "timestamp": "2026-05-10T10:45:45.034325+00:00",
+      "kind": "execution_completed",
+      "phase": "running",
+      "message": "Execution stage completed and produced an output artifact.",
+      "plan_revision": 1,
+      "progress": 80,
+      "attempt_no": 0,
+      "current_step": 1,
+      "details": {
+        "repair_count": 0
+      }
+    },
+    {
+      "timestamp": "2026-05-10T10:45:47.034714+00:00",
+      "kind": "output_schema_validated",
+      "phase": "running",
+      "message": "Artifact validated against policy osp.building.fused.v1.",
+      "plan_revision": 1,
+      "progress": 90,
+      "attempt_no": 0,
+      "current_step": 1,
+      "details": {
+        "output_data_type": "dt.building.fused",
+        "policy_id": "osp.building.fused.v1",
+        "required_fields": [
+          "geometry"
+        ],
+        "missing_fields": [],
+        "artifact_validity": true
+      }
+    },
+    {
+      "timestamp": "2026-05-10T10:45:48.319718+00:00",
+      "kind": "durable_learning_recorded",
+      "phase": "running",
+      "message": "Durable learning record was written for this run.",
+      "plan_revision": 1,
+      "progress": 90,
+      "attempt_no": 0,
+      "current_step": 1,
+      "details": {
+        "record_id": "dlr.be933f08aa694d6c9eb4c73ed100aa52",
+        "pattern_id": "wp.earthquake.building.default",
+        "algorithm_id": "algo.fusion.building.v1",
+        "selected_data_source": "catalog.earthquake.building"
+      }
+    },
+    {
+      "timestamp": "2026-05-10T10:45:48.326858+00:00",
+      "kind": "run_succeeded",
+      "phase": "succeeded",
+      "message": "Run completed successfully and artifact is ready.",
+      "plan_revision": 1,
+      "progress": 100,
+      "attempt_no": 0,
+      "current_step": 1,
+      "details": {}
+    }
+  ],
+  "artifact": {
+    "available": true,
+    "filename": "building_fusion_result.zip",
+    "path": "runs\\be933f08aa694d6c9eb4c73ed100aa52\\output\\building_fusion_result.zip",
+    "size_bytes": 11331147,
+    "download_path": "/api/v2/runs/be933f08aa694d6c9eb4c73ed100aa52/artifact"
+  },
+  "kg_path_trace": {
+    "workflow_id": "wf_wp.earthquake.building.default_6fe1a1ce",
+    "selected_pattern_id": "wp.earthquake.building.default",
+    "grounding_report": {
+      "grounded": false,
+      "grounded_step_count": 0,
+      "total_step_count": 1,
+      "grounding_score": 0.0,
+      "steps": [
+        {
+          "step": 1,
+          "algorithm_id": "algo.fusion.building.v1",
+          "input_data_type": "dt.building.bundle",
+          "data_source_id": "catalog.earthquake.building",
+          "output_data_type": "dt.building.fused",
+          "algorithm_grounded": true,
+          "algorithm_known": true,
+          "data_source_known": true,
+          "output_type_matches_intent": true,
+          "schema_policy_known": true,
+          "pattern_ids": [
+            "wp.earthquake.building.default",
+            "wp.flood.building.default"
+          ],
+          "issue_codes": [
+            "CANDIDATE_PATTERN_STEP_MISMATCH"
+          ],
+          "evidence_refs": [
+            "plan.task(step=1).algorithm_id",
+            "plan.task(step=1).input.data_type_id",
+            "plan.task(step=1).input.data_source_id",
+            "plan.task(step=1).output.data_type_id",
+            "context.retrieval.candidate_patterns",
+            "context.retrieval.data_sources",
+            "context.retrieval.output_schema_policies",
+            "context.intent.expected_output_type"
+          ]
+        }
+      ]
+    },
+    "chains": [
+      {
+        "task_step": 1,
+        "task_name": "building_fusion_earthquake",
+        "nodes": [
+          {
+            "kind": "trigger",
+            "id": "trigger",
+            "label": "need building data for Gitega, Burundi",
+            "evidence": {
+              "type": "user_query",
+              "content": "need building data for Gitega, Burundi",
+              "disaster_type": null,
+              "spatial_extent": null,
+              "temporal_start": null,
+              "temporal_end": null
+            }
+          },
+          {
+            "kind": "workflow_pattern",
+            "id": "wp.earthquake.building.default",
+            "label": "Earthquake Building Fusion",
+            "evidence": {
+              "pattern_id": "wp.earthquake.building.default",
+              "pattern_name": "Earthquake Building Fusion",
+              "job_type": "building",
+              "disaster_types": [
+                "earthquake"
+              ],
+              "success_rate": 0.91,
+              "metadata": {
+                "version": "1.0.0",
+                "runtime_status": "runtime_candidate",
+                "scenario_focus": "earthquake",
+                "strategy": "throughput"
+              },
+              "steps": [
+                {
+                  "order": 1,
+                  "name": "building_fusion_earthquake",
+                  "algorithm_id": "algo.fusion.building.v1",
+                  "input_data_type": "dt.building.bundle",
+                  "output_data_type": "dt.building.fused",
+                  "data_source_id": "upload.bundle",
+                  "depends_on": [],
+                  "is_optional": false
+                }
+              ]
+            }
+          },
+          {
+            "kind": "task",
+            "id": "task:1",
+            "label": "building_fusion_earthquake",
+            "evidence": {
+              "step": 1,
+              "description": "Execute algo.fusion.building.v1"
+            }
+          },
+          {
+            "kind": "data_source",
+            "id": "catalog.earthquake.building",
+            "label": "Earthquake Building Bundle (OSM + Microsoft)",
+            "evidence": {
+              "source_id": "catalog.earthquake.building",
+              "source_name": "Earthquake Building Bundle (OSM + Microsoft)",
+              "supported_types": [
+                "dt.building.bundle"
+              ],
+              "disaster_types": [
+                "earthquake",
+                "generic"
+              ],
+              "quality_score": 0.88,
+              "source_kind": "catalog",
+              "quality_tier": "curated",
+              "freshness_category": "event_snapshot",
+              "freshness_hours": 96,
+              "freshness_score": 0.71,
+              "supported_job_types": [
+                "building"
+              ],
+              "supported_geometry_types": [
+                "polygon"
+              ],
+              "metadata": {
+                "kind": "catalog",
+                "priority": 2,
+                "provider_family": "local_bundle_catalog",
+                "bundle_strategy": "osm_ref_pair",
+                "component_source_ids": [
+                  "raw.osm.building",
+                  "raw.microsoft.building"
+                ],
+                "path_hints": [
+                  "Data/buildings/OSM",
+                  "Data/buildings/Microsoft"
+                ],
+                "supports_aoi": true,
+                "materialization_scope": "resolved_aoi_clip",
+                "source_form": "bundle",
+                "runtime_status": "runtime_candidate",
+                "selectable_now": true,
+                "supports_tiling": true,
+                "height_semantics": "confidence_only"
+              }
+            }
+          },
+          {
+            "kind": "algorithm",
+            "id": "algo.fusion.building.v1",
+            "label": "algo.fusion.building.v1",
+            "evidence": {
+              "algorithm_id": "algo.fusion.building.v1"
+            }
+          },
+          {
+            "kind": "output_data_type",
+            "id": "dt.building.fused",
+            "label": "dt.building.fused",
+            "evidence": {
+              "data_type_id": "dt.building.fused",
+              "description": "Output generated by workflow step"
+            }
+          }
+        ],
+        "edges": [
+          {
+            "from": "trigger",
+            "to": "wp.earthquake.building.default",
+            "relationship": "selects_pattern"
+          },
+          {
+            "from": "wp.earthquake.building.default",
+            "to": "task:1",
+            "relationship": "activates_task"
+          },
+          {
+            "from": "task:1",
+            "to": "catalog.earthquake.building",
+            "relationship": "uses_data_source"
+          },
+          {
+            "from": "catalog.earthquake.building",
+            "to": "algo.fusion.building.v1",
+            "relationship": "executes_algorithm"
+          },
+          {
+            "from": "algo.fusion.building.v1",
+            "to": "dt.building.fused",
+            "relationship": "produces_output"
+          }
+        ]
+      }
+    ]
+  }
+}

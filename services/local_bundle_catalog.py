@@ -20,6 +20,11 @@ BUILDING_SOURCE_FALLBACKS = {
     "catalog.earthquake.building": ["catalog.flood.building"],
 }
 
+PARTIAL_COVERAGE_ALLOWED_SOURCES = {
+    "catalog.flood.water",
+    "catalog.generic.poi",
+}
+
 
 class LocalBundleCatalogProvider:
     def __init__(self, root_dir: Path, *, raw_source_service: RawVectorSourceService) -> None:
@@ -152,8 +157,12 @@ class LocalBundleCatalogProvider:
                 target_crs=target_crs,
                 resolved_aoi=resolved_aoi,
             )
-            if (osm.feature_count or 0) == 0 or (ref.feature_count or 0) == 0:
-                if require_non_empty_pair:
+            osm_count = osm.feature_count or 0
+            ref_count = ref.feature_count or 0
+            if osm_count == 0 and ref_count == 0:
+                raise ValueError(f"AOI-scoped bundle has empty source coverage for {source_id}")
+            if require_non_empty_pair and self._requires_complete_pair_coverage(source_id):
+                if osm_count == 0 or ref_count == 0:
                     raise ValueError(f"AOI-scoped bundle has empty source coverage for {source_id}")
         else:
             ref = self._create_empty_reference_bundle(osm=osm, output_zip=target_dir / "ref.zip")
@@ -198,11 +207,17 @@ class LocalBundleCatalogProvider:
         spec = self._spec_for(source_id)
         if spec.ref_source_id is None:
             return False
+        if not self._requires_complete_pair_coverage(source_id):
+            return False
         for component_source_id in spec.component_source_ids:
             status = component_coverage.get(component_source_id)
             if status is not None and status.feature_count == 0:
                 return True
         return False
+
+    @staticmethod
+    def _requires_complete_pair_coverage(source_id: str) -> bool:
+        return source_id not in PARTIAL_COVERAGE_ALLOWED_SOURCES
 
     @staticmethod
     def _create_empty_reference_bundle(

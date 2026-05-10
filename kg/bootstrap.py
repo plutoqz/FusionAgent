@@ -26,6 +26,33 @@ GRAPH_NAMESPACE = "fusionagent"
 COMMUNITY_HOME_DATABASE = "neo4j"
 
 
+def expected_seed_inventory() -> dict[str, int]:
+    return {
+        "DataType": len(DATA_TYPES),
+        "Task": len(TASKS),
+        "Algorithm": len(ALGORITHMS),
+        "AlgorithmParameterSpec": sum(len(items) for items in PARAMETER_SPECS.values()),
+        "DataSource": len(DATA_SOURCES),
+        "ScenarioProfile": len(SCENARIO_PROFILES),
+        "OutputSchemaPolicy": len(OUTPUT_SCHEMA_POLICIES),
+        "WorkflowPattern": len(WORKFLOW_PATTERNS),
+    }
+
+
+def managed_inventory_missing_seed_labels(inventory: dict[str, Any]) -> dict[str, dict[str, int]]:
+    live_counts = {str(item["label"]): int(item["count"]) for item in inventory.get("label_counts", [])}
+    expected = expected_seed_inventory()
+    missing: dict[str, dict[str, int]] = {}
+    for label, expected_count in expected.items():
+        live_count = int(live_counts.get(label, 0))
+        if live_count < expected_count:
+            missing[label] = {
+                "expected": expected_count,
+                "actual": live_count,
+            }
+    return missing
+
+
 def _cypher_literal(value: Any) -> str:
     return json.dumps(value, ensure_ascii=False)
 
@@ -579,22 +606,15 @@ def ensure_bootstrap_data(
     database: str | None = None,
     cypher: str | None = None,
 ) -> bool:
-    driver = _create_driver(uri=uri, user=user, password=password)
-    try:
-        with driver.session(database=database) as session:
-            result = session.run(
-                """
-                MATCH (wp:WorkflowPattern)
-                WHERE $managed_label IN labels(wp)
-                RETURN count(wp) AS count
-                """,
-                managed_label=MANAGED_LABEL,
-            )
-            row = result.single() if hasattr(result, "single") else None
-            if row and int(row.get("count", 0)) > 0:
-                return False
-    finally:
-        driver.close()
+    live_inventory = inspect_graph_state(
+        uri=uri,
+        user=user,
+        password=password,
+        database=database,
+        managed_only=True,
+    )
+    if not managed_inventory_missing_seed_labels(live_inventory):
+        return False
 
     apply_bootstrap_cypher(
         uri=uri,
@@ -655,6 +675,7 @@ def prepare_local_neo4j(
         for label in all_inventory["label_counts"]
         if label["label"] not in managed_labels and label["label"] != MANAGED_LABEL
     ]
+    missing_seed_labels = managed_inventory_missing_seed_labels(managed_inventory)
 
     return {
         **resolved,
@@ -663,6 +684,9 @@ def prepare_local_neo4j(
         "database_created": database_created,
         "managed_nodes_deleted": deleted_nodes,
         "bootstrap_applied": bootstrap_applied,
+        "expected_seed_inventory": expected_seed_inventory(),
+        "missing_seed_labels": missing_seed_labels,
+        "kg_contract_ok": not missing_seed_labels,
         "managed_inventory": managed_inventory,
         "foreign_labels": foreign_labels,
     }
@@ -714,6 +738,7 @@ def main(argv: list[str] | None = None) -> None:
         report = {
             **resolved,
             "managed_label": MANAGED_LABEL,
+            "expected_seed_inventory": expected_seed_inventory(),
             "inventory": inspect_graph_state(
                 uri=uri,
                 user=user,
@@ -722,6 +747,9 @@ def main(argv: list[str] | None = None) -> None:
                 managed_only=args.managed_only,
             ),
         }
+        report["missing_seed_labels"] = (
+            managed_inventory_missing_seed_labels(report["inventory"]) if args.managed_only else {}
+        )
         if args.json:
             print(json.dumps(report, ensure_ascii=False, indent=2))
         else:

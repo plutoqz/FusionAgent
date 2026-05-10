@@ -361,7 +361,7 @@ def test_build_freeze_report_normalizes_paths_and_renders_failure_rows(tmp_path:
                 {
                     "evidence_id": "c7_water_uploaded_vertical_slice",
                     "claim_ids": ["C7"],
-                    "paths": ["docs/superpowers/plans/2026-04-20-water-vertical-slice.md"],
+                    "paths": ["docs/superpowers/plans/done/2026-04-20-water-vertical-slice.md"],
                     "summary": "Uploaded-only water slice proves bounded extensibility.",
                 }
             ],
@@ -698,7 +698,7 @@ Create `docs/superpowers/specs/2026-04-21-paper-experiment-matrix.json`:
       "evidence_id": "c7_water_uploaded_vertical_slice",
       "claim_ids": ["C7"],
       "paths": [
-        "docs/superpowers/plans/2026-04-20-water-vertical-slice.md",
+        "docs/superpowers/plans/done/2026-04-20-water-vertical-slice.md",
         "tests/test_water_adapter.py",
         "tests/test_api_v2_integration.py::test_v2_run_water_uploaded_integration",
         "docs/superpowers/specs/2026-04-20-evidence-ledger.md"

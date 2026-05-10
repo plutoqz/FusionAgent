@@ -5,6 +5,7 @@ from pathlib import Path
 from typing import Optional, Tuple
 
 import geopandas as gpd
+from shapely.geometry import LineString, MultiLineString, MultiPoint, MultiPolygon
 from shapely.geometry import box
 
 from utils.crs import normalize_target_crs
@@ -14,11 +15,98 @@ from utils.shp_zip import validate_zip_has_shapefile, zip_shapefile_bundle
 BBox = Tuple[float, float, float, float]
 REQUEST_BBOX_CRS = "EPSG:4326"
 
+_GEOMETRY_FAMILIES = {
+    "point": {"Point", "MultiPoint"},
+    "line": {"LineString", "LinearRing", "MultiLineString"},
+    "polygon": {"Polygon", "MultiPolygon"},
+}
+
 
 def ensure_frame_crs(gdf: gpd.GeoDataFrame, *, default_crs: str = REQUEST_BBOX_CRS) -> gpd.GeoDataFrame:
     if gdf.crs is not None:
         return gdf
     return gdf.set_crs(default_crs)
+
+
+def _geometry_family_for_type(geom_type: str) -> str | None:
+    for family, type_names in _GEOMETRY_FAMILIES.items():
+        if geom_type in type_names:
+            return family
+    return None
+
+
+def _infer_single_geometry_family(gdf: gpd.GeoDataFrame) -> str | None:
+    if gdf.empty:
+        return None
+    families = {
+        _geometry_family_for_type(str(geom.geom_type))
+        for geom in gdf.geometry
+        if geom is not None and not geom.is_empty
+    }
+    families.discard(None)
+    if len(families) != 1:
+        return None
+    return next(iter(families))
+
+
+def _geometry_parts_for_family(geometry, family: str) -> list:
+    if geometry is None or geometry.is_empty:
+        return []
+    if geometry.geom_type == "GeometryCollection":
+        parts: list = []
+        for item in geometry.geoms:
+            parts.extend(_geometry_parts_for_family(item, family))
+        return parts
+    if family == "polygon":
+        if geometry.geom_type == "Polygon":
+            return [geometry]
+        if geometry.geom_type == "MultiPolygon":
+            return [item for item in geometry.geoms if not item.is_empty]
+        return []
+    if family == "line":
+        if geometry.geom_type == "LineString":
+            return [geometry]
+        if geometry.geom_type == "LinearRing":
+            return [LineString(geometry.coords)]
+        if geometry.geom_type == "MultiLineString":
+            return [item for item in geometry.geoms if not item.is_empty]
+        return []
+    if family == "point":
+        if geometry.geom_type == "Point":
+            return [geometry]
+        if geometry.geom_type == "MultiPoint":
+            return [item for item in geometry.geoms if not item.is_empty]
+        return []
+    return []
+
+
+def _rebuild_geometry_from_parts(parts: list, family: str):
+    if not parts:
+        return None
+    if len(parts) == 1:
+        return parts[0]
+    if family == "polygon":
+        return MultiPolygon(parts)
+    if family == "line":
+        return MultiLineString(parts)
+    if family == "point":
+        return MultiPoint(parts)
+    return None
+
+
+def _coerce_frame_to_geometry_family(gdf: gpd.GeoDataFrame, family: str) -> gpd.GeoDataFrame:
+    if gdf.empty:
+        return gdf
+    geometries = [
+        _rebuild_geometry_from_parts(_geometry_parts_for_family(geometry, family), family)
+        for geometry in gdf.geometry
+    ]
+    coerced = gdf.copy()
+    coerced = coerced.set_geometry(gpd.GeoSeries(geometries, index=gdf.index, crs=gdf.crs))
+    coerced = coerced[coerced.geometry.notna() & ~coerced.geometry.is_empty].copy()
+    if coerced.empty:
+        return gdf.iloc[0:0].copy()
+    return coerced
 
 
 def clip_frame_to_request_bbox(
@@ -30,6 +118,7 @@ def clip_frame_to_request_bbox(
     frame = ensure_frame_crs(gdf, default_crs=request_crs)
     if request_bbox is None:
         return frame
+    source_geometry_family = _infer_single_geometry_family(frame)
 
     mask = gpd.GeoDataFrame(geometry=[box(*request_bbox)], crs=request_crs)
     dataset_crs = normalize_target_crs(str(frame.crs))
@@ -37,6 +126,8 @@ def clip_frame_to_request_bbox(
         mask = mask.to_crs(dataset_crs)
 
     clipped = frame.clip(mask.geometry.iloc[0])
+    if source_geometry_family is not None:
+        clipped = _coerce_frame_to_geometry_family(clipped, source_geometry_family)
     clipped = clipped[~clipped.geometry.is_empty & clipped.geometry.notna()].copy()
     if clipped.empty:
         return frame.iloc[0:0].copy()

@@ -225,6 +225,117 @@ def test_source_asset_service_materializes_kenya_osm_and_clips_to_nairobi(tmp_pa
     assert frame.iloc[0]["road_id"] == 1
 
 
+def test_source_asset_service_redownloads_corrupt_geofabrik_cache_before_extracting(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    archive_path = tmp_path / "fixtures" / "kenya-latest-free.shp.zip"
+    roads = geopandas.GeoDataFrame(
+        {"road_id": [1]},
+        geometry=[LineString([(36.80, -1.35), (36.90, -1.25)])],
+        crs="EPSG:4326",
+    )
+    _write_geofabrik_zip_with_layers(archive_path, roads=roads)
+    index_path = tmp_path / "fixtures" / "geofabrik-index.json"
+    index_path.write_text(
+        json.dumps(
+            {
+                "type": "FeatureCollection",
+                "features": [
+                    {
+                        "type": "Feature",
+                        "properties": {
+                            "id": "africa/kenya",
+                            "parent": "africa",
+                            "name": "Kenya",
+                            "iso3166-1:alpha2": ["KE"],
+                            "urls": {"shp": archive_path.resolve().as_uri()},
+                        },
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    service = SourceAssetService(
+        repo_root=tmp_path,
+        cache_dir=tmp_path / "cache",
+        geofabrik_index_url=index_path.resolve().as_uri(),
+        prefer_local_data=False,
+    )
+    corrupt_zip = tmp_path / "cache" / "geofabrik" / "kenya" / "kenya-latest-free.shp.zip"
+    corrupt_zip.parent.mkdir(parents=True, exist_ok=True)
+    corrupt_zip.write_bytes(b"PK\x03\x04not-a-real-zip")
+    download_calls: list[str] = []
+    original_download = service._download_file
+
+    def tracked_download(url: str, target_path: Path) -> None:
+        download_calls.append(url)
+        original_download(url, target_path)
+
+    monkeypatch.setattr(service, "_download_file", tracked_download)
+
+    resolved = service.resolve_raw_source_path("raw.osm.road", aoi=_resolved_nairobi_aoi())
+    frame = geopandas.read_file(resolved.path)
+
+    assert resolved.source_mode == "asset_downloaded"
+    assert resolved.feature_count == 1
+    assert len(frame) == 1
+    assert download_calls == [archive_path.resolve().as_uri()]
+
+
+def test_source_asset_service_uses_httpx_for_https_downloads(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    service = SourceAssetService(repo_root=tmp_path, cache_dir=tmp_path / "cache", prefer_local_data=False)
+    target_path = tmp_path / "download.bin"
+    calls: list[tuple[str, str]] = []
+
+    def fake_http(url: str, temp_path: Path) -> None:
+        calls.append(("httpx", url))
+        temp_path.write_bytes(b"http")
+
+    def fake_urllib(url: str, temp_path: Path) -> None:
+        calls.append(("urllib", url))
+        temp_path.write_bytes(b"urllib")
+
+    monkeypatch.setattr(service, "_download_http_stream", fake_http)
+    monkeypatch.setattr(service, "_download_via_urllib", fake_urllib)
+
+    service._download_file("https://example.com/data.zip", target_path)
+
+    assert target_path.read_bytes() == b"http"
+    assert calls == [("httpx", "https://example.com/data.zip")]
+
+
+def test_source_asset_service_falls_back_to_curl_when_httpx_https_download_fails(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = SourceAssetService(repo_root=tmp_path, cache_dir=tmp_path / "cache", prefer_local_data=False)
+    target_path = tmp_path / "download.bin"
+    calls: list[tuple[str, str]] = []
+
+    def fake_stream(*args, **kwargs):
+        del kwargs
+        calls.append(("httpx", str(args[1])))
+        raise httpx.ConnectError("boom")
+
+    def fake_curl(url: str, temp_path: Path) -> None:
+        calls.append(("curl", url))
+        temp_path.write_bytes(b"curl")
+
+    monkeypatch.setattr("services.source_asset_service.httpx.stream", fake_stream)
+    monkeypatch.setattr("services.source_asset_service.SourceAssetService._download_http_via_curl", staticmethod(fake_curl))
+
+    service._download_file("https://example.com/data.zip", target_path)
+
+    assert target_path.read_bytes() == b"curl"
+    assert calls == [
+        ("httpx", "https://example.com/data.zip"),
+        ("curl", "https://example.com/data.zip"),
+    ]
+
+
 def test_source_asset_service_water_prefers_local_source_and_clips_request_bbox(tmp_path: Path) -> None:
     local_shp = tmp_path / "Data" / "burundi-260127-free.shp" / "gis_osm_water_a_free_1.shp"
     _write_frame(

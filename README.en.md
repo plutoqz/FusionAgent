@@ -218,7 +218,7 @@ validator, policy, audit, and healing loops bound correctness and robustness.
 - added the `water` polygon fusion vertical slice onto the shared runtime backbone
 - planner, KG seed, executor dispatch, adapter output, artifact writeback, and Neo4j bootstrap are now closed for this slice
 - `water` supports `task_driven_auto` after Phase 1 stabilization and now shares the same evidence contract as `building` and `road`
-- tracked implementation record: [2026-04-20-water-vertical-slice.md](./docs/superpowers/plans/2026-04-20-water-vertical-slice.md)
+- tracked implementation record: [2026-04-20-water-vertical-slice.md](./docs/superpowers/plans/done/2026-04-20-water-vertical-slice.md)
 
 ### Phase F.1: POI Vertical Slice
 
@@ -482,7 +482,7 @@ python -m pytest -q `
 
 - [docs/v2-operations.md](docs/v2-operations.md)
 - [docs/superpowers/specs/2026-04-07-fusion-agent-v2-design.md](docs/superpowers/specs/2026-04-07-fusion-agent-v2-design.md)
-- [docs/superpowers/plans/2026-04-07-fusion-agent-v2-implementation.md](docs/superpowers/plans/2026-04-07-fusion-agent-v2-implementation.md)
+- [docs/superpowers/plans/done/2026-04-07-fusion-agent-v2-implementation.md](docs/superpowers/plans/done/2026-04-07-fusion-agent-v2-implementation.md)
 - [docs/superpowers/specs/2026-04-08-benchmark-followup-summary.md](docs/superpowers/specs/2026-04-08-benchmark-followup-summary.md)
 - [docs/superpowers/specs/2026-04-21-paper-experiment-matrix.json](docs/superpowers/specs/2026-04-21-paper-experiment-matrix.json)
 - [docs/superpowers/specs/2026-04-21-paper-evidence-freeze.md](docs/superpowers/specs/2026-04-21-paper-evidence-freeze.md)

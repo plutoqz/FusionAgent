@@ -228,6 +228,10 @@ def test_planner_context_exposes_task_bundle_task_nodes_and_scenario_profiles() 
         item["profile_id"] == "scenario.default.task"
         for item in provider.last_context["retrieval"]["scenario_profiles"]
     )
+    assert provider.last_context["intent"]["effective_scenario_profile_id"] == "scenario.default.task"
+    assert "task.building.fusion" in provider.last_context["intent"]["effective_activated_tasks"]
+    assert "task.road.fusion" in provider.last_context["intent"]["effective_activated_tasks"]
+    assert provider.last_context["intent"]["effective_preferred_output_fields"] == ["geometry"]
 
 
 def test_planner_context_exposes_data_types() -> None:
@@ -622,6 +626,24 @@ def test_planner_context_exposes_parameter_specs_and_output_schema_policy_metada
     assert "geometry" in building_output_policy["required_fields"]
     assert "confidence" in building_output_policy["optional_fields"]
     assert building_output_policy["rename_hints"]["geometry_x"] == "geometry"
+
+
+def test_planner_context_selects_effective_disaster_scenario_profile() -> None:
+    provider = CapturingProvider()
+    planner = WorkflowPlanner(InMemoryKGRepository(), provider)
+    trigger = RunTrigger(
+        type=RunTriggerType.disaster_event,
+        content="flood building fusion with active profile",
+        disaster_type="flood",
+    )
+
+    plan = planner.create_plan(run_id="run-flood-profile", job_type=JobType.building, trigger=trigger)
+
+    assert provider.last_context is not None
+    assert provider.last_context["intent"]["effective_scenario_profile_id"] == "scenario.flood.default"
+    assert "task.building.fusion" in provider.last_context["intent"]["effective_activated_tasks"]
+    assert "confidence" in provider.last_context["intent"]["effective_preferred_output_fields"]
+    assert plan.context["intent"]["effective_scenario_profile_id"] == "scenario.flood.default"
 
 
 def test_planner_context_exposes_durable_learning_summaries() -> None:

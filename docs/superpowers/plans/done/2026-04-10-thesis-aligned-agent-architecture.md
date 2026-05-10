@@ -504,7 +504,7 @@ Then manually verify that:
 - [x] **Step 5: Commit**
 
 ```bash
-git add README.md docs/superpowers/plans/2026-04-10-thesis-aligned-agent-architecture.md 文档/GeoFusion\ 知识图谱本体模式层设计方案.md 文档/完整项目上下文文档.md tests/test_planner_context.py tests/test_intent_resolver.py tests/test_task_bundle_context.py
+git add README.md docs/superpowers/plans/done/2026-04-10-thesis-aligned-agent-architecture.md 文档/GeoFusion\ 知识图谱本体模式层设计方案.md 文档/完整项目上下文文档.md tests/test_planner_context.py tests/test_intent_resolver.py tests/test_task_bundle_context.py
 git commit -m "docs: align thesis narrative with executable architecture"
 ```
 
@@ -536,7 +536,7 @@ git commit -m "docs: align thesis narrative with executable architecture"
 
 ## Execution Handoff
 
-Plan complete and saved to `docs/superpowers/plans/2026-04-10-thesis-aligned-agent-architecture.md`.
+Plan complete and saved to `docs/superpowers/plans/done/2026-04-10-thesis-aligned-agent-architecture.md`.
 
 Two execution options:
 

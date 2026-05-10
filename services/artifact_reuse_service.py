@@ -102,13 +102,18 @@ class ArtifactReuseService:
         return None
 
     @staticmethod
-    def _required_fields(plan: WorkflowPlan, *, required_output_type: Optional[str]) -> List[str]:
+    def _output_schema_policy(plan: WorkflowPlan, *, required_output_type: Optional[str]) -> dict | None:
         retrieval = plan.context.get("retrieval", {})
         raw_policies = retrieval.get("output_schema_policies", {}) if isinstance(retrieval, dict) else {}
         if not isinstance(raw_policies, dict) or not required_output_type:
-            return []
+            return None
         raw_policy = raw_policies.get(required_output_type)
-        if not isinstance(raw_policy, dict):
+        return raw_policy if isinstance(raw_policy, dict) else None
+
+    @staticmethod
+    def _required_fields(plan: WorkflowPlan, *, required_output_type: Optional[str]) -> List[str]:
+        raw_policy = ArtifactReuseService._output_schema_policy(plan, required_output_type=required_output_type)
+        if raw_policy is None:
             return []
         required_fields = raw_policy.get("required_fields", [])
         if not isinstance(required_fields, list):

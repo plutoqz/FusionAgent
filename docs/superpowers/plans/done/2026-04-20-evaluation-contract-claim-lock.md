@@ -147,7 +147,7 @@ Add a row in the evidence ledger pointing to the Phase B claim/evaluation contra
 ## Task 5: Verify And Commit
 
 **Files:**
-- Modify: `docs/superpowers/plans/2026-04-20-evaluation-contract-claim-lock.md`
+- Modify: `docs/superpowers/plans/done/2026-04-20-evaluation-contract-claim-lock.md`
 
 - [x] **Step 1: Run full tests**
 
@@ -168,7 +168,7 @@ Expected:
 Run:
 
 ```powershell
-Select-String -LiteralPath docs/superpowers/specs/2026-04-20-evaluation-contract-claim-lock.md,docs/superpowers/plans/2026-04-20-evaluation-contract-claim-lock.md -Pattern 'unfinished-marker'
+Select-String -LiteralPath docs/superpowers/specs/2026-04-20-evaluation-contract-claim-lock.md,docs/superpowers/plans/done/2026-04-20-evaluation-contract-claim-lock.md -Pattern 'unfinished-marker'
 ```
 
 Expected: no matches.
@@ -178,7 +178,7 @@ Expected: no matches.
 Run:
 
 ```powershell
-git add README.md docs/superpowers/specs/2026-04-20-evidence-ledger.md docs/superpowers/specs/2026-04-20-evaluation-contract-claim-lock.md docs/superpowers/plans/2026-04-20-evaluation-contract-claim-lock.md
+git add README.md docs/superpowers/specs/2026-04-20-evidence-ledger.md docs/superpowers/specs/2026-04-20-evaluation-contract-claim-lock.md docs/superpowers/plans/done/2026-04-20-evaluation-contract-claim-lock.md
 git commit -m "docs: lock evaluation contract and claims"
 ```
 

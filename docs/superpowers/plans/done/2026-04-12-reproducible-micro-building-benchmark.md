@@ -163,7 +163,7 @@ and keep the benchmark result JSON as live evidence.
 - [x] **Step 2: Commit**
 
 ```bash
-git add scripts/eval_harness.py tests/test_eval_harness.py docs/superpowers/specs/2026-04-07-real-data-eval-manifest.json docs/superpowers/specs/2026-04-08-building-micro-benchmark-result.json docs/superpowers/plans/2026-04-08-benchmark-followup-and-runtime-alignment.md docs/superpowers/specs/2026-04-08-benchmark-followup-summary.md README.md README.en.md docs/superpowers/plans/2026-04-12-reproducible-micro-building-benchmark.md
+git add scripts/eval_harness.py tests/test_eval_harness.py docs/superpowers/specs/2026-04-07-real-data-eval-manifest.json docs/superpowers/specs/2026-04-08-building-micro-benchmark-result.json docs/superpowers/plans/done/2026-04-08-benchmark-followup-and-runtime-alignment.md docs/superpowers/specs/2026-04-08-benchmark-followup-summary.md README.md README.en.md docs/superpowers/plans/done/2026-04-12-reproducible-micro-building-benchmark.md
 git commit -m "feat: make micro building benchmark reproducible"
 ```
 

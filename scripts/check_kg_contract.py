@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import argparse
 import json
+import os
 from pathlib import Path
 import sys
 
@@ -20,22 +20,8 @@ from kg.bootstrap import (
 from utils.local_runtime import apply_local_dependency_defaults
 
 
-def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(description="Inspect Neo4j state for FusionAgent without mutating data.")
-    parser.add_argument(
-        "--managed-only",
-        action="store_true",
-        help="Only inspect FusionAgent-managed nodes and relationships.",
-    )
-    return parser
-
-
-def main(argv: list[str] | None = None) -> int:
-    args = _parser().parse_args(argv)
+def main() -> int:
     apply_local_dependency_defaults(required=True)
-
-    import os
-
     uri = os.environ["GEOFUSION_NEO4J_URI"]
     user = os.environ["GEOFUSION_NEO4J_USER"]
     password = os.environ["GEOFUSION_NEO4J_PASSWORD"]
@@ -47,18 +33,19 @@ def main(argv: list[str] | None = None) -> int:
         user=user,
         password=password,
         database=resolved["database_used"],
-        managed_only=args.managed_only,
+        managed_only=True,
     )
+    missing = managed_inventory_missing_seed_labels(inventory)
     report = {
         **resolved,
         "managed_label": MANAGED_LABEL,
         "expected_seed_inventory": expected_seed_inventory(),
-        "inventory": inventory,
+        "live_inventory": inventory,
+        "missing_seed_labels": missing,
+        "ok": not missing,
     }
-    if args.managed_only:
-        report["missing_seed_labels"] = managed_inventory_missing_seed_labels(inventory)
     print(json.dumps(report, ensure_ascii=False, indent=2))
-    return 0
+    return 0 if report["ok"] else 1
 
 
 if __name__ == "__main__":

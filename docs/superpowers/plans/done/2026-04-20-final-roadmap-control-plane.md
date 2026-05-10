@@ -200,7 +200,7 @@ Do not weaken or rewrite the existing README statement that engineering MVP and 
 ## Task 6: Verify And Close Phase A
 
 **Files:**
-- Modify: `docs/superpowers/plans/2026-04-20-final-roadmap-control-plane.md`
+- Modify: `docs/superpowers/plans/done/2026-04-20-final-roadmap-control-plane.md`
 
 - [x] **Step 1: Run full tests**
 
@@ -231,7 +231,7 @@ Expected: no matches.
 Run:
 
 ```powershell
-git add README.md docs/superpowers/plans/2026-04-20-final-roadmap-control-plane.md docs/superpowers/specs/2026-04-20-final-gap-matrix.md docs/superpowers/specs/2026-04-20-evidence-ledger.md docs/superpowers/specs/2026-04-20-long-chain-decision-roadmap.md
+git add README.md docs/superpowers/plans/done/2026-04-20-final-roadmap-control-plane.md docs/superpowers/specs/2026-04-20-final-gap-matrix.md docs/superpowers/specs/2026-04-20-evidence-ledger.md docs/superpowers/specs/2026-04-20-long-chain-decision-roadmap.md
 git commit -m "docs: add final roadmap control plane"
 ```
 

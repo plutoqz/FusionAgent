@@ -3,6 +3,7 @@ from kg.inmemory_repository import InMemoryKGRepository
 from schemas.agent import (
     RunTrigger,
     RunTriggerType,
+    ValidationIssue,
     WorkflowPlan,
     WorkflowTask,
     WorkflowTaskInput,
@@ -111,3 +112,43 @@ def test_validator_rejects_reservation_only_algorithm() -> None:
     assert fixed.validation.valid is False
     assert fixed.validation.issues[0].code == "RESERVED_ALGORITHM"
     assert fixed.tasks[0].kg_validated is False
+
+
+def test_validator_rejects_task_not_activated_by_effective_scenario_profile() -> None:
+    plan = WorkflowPlan(
+        workflow_id="wf_profile_task_mismatch",
+        trigger=RunTrigger(type=RunTriggerType.disaster_event, content="flood building fusion", disaster_type="flood"),
+        context={
+            "intent": {
+                "job_type": "building",
+                "effective_scenario_profile_id": "scenario.flood.default",
+                "effective_activated_tasks": ["task.road.fusion"],
+            }
+        },
+        tasks=[
+            WorkflowTask(
+                step=1,
+                name="building_fusion",
+                description="building fusion",
+                algorithm_id="algo.fusion.building.v1",
+                input=WorkflowTaskInput(
+                    data_type_id="dt.building.bundle",
+                    data_source_id="upload.bundle",
+                    parameters={},
+                ),
+                output=WorkflowTaskOutput(data_type_id="dt.building.fused", description=""),
+                depends_on=[],
+                is_transform=False,
+                kg_validated=False,
+                alternatives=[],
+            )
+        ],
+        expected_output="building result",
+    )
+
+    validator = WorkflowValidator(InMemoryKGRepository())
+    fixed = validator.validate_and_repair(plan)
+
+    assert fixed.validation is not None
+    assert fixed.validation.valid is False
+    assert fixed.validation.issues[0].code == "SCENARIO_PROFILE_TASK_MISMATCH"

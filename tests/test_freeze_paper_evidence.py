@@ -90,7 +90,7 @@ def test_build_freeze_report_normalizes_harness_summary_and_renders_failure_rows
                 {
                     "evidence_id": "c7_water_uploaded_vertical_slice",
                     "claim_ids": ["C7"],
-                    "paths": ["docs/superpowers/plans/2026-04-20-water-vertical-slice.md"],
+                    "paths": ["docs/superpowers/plans/done/2026-04-20-water-vertical-slice.md"],
                     "summary": "Uploaded-only water slice proves bounded extensibility.",
                 }
             ],
@@ -288,7 +288,7 @@ def test_build_freeze_report_supports_status_evidence_rows_and_renders_metric_de
                     ],
                     "verification_result": "2 passed",
                     "evidence_paths": [
-                        "docs/superpowers/plans/2026-04-20-full-replan-loop-v1.md",
+                        "docs/superpowers/plans/done/2026-04-20-full-replan-loop-v1.md",
                         "tests/test_agent_run_service_enhancements.py",
                     ],
                     "supports_metrics": [
@@ -349,7 +349,7 @@ def test_build_freeze_report_supports_status_evidence_rows_and_renders_metric_de
         "execution_success_rate": "pass",
     }
     assert row["evidence_paths"] == [
-        "docs/superpowers/plans/2026-04-20-full-replan-loop-v1.md",
+        "docs/superpowers/plans/done/2026-04-20-full-replan-loop-v1.md",
         "tests/test_agent_run_service_enhancements.py",
     ]
     assert scenario_row["summary_source_format"] == "scenario_trigger_proof"
@@ -374,7 +374,7 @@ def test_build_freeze_report_supports_status_evidence_rows_and_renders_metric_de
     assert "c1_c2_c7_scenario_trigger_autonomy" in markdown
     assert "planning_validity_rate=pass" in markdown
     assert "13 passed" in markdown
-    assert "docs/superpowers/plans/2026-04-20-full-replan-loop-v1.md" in markdown
+    assert "docs/superpowers/plans/done/2026-04-20-full-replan-loop-v1.md" in markdown
     assert "Water shares the same task-driven runtime and evidence contract after Phase 1 stabilization." in markdown
 
 

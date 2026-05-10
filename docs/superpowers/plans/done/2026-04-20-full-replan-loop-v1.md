@@ -92,7 +92,7 @@ when `plan.context["plan_revision"]` is greater than zero.
 ## Task 3: Verify
 
 **Files:**
-- Modify: `docs/superpowers/plans/2026-04-20-full-replan-loop-v1.md`
+- Modify: `docs/superpowers/plans/done/2026-04-20-full-replan-loop-v1.md`
 
 - [x] **Step 1: Run red checks**
 

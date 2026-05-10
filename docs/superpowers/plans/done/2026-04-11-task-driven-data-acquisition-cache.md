@@ -475,7 +475,7 @@ Expected: PASS
 - [x] **Step 4: Commit**
 
 ```bash
-git add README.md docs/superpowers/plans/2026-04-11-task-driven-data-acquisition-cache.md
+git add README.md docs/superpowers/plans/done/2026-04-11-task-driven-data-acquisition-cache.md
 git commit -m "docs: describe task-driven acquisition cache pipeline"
 ```
 

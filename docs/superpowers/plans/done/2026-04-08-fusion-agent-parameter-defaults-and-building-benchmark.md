@@ -415,7 +415,7 @@ E:\vscode\fusionAgent
 Context to carry into the new thread:
 
 ```text
-Execute docs/superpowers/plans/2026-04-08-fusion-agent-parameter-defaults-and-building-benchmark.md from Task 1 onward. After Tasks 1-4 pass, run the first real building benchmark case from docs/superpowers/specs/2026-04-07-real-data-eval-manifest.json.
+Execute docs/superpowers/plans/done/2026-04-08-fusion-agent-parameter-defaults-and-building-benchmark.md from Task 1 onward. After Tasks 1-4 pass, run the first real building benchmark case from docs/superpowers/specs/2026-04-07-real-data-eval-manifest.json.
 ```
 
 - [x] **Step 2: Start local API**

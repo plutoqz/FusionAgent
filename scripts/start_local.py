@@ -54,6 +54,9 @@ def _prepare_neo4j(env: dict[str, str], *, reset_managed_graph: bool = False) ->
             "database_used": None,
             "notes": [],
             "bootstrap_applied": False,
+            "expected_seed_inventory": {},
+            "missing_seed_labels": {},
+            "kg_contract_ok": True,
             "managed_nodes_deleted": 0,
             "managed_inventory": {"label_counts": [], "relationship_counts": [], "node_count": 0},
             "foreign_labels": [],
@@ -135,6 +138,10 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Neo4j bootstrap: {'applied' if neo4j_summary['bootstrap_applied'] else 'already seeded'}")
         if neo4j_summary.get("managed_nodes_deleted"):
             print(f"Neo4j managed cleanup: deleted {neo4j_summary['managed_nodes_deleted']} nodes")
+        if neo4j_summary.get("kg_contract_ok", False):
+            print("KG contract: PASS")
+        else:
+            print(f"KG contract: FAIL missing={neo4j_summary.get('missing_seed_labels', {})}")
         notes = neo4j_summary.get("notes") or []
         for note in notes:
             print(f"Neo4j note: {note}")
@@ -142,6 +149,8 @@ def main(argv: list[str] | None = None) -> int:
         if foreign_labels:
             preview = ", ".join(f"{item['label']}({item['count']})" for item in foreign_labels[:6])
             print(f"Neo4j foreign labels detected outside FusionAgent-managed graph: {preview}")
+        if not neo4j_summary.get("kg_contract_ok", False):
+            raise RuntimeError("Neo4j managed graph does not satisfy the FusionAgent KG contract.")
 
     if args.check_only:
         print("Local runtime check passed.")

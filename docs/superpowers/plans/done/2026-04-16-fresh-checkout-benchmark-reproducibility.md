@@ -305,7 +305,7 @@ Observed on `2026-04-17`: committed as `4ae541c` with message `feat: add fresh-c
 - Durable tracked evidence now lives in `E:\vscode\fusionAgent\docs\superpowers\specs\2026-04-16-building-micro-msft-fresh-checkout-result.json`.
 
 ```bash
-git add services/source_asset_service.py services/raw_vector_source_service.py scripts/eval_harness.py scripts/materialize_source_assets.py tests/test_source_asset_service.py tests/test_raw_vector_source_service.py tests/test_eval_harness.py docs/superpowers/specs/2026-04-07-real-data-eval-manifest.json README.md README.en.md docs/v2-operations.md docs/superpowers/plans/2026-04-07-fusion-agent-v2-implementation.md
+git add services/source_asset_service.py services/raw_vector_source_service.py scripts/eval_harness.py scripts/materialize_source_assets.py tests/test_source_asset_service.py tests/test_raw_vector_source_service.py tests/test_eval_harness.py docs/superpowers/specs/2026-04-07-real-data-eval-manifest.json README.md README.en.md docs/v2-operations.md docs/superpowers/plans/done/2026-04-07-fusion-agent-v2-implementation.md
 git commit -m "feat: add fresh-checkout benchmark asset resolution"
 ```
 

@@ -40,6 +40,7 @@ from schemas.settings import EffectiveLLMSettings
 from services.artifact_registry import ArtifactRecord, ArtifactRegistry
 from services.artifact_reuse_policy import get_artifact_reuse_max_age_seconds
 from services.artifact_reuse_service import ArtifactReuseService, ReuseResult
+from services.artifact_evaluation_service import evaluate_vector_artifact
 from services.aoi_resolution_service import AOIResolutionService, NominatimGeocoder, ResolvedAOI
 from services.input_acquisition_service import InputAcquisitionService, ResolvedRunInputs
 from services.local_bundle_catalog import LocalBundleCatalogProvider
@@ -717,8 +718,11 @@ class AgentRunService:
             plan = planner.create_plan(run_id=run_id, job_type=request.job_type, trigger=request.trigger)
         finally:
             planner.context_builder.resolved_aoi_override = previous_override
+        intent = dict(plan.context.get("intent", {}))
+        if intent.get("request_input_strategy") != request.input_strategy.value:
+            intent["request_input_strategy"] = request.input_strategy.value
+            plan.context = {**plan.context, "intent": intent}
         if resolved_aoi is not None:
-            intent = dict(plan.context.get("intent", {}))
             if intent.get("resolved_aoi") is None:
                 intent["resolved_aoi"] = resolved_aoi.to_dict()
                 plan.context = {**plan.context, "intent": intent}
@@ -1221,6 +1225,12 @@ class AgentRunService:
         repair_records: List[RepairRecord],
         output_dir: Path,
     ) -> RunArtifactMeta:
+        self._validate_output_artifact_against_schema_policy(
+            run_id=run_id,
+            request=request,
+            plan=plan,
+            fused_shp=fused_shp,
+        )
         artifact_zip = zip_shapefile_bundle(fused_shp, output_dir / f"{request.job_type.value}_fusion_result.zip")
         artifact = RunArtifactMeta(
             filename=artifact_zip.name,
@@ -1237,6 +1247,51 @@ class AgentRunService:
         )
         self._register_artifact(run_id=run_id, request=request, plan=plan, artifact=artifact, repair_records=repair_records)
         return artifact
+
+    def _validate_output_artifact_against_schema_policy(
+        self,
+        *,
+        run_id: str,
+        request: RunCreateRequest,
+        plan: WorkflowPlan,
+        fused_shp: Path,
+    ) -> None:
+        output_data_type = self._extract_output_data_type(plan)
+        raw_policy = ArtifactReuseService._output_schema_policy(plan, required_output_type=output_data_type)
+        schema_policy = self.kg_repo.get_output_schema_policy(output_data_type) if output_data_type else None
+        if raw_policy is not None:
+            required_fields = raw_policy.get("required_fields", []) or ["geometry"]
+            policy_id = raw_policy.get("policy_id")
+        else:
+            required_fields = schema_policy.required_fields if schema_policy is not None else ["geometry"]
+            policy_id = schema_policy.policy_id if schema_policy is not None else None
+        metrics = evaluate_vector_artifact(fused_shp, required_fields=required_fields)
+        event_details = {
+            "output_data_type": output_data_type,
+            "policy_id": policy_id,
+            "required_fields": required_fields,
+            "missing_fields": metrics.get("missing_fields", []),
+            "artifact_validity": bool(metrics.get("artifact_validity", False)),
+        }
+        self._update_status(
+            run_id,
+            RunPhase.running,
+            progress=90,
+            plan_revision=self._extract_plan_revision(plan),
+            checkpoint=self._checkpoint(stage="writeback", plan_revision=self._extract_plan_revision(plan)),
+            event_kind="output_schema_validated",
+            event_message=(
+                f"Artifact validated against policy {policy_id}."
+                if policy_id is not None
+                else "Artifact validated against default geometry-only contract."
+            ),
+            event_details=event_details,
+        )
+        if not metrics.get("artifact_validity", False):
+            raise RuntimeError(
+                "Artifact schema validation failed: "
+                f"missing_fields={metrics.get('missing_fields', [])}"
+            )
 
     def _register_artifact(
         self,
@@ -1977,9 +2032,15 @@ class AgentRunService:
 
     @staticmethod
     def _resolve_task_driven_source_id(plan: WorkflowPlan) -> Optional[str]:
+        compatible_sources = AgentRunService._extract_task_driven_compatible_sources(plan)
+        compatible_source_ids = [item["source_id"] for item in compatible_sources]
         selected = AgentRunService._extract_selected_data_source(plan)
         if selected and selected != "upload.bundle":
+            if compatible_source_ids and selected not in compatible_source_ids:
+                return compatible_source_ids[0]
             return selected
+        if compatible_source_ids:
+            return compatible_source_ids[0]
         alternatives = AgentRunService._extract_alternative_sources(plan)
         return alternatives[0] if alternatives else None
 
@@ -1992,6 +2053,11 @@ class AgentRunService:
 
     @staticmethod
     def _extract_alternative_sources(plan: WorkflowPlan) -> List[str]:
+        compatible_sources = AgentRunService._extract_task_driven_compatible_sources(plan)
+        if compatible_sources:
+            selected = AgentRunService._extract_selected_data_source(plan)
+            compatible_ids = [item["source_id"] for item in compatible_sources]
+            return [source_id for source_id in compatible_ids if source_id != selected]
         retrieval = plan.context.get("retrieval", {})
         candidates = retrieval.get("data_sources", []) if isinstance(retrieval, dict) else []
         ordered: List[str] = []
@@ -2002,6 +2068,41 @@ class AgentRunService:
             if source_id not in ordered and source_id != "upload.bundle":
                 ordered.append(source_id)
         return ordered
+
+    @staticmethod
+    def _extract_task_driven_compatible_sources(plan: WorkflowPlan) -> List[Dict[str, Any]]:
+        intent = plan.context.get("intent", {})
+        if not isinstance(intent, dict):
+            return []
+        request_input_strategy = str(intent.get("request_input_strategy") or "").strip()
+        if request_input_strategy != RunInputStrategy.task_driven_auto.value:
+            return []
+
+        required_input_type = AgentRunService._extract_required_input_data_type(plan)
+        if not required_input_type:
+            return []
+
+        retrieval = plan.context.get("retrieval", {})
+        candidates = retrieval.get("data_sources", []) if isinstance(retrieval, dict) else []
+        compatible: List[Dict[str, Any]] = []
+        for raw in candidates:
+            if not isinstance(raw, dict):
+                continue
+            source_id = str(raw.get("source_id") or "").strip()
+            if not source_id or source_id == "upload.bundle":
+                continue
+            supported_types = raw.get("supported_types")
+            if not isinstance(supported_types, list) or required_input_type not in supported_types:
+                continue
+            metadata = raw.get("metadata")
+            if not isinstance(metadata, dict):
+                metadata = {}
+            if not metadata.get("selectable_now", False):
+                continue
+            if metadata.get("runtime_status", "runtime_candidate") == "reservation_only":
+                continue
+            compatible.append(raw)
+        return compatible
 
     @staticmethod
     def _extract_named_paths(plan: WorkflowPlan, key: str) -> Dict[str, Path]:
@@ -2107,6 +2208,9 @@ class AgentRunService:
     def _build_data_source_selection_decision(self, plan: WorkflowPlan) -> Optional[DecisionRecord]:
         retrieval = plan.context.get("retrieval", {})
         raw_sources = retrieval.get("data_sources", []) if isinstance(retrieval, dict) else []
+        compatible_task_driven_sources = self._extract_task_driven_compatible_sources(plan)
+        if compatible_task_driven_sources:
+            raw_sources = compatible_task_driven_sources
         candidates: List[CandidateScoreInput] = []
         for raw in raw_sources:
             if not isinstance(raw, dict):

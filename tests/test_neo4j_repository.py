@@ -366,3 +366,152 @@ def test_list_durable_learning_records_maps_rows_from_fake_driver() -> None:
     assert captured
     assert "DurableLearningRecord" in captured[0][0]
     assert captured[0][1] == {"job_type": "road", "success": False, "limit": 5}
+
+
+def test_build_context_includes_transform_algorithms_and_decomposed_specs_from_fake_driver() -> None:
+    class FakeSession:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def run(self, cypher: str, parameters=None, **kwargs):
+            if "MATCH (wp:WorkflowPattern" in cypher and "LIMIT $limit" in cypher:
+                return [
+                    {
+                        "wp": {
+                            "patternId": "wp.building.drs4br.decomposed.v1",
+                            "patternName": "FusionCode DRS4BR Decomposed Building Fusion",
+                            "jobType": "building",
+                            "disasterTypes": ["generic"],
+                            "successRate": 0.84,
+                            "metadataJson": "{\"algorithm_family\": \"fusioncode_decomposed\"}",
+                        },
+                        "steps": [
+                            {
+                                "order": 1,
+                                "name": "source_normalize",
+                                "algorithmId": "algo.preprocess.building.source_normalize.v1",
+                                "inputDataType": "dt.building.source_set",
+                                "outputDataType": "dt.building.normalized_set",
+                                "dataSourceId": "upload.bundle",
+                                "dependsOn": [],
+                                "isOptional": False,
+                            },
+                            {
+                                "order": 2,
+                                "name": "v8_candidate_graph",
+                                "algorithmId": "algo.match.building.v8_candidate_graph.v1",
+                                "inputDataType": "dt.building.normalized_set",
+                                "outputDataType": "dt.building.match_candidate_graph",
+                                "dataSourceId": "upload.bundle",
+                                "dependsOn": [1],
+                                "isOptional": False,
+                            },
+                        ],
+                    }
+                ]
+            if "MATCH (a:Algorithm" in cypher and "{algoId: $algo_id}" in cypher:
+                algo_id = parameters["algo_id"]
+                algorithms = {
+                    "algo.preprocess.building.source_normalize.v1": {
+                        "algoId": "algo.preprocess.building.source_normalize.v1",
+                        "algoName": "Source Normalize",
+                        "inputTypes": ["dt.building.source_set"],
+                        "outputType": "dt.building.normalized_set",
+                        "taskType": "preprocess",
+                        "toolRef": "builtin:normalize",
+                        "successRate": 0.8,
+                        "metadataJson": "{}",
+                    },
+                    "algo.match.building.v8_candidate_graph.v1": {
+                        "algoId": "algo.match.building.v8_candidate_graph.v1",
+                        "algoName": "V8 Candidate Graph",
+                        "inputTypes": ["dt.building.normalized_set"],
+                        "outputType": "dt.building.match_candidate_graph",
+                        "taskType": "match",
+                        "toolRef": "builtin:v8_graph",
+                        "successRate": 0.8,
+                        "metadataJson": "{}",
+                    },
+                    "algo.transform.dt.raw.vector_to_dt.building.source_set": {
+                        "algoId": "algo.transform.dt.raw.vector_to_dt.building.source_set",
+                        "algoName": "Raw To Building Source Set",
+                        "inputTypes": ["dt.raw.vector"],
+                        "outputType": "dt.building.source_set",
+                        "taskType": "transform",
+                        "toolRef": "builtin:transform",
+                        "successRate": 0.8,
+                        "metadataJson": "{}",
+                    },
+                }
+                algo = algorithms.get(algo_id)
+                if algo is None:
+                    return []
+                return [{"algo": algo, "alternatives": []}]
+            if "MATCH (algo:Algorithm" in cypher and "HAS_PARAMETER_SPEC" in cypher:
+                return [
+                    {
+                        "ps": {
+                            "specId": "ps.algo.match.building.v8_component_solver.v1.edge_min_score",
+                            "algoId": "algo.match.building.v8_component_solver.v1",
+                            "key": "edge_min_score",
+                            "label": "Edge Min Score",
+                            "paramType": "float",
+                            "default": 0.5,
+                            "minValue": 0.0,
+                            "maxValue": 1.0,
+                            "description": "threshold",
+                            "required": False,
+                            "optimizationTags": ["precision"],
+                            "order": 1,
+                        },
+                        "hs": {"order": 1},
+                    }
+                ] if parameters["algo_id"] == "algo.match.building.v8_component_solver.v1" else []
+            if "MATCH (dt:DataType" in cypher:
+                return [
+                    {"dt": {"typeId": "dt.raw.vector", "theme": "generic", "geometryType": "mixed", "description": "raw"}},
+                    {"dt": {"typeId": "dt.building.source_set", "theme": "building", "geometryType": "mixed", "description": "source set"}},
+                    {"dt": {"typeId": "dt.building.normalized_set", "theme": "building", "geometryType": "polygon", "description": "normalized"}},
+                    {"dt": {"typeId": "dt.building.match_candidate_graph", "theme": "building", "geometryType": "graph", "description": "graph"}},
+                ]
+            if "MATCH (ds:DataSource" in cypher:
+                return [
+                    {
+                        "ds": {
+                            "sourceId": "upload.bundle",
+                            "sourceName": "Upload Bundle",
+                            "supportedTypes": ["dt.building.source_set"],
+                            "disasterTypes": ["generic"],
+                            "qualityScore": 1.0,
+                            "sourceKind": "upload",
+                            "supportedJobTypes": ["building"],
+                            "supportedGeometryTypes": ["mixed"],
+                            "metadataJson": "{}",
+                        }
+                    }
+                ]
+            if "MATCH (osp:OutputSchemaPolicy" in cypher:
+                return []
+            if "MATCH (task:Task" in cypher:
+                return []
+            if "MATCH (profile:ScenarioProfile" in cypher:
+                return []
+            if "MATCH (dlr:DurableLearningRecord" in cypher:
+                return []
+            return []
+
+    class FakeDriver:
+        def session(self, database=None):
+            return FakeSession()
+
+    repo = Neo4jKGRepository.__new__(Neo4jKGRepository)
+    repo._driver = FakeDriver()
+    repo.database = None
+
+    context = repo.build_context(job_type=JobType.building, disaster_type="generic")
+
+    assert any(pattern.pattern_id == "wp.building.drs4br.decomposed.v1" for pattern in context.patterns)
+    assert "algo.match.building.v8_candidate_graph.v1" in context.algorithms

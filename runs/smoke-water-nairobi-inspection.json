@@ -1,0 +1,2047 @@
+{
+  "run": {
+    "run_id": "64899f5f4024418087f5e6c5142aa02c",
+    "job_type": "water",
+    "trigger": {
+      "type": "user_query",
+      "content": "need water polygons for Nairobi, Kenya",
+      "disaster_type": null,
+      "spatial_extent": null,
+      "temporal_start": null,
+      "temporal_end": null
+    },
+    "phase": "succeeded",
+    "progress": 100,
+    "target_crs": "EPSG:32737",
+    "debug": false,
+    "error": null,
+    "log_path": "runs\\64899f5f4024418087f5e6c5142aa02c\\logs\\run.log",
+    "plan_path": "runs\\64899f5f4024418087f5e6c5142aa02c\\plan.json",
+    "validation_path": "runs\\64899f5f4024418087f5e6c5142aa02c\\validation.json",
+    "audit_path": "runs\\64899f5f4024418087f5e6c5142aa02c\\audit.jsonl",
+    "artifact": {
+      "filename": "water_fusion_result.zip",
+      "path": "runs\\64899f5f4024418087f5e6c5142aa02c\\output\\water_fusion_result.zip",
+      "size_bytes": 123542
+    },
+    "decision_records": [
+      {
+        "decision_type": "pattern_selection",
+        "selected_id": "wp.flood.water.default",
+        "selected_score": 0.5372,
+        "rationale": "Selected 'wp.flood.water.default' with score=0.537200 using deterministic weighted scoring. Major factors: success_rate/accuracy (strongest), data_quality and stability, then freshness and reuse, then speed and cost. Runner-up 'wp.water.fusioncode.line_and_polygon.v1' score=0.525600; winner had higher weighted sum on the major factors.",
+        "candidates": [
+          {
+            "candidate_id": "wp.flood.water.default",
+            "score": 0.5372,
+            "reason": "weighted_sum=0.58*(success/accuracy=0.840) + 0.20*(data_quality=0.000) + 0.12*(stability=0.000) + 0.05*(freshness=0.500) + 0.03*(reuse=0.500) + 0.01*(speed=0.500) + 0.01*(cost=0.500) + learning_adjustment=0.000",
+            "evidence": {
+              "metrics": {
+                "success_rate": 0.84,
+                "accuracy": 0.84,
+                "data_quality": null,
+                "stability": null,
+                "freshness": null,
+                "reuse": null,
+                "speed": null,
+                "cost": null,
+                "learning_adjustment": null
+              },
+              "meta": {
+                "durable_learning_summary": {
+                  "entity_kind": "pattern",
+                  "entity_id": "wp.flood.water.default",
+                  "job_type": "water",
+                  "disaster_type": null,
+                  "total_runs": 1,
+                  "success_count": 0,
+                  "failure_count": 1,
+                  "repaired_count": 0,
+                  "last_run_at": "2026-05-09T11:29:18.616902+00:00",
+                  "last_failure_reason": "ValueError: task-driven input materialization failed for catalog.flood.water: AOI-scoped bundle has empty source coverage for catalog.flood.water"
+                }
+              }
+            }
+          },
+          {
+            "candidate_id": "wp.water.fusioncode.line_and_polygon.v1",
+            "score": 0.5256000000000001,
+            "reason": "weighted_sum=0.58*(success/accuracy=0.820) + 0.20*(data_quality=0.000) + 0.12*(stability=0.000) + 0.05*(freshness=0.500) + 0.03*(reuse=0.500) + 0.01*(speed=0.500) + 0.01*(cost=0.500) + learning_adjustment=0.000",
+            "evidence": {
+              "metrics": {
+                "success_rate": 0.82,
+                "accuracy": 0.82,
+                "data_quality": null,
+                "stability": null,
+                "freshness": null,
+                "reuse": null,
+                "speed": null,
+                "cost": null,
+                "learning_adjustment": null
+              },
+              "meta": {}
+            }
+          }
+        ],
+        "policy_version": "v2",
+        "evidence_refs": [
+          "context.retrieval.candidate_patterns",
+          "policy:deterministic_weighted_sum"
+        ]
+      },
+      {
+        "decision_type": "data_source_selection",
+        "selected_id": "catalog.flood.water",
+        "selected_score": 0.22600000000000003,
+        "rationale": "Selected 'catalog.flood.water' with score=0.226000 using deterministic weighted scoring. Major factors: success_rate/accuracy (strongest), data_quality and stability, then freshness and reuse, then speed and cost.",
+        "candidates": [
+          {
+            "candidate_id": "catalog.flood.water",
+            "score": 0.22600000000000003,
+            "reason": "weighted_sum=0.58*(success/accuracy=0.000) + 0.20*(data_quality=0.830) + 0.12*(stability=0.000) + 0.05*(freshness=0.700) + 0.03*(reuse=0.500) + 0.01*(speed=0.500) + 0.01*(cost=0.500) + learning_adjustment=0.000",
+            "evidence": {
+              "metrics": {
+                "success_rate": null,
+                "accuracy": null,
+                "data_quality": 0.83,
+                "stability": null,
+                "freshness": 0.7,
+                "reuse": null,
+                "speed": null,
+                "cost": null,
+                "learning_adjustment": null
+              },
+              "meta": {
+                "source_name": "Flood Water Bundle (OSM + Local Water)",
+                "source_kind": "catalog",
+                "quality_tier": "curated",
+                "freshness_category": "event_snapshot",
+                "supported_types": [
+                  "dt.water.bundle"
+                ]
+              }
+            }
+          }
+        ],
+        "policy_version": "v2",
+        "evidence_refs": [
+          "context.retrieval.data_sources",
+          "policy:deterministic_weighted_sum"
+        ]
+      },
+      {
+        "decision_type": "artifact_reuse_selection",
+        "selected_id": "fresh_execution",
+        "selected_score": 0.131,
+        "rationale": "Selected 'fresh_execution' with score=0.131000 using deterministic weighted scoring. Major factors: success_rate/accuracy (strongest), data_quality and stability, then freshness and reuse, then speed and cost.",
+        "candidates": [
+          {
+            "candidate_id": "fresh_execution",
+            "score": 0.131,
+            "reason": "weighted_sum=0.58*(success/accuracy=0.000) + 0.20*(data_quality=0.000) + 0.12*(stability=0.800) + 0.05*(freshness=0.500) + 0.03*(reuse=0.000) + 0.01*(speed=0.500) + 0.01*(cost=0.500) + learning_adjustment=0.000",
+            "evidence": {
+              "metrics": {
+                "success_rate": null,
+                "accuracy": null,
+                "data_quality": null,
+                "stability": 0.8,
+                "freshness": 0.5,
+                "reuse": 0.0,
+                "speed": null,
+                "cost": null,
+                "learning_adjustment": null
+              },
+              "meta": {
+                "selection_source": "fallback_when_no_safe_reuse_candidate"
+              }
+            }
+          }
+        ],
+        "policy_version": "v2",
+        "evidence_refs": [
+          "context.retrieval.reusable_artifacts",
+          "policy:deterministic_weighted_sum"
+        ]
+      },
+      {
+        "decision_type": "parameter_strategy",
+        "selected_id": "kg_defaults_only",
+        "selected_score": 0.547,
+        "rationale": "Selected 'kg_defaults_only' with score=0.547000 using deterministic weighted scoring. Major factors: success_rate/accuracy (strongest), data_quality and stability, then freshness and reuse, then speed and cost.",
+        "candidates": [
+          {
+            "candidate_id": "kg_defaults_only",
+            "score": 0.547,
+            "reason": "weighted_sum=0.58*(success/accuracy=0.650) + 0.20*(data_quality=0.000) + 0.12*(stability=1.000) + 0.05*(freshness=0.500) + 0.03*(reuse=0.500) + 0.01*(speed=0.500) + 0.01*(cost=0.500) + learning_adjustment=0.000",
+            "evidence": {
+              "metrics": {
+                "success_rate": 1.0,
+                "accuracy": null,
+                "data_quality": null,
+                "stability": 1.0,
+                "freshness": null,
+                "reuse": null,
+                "speed": null,
+                "cost": null,
+                "learning_adjustment": null
+              },
+              "meta": {
+                "steps": [
+                  {
+                    "step": 1,
+                    "algorithm_id": "algo.fusion.water.v1",
+                    "parameter_keys": [],
+                    "overridden_keys": []
+                  }
+                ],
+                "overridden_keys": [],
+                "total_specs": 0,
+                "total_bound": 0
+              }
+            }
+          }
+        ],
+        "policy_version": "v2",
+        "evidence_refs": [
+          "plan.tasks.input.parameters",
+          "kg.parameter_specs",
+          "policy:deterministic_weighted_sum"
+        ]
+      },
+      {
+        "decision_type": "output_schema_policy",
+        "selected_id": "osp.water.fused.v1",
+        "selected_score": 0.16999999999999998,
+        "rationale": "Selected 'osp.water.fused.v1' with score=0.170000 using deterministic weighted scoring. Major factors: success_rate/accuracy (strongest), data_quality and stability, then freshness and reuse, then speed and cost.",
+        "candidates": [
+          {
+            "candidate_id": "osp.water.fused.v1",
+            "score": 0.16999999999999998,
+            "reason": "weighted_sum=0.58*(success/accuracy=0.000) + 0.20*(data_quality=0.000) + 0.12*(stability=1.000) + 0.05*(freshness=0.500) + 0.03*(reuse=0.500) + 0.01*(speed=0.500) + 0.01*(cost=0.500) + learning_adjustment=0.000",
+            "evidence": {
+              "metrics": {
+                "success_rate": null,
+                "accuracy": null,
+                "data_quality": null,
+                "stability": 1.0,
+                "freshness": null,
+                "reuse": null,
+                "speed": null,
+                "cost": null,
+                "learning_adjustment": null
+              },
+              "meta": {
+                "output_type": "dt.water.fused",
+                "retention_mode": "preserve_listed",
+                "required_fields": [
+                  "geometry"
+                ],
+                "optional_fields": [
+                  "OSM_ID",
+                  "REF_ID",
+                  "MATCH_REF",
+                  "OV_RATIO",
+                  "MATCH_CNT",
+                  "SRC",
+                  "NAME",
+                  "FCLASS",
+                  "WATER_TY"
+                ],
+                "rename_hints": {},
+                "compatibility_basis": "field_names"
+              }
+            }
+          }
+        ],
+        "policy_version": "v2",
+        "evidence_refs": [
+          "context.retrieval.output_schema_policies",
+          "policy:deterministic_weighted_sum"
+        ]
+      }
+    ],
+    "artifact_reuse": {
+      "reused": false,
+      "artifact_id": null,
+      "freshness_status": "not_available",
+      "rationale": "No reusable artifact candidates were found in planner retrieval context."
+    },
+    "repair_records": [],
+    "current_step": 1,
+    "attempt_no": 0,
+    "healing_summary": {
+      "attempted_repairs": 0,
+      "successful_repairs": 0,
+      "failed_repairs": 0,
+      "last_reason_code": null,
+      "strategies": []
+    },
+    "failure_summary": null,
+    "planning_telemetry": {
+      "elapsed_ms": 37946,
+      "context_size_bytes": 23482,
+      "provider": "open_a_i_compatible",
+      "model": "gpt-5-mini-2025-08-07",
+      "llm_usage": {
+        "prompt_tokens": 6676,
+        "completion_tokens": 3169,
+        "total_tokens": 9845
+      }
+    },
+    "plan_revision": 1,
+    "event_count": 15,
+    "last_event": {
+      "timestamp": "2026-05-10T09:30:22.942511+00:00",
+      "kind": "run_succeeded",
+      "phase": "succeeded",
+      "message": "Run completed successfully and artifact is ready.",
+      "plan_revision": 1,
+      "progress": 100,
+      "attempt_no": 0,
+      "current_step": 1,
+      "details": {}
+    },
+    "checkpoint": {
+      "stage": "completed",
+      "plan_revision": 1,
+      "current_step": 1,
+      "attempt_no": 0
+    },
+    "created_at": "2026-05-10T09:29:01.359552+00:00",
+    "updated_at": "2026-05-10T09:30:22.942511+00:00",
+    "started_at": "2026-05-10T09:29:07.977502+00:00",
+    "finished_at": "2026-05-10T09:30:22.942511+00:00"
+  },
+  "plan": {
+    "workflow_id": "wf_wp.flood.water.default_a5aa2673",
+    "trigger": {
+      "type": "user_query",
+      "content": "need water polygons for Nairobi, Kenya",
+      "disaster_type": null,
+      "spatial_extent": null,
+      "temporal_start": null,
+      "temporal_end": null
+    },
+    "context": {
+      "intent": {
+        "job_type": "water",
+        "trigger": {
+          "type": "user_query",
+          "content": "need water polygons for Nairobi, Kenya",
+          "disaster_type": null,
+          "spatial_extent": null,
+          "temporal_start": null,
+          "temporal_end": null
+        },
+        "location_query": "Nairobi, Kenya",
+        "resolved_aoi": {
+          "query": "Nairobi, Kenya",
+          "display_name": "Nairobi, Kenya",
+          "country_name": "Kenya",
+          "country_code": "ke",
+          "bbox": [
+            36.6647016,
+            -1.4448822,
+            37.1048735,
+            -1.1606749
+          ],
+          "confidence": 0.6767112080878018,
+          "selection_reason": "single_candidate",
+          "candidates": [
+            {
+              "query": "Nairobi, Kenya",
+              "display_name": "Nairobi, Kenya",
+              "country_name": "Kenya",
+              "country_code": "ke",
+              "admin_level": "city",
+              "bbox": [
+                36.6647016,
+                -1.4448822,
+                37.1048735,
+                -1.1606749
+              ],
+              "source": "geocoder",
+              "confidence": 0.6767112080878018,
+              "raw": {
+                "place_id": 37963094,
+                "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+                "osm_type": "relation",
+                "osm_id": 9185096,
+                "lat": "-1.3023980",
+                "lon": "36.8288509",
+                "category": "place",
+                "type": "city",
+                "place_rank": 16,
+                "importance": 0.6767112080878018,
+                "addresstype": "city",
+                "name": "Nairobi",
+                "display_name": "Nairobi, Kenya",
+                "address": {
+                  "city": "Nairobi",
+                  "state": "Nairobi",
+                  "ISO3166-2-lvl4": "KE-30",
+                  "country": "Kenya",
+                  "country_code": "ke"
+                },
+                "boundingbox": [
+                  "-1.4448822",
+                  "-1.1606749",
+                  "36.6647016",
+                  "37.1048735"
+                ]
+              }
+            }
+          ]
+        },
+        "expected_output_type": "dt.water.fused",
+        "spatial_extent": null,
+        "temporal_start": null,
+        "temporal_end": null,
+        "planning_mode": "task_driven",
+        "profile_source": "direct_task",
+        "task_bundle": {
+          "bundle_id": "task_bundle.direct_request",
+          "requested_tasks": [
+            "task.water.fusion"
+          ],
+          "requires_disaster_profile": false
+        },
+        "effective_scenario_profile_id": "scenario.default.task",
+        "effective_activated_tasks": [
+          "task.building.fusion",
+          "task.road.fusion",
+          "task.poi.fusion",
+          "task.vector.download"
+        ],
+        "effective_preferred_output_fields": [
+          "geometry"
+        ],
+        "effective_qos_priority": {
+          "accuracy": 0.35,
+          "stability": 0.25,
+          "freshness": 0.2,
+          "speed": 0.2
+        },
+        "request_input_strategy": "task_driven_auto"
+      },
+      "retrieval": {
+        "candidate_patterns": [
+          {
+            "pattern_id": "wp.flood.water.default",
+            "pattern_name": "Flood Water Polygon Fusion",
+            "job_type": "water",
+            "disaster_types": [
+              "flood",
+              "generic"
+            ],
+            "success_rate": 0.84,
+            "metadata": {
+              "version": "1.0.0",
+              "runtime_status": "runtime_candidate",
+              "scenario_focus": "flood",
+              "strategy": "conservative",
+              "input_strategy": "task_driven_auto_supported",
+              "source_family": "catalog_water_bundle"
+            },
+            "steps": [
+              {
+                "order": 1,
+                "name": "water_fusion",
+                "algorithm_id": "algo.fusion.water.v1",
+                "input_data_type": "dt.water.bundle",
+                "output_data_type": "dt.water.fused",
+                "data_source_id": "catalog.flood.water",
+                "depends_on": [],
+                "is_optional": false
+              }
+            ]
+          },
+          {
+            "pattern_id": "wp.water.fusioncode.line_and_polygon.v1",
+            "pattern_name": "FusionCode Water Line And Polygon Fusion",
+            "job_type": "water",
+            "disaster_types": [
+              "flood",
+              "generic"
+            ],
+            "success_rate": 0.82,
+            "metadata": {
+              "version": "1.0.0",
+              "runtime_status": "runtime_candidate",
+              "algorithm_family": "fusioncode_decomposed"
+            },
+            "steps": [
+              {
+                "order": 1,
+                "name": "water_polygon_priority_merge",
+                "algorithm_id": "algo.fusion.water.polygon_priority_merge.v1",
+                "input_data_type": "dt.water.bundle",
+                "output_data_type": "dt.water.fused",
+                "data_source_id": "upload.bundle",
+                "depends_on": [],
+                "is_optional": false
+              }
+            ]
+          }
+        ],
+        "algorithms": {
+          "algo.fusion.water.v1": {
+            "algo_id": "algo.fusion.water.v1",
+            "algo_name": "Water Polygon Fusion",
+            "input_types": [
+              "dt.water.bundle"
+            ],
+            "output_type": "dt.water.fused",
+            "task_type": "water_fusion",
+            "tool_ref": "adapters.water_adapter:run_water_fusion",
+            "success_rate": 0.84,
+            "accuracy_score": 0.82,
+            "stability_score": 0.88,
+            "usage_mode": "conservative",
+            "metadata": {
+              "selection_profile": "primary",
+              "evidence_basis": "shared_bundle_runtime",
+              "runtime_scope": "uploaded_or_task_driven_auto"
+            },
+            "alternatives": []
+          },
+          "algo.fusion.water.polygon_priority_merge.v1": {
+            "algo_id": "algo.fusion.water.polygon_priority_merge.v1",
+            "algo_name": "FusionCode Water Polygon Priority Merge",
+            "input_types": [
+              "dt.water.bundle"
+            ],
+            "output_type": "dt.water.fused",
+            "task_type": "water_fusion",
+            "tool_ref": "fusion_algorithms:_handle_water_polygon_priority_merge",
+            "success_rate": 0.82,
+            "accuracy_score": 0.86,
+            "stability_score": 0.82,
+            "usage_mode": "balanced",
+            "metadata": {
+              "runtime_status": "runtime_candidate",
+              "algorithm_family": "fusioncode_decomposed",
+              "source_file": "MapTileTool/FusionTool/lake.py",
+              "handler_name": "_handle_water_polygon_priority_merge"
+            },
+            "alternatives": []
+          }
+        },
+        "task_nodes": [
+          {
+            "task_id": "task.building.fusion",
+            "task_name": "Building Fusion",
+            "category": "fusion",
+            "description": "Fuse multiple building vector sources into one output."
+          },
+          {
+            "task_id": "task.clip.raster.by_tile",
+            "task_name": "Raster Clip By Tile",
+            "category": "runtime",
+            "description": "Reserved tiled raster clipping task for future building enrichment workflows."
+          },
+          {
+            "task_id": "task.enrich.building.height.reserved",
+            "task_name": "Enrich Building Height",
+            "category": "enrichment",
+            "description": "Reserved seam for future raster-backed building height enrichment."
+          },
+          {
+            "task_id": "task.merge.building.tiles.reserved",
+            "task_name": "Merge Building Tiles",
+            "category": "runtime",
+            "description": "Reserved seam for future tile-level building artifact stitching."
+          },
+          {
+            "task_id": "task.partition.aoi",
+            "task_name": "AOI Partition",
+            "category": "runtime",
+            "description": "Reserved AOI partition task for future tiled execution workflows."
+          },
+          {
+            "task_id": "task.poi.fusion",
+            "task_name": "POI Fusion",
+            "category": "fusion",
+            "description": "Fuse multiple point-of-interest sources into one output."
+          },
+          {
+            "task_id": "task.road.fusion",
+            "task_name": "Road Fusion",
+            "category": "fusion",
+            "description": "Fuse multiple road vector sources into one output."
+          },
+          {
+            "task_id": "task.trajectory_to_road",
+            "task_name": "Trajectory To Road Candidate",
+            "category": "transform",
+            "description": "Reserved seam for future trajectory-to-road candidate pretransform before road fusion."
+          },
+          {
+            "task_id": "task.vector.download",
+            "task_name": "Vector Data Download",
+            "category": "acquisition",
+            "description": "Acquire vector data required by downstream fusion or enrichment tasks."
+          },
+          {
+            "task_id": "task.water.fusion",
+            "task_name": "Water Fusion",
+            "category": "fusion",
+            "description": "Fuse multiple water polygon sources into one output."
+          }
+        ],
+        "scenario_profiles": [
+          {
+            "profile_id": "scenario.default.task",
+            "profile_name": "Default Direct Task Profile",
+            "disaster_types": [
+              "generic"
+            ],
+            "activated_tasks": [
+              "task.building.fusion",
+              "task.road.fusion",
+              "task.poi.fusion",
+              "task.vector.download"
+            ],
+            "preferred_output_fields": [
+              "geometry"
+            ],
+            "qos_priority": {
+              "accuracy": 0.35,
+              "stability": 0.25,
+              "freshness": 0.2,
+              "speed": 0.2
+            },
+            "metadata": {
+              "entry_mode": "task_driven"
+            }
+          },
+          {
+            "profile_id": "scenario.earthquake.default",
+            "profile_name": "Earthquake Default Scenario",
+            "disaster_types": [
+              "earthquake"
+            ],
+            "activated_tasks": [
+              "task.building.fusion",
+              "task.road.fusion"
+            ],
+            "preferred_output_fields": [
+              "geometry",
+              "confidence",
+              "timestamp"
+            ],
+            "qos_priority": {
+              "accuracy": 0.4,
+              "stability": 0.3,
+              "freshness": 0.15,
+              "speed": 0.15
+            },
+            "metadata": {
+              "entry_mode": "scenario_driven"
+            }
+          },
+          {
+            "profile_id": "scenario.flood.default",
+            "profile_name": "Flood Default Scenario",
+            "disaster_types": [
+              "flood"
+            ],
+            "activated_tasks": [
+              "task.building.fusion",
+              "task.road.fusion"
+            ],
+            "preferred_output_fields": [
+              "geometry",
+              "confidence",
+              "timestamp"
+            ],
+            "qos_priority": {
+              "accuracy": 0.35,
+              "stability": 0.25,
+              "freshness": 0.25,
+              "speed": 0.15
+            },
+            "metadata": {
+              "entry_mode": "scenario_driven"
+            }
+          },
+          {
+            "profile_id": "scenario.typhoon.default",
+            "profile_name": "Typhoon Default Scenario",
+            "disaster_types": [
+              "typhoon"
+            ],
+            "activated_tasks": [
+              "task.building.fusion",
+              "task.road.fusion"
+            ],
+            "preferred_output_fields": [
+              "geometry",
+              "confidence",
+              "timestamp"
+            ],
+            "qos_priority": {
+              "accuracy": 0.3,
+              "stability": 0.25,
+              "freshness": 0.3,
+              "speed": 0.15
+            },
+            "metadata": {
+              "entry_mode": "scenario_driven"
+            }
+          }
+        ],
+        "parameter_specs": {
+          "algo.fusion.water.polygon_priority_merge.v1": [
+            {
+              "spec_id": "ps.algo.fusion.water.polygon_priority_merge.v1.overlap_threshold",
+              "algo_id": "algo.fusion.water.polygon_priority_merge.v1",
+              "key": "overlap_threshold",
+              "label": "Overlap Threshold",
+              "param_type": "float",
+              "default": 0.1,
+              "min_value": 0.0,
+              "max_value": 1.0,
+              "unit": "ratio",
+              "description": "FusionCode parameter `overlap_threshold` for algo.fusion.water.polygon_priority_merge.v1.",
+              "required": false,
+              "choices": null,
+              "tunable": true,
+              "optimization_tags": [
+                "polygon"
+              ],
+              "order": 10
+            }
+          ],
+          "algo.fusion.water.v1": []
+        },
+        "data_sources": [
+          {
+            "source_id": "upload.bundle",
+            "source_name": "Uploaded Bundle",
+            "supported_types": [
+              "dt.building.bundle",
+              "dt.building.source_set",
+              "dt.building.normalized_set",
+              "dt.building.presence_validated_set",
+              "dt.building.fused_raw",
+              "dt.building.conflict_optimized",
+              "dt.raster.building_presence",
+              "dt.raster.building_height",
+              "dt.road.network",
+              "dt.road.bundle",
+              "dt.water.line_bundle",
+              "dt.trajectory.raw",
+              "dt.road.candidate",
+              "dt.water.bundle",
+              "dt.poi.bundle",
+              "dt.raw.vector"
+            ],
+            "disaster_types": [
+              "generic",
+              "flood",
+              "earthquake",
+              "typhoon"
+            ],
+            "quality_score": 1.0,
+            "source_kind": "local_upload",
+            "quality_tier": "operator_provided",
+            "freshness_category": "request_bound",
+            "freshness_hours": 0,
+            "freshness_score": 1.0,
+            "supported_job_types": [
+              "building",
+              "road",
+              "water",
+              "poi"
+            ],
+            "supported_geometry_types": [
+              "mixed",
+              "polygon",
+              "line",
+              "point"
+            ],
+            "metadata": {
+              "kind": "local",
+              "provider_family": "manual_upload",
+              "bundle_strategy": "operator_supplied",
+              "reserved_transform_inputs": [
+                "dt.trajectory.raw",
+                "dt.road.candidate"
+              ],
+              "source_form": "mixed",
+              "runtime_status": "runtime_candidate",
+              "selectable_now": true
+            }
+          },
+          {
+            "source_id": "catalog.flood.water",
+            "source_name": "Flood Water Bundle (OSM + Local Water)",
+            "supported_types": [
+              "dt.water.bundle"
+            ],
+            "disaster_types": [
+              "flood",
+              "generic"
+            ],
+            "quality_score": 0.83,
+            "source_kind": "catalog",
+            "quality_tier": "curated",
+            "freshness_category": "event_snapshot",
+            "freshness_hours": 72,
+            "freshness_score": 0.7,
+            "supported_job_types": [
+              "water"
+            ],
+            "supported_geometry_types": [
+              "polygon"
+            ],
+            "metadata": {
+              "kind": "catalog",
+              "priority": 2,
+              "provider_family": "local_bundle_catalog",
+              "bundle_strategy": "osm_ref_pair",
+              "component_source_ids": [
+                "raw.osm.water",
+                "raw.local.water"
+              ],
+              "path_hints": [
+                "Data/burundi-260127-free.shp/gis_osm_water_a_free_1.shp",
+                "Data/water"
+              ],
+              "supports_aoi": true,
+              "materialization_scope": "resolved_aoi_clip",
+              "source_form": "bundle",
+              "runtime_status": "runtime_candidate",
+              "selectable_now": true
+            }
+          },
+          {
+            "source_id": "raw.osm.water",
+            "source_name": "OSM Water Features",
+            "supported_types": [
+              "dt.raw.vector"
+            ],
+            "disaster_types": [
+              "generic",
+              "flood",
+              "earthquake",
+              "typhoon"
+            ],
+            "quality_score": 0.8,
+            "source_kind": "open_data",
+            "quality_tier": "community_curated",
+            "freshness_category": "sample_snapshot",
+            "freshness_hours": 168,
+            "freshness_score": 0.61,
+            "supported_job_types": [
+              "building",
+              "road",
+              "water"
+            ],
+            "supported_geometry_types": [
+              "polygon",
+              "line"
+            ],
+            "metadata": {
+              "kind": "raw_vector",
+              "provider_family": "osm",
+              "theme": "water",
+              "source_role": "environmental_context",
+              "path_hint": "Data/burundi-260127-free.shp/gis_osm_water_a_free_1.shp",
+              "supports_aoi": true,
+              "materialization_scope": "country_bundle_then_clip",
+              "materialization_provider": "geofabrik",
+              "source_form": "vector",
+              "runtime_status": "runtime_candidate",
+              "selectable_now": true
+            }
+          },
+          {
+            "source_id": "raw.local.water",
+            "source_name": "Local Open Water Sample",
+            "supported_types": [
+              "dt.raw.vector"
+            ],
+            "disaster_types": [
+              "generic",
+              "flood",
+              "earthquake",
+              "typhoon"
+            ],
+            "quality_score": 0.79,
+            "source_kind": "open_data",
+            "quality_tier": "local_sample",
+            "freshness_category": "sample_snapshot",
+            "freshness_hours": 240,
+            "freshness_score": 0.55,
+            "supported_job_types": [
+              "building",
+              "road",
+              "water"
+            ],
+            "supported_geometry_types": [
+              "polygon"
+            ],
+            "metadata": {
+              "kind": "raw_vector",
+              "provider_family": "local_open_data",
+              "theme": "water",
+              "source_role": "reference_candidate",
+              "path_hint": "Data/water",
+              "supports_aoi": false,
+              "materialization_scope": "local_only",
+              "source_form": "vector",
+              "runtime_status": "runtime_candidate",
+              "selectable_now": true
+            }
+          }
+        ],
+        "output_schema_policies": {
+          "dt.water.fused": {
+            "policy_id": "osp.water.fused.v1",
+            "output_type": "dt.water.fused",
+            "job_type": "water",
+            "retention_mode": "preserve_listed",
+            "required_fields": [
+              "geometry"
+            ],
+            "optional_fields": [
+              "OSM_ID",
+              "REF_ID",
+              "MATCH_REF",
+              "OV_RATIO",
+              "MATCH_CNT",
+              "SRC",
+              "NAME",
+              "FCLASS",
+              "WATER_TY"
+            ],
+            "rename_hints": {},
+            "compatibility_basis": "field_names",
+            "metadata": {
+              "policy_scope": "current_runtime",
+              "enforcement": "metadata_only",
+              "notes": "Water output schema documents current shared bundle runtime columns for uploaded and task-driven auto runs without enforcing adapter output."
+            }
+          }
+        },
+        "durable_learning_summaries": {
+          "patterns": [
+            {
+              "entity_kind": "pattern",
+              "entity_id": "wp.flood.water.default",
+              "job_type": "water",
+              "disaster_type": null,
+              "total_runs": 1,
+              "success_count": 0,
+              "failure_count": 1,
+              "repaired_count": 0,
+              "last_run_at": "2026-05-09T11:29:18.616902+00:00",
+              "last_failure_reason": "ValueError: task-driven input materialization failed for catalog.flood.water: AOI-scoped bundle has empty source coverage for catalog.flood.water"
+            }
+          ],
+          "algorithms": [
+            {
+              "entity_kind": "algorithm",
+              "entity_id": "algo.fusion.water.v1",
+              "job_type": "water",
+              "disaster_type": null,
+              "total_runs": 1,
+              "success_count": 0,
+              "failure_count": 1,
+              "repaired_count": 0,
+              "last_run_at": "2026-05-09T11:29:18.616902+00:00",
+              "last_failure_reason": "ValueError: task-driven input materialization failed for catalog.flood.water: AOI-scoped bundle has empty source coverage for catalog.flood.water"
+            }
+          ],
+          "data_sources": [
+            {
+              "entity_kind": "data_source",
+              "entity_id": "catalog.flood.water",
+              "job_type": "water",
+              "disaster_type": null,
+              "total_runs": 1,
+              "success_count": 0,
+              "failure_count": 1,
+              "repaired_count": 0,
+              "last_run_at": "2026-05-09T11:29:18.616902+00:00",
+              "last_failure_reason": "ValueError: task-driven input materialization failed for catalog.flood.water: AOI-scoped bundle has empty source coverage for catalog.flood.water"
+            }
+          ]
+        },
+        "data_types": [
+          {
+            "type_id": "dt.building.bundle",
+            "theme": "building",
+            "geometry_type": "polygon",
+            "description": "Prepared building fusion input bundle."
+          },
+          {
+            "type_id": "dt.building.conflict_optimized",
+            "theme": "building",
+            "geometry_type": "polygon",
+            "description": "Fused buildings after spatial conflict graph optimization."
+          },
+          {
+            "type_id": "dt.building.fused",
+            "theme": "building",
+            "geometry_type": "polygon",
+            "description": "Fused building output."
+          },
+          {
+            "type_id": "dt.building.fused_raw",
+            "theme": "building",
+            "geometry_type": "polygon",
+            "description": "Raw cascaded building fusion rows before conflict optimization."
+          },
+          {
+            "type_id": "dt.building.height_enriched",
+            "theme": "building",
+            "geometry_type": "polygon",
+            "description": "Fused buildings enriched with height raster values."
+          },
+          {
+            "type_id": "dt.building.match_candidate_graph",
+            "theme": "building",
+            "geometry_type": "graph",
+            "description": "FusionCode V8 candidate edge graph for a pair of building sources."
+          },
+          {
+            "type_id": "dt.building.match_components",
+            "theme": "building",
+            "geometry_type": "graph",
+            "description": "Accepted V8 building match components and relationship groups."
+          },
+          {
+            "type_id": "dt.building.normalized_set",
+            "theme": "building",
+            "geometry_type": "polygon",
+            "description": "Normalized named building sources after CRS, geometry and source-label preparation."
+          },
+          {
+            "type_id": "dt.building.presence_validated_set",
+            "theme": "building",
+            "geometry_type": "polygon",
+            "description": "Building sources enriched with presence-raster support and existence status."
+          },
+          {
+            "type_id": "dt.building.quality_report",
+            "theme": "building",
+            "geometry_type": "none",
+            "description": "Quality and conflict metrics for the building fusion run."
+          },
+          {
+            "type_id": "dt.building.road_topology_adjusted",
+            "theme": "building",
+            "geometry_type": "polygon",
+            "description": "Fused buildings after road-aware topology adjustment."
+          },
+          {
+            "type_id": "dt.building.source_set",
+            "theme": "building",
+            "geometry_type": "mixed",
+            "description": "Reserved multi-source building input set for future fusion algorithms."
+          },
+          {
+            "type_id": "dt.partition.tile_manifest",
+            "theme": "runtime",
+            "geometry_type": "none",
+            "description": "Reserved deterministic AOI tile partition manifest."
+          },
+          {
+            "type_id": "dt.poi.bundle",
+            "theme": "poi",
+            "geometry_type": "point",
+            "description": "Prepared point-of-interest fusion input bundle."
+          },
+          {
+            "type_id": "dt.poi.fused",
+            "theme": "poi",
+            "geometry_type": "point",
+            "description": "Fused point-of-interest output."
+          },
+          {
+            "type_id": "dt.raster.building_height",
+            "theme": "building",
+            "geometry_type": "raster",
+            "description": "Building height raster input."
+          },
+          {
+            "type_id": "dt.raster.building_presence",
+            "theme": "building",
+            "geometry_type": "raster",
+            "description": "Reserved building-presence raster input."
+          },
+          {
+            "type_id": "dt.raw.vector",
+            "theme": "generic",
+            "geometry_type": "mixed",
+            "description": "Uploaded raw vector bundle."
+          },
+          {
+            "type_id": "dt.road.bundle",
+            "theme": "transportation",
+            "geometry_type": "line",
+            "description": "Prepared road fusion input bundle."
+          },
+          {
+            "type_id": "dt.road.candidate",
+            "theme": "transportation",
+            "geometry_type": "line",
+            "description": "Reserved intermediate road candidates derived from trajectory pretransform."
+          },
+          {
+            "type_id": "dt.road.fused",
+            "theme": "transportation",
+            "geometry_type": "line",
+            "description": "Fused road output."
+          },
+          {
+            "type_id": "dt.road.network",
+            "theme": "transportation",
+            "geometry_type": "line",
+            "description": "Road network used as contextual constraint for building fusion."
+          },
+          {
+            "type_id": "dt.trajectory.raw",
+            "theme": "transportation",
+            "geometry_type": "line",
+            "description": "Reserved pretransform trajectory observations for future road candidate generation."
+          },
+          {
+            "type_id": "dt.water.bundle",
+            "theme": "water",
+            "geometry_type": "polygon",
+            "description": "Prepared water polygon fusion input bundle."
+          },
+          {
+            "type_id": "dt.water.fused",
+            "theme": "water",
+            "geometry_type": "polygon",
+            "description": "Fused water polygon output."
+          },
+          {
+            "type_id": "dt.water.line_bundle",
+            "theme": "water",
+            "geometry_type": "line",
+            "description": "Prepared river or water-line source bundle."
+          },
+          {
+            "type_id": "dt.water.line_fused",
+            "theme": "water",
+            "geometry_type": "line",
+            "description": "Fused river or water-line output."
+          }
+        ],
+        "source_coverage_hints": [
+          {
+            "source_id": "upload.bundle",
+            "source_name": "Uploaded Bundle",
+            "source_kind": "local_upload",
+            "provider_family": "manual_upload",
+            "path_hint": null,
+            "supports_aoi": null,
+            "materialization_scope": null,
+            "materialization_provider": null,
+            "source_form": "mixed",
+            "runtime_status": "runtime_candidate",
+            "selectable_now": true,
+            "supports_tiling": null,
+            "height_semantics": null,
+            "supported_job_types": [
+              "building",
+              "road",
+              "water",
+              "poi"
+            ],
+            "supported_geometry_types": [
+              "mixed",
+              "polygon",
+              "line",
+              "point"
+            ],
+            "quality_score": 1.0,
+            "freshness_score": 1.0,
+            "resolved_aoi": {
+              "display_name": "Nairobi, Kenya",
+              "country_code": "ke",
+              "country_name": "Kenya",
+              "bbox": [
+                36.6647016,
+                -1.4448822,
+                37.1048735,
+                -1.1606749
+              ]
+            }
+          },
+          {
+            "source_id": "catalog.flood.water",
+            "source_name": "Flood Water Bundle (OSM + Local Water)",
+            "source_kind": "catalog",
+            "provider_family": "local_bundle_catalog",
+            "path_hint": [
+              "Data/burundi-260127-free.shp/gis_osm_water_a_free_1.shp",
+              "Data/water"
+            ],
+            "supports_aoi": true,
+            "materialization_scope": "resolved_aoi_clip",
+            "materialization_provider": null,
+            "source_form": "bundle",
+            "runtime_status": "runtime_candidate",
+            "selectable_now": true,
+            "supports_tiling": null,
+            "height_semantics": null,
+            "supported_job_types": [
+              "water"
+            ],
+            "supported_geometry_types": [
+              "polygon"
+            ],
+            "quality_score": 0.83,
+            "freshness_score": 0.7,
+            "resolved_aoi": {
+              "display_name": "Nairobi, Kenya",
+              "country_code": "ke",
+              "country_name": "Kenya",
+              "bbox": [
+                36.6647016,
+                -1.4448822,
+                37.1048735,
+                -1.1606749
+              ]
+            }
+          },
+          {
+            "source_id": "raw.osm.water",
+            "source_name": "OSM Water Features",
+            "source_kind": "open_data",
+            "provider_family": "osm",
+            "path_hint": "Data/burundi-260127-free.shp/gis_osm_water_a_free_1.shp",
+            "supports_aoi": true,
+            "materialization_scope": "country_bundle_then_clip",
+            "materialization_provider": "geofabrik",
+            "source_form": "vector",
+            "runtime_status": "runtime_candidate",
+            "selectable_now": true,
+            "supports_tiling": null,
+            "height_semantics": null,
+            "supported_job_types": [
+              "building",
+              "road",
+              "water"
+            ],
+            "supported_geometry_types": [
+              "polygon",
+              "line"
+            ],
+            "quality_score": 0.8,
+            "freshness_score": 0.61,
+            "resolved_aoi": {
+              "display_name": "Nairobi, Kenya",
+              "country_code": "ke",
+              "country_name": "Kenya",
+              "bbox": [
+                36.6647016,
+                -1.4448822,
+                37.1048735,
+                -1.1606749
+              ]
+            }
+          },
+          {
+            "source_id": "raw.local.water",
+            "source_name": "Local Open Water Sample",
+            "source_kind": "open_data",
+            "provider_family": "local_open_data",
+            "path_hint": "Data/water",
+            "supports_aoi": false,
+            "materialization_scope": "local_only",
+            "materialization_provider": null,
+            "source_form": "vector",
+            "runtime_status": "runtime_candidate",
+            "selectable_now": true,
+            "supports_tiling": null,
+            "height_semantics": null,
+            "supported_job_types": [
+              "building",
+              "road",
+              "water"
+            ],
+            "supported_geometry_types": [
+              "polygon"
+            ],
+            "quality_score": 0.79,
+            "freshness_score": 0.55,
+            "resolved_aoi": {
+              "display_name": "Nairobi, Kenya",
+              "country_code": "ke",
+              "country_name": "Kenya",
+              "bbox": [
+                36.6647016,
+                -1.4448822,
+                37.1048735,
+                -1.1606749
+              ]
+            }
+          }
+        ],
+        "transform_paths": {
+          "dt.water.bundle": []
+        },
+        "knowledge_hits": [
+          {
+            "kind": "algorithm",
+            "id": "algo.fusion.water.v1",
+            "label": "Water Polygon Fusion",
+            "score": 2.4156970977783203
+          },
+          {
+            "kind": "data_source",
+            "id": "catalog.flood.water",
+            "label": "Flood Water Bundle (OSM + Local Water)",
+            "score": 2.054532527923584
+          },
+          {
+            "kind": "algorithm",
+            "id": "algo.fusion.water.polygon_priority_merge.v1",
+            "label": "FusionCode Water Polygon Priority Merge",
+            "score": 2.002650499343872
+          },
+          {
+            "kind": "data_source",
+            "id": "raw.osm.water",
+            "label": "OSM Water Features",
+            "score": 1.8991026878356934
+          },
+          {
+            "kind": "algorithm",
+            "id": "algo.fusion.water.line_three_source_priority.v1",
+            "label": "FusionCode Water Line Three Source Priority Fusion",
+            "score": 1.7102282047271729
+          }
+        ]
+      },
+      "execution_hints": {
+        "preferred_pattern_id": "wp.flood.water.default",
+        "fallback_pattern_ids": [
+          "wp.water.fusioncode.line_and_polygon.v1"
+        ],
+        "available_data_source_ids": [
+          "upload.bundle",
+          "catalog.flood.water",
+          "raw.osm.water",
+          "raw.local.water"
+        ],
+        "selectable_source_ids": [
+          "upload.bundle",
+          "catalog.flood.water",
+          "raw.osm.water",
+          "raw.local.water"
+        ],
+        "reserved_source_ids": [],
+        "available_aoi": {
+          "query": "Nairobi, Kenya",
+          "display_name": "Nairobi, Kenya",
+          "country_name": "Kenya",
+          "country_code": "ke",
+          "bbox": [
+            36.6647016,
+            -1.4448822,
+            37.1048735,
+            -1.1606749
+          ],
+          "confidence": 0.6767112080878018,
+          "selection_reason": "single_candidate",
+          "candidates": [
+            {
+              "query": "Nairobi, Kenya",
+              "display_name": "Nairobi, Kenya",
+              "country_name": "Kenya",
+              "country_code": "ke",
+              "admin_level": "city",
+              "bbox": [
+                36.6647016,
+                -1.4448822,
+                37.1048735,
+                -1.1606749
+              ],
+              "source": "geocoder",
+              "confidence": 0.6767112080878018,
+              "raw": {
+                "place_id": 37963094,
+                "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+                "osm_type": "relation",
+                "osm_id": 9185096,
+                "lat": "-1.3023980",
+                "lon": "36.8288509",
+                "category": "place",
+                "type": "city",
+                "place_rank": 16,
+                "importance": 0.6767112080878018,
+                "addresstype": "city",
+                "name": "Nairobi",
+                "display_name": "Nairobi, Kenya",
+                "address": {
+                  "city": "Nairobi",
+                  "state": "Nairobi",
+                  "ISO3166-2-lvl4": "KE-30",
+                  "country": "Kenya",
+                  "country_code": "ke"
+                },
+                "boundingbox": [
+                  "-1.4448822",
+                  "-1.1606749",
+                  "36.6647016",
+                  "37.1048735"
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "selection_reason": "preferred_wp.flood.water.default_by_context_order",
+      "llm_provider": "open_a_i_compatible",
+      "plan_revision": 1,
+      "planning_mode": "task_driven",
+      "planning_source": "kg_fallback",
+      "planning_telemetry": {
+        "elapsed_ms": 37946,
+        "context_size_bytes": 23482,
+        "provider": "open_a_i_compatible",
+        "model": "gpt-5-mini-2025-08-07",
+        "llm_usage": {
+          "prompt_tokens": 6676,
+          "completion_tokens": 3169,
+          "total_tokens": 9845
+        }
+      },
+      "pattern_id": "wp.flood.water.default",
+      "pattern_name": "Flood Water Polygon Fusion",
+      "source": "kg_fallback",
+      "grounding_report": {
+        "grounded": true,
+        "grounded_step_count": 1,
+        "total_step_count": 1,
+        "grounding_score": 1.0,
+        "steps": [
+          {
+            "step": 1,
+            "algorithm_id": "algo.fusion.water.v1",
+            "input_data_type": "dt.water.bundle",
+            "data_source_id": "catalog.flood.water",
+            "output_data_type": "dt.water.fused",
+            "algorithm_grounded": true,
+            "algorithm_known": true,
+            "data_source_known": true,
+            "output_type_matches_intent": true,
+            "schema_policy_known": true,
+            "pattern_ids": [
+              "wp.flood.water.default"
+            ],
+            "issue_codes": [],
+            "evidence_refs": [
+              "plan.task(step=1).algorithm_id",
+              "plan.task(step=1).input.data_type_id",
+              "plan.task(step=1).input.data_source_id",
+              "plan.task(step=1).output.data_type_id",
+              "context.retrieval.candidate_patterns",
+              "context.retrieval.data_sources",
+              "context.retrieval.output_schema_policies",
+              "context.intent.expected_output_type"
+            ]
+          }
+        ]
+      }
+    },
+    "tasks": [
+      {
+        "step": 1,
+        "name": "water_fusion",
+        "description": "Execute algo.fusion.water.v1",
+        "algorithm_id": "algo.fusion.water.v1",
+        "input": {
+          "data_type_id": "dt.water.bundle",
+          "data_source_id": "catalog.flood.water",
+          "parameters": {}
+        },
+        "output": {
+          "data_type_id": "dt.water.fused",
+          "description": "Output generated by workflow step"
+        },
+        "depends_on": [],
+        "is_transform": false,
+        "kg_validated": false,
+        "alternatives": []
+      }
+    ],
+    "expected_output": "water fusion result",
+    "estimated_time": "unknown",
+    "validation": {
+      "valid": false,
+      "inserted_transform_steps": 0,
+      "issues": [
+        {
+          "code": "SCENARIO_PROFILE_TASK_MISMATCH",
+          "message": "Selected ScenarioProfile does not activate the requested task bundle: task.water.fusion",
+          "step": 1
+        }
+      ]
+    }
+  },
+  "audit_events": [
+    {
+      "timestamp": "2026-05-10T09:29:01.369419+00:00",
+      "kind": "run_created",
+      "phase": "queued",
+      "message": "Run created and input bundles persisted.",
+      "plan_revision": 0,
+      "progress": 0,
+      "attempt_no": 0,
+      "current_step": null,
+      "details": {
+        "request_path": "runs\\64899f5f4024418087f5e6c5142aa02c\\request.json",
+        "input_strategy": "task_driven_auto",
+        "osm_zip_name": null,
+        "ref_zip_name": null
+      }
+    },
+    {
+      "timestamp": "2026-05-10T09:29:07.981236+00:00",
+      "kind": "run_started",
+      "phase": "planning",
+      "message": "Run started for job_type=water.",
+      "plan_revision": 0,
+      "progress": 5,
+      "attempt_no": 0,
+      "current_step": 0,
+      "details": {}
+    },
+    {
+      "timestamp": "2026-05-10T09:29:21.356746+00:00",
+      "kind": "aoi_resolved",
+      "phase": "planning",
+      "message": "Resolved AOI for Nairobi, Kenya.",
+      "plan_revision": 0,
+      "progress": 12,
+      "attempt_no": 0,
+      "current_step": 0,
+      "details": {
+        "query": "Nairobi, Kenya",
+        "display_name": "Nairobi, Kenya",
+        "country_name": "Kenya",
+        "country_code": "ke",
+        "bbox": [
+          36.6647016,
+          -1.4448822,
+          37.1048735,
+          -1.1606749
+        ],
+        "selection_reason": "single_candidate",
+        "confidence": 0.6767112080878018
+      }
+    },
+    {
+      "timestamp": "2026-05-10T09:29:21.362020+00:00",
+      "kind": "target_crs_resolved",
+      "phase": "planning",
+      "message": "Resolved target CRS EPSG:32737.",
+      "plan_revision": 0,
+      "progress": 14,
+      "attempt_no": 0,
+      "current_step": 0,
+      "details": {
+        "target_crs": "EPSG:32737",
+        "source": "resolved_aoi_default"
+      }
+    },
+    {
+      "timestamp": "2026-05-10T09:30:02.181723+00:00",
+      "kind": "plan_created",
+      "phase": "validating",
+      "message": "Workflow plan revision 1 created.",
+      "plan_revision": 1,
+      "progress": 25,
+      "attempt_no": 0,
+      "current_step": 0,
+      "details": {
+        "workflow_id": "wf_wp.flood.water.default_a5aa2673",
+        "grounded": true,
+        "grounding_score": 1.0,
+        "planning_telemetry": {
+          "elapsed_ms": 37946,
+          "context_size_bytes": 23482,
+          "provider": "open_a_i_compatible",
+          "model": "gpt-5-mini-2025-08-07",
+          "llm_usage": {
+            "prompt_tokens": 6676,
+            "completion_tokens": 3169,
+            "total_tokens": 9845
+          }
+        },
+        "effective_parameters": {
+          "1": {}
+        },
+        "selected_decisions": {
+          "pattern_selection": "wp.flood.water.default",
+          "data_source_selection": "catalog.flood.water",
+          "artifact_reuse_selection": "fresh_execution",
+          "parameter_strategy": "kg_defaults_only",
+          "output_schema_policy": "osp.water.fused.v1"
+        },
+        "planning_mode": "task_driven",
+        "planning_source": "kg_fallback",
+        "profile_source": "direct_task",
+        "task_bundle": {
+          "bundle_id": "task_bundle.direct_request",
+          "requested_tasks": [
+            "task.water.fusion"
+          ],
+          "requires_disaster_profile": false
+        },
+        "selectable_source_ids": [
+          "upload.bundle",
+          "catalog.flood.water",
+          "raw.osm.water",
+          "raw.local.water"
+        ],
+        "reserved_source_ids": [],
+        "required_reserved_capabilities": [],
+        "resolved_aoi": {
+          "query": "Nairobi, Kenya",
+          "display_name": "Nairobi, Kenya",
+          "country_name": "Kenya",
+          "country_code": "ke",
+          "bbox": [
+            36.6647016,
+            -1.4448822,
+            37.1048735,
+            -1.1606749
+          ],
+          "confidence": 0.6767112080878018,
+          "selection_reason": "single_candidate",
+          "candidates": [
+            {
+              "query": "Nairobi, Kenya",
+              "display_name": "Nairobi, Kenya",
+              "country_name": "Kenya",
+              "country_code": "ke",
+              "admin_level": "city",
+              "bbox": [
+                36.6647016,
+                -1.4448822,
+                37.1048735,
+                -1.1606749
+              ],
+              "source": "geocoder",
+              "confidence": 0.6767112080878018,
+              "raw": {
+                "place_id": 37963094,
+                "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+                "osm_type": "relation",
+                "osm_id": 9185096,
+                "lat": "-1.3023980",
+                "lon": "36.8288509",
+                "category": "place",
+                "type": "city",
+                "place_rank": 16,
+                "importance": 0.6767112080878018,
+                "addresstype": "city",
+                "name": "Nairobi",
+                "display_name": "Nairobi, Kenya",
+                "address": {
+                  "city": "Nairobi",
+                  "state": "Nairobi",
+                  "ISO3166-2-lvl4": "KE-30",
+                  "country": "Kenya",
+                  "country_code": "ke"
+                },
+                "boundingbox": [
+                  "-1.4448822",
+                  "-1.1606749",
+                  "36.6647016",
+                  "37.1048735"
+                ]
+              }
+            }
+          ]
+        },
+        "selected_pattern": "wp.flood.water.default",
+        "artifact_reuse": {
+          "reused": false,
+          "artifact_id": null,
+          "freshness_status": "not_available",
+          "rationale": "No reusable artifact candidates were found in planner retrieval context."
+        }
+      }
+    },
+    {
+      "timestamp": "2026-05-10T09:30:02.189632+00:00",
+      "kind": "plan_validated",
+      "phase": "running",
+      "message": "Workflow plan revision 1 validated.",
+      "plan_revision": 1,
+      "progress": 45,
+      "attempt_no": 0,
+      "current_step": 0,
+      "details": {
+        "valid": false,
+        "inserted_transform_steps": 0
+      }
+    },
+    {
+      "timestamp": "2026-05-10T09:30:22.439070+00:00",
+      "kind": "input_bundle_created",
+      "phase": "running",
+      "message": "Input bundle was created for execution.",
+      "plan_revision": 1,
+      "progress": 49,
+      "attempt_no": 0,
+      "current_step": 0,
+      "details": {
+        "osm_zip_name": "osm.zip",
+        "ref_zip_name": "ref.zip",
+        "selected_source_id": "catalog.flood.water"
+      }
+    },
+    {
+      "timestamp": "2026-05-10T09:30:22.441583+00:00",
+      "kind": "task_inputs_resolved",
+      "phase": "running",
+      "message": "Task-driven input bundles prepared for execution.",
+      "plan_revision": 1,
+      "progress": 50,
+      "attempt_no": 0,
+      "current_step": 0,
+      "details": {
+        "input_strategy": "task_driven_auto",
+        "source_mode": "downloaded",
+        "source_id": "catalog.flood.water",
+        "requested_source_id": "catalog.flood.water",
+        "selected_source_id": "catalog.flood.water",
+        "fallback_from_source_id": null,
+        "component_coverage": {},
+        "cache_hit": false,
+        "version_token": "973a095c94309d488b9abd638cd04632a3a04ebc|78b567a7122fdc471f0e4bd8e99d81d77d59503a",
+        "osm_zip_name": "osm.zip",
+        "ref_zip_name": "ref.zip",
+        "target_crs": "EPSG:32737",
+        "resolved_aoi": {
+          "display_name": "Nairobi, Kenya",
+          "country_code": "ke",
+          "country_name": "Kenya",
+          "bbox": [
+            36.6647016,
+            -1.4448822,
+            37.1048735,
+            -1.1606749
+          ]
+        }
+      }
+    },
+    {
+      "timestamp": "2026-05-10T09:30:22.461181+00:00",
+      "kind": "execution_started",
+      "phase": "running",
+      "message": "Execution stage started.",
+      "plan_revision": 1,
+      "progress": 55,
+      "attempt_no": 0,
+      "current_step": 0,
+      "details": {}
+    },
+    {
+      "timestamp": "2026-05-10T09:30:22.464693+00:00",
+      "kind": "step_started",
+      "phase": "running",
+      "message": "Execution step started: step=1.",
+      "plan_revision": 1,
+      "progress": 55,
+      "attempt_no": 0,
+      "current_step": 1,
+      "details": {
+        "status": "started",
+        "step": 1,
+        "algorithm_id": "algo.fusion.water.v1",
+        "data_source_id": "catalog.flood.water"
+      }
+    },
+    {
+      "timestamp": "2026-05-10T09:30:22.569592+00:00",
+      "kind": "step_succeeded",
+      "phase": "running",
+      "message": "Execution step succeeded: step=1.",
+      "plan_revision": 1,
+      "progress": 55,
+      "attempt_no": 0,
+      "current_step": 1,
+      "details": {
+        "status": "succeeded",
+        "step": 1,
+        "algorithm_id": "algo.fusion.water.v1",
+        "data_source_id": "catalog.flood.water",
+        "output_path": "runs\\64899f5f4024418087f5e6c5142aa02c\\output\\fused_water.shp"
+      }
+    },
+    {
+      "timestamp": "2026-05-10T09:30:22.572111+00:00",
+      "kind": "execution_completed",
+      "phase": "running",
+      "message": "Execution stage completed and produced an output artifact.",
+      "plan_revision": 1,
+      "progress": 80,
+      "attempt_no": 0,
+      "current_step": 1,
+      "details": {
+        "repair_count": 0
+      }
+    },
+    {
+      "timestamp": "2026-05-10T09:30:22.596938+00:00",
+      "kind": "output_schema_validated",
+      "phase": "running",
+      "message": "Artifact validated against policy osp.water.fused.v1.",
+      "plan_revision": 1,
+      "progress": 90,
+      "attempt_no": 0,
+      "current_step": 1,
+      "details": {
+        "output_data_type": "dt.water.fused",
+        "policy_id": "osp.water.fused.v1",
+        "required_fields": [
+          "geometry"
+        ],
+        "missing_fields": [],
+        "artifact_validity": true
+      }
+    },
+    {
+      "timestamp": "2026-05-10T09:30:22.934451+00:00",
+      "kind": "durable_learning_recorded",
+      "phase": "running",
+      "message": "Durable learning record was written for this run.",
+      "plan_revision": 1,
+      "progress": 90,
+      "attempt_no": 0,
+      "current_step": 1,
+      "details": {
+        "record_id": "dlr.64899f5f4024418087f5e6c5142aa02c",
+        "pattern_id": "wp.flood.water.default",
+        "algorithm_id": "algo.fusion.water.v1",
+        "selected_data_source": "catalog.flood.water"
+      }
+    },
+    {
+      "timestamp": "2026-05-10T09:30:22.942511+00:00",
+      "kind": "run_succeeded",
+      "phase": "succeeded",
+      "message": "Run completed successfully and artifact is ready.",
+      "plan_revision": 1,
+      "progress": 100,
+      "attempt_no": 0,
+      "current_step": 1,
+      "details": {}
+    }
+  ],
+  "artifact": {
+    "available": true,
+    "filename": "water_fusion_result.zip",
+    "path": "runs\\64899f5f4024418087f5e6c5142aa02c\\output\\water_fusion_result.zip",
+    "size_bytes": 123542,
+    "download_path": "/api/v2/runs/64899f5f4024418087f5e6c5142aa02c/artifact"
+  },
+  "kg_path_trace": {
+    "workflow_id": "wf_wp.flood.water.default_a5aa2673",
+    "selected_pattern_id": "wp.flood.water.default",
+    "grounding_report": {
+      "grounded": true,
+      "grounded_step_count": 1,
+      "total_step_count": 1,
+      "grounding_score": 1.0,
+      "steps": [
+        {
+          "step": 1,
+          "algorithm_id": "algo.fusion.water.v1",
+          "input_data_type": "dt.water.bundle",
+          "data_source_id": "catalog.flood.water",
+          "output_data_type": "dt.water.fused",
+          "algorithm_grounded": true,
+          "algorithm_known": true,
+          "data_source_known": true,
+          "output_type_matches_intent": true,
+          "schema_policy_known": true,
+          "pattern_ids": [
+            "wp.flood.water.default"
+          ],
+          "issue_codes": [],
+          "evidence_refs": [
+            "plan.task(step=1).algorithm_id",
+            "plan.task(step=1).input.data_type_id",
+            "plan.task(step=1).input.data_source_id",
+            "plan.task(step=1).output.data_type_id",
+            "context.retrieval.candidate_patterns",
+            "context.retrieval.data_sources",
+            "context.retrieval.output_schema_policies",
+            "context.intent.expected_output_type"
+          ]
+        }
+      ]
+    },
+    "chains": [
+      {
+        "task_step": 1,
+        "task_name": "water_fusion",
+        "nodes": [
+          {
+            "kind": "trigger",
+            "id": "trigger",
+            "label": "need water polygons for Nairobi, Kenya",
+            "evidence": {
+              "type": "user_query",
+              "content": "need water polygons for Nairobi, Kenya",
+              "disaster_type": null,
+              "spatial_extent": null,
+              "temporal_start": null,
+              "temporal_end": null
+            }
+          },
+          {
+            "kind": "workflow_pattern",
+            "id": "wp.flood.water.default",
+            "label": "Flood Water Polygon Fusion",
+            "evidence": {
+              "pattern_id": "wp.flood.water.default",
+              "pattern_name": "Flood Water Polygon Fusion",
+              "job_type": "water",
+              "disaster_types": [
+                "flood",
+                "generic"
+              ],
+              "success_rate": 0.84,
+              "metadata": {
+                "version": "1.0.0",
+                "runtime_status": "runtime_candidate",
+                "scenario_focus": "flood",
+                "strategy": "conservative",
+                "input_strategy": "task_driven_auto_supported",
+                "source_family": "catalog_water_bundle"
+              },
+              "steps": [
+                {
+                  "order": 1,
+                  "name": "water_fusion",
+                  "algorithm_id": "algo.fusion.water.v1",
+                  "input_data_type": "dt.water.bundle",
+                  "output_data_type": "dt.water.fused",
+                  "data_source_id": "catalog.flood.water",
+                  "depends_on": [],
+                  "is_optional": false
+                }
+              ]
+            }
+          },
+          {
+            "kind": "task",
+            "id": "task:1",
+            "label": "water_fusion",
+            "evidence": {
+              "step": 1,
+              "description": "Execute algo.fusion.water.v1"
+            }
+          },
+          {
+            "kind": "data_source",
+            "id": "catalog.flood.water",
+            "label": "Flood Water Bundle (OSM + Local Water)",
+            "evidence": {
+              "source_id": "catalog.flood.water",
+              "source_name": "Flood Water Bundle (OSM + Local Water)",
+              "supported_types": [
+                "dt.water.bundle"
+              ],
+              "disaster_types": [
+                "flood",
+                "generic"
+              ],
+              "quality_score": 0.83,
+              "source_kind": "catalog",
+              "quality_tier": "curated",
+              "freshness_category": "event_snapshot",
+              "freshness_hours": 72,
+              "freshness_score": 0.7,
+              "supported_job_types": [
+                "water"
+              ],
+              "supported_geometry_types": [
+                "polygon"
+              ],
+              "metadata": {
+                "kind": "catalog",
+                "priority": 2,
+                "provider_family": "local_bundle_catalog",
+                "bundle_strategy": "osm_ref_pair",
+                "component_source_ids": [
+                  "raw.osm.water",
+                  "raw.local.water"
+                ],
+                "path_hints": [
+                  "Data/burundi-260127-free.shp/gis_osm_water_a_free_1.shp",
+                  "Data/water"
+                ],
+                "supports_aoi": true,
+                "materialization_scope": "resolved_aoi_clip",
+                "source_form": "bundle",
+                "runtime_status": "runtime_candidate",
+                "selectable_now": true
+              }
+            }
+          },
+          {
+            "kind": "algorithm",
+            "id": "algo.fusion.water.v1",
+            "label": "algo.fusion.water.v1",
+            "evidence": {
+              "algorithm_id": "algo.fusion.water.v1"
+            }
+          },
+          {
+            "kind": "output_data_type",
+            "id": "dt.water.fused",
+            "label": "dt.water.fused",
+            "evidence": {
+              "data_type_id": "dt.water.fused",
+              "description": "Output generated by workflow step"
+            }
+          }
+        ],
+        "edges": [
+          {
+            "from": "trigger",
+            "to": "wp.flood.water.default",
+            "relationship": "selects_pattern"
+          },
+          {
+            "from": "wp.flood.water.default",
+            "to": "task:1",
+            "relationship": "activates_task"
+          },
+          {
+            "from": "task:1",
+            "to": "catalog.flood.water",
+            "relationship": "uses_data_source"
+          },
+          {
+            "from": "catalog.flood.water",
+            "to": "algo.fusion.water.v1",
+            "relationship": "executes_algorithm"
+          },
+          {
+            "from": "algo.fusion.water.v1",
+            "to": "dt.water.fused",
+            "relationship": "produces_output"
+          }
+        ]
+      }
+    ]
+  }
+}

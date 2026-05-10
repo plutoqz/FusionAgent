@@ -142,6 +142,45 @@ def test_aoi_resolution_service_deduplicates_equivalent_candidates_before_raisin
     assert resolved.bbox == pytest.approx((36.6647, -1.4448, 37.1048, -1.1606))
 
 
+def test_aoi_resolution_service_prefers_city_over_broader_admin_candidate_with_same_name() -> None:
+    service = AOIResolutionService(
+        geocoder=FakeGeocoder(
+            [
+                {
+                    "display_name": "Gitega, Burundi",
+                    "boundingbox": ["-3.5884953", "-3.2684953", "29.7649718", "30.0849718"],
+                    "importance": 0.5101626528522342,
+                    "type": "city",
+                    "address": {
+                        "city": "Gitega",
+                        "state": "Gitega",
+                        "country": "Burundi",
+                        "country_code": "bi",
+                    },
+                },
+                {
+                    "display_name": "Gitega, Burundi",
+                    "boundingbox": ["-3.8447564", "-3.0565759", "29.7178599", "30.1040215"],
+                    "importance": 0.455650219131522,
+                    "type": "administrative",
+                    "address": {
+                        "state": "Gitega",
+                        "country": "Burundi",
+                        "country_code": "bi",
+                    },
+                },
+            ]
+        )
+    )
+
+    resolved = service.resolve("need building data for Gitega, Burundi")
+
+    assert resolved.display_name == "Gitega, Burundi"
+    assert resolved.country_code == "bi"
+    assert resolved.selection_reason == "nested_specificity_preference"
+    assert resolved.bbox == pytest.approx((29.7649718, -3.5884953, 30.0849718, -3.2684953))
+
+
 def test_extract_location_query_removes_disaster_suffix() -> None:
     assert (
         AOIResolutionService.extract_location_query(

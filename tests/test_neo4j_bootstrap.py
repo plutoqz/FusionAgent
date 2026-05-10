@@ -9,6 +9,7 @@ from kg.bootstrap import (
     apply_bootstrap_cypher,
     build_bootstrap_cypher,
     ensure_bootstrap_data,
+    expected_seed_inventory,
     resolve_graph_target,
 )
 
@@ -111,11 +112,15 @@ def test_ensure_bootstrap_data_applies_seed_only_when_missing(monkeypatch) -> No
     executed_statements: list[str] = []
 
     class FakeResult:
-        def __init__(self, count: int):
-            self._count = count
+        def __init__(self, rows=None, single_row=None):
+            self._rows = rows or []
+            self._single_row = single_row
 
         def single(self):
-            return {"count": self._count}
+            return self._single_row
+
+        def __iter__(self):
+            return iter(self._rows)
 
     class FakeSession:
         def __init__(self):
@@ -129,11 +134,16 @@ def test_ensure_bootstrap_data_applies_seed_only_when_missing(monkeypatch) -> No
 
         def run(self, statement: str, **params):
             self.calls += 1
-            if "MATCH (wp:WorkflowPattern)" in statement:
+            normalized = " ".join(statement.split())
+            if "MATCH (n:FusionAgentManaged) RETURN count(n) AS count" in normalized:
+                return FakeResult(single_row={"count": 0})
+            if "UNWIND [label IN labels(n) WHERE label <> $managed_label] AS label" in normalized:
                 assert params["managed_label"] == MANAGED_LABEL
-                return FakeResult(0)
+                return FakeResult(rows=[])
+            if "MATCH (:FusionAgentManaged)-[r]->(:FusionAgentManaged)" in normalized:
+                return FakeResult(rows=[])
             executed_statements.append(statement)
-            return []
+            return FakeResult(rows=[])
 
     class FakeDriver:
         def session(self, database=None):
@@ -158,6 +168,87 @@ def test_ensure_bootstrap_data_applies_seed_only_when_missing(monkeypatch) -> No
 
     assert applied is True
     assert executed_statements == ["MERGE (n:Foo {id: '1'})"]
+
+
+def test_expected_seed_inventory_matches_static_bootstrap_contract() -> None:
+    inventory = expected_seed_inventory()
+
+    assert inventory == {
+        "DataType": 27,
+        "Task": 10,
+        "Algorithm": 33,
+        "AlgorithmParameterSpec": 44,
+        "DataSource": 22,
+        "ScenarioProfile": 4,
+        "OutputSchemaPolicy": 4,
+        "WorkflowPattern": 14,
+    }
+
+
+def test_ensure_bootstrap_data_applies_seed_when_non_pattern_seed_labels_are_missing(monkeypatch) -> None:
+    executed_statements: list[str] = []
+
+    class FakeResult:
+        def __init__(self, rows=None, single_row=None):
+            self._rows = rows or []
+            self._single_row = single_row
+
+        def single(self):
+            return self._single_row
+
+        def __iter__(self):
+            return iter(self._rows)
+
+    class FakeSession:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def run(self, statement: str, **params):
+            normalized = " ".join(statement.split())
+            if "MATCH (n:FusionAgentManaged) RETURN count(n) AS count" in normalized:
+                return FakeResult(single_row={"count": 10})
+            if "UNWIND [label IN labels(n) WHERE label <> $managed_label] AS label" in normalized:
+                assert params["managed_label"] == MANAGED_LABEL
+                return FakeResult(
+                    rows=[
+                        {"label": "WorkflowPattern", "count": 14},
+                        {"label": "Task", "count": 0},
+                        {"label": "ScenarioProfile", "count": 0},
+                        {"label": "OutputSchemaPolicy", "count": 0},
+                        {"label": "AlgorithmParameterSpec", "count": 0},
+                    ]
+                )
+            if "MATCH (:FusionAgentManaged)-[r]->(:FusionAgentManaged)" in normalized:
+                return FakeResult(rows=[])
+            executed_statements.append(statement)
+            return FakeResult(rows=[])
+
+    class FakeDriver:
+        def session(self, database=None):
+            return FakeSession()
+
+        def close(self) -> None:
+            return None
+
+    class FakeGraphDatabase:
+        @staticmethod
+        def driver(uri, auth):
+            return FakeDriver()
+
+    monkeypatch.setitem(sys.modules, "neo4j", types.SimpleNamespace(GraphDatabase=FakeGraphDatabase))
+
+    applied = ensure_bootstrap_data(
+        uri="bolt://localhost:7687",
+        user="neo4j",
+        password="password",
+        cypher="MERGE (n:Foo {id: '1'});",
+    )
+
+    assert applied is True
+    assert executed_statements == ["MERGE (n:Foo {id: '1'});"] or executed_statements == ["MERGE (n:Foo {id: '1'})"]
 
 
 def test_resolve_graph_target_falls_back_to_home_database_for_community(monkeypatch) -> None:

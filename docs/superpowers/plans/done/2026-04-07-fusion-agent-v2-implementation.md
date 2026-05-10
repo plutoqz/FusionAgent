@@ -56,9 +56,9 @@ This file is the master plan and progress tracker.
 - Spec: `docs/superpowers/specs/2026-04-07-fusion-agent-v2-design.md`
 - Progress summary: `docs/superpowers/specs/2026-04-08-benchmark-followup-summary.md`
 - Historical implementation plan: this file, now promoted to the master tracker
-- Historical focused plan: `docs/superpowers/plans/2026-04-08-fusion-agent-parameter-defaults-and-building-benchmark.md`
-- Historical benchmark follow-up plan: `docs/superpowers/plans/2026-04-08-benchmark-followup-and-runtime-alignment.md`
-- Focused fresh-checkout reproducibility plan: `docs/superpowers/plans/2026-04-16-fresh-checkout-benchmark-reproducibility.md`
+- Historical focused plan: `docs/superpowers/plans/done/2026-04-08-fusion-agent-parameter-defaults-and-building-benchmark.md`
+- Historical benchmark follow-up plan: `docs/superpowers/plans/done/2026-04-08-benchmark-followup-and-runtime-alignment.md`
+- Focused fresh-checkout reproducibility plan: `docs/superpowers/plans/done/2026-04-16-fresh-checkout-benchmark-reproducibility.md`
 - Fresh-checkout benchmark evidence: `docs/superpowers/specs/2026-04-16-building-micro-msft-fresh-checkout-result.json`
 
 ## Roadmap Order
@@ -542,7 +542,7 @@ These are the next items to work in order.
 
 ## Execution Handoff
 
-Plan complete and saved to `docs/superpowers/plans/2026-04-07-fusion-agent-v2-implementation.md`.
+Plan complete and saved to `docs/superpowers/plans/done/2026-04-07-fusion-agent-v2-implementation.md`.
 
 Two execution options:
 

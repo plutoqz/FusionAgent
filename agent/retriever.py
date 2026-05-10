@@ -11,6 +11,7 @@ from kg.models import (
     DurableLearningSummary,
     KGContext,
     OutputSchemaPolicy,
+    ScenarioProfileNode,
     WorkflowPatternNode,
 )
 from kg.repository import KGRepository
@@ -32,6 +33,10 @@ class PlanningContextBuilder:
         kg_context = self.kg_repo.build_context(job_type=job_type, disaster_type=trigger.disaster_type)
         location_query = self._extract_location_query(trigger)
         resolved_aoi = self._resolve_aoi(trigger)
+        effective_profile = self._select_effective_scenario_profile(
+            kg_context.scenario_profiles,
+            trigger=trigger,
+        )
         selection_reason = self._select_reason(kg_context.patterns)
         relevant_sources = self._collect_relevant_data_sources(
             job_type=job_type,
@@ -44,7 +49,13 @@ class PlanningContextBuilder:
         )
         return (
             {
-                "intent": self._extract_intent(job_type, trigger, location_query, resolved_aoi),
+                "intent": self._extract_intent(
+                    job_type,
+                    trigger,
+                    location_query,
+                    resolved_aoi,
+                    effective_profile=effective_profile,
+                ),
                 "retrieval": self._build_retrieval_payload(
                     job_type,
                     trigger,
@@ -86,6 +97,7 @@ class PlanningContextBuilder:
         trigger: RunTrigger,
         location_query: str | None,
         resolved_aoi: ResolvedAOI | None,
+        effective_profile: ScenarioProfileNode | None,
     ) -> Dict[str, Any]:
         resolved = resolve_planning_mode(trigger)
         if resolved["planning_mode"] == "task_driven":
@@ -112,7 +124,32 @@ class PlanningContextBuilder:
             "planning_mode": resolved["planning_mode"],
             "profile_source": resolved["profile_source"],
             "task_bundle": task_bundle,
+            "effective_scenario_profile_id": effective_profile.profile_id if effective_profile is not None else None,
+            "effective_activated_tasks": list(effective_profile.activated_tasks) if effective_profile is not None else [],
+            "effective_preferred_output_fields": (
+                list(effective_profile.preferred_output_fields) if effective_profile is not None else []
+            ),
+            "effective_qos_priority": dict(effective_profile.qos_priority) if effective_profile is not None else {},
         }
+
+    @staticmethod
+    def _select_effective_scenario_profile(
+        profiles: List[ScenarioProfileNode],
+        *,
+        trigger: RunTrigger,
+    ) -> ScenarioProfileNode | None:
+        if not profiles:
+            return None
+        if trigger.disaster_type:
+            dtype = trigger.disaster_type.lower()
+            for profile in profiles:
+                profile_types = [item.lower() for item in profile.disaster_types]
+                if dtype in profile_types:
+                    return profile
+        for profile in profiles:
+            if profile.profile_id == "scenario.default.task":
+                return profile
+        return profiles[0]
 
     def _build_retrieval_payload(
         self,
