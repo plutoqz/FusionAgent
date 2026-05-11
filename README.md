@@ -1,89 +1,184 @@
+<div align="center">
+
 # FusionAgent
 
-[English README](./README.en.md)
+<p><strong>面向有界灾害响应场景的地理空间矢量数据融合智能体运行时</strong></p>
 
-简历/演示项目说明见 [FusionAgent Resume Project Brief](./docs/demo/fusionagent-resume-project-brief.md)。
+<p>
+  <a href="https://github.com/plutoqz/FusionAgent/stargazers"><img src="https://img.shields.io/github/stars/plutoqz/FusionAgent?style=for-the-badge" alt="GitHub stars"></a>
+  <img src="https://img.shields.io/badge/Python-3.9--3.11-3776AB?style=for-the-badge&logo=python&logoColor=white" alt="Python">
+  <img src="https://img.shields.io/badge/FastAPI-v1%20%2F%20v2-009688?style=for-the-badge&logo=fastapi&logoColor=white" alt="FastAPI">
+  <img src="https://img.shields.io/badge/Frontend-React%20%2B%20Vite-61DAFB?style=for-the-badge&logo=react&logoColor=black" alt="React">
+  <img src="https://img.shields.io/badge/KG-Neo4j%20%7C%20Memory-4581C3?style=for-the-badge&logo=neo4j&logoColor=white" alt="Neo4j">
+  <img src="https://img.shields.io/badge/Worker-Celery%20%2B%20Redis-A41E11?style=for-the-badge&logo=redis&logoColor=white" alt="Celery Redis">
+</p>
 
-FusionAgent 是一个面向有界灾害响应场景的地理空间矢量数据融合智能体运行时。当前仓库同时包含后端运行时、知识图谱约束层、任务与场景编排、证据写回链路，以及面向 operator 的 Web 工作台。
+<p>
+  <img src="https://img.shields.io/badge/Runtime-Bounded%20Agentic%20Workflow-111827?style=flat-square" alt="Bounded Runtime">
+  <img src="https://img.shields.io/badge/Mode-Task--Driven%20%7C%20Scenario--Driven-0F766E?style=flat-square" alt="Modes">
+  <img src="https://img.shields.io/badge/Tasks-building%20%7C%20road%20%7C%20water%20%7C%20poi-7C3AED?style=flat-square" alt="Tasks">
+  <img src="https://img.shields.io/badge/Output-Auditable%20Evidence%20Contract-F59E0B?style=flat-square" alt="Evidence Contract">
+</p>
 
-项目的目标不是提供一个无边界的通用 Agent，而是在明确任务边界内，把“任务理解、数据获取、规划约束、执行融合、失败修复、证据留存”组织成可测试、可审计、可复现实验的工程系统。
+<p>
+  <a href="./README.en.md">English README</a> ·
+  <a href="./docs/v2-operations.md">运行文档</a> ·
+  <a href="./docs/local-direct-run.md">本机直跑</a> ·
+  <a href="./docs/demo/fusionagent-resume-project-brief.md">Resume / Demo Brief</a>
+</p>
 
-## 项目内容
+</div>
 
-当前代码基线主要覆盖以下能力：
+---
 
-- 支持 `building`、`road`、`water` 以及有界 `poi` 四类融合任务
-- 支持两类入口：
-  - 上传 `osm.zip` / `ref.zip` 的显式输入模式
-  - `task_driven_auto` 的任务驱动自动输入准备模式
-- 支持单次 run 和 scenario run 两种执行形态
-- 支持运行产物、审计日志、场景报告、预览 GeoJSON 等证据输出
-- 提供运行查看、对比、知识图谱概览、LLM 设置等 operator 能力
+## 导航
 
-## 适用范围
+- [项目简介](#项目简介)
+- [核心亮点](#核心亮点)
+- [能力边界](#能力边界)
+- [系统架构](#系统架构)
+- [任务与证据模型](#任务与证据模型)
+- [技术栈](#技术栈)
+- [仓库结构](#仓库结构)
+- [快速开始](#快速开始)
+- [本地部署方案](#本地部署方案)
+- [API 概览](#api-概览)
+- [测试与验证](#测试与验证)
+- [当前限制](#当前限制)
+- [参考文档](#参考文档)
 
-FusionAgent 适用于以下类型的问题：
+## 项目简介
+
+FusionAgent 是一个面向有界灾害响应场景的地理空间矢量数据融合智能体运行时。仓库内同时包含：
+
+- 后端运行时与 API
+- 知识图谱约束层
+- 任务与场景编排链路
+- 输入准备、artifact reuse 与证据写回
+- 面向 operator 的 Web 工作台
+
+它的目标不是成为一个无边界通用 Agent，而是在明确任务范围内，把**任务理解、数据获取、约束规划、融合执行、失败修复、证据沉淀**组织成一个可测试、可审计、可复现实验的工程系统。
+
+> 当前定位更接近“有界、可验证、可回归的地理空间 Agent Runtime”，而不是最终产品化平台。
+
+## 核心亮点
+
+| 维度 | 当前实现 |
+| --- | --- |
+| 任务范围 | `building`、`road`、`water`、有界 `poi` |
+| 运行入口 | 上传输入 / `task_driven_auto` / scenario run |
+| 运行模式 | `planner -> validator -> executor -> healing/replan -> writeback` |
+| KG 后端 | `Neo4j` 或 `memory` |
+| 执行链路 | FastAPI + Celery + Redis |
+| 前端能力 | run 列表、详情、对比、KG 概览、场景文档、LLM 设置 |
+| 证据输出 | `run.json`、`plan.json`、`validation.json`、`audit.jsonl`、artifact bundle |
+| 适用形态 | 研究原型、工程 MVP、本地复现实验环境 |
+
+### 你可以把它理解成
+
+- 一个可运行的 geospatial fusion agent backend
+- 一个受知识图谱与策略约束的 task/scenario runtime
+- 一个带有 operator 控制面的实验与验证平台
+
+## 能力边界
+
+### 当前适用
 
 - 有明确任务类型和输出目标的灾害响应矢量融合
-- 需要保留规划、验证、执行与证据链条的研究原型或工程 MVP
-- 需要在本地环境中复现实验、回归运行和场景报告的项目
+- 需要保留 planning / validation / execution / evidence 链路的研究原型
+- 需要在本地环境重复跑通单次 run、场景 run 和回归验证的项目
 
-当前仓库不以这些目标为范围：
+### 当前不宣称
 
-- 通用开放域 Agent
-- 最终产品级可视化平台
-- 完整生产级多租户部署与 7x24 运维体系
-- 无边界的数据源自动接入与任意任务族扩展
-
-## 技术路线与方法
-
-### 运行时方法
-
-核心运行链采用受约束的 `Plan-and-Execute with Reactive Healing` 模式：
-
-1. `planner` 根据任务、场景、知识图谱和 source catalog 生成候选方案
-2. `validator` 对计划、参数、输入约束和能力边界做校验
-3. `executor` 调度具体融合算法与数据准备过程
-4. `healing / replan` 在失败或约束不满足时执行有限修复或重规划
-5. `writeback` 持久化运行状态、计划、审计日志、artifact 和场景证据
-
-### 知识与数据方法
-
-- 使用知识图谱表达任务、算法、数据源、输出约束与场景关系
-- 使用 source catalog、artifact registry 和 AOI 解析支持任务驱动输入准备
-- 使用统一 evidence contract 固化 run 级与 scenario 级证据
-- 使用 operator read model、报告文档和 GeoJSON 预览支撑检查与复核
-
-### 证据契约
-
-单次 run 默认写出以下核心产物：
-
-- `run.json`
-- `plan.json`
-- `validation.json`
-- `audit.jsonl`
-- artifact bundle
-
-scenario run 会在此基础上额外写出：
-
-- `scenario_summary.json`
-- `kg_path_trace.json`
-- `workflow_trace.json`
-- `source_coverage.json`
-- `evaluation.json`
-- `documents/scenario_report.zh.md`
-- `documents/scenario_report.en.md`
+- 开放域通用 Agent
+- 完整生产级多租户平台
+- 最终产品级前端与可视化体验
+- 任意数据源自动接入与任意任务族无限扩展
 
 ## 系统架构
 
-### 后端运行时
+```mermaid
+flowchart LR
+    U["User / Operator"] --> FE["Frontend Workbench<br/>React + Vite"]
+    U --> API["FastAPI API<br/>v1 / v2"]
+    FE --> API
 
-- `FastAPI` 提供 `v1` / `v2` API
-- `Celery + Redis` 负责 worker 与 scheduler 执行
-- `Neo4j` 或内存后端承担知识图谱存储
-- `Pydantic` 承载请求、响应与运行时 schema
+    API --> PLAN["Planner"]
+    PLAN --> KG["Knowledge Graph<br/>Neo4j / Memory"]
+    PLAN --> CATALOG["Source Catalog<br/>Artifact Registry"]
 
-### GIS 与融合计算
+    API --> VALID["Validator"]
+    VALID --> EXEC["Executor"]
+    EXEC --> WORKER["Celery Worker / Scheduler"]
+    WORKER --> DATA["OSM / Reference Data / AOI Acquisition"]
+
+    EXEC --> HEAL["Healing / Replan"]
+    HEAL --> EXEC
+
+    EXEC --> EVIDENCE["Evidence Writeback<br/>run.json / plan.json / audit.jsonl / artifacts"]
+    API --> EVIDENCE
+```
+
+### 运行时主链
+
+1. `planner` 根据任务、场景、知识图谱和 source catalog 生成候选方案
+2. `validator` 对计划、参数、输入约束和能力边界做校验
+3. `executor` 调度具体融合算法与输入准备过程
+4. `healing / replan` 在失败或约束不满足时执行有限修复
+5. `writeback` 持久化状态、计划、审计日志、artifact 和场景证据
+
+## 任务与证据模型
+
+### 支持的任务
+
+| 任务 | 状态 | 说明 |
+| --- | --- | --- |
+| `building` | 稳定支持 | 支持上传输入与 `task_driven_auto` |
+| `road` | 稳定支持 | 支持共享 runtime backbone |
+| `water` | 稳定支持 | 已接入 shared runtime backbone |
+| `poi` | 有界支持 | 当前范围刻意收敛，不宣称通用实体对齐 |
+
+### 输入模式
+
+| 模式 | 说明 |
+| --- | --- |
+| uploaded | 显式上传 `osm.zip` / `ref.zip` |
+| `task_driven_auto` | 基于 query、AOI、source catalog 自动准备输入 |
+| scenario run | 单次场景请求驱动多个子 run 与报告生成 |
+
+### 单次 run 证据契约
+
+```text
+run.json
+plan.json
+validation.json
+audit.jsonl
+artifact bundle
+```
+
+### scenario run 额外证据
+
+```text
+scenario_summary.json
+kg_path_trace.json
+workflow_trace.json
+source_coverage.json
+evaluation.json
+documents/scenario_report.zh.md
+documents/scenario_report.en.md
+```
+
+## 技术栈
+
+### 后端与运行时
+
+- `FastAPI`
+- `Pydantic`
+- `Celery`
+- `Redis`
+- `Neo4j`
+
+### GIS 与数据计算
 
 - `GeoPandas`
 - `Shapely`
@@ -123,17 +218,9 @@ fusionAgent/
 └─ runs/                  # 本地运行产物与日志输出目录
 ```
 
-## 环境准备
+## 快速开始
 
-建议准备以下环境：
-
-- Python 3.9 - 3.11
-- Node.js 与 npm（前端开发需要）
-- Redis
-- Neo4j 5.x
-- PowerShell 7 或其他可用 Shell
-
-安装 Python 依赖：
+### 1. 准备 Python 环境
 
 ```powershell
 python -m venv .venv
@@ -141,7 +228,7 @@ python -m venv .venv
 python -m pip install -r requirements.txt
 ```
 
-安装前端依赖：
+### 2. 准备前端依赖
 
 ```powershell
 Set-Location frontend
@@ -149,26 +236,18 @@ npm install
 Set-Location ..
 ```
 
-## 配置说明
-
-仓库提供两类本地配置入口：
-
-- [依赖.txt.example](./依赖.txt.example)：本机直跑时的私有依赖配置模板
-- [.env.example](./.env.example)：环境变量示例
-
-推荐先复制私有依赖模板：
+### 3. 初始化本机配置
 
 ```powershell
 Copy-Item 依赖.txt.example 依赖.txt
 ```
 
-`依赖.txt` 通常用于声明本机 Redis、Neo4j 和 LLM 连接信息；`scripts/start_local.py`、`main.py`、`worker/celery_app.py` 会优先读取这份配置。
+仓库提供两类配置入口：
 
-## 本地部署方案
+- [依赖.txt.example](./依赖.txt.example)：本机 Redis、Neo4j、LLM 等私有依赖模板
+- [.env.example](./.env.example)：环境变量示例
 
-### 方案 A：快速模式
-
-适用于接口联调、单元测试、前端开发和轻量冒烟。
+### 4. 启动一个最小可用环境
 
 ```powershell
 $env:GEOFUSION_KG_BACKEND='memory'
@@ -177,26 +256,43 @@ $env:GEOFUSION_CELERY_EAGER='1'
 uvicorn main:app --host 127.0.0.1 --port 8000
 ```
 
-前端开发模式：
+再启动前端开发服务器：
 
 ```powershell
 Set-Location frontend
 npm run dev
 ```
 
-默认前端开发地址为 `http://127.0.0.1:5173`，FastAPI 默认允许本地开发跨域访问。
+## 本地部署方案
+
+### 方案 A：快速模式
+
+适用于接口联调、前端开发、单元测试和轻量冒烟。
+
+```powershell
+$env:GEOFUSION_KG_BACKEND='memory'
+$env:GEOFUSION_LLM_PROVIDER='mock'
+$env:GEOFUSION_CELERY_EAGER='1'
+uvicorn main:app --host 127.0.0.1 --port 8000
+```
+
+特点：
+
+- 不依赖 Neo4j / Redis 全链路
+- 适合日常开发与 API/页面联调
+- 默认前端开发地址为 `http://127.0.0.1:5173`
 
 ### 方案 B：本地全链路模式
 
-适用于 Redis、Neo4j、worker、scheduler 和真实 LLM 配置都需要参与的联调。
+适用于 Redis、Neo4j、worker、scheduler 和真实 LLM 都参与的联调。
 
-先做依赖检查和 Neo4j bootstrap：
+先检查依赖和 Neo4j bootstrap：
 
 ```powershell
 python scripts/start_local.py --check-only
 ```
 
-通过检查后启动全链路：
+通过检查后启动：
 
 ```powershell
 python scripts/start_local.py --port 8000
@@ -206,10 +302,10 @@ python scripts/start_local.py --port 8000
 
 - API 启动在 `http://127.0.0.1:8000`
 - 日志输出到 `runs/local-runtime/`
-- 启动 API、worker、scheduler 三个进程
-- 当知识图谱后端为 `neo4j` 时，自动完成本地 seed 检查与 bootstrap
+- 自动启动 API、worker、scheduler
+- 当 KG 后端为 `neo4j` 时自动完成本地 seed 检查与 bootstrap
 
-### 方案 C：前后端同源部署
+### 方案 C：前后端同源托管
 
 当 `frontend/dist/` 存在时，FastAPI 会自动托管构建后的前端静态资源。
 
@@ -222,13 +318,11 @@ uvicorn main:app --host 127.0.0.1 --port 8000
 
 ### 方案 D：Docker Compose
 
-仓库提供完整的容器化编排文件：
-
 ```powershell
 docker compose up --build
 ```
 
-默认会启动以下服务：
+默认会启动：
 
 - `api`
 - `worker`
@@ -243,11 +337,11 @@ docker compose up --build
 - Neo4j HTTP: `7474`
 - Neo4j Bolt: `7687`
 
-容器部署默认使用 `redis://redis:6379/0` 与 `bolt://neo4j:7687`，与本机 `依赖.txt` 方案是两套独立约定。
+> 容器模式默认使用 `redis://redis:6379/0` 与 `bolt://neo4j:7687`，和本机 `依赖.txt` 方案是两套独立约定。
 
 ## API 概览
 
-### 运行与检查
+### Run 相关
 
 - `GET /api/v2/runs`
 - `POST /api/v2/runs`
@@ -261,13 +355,13 @@ docker compose up --build
 - `GET /api/v2/runs/{run_id}/artifact`
 - `GET /api/v2/runs/{left_run_id}/compare/{right_run_id}`
 
-### 运行时与总览
+### Runtime 与总览
 
 - `GET /api/v2/runtime`
 - `GET /api/v2/operator/summary`
 - `GET /api/v2/kg/overview`
 
-### 场景运行
+### Scenario 相关
 
 - `GET /api/v2/scenario-runs`
 - `POST /api/v2/scenario-runs`
@@ -281,15 +375,15 @@ docker compose up --build
 - `PUT /api/v2/settings/llm`
 - `POST /api/v2/settings/llm/validate`
 
-## 本地验证与测试
+## 测试与验证
 
-后端测试：
+### 后端测试
 
 ```powershell
 python -m pytest -q
 ```
 
-前端测试：
+### 前端测试
 
 ```powershell
 Set-Location frontend
@@ -297,24 +391,24 @@ npm test
 Set-Location ..
 ```
 
-本地 run 冒烟：
+### 本地 run 冒烟
 
 ```powershell
 python scripts/smoke_local_v2.py --base-url http://127.0.0.1:8000
 ```
 
-任务驱动 AOI 冒烟：
+### 任务驱动 AOI 冒烟
 
 ```powershell
 python scripts/smoke_agentic_region.py --base-url http://127.0.0.1:8000 --query "fuse building data for Nairobi, Kenya" --timeout 1200
 ```
 
-## 当前边界
+## 当前限制
 
-为了避免误读，这里明确列出当前实现边界：
+为了避免 README 口径高于代码现实，这里明确列出当前限制：
 
 - `poi` 仍是有界能力，不宣称已解决通用多源实体对齐
-- trajectory-to-road 相关内容仅是预留接缝，不是现行可执行主链路
+- trajectory-to-road 当前只是预留接缝，不是现行可执行主链路
 - 外部事件源生态、生产级认证授权、多租户治理和长期自治学习不在当前交付范围
 - 前端工作台面向 operator 检查与操作，不等同于最终产品化 UI
 
