@@ -28,6 +28,30 @@ def test_create_scenario_run_generates_summary_and_reports(tmp_path, monkeypatch
     assert payload["output_dir"].startswith(str(tmp_path))
 
 
+def test_create_scenario_run_returns_422_for_out_of_scope_request(monkeypatch):
+    class _RejectingScenarioService:
+        def create_scenario_run(self, request):
+            raise ValueError(
+                "UNSUPPORTED_EVENT_FEED_EXPECTATION: "
+                "Scenario layer is bounded orchestration, not live event-feed simulation."
+            )
+
+    monkeypatch.setattr(scenario_runs_router, "scenario_run_service", _RejectingScenarioService())
+
+    client = TestClient(create_app())
+    response = client.post(
+        "/api/v2/scenario-runs",
+        json={
+            "scenario_name": "Global traffic telemetry replay",
+            "trigger_content": "simulate live event-feed with full digital twin outputs",
+            "job_types": ["road"],
+        },
+    )
+
+    assert response.status_code == 422
+    assert "UNSUPPORTED_EVENT_FEED_EXPECTATION" in response.json()["detail"]
+
+
 class _FakeScenarioService:
     def __init__(self, output_dir: str) -> None:
         self.output_dir = output_dir

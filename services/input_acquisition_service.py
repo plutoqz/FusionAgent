@@ -12,6 +12,7 @@ from typing import Optional, Protocol, Sequence
 from schemas.agent import RunCreateRequest
 from services.aoi_resolution_service import ResolvedAOI
 from services.artifact_registry import ArtifactLookupRequest, ArtifactRecord, ArtifactRegistry
+from services.source_asset_service import classify_source_fault
 from utils.crs import normalize_target_crs
 from utils.vector_clip import BBox, bundle_bbox_from_zip, clip_zip_to_request_bbox
 
@@ -197,7 +198,14 @@ class InputAcquisitionService:
                 target_crs=target_crs,
             )
         except Exception as exc:  # noqa: BLE001
-            raise ValueError(f"task-driven input materialization failed for {source_id}: {exc}") from exc
+            fault = classify_source_fault(
+                source={"source_id": source_id},
+                expected_crs=target_crs,
+                error=exc,
+            )
+            raise ValueError(
+                f"task-driven input materialization failed for {source_id}: fault={fault}; error={exc}"
+            ) from exc
         bundle_bbox = materialized.bbox
         if bundle_bbox is None:
             bundle_bbox = bundle_bbox_from_zip(materialized.osm_zip_path)

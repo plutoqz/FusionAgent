@@ -1,6 +1,8 @@
 from __future__ import annotations
 
-from scripts.smoke_agentic_region import build_create_run_form, parse_args
+import pytest
+
+from scripts.smoke_agentic_region import build_create_run_form, parse_args, run_smoke
 
 
 def test_smoke_agentic_region_parses_nairobi_request() -> None:
@@ -88,3 +90,43 @@ def test_smoke_agentic_region_accepts_water_and_poi_job_types() -> None:
 
     assert build_create_run_form(water)["job_type"] == "water"
     assert build_create_run_form(poi)["job_type"] == "poi"
+
+
+def test_smoke_agentic_region_requires_explicit_job_type() -> None:
+    with pytest.raises(SystemExit):
+        parse_args(
+            [
+                "--base-url",
+                "http://127.0.0.1:8010",
+                "--query",
+                "need road data for Gilgit, Pakistan",
+            ]
+        )
+
+
+def test_smoke_agentic_region_uses_total_timeout_for_create_request(monkeypatch: pytest.MonkeyPatch) -> None:
+    timeouts: list[float] = []
+
+    def fake_json_request(method: str, url: str, *, form_data=None, timeout_sec: float = 30.0):
+        timeouts.append(timeout_sec)
+        if method == "POST":
+            return {"run_id": "run-1"}
+        if url.endswith("/api/v2/runs/run-1"):
+            return {"phase": "succeeded"}
+        if url.endswith("/api/v2/runs/run-1/inspection"):
+            return {"audit_events": [], "artifact": {}}
+        raise AssertionError(url)
+
+    monkeypatch.setattr("scripts.smoke_agentic_region._json_request", fake_json_request)
+
+    result = run_smoke(
+        base_url="http://127.0.0.1:8011",
+        query="need road data for Gilgit city, Pakistan",
+        job_type="road",
+        target_crs="",
+        timeout_sec=1200.0,
+        poll_interval_sec=0.2,
+    )
+
+    assert result["run_id"] == "run-1"
+    assert timeouts[0] == 1200.0

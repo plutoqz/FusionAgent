@@ -39,11 +39,105 @@ def build_child_run_specs(request: ScenarioRunRequest) -> list[ScenarioChildRunS
     ]
 
 
+def classify_scenario_request(
+    *,
+    scenario_name: str,
+    trigger_content: str,
+    job_types: list[JobType],
+    metadata: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    combined_text = " ".join(
+        part.strip().lower()
+        for part in [scenario_name, trigger_content]
+        if str(part or "").strip()
+    )
+    unsupported_layers = [
+        str(item).strip().lower()
+        for item in ((metadata or {}).get("unsupported_requested_layers") or [])
+        if str(item).strip()
+    ]
+    if unsupported_layers:
+        return {
+            "decision": "clarify",
+            "reason_code": "UNSUPPORTED_TASK_BUNDLE",
+            "message": (
+                "Scenario request includes unsupported layers: "
+                + ", ".join(unsupported_layers)
+                + ". Supported bounded layers are building, road, water, and bounded poi."
+            ),
+        }
+
+    if any(
+        keyword in combined_text
+        for keyword in (
+            "event-feed",
+            "event feed",
+            "telemetry replay",
+            "live telemetry",
+            "real-time feed",
+            "streaming telemetry",
+            "digital twin",
+        )
+    ):
+        return {
+            "decision": "reject",
+            "reason_code": "UNSUPPORTED_EVENT_FEED_EXPECTATION",
+            "message": "Scenario layer is bounded orchestration, not live event-feed or digital twin simulation.",
+        }
+
+    if any(
+        keyword in combined_text
+        for keyword in (
+            "dependency reasoning",
+            "cross-domain dependency",
+            "cascading dependency",
+            "upstream dependency",
+            "downstream dependency",
+        )
+    ):
+        return {
+            "decision": "clarify",
+            "reason_code": "UNSUPPORTED_DEPENDENCY_REASONING",
+            "message": "Scenario dependency reasoning must stay within documented bounded task bundles.",
+        }
+
+    if any(
+        keyword in combined_text
+        for keyword in (
+            "traffic telemetry",
+            "digital twin outputs",
+            "gdp",
+            "population heatmap",
+        )
+    ):
+        return {
+            "decision": "reject",
+            "reason_code": "UNSUPPORTED_TASK_BUNDLE",
+            "message": "Scenario request exceeds the bounded building, road, water, and poi orchestration scope.",
+        }
+
+    return {
+        "decision": "allow",
+        "reason_code": "SUPPORTED_BOUNDED_SCENARIO",
+        "message": "Scenario request stays within the bounded orchestration scope.",
+        "job_types": [job_type.value for job_type in job_types],
+    }
+
+
 class ScenarioRunService:
     def __init__(self, *, agent_run_service: AgentRunService) -> None:
         self.agent_run_service = agent_run_service
 
     def create_scenario_run(self, request: ScenarioRunRequest) -> ScenarioRunResponse:
+        decision = classify_scenario_request(
+            scenario_name=request.scenario_name,
+            trigger_content=request.trigger_content,
+            job_types=request.job_types,
+            metadata=request.metadata,
+        )
+        if decision["decision"] != "allow":
+            raise ValueError(f'{decision["reason_code"]}: {decision["message"]}')
+
         scenario_id = create_scenario_id()
         output_dir = scenario_output_dir(request, scenario_id)
         output_dir.mkdir(parents=True, exist_ok=True)

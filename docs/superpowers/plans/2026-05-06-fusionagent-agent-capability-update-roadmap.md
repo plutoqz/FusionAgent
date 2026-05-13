@@ -190,7 +190,7 @@ Expected: PASS
 - Modify: `agent/validator.py`
 - Test: `tests/test_failure_taxonomy.py`
 
-- [ ] **Step 1: Write the failing failure-taxonomy test**
+- [x] **Step 1: Write the failing failure-taxonomy test**
 
 ```python
 from schemas.failure_taxonomy import classify_failure_category
@@ -200,12 +200,12 @@ def test_failures_map_to_machine_readable_categories() -> None:
     assert classify_failure_category("missing source") == "SOURCE_MISSING"
 ```
 
-- [ ] **Step 2: Run test to verify taxonomy is absent**
+- [x] **Step 2: Run test to verify taxonomy is absent**
 
 Run: `python -m pytest -q tests/test_failure_taxonomy.py`
 Expected: FAIL
 
-- [ ] **Step 3: Add stable taxonomy categories**
+- [x] **Step 3: Add stable taxonomy categories**
 
 ```python
 FAILURE_CATEGORIES = [
@@ -219,7 +219,7 @@ FAILURE_CATEGORIES = [
 ]
 ```
 
-- [ ] **Step 4: Emit taxonomy in audit / inspection**
+- [x] **Step 4: Emit taxonomy in audit / inspection**
 
 ```python
 # every classified failure writes
@@ -230,10 +230,18 @@ FAILURE_CATEGORIES = [
 }
 ```
 
-- [ ] **Step 5: Re-run taxonomy tests**
+- [x] **Step 5: Re-run taxonomy tests**
 
 Run: `python -m pytest -q tests/test_failure_taxonomy.py`
 Expected: PASS
+
+Evidence on 2026-05-13:
+
+- Added `schemas/failure_taxonomy.py` with stable category classification and operator guidance.
+- `services/agent_run_service.py` now emits `failure_category` and `suggested_action` in step failure audit details, and includes taxonomy hints in `failure_summary`.
+- Verification passed:
+  - `python -m pytest -q tests/test_failure_taxonomy.py`
+  - `python -m pytest -q tests/test_failure_taxonomy.py tests/test_toolspec_contract_enforcement.py tests/test_agent_run_service_enhancements.py tests/test_api_v2_integration.py`
 
 ### Task 3: Improve Input Acquisition Robustness
 
@@ -244,7 +252,7 @@ Expected: PASS
 - Modify: `kg/source_catalog.py`
 - Test: `tests/test_input_acquisition_faults.py`
 
-- [ ] **Step 1: Write the failing input-fault tests**
+- [x] **Step 1: Write the failing input-fault tests**
 
 ```python
 from services.source_asset_service import classify_source_fault
@@ -257,19 +265,19 @@ def test_missing_or_wrong_crs_source_produces_explicit_fault() -> None:
     ) == "CRS_MISMATCH"
 ```
 
-- [ ] **Step 2: Run the fault tests**
+- [x] **Step 2: Run the fault tests**
 
 Run: `python -m pytest -q tests/test_input_acquisition_faults.py`
 Expected: FAIL where faults are implicit or inconsistent.
 
-- [ ] **Step 3: Standardize source fallback policy**
+- [x] **Step 3: Standardize source fallback policy**
 
 ```python
 # target policy order example
 directory_first -> exact_path -> recursive_glob -> source_asset_fallback -> reject
 ```
 
-- [ ] **Step 4: Emit uniform fault metadata**
+- [x] **Step 4: Emit uniform fault metadata**
 
 ```python
 {
@@ -279,10 +287,20 @@ directory_first -> exact_path -> recursive_glob -> source_asset_fallback -> reje
 }
 ```
 
-- [ ] **Step 5: Re-run input fault tests**
+- [x] **Step 5: Re-run input fault tests**
 
 Run: `python -m pytest -q tests/test_input_acquisition_faults.py`
 Expected: PASS
+
+Evidence on 2026-05-13:
+
+- Added `tests/test_input_acquisition_faults.py` to lock `SOURCE_MISSING` / `SOURCE_CORRUPTED` / `CRS_MISMATCH` classification at the task-driven input boundary.
+- Added `classify_source_fault(...)` in `services/source_asset_service.py`.
+- `services/input_acquisition_service.py` now wraps provider materialization failures as `fault=<CATEGORY>` messages instead of leaving them implicit.
+- `services/agent_run_service.py` now exposes the propagated category in `run_failed` audit details and in `failure_summary`.
+- Verification passed:
+  - `python -m pytest -q tests/test_input_acquisition_faults.py tests/test_agent_run_service_enhancements.py -k "input_acquisition_faults or materialization_time_when_bundle_is_empty"`
+  - `python -m pytest -q tests/test_input_acquisition_faults.py tests/test_input_acquisition_service.py tests/test_source_asset_service.py tests/test_raw_vector_source_service.py tests/test_local_bundle_catalog.py tests/test_source_coverage_fallback.py tests/test_agent_run_service_enhancements.py`
 
 ### Task 4: Add Planner Retrieval Prioritization
 
@@ -291,7 +309,7 @@ Expected: PASS
 - Modify: `agent/planner.py`
 - Test: `tests/test_planner_retrieval_prioritization.py`
 
-- [ ] **Step 1: Write the failing prioritization test**
+- [x] **Step 1: Write the failing prioritization test**
 
 ```python
 from agent.retriever import rank_retrieval_candidates
@@ -304,19 +322,19 @@ def test_planner_prefers_better_grounded_sources_and_algorithms() -> None:
     assert ranked[0] == grounded_candidate
 ```
 
-- [ ] **Step 2: Run prioritization test**
+- [x] **Step 2: Run prioritization test**
 
 Run: `python -m pytest -q tests/test_planner_retrieval_prioritization.py`
 Expected: FAIL if ranking is still too opaque or flat.
 
-- [ ] **Step 3: Add a bounded ranking function**
+- [x] **Step 3: Add a bounded ranking function**
 
 ```python
 # score components example
 score = source_quality + algorithm_fit + workflow_support - penalty_for_missing_requirements
 ```
 
-- [ ] **Step 4: Expose ranking rationale**
+- [x] **Step 4: Expose ranking rationale**
 
 ```python
 {
@@ -327,10 +345,18 @@ score = source_quality + algorithm_fit + workflow_support - penalty_for_missing_
 }
 ```
 
-- [ ] **Step 5: Re-run prioritization test**
+- [x] **Step 5: Re-run prioritization test**
 
 Run: `python -m pytest -q tests/test_planner_retrieval_prioritization.py`
 Expected: PASS
+
+Evidence on 2026-05-13:
+
+- Added `rank_retrieval_candidates(...)` in `agent/retriever.py` with bounded weighted scoring and a missing-requirements penalty.
+- Planner retrieval payloads now expose `ranking_score` and `ranking_rationale` for candidate patterns and data sources.
+- Verification passed:
+  - `python -m pytest -q tests/test_planner_retrieval_prioritization.py`
+  - `python -m pytest -q tests/test_planner_context.py -k "ranked_retrieval or planning_telemetry"`
 
 ### Task 5: Make Inspection Output Decision-Friendly
 
@@ -340,7 +366,7 @@ Expected: PASS
 - Modify: `docs/v2-operations.md`
 - Test: `tests/test_run_inspection_summary.py`
 
-- [ ] **Step 1: Write the failing inspection-summary test**
+- [x] **Step 1: Write the failing inspection-summary test**
 
 ```python
 from services.agent_run_service import build_run_inspection_digest
@@ -358,12 +384,12 @@ def test_inspection_exposes_root_cause_and_next_action() -> None:
     assert digest["next_operator_action"] == "adjust bound and rerun"
 ```
 
-- [ ] **Step 2: Run inspection-summary test**
+- [x] **Step 2: Run inspection-summary test**
 
 Run: `python -m pytest -q tests/test_run_inspection_summary.py`
 Expected: FAIL if inspection is evidence-rich but operator-poor.
 
-- [ ] **Step 3: Add inspection digest fields**
+- [x] **Step 3: Add inspection digest fields**
 
 ```python
 {
@@ -375,7 +401,7 @@ Expected: FAIL if inspection is evidence-rich but operator-poor.
 }
 ```
 
-- [ ] **Step 4: Document operator interpretation**
+- [x] **Step 4: Document operator interpretation**
 
 ```markdown
 Operators should be able to answer:
@@ -385,10 +411,19 @@ Operators should be able to answer:
 - what to do next
 ```
 
-- [ ] **Step 5: Re-run inspection-summary test**
+- [x] **Step 5: Re-run inspection-summary test**
 
 Run: `python -m pytest -q tests/test_run_inspection_summary.py`
 Expected: PASS
+
+Evidence on 2026-05-13:
+
+- Added `build_run_inspection_digest(...)` and `derive_run_inspection_digest(...)` in `services/agent_run_service.py`.
+- `/api/v2/runs/{run_id}/inspection` now includes `digest.current_phase`, `digest.failed_step`, `digest.root_cause`, `digest.recoverability`, and `digest.next_operator_action`.
+- `docs/v2-operations.md` now documents the operator questions that `inspection.digest` must answer before falling back to raw evidence files.
+- Verification passed:
+  - `python -m pytest -q tests/test_run_inspection_summary.py`
+  - `python -m pytest -q tests/test_api_v2_integration.py -k "decision_friendly_digest"`
 
 ### Task 6: Bound Scenario Reasoning More Explicitly
 
@@ -399,7 +434,7 @@ Expected: PASS
 - Modify: `docs/no-ui-agent-operations.md`
 - Test: `tests/test_scenario_scope_guards.py`
 
-- [ ] **Step 1: Write the failing scenario-scope tests**
+- [x] **Step 1: Write the failing scenario-scope tests**
 
 ```python
 from services.scenario_run_service import classify_scenario_request
@@ -414,12 +449,12 @@ def test_out_of_scope_scenario_request_is_rejected_or_clarified() -> None:
     assert decision["decision"] in {"reject", "clarify"}
 ```
 
-- [ ] **Step 2: Run scenario-scope tests**
+- [x] **Step 2: Run scenario-scope tests**
 
 Run: `python -m pytest -q tests/test_scenario_scope_guards.py`
 Expected: FAIL where scenario scope is too permissive.
 
-- [ ] **Step 3: Add explicit scenario guardrails**
+- [x] **Step 3: Add explicit scenario guardrails**
 
 ```python
 # examples
@@ -428,16 +463,27 @@ Expected: FAIL where scenario scope is too permissive.
 - unsupported event-feed expectation -> reject
 ```
 
-- [ ] **Step 4: Align docs with the bounded scenario claim**
+- [x] **Step 4: Align docs with the bounded scenario claim**
 
 ```markdown
 Scenario layer is bounded orchestration, not full digital twin simulation.
 ```
 
-- [ ] **Step 5: Re-run scenario-scope tests**
+- [x] **Step 5: Re-run scenario-scope tests**
 
 Run: `python -m pytest -q tests/test_scenario_scope_guards.py`
 Expected: PASS
+
+Evidence on 2026-05-13:
+
+- Added `classify_scenario_request(...)` in `services/scenario_run_service.py` to reject live event-feed / digital twin expectations and clarify unsupported layers or dependency reasoning.
+- `services/scenario_trigger_service.py` now preserves `unsupported_requested_layers` in scenario request metadata instead of silently dropping them.
+- `POST /api/v2/scenario-runs` now returns `422` for bounded-scope guard failures instead of surfacing a generic server error.
+- `README.md` and `docs/no-ui-agent-operations.md` now state that scenario runs are bounded orchestration, not live event-feed or digital twin simulation.
+- Verification passed:
+  - `python -m pytest -q tests/test_scenario_scope_guards.py`
+  - `python -m pytest -q tests/test_scenario_trigger_service.py -k "unsupported_requested_layers"`
+  - `python -m pytest -q tests/test_api_scenario_runs.py -k "out_of_scope_request"`
 
 ## Suggested Execution Order
 

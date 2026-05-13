@@ -35,6 +35,7 @@ from schemas.agent import (
     RunTriggerType,
     WorkflowPlan,
 )
+from schemas.failure_taxonomy import classify_failure_details
 from schemas.fusion import JobType
 from schemas.settings import EffectiveLLMSettings
 from services.artifact_registry import ArtifactRecord, ArtifactRegistry
@@ -73,6 +74,156 @@ def _as_int(value: str | None, default: int) -> int:
         return int(value.strip())
     except Exception:  # noqa: BLE001
         return default
+
+
+def build_run_inspection_digest(
+    *,
+    current_phase: str | None,
+    failed_step: str | None = None,
+    root_cause: str | None = None,
+    recoverability: str | None = None,
+    next_operator_action: str | None = None,
+) -> Dict[str, str | None]:
+    return {
+        "current_phase": current_phase,
+        "failed_step": failed_step,
+        "root_cause": root_cause,
+        "recoverability": recoverability,
+        "next_operator_action": next_operator_action,
+    }
+
+
+def derive_run_inspection_digest(status: RunStatus, audit_events: List[RunEvent]) -> Dict[str, str | None]:
+    current_phase = _inspection_current_phase(status)
+    failure_details = _inspection_failure_details(status, audit_events)
+    root_cause = failure_details.get("root_cause")
+    failure_category = failure_details.get("failure_category")
+    recoverability = failure_details.get("suggested_action") or failure_details.get("action")
+    return build_run_inspection_digest(
+        current_phase=current_phase,
+        failed_step=_inspection_failed_step(status, audit_events),
+        root_cause=root_cause,
+        recoverability=recoverability,
+        next_operator_action=_inspection_next_operator_action(
+            current_phase=current_phase,
+            root_cause=root_cause,
+            failure_category=failure_category,
+            recoverability=recoverability,
+        ),
+    )
+
+
+def _inspection_current_phase(status: RunStatus) -> str:
+    checkpoint = dict(status.checkpoint or {})
+    if status.phase == RunPhase.succeeded:
+        return status.phase.value
+    for key in ("resume_stage", "stage"):
+        value = str(checkpoint.get(key) or "").strip().lower()
+        if value:
+            return value
+    return status.phase.value
+
+
+def _inspection_failed_step(status: RunStatus, audit_events: List[RunEvent]) -> str | None:
+    for event in reversed(audit_events):
+        if event.kind not in {"step_failed", "run_failed", "replan_requested", "replan_rejected"}:
+            continue
+        if event.current_step is not None:
+            return f"step {event.current_step}"
+    if status.current_step is not None:
+        return f"step {status.current_step}"
+    checkpoint = dict(status.checkpoint or {})
+    current_step = checkpoint.get("current_step")
+    if current_step is None:
+        return None
+    return f"step {current_step}"
+
+
+def _inspection_failure_details(status: RunStatus, audit_events: List[RunEvent]) -> Dict[str, str]:
+    for event in reversed(audit_events):
+        if event.kind not in {"step_failed", "run_failed", "replan_requested", "replan_rejected"}:
+            continue
+        details = dict(event.details or {})
+        if details:
+            root_cause = str(details.get("root_cause") or "").strip().upper()
+            failure_category = str(details.get("failure_category") or "").strip().upper()
+            action = str(details.get("suggested_action") or details.get("action") or "").strip()
+            recoverable = details.get("recoverable")
+            payload: Dict[str, str] = {}
+            if root_cause:
+                payload["root_cause"] = root_cause
+            if failure_category:
+                payload["failure_category"] = failure_category
+            if action:
+                payload["suggested_action"] = action
+            if recoverable is not None:
+                payload["recoverable"] = "true" if bool(recoverable) else "false"
+            if payload:
+                return payload
+
+    failure_summary = str(status.failure_summary or "").strip()
+    if failure_summary:
+        parsed = _parse_failure_summary_tokens(failure_summary)
+        root_cause = parsed.get("root_cause") or parsed.get("failure_category")
+        if root_cause:
+            parsed["root_cause"] = root_cause.upper()
+        if parsed:
+            return parsed
+
+    if status.error:
+        details = classify_failure_details(error=status.error, reason_code=status.error)
+        return {
+            "root_cause": details.failure_category,
+            "failure_category": details.failure_category,
+            "suggested_action": details.suggested_action,
+            "recoverable": "true" if details.recoverable else "false",
+        }
+    return {}
+
+
+def _parse_failure_summary_tokens(summary: str) -> Dict[str, str]:
+    parsed: Dict[str, str] = {}
+    for chunk in summary.split("|"):
+        part = chunk.strip()
+        if "=" not in part:
+            continue
+        key, value = part.split("=", 1)
+        key = key.strip().lower()
+        value = value.strip()
+        if key and value:
+            parsed[key] = value
+    return parsed
+
+
+def _inspection_next_operator_action(
+    *,
+    current_phase: str,
+    root_cause: str | None,
+    failure_category: str | None,
+    recoverability: str | None,
+) -> str | None:
+    code = str(root_cause or failure_category or "").strip().upper()
+    if code == "PARAM_OUT_OF_RANGE":
+        return "adjust bound and rerun"
+    if code == "SOURCE_MISSING":
+        return "provide or materialize the required source, then rerun"
+    if code == "SOURCE_CORRUPTED":
+        return "repair or replace the corrupted source, then rerun"
+    if code == "CRS_MISMATCH":
+        return "align the source CRS with the requested target CRS, then rerun"
+    if code == "ALGO_TIMEOUT":
+        return "reduce the AOI or retry with a lighter workflow, then rerun"
+    if code == "SUSPECT_OUTPUT":
+        return "inspect the artifact and validator output before rerunning"
+    if recoverability == "replan":
+        return "review the failed step inputs and rerun"
+    if current_phase in {"queued", "planning", "validation", "running", "execution", "healing"}:
+        return "monitor progress"
+    if current_phase == "succeeded":
+        return "download the artifact or compare this run against a baseline"
+    if current_phase == "failed":
+        return "inspect the failure summary and rerun when the issue is resolved"
+    return None
 
 
 @dataclass(frozen=True)
@@ -606,6 +757,7 @@ class AgentRunService:
             logger.info("Run succeeded.")
         except Exception as exc:  # noqa: BLE001
             err = f"{type(exc).__name__}: {exc}"
+            failure_details = classify_failure_details(error=err, reason_code=err)
             logger.error(err)
             logger.error(traceback.format_exc())
             self._update_status(
@@ -628,7 +780,13 @@ class AgentRunService:
                 ),
                 event_kind="run_failed",
                 event_message="Run failed.",
-                event_details={"error": err},
+                event_details={
+                    "error": err,
+                    "failure_category": failure_details.failure_category,
+                    "root_cause": failure_details.root_cause,
+                    "recoverable": failure_details.recoverable,
+                    "suggested_action": failure_details.suggested_action,
+                },
             )
             if plan is not None:
                 self._record_feedback(
@@ -1916,10 +2074,13 @@ class AgentRunService:
                 if record.reason_code:
                     reason_code = record.reason_code
                     break
+        details = classify_failure_details(reason_code=reason_code)
         return {
-            "root_cause": reason_code.upper(),
-            "action": "replan",
-            "recoverable": True,
+            "root_cause": details.root_cause,
+            "failure_category": details.failure_category,
+            "action": details.suggested_action,
+            "recoverable": details.recoverable,
+            "suggested_action": details.suggested_action,
         }
 
     def _append_audit_event(self, status: RunStatus, event: RunEvent) -> None:
@@ -2568,10 +2729,19 @@ class AgentRunService:
     @staticmethod
     def _build_failure_summary(error: str, repair_records: List[RepairRecord]) -> str:
         if not repair_records:
-            return error
+            details = classify_failure_details(error=error, reason_code=error)
+            return (
+                f"{error} | failure_category={details.failure_category}"
+                f" | suggested_action={details.suggested_action}"
+            )
         last = repair_records[-1]
         reason = last.reason_code or "unknown_reason"
-        return f"{error} | last_repair={last.strategy}:{reason}"
+        details = classify_failure_details(error=error, reason_code=last.reason_code)
+        return (
+            f"{error} | failure_category={details.failure_category}"
+            f" | suggested_action={details.suggested_action}"
+            f" | last_repair={last.strategy}:{reason}"
+        )
 
     @staticmethod
     def _infer_failed_step(repair_records: List[RepairRecord]) -> Optional[int]:

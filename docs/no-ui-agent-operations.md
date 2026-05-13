@@ -75,6 +75,8 @@ The default day-to-day API port remains `8000`; reserve `8010` for isolated real
 
 The local file inbox is the supported no-UI trigger demo path. It proves normalized event records can create scenario runs, persist registry evidence, and move processed or failed event files without claiming an external event-feed integration.
 
+Scenario runs stay bounded to `building`, `road`, `water`, and bounded `poi` orchestration. Requests that imply live event-feed replay, full digital twin outputs, unsupported layers, or unsupported dependency reasoning must be rejected or clarified before child runs start.
+
 Current in-process entry point:
 
 ```python
@@ -189,6 +191,8 @@ The no-UI operator surface is read-oriented and intended for CLI/API inspection 
 - `POST /api/v2/scenario-runs`: create a scenario-level run.
 - `GET /api/v2/scenario-runs`: list scenario registry records.
 - `GET /api/v2/scenario-runs/{scenario_id}`: inspect canonical scenario summary evidence.
+
+`POST /api/v2/scenario-runs` is a bounded orchestration entry point. It is not a general simulation API, not a live event-feed replay path, and not a claim of full digital twin reasoning.
 
 If an aggregate endpoint disagrees with raw `run.json`, `plan.json`, `audit.jsonl`, or scenario summary files, treat the raw evidence as source of truth and fix the API layer.
 

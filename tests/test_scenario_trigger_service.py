@@ -65,6 +65,19 @@ def test_normalize_trigger_event_defaults_layers_and_hashes_missing_event_id():
     assert request_a.metadata["idempotency_key"] == request_b.metadata["idempotency_key"]
 
 
+def test_normalize_trigger_event_records_unsupported_requested_layers() -> None:
+    event = {
+        "event_type": "flood",
+        "location": "Nairobi, Kenya",
+        "requested_layers": ["road", "traffic"],
+    }
+
+    request = normalize_trigger_event(event)
+
+    assert request.job_types == [JobType.road]
+    assert request.metadata["unsupported_requested_layers"] == ["traffic"]
+
+
 def test_process_inbox_once_moves_invalid_events_to_failed_dir(tmp_path, monkeypatch) -> None:
     inbox = tmp_path / "inbox"
     processed = tmp_path / "processed"

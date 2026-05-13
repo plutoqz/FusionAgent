@@ -22,6 +22,52 @@ from services.artifact_reuse_policy import get_artifact_reuse_max_age_seconds
 from services.artifact_registry import ArtifactLookupRequest, ArtifactRegistry, ArtifactRecord
 
 
+def _to_unit_interval(value: Any, *, default: float = 0.0) -> float:
+    try:
+        numeric = float(value)
+    except (TypeError, ValueError):
+        return default
+    return max(0.0, min(1.0, numeric))
+
+
+def _candidate_identity(candidate: Dict[str, Any]) -> str:
+    for key in ("candidate_id", "pattern_id", "source_id"):
+        value = str(candidate.get(key) or "").strip()
+        if value:
+            return value
+    return ""
+
+
+def rank_retrieval_candidates(candidates: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+    ranked: List[Dict[str, Any]] = []
+    for raw in candidates:
+        candidate = dict(raw)
+        source_quality = _to_unit_interval(candidate.get("source_quality"), default=0.0)
+        algorithm_fit = _to_unit_interval(candidate.get("algorithm_fit"), default=0.0)
+        workflow_support = _to_unit_interval(candidate.get("workflow_support"), default=0.0)
+        missing_requirements = candidate.get("missing_requirements") or []
+        if not isinstance(missing_requirements, list):
+            missing_requirements = [missing_requirements]
+        penalty = min(1.0, 0.25 * len(missing_requirements))
+        score = max(
+            0.0,
+            min(
+                1.0,
+                0.40 * source_quality + 0.35 * algorithm_fit + 0.25 * workflow_support - penalty,
+            ),
+        )
+        candidate["ranking_score"] = round(score, 6)
+        candidate["ranking_rationale"] = {
+            "source_quality": round(source_quality, 3),
+            "algorithm_fit": round(algorithm_fit, 3),
+            "workflow_support": round(workflow_support, 3),
+            "penalty_for_missing_requirements": round(penalty, 3),
+        }
+        ranked.append(candidate)
+    ranked.sort(key=lambda item: (-float(item["ranking_score"]), _candidate_identity(item)))
+    return ranked
+
+
 class PlanningContextBuilder:
     def __init__(self, kg_repo: KGRepository, artifact_registry: ArtifactRegistry | None = None) -> None:
         self.kg_repo = kg_repo
@@ -33,16 +79,24 @@ class PlanningContextBuilder:
         kg_context = self.kg_repo.build_context(job_type=job_type, disaster_type=trigger.disaster_type)
         location_query = self._extract_location_query(trigger)
         resolved_aoi = self._resolve_aoi(trigger)
+        resolved_mode = resolve_planning_mode(trigger)
         effective_profile = self._select_effective_scenario_profile(
             kg_context.scenario_profiles,
             trigger=trigger,
         )
-        selection_reason = self._select_reason(kg_context.patterns)
         relevant_sources = self._collect_relevant_data_sources(
             job_type=job_type,
             disaster_type=trigger.disaster_type,
             kg_context=kg_context,
         )
+        retrieval_payload = self._build_retrieval_payload(
+            job_type,
+            trigger,
+            kg_context,
+            resolved_aoi,
+            planning_mode=str(resolved_mode["planning_mode"]),
+        )
+        selection_reason = self._select_reason_from_retrieval(retrieval_payload, fallback_patterns=kg_context.patterns)
         reserved_capability_hints = self._build_reserved_capability_hints(
             job_type=job_type,
             relevant_sources=relevant_sources,
@@ -55,13 +109,9 @@ class PlanningContextBuilder:
                     location_query,
                     resolved_aoi,
                     effective_profile=effective_profile,
+                    resolved_mode=resolved_mode,
                 ),
-                "retrieval": self._build_retrieval_payload(
-                    job_type,
-                    trigger,
-                    kg_context,
-                    resolved_aoi,
-                ),
+                "retrieval": retrieval_payload,
                 "constraints": self._build_constraints(job_type),
                 "execution_hints": self._build_execution_hints(
                     kg_context,
@@ -98,9 +148,9 @@ class PlanningContextBuilder:
         location_query: str | None,
         resolved_aoi: ResolvedAOI | None,
         effective_profile: ScenarioProfileNode | None,
+        resolved_mode: Dict[str, object],
     ) -> Dict[str, Any]:
-        resolved = resolve_planning_mode(trigger)
-        if resolved["planning_mode"] == "task_driven":
+        if resolved_mode["planning_mode"] == "task_driven":
             task_bundle = {
                 "bundle_id": "task_bundle.direct_request",
                 "requested_tasks": [f"task.{job_type.value}.fusion"],
@@ -121,8 +171,8 @@ class PlanningContextBuilder:
             "spatial_extent": trigger.spatial_extent,
             "temporal_start": trigger.temporal_start,
             "temporal_end": trigger.temporal_end,
-            "planning_mode": resolved["planning_mode"],
-            "profile_source": resolved["profile_source"],
+            "planning_mode": resolved_mode["planning_mode"],
+            "profile_source": resolved_mode["profile_source"],
             "task_bundle": task_bundle,
             "effective_scenario_profile_id": effective_profile.profile_id if effective_profile is not None else None,
             "effective_activated_tasks": list(effective_profile.activated_tasks) if effective_profile is not None else [],
@@ -157,6 +207,8 @@ class PlanningContextBuilder:
         trigger: RunTrigger,
         kg_context: KGContext,
         resolved_aoi: ResolvedAOI | None,
+        *,
+        planning_mode: str,
     ) -> Dict[str, Any]:
         required_types = sorted({step.input_data_type for pattern in kg_context.patterns for step in pattern.steps})
         relevant_sources = self._collect_relevant_data_sources(
@@ -178,7 +230,12 @@ class PlanningContextBuilder:
             if token
         )
         payload: Dict[str, Any] = {
-            "candidate_patterns": [self._pattern_to_dict(pattern) for pattern in kg_context.patterns],
+            "candidate_patterns": self._rank_pattern_candidates(
+                kg_context.patterns,
+                algorithms=kg_context.algorithms,
+                sources=relevant_sources,
+                planning_mode=planning_mode,
+            ),
             "algorithms": {algo_id: self._algo_to_dict(algo) for algo_id, algo in kg_context.algorithms.items()},
             "task_nodes": [self._task_node_to_dict(task) for task in kg_context.task_nodes],
             "scenario_profiles": [self._scenario_profile_to_dict(item) for item in kg_context.scenario_profiles],
@@ -186,7 +243,11 @@ class PlanningContextBuilder:
                 algo_id: [self._parameter_spec_to_dict(spec) for spec in specs]
                 for algo_id, specs in kg_context.parameter_specs.items()
             },
-            "data_sources": [self._data_source_to_dict(source) for source in relevant_sources],
+            "data_sources": self._rank_data_source_candidates(
+                relevant_sources,
+                job_type=job_type,
+                resolved_aoi=resolved_aoi,
+            ),
             "output_schema_policies": {
                 output_type: self._output_schema_policy_to_dict(policy)
                 for output_type, policy in kg_context.output_schema_policies.items()
@@ -209,6 +270,120 @@ class PlanningContextBuilder:
         if reusable:
             payload["reusable_artifacts"] = [self._artifact_to_dict(item) for item in reusable]
         return payload
+
+    def _rank_pattern_candidates(
+        self,
+        patterns: List[WorkflowPatternNode],
+        *,
+        algorithms: Dict[str, AlgorithmNode],
+        sources: List[DataSourceNode],
+        planning_mode: str,
+    ) -> List[Dict[str, Any]]:
+        source_by_id = {source.source_id: source for source in sources}
+        prefer_task_driven_catalog_patterns = planning_mode == "task_driven" and any(
+            str((pattern.metadata or {}).get("input_strategy") or "").strip().lower() == "task_driven_auto_supported"
+            and any(step.data_source_id != "upload.bundle" for step in pattern.steps)
+            for pattern in patterns
+        )
+        candidates: List[Dict[str, Any]] = []
+        for pattern in patterns:
+            candidate = self._pattern_to_dict(pattern)
+            candidate.update(
+                self._pattern_ranking_metrics(
+                    pattern,
+                    algorithms=algorithms,
+                    source_by_id=source_by_id,
+                    prefer_task_driven_catalog_patterns=prefer_task_driven_catalog_patterns,
+                )
+            )
+            candidates.append(candidate)
+        return rank_retrieval_candidates(candidates)
+
+    def _rank_data_source_candidates(
+        self,
+        sources: List[DataSourceNode],
+        *,
+        job_type: JobType,
+        resolved_aoi: ResolvedAOI | None,
+    ) -> List[Dict[str, Any]]:
+        candidates: List[Dict[str, Any]] = []
+        required_prefix = f"dt.{job_type.value}."
+        for source in sources:
+            candidate = self._data_source_to_dict(source)
+            metadata = dict(source.metadata or {})
+            selectable_now = bool(metadata.get("selectable_now", False))
+            runtime_status = str(metadata.get("runtime_status") or "runtime_candidate").lower()
+            missing_requirements: List[str] = []
+            workflow_support = 1.0
+            if not selectable_now:
+                workflow_support -= 0.35
+                missing_requirements.append("not_selectable_now")
+            if runtime_status == "reservation_only":
+                workflow_support -= 0.35
+                missing_requirements.append("reservation_only")
+            if resolved_aoi is not None and metadata.get("supports_aoi") is False:
+                workflow_support -= 0.15
+                missing_requirements.append("aoi_not_supported")
+            candidate.update(
+                {
+                    "source_quality": _to_unit_interval(source.quality_score, default=0.0),
+                    "algorithm_fit": 1.0 if any(item.startswith(required_prefix) for item in source.supported_types) else 0.6,
+                    "workflow_support": max(0.0, min(1.0, workflow_support)),
+                    "missing_requirements": missing_requirements,
+                }
+            )
+            candidates.append(candidate)
+        return rank_retrieval_candidates(candidates)
+
+    def _pattern_ranking_metrics(
+        self,
+        pattern: WorkflowPatternNode,
+        *,
+        algorithms: Dict[str, AlgorithmNode],
+        source_by_id: Dict[str, DataSourceNode],
+        prefer_task_driven_catalog_patterns: bool,
+    ) -> Dict[str, Any]:
+        source_scores: List[float] = []
+        algorithm_scores: List[float] = []
+        workflow_supported_steps = 0
+        missing_requirements: List[str] = []
+        for step in pattern.steps:
+            algorithm = algorithms.get(step.algorithm_id)
+            if algorithm is None:
+                missing_requirements.append(f"missing_algorithm:{step.algorithm_id}")
+                algorithm_scores.append(0.0)
+            else:
+                success_rate = _to_unit_interval(algorithm.success_rate, default=_to_unit_interval(pattern.success_rate))
+                accuracy_score = _to_unit_interval(algorithm.accuracy_score, default=success_rate)
+                stability_score = _to_unit_interval(algorithm.stability_score, default=success_rate)
+                algorithm_scores.append(0.65 * success_rate + 0.25 * accuracy_score + 0.10 * stability_score)
+            source = source_by_id.get(step.data_source_id)
+            if source is None:
+                if step.data_source_id == "upload.bundle":
+                    source_scores.append(1.0)
+                    workflow_supported_steps += 1
+                else:
+                    missing_requirements.append(f"missing_source:{step.data_source_id}")
+            else:
+                source_scores.append(_to_unit_interval(source.quality_score, default=0.0))
+                runtime_status = str(source.metadata.get("runtime_status") or "runtime_candidate").lower()
+                selectable_now = bool(source.metadata.get("selectable_now", False))
+                if runtime_status == "reservation_only" or not selectable_now:
+                    missing_requirements.append(f"source_unavailable:{source.source_id}")
+                else:
+                    workflow_supported_steps += 1
+        workflow_support = workflow_supported_steps / max(1, len(pattern.steps))
+        metadata = dict(pattern.metadata or {})
+        if metadata.get("input_strategy") == "task_driven_auto_supported":
+            workflow_support = min(1.0, workflow_support + 0.05)
+        elif prefer_task_driven_catalog_patterns and all(step.data_source_id == "upload.bundle" for step in pattern.steps):
+            missing_requirements.append("task_driven_bundle_not_supported")
+        return {
+            "source_quality": round(sum(source_scores) / max(1, len(source_scores)), 6),
+            "algorithm_fit": round(sum(algorithm_scores) / max(1, len(algorithm_scores)), 6),
+            "workflow_support": round(workflow_support, 6),
+            "missing_requirements": missing_requirements,
+        }
 
     def _find_reusable_artifacts(self, *, job_type: JobType, trigger: RunTrigger, limit: int) -> List[ArtifactRecord]:
         if not self.artifact_registry:
@@ -316,6 +491,20 @@ class PlanningContextBuilder:
             return "no_pattern_available"
         # Patterns are already ordered by upstream context building/ranking.
         return f"preferred_{patterns[0].pattern_id}_by_context_order"
+
+    @staticmethod
+    def _select_reason_from_retrieval(
+        retrieval_payload: Dict[str, Any],
+        *,
+        fallback_patterns: List[WorkflowPatternNode],
+    ) -> str:
+        candidates = retrieval_payload.get("candidate_patterns", [])
+        if isinstance(candidates, list) and candidates:
+            top = candidates[0]
+            pattern_id = str(top.get("pattern_id") or "").strip()
+            if pattern_id:
+                return f"preferred_{pattern_id}_by_ranked_retrieval"
+        return PlanningContextBuilder._select_reason(fallback_patterns)
 
     @staticmethod
     def _algo_to_dict(algo: AlgorithmNode) -> Dict[str, Any]:

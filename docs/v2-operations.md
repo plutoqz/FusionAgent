@@ -93,7 +93,10 @@ $env:GEOFUSION_CELERY_EAGER='0'
 - `main.py`, `worker/celery_app.py`, and `scripts/start_local.py` auto-load repo-local dependency defaults, so local broker / backend settings follow `依赖.txt` before falling back to the generic code default
 - the current repo-local example uses Redis on `localhost:6380`; the generic code fallback remains `redis://localhost:6379/0`
 - default Neo4j convention: `bolt://localhost:7687`
+- prefer one Neo4j instance or port per project when collecting paper evidence or shared operator history
+- keep `GEOFUSION_GRAPH_NAMESPACE=fusionagent` as the application-level second guard when `Neo4j Community` forces a shared home database
 - reserve `8011` for an isolated fast-confidence runtime when you do not want to share the default `8000` app
+- `python scripts/start_local.py --check-only` now prints the active `Neo4j database` and `Neo4j namespace guard`
 - reserve `8010` for isolated real-data benchmark runs so the benchmark base URL, worker logs, and evidence directory can stay aligned
 - use `8012+` only for temporary diagnostics or one-off worktree isolation
 - official benchmark source-asset downloads are cached under `runs/source-assets/`; local `Data/` is still preferred unless you explicitly force remote materialization
@@ -269,6 +272,7 @@ Natural-language AOI smoke:
 ```powershell
 python scripts/smoke_agentic_region.py `
   --base-url http://127.0.0.1:8000 `
+  --job-type building `
   --query "fuse building and road data for Nairobi, Kenya" `
   --timeout 1200
 ```
@@ -362,8 +366,15 @@ The file inbox runner is an operations demo path, not a production event-feed in
 - `GET /api/v2/runs/{run_id}/plan`: persisted plan
 - `GET /api/v2/runs/{run_id}/audit`: full audit event stream
 - `GET /api/v2/runs/{run_id}/artifact`: artifact bundle download
-- `GET /api/v2/runs/{run_id}/inspection`: one-shot operational view of status, plan, audit events, KG path trace, and artifact metadata
+- `GET /api/v2/runs/{run_id}/inspection`: one-shot operational view of status, plan, audit events, KG path trace, artifact metadata, and a compact `digest`
 - `GET /api/v2/runtime`: non-sensitive runtime metadata for evidence capture and alignment checks (`kg_backend`, `llm_provider`, `celery_eager`, `api_port`)
+
+Operators should be able to answer these four questions directly from `inspection.digest` without opening raw files first:
+
+- what failed
+- why it failed
+- whether the system can recover
+- what to do next
 
 ### Run Comparison
 

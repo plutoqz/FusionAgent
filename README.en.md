@@ -208,6 +208,13 @@ Default behavior:
 - logs are written under `runs/local-runtime/`
 - API, worker, and scheduler processes are started together
 - when the KG backend is `neo4j`, local seed checks and bootstrap are performed automatically
+- startup summary prints the active `Neo4j database` and `Neo4j namespace guard`
+
+Recommended Neo4j isolation order:
+
+1. one Neo4j instance or port per project
+2. keep `GEOFUSION_GRAPH_NAMESPACE=fusionagent` as an application-level second guard
+3. do not use a miscellaneous shared graph view for paper-evidence runs
 
 ### Option C: Same-Origin Frontend Serving
 
@@ -306,7 +313,7 @@ python scripts/smoke_local_v2.py --base-url http://127.0.0.1:8000
 Task-driven AOI smoke:
 
 ```powershell
-python scripts/smoke_agentic_region.py --base-url http://127.0.0.1:8000 --query "fuse building data for Nairobi, Kenya" --timeout 1200
+python scripts/smoke_agentic_region.py --base-url http://127.0.0.1:8000 --job-type building --query "fuse building data for Nairobi, Kenya" --timeout 1200
 ```
 
 ## Current Boundaries

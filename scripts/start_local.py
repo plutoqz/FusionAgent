@@ -135,6 +135,8 @@ def main(argv: list[str] | None = None) -> int:
         print(f"Neo4j isolation: {neo4j_summary['isolation_mode']}")
         if neo4j_summary.get("database_used"):
             print(f"Neo4j database: {neo4j_summary['database_used']}")
+        if neo4j_summary.get("graph_namespace"):
+            print(f"Neo4j namespace guard: {neo4j_summary['graph_namespace']}")
         print(f"Neo4j bootstrap: {'applied' if neo4j_summary['bootstrap_applied'] else 'already seeded'}")
         if neo4j_summary.get("managed_nodes_deleted"):
             print(f"Neo4j managed cleanup: deleted {neo4j_summary['managed_nodes_deleted']} nodes")

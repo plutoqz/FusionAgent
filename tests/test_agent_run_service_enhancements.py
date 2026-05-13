@@ -605,10 +605,13 @@ def test_agent_run_service_water_task_driven_auto_fails_at_materialization_time_
     assert latest.phase == RunPhase.failed
     assert latest.error is not None
     assert "task-driven input materialization failed for catalog.flood.water" in latest.error
-    assert "catalog.flood.water" in (latest.failure_summary or "")
+    assert "failure_category=SOURCE_MISSING" in (latest.failure_summary or "")
+    assert "suggested_action=replan" in (latest.failure_summary or "")
     audit_events = service.get_audit_events(status.run_id)
     assert not any(event.kind == "task_inputs_resolved" for event in audit_events)
     assert audit_events[-1].kind == "run_failed"
+    assert audit_events[-1].details["failure_category"] == "SOURCE_MISSING"
+    assert audit_events[-1].details["suggested_action"] == "replan"
 
 
 def test_agent_run_service_road_task_driven_auto_keeps_trajectory_seam_reserved(
@@ -2337,8 +2340,10 @@ def test_execution_stage_writes_step_failed_audit_event_before_raising(tmp_path:
         "data_source_id": "upload.bundle",
         "error": "RuntimeError: primary failed",
         "root_cause": "PRIMARY_EXECUTION_FAILED",
+        "failure_category": "ALGO_RUNTIME_ERROR",
         "action": "replan",
         "recoverable": True,
+        "suggested_action": "replan",
     }
     assert not any(event.kind == "execution_completed" for event in audit_events)
 

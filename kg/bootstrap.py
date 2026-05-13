@@ -18,11 +18,11 @@ from kg.seed import (
     TASKS,
     WORKFLOW_PATTERNS,
 )
-from utils.local_runtime import apply_local_dependency_defaults
+from utils.local_runtime import DEFAULT_GRAPH_NAMESPACE, apply_local_dependency_defaults, get_graph_namespace
 
 
 MANAGED_LABEL = "FusionAgentManaged"
-GRAPH_NAMESPACE = "fusionagent"
+GRAPH_NAMESPACE = DEFAULT_GRAPH_NAMESPACE
 COMMUNITY_HOME_DATABASE = "neo4j"
 
 
@@ -65,29 +65,35 @@ def _statement_lines(lines: Iterable[str]) -> str:
     return "\n".join(line.rstrip() for line in lines if line is not None)
 
 
-def build_bootstrap_cypher() -> str:
+def resolve_graph_namespace(graph_namespace: str | None = None) -> str:
+    candidate = (graph_namespace or os.getenv("GEOFUSION_GRAPH_NAMESPACE", "")).strip()
+    return candidate or GRAPH_NAMESPACE
+
+
+def build_bootstrap_cypher(graph_namespace: str | None = None) -> str:
+    namespace = resolve_graph_namespace(graph_namespace or GRAPH_NAMESPACE)
     sections: List[str] = [
         "// Auto-generated FusionAgent bootstrap for Neo4j.",
         f"// All managed nodes are labeled :{MANAGED_LABEL} to avoid querying unrelated graph content.",
         "// Safe to replay because every statement uses IF NOT EXISTS or MERGE.",
         "",
         _build_schema_section(),
-        _build_datatype_section(),
-        _build_task_section(),
-        _build_algorithm_section(),
-        _build_parameter_spec_section(),
-        _build_datasource_section(),
-        _build_scenario_profile_section(),
-        _build_output_schema_policy_section(),
-        _build_pattern_section(),
+        _build_datatype_section(namespace),
+        _build_task_section(namespace),
+        _build_algorithm_section(namespace),
+        _build_parameter_spec_section(namespace),
+        _build_datasource_section(namespace),
+        _build_scenario_profile_section(namespace),
+        _build_output_schema_policy_section(namespace),
+        _build_pattern_section(namespace),
         _build_transform_section(),
     ]
     return "\n\n".join(section for section in sections if section)
 
 
-def write_bootstrap_cypher(path: Path) -> Path:
+def write_bootstrap_cypher(path: Path, graph_namespace: str | None = None) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(build_bootstrap_cypher(), encoding="utf-8")
+    path.write_text(build_bootstrap_cypher(graph_namespace), encoding="utf-8")
     return path
 
 
@@ -124,18 +130,18 @@ def _build_schema_section() -> str:
     )
 
 
-def _build_datatype_section() -> str:
+def _build_datatype_section(graph_namespace: str) -> str:
     lines = ["// Seed DataType nodes"]
     for data_type in DATA_TYPES.values():
         lines.append(
             f"MERGE (dt:DataType {{{_merge_properties({'typeId': data_type.type_id})}}}) "
             f"SET dt:{MANAGED_LABEL} "
-            f"SET dt += {{{_merge_properties({'theme': data_type.theme, 'geometryType': data_type.geometry_type, 'description': data_type.description, 'graphNamespace': GRAPH_NAMESPACE})}}};"
+            f"SET dt += {{{_merge_properties({'theme': data_type.theme, 'geometryType': data_type.geometry_type, 'description': data_type.description, 'graphNamespace': graph_namespace})}}};"
         )
     return _statement_lines(lines)
 
 
-def _build_task_section() -> str:
+def _build_task_section(graph_namespace: str) -> str:
     lines = ["// Seed Task nodes"]
     for task in TASKS.values():
         properties = {
@@ -143,7 +149,7 @@ def _build_task_section() -> str:
             "taskName": task.task_name,
             "category": task.category,
             "description": task.description,
-            "graphNamespace": GRAPH_NAMESPACE,
+            "graphNamespace": graph_namespace,
         }
         lines.append(
             f"MERGE (task:Task {{{_merge_properties({'taskId': task.task_id})}}}) "
@@ -153,7 +159,7 @@ def _build_task_section() -> str:
     return _statement_lines(lines)
 
 
-def _build_algorithm_section() -> str:
+def _build_algorithm_section(graph_namespace: str) -> str:
     lines = ["// Seed Algorithm nodes and alternatives"]
     for algorithm in ALGORITHMS.values():
         properties = {
@@ -168,7 +174,7 @@ def _build_algorithm_section() -> str:
             "stabilityScore": algorithm.stability_score,
             "usageMode": algorithm.usage_mode,
             "metadataJson": json.dumps(algorithm.metadata, ensure_ascii=False),
-            "graphNamespace": GRAPH_NAMESPACE,
+            "graphNamespace": graph_namespace,
         }
         lines.append(
             f"MERGE (algo:Algorithm {{{_merge_properties({'algoId': algorithm.algo_id})}}}) "
@@ -185,7 +191,7 @@ def _build_algorithm_section() -> str:
     return _statement_lines(lines)
 
 
-def _build_parameter_spec_section() -> str:
+def _build_parameter_spec_section(graph_namespace: str) -> str:
     lines = ["// Seed AlgorithmParameterSpec nodes"]
     for algo_id, specs in PARAMETER_SPECS.items():
         for spec in specs:
@@ -205,7 +211,7 @@ def _build_parameter_spec_section() -> str:
                 "tunable": spec.tunable,
                 "optimizationTags": spec.optimization_tags,
                 "order": spec.order,
-                "graphNamespace": GRAPH_NAMESPACE,
+                "graphNamespace": graph_namespace,
             }
             lines.append(
                 f"MERGE (ps:AlgorithmParameterSpec {{{_merge_properties({'specId': spec.spec_id})}}}) "
@@ -220,7 +226,7 @@ def _build_parameter_spec_section() -> str:
     return _statement_lines(lines)
 
 
-def _build_datasource_section() -> str:
+def _build_datasource_section(graph_namespace: str) -> str:
     lines = ["// Seed DataSource nodes"]
     for source in DATA_SOURCES:
         properties = {
@@ -237,7 +243,7 @@ def _build_datasource_section() -> str:
             "supportedJobTypes": source.supported_job_types,
             "supportedGeometryTypes": source.supported_geometry_types,
             "metadataJson": json.dumps(source.metadata, ensure_ascii=False),
-            "graphNamespace": GRAPH_NAMESPACE,
+            "graphNamespace": graph_namespace,
         }
         lines.append(
             f"MERGE (ds:DataSource {{{_merge_properties({'sourceId': source.source_id})}}}) "
@@ -247,7 +253,7 @@ def _build_datasource_section() -> str:
     return _statement_lines(lines)
 
 
-def _build_scenario_profile_section() -> str:
+def _build_scenario_profile_section(graph_namespace: str) -> str:
     lines = ["// Seed ScenarioProfile nodes"]
     for profile in SCENARIO_PROFILES:
         properties = {
@@ -258,7 +264,7 @@ def _build_scenario_profile_section() -> str:
             "preferredOutputFields": profile.preferred_output_fields,
             "qosPriorityJson": json.dumps(profile.qos_priority, ensure_ascii=False),
             "metadataJson": json.dumps(profile.metadata, ensure_ascii=False),
-            "graphNamespace": GRAPH_NAMESPACE,
+            "graphNamespace": graph_namespace,
         }
         lines.append(
             f"MERGE (profile:ScenarioProfile {{{_merge_properties({'profileId': profile.profile_id})}}}) "
@@ -268,7 +274,7 @@ def _build_scenario_profile_section() -> str:
     return _statement_lines(lines)
 
 
-def _build_output_schema_policy_section() -> str:
+def _build_output_schema_policy_section(graph_namespace: str) -> str:
     lines = ["// Seed OutputSchemaPolicy nodes"]
     for policy in OUTPUT_SCHEMA_POLICIES.values():
         properties = {
@@ -281,7 +287,7 @@ def _build_output_schema_policy_section() -> str:
             "renameHintsJson": json.dumps(policy.rename_hints, ensure_ascii=False),
             "compatibilityBasis": policy.compatibility_basis,
             "metadataJson": json.dumps(policy.metadata, ensure_ascii=False),
-            "graphNamespace": GRAPH_NAMESPACE,
+            "graphNamespace": graph_namespace,
         }
         lines.append(
             f"MERGE (osp:OutputSchemaPolicy {{{_merge_properties({'policyId': policy.policy_id})}}}) "
@@ -296,7 +302,7 @@ def _build_output_schema_policy_section() -> str:
     return _statement_lines(lines)
 
 
-def _build_pattern_section() -> str:
+def _build_pattern_section(graph_namespace: str) -> str:
     lines = ["// Seed WorkflowPattern and StepTemplate nodes"]
     for pattern in WORKFLOW_PATTERNS:
         pattern_properties = {
@@ -306,7 +312,7 @@ def _build_pattern_section() -> str:
             "disasterTypes": pattern.disaster_types,
             "successRate": pattern.success_rate,
             "metadataJson": json.dumps(pattern.metadata, ensure_ascii=False),
-            "graphNamespace": GRAPH_NAMESPACE,
+            "graphNamespace": graph_namespace,
         }
         lines.append(
             f"MERGE (wp:WorkflowPattern {{{_merge_properties({'patternId': pattern.pattern_id})}}}) "
@@ -325,7 +331,7 @@ def _build_pattern_section() -> str:
                 "dataSourceId": step.data_source_id,
                 "dependsOn": step.depends_on,
                 "isOptional": step.is_optional,
-                "graphNamespace": GRAPH_NAMESPACE,
+                "graphNamespace": graph_namespace,
             }
             lines.append(
                 f"MERGE (st:StepTemplate {{{_merge_properties({'stepKey': step_key})}}}) "
@@ -528,13 +534,29 @@ def reset_managed_graph(
     user: str,
     password: str,
     database: str | None = None,
+    graph_namespace: str | None = None,
 ) -> int:
+    namespace = resolve_graph_namespace(graph_namespace)
     driver = _create_driver(uri=uri, user=user, password=password)
     try:
         with driver.session(database=database) as session:
-            row = session.run(f"MATCH (n:{MANAGED_LABEL}) RETURN count(n) AS count").single()
+            row = session.run(
+                f"""
+                MATCH (n:{MANAGED_LABEL})
+                WHERE n.graphNamespace = $graph_namespace
+                RETURN count(n) AS count
+                """,
+                graph_namespace=namespace,
+            ).single()
             deleted = int(row.get("count", 0)) if row else 0
-            session.run(f"MATCH (n:{MANAGED_LABEL}) DETACH DELETE n")
+            session.run(
+                f"""
+                MATCH (n:{MANAGED_LABEL})
+                WHERE n.graphNamespace = $graph_namespace
+                DETACH DELETE n
+                """,
+                graph_namespace=namespace,
+            )
             return deleted
     finally:
         driver.close()
@@ -547,27 +569,41 @@ def inspect_graph_state(
     password: str,
     database: str | None = None,
     managed_only: bool = False,
+    graph_namespace: str | None = None,
 ) -> dict[str, Any]:
+    namespace = resolve_graph_namespace(graph_namespace)
     driver = _create_driver(uri=uri, user=user, password=password)
     try:
         with driver.session(database=database) as session:
             if managed_only:
-                node_row = session.run(f"MATCH (n:{MANAGED_LABEL}) RETURN count(n) AS count").single()
+                node_row = session.run(
+                    f"""
+                    MATCH (n:{MANAGED_LABEL})
+                    WHERE n.graphNamespace = $graph_namespace
+                    RETURN count(n) AS count
+                    """,
+                    graph_namespace=namespace,
+                ).single()
                 label_rows = session.run(
                     f"""
                     MATCH (n:{MANAGED_LABEL})
+                    WHERE n.graphNamespace = $graph_namespace
                     UNWIND [label IN labels(n) WHERE label <> $managed_label] AS label
                     RETURN label, count(*) AS count
                     ORDER BY count DESC, label
                     """,
                     managed_label=MANAGED_LABEL,
+                    graph_namespace=namespace,
                 )
                 rel_rows = session.run(
                     f"""
                     MATCH (:{MANAGED_LABEL})-[r]->(:{MANAGED_LABEL})
+                    WHERE startNode(r).graphNamespace = $graph_namespace
+                      AND endNode(r).graphNamespace = $graph_namespace
                     RETURN type(r) AS relationshipType, count(*) AS count
                     ORDER BY count DESC, relationshipType
-                    """
+                    """,
+                    graph_namespace=namespace,
                 )
             else:
                 node_row = session.run("MATCH (n) RETURN count(n) AS count").single()
@@ -590,6 +626,7 @@ def inspect_graph_state(
             return {
                 "database": database,
                 "managed_only": managed_only,
+                "graph_namespace": namespace if managed_only else None,
                 "node_count": int(node_row.get("count", 0)) if node_row else 0,
                 "label_counts": [dict(row) for row in label_rows],
                 "relationship_counts": [dict(row) for row in rel_rows],
@@ -605,13 +642,16 @@ def ensure_bootstrap_data(
     password: str,
     database: str | None = None,
     cypher: str | None = None,
+    graph_namespace: str | None = None,
 ) -> bool:
+    namespace = resolve_graph_namespace(graph_namespace)
     live_inventory = inspect_graph_state(
         uri=uri,
         user=user,
         password=password,
         database=database,
         managed_only=True,
+        graph_namespace=namespace,
     )
     if not managed_inventory_missing_seed_labels(live_inventory):
         return False
@@ -620,7 +660,7 @@ def ensure_bootstrap_data(
         uri=uri,
         user=user,
         password=password,
-        cypher=cypher,
+        cypher=cypher or build_bootstrap_cypher(namespace),
         database=database,
     )
     return True
@@ -635,6 +675,7 @@ def prepare_local_neo4j(
     reset_managed: bool = False,
     cypher: str | None = None,
 ) -> dict[str, Any]:
+    namespace = get_graph_namespace()
     resolved = resolve_graph_target(uri=uri, user=user, password=password, database=database)
     database_used = resolved["database_used"]
     database_created = False
@@ -644,7 +685,13 @@ def prepare_local_neo4j(
 
     deleted_nodes = 0
     if reset_managed:
-        deleted_nodes = reset_managed_graph(uri=uri, user=user, password=password, database=database_used)
+        deleted_nodes = reset_managed_graph(
+            uri=uri,
+            user=user,
+            password=password,
+            database=database_used,
+            graph_namespace=namespace,
+        )
 
     bootstrap_applied = ensure_bootstrap_data(
         uri=uri,
@@ -652,6 +699,7 @@ def prepare_local_neo4j(
         password=password,
         database=database_used,
         cypher=cypher,
+        graph_namespace=namespace,
     )
 
     managed_inventory = inspect_graph_state(
@@ -660,6 +708,7 @@ def prepare_local_neo4j(
         password=password,
         database=database_used,
         managed_only=True,
+        graph_namespace=namespace,
     )
     all_inventory = inspect_graph_state(
         uri=uri,
@@ -680,7 +729,7 @@ def prepare_local_neo4j(
     return {
         **resolved,
         "managed_label": MANAGED_LABEL,
-        "graph_namespace": GRAPH_NAMESPACE,
+        "graph_namespace": namespace,
         "database_created": database_created,
         "managed_nodes_deleted": deleted_nodes,
         "bootstrap_applied": bootstrap_applied,
@@ -734,10 +783,12 @@ def main(argv: list[str] | None = None) -> None:
 
     if args.inspect:
         uri, user, password, database = _connection_settings_from_env(args)
+        graph_namespace = get_graph_namespace()
         resolved = resolve_graph_target(uri=uri, user=user, password=password, database=database)
         report = {
             **resolved,
             "managed_label": MANAGED_LABEL,
+            "graph_namespace": graph_namespace,
             "expected_seed_inventory": expected_seed_inventory(),
             "inventory": inspect_graph_state(
                 uri=uri,
@@ -745,6 +796,7 @@ def main(argv: list[str] | None = None) -> None:
                 password=password,
                 database=resolved["database_used"],
                 managed_only=args.managed_only,
+                graph_namespace=graph_namespace if args.managed_only else None,
             ),
         }
         report["missing_seed_labels"] = (
@@ -758,7 +810,8 @@ def main(argv: list[str] | None = None) -> None:
 
     if args.prepare_local:
         uri, user, password, database = _connection_settings_from_env(args)
-        path = write_bootstrap_cypher(Path(args.output))
+        graph_namespace = get_graph_namespace()
+        path = write_bootstrap_cypher(Path(args.output), graph_namespace=graph_namespace)
         summary = prepare_local_neo4j(
             uri=uri,
             user=user,
@@ -773,11 +826,18 @@ def main(argv: list[str] | None = None) -> None:
             print(summary)
         return
 
-    path = write_bootstrap_cypher(Path(args.output))
+    graph_namespace = get_graph_namespace()
+    path = write_bootstrap_cypher(Path(args.output), graph_namespace=graph_namespace)
     if args.reset_managed:
         uri, user, password, database = _connection_settings_from_env(args)
         resolved = resolve_graph_target(uri=uri, user=user, password=password, database=database)
-        deleted = reset_managed_graph(uri=uri, user=user, password=password, database=resolved["database_used"])
+        deleted = reset_managed_graph(
+            uri=uri,
+            user=user,
+            password=password,
+            database=resolved["database_used"],
+            graph_namespace=graph_namespace,
+        )
         print(f"deleted {deleted} managed nodes")
         return
 

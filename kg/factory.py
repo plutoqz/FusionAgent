@@ -18,7 +18,7 @@ def create_kg_repository() -> KGRepository:
         try:
             repo = Neo4jKGRepository.from_env()
             if repo is not None:
-                logger.info("KG backend: neo4j")
+                logger.info("KG backend: neo4j (namespace=%s)", repo.graph_namespace)
                 return repo
             logger.warning("KG backend neo4j selected but env not configured; fallback to in-memory seed")
         except Exception as exc:  # noqa: BLE001

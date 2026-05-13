@@ -17,7 +17,7 @@ from kg.bootstrap import (
     managed_inventory_missing_seed_labels,
     resolve_graph_target,
 )
-from utils.local_runtime import apply_local_dependency_defaults
+from utils.local_runtime import apply_local_dependency_defaults, get_graph_namespace
 
 
 def _parser() -> argparse.ArgumentParser:
@@ -40,6 +40,7 @@ def main(argv: list[str] | None = None) -> int:
     user = os.environ["GEOFUSION_NEO4J_USER"]
     password = os.environ["GEOFUSION_NEO4J_PASSWORD"]
     database = os.environ.get("GEOFUSION_NEO4J_DATABASE") or None
+    graph_namespace = get_graph_namespace()
 
     resolved = resolve_graph_target(uri=uri, user=user, password=password, database=database)
     inventory = inspect_graph_state(
@@ -48,10 +49,12 @@ def main(argv: list[str] | None = None) -> int:
         password=password,
         database=resolved["database_used"],
         managed_only=args.managed_only,
+        graph_namespace=graph_namespace if args.managed_only else None,
     )
     report = {
         **resolved,
         "managed_label": MANAGED_LABEL,
+        "graph_namespace": graph_namespace if args.managed_only else None,
         "expected_seed_inventory": expected_seed_inventory(),
         "inventory": inventory,
     }

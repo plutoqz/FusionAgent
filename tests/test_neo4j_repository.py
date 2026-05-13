@@ -1,8 +1,19 @@
 from __future__ import annotations
 
-from kg.models import AlgorithmNode, AlgorithmParameterSpec, DataSourceNode, DurableLearningRecord, PatternStep, WorkflowPatternNode
+from kg.models import (
+    AlgorithmNode,
+    AlgorithmParameterSpec,
+    DataSourceNode,
+    DurableLearningRecord,
+    ExecutionFeedback,
+    PatternStep,
+    WorkflowPatternNode,
+)
 from kg.neo4j_repository import Neo4jKGRepository
 from schemas.fusion import JobType
+
+
+GRAPH_NAMESPACE = "fusionagent-test"
 
 
 def test_execute_passes_parameters_dict_without_keyword_collision() -> None:
@@ -26,6 +37,7 @@ def test_execute_passes_parameters_dict_without_keyword_collision() -> None:
     repo = Neo4jKGRepository.__new__(Neo4jKGRepository)
     repo._driver = FakeDriver()
     repo.database = None
+    repo.graph_namespace = GRAPH_NAMESPACE
 
     rows = repo._execute("RETURN $query AS q, $limit AS n", query="building flood", limit=5)
 
@@ -73,6 +85,7 @@ def test_get_parameter_specs_maps_rows_from_fake_driver() -> None:
     repo = Neo4jKGRepository.__new__(Neo4jKGRepository)
     repo._driver = FakeDriver()
     repo.database = None
+    repo.graph_namespace = GRAPH_NAMESPACE
 
     specs = repo.get_parameter_specs("algo.test")
 
@@ -96,7 +109,8 @@ def test_get_parameter_specs_maps_rows_from_fake_driver() -> None:
     assert captured
     assert "AlgorithmParameterSpec" in captured[0][0]
     assert "HAS_PARAMETER_SPEC" in captured[0][0]
-    assert captured[0][1] == {"algo_id": "algo.test"}
+    assert "graphNamespace = $graph_namespace" in captured[0][0]
+    assert captured[0][1] == {"algo_id": "algo.test", "graph_namespace": GRAPH_NAMESPACE}
 
 
 def test_list_methods_map_rows_from_fake_driver() -> None:
@@ -184,6 +198,7 @@ def test_list_methods_map_rows_from_fake_driver() -> None:
     repo = Neo4jKGRepository.__new__(Neo4jKGRepository)
     repo._driver = FakeDriver()
     repo.database = None
+    repo.graph_namespace = GRAPH_NAMESPACE
 
     assert repo.list_algorithms() == [
         AlgorithmNode(
@@ -242,8 +257,60 @@ def test_list_methods_map_rows_from_fake_driver() -> None:
     ]
     assert len(captured) == 3
     assert "MATCH (a:Algorithm" in captured[0][0]
+    assert "a.graphNamespace = $graph_namespace" in captured[0][0]
+    assert captured[0][1] == {"graph_namespace": GRAPH_NAMESPACE}
     assert "MATCH (wp:WorkflowPattern" in captured[1][0]
+    assert "wp.graphNamespace = $graph_namespace" in captured[1][0]
+    assert "st.graphNamespace = $graph_namespace" in captured[1][0]
+    assert captured[1][1] == {"graph_namespace": GRAPH_NAMESPACE}
     assert "MATCH (ds:DataSource" in captured[2][0]
+    assert "ds.graphNamespace = $graph_namespace" in captured[2][0]
+    assert captured[2][1] == {"graph_namespace": GRAPH_NAMESPACE}
+
+
+def test_record_execution_feedback_emits_graph_namespace_guarded_matches() -> None:
+    captured: list[tuple[str, object]] = []
+
+    class FakeSession:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def run(self, cypher: str, parameters=None, **kwargs):
+            captured.append((cypher, parameters))
+            return []
+
+    class FakeDriver:
+        def session(self, database=None):
+            return FakeSession()
+
+    repo = Neo4jKGRepository.__new__(Neo4jKGRepository)
+    repo._driver = FakeDriver()
+    repo.database = None
+    repo.graph_namespace = GRAPH_NAMESPACE
+
+    repo.record_execution_feedback(
+        ExecutionFeedback(
+            run_id="run-1",
+            job_type=JobType.building,
+            trigger_type="task_driven_auto",
+            success=True,
+            repaired=False,
+            repair_count=0,
+            pattern_id="wp.flood.building.default",
+            algorithm_id="algo.fusion.building.v1",
+            selected_data_source="upload.bundle",
+        )
+    )
+
+    assert captured
+    assert "run.graphNamespace = $graph_namespace" in captured[0][0]
+    assert "wp.graphNamespace = $graph_namespace" in captured[0][0]
+    assert "algo.graphNamespace = $graph_namespace" in captured[0][0]
+    assert "ds.graphNamespace = $graph_namespace" in captured[0][0]
+    assert captured[0][1]["graph_namespace"] == GRAPH_NAMESPACE
 
 
 def test_record_durable_learning_record_emits_managed_summary_node() -> None:
@@ -267,6 +334,7 @@ def test_record_durable_learning_record_emits_managed_summary_node() -> None:
     repo = Neo4jKGRepository.__new__(Neo4jKGRepository)
     repo._driver = FakeDriver()
     repo.database = None
+    repo.graph_namespace = GRAPH_NAMESPACE
 
     repo.record_durable_learning_record(
         DurableLearningRecord(
@@ -291,8 +359,11 @@ def test_record_durable_learning_record_emits_managed_summary_node() -> None:
 
     assert captured
     assert "DurableLearningRecord" in captured[0][0]
+    assert "run.graphNamespace = $graph_namespace" in captured[0][0]
+    assert "dlr.graphNamespace = $graph_namespace" in captured[0][0]
     assert captured[0][1]["record_id"] == "dlr-1"
     assert captured[0][1]["output_data_type"] == "dt.building.fused"
+    assert captured[0][1]["graph_namespace"] == GRAPH_NAMESPACE
     assert '"planning_mode": "task_driven"' in captured[0][1]["metadata_json"]
 
 
@@ -339,6 +410,7 @@ def test_list_durable_learning_records_maps_rows_from_fake_driver() -> None:
     repo = Neo4jKGRepository.__new__(Neo4jKGRepository)
     repo._driver = FakeDriver()
     repo.database = None
+    repo.graph_namespace = GRAPH_NAMESPACE
 
     rows = repo.list_durable_learning_records(job_type=JobType.road, success=False, limit=5)
 
@@ -365,7 +437,13 @@ def test_list_durable_learning_records_maps_rows_from_fake_driver() -> None:
     ]
     assert captured
     assert "DurableLearningRecord" in captured[0][0]
-    assert captured[0][1] == {"job_type": "road", "success": False, "limit": 5}
+    assert "dlr.graphNamespace = $graph_namespace" in captured[0][0]
+    assert captured[0][1] == {
+        "job_type": "road",
+        "success": False,
+        "limit": 5,
+        "graph_namespace": GRAPH_NAMESPACE,
+    }
 
 
 def test_build_context_includes_transform_algorithms_and_decomposed_specs_from_fake_driver() -> None:
@@ -510,6 +588,7 @@ def test_build_context_includes_transform_algorithms_and_decomposed_specs_from_f
     repo = Neo4jKGRepository.__new__(Neo4jKGRepository)
     repo._driver = FakeDriver()
     repo.database = None
+    repo.graph_namespace = GRAPH_NAMESPACE
 
     context = repo.build_context(job_type=JobType.building, disaster_type="generic")
 

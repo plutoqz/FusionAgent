@@ -14,6 +14,9 @@ from fastapi.testclient import TestClient
 from api.app import create_app
 import api.routers.runs_v2 as runs_v2_router
 from schemas.agent import (
+    RunEvent,
+    RunPhase,
+    RunStatus,
     RunTrigger,
     RunTriggerType,
     ValidationReport,
@@ -25,6 +28,7 @@ from schemas.agent import (
 from services.agent_run_service import AgentRunService
 from services.aoi_resolution_service import ResolvedAOI
 from services.input_acquisition_service import ResolvedRunInputs
+from schemas.fusion import JobType
 
 
 def _zip_bundle(shp_path: Path, out_zip: Path) -> Path:
@@ -682,6 +686,63 @@ def test_v2_run_rejects_unsupported_intent_with_structured_422(
                 }
             ]
         }
+    }
+
+
+def test_v2_run_inspection_includes_decision_friendly_digest(
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    run_id = "run-inspection-failed"
+    status = RunStatus(
+        run_id=run_id,
+        job_type=JobType.building,
+        trigger=RunTrigger(type=RunTriggerType.user_query, content="need building data"),
+        phase=RunPhase.failed,
+        progress=62,
+        target_crs="EPSG:32643",
+        error="parameter out of range",
+        current_step=3,
+        failure_summary="parameter out of range | failure_category=PARAM_OUT_OF_RANGE | suggested_action=replan",
+        checkpoint={"stage": "execution", "current_step": 3, "plan_revision": 1},
+        created_at="2026-05-13T00:00:00+00:00",
+        updated_at="2026-05-13T00:01:00+00:00",
+    )
+    events = [
+        RunEvent(
+            timestamp="2026-05-13T00:01:00+00:00",
+            kind="step_failed",
+            phase=RunPhase.running,
+            message="step failed",
+            plan_revision=1,
+            progress=62,
+            attempt_no=1,
+            current_step=3,
+            details={
+                "root_cause": "PARAM_OUT_OF_RANGE",
+                "failure_category": "PARAM_OUT_OF_RANGE",
+                "suggested_action": "replan",
+                "action": "replan",
+                "recoverable": True,
+            },
+        )
+    ]
+
+    monkeypatch.setattr(runs_v2_router.agent_run_service, "get_run", lambda requested_run_id: status if requested_run_id == run_id else None)
+    monkeypatch.setattr(runs_v2_router.agent_run_service, "get_plan", lambda _run_id: None)
+    monkeypatch.setattr(runs_v2_router.agent_run_service, "get_audit_events", lambda _run_id: events)
+    monkeypatch.setattr(runs_v2_router.agent_run_service, "get_artifact_path", lambda _run_id: None)
+
+    resp = client.get(f"/api/v2/runs/{run_id}/inspection")
+
+    assert resp.status_code == 200
+    digest = resp.json()["digest"]
+    assert digest == {
+        "current_phase": "execution",
+        "failed_step": "step 3",
+        "root_cause": "PARAM_OUT_OF_RANGE",
+        "recoverability": "replan",
+        "next_operator_action": "adjust bound and rerun",
     }
 
 

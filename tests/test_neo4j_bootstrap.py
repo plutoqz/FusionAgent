@@ -47,6 +47,13 @@ def test_bootstrap_cypher_contains_water_vertical_slice() -> None:
     assert "osp.water.fused.v1" in cypher
 
 
+def test_build_bootstrap_cypher_uses_custom_graph_namespace() -> None:
+    cypher = build_bootstrap_cypher(graph_namespace="fusionagent-lab")
+
+    assert 'graphNamespace: "fusionagent-lab"' in cypher
+    assert 'graphNamespace: "fusionagent"' not in cypher
+
+
 def test_checked_in_bootstrap_cypher_stays_in_sync_with_generator_and_trajectory_seam() -> None:
     checked_in = Path("kg/bootstrap/neo4j_bootstrap.cypher").read_text(encoding="utf-8")
     generated = build_bootstrap_cypher()
@@ -135,12 +142,15 @@ def test_ensure_bootstrap_data_applies_seed_only_when_missing(monkeypatch) -> No
         def run(self, statement: str, **params):
             self.calls += 1
             normalized = " ".join(statement.split())
-            if "MATCH (n:FusionAgentManaged) RETURN count(n) AS count" in normalized:
+            if "MATCH (n:FusionAgentManaged) WHERE n.graphNamespace = $graph_namespace RETURN count(n) AS count" in normalized:
+                assert params["graph_namespace"] == "fusionagent"
                 return FakeResult(single_row={"count": 0})
             if "UNWIND [label IN labels(n) WHERE label <> $managed_label] AS label" in normalized:
                 assert params["managed_label"] == MANAGED_LABEL
+                assert params["graph_namespace"] == "fusionagent"
                 return FakeResult(rows=[])
-            if "MATCH (:FusionAgentManaged)-[r]->(:FusionAgentManaged)" in normalized:
+            if "MATCH (:FusionAgentManaged)-[r]->(:FusionAgentManaged) WHERE startNode(r).graphNamespace = $graph_namespace AND endNode(r).graphNamespace = $graph_namespace" in normalized:
+                assert params["graph_namespace"] == "fusionagent"
                 return FakeResult(rows=[])
             executed_statements.append(statement)
             return FakeResult(rows=[])
@@ -208,10 +218,12 @@ def test_ensure_bootstrap_data_applies_seed_when_non_pattern_seed_labels_are_mis
 
         def run(self, statement: str, **params):
             normalized = " ".join(statement.split())
-            if "MATCH (n:FusionAgentManaged) RETURN count(n) AS count" in normalized:
+            if "MATCH (n:FusionAgentManaged) WHERE n.graphNamespace = $graph_namespace RETURN count(n) AS count" in normalized:
+                assert params["graph_namespace"] == "fusionagent"
                 return FakeResult(single_row={"count": 10})
             if "UNWIND [label IN labels(n) WHERE label <> $managed_label] AS label" in normalized:
                 assert params["managed_label"] == MANAGED_LABEL
+                assert params["graph_namespace"] == "fusionagent"
                 return FakeResult(
                     rows=[
                         {"label": "WorkflowPattern", "count": 14},
@@ -221,7 +233,8 @@ def test_ensure_bootstrap_data_applies_seed_when_non_pattern_seed_labels_are_mis
                         {"label": "AlgorithmParameterSpec", "count": 0},
                     ]
                 )
-            if "MATCH (:FusionAgentManaged)-[r]->(:FusionAgentManaged)" in normalized:
+            if "MATCH (:FusionAgentManaged)-[r]->(:FusionAgentManaged) WHERE startNode(r).graphNamespace = $graph_namespace AND endNode(r).graphNamespace = $graph_namespace" in normalized:
+                assert params["graph_namespace"] == "fusionagent"
                 return FakeResult(rows=[])
             executed_statements.append(statement)
             return FakeResult(rows=[])

@@ -4,6 +4,8 @@
 
 **Goal:** 在不继续扩大系统边界的前提下，先把 FusionAgent 的知识图谱从“代码定义完整但默认 live Neo4j 漂移严重、关键约束未完全落地”补齐为“默认运行态可复现、可校验、可支撑论文消融实验”的稳定基线，并给出是否迁出 Neo4j 的工程决策。
 
+**Completion Status:** Closed on 2026-05-12. Task 1-6 are implemented and re-verified under the default Neo4j backend. Fresh gate evidence is recorded in [2026-05-09-kg-closure-gates.md](/E:/vscode/fusionAgent/docs/superpowers/specs/2026-05-09-kg-closure-gates.md) and [2026-05-10-kg-gates-evidence-summary.md](/E:/vscode/fusionAgent/docs/superpowers/specs/2026-05-10-kg-gates-evidence-summary.md).
+
 **Architecture:** 先做 `P0: KG 闭环`，把 seed、bootstrap、默认 Neo4j、planner/retriever/validator、artifact schema gate 串成一条一致的约束链；再做 `P0.5: 项目隔离`，优先用独立实例或独立端口解决社区版单数据库带来的混图问题；只有在上述 gate 全部通过后，才允许进入 `P1: 图数据库替代 spike`。对论文时间线而言，必须优先保证“默认后端下的 KG 与实验结论一致”，而不是先迁库。
 
 **Tech Stack:** Python, Neo4j driver, existing `kg/*` repository layer, `agent/*`, `services/*`, `scripts/start_local.py`, `scripts/inspect_neo4j_state.py`, `pytest`, local runtime env from `依赖.txt`, optional Docker or dedicated Neo4j DBMS instance.
@@ -11,6 +13,8 @@
 ---
 
 ## Current Baseline
+
+The drift snapshot in this section is the historical starting state that motivated the work. Use the completion status and linked gate docs above for the current verified runtime state.
 
 ### Live KG Drift Snapshot
 
@@ -168,7 +172,7 @@
 - Modify: `tests/test_neo4j_bootstrap.py`
 - Create: `tests/test_kg_seed_inventory.py`
 
-- [ ] **Step 1: Write the failing seed inventory test**
+- [x] **Step 1: Write the failing seed inventory test**
 
 ```python
 from kg.seed import (
@@ -194,13 +198,13 @@ def test_seed_inventory_matches_expected_static_counts() -> None:
     assert len(WORKFLOW_PATTERNS) == 14
 ```
 
-- [ ] **Step 2: Run the focused inventory tests**
+- [x] **Step 2: Run the focused inventory tests**
 
 Run: `python -m pytest -q tests/test_kg_seed_inventory.py tests/test_neo4j_bootstrap.py`
 
 Expected: current tests pass only on generator parity, but there is still no completeness check for live Neo4j.
 
-- [ ] **Step 3: Replace "pattern exists => already seeded" with inventory-based completeness**
+- [x] **Step 3: Replace "pattern exists => already seeded" with inventory-based completeness**
 
 ```python
 def expected_seed_inventory() -> dict[str, int]:
@@ -227,7 +231,7 @@ def ensure_bootstrap_data(...):
     return True
 ```
 
-- [ ] **Step 4: Extend inspect output so drift is visible in one command**
+- [x] **Step 4: Extend inspect output so drift is visible in one command**
 
 ```python
 report = {
@@ -239,7 +243,7 @@ report = {
 }
 ```
 
-- [ ] **Step 5: Add regression tests for partial-live reseed**
+- [x] **Step 5: Add regression tests for partial-live reseed**
 
 ```python
 def test_ensure_bootstrap_data_applies_seed_when_task_and_policy_nodes_are_missing(monkeypatch) -> None:
@@ -248,7 +252,7 @@ def test_ensure_bootstrap_data_applies_seed_when_task_and_policy_nodes_are_missi
     ...
 ```
 
-- [ ] **Step 6: Re-run the focused tests**
+- [x] **Step 6: Re-run the focused tests**
 
 Run: `python -m pytest -q tests/test_kg_seed_inventory.py tests/test_neo4j_bootstrap.py`
 
@@ -262,7 +266,7 @@ Expected: PASS
 - Modify: `tests/test_local_runtime.py`
 - Create: `tests/test_check_kg_contract.py`
 
-- [ ] **Step 1: Write the failing contract-script test**
+- [x] **Step 1: Write the failing contract-script test**
 
 ```python
 from kg.bootstrap import expected_seed_inventory
@@ -275,7 +279,7 @@ def test_expected_seed_inventory_exposes_static_kg_contract() -> None:
     assert inventory["OutputSchemaPolicy"] == 4
 ```
 
-- [ ] **Step 2: Implement a reusable local contract script**
+- [x] **Step 2: Implement a reusable local contract script**
 
 ```python
 # scripts/check_kg_contract.py
@@ -288,7 +292,7 @@ if not summary["ok"]:
     raise SystemExit(1)
 ```
 
-- [ ] **Step 3: Wire the contract check into local startup**
+- [x] **Step 3: Wire the contract check into local startup**
 
 ```python
 neo4j_summary = _prepare_neo4j(...)
@@ -296,13 +300,13 @@ if not neo4j_summary.get("kg_contract_ok", False):
     raise RuntimeError("Neo4j managed graph does not satisfy the FusionAgent KG contract.")
 ```
 
-- [ ] **Step 4: Verify runtime check-only path**
+- [x] **Step 4: Verify runtime check-only path**
 
 Run: `python scripts/start_local.py --check-only`
 
 Expected: startup prints Neo4j edition, isolation mode, bootstrap status, and explicit KG contract pass/fail.
 
-- [ ] **Step 5: Run focused tests**
+- [x] **Step 5: Run focused tests**
 
 Run: `python -m pytest -q tests/test_check_kg_contract.py tests/test_local_runtime.py`
 
@@ -320,7 +324,7 @@ Expected: PASS
 - Modify: `tests/test_workflow_validator.py`
 - Modify: `tests/test_agent_run_service_enhancements.py`
 
-- [ ] **Step 1: Write failing tests for profile activation and schema enforcement**
+- [x] **Step 1: Write failing tests for profile activation and schema enforcement**
 
 ```python
 def test_planner_context_selects_effective_scenario_profile_id() -> None:
@@ -334,7 +338,7 @@ def test_artifact_evaluation_fails_when_required_output_fields_are_missing(tmp_p
     assert metrics["missing_fields"] == ["confidence"]
 ```
 
-- [ ] **Step 2: Persist an effective scenario profile into plan context**
+- [x] **Step 2: Persist an effective scenario profile into plan context**
 
 ```python
 intent["effective_scenario_profile_id"] = selected_profile.profile_id if selected_profile else None
@@ -342,7 +346,7 @@ intent["effective_activated_tasks"] = selected_profile.activated_tasks if select
 intent["effective_preferred_output_fields"] = selected_profile.preferred_output_fields if selected_profile else []
 ```
 
-- [ ] **Step 3: Add validator checks that use active scenario/profile semantics**
+- [x] **Step 3: Add validator checks that use active scenario/profile semantics**
 
 ```python
 if effective_tasks and f"task.{job_type}.fusion" not in effective_tasks:
@@ -354,7 +358,7 @@ if effective_tasks and f"task.{job_type}.fusion" not in effective_tasks:
     )
 ```
 
-- [ ] **Step 4: Turn OutputSchemaPolicy into a post-execution gate**
+- [x] **Step 4: Turn OutputSchemaPolicy into a post-execution gate**
 
 ```python
 policy = self.kg_repo.get_output_schema_policy(output_data_type)
@@ -365,14 +369,14 @@ if not metrics["artifact_validity"]:
     )
 ```
 
-- [ ] **Step 5: Record explicit audit/decision evidence**
+- [x] **Step 5: Record explicit audit/decision evidence**
 
 ```python
 event_kind="output_schema_validated"
 event_message=f"Artifact validated against policy {policy.policy_id}."
 ```
 
-- [ ] **Step 6: Re-run focused runtime tests**
+- [x] **Step 6: Re-run focused runtime tests**
 
 Run: `python -m pytest -q tests/test_planner_context.py tests/test_workflow_validator.py tests/test_agent_run_service_enhancements.py`
 
@@ -386,7 +390,7 @@ Expected: PASS
 - Modify: `tests/test_neo4j_repository.py`
 - Modify: `tests/test_planner_context.py`
 
-- [ ] **Step 1: Write a failing repository test for full static retrieval**
+- [x] **Step 1: Write a failing repository test for full static retrieval**
 
 ```python
 def test_build_context_includes_parameter_specs_and_decomposed_algorithms_from_neo4j_fake_driver() -> None:
@@ -395,7 +399,7 @@ def test_build_context_includes_parameter_specs_and_decomposed_algorithms_from_n
     assert context.parameter_specs["algo.match.building.v8_component_solver.v1"]
 ```
 
-- [ ] **Step 2: Ensure candidate build_context is not accidentally narrowed to stale top-pattern slices**
+- [x] **Step 2: Ensure candidate build_context is not accidentally narrowed to stale top-pattern slices**
 
 ```python
 for algo in self.algorithms.values():
@@ -404,7 +408,7 @@ for algo in self.algorithms.values():
     ...
 ```
 
-- [ ] **Step 3: Add Neo4j-backed context assertions for water / poi / decomposed slices**
+- [x] **Step 3: Add Neo4j-backed context assertions for water / poi / decomposed slices**
 
 ```python
 assert "wp.water.fusioncode.line_and_polygon.v1" in pattern_ids
@@ -412,7 +416,7 @@ assert "wp.poi.fusioncode.geohash_priority.v1" in pattern_ids
 assert "wp.building.drs4br.decomposed.v1" in building_pattern_ids
 ```
 
-- [ ] **Step 4: Re-run focused tests**
+- [x] **Step 4: Re-run focused tests**
 
 Run: `python -m pytest -q tests/test_neo4j_repository.py tests/test_planner_context.py`
 
@@ -430,7 +434,7 @@ Expected: PASS
 - Modify: `README.md`
 - Modify: `docs/v2-operations.md`
 
-- [ ] **Step 1: Write failing env/config tests**
+- [x] **Step 1: Write failing env/config tests**
 
 ```python
 def test_local_dependency_config_reads_optional_graph_namespace(tmp_path: Path) -> None:
@@ -439,7 +443,7 @@ def test_local_dependency_config_reads_optional_graph_namespace(tmp_path: Path) 
     assert config.graph_namespace == "fusionagent"
 ```
 
-- [ ] **Step 2: Add configurable graph namespace**
+- [x] **Step 2: Add configurable graph namespace**
 
 ```python
 graph_namespace = (
@@ -449,14 +453,14 @@ graph_namespace = (
 )
 ```
 
-- [ ] **Step 3: Filter all Neo4j reads/writes by namespace as a second guard**
+- [x] **Step 3: Filter all Neo4j reads/writes by namespace as a second guard**
 
 ```python
 MATCH (wp:WorkflowPattern:FusionAgentManaged)
 WHERE wp.graphNamespace = $graph_namespace
 ```
 
-- [ ] **Step 4: Document the operational recommendation as dedicated instance first**
+- [x] **Step 4: Document the operational recommendation as dedicated instance first**
 
 ```markdown
 Recommended local isolation:
@@ -465,7 +469,7 @@ Recommended local isolation:
 3. do not use a shared miscellaneous graph for paper evidence runs
 ```
 
-- [ ] **Step 5: Re-run config and repository tests**
+- [x] **Step 5: Re-run config and repository tests**
 
 Run: `python -m pytest -q tests/test_local_runtime.py tests/test_neo4j_repository.py`
 
@@ -479,7 +483,7 @@ Expected: PASS
 - Modify: `README.md`
 - Create: `docs/superpowers/specs/2026-05-09-kg-closure-gates.md`
 
-- [ ] **Step 1: Add a KG closure gate document**
+- [x] **Step 1: Add a KG closure gate document**
 
 ```markdown
 Required before any new ablation:
@@ -489,7 +493,7 @@ Required before any new ablation:
 - project isolation mode is fixed and documented
 ```
 
-- [ ] **Step 2: Run the local gate commands**
+- [x] **Step 2: Run the local gate commands**
 
 Run:
 
@@ -505,28 +509,32 @@ Expected:
 - managed static labels equal seed counts
 - no missing `Task / ScenarioProfile / AlgorithmParameterSpec / OutputSchemaPolicy`
 
-- [ ] **Step 3: Run a bounded Neo4j smoke set**
+- [x] **Step 3: Run a bounded Neo4j smoke set**
 
 Run:
 
 ```powershell
-python scripts/smoke_agentic_region.py --base-url http://127.0.0.1:8000 --query "need building data for Nairobi, Kenya" --timeout 1200
-python scripts/smoke_agentic_region.py --base-url http://127.0.0.1:8000 --query "need road data for Gilgit, Pakistan" --timeout 1200
-python scripts/smoke_agentic_region.py --base-url http://127.0.0.1:8000 --query "need water polygons for Nairobi, Kenya" --timeout 1200
-python scripts/smoke_agentic_region.py --base-url http://127.0.0.1:8000 --query "show hospitals in Nairobi, Kenya" --timeout 1200
+python scripts/smoke_agentic_region.py --base-url http://127.0.0.1:8012 --job-type building --query "need building data for Gitega city, Burundi" --timeout 1200 --output-json runs/smoke-building-gitega-city-inspection-8012.json
+python scripts/smoke_agentic_region.py --base-url http://127.0.0.1:8012 --job-type road --query "need road data for Gilgit city, Pakistan" --timeout 1200 --output-json runs/smoke-road-gilgit-city-inspection-8012.json
+python scripts/smoke_agentic_region.py --base-url http://127.0.0.1:8012 --job-type water --query "need water polygons for Nairobi, Kenya" --timeout 1200 --output-json runs/smoke-water-nairobi-inspection-8012.json
+python scripts/smoke_agentic_region.py --base-url http://127.0.0.1:8012 --job-type poi --query "show hospitals in Nairobi, Kenya" --timeout 1200 --output-json runs/smoke-poi-nairobi-inspection-8012.json
 ```
 
 Expected: four successful runs with complete `run.json`, `plan.json`, `validation.json`, `audit.jsonl`.
 
-- [ ] **Step 4: Re-run one paper manifest case under default Neo4j backend**
+- [x] **Step 4: Re-run one paper manifest case under default Neo4j backend**
 
 Run:
 
 ```powershell
-python scripts/eval_harness.py --manifest docs/superpowers/specs/2026-04-07-real-data-eval-manifest.json --case building_gitega_micro_agent --base-url http://127.0.0.1:8000 --timeout 1200 --output-json docs/superpowers/specs/2026-05-09-building-gitega-micro-neo4j-baseline.json
+python scripts/eval_harness.py --manifest docs/superpowers/specs/2026-04-07-real-data-eval-manifest.json --case building_gitega_micro_msft_agent --base-url http://127.0.0.1:8012 --timeout 1200 --output-json docs/superpowers/specs/2026-05-12-building-gitega-micro-msft-neo4j-baseline-8012.json
 ```
 
-Expected: one baseline case is reproducible without forcing `memory` backend.
+Observed:
+
+- `all_passed = true`
+- `run_id = 07ebbedd856b43a09ad3bf62ee55a440`
+- fresh summary saved to [2026-05-12-building-gitega-micro-msft-neo4j-baseline-8012.json](/E:/vscode/fusionAgent/docs/superpowers/specs/2026-05-12-building-gitega-micro-msft-neo4j-baseline-8012.json)
 
 ## Conditional Migration Spike Plan
 

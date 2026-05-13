@@ -6,6 +6,7 @@ from pathlib import Path
 import pytest
 
 from utils.local_runtime import (
+    DEFAULT_GRAPH_NAMESPACE,
     DependencyConfigError,
     apply_local_dependency_defaults,
     apply_runtime_entrypoint_defaults,
@@ -21,6 +22,7 @@ MANAGED_ENV_KEYS = [
     "GEOFUSION_NEO4J_USER",
     "GEOFUSION_NEO4J_PASSWORD",
     "GEOFUSION_NEO4J_DATABASE",
+    "GEOFUSION_GRAPH_NAMESPACE",
     "GEOFUSION_CELERY_BROKER",
     "GEOFUSION_CELERY_BACKEND",
     "GEOFUSION_LLM_PROVIDER",
@@ -71,6 +73,29 @@ def test_read_local_dependency_config_maps_dependency_txt_fields(tmp_path: Path)
     assert config.as_env_defaults()["GEOFUSION_CELERY_BROKER"] == "redis://localhost:6380/0"
     assert config.as_env_defaults()["GEOFUSION_NEO4J_URI"] == "bolt://localhost:7687"
     assert config.as_env_defaults()["GEOFUSION_NEO4J_DATABASE"] == "neo4j"
+    assert config.as_env_defaults()["GEOFUSION_GRAPH_NAMESPACE"] == DEFAULT_GRAPH_NAMESPACE
+
+
+def test_read_local_dependency_config_reads_optional_graph_namespace(tmp_path: Path) -> None:
+    dependency_file = tmp_path / "依赖.txt"
+    dependency_file.write_text(
+        "\n".join(
+            [
+                "Redis端口:6380",
+                "Neo4j用户名:neo4j",
+                "Neo4j密码:systemneo4j",
+                "图命名空间:fusionagent-lab",
+                "api-key:sk-test",
+                'base_url="https://www.dmxapi.cn/v1"',
+            ]
+        ),
+        encoding="utf-8",
+    )
+
+    config = read_local_dependency_config(dependency_file)
+
+    assert config.graph_namespace == "fusionagent-lab"
+    assert config.as_env_defaults()["GEOFUSION_GRAPH_NAMESPACE"] == "fusionagent-lab"
 
 
 def test_apply_local_dependency_defaults_does_not_override_existing_env(

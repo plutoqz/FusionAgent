@@ -25,7 +25,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument(
         "--job-type",
         choices=["building", "road", "water", "poi"],
-        default="building",
+        required=True,
         help="Fusion job type.",
     )
     parser.add_argument("--target-crs", default="", help="Optional explicit target CRS override.")
@@ -97,7 +97,7 @@ def run_smoke(
     }
     if target_crs:
         create_payload["target_crs"] = target_crs
-    created = _json_request("POST", create_url, form_data=create_payload, timeout_sec=min(timeout_sec, 60.0))
+    created = _json_request("POST", create_url, form_data=create_payload, timeout_sec=timeout_sec)
     run_id = created["run_id"]
 
     deadline = time.time() + timeout_sec

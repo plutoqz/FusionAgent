@@ -1,4 +1,4 @@
-# KG Gates Evidence Summary (2026-05-10)
+# KG Gates Evidence Summary (2026-05-10, refreshed 2026-05-12)
 
 ## Scope
 
@@ -15,6 +15,7 @@
   - `Neo4j edition: community`
   - `Neo4j isolation: managed-label`
   - `Neo4j database: zmn`
+  - `Neo4j namespace guard: fusionagent`
 
 ## Building
 
@@ -22,19 +23,19 @@
 
 - Manifest case: `building_gitega_micro_msft_agent`
 - Report:
-  - [2026-05-09-building-gitega-micro-msft-neo4j-baseline.json](/E:/vscode/fusionAgent/docs/superpowers/specs/2026-05-09-building-gitega-micro-msft-neo4j-baseline.json)
+  - [2026-05-12-building-gitega-micro-msft-neo4j-baseline-8012.json](/E:/vscode/fusionAgent/docs/superpowers/specs/2026-05-12-building-gitega-micro-msft-neo4j-baseline-8012.json)
 - Result:
   - `passed = 1`
-  - `run_id = d6308d853c2d4481bbbfac3fd2b020af`
+  - `run_id = 07ebbedd856b43a09ad3bf62ee55a440`
 
 ### Task-driven smoke
 
 - Natural-language query with explicit disambiguation:
   - `need building data for Gitega city, Burundi`
 - Inspection:
-  - [smoke-building-gitega-inspection.json](/E:/vscode/fusionAgent/runs/smoke-building-gitega-inspection.json)
+  - [smoke-building-gitega-city-inspection-8012.json](/E:/vscode/fusionAgent/runs/smoke-building-gitega-city-inspection-8012.json)
 - Result:
-  - `run_id = 86d224bb483b4078b8526c4be24373c2`
+  - `run_id = b4ffaa523fed45629600cfd935989c38`
   - `source_id = catalog.earthquake.building`
   - `phase = succeeded`
 
@@ -54,9 +55,9 @@
 - Query:
   - `need road data for Gilgit city, Pakistan`
 - Inspection:
-  - [smoke-road-gilgit-city-inspection.json](/E:/vscode/fusionAgent/runs/smoke-road-gilgit-city-inspection.json)
+  - [smoke-road-gilgit-city-inspection-8012.json](/E:/vscode/fusionAgent/runs/smoke-road-gilgit-city-inspection-8012.json)
 - Result:
-  - `run_id = 9e782dc0f1244f0f8077a10ce4ee3d1a`
+  - `run_id = de2ee0d67d854b7bb5da2c28b44a1e0f`
   - `phase = succeeded`
 
 ## Water
@@ -64,9 +65,9 @@
 - Query:
   - `need water polygons for Nairobi, Kenya`
 - Inspection:
-  - [smoke-water-nairobi-inspection.json](/E:/vscode/fusionAgent/runs/smoke-water-nairobi-inspection.json)
+  - [smoke-water-nairobi-inspection-8012.json](/E:/vscode/fusionAgent/runs/smoke-water-nairobi-inspection-8012.json)
 - Result:
-  - `run_id = 64899f5f4024418087f5e6c5142aa02c`
+  - `run_id = ccd5e86f91724fa1a331e9b306202276`
   - `source_id = catalog.flood.water`
   - `phase = succeeded`
 
@@ -75,24 +76,28 @@
 - Query:
   - `show hospitals in Nairobi, Kenya`
 - Inspection:
-  - [smoke-poi-nairobi-inspection.json](/E:/vscode/fusionAgent/runs/smoke-poi-nairobi-inspection.json)
+  - [smoke-poi-nairobi-inspection-8012.json](/E:/vscode/fusionAgent/runs/smoke-poi-nairobi-inspection-8012.json)
 - Result:
-  - `run_id = 3b6b6ee61d98441aa33ce512b06d30b0`
+  - `run_id = c4d1c293ddd5407e993b845991cf67c5`
   - `source_id = catalog.generic.poi`
   - `phase = succeeded`
 
 ## Key Fixes Behind These Gates
 
 1. `bootstrap completeness` and `KG contract check` are wired into local startup.
-2. Building tile clipping no longer writes boundary-collapsed `LINESTRING` geometries into polygon shapefiles.
-3. `catalog.flood.water` and `catalog.generic.poi` now allow partial coverage when the primary OSM-side component is present and the reference-side component is empty.
-4. AOI resolution now prefers the more specific nested `city` candidate over a broader same-name administrative candidate, which closes the `Gitega, Burundi` ambiguity case.
+2. `ScenarioProfile`, `ParameterSpec`, and `OutputSchemaPolicy` are active in planner, validator, and post-execution artifact checks.
+3. `Neo4jKGRepository` keeps decomposed workflow and parameter-spec retrieval reachable under the default backend.
+4. `graphNamespace` is now configurable from local runtime config and enforced in Neo4j read/write paths as a second guard.
+5. Building tile clipping no longer writes boundary-collapsed `LINESTRING` geometries into polygon shapefiles.
+6. `catalog.flood.water` and `catalog.generic.poi` now allow partial coverage when the primary OSM-side component is present and the reference-side component is empty.
+7. AOI resolution now prefers the more specific nested `city` candidate over a broader same-name administrative candidate, which closes the `Gitega, Burundi` ambiguity case.
 
 ## Current Conclusion
 
-截至 `2026-05-10`，默认 `Neo4j` backend 下的以下 gate 已经具备真实运行证据：
+截至 `2026-05-12`，默认 `Neo4j` backend 下的以下 gate 已经具备 fresh 运行证据：
 
 - `KG contract pass`
+- `graphNamespace` guard active
 - `building` baseline pass
 - `building / road / water / poi` task-driven smoke pass
 

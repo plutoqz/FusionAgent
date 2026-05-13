@@ -22,6 +22,7 @@ from kg.models import (
     WorkflowPatternNode,
 )
 from kg.repository import KGRepository
+from utils.local_runtime import DEFAULT_GRAPH_NAMESPACE, get_graph_namespace
 
 
 class Neo4jKGRepository(KGRepository):
@@ -31,6 +32,7 @@ class Neo4jKGRepository(KGRepository):
         user: str,
         password: str,
         database: Optional[str] = None,
+        graph_namespace: str = DEFAULT_GRAPH_NAMESPACE,
     ) -> None:
         try:
             from neo4j import GraphDatabase  # type: ignore
@@ -40,6 +42,7 @@ class Neo4jKGRepository(KGRepository):
         self._GraphDatabase = GraphDatabase
         self._driver = GraphDatabase.driver(uri, auth=(user, password))
         self.database = database
+        self.graph_namespace = graph_namespace.strip() or DEFAULT_GRAPH_NAMESPACE
 
     @classmethod
     def from_env(cls) -> Optional["Neo4jKGRepository"]:
@@ -47,10 +50,17 @@ class Neo4jKGRepository(KGRepository):
         user = os.getenv("GEOFUSION_NEO4J_USER")
         password = os.getenv("GEOFUSION_NEO4J_PASSWORD")
         database = os.getenv("GEOFUSION_NEO4J_DATABASE")
+        graph_namespace = get_graph_namespace()
         if not uri or not user or not password:
             return None
         resolved = resolve_graph_target(uri=uri, user=user, password=password, database=database)
-        return cls(uri=uri, user=user, password=password, database=resolved["database_used"])
+        return cls(
+            uri=uri,
+            user=user,
+            password=password,
+            database=resolved["database_used"],
+            graph_namespace=graph_namespace,
+        )
 
     def close(self) -> None:
         self._driver.close()
@@ -59,6 +69,12 @@ class Neo4jKGRepository(KGRepository):
         with self._driver.session(database=self.database) as session:
             result = session.run(cypher, params)
             return [dict(record) for record in result]
+
+    def _with_namespace(self, **params: object) -> Dict[str, object]:
+        return {
+            **params,
+            "graph_namespace": self.graph_namespace,
+        }
 
     @staticmethod
     def _parse_metadata_json(raw: object) -> Dict[str, object]:
@@ -78,10 +94,13 @@ class Neo4jKGRepository(KGRepository):
         rows = self._execute(
             f"""
             MATCH (a:Algorithm:{MANAGED_LABEL})
+            WHERE a.graphNamespace = $graph_namespace
             OPTIONAL MATCH (a)-[:ALTERNATIVE_TO]->(alt:Algorithm:{MANAGED_LABEL})
+            WHERE alt.graphNamespace = $graph_namespace
             RETURN a AS algo, collect(alt.algoId) AS alternatives
             ORDER BY algo.algoId ASC
-            """
+            """,
+            **self._with_namespace(),
         )
         result: List[AlgorithmNode] = []
         for row in rows:
@@ -108,11 +127,14 @@ class Neo4jKGRepository(KGRepository):
         rows = self._execute(
             f"""
             MATCH (wp:WorkflowPattern:{MANAGED_LABEL})
+            WHERE wp.graphNamespace = $graph_namespace
             OPTIONAL MATCH (wp)-[hs:HAS_STEP]->(st:StepTemplate:{MANAGED_LABEL})
+            WHERE st.graphNamespace = $graph_namespace
             WITH wp, st, hs ORDER BY wp.patternId ASC, hs.order ASC
             RETURN wp, collect(st) AS steps
             ORDER BY wp.patternId ASC
-            """
+            """,
+            **self._with_namespace(),
         )
         patterns: List[WorkflowPatternNode] = []
         for row in rows:
@@ -151,9 +173,11 @@ class Neo4jKGRepository(KGRepository):
         rows = self._execute(
             f"""
             MATCH (ds:DataSource:{MANAGED_LABEL})
+            WHERE ds.graphNamespace = $graph_namespace
             RETURN ds
             ORDER BY ds.sourceId ASC
-            """
+            """,
+            **self._with_namespace(),
         )
         return [
             DataSourceNode(
@@ -180,9 +204,11 @@ class Neo4jKGRepository(KGRepository):
         rows = self._execute(
             f"""
             MATCH (dt:DataType:{MANAGED_LABEL})
+            WHERE dt.graphNamespace = $graph_namespace
             RETURN dt
             ORDER BY dt.typeId
-            """
+            """,
+            **self._with_namespace(),
         )
         result: List[DataTypeNode] = []
         for row in rows:
@@ -201,9 +227,11 @@ class Neo4jKGRepository(KGRepository):
         rows = self._execute(
             f"""
             MATCH (task:Task:{MANAGED_LABEL})
+            WHERE task.graphNamespace = $graph_namespace
             RETURN task
             ORDER BY task.taskId ASC
-            """
+            """,
+            **self._with_namespace(),
         )
         return [
             TaskNode(
@@ -219,13 +247,16 @@ class Neo4jKGRepository(KGRepository):
         rows = self._execute(
             f"""
             MATCH (profile:ScenarioProfile:{MANAGED_LABEL})
-            WHERE $disaster_type IS NULL
-               OR $disaster_type IN profile.disasterTypes
-               OR "generic" IN profile.disasterTypes
+            WHERE profile.graphNamespace = $graph_namespace
+              AND (
+                $disaster_type IS NULL
+                OR $disaster_type IN profile.disasterTypes
+                OR "generic" IN profile.disasterTypes
+              )
             RETURN profile
             ORDER BY profile.profileId ASC
             """,
-            disaster_type=(disaster_type or None),
+            **self._with_namespace(disaster_type=(disaster_type or None)),
         )
         result: List[ScenarioProfileNode] = []
         for row in rows:
@@ -252,17 +283,21 @@ class Neo4jKGRepository(KGRepository):
         rows = self._execute(
             f"""
             MATCH (wp:WorkflowPattern:{MANAGED_LABEL})
-            WHERE wp.jobType = $job_type
+            WHERE wp.graphNamespace = $graph_namespace
+              AND wp.jobType = $job_type
               AND ($disaster_type IS NULL OR $disaster_type IN wp.disasterTypes OR "generic" IN wp.disasterTypes)
             OPTIONAL MATCH (wp)-[hs:HAS_STEP]->(st:StepTemplate:{MANAGED_LABEL})
+            WHERE st.graphNamespace = $graph_namespace
             WITH wp, st, hs ORDER BY hs.order ASC
             RETURN wp, collect(st) AS steps
             ORDER BY wp.successRate DESC
             LIMIT $limit
             """,
-            job_type=job_type.value,
-            disaster_type=(disaster_type or None),
-            limit=limit,
+            **self._with_namespace(
+                job_type=job_type.value,
+                disaster_type=(disaster_type or None),
+                limit=limit,
+            ),
         )
         patterns: List[WorkflowPatternNode] = []
         for row in rows:
@@ -301,11 +336,13 @@ class Neo4jKGRepository(KGRepository):
         rows = self._execute(
             f"""
             MATCH (a:Algorithm:{MANAGED_LABEL} {{algoId: $algo_id}})
+            WHERE a.graphNamespace = $graph_namespace
             OPTIONAL MATCH (a)-[:ALTERNATIVE_TO]->(alt:Algorithm:{MANAGED_LABEL})
+            WHERE alt.graphNamespace = $graph_namespace
             RETURN a AS algo, collect(alt.algoId) AS alternatives
             LIMIT 1
             """,
-            algo_id=algo_id,
+            **self._with_namespace(algo_id=algo_id),
         )
         if not rows:
             return None
@@ -330,11 +367,13 @@ class Neo4jKGRepository(KGRepository):
         rows = self._execute(
             f"""
             MATCH (algo:Algorithm:{MANAGED_LABEL} {{algoId: $algo_id}})
+            WHERE algo.graphNamespace = $graph_namespace
             OPTIONAL MATCH (algo)-[hs:HAS_PARAMETER_SPEC]->(ps:AlgorithmParameterSpec:{MANAGED_LABEL})
+            WHERE ps.graphNamespace = $graph_namespace
             RETURN ps, hs
             ORDER BY coalesce(hs.order, ps.order, 0) ASC, ps.key ASC
             """,
-            algo_id=algo_id,
+            **self._with_namespace(algo_id=algo_id),
         )
         specs: List[AlgorithmParameterSpec] = []
         for row in rows:
@@ -390,13 +429,14 @@ class Neo4jKGRepository(KGRepository):
     def get_alternative_algorithms(self, algo_id: str, limit: int = 3) -> List[AlgorithmNode]:
         rows = self._execute(
             f"""
-            MATCH (:Algorithm:{MANAGED_LABEL} {{algoId: $algo_id}})-[:ALTERNATIVE_TO]->(alt:Algorithm:{MANAGED_LABEL})
+            MATCH (src:Algorithm:{MANAGED_LABEL} {{algoId: $algo_id}})-[:ALTERNATIVE_TO]->(alt:Algorithm:{MANAGED_LABEL})
+            WHERE src.graphNamespace = $graph_namespace
+              AND alt.graphNamespace = $graph_namespace
             RETURN alt
             ORDER BY alt.successRate DESC
             LIMIT $limit
             """,
-            algo_id=algo_id,
-            limit=limit,
+            **self._with_namespace(algo_id=algo_id, limit=limit),
         )
         result: List[AlgorithmNode] = []
         for row in rows:
@@ -428,11 +468,13 @@ class Neo4jKGRepository(KGRepository):
             MATCH p = shortestPath(
               (s:DataType:{MANAGED_LABEL} {{typeId: $from_type}})-[:CAN_TRANSFORM_TO*..{depth}]->(t:DataType:{MANAGED_LABEL} {{typeId: $to_type}})
             )
+            WHERE s.graphNamespace = $graph_namespace
+              AND t.graphNamespace = $graph_namespace
+              AND all(n IN nodes(p) WHERE n.graphNamespace = $graph_namespace)
             RETURN [n IN nodes(p) | n.typeId] AS path
             LIMIT 1
             """,
-            from_type=from_type,
-            to_type=to_type,
+            **self._with_namespace(from_type=from_type, to_type=to_type),
         )
         if not rows:
             return []
@@ -448,16 +490,19 @@ class Neo4jKGRepository(KGRepository):
         rows = self._execute(
             f"""
             MATCH (ds:DataSource:{MANAGED_LABEL})
-            WHERE $required_type IN ds.supportedTypes
+            WHERE ds.graphNamespace = $graph_namespace
+              AND $required_type IN ds.supportedTypes
               AND ($disaster_type IS NULL OR $disaster_type IN ds.disasterTypes OR "generic" IN ds.disasterTypes)
             RETURN ds
             ORDER BY coalesce(ds.qualityScore, 0.0) DESC
             LIMIT $limit
             """,
-            job_type=job_type.value,
-            disaster_type=(disaster_type or None),
-            required_type=required_type,
-            limit=limit,
+            **self._with_namespace(
+                job_type=job_type.value,
+                disaster_type=(disaster_type or None),
+                required_type=required_type,
+                limit=limit,
+            ),
         )
         return [
             DataSourceNode(
@@ -484,10 +529,12 @@ class Neo4jKGRepository(KGRepository):
         rows = self._execute(
             f"""
             MATCH (osp:OutputSchemaPolicy:{MANAGED_LABEL})-[:APPLIES_TO_OUTPUT_TYPE]->(dt:DataType:{MANAGED_LABEL} {{typeId: $output_type}})
+            WHERE osp.graphNamespace = $graph_namespace
+              AND dt.graphNamespace = $graph_namespace
             RETURN osp
             LIMIT 1
             """,
-            output_type=output_type,
+            **self._with_namespace(output_type=output_type),
         )
         if not rows:
             return None
@@ -509,24 +556,22 @@ class Neo4jKGRepository(KGRepository):
             f"""
             CALL {{
               CALL db.index.fulltext.queryNodes("algo_search", $query) YIELD node, score
-              WITH node, score WHERE $managed_label IN labels(node)
+              WITH node, score WHERE $managed_label IN labels(node) AND node.graphNamespace = $graph_namespace
               RETURN "algorithm" AS kind, node.algoId AS id, node.algoName AS label, score
               UNION
               CALL db.index.fulltext.queryNodes("wp_search", $query) YIELD node, score
-              WITH node, score WHERE $managed_label IN labels(node)
+              WITH node, score WHERE $managed_label IN labels(node) AND node.graphNamespace = $graph_namespace
               RETURN "pattern" AS kind, node.patternId AS id, node.patternName AS label, score
               UNION
               CALL db.index.fulltext.queryNodes("ds_search", $query) YIELD node, score
-              WITH node, score WHERE $managed_label IN labels(node)
+              WITH node, score WHERE $managed_label IN labels(node) AND node.graphNamespace = $graph_namespace
               RETURN "data_source" AS kind, node.sourceId AS id, node.sourceName AS label, score
             }}
             RETURN kind, id, label, score
             ORDER BY score DESC
             LIMIT $limit
             """,
-            query=query,
-            limit=limit,
-            managed_label=MANAGED_LABEL,
+            **self._with_namespace(query=query, limit=limit, managed_label=MANAGED_LABEL),
         )
         return rows
 
@@ -542,26 +587,31 @@ class Neo4jKGRepository(KGRepository):
                 run.repaired = $repaired,
                 run.repairCount = $repair_count,
                 run.failureReason = $failure_reason,
-                run.graphNamespace = "fusionagent"
+                run.graphNamespace = $graph_namespace
             WITH run
             OPTIONAL MATCH (wp:WorkflowPattern:{MANAGED_LABEL} {{patternId: $pattern_id}})
+            WHERE wp.graphNamespace = $graph_namespace
             OPTIONAL MATCH (algo:Algorithm:{MANAGED_LABEL} {{algoId: $algorithm_id}})
+            WHERE algo.graphNamespace = $graph_namespace
             OPTIONAL MATCH (ds:DataSource:{MANAGED_LABEL} {{sourceId: $selected_data_source}})
+            WHERE ds.graphNamespace = $graph_namespace
             FOREACH (_ IN CASE WHEN wp IS NULL THEN [] ELSE [1] END | MERGE (run)-[:INSTANTIATES]->(wp))
             FOREACH (_ IN CASE WHEN algo IS NULL THEN [] ELSE [1] END | MERGE (run)-[:USED_ALGORITHM]->(algo))
             FOREACH (_ IN CASE WHEN ds IS NULL THEN [] ELSE [1] END | MERGE (run)-[:USED_SOURCE]->(ds))
             """,
-            run_id=feedback.run_id,
-            job_type=feedback.job_type.value,
-            disaster_type=feedback.disaster_type,
-            trigger_type=feedback.trigger_type,
-            success=feedback.success,
-            repaired=feedback.repaired,
-            repair_count=feedback.repair_count,
-            failure_reason=feedback.failure_reason,
-            pattern_id=feedback.pattern_id,
-            algorithm_id=feedback.algorithm_id,
-            selected_data_source=feedback.selected_data_source,
+            **self._with_namespace(
+                run_id=feedback.run_id,
+                job_type=feedback.job_type.value,
+                disaster_type=feedback.disaster_type,
+                trigger_type=feedback.trigger_type,
+                success=feedback.success,
+                repaired=feedback.repaired,
+                repair_count=feedback.repair_count,
+                failure_reason=feedback.failure_reason,
+                pattern_id=feedback.pattern_id,
+                algorithm_id=feedback.algorithm_id,
+                selected_data_source=feedback.selected_data_source,
+            ),
         )
 
     def record_durable_learning_record(self, record: DurableLearningRecord) -> None:
@@ -587,33 +637,39 @@ class Neo4jKGRepository(KGRepository):
                 dlr.planRevision = $plan_revision,
                 dlr.metadataJson = $metadata_json,
                 dlr.createdAt = $created_at,
-                dlr.graphNamespace = "fusionagent"
+                dlr.graphNamespace = $graph_namespace
             MERGE (run)-[:HAS_DURABLE_LEARNING]->(dlr)
+            SET run.graphNamespace = $graph_namespace
             WITH dlr
             OPTIONAL MATCH (wp:WorkflowPattern:{MANAGED_LABEL} {{patternId: $pattern_id}})
+            WHERE wp.graphNamespace = $graph_namespace
             OPTIONAL MATCH (algo:Algorithm:{MANAGED_LABEL} {{algoId: $algorithm_id}})
+            WHERE algo.graphNamespace = $graph_namespace
             OPTIONAL MATCH (ds:DataSource:{MANAGED_LABEL} {{sourceId: $selected_data_source}})
+            WHERE ds.graphNamespace = $graph_namespace
             FOREACH (_ IN CASE WHEN wp IS NULL THEN [] ELSE [1] END | MERGE (dlr)-[:SUMMARIZES_PATTERN]->(wp))
             FOREACH (_ IN CASE WHEN algo IS NULL THEN [] ELSE [1] END | MERGE (dlr)-[:SUMMARIZES_ALGORITHM]->(algo))
             FOREACH (_ IN CASE WHEN ds IS NULL THEN [] ELSE [1] END | MERGE (dlr)-[:SUMMARIZES_SOURCE]->(ds))
             """,
-            record_id=record.record_id,
-            run_id=record.run_id,
-            job_type=record.job_type.value,
-            trigger_type=record.trigger_type,
-            success=record.success,
-            disaster_type=record.disaster_type,
-            pattern_id=record.pattern_id,
-            algorithm_id=record.algorithm_id,
-            selected_data_source=record.selected_data_source,
-            output_data_type=record.output_data_type,
-            target_crs=record.target_crs,
-            repaired=record.repaired,
-            repair_count=record.repair_count,
-            failure_reason=record.failure_reason,
-            plan_revision=record.plan_revision,
-            metadata_json=(json.dumps(record.metadata, ensure_ascii=False, sort_keys=True) if record.metadata else None),
-            created_at=record.created_at,
+            **self._with_namespace(
+                record_id=record.record_id,
+                run_id=record.run_id,
+                job_type=record.job_type.value,
+                trigger_type=record.trigger_type,
+                success=record.success,
+                disaster_type=record.disaster_type,
+                pattern_id=record.pattern_id,
+                algorithm_id=record.algorithm_id,
+                selected_data_source=record.selected_data_source,
+                output_data_type=record.output_data_type,
+                target_crs=record.target_crs,
+                repaired=record.repaired,
+                repair_count=record.repair_count,
+                failure_reason=record.failure_reason,
+                plan_revision=record.plan_revision,
+                metadata_json=(json.dumps(record.metadata, ensure_ascii=False, sort_keys=True) if record.metadata else None),
+                created_at=record.created_at,
+            ),
         )
 
     def list_durable_learning_records(
@@ -626,15 +682,18 @@ class Neo4jKGRepository(KGRepository):
         rows = self._execute(
             f"""
             MATCH (dlr:DurableLearningRecord:{MANAGED_LABEL})
-            WHERE ($job_type IS NULL OR dlr.jobType = $job_type)
+            WHERE dlr.graphNamespace = $graph_namespace
+              AND ($job_type IS NULL OR dlr.jobType = $job_type)
               AND ($success IS NULL OR dlr.success = $success)
             RETURN dlr
             ORDER BY coalesce(dlr.createdAt, "") DESC, dlr.recordId DESC
             LIMIT $limit
             """,
-            job_type=(job_type.value if job_type is not None else None),
-            success=success,
-            limit=limit,
+            **self._with_namespace(
+                job_type=(job_type.value if job_type is not None else None),
+                success=success,
+                limit=limit,
+            ),
         )
         result: List[DurableLearningRecord] = []
         for row in rows:

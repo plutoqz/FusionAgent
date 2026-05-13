@@ -27,7 +27,7 @@ from schemas.fusion import FieldMapping, JobType
 from schemas.kg_graph import KgGraphResponse
 from schemas.operator import OperatorRunListResponse, OperatorRuntimeSummaryResponse
 from schemas.ui_assets import ArtifactPreviewResponse
-from services.agent_run_service import agent_run_service
+from services.agent_run_service import agent_run_service, derive_run_inspection_digest
 from services.artifact_preview_service import build_artifact_preview
 from services.kg_graph_service import build_run_path_graph
 from services.kg_path_trace_service import build_kg_path_trace
@@ -78,6 +78,7 @@ def _build_run_inspection_response(run_id: str, status: RunStatus) -> RunInspect
         audit_events=audit_events,
         artifact=artifact,
         kg_path_trace=build_kg_path_trace(plan) if plan is not None else {},
+        digest=derive_run_inspection_digest(status, audit_events),
     )
 
 

@@ -12,6 +12,7 @@ from typing import Iterable
 DEFAULT_DEPENDENCY_FILE = Path(__file__).resolve().parents[1] / "依赖.txt"
 DEFAULT_LLM_MODEL = "qwen3.5-397b-a17b"
 DEFAULT_NEO4J_URI = "bolt://localhost:7687"
+DEFAULT_GRAPH_NAMESPACE = "fusionagent"
 DEFAULT_RUNTIME_MODULES = (
     "fastapi",
     "uvicorn",
@@ -44,6 +45,7 @@ class LocalDependencyConfig:
     llm_model: str = DEFAULT_LLM_MODEL
     neo4j_uri: str = DEFAULT_NEO4J_URI
     neo4j_database: str | None = None
+    graph_namespace: str = DEFAULT_GRAPH_NAMESPACE
 
     def as_env_defaults(self) -> dict[str, str]:
         defaults = {
@@ -51,6 +53,7 @@ class LocalDependencyConfig:
             "GEOFUSION_NEO4J_URI": self.neo4j_uri,
             "GEOFUSION_NEO4J_USER": self.neo4j_user,
             "GEOFUSION_NEO4J_PASSWORD": self.neo4j_password,
+            "GEOFUSION_GRAPH_NAMESPACE": self.graph_namespace,
             "GEOFUSION_CELERY_BROKER": f"redis://localhost:{self.redis_port}/0",
             "GEOFUSION_CELERY_BACKEND": f"redis://localhost:{self.redis_port}/0",
             "GEOFUSION_LLM_PROVIDER": "openai",
@@ -133,6 +136,11 @@ def read_local_dependency_config(
         or _search_optional(r"GEOFUSION_NEO4J_URI\s*[:：=]\s*([^\s]+)", text)
         or DEFAULT_NEO4J_URI
     )
+    graph_namespace = (
+        _search_optional(r"图命名空间\s*[:：]\s*([^\s]+)", text)
+        or _search_optional(r"GEOFUSION_GRAPH_NAMESPACE\s*[:：=]\s*([^\s]+)", text)
+        or DEFAULT_GRAPH_NAMESPACE
+    )
 
     return LocalDependencyConfig(
         redis_port=redis_port,
@@ -143,6 +151,7 @@ def read_local_dependency_config(
         llm_model=llm_model,
         neo4j_uri=neo4j_uri,
         neo4j_database=neo4j_database,
+        graph_namespace=graph_namespace,
     )
 
 
@@ -171,6 +180,11 @@ def apply_runtime_entrypoint_defaults(
     if os.getenv("PYTEST_CURRENT_TEST") or "pytest" in sys.modules:
         return {}
     return apply_local_dependency_defaults(path, required=required)
+
+
+def get_graph_namespace(default: str = DEFAULT_GRAPH_NAMESPACE) -> str:
+    value = os.getenv("GEOFUSION_GRAPH_NAMESPACE", "").strip()
+    return value or default
 
 
 def find_missing_runtime_dependencies(module_names: Iterable[str] | None = None) -> list[str]:

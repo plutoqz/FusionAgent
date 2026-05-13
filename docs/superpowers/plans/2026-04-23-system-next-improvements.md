@@ -66,7 +66,7 @@ Modify:
 - Create: `docs/superpowers/specs/2026-04-23-complexity-boundary-ledger.md`
 - Modify: `docs/v2-operations.md`
 
-- [ ] **Step 1: Write the improvement review spec**
+- [x] **Step 1: Write the improvement review spec**
 
 Create `docs/superpowers/specs/2026-04-23-system-next-improvement-review.md` with a table mapping each challenge from `文档/问题、回答和改进方向.txt` to evidence:
 
@@ -83,7 +83,7 @@ Create `docs/superpowers/specs/2026-04-23-system-next-improvement-review.md` wit
 | Recovery is bounded and honest | stale-run scanner returns explicit recovery actions without claiming full 7x24 HA |
 ```
 
-- [ ] **Step 2: Write the complexity boundary ledger**
+- [x] **Step 2: Write the complexity boundary ledger**
 
 Create `docs/superpowers/specs/2026-04-23-complexity-boundary-ledger.md`:
 
@@ -104,7 +104,7 @@ Create `docs/superpowers/specs/2026-04-23-complexity-boundary-ledger.md`:
 | artifact reuse branches | optional | keep but document | useful, but not the core proof |
 ```
 
-- [ ] **Step 3: Verify**
+- [x] **Step 3: Verify**
 
 Run:
 
@@ -125,11 +125,11 @@ Expected: both commands print matches.
 - Test: `tests/test_tool_registry.py`
 - Test: `tests/test_worker_orchestration.py`
 
-- [ ] **Step 1: Write failing registry tests**
+- [x] **Step 1: Write failing registry tests**
 
 Create `tests/test_tool_registry.py` with tests that assert `build_default_tool_registry()` includes `algo.fusion.building.v1`, `algo.fusion.building.safe`, `algo.fusion.road.v1`, `algo.fusion.road.safe`, `algo.fusion.water.v1`, and `algo.fusion.poi.v1`; each spec must expose `input_types`, `output_type`, `handler_name`, `timeout_seconds`, and fail-closed error policy.
 
-- [ ] **Step 2: Implement `agent/tooling.py`**
+- [x] **Step 2: Implement `agent/tooling.py`**
 
 Implement:
 
@@ -147,11 +147,11 @@ class ToolSpec:
 
 Also implement `ToolRegistry.get()`, `ToolRegistry.require()`, `ToolRegistry.list_algorithm_ids()`, and `build_default_tool_registry()`.
 
-- [ ] **Step 3: Wire executor dispatch**
+- [x] **Step 3: Wire executor dispatch**
 
 Modify `WorkflowExecutor` so `_execute_algorithm()` first requires a `ToolSpec`, then resolves `spec.handler_name` against existing handler functions. Unknown algorithms must fail before execution with a clear `ValueError`.
 
-- [ ] **Step 4: Verify**
+- [x] **Step 4: Verify**
 
 Run:
 
@@ -173,7 +173,7 @@ Expected: all pass.
 - Test: `tests/test_plan_grounding_service.py`
 - Test: `tests/test_kg_path_trace_service.py`
 
-- [ ] **Step 1: Write failing grounding tests**
+- [x] **Step 1: Write failing grounding tests**
 
 Create tests proving:
 
@@ -182,7 +182,7 @@ Create tests proving:
 - data source not in retrieval yields `DATA_SOURCE_NOT_IN_RETRIEVAL`
 - output type different from `intent.expected_output_type` yields `OUTPUT_TYPE_MISMATCH`
 
-- [ ] **Step 2: Implement grounding service**
+- [x] **Step 2: Implement grounding service**
 
 Create `build_plan_grounding_report(plan: WorkflowPlan) -> dict[str, Any]`.
 
@@ -201,11 +201,11 @@ Each step result must include:
 
 Top-level report must include `grounded`, `grounded_step_count`, `total_step_count`, `grounding_score`, and `steps`.
 
-- [ ] **Step 3: Persist and expose report**
+- [x] **Step 3: Persist and expose report**
 
 In `AgentRunService.run_planning_stage()`, write `plan.context["grounding_report"] = build_plan_grounding_report(plan)` before persisting `plan.json`. Add `grounded` and `grounding_score` to `plan_created` audit details. In `build_kg_path_trace(plan)`, include `grounding_report`.
 
-- [ ] **Step 4: Verify**
+- [x] **Step 4: Verify**
 
 Run:
 
@@ -227,7 +227,7 @@ Expected: all pass.
 - Test: `tests/test_unsupported_intent_guard.py`
 - Test: `tests/test_api_v2_integration.py`
 
-- [ ] **Step 1: Write failing guard tests**
+- [x] **Step 1: Write failing guard tests**
 
 Create tests for:
 
@@ -235,7 +235,7 @@ Create tests for:
 - `"请把融合后属性表列名改成中文"` -> `UNSUPPORTED_OUTPUT_SCHEMA_CUSTOMIZATION`
 - `"need building data for Nairobi"` -> no issues
 
-- [ ] **Step 2: Implement deterministic classifier**
+- [x] **Step 2: Implement deterministic classifier**
 
 Create `classify_unsupported_intent(content: str, *, job_type: str) -> list[dict[str, str]]`.
 
@@ -244,7 +244,7 @@ Initial keyword groups:
 - off-domain: `gdp`, `gross domestic product`, `国内生产总值`, `人口`
 - unsupported schema customization: `中文列名`, `列名改成中文`, `属性表列名`, `rename columns`
 
-- [ ] **Step 3: Wire API and service**
+- [x] **Step 3: Wire API and service**
 
 In `api/routers/runs_v2.py`, reject with:
 
@@ -254,7 +254,7 @@ HTTPException(status_code=422, detail={"unsupported_intent": issues})
 
 In `AgentRunService.create_run()`, raise `ValueError` for non-API callers.
 
-- [ ] **Step 4: Verify**
+- [x] **Step 4: Verify**
 
 Run:
 
@@ -278,11 +278,11 @@ Expected: unsupported requests fail deterministically; normal requests are uncha
 - Test: `tests/test_run_telemetry_service.py`
 - Test: `tests/test_planner_context.py`
 
-- [ ] **Step 1: Write telemetry tests**
+- [x] **Step 1: Write telemetry tests**
 
 Create tests for `estimate_json_size_bytes()` and `normalize_llm_usage()`. `normalize_llm_usage()` must accept OpenAI-style `{"prompt_tokens": 10, "completion_tokens": 4, "total_tokens": 14}`.
 
-- [ ] **Step 2: Implement telemetry helpers**
+- [x] **Step 2: Implement telemetry helpers**
 
 Create:
 
@@ -295,15 +295,15 @@ def normalize_llm_usage(raw: object) -> dict[str, int | None]:
     ...
 ```
 
-- [ ] **Step 3: Capture provider usage**
+- [x] **Step 3: Capture provider usage**
 
 Add optional `last_usage` to `LLMProvider`. In `OpenAICompatibleProvider.generate_workflow_plan()`, store response `usage` and model. Mock provider remains empty.
 
-- [ ] **Step 4: Persist telemetry**
+- [x] **Step 4: Persist telemetry**
 
 In `WorkflowPlanner.create_plan()` and `replan_from_error()`, store `planning_telemetry` in `plan.context`: elapsed ms, context size bytes, provider, model, and normalized token usage. In `AgentRunService`, copy it into `RunStatus` and `plan_created` audit details.
 
-- [ ] **Step 5: Verify**
+- [x] **Step 5: Verify**
 
 Run:
 
@@ -324,11 +324,11 @@ Expected: all pass.
 - Test: `tests/test_agent_run_service_enhancements.py`
 - Test: `tests/test_workflow_trace_service.py`
 
-- [ ] **Step 1: Add executor callback**
+- [x] **Step 1: Add executor callback**
 
 Extend `WorkflowExecutor.execute_plan()` with optional `on_step_event`. Emit `started`, `succeeded`, and `failed` for executable tasks only.
 
-- [ ] **Step 2: Wire status updates**
+- [x] **Step 2: Wire status updates**
 
 In `AgentRunService.run_execution_stage()`, pass a callback that writes audit events:
 
@@ -338,11 +338,11 @@ In `AgentRunService.run_execution_stage()`, pass a callback that writes audit ev
 
 Each event includes `algorithm_id`, `data_source_id`, and current step.
 
-- [ ] **Step 3: Update trace mapping**
+- [x] **Step 3: Update trace mapping**
 
 Add step events to `services/workflow_trace_service.py` so operator inspection can reconstruct progress beyond coarse phases.
 
-- [ ] **Step 4: Verify**
+- [x] **Step 4: Verify**
 
 Run:
 
@@ -363,11 +363,11 @@ Expected: step-level events appear without changing terminal success/failure beh
 - Test: `tests/test_run_recovery_service.py`
 - Test: `tests/test_worker_orchestration.py`
 
-- [ ] **Step 1: Write stale-run scanner tests**
+- [x] **Step 1: Write stale-run scanner tests**
 
 Create tests that write a stale `runs/<id>/run.json` with `phase="running"`, `updated_at`, and `checkpoint`, then assert `collect_recoverable_runs()` returns it.
 
-- [ ] **Step 2: Implement scanner**
+- [x] **Step 2: Implement scanner**
 
 Create:
 
@@ -381,15 +381,15 @@ Initial actions:
 - `redispatch_from_execution`
 - `mark_failed_requires_manual_review`
 
-- [ ] **Step 3: Add status checkpoint fields**
+- [x] **Step 3: Add status checkpoint fields**
 
 Add `checkpoint: Dict[str, Any]` and `updated_at: Optional[str]` to `RunStatus`. Update them from `_update_status()` and stage methods.
 
-- [ ] **Step 4: Expose safe inspection**
+- [x] **Step 4: Expose safe inspection**
 
 Add `AgentRunService.collect_recoverable_runs(stale_after_seconds=300)` but do not auto-resume by default. The first increment should make recovery inspectable before automatic replay.
 
-- [ ] **Step 5: Verify**
+- [x] **Step 5: Verify**
 
 Run:
 
@@ -408,11 +408,11 @@ Expected: all pass.
 - Test: `tests/test_eval_kg_ablation.py`
 - Modify: `docs/superpowers/specs/2026-04-23-system-next-improvement-review.md`
 
-- [ ] **Step 1: Write summary tests**
+- [x] **Step 1: Write summary tests**
 
 Create tests for `summarize_ablation_results(rows)` with variants `kg_llm` and `no_kg_llm`. Assert rates for planning validity, unknown algorithms, execution success, average grounding score, and case count.
 
-- [ ] **Step 2: Implement summary core**
+- [x] **Step 2: Implement summary core**
 
 Create `scripts/eval_kg_ablation.py` with CLI args:
 
@@ -422,7 +422,7 @@ Create `scripts/eval_kg_ablation.py` with CLI args:
 
 The summary must not invent live metrics; it only aggregates supplied rows.
 
-- [ ] **Step 3: Add variant labels**
+- [x] **Step 3: Add variant labels**
 
 Supported labels:
 
@@ -431,7 +431,7 @@ Supported labels:
 - `no_schema_hints`: removes data/source/parameter/schema hints
 - `no_kg_llm`: experimental baseline, marked skipped unless fixture/provider rows are supplied
 
-- [ ] **Step 4: Verify**
+- [x] **Step 4: Verify**
 
 Run:
 
@@ -450,11 +450,11 @@ Expected: all pass.
 - Modify: `README.en.md`
 - Modify: `docs/v2-operations.md`
 
-- [ ] **Step 1: Add next-scope wording**
+- [x] **Step 1: Add next-scope wording**
 
 In both READMEs, add that the next engineering increment focuses on registered tool contracts, KG grounding reports, unsupported-intent rejection, token/latency telemetry, checkpoint recovery inspection, and ablation evidence.
 
-- [ ] **Step 2: Keep boundaries explicit**
+- [x] **Step 2: Keep boundaries explicit**
 
 Do not claim:
 
@@ -464,7 +464,7 @@ Do not claim:
 - external event-feed integration
 - live trajectory-to-road ingestion
 
-- [ ] **Step 3: Add operation commands**
+- [x] **Step 3: Add operation commands**
 
 Add focused test command to `docs/v2-operations.md`:
 
@@ -472,7 +472,7 @@ Add focused test command to `docs/v2-operations.md`:
 python -m pytest -q tests/test_tool_registry.py tests/test_plan_grounding_service.py tests/test_unsupported_intent_guard.py tests/test_run_telemetry_service.py tests/test_run_recovery_service.py tests/test_eval_kg_ablation.py
 ```
 
-- [ ] **Step 4: Verify**
+- [x] **Step 4: Verify**
 
 Run:
 

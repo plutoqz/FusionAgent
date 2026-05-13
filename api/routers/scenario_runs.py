@@ -26,7 +26,10 @@ async def list_scenario_runs(
 
 @router.post("/scenario-runs", response_model=ScenarioRunResponse)
 async def create_scenario_run(request: ScenarioRunRequest) -> ScenarioRunResponse:
-    return scenario_run_service.create_scenario_run(request)
+    try:
+        return scenario_run_service.create_scenario_run(request)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.get("/scenario-runs/{scenario_id}", response_model=ScenarioRunInspectionResponse)

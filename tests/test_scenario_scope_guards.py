@@ -1,0 +1,34 @@
+from __future__ import annotations
+
+import pytest
+
+from schemas.fusion import JobType
+from schemas.scenario import ScenarioRunRequest
+from services.scenario_run_service import ScenarioRunService, classify_scenario_request
+from tests.test_scenario_run_service import _FakeAgentRunService
+
+
+def test_out_of_scope_scenario_request_is_rejected_or_clarified() -> None:
+    decision = classify_scenario_request(
+        scenario_name="Global traffic telemetry replay",
+        trigger_content="simulate live event-feed with full digital twin outputs",
+        job_types=[JobType.road],
+    )
+
+    assert decision["decision"] in {"reject", "clarify"}
+    assert decision["reason_code"] == "UNSUPPORTED_EVENT_FEED_EXPECTATION"
+
+
+def test_scenario_run_service_rejects_out_of_scope_request_before_creating_child_runs(tmp_path) -> None:
+    service = ScenarioRunService(agent_run_service=_FakeAgentRunService(tmp_path))
+
+    with pytest.raises(ValueError, match="UNSUPPORTED_EVENT_FEED_EXPECTATION"):
+        service.create_scenario_run(
+            ScenarioRunRequest(
+                scenario_name="Global traffic telemetry replay",
+                trigger_content="simulate live event-feed with full digital twin outputs",
+                disaster_type="flood",
+                job_types=[JobType.road],
+                output_root=str(tmp_path / "scenarios"),
+            )
+        )

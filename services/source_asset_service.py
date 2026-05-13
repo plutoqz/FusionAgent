@@ -101,6 +101,30 @@ def coverage_status_for_count(feature_count: int | None) -> str:
     return "available"
 
 
+def classify_source_fault(
+    *,
+    source: dict[str, Any] | None = None,
+    expected_crs: str | None = None,
+    error: Exception | str | None = None,
+) -> str:
+    source = dict(source or {})
+    source_crs = str(source.get("crs") or "").strip().upper()
+    normalized_expected = str(expected_crs or "").strip().upper()
+    if normalized_expected and source_crs and source_crs != normalized_expected:
+        return "CRS_MISMATCH"
+
+    text = str(error or "").strip().lower()
+    if "crs mismatch" in text:
+        return "CRS_MISMATCH"
+    if "corrupt" in text or "corrupted" in text or "broken" in text or "badzipfile" in text:
+        return "SOURCE_CORRUPTED"
+    if "no local or remote source asset path available" in text or "not found" in text or "missing" in text:
+        return "SOURCE_MISSING"
+    if source.get("path") in {None, ""}:
+        return "SOURCE_MISSING"
+    return "SOURCE_CORRUPTED"
+
+
 @dataclass(frozen=True)
 class _GeofabrikBundle:
     slug: str

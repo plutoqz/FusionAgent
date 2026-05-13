@@ -12,7 +12,7 @@ def normalize_trigger_event(event: dict[str, Any]) -> ScenarioRunRequest:
     event_type = _clean_text(event.get("event_type"))
     location = _clean_text(event.get("location"))
     description = _clean_text(event.get("description"))
-    job_types = _requested_job_types(event.get("requested_layers"))
+    job_types, unsupported_layers = _partition_requested_job_types(event.get("requested_layers"))
     idempotency_key = _idempotency_key(event)
     layer_text = " and ".join(job_type.value for job_type in job_types)
     trigger_content = f"fuse {layer_text} data for {location or 'the affected area'}"
@@ -30,6 +30,7 @@ def normalize_trigger_event(event: dict[str, Any]) -> ScenarioRunRequest:
             "idempotency_key": idempotency_key,
             "event_id": event.get("event_id"),
             "trigger_event": dict(event),
+            "unsupported_requested_layers": unsupported_layers,
         },
     )
 
@@ -48,17 +49,21 @@ def _scenario_name(*, event_type: str, location: str) -> str:
     return "triggered scenario"
 
 
-def _requested_job_types(raw_layers: Any) -> List[JobType]:
+def _partition_requested_job_types(raw_layers: Any) -> tuple[List[JobType], List[str]]:
     job_types: List[JobType] = []
+    unsupported_layers: List[str] = []
     layers = raw_layers if isinstance(raw_layers, list) else []
     for layer in layers:
+        layer_text = str(layer).strip().lower()
         try:
-            job_type = JobType(str(layer).strip().lower())
+            job_type = JobType(layer_text)
         except ValueError:
+            if layer_text and layer_text not in unsupported_layers:
+                unsupported_layers.append(layer_text)
             continue
         if job_type not in job_types:
             job_types.append(job_type)
-    return job_types or [JobType.building, JobType.road]
+    return (job_types or [JobType.building, JobType.road], unsupported_layers)
 
 
 def _idempotency_key(event: Dict[str, Any]) -> str:

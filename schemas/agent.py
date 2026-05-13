@@ -223,12 +223,21 @@ class RunInspectionArtifact(BaseModel):
     download_path: Optional[str] = None
 
 
+class RunInspectionDigest(BaseModel):
+    current_phase: Optional[str] = None
+    failed_step: Optional[str] = None
+    root_cause: Optional[str] = None
+    recoverability: Optional[str] = None
+    next_operator_action: Optional[str] = None
+
+
 class RunInspectionResponse(BaseModel):
     run: RunStatus
     plan: Optional[WorkflowPlan] = None
     audit_events: List[RunEvent] = Field(default_factory=list)
     artifact: RunInspectionArtifact = Field(default_factory=RunInspectionArtifact)
     kg_path_trace: Dict[str, Any] = Field(default_factory=dict)
+    digest: RunInspectionDigest = Field(default_factory=RunInspectionDigest)
 
 
 class RunComparisonResponse(BaseModel):
