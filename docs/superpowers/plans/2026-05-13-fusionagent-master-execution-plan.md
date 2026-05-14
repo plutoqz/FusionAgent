@@ -174,6 +174,15 @@
 - [x] B5. 重新生成 no-ui maturity freeze：
   - `2026-04-21-no-ui-maturity-evidence-freeze.json`
   - `2026-04-21-no-ui-maturity-evidence-freeze.md`
+- [x] B5.a 2026-05-14 CI 回归修复：
+  - GitHub `ci` 失败定位到 `mock-inmemory-tests`
+  - 根因确认为 scenario building case 为保留 `aoi_resolved` 证据而放宽 AOI 解析触发范围，误伤 direct bbox run
+  - 已引入 `force_aoi_resolution` 显式开关，仅对需要 `require_aoi_resolved` 的 scenario+bbox 组合启用，收回全局副作用
+  - 本地验证结果：
+    - focused AOI slice: `3 passed`
+    - CI 对应 mock/in-memory slice: `89 passed, 8 warnings`
+    - scenario/integration 扩展 slice: `22 passed, 2 warnings`
+    - `python scripts/run_no_ui_maturity_check.py`: `passed=true`, `static_check_passed=true`
 - [ ] B6. 在 no-ui maturity gate 真实通过之前，不改 README 定位；若 gate 全通过，再决定是否补充 maturity marker 并清理 prototype-only 残余表述。
 
 ### 验证

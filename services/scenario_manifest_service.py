@@ -21,12 +21,15 @@ def scenario_case_to_request(case: ScenarioEvalCase, *, output_root: Optional[st
     metadata["case_id"] = case.case_id
     metadata["expected_phase"] = list(case.expected_phase)
     metadata["tags"] = list(case.tags)
+    force_aoi_resolution = bool(case.spatial_extent and case.capability_checks.require_aoi_resolved)
+    metadata["force_aoi_resolution"] = force_aoi_resolution
     return ScenarioRunRequest(
         scenario_name=case.scenario_name,
         trigger_content=case.trigger_content,
         disaster_type=case.disaster_type,
         job_types=list(case.job_types),
         spatial_extent=case.spatial_extent,
+        force_aoi_resolution=force_aoi_resolution,
         output_root=output_root,
         target_crs=case.target_crs,
         metadata=metadata,

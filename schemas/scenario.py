@@ -22,6 +22,7 @@ class ScenarioRunRequest(BaseModel):
     disaster_type: Optional[str] = None
     job_types: List[JobType] = Field(default_factory=list)
     spatial_extent: Optional[str] = None
+    force_aoi_resolution: bool = False
     output_root: Optional[str] = None
     target_crs: Optional[str] = None
     debug: bool = False
@@ -33,6 +34,7 @@ class ScenarioChildRunSpec(BaseModel):
     trigger_content: str
     disaster_type: Optional[str] = None
     spatial_extent: Optional[str] = None
+    force_aoi_resolution: bool = False
     target_crs: Optional[str] = None
     debug: bool = False
 

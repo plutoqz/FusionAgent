@@ -2183,6 +2183,8 @@ class AgentRunService:
             return False
         if request.trigger.type != RunTriggerType.user_query:
             return False
+        if request.trigger.spatial_extent and not request.trigger.force_aoi_resolution:
+            return False
         content = (request.trigger.content or "").strip()
         if not content:
             return False

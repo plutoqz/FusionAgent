@@ -96,6 +96,9 @@ def test_manifest_spatial_extent_loads_and_converts_to_request(tmp_path: Path):
                         "trigger_content": "need building data for Nairobi, Kenya",
                         "job_types": ["building"],
                         "spatial_extent": "bbox(36.79,-1.31,36.81,-1.29)",
+                        "capability_checks": {
+                            "require_aoi_resolved": True,
+                        },
                         "expected_phase": ["succeeded", "partial"],
                     }
                 ],
@@ -109,3 +112,4 @@ def test_manifest_spatial_extent_loads_and_converts_to_request(tmp_path: Path):
 
     assert manifest.cases[0].spatial_extent == "bbox(36.79,-1.31,36.81,-1.29)"
     assert request.spatial_extent == "bbox(36.79,-1.31,36.81,-1.29)"
+    assert request.metadata["force_aoi_resolution"] is True

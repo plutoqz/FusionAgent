@@ -35,6 +35,7 @@ class RunTrigger(BaseModel):
     content: str
     disaster_type: Optional[str] = None
     spatial_extent: Optional[str] = None
+    force_aoi_resolution: bool = False
     temporal_start: Optional[str] = None
     temporal_end: Optional[str] = None
 

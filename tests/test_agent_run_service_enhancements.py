@@ -1217,6 +1217,7 @@ def test_agent_run_service_prefers_explicit_spatial_extent_but_still_records_aoi
         type=RunTriggerType.user_query,
         content="need building data for Nairobi, Kenya",
         spatial_extent="bbox(36.79,-1.31,36.81,-1.29)",
+        force_aoi_resolution=True,
     )
     plan.tasks[0].input.data_source_id = "catalog.earthquake.building"
 
@@ -1259,6 +1260,7 @@ def test_agent_run_service_prefers_explicit_spatial_extent_but_still_records_aoi
                 type=RunTriggerType.user_query,
                 content="need building data for Nairobi, Kenya",
                 spatial_extent="bbox(36.79,-1.31,36.81,-1.29)",
+                force_aoi_resolution=True,
             ),
             target_crs="EPSG:32643",
             field_mapping={},
@@ -1282,6 +1284,65 @@ def test_agent_run_service_prefers_explicit_spatial_extent_but_still_records_aoi
     assert aoi_event.details["display_name"] == "Nairobi, Nairobi County, Kenya"
     resolved_event = next(event for event in audit_events if event.kind == "task_inputs_resolved")
     assert resolved_event.details["resolved_aoi"]["country_code"] == "ke"
+
+
+def test_agent_run_service_direct_bbox_run_does_not_force_aoi_resolution(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    service = AgentRunService(base_dir=tmp_path / "runs")
+    fused_shp = tmp_path / "fused_road_direct_bbox.shp"
+    artifact_zip = tmp_path / "artifact_road_direct_bbox.zip"
+    _write_minimal_polygon_shapefile(fused_shp)
+    artifact_zip.write_bytes(b"zip")
+
+    plan = _build_road_task_driven_plan()
+    monkeypatch.setattr(service.planner, "create_plan", lambda **_kwargs: plan.model_copy(deep=True))
+    monkeypatch.setattr(service.validator, "validate_and_repair", lambda input_plan: input_plan)
+    monkeypatch.setattr(service.executor, "execute_plan", lambda **_kwargs: fused_shp)
+    monkeypatch.setattr("services.agent_run_service.zip_shapefile_bundle", lambda *_args, **_kwargs: artifact_zip)
+    monkeypatch.setattr(
+        service.aoi_resolution_service,
+        "resolve",
+        lambda _query: pytest.fail("direct bbox run should not force AOI resolution"),
+    )
+
+    def fake_resolve_task_driven_inputs(**kwargs):
+        osm_zip = tmp_path / "road_bbox_osm.zip"
+        ref_zip = tmp_path / "road_bbox_ref.zip"
+        _write_dummy_zip(osm_zip)
+        _write_dummy_zip(ref_zip)
+        return ResolvedRunInputs(
+            osm_zip_path=osm_zip,
+            ref_zip_path=ref_zip,
+            source_mode="generated",
+            source_id=kwargs["source_id"],
+            cache_hit=False,
+            version_token="road-v1",
+        )
+
+    monkeypatch.setattr(service.input_acquisition_service, "resolve_task_driven_inputs", fake_resolve_task_driven_inputs)
+    monkeypatch.setattr(
+        "services.agent_run_service.validate_zip_has_shapefile",
+        lambda zip_path, *_args, **_kwargs: Path(str(zip_path) + ".shp"),
+    )
+
+    status = service.create_run(
+        request=_build_auto_request(
+            spatial_extent="bbox(74.1,35.8,74.3,36.0)",
+            job_type=JobType.road,
+            content="need road data for Gilgit, Pakistan",
+        ),
+        osm_zip_name=None,
+        osm_zip_bytes=None,
+        ref_zip_name=None,
+        ref_zip_bytes=None,
+    )
+
+    latest = service.get_run(status.run_id)
+    assert latest is not None
+    assert latest.phase == RunPhase.succeeded
+    assert not any(event.kind == "aoi_resolved" for event in service.get_audit_events(status.run_id))
 
 
 def test_agent_run_service_auto_selects_target_crs_from_nairobi_aoi_when_omitted(tmp_path: Path, monkeypatch) -> None:
