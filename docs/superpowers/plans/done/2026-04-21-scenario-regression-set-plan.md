@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+**Status Note:** Active as a Phase 3 support plan under `docs/superpowers/plans/2026-05-12-fusionagent-master-execution-plan.md`. The unchecked boxes below remain the current scenario-capability regression backlog until typed `capability_checks`, harness-side capability validation, and refreshed frozen evidence are actually verified and closed.
+
 **Goal:** Expand the scenario evaluation manifest into a capability-oriented regression set and make the harness fail when expected scenario evidence is missing even if the phase still matches.
 
 **Architecture:** Add a typed `capability_checks` contract to scenario manifest cases and extend the harness to read `scenario_summary.json` after each API run. Keep the scenario runtime contract unchanged; capability coverage is enforced entirely at the manifest and harness layers. Refresh the checked-in manifest, real harness summary, and frozen evidence after the code path is in place.

@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+**Completion Status:** Closed on 2026-05-13. All nine tasks in this document are implemented. Fresh verification on 2026-05-13: focused Phase 2 slice `57 passed in 2.46s`; broader integration and runtime slice `121 passed, 10 warnings in 13.20s`.
+
 **Goal:** Turn `文档/问题、回答和改进方向.txt` into the next concrete engineering increment: enforceable algorithm tool contracts, KG-grounded plan evidence, unsupported-request control, runtime telemetry, recovery inspection, and KG ablation evidence.
 
 **Architecture:** Preserve the existing `planner -> validator -> executor -> healing/replan -> writeback` spine. Add small, testable control layers around it: a `ToolSpec` registry for algorithm dispatch, a plan-grounding report for KG proof, a deterministic unsupported-intent guard, telemetry/checkpoint helpers for long-running runs, and an ablation harness for research evidence. Do not expand into arbitrary LLM tool calling, production SaaS guarantees, external disaster feeds, or final UI work in this increment.

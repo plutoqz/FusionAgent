@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+**Status Note:** Deferred to Conditional Phase 6 by `docs/superpowers/plans/2026-05-12-fusionagent-master-execution-plan.md`. Do not treat the unchecked boxes below as current active backlog unless the master plan explicitly reopens this expansion track.
+
 **Goal:** 将 `E:\vscode\fusioncode` 的完整矢量融合能力纳入 `E:\vscode\fusionAgent` 的算法库和知识图谱，使智能体能按 KG 节点选择、组合、调参和执行多源融合、建筑物存在性栅格验证、建筑物高度栅格提取、道路/水系/湖泊/POI 融合与质量评估。
 
 **Architecture:** 不把 `fusioncode.algorithm_adapter.run_full_pipeline()` 作为 KG 中的单一黑盒算法。新建 `fusion_algorithms/` 作为可组合算法原语层，每个原语都有输入/输出数据类型、参数规格、执行处理器和测试；`run_full_pipeline()` 只作为迁移期的端到端行为对照。KG 中保存算法节点、参数节点和工作流模式，执行器按 KG 任务链调度原语。

@@ -1,6 +1,6 @@
 # FusionAgent Master Execution Plan
 
-**Completion Status:** Active on 2026-05-12. This document is the single execution sequence for the repo's currently active planning work. Phase 1 closed on 2026-05-12 with fresh verification; Phase 2 is now the next active implementation phase. It consolidates older plan files into one ordered backlog, but keeps those files as detailed task references rather than deleting them.
+**Completion Status:** Active on 2026-05-13. This document is the single execution sequence for the repo's currently active planning work. Phase 1 closed on 2026-05-12 with fresh verification; Phase 2 closed on 2026-05-13 with fresh verification; Phase 3 is now the next active implementation phase. It consolidates older plan files into one ordered backlog, but keeps those files as detailed task references rather than deleting them.
 
 **Goal:** 在不扩大系统主张边界的前提下，把 FusionAgent 收敛为一个可复现、可校验、可支撑论文实验与本地操作的 `KG-grounded geospatial fusion agent runtime`，并把剩余工作统一到一条可执行主线上。
 
@@ -51,10 +51,10 @@ This phase is closed by the creation of this document. Later execution phases mu
 | `2026-04-21-scenario-harness-plan.md` | historical complete | checklist stale, but file header says completed |
 | `2026-04-21-scenario-regression-set-plan.md` | keep as Phase 3 support plan | scenario capability regression and freeze refresh |
 | `2026-04-21-no-ui-mature-agent-plan.md` | partially superseded | keep only operator, evidence, maturity-check, and runbook closures |
-| `2026-04-23-system-next-improvements.md` | keep as Phase 2 primary detail | core-next runtime hardening source |
+| `2026-04-23-system-next-improvements.md` | historical complete | Phase 2 core-next runtime hardening closed on 2026-05-13 with fresh verification |
 | `2026-04-27-benin-building-runtime-preparation.md` | keep as Phase 5 primary detail | bounded Benin scale-preparation track |
 | `2026-04-29-fusioncode-algorithm-library-kg-integration.md` | defer to Conditional Phase 6 | too large for current thesis-critical path |
-| `2026-05-06-fusionagent-agent-capability-update-roadmap.md` | keep as Phase 2 and Phase 3 primary detail | thesis-serving capability hardening source |
+| `2026-05-06-fusionagent-agent-capability-update-roadmap.md` | historical complete | scoped capability-hardening tasks closed on 2026-05-13; reopen only if fresh drift or failing verification appears |
 | `2026-05-06-fusionagent-thesis-research-design-roadmap.md` | keep as Phase 4 primary detail | thesis packaging source |
 | `2026-05-09-kg-closure-and-graph-backend-roadmap.md` | keep as Phase 1 primary detail | immediate baseline stabilization source |
 
@@ -108,6 +108,11 @@ Use `docs/superpowers/plans/2026-05-09-kg-closure-and-graph-backend-roadmap.md` 
 
 ## Phase 2: Core-Next Runtime Hardening
 
+This phase is closed on 2026-05-13. Fresh verification on 2026-05-13:
+
+- focused Phase 2 test slice: `57 passed in 2.46s`
+- broader integration and runtime slice: `121 passed, 10 warnings in 13.20s`
+
 This phase merges the unfinished core from `system-next improvements` and the thesis-critical P0 chain from the `agent capability update roadmap`.
 
 ### What To Implement
@@ -153,15 +158,18 @@ Within this phase, use the existing evidence rule from `docs/superpowers/specs/2
 
 ## Phase 3: Operator Surface, Scenario Boundedness, And Regression Closure
 
+This phase is now the next active implementation phase. It no longer depends on unfinished items from `2026-05-06-fusionagent-agent-capability-update-roadmap.md`, because that file's scoped tasks were implemented and re-verified on 2026-05-13.
+
 This phase closes the gap between "evidence-rich artifacts" and "operator-usable runtime", while locking scenario claims to bounded proof.
 
 ### What To Implement
 
-1. Finish the remaining P1 or operator-facing closures from `2026-05-06-fusionagent-agent-capability-update-roadmap.md`:
+1. Treat the previously planned P1 or operator-facing closures from `2026-05-06-fusionagent-agent-capability-update-roadmap.md` as already landed and re-verified on 2026-05-13:
    - input acquisition fault taxonomy and fallback policy normalization
    - decision-friendly inspection digest
    - explicit scenario scope guards
-   - planner retrieval prioritization only after the P0 chain from Phase 2 is closed
+   - planner retrieval prioritization
+   Reopen these only if fresh drift or failing verification appears; do not count them as current unchecked backlog.
 2. Absorb the still-relevant operator and evidence items from `2026-04-21-no-ui-mature-agent-plan.md`:
    - run registry and operator read models
    - artifact preview or evidence products

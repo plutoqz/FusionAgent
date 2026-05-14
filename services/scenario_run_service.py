@@ -32,6 +32,7 @@ def build_child_run_specs(request: ScenarioRunRequest) -> list[ScenarioChildRunS
             job_type=job_type,
             trigger_content=request.trigger_content,
             disaster_type=request.disaster_type,
+            spatial_extent=request.spatial_extent,
             target_crs=request.target_crs,
             debug=request.debug,
         )
@@ -181,6 +182,7 @@ class ScenarioRunService:
                 type=RunTriggerType.user_query,
                 content=spec.trigger_content,
                 disaster_type=spec.disaster_type,
+                spatial_extent=spec.spatial_extent,
             ),
             target_crs=spec.target_crs,
             field_mapping={},

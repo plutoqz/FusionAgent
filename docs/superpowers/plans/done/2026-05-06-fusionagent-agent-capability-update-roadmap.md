@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+**Completion Status:** Closed on 2026-05-13 for the scoped tasks in this document. Task 1-6 are implemented and re-verified. Fresh verification on 2026-05-13: focused capability slice `57 passed in 2.46s`; broader integration and runtime slice `121 passed, 10 warnings in 13.20s`. Reopen only if fresh drift or failing verification appears.
+
 **Goal:** 在不偏离论文主线和主体目标的前提下，补齐 FusionAgent 智能体本身仍欠缺的关键能力，使其从“能跑的研究原型”进一步提升为“边界清晰、可诊断、可操作、可规模复用的 geospatial fusion agent runtime”。
 
 **Architecture:** 这份计划不主打论文创新点，而主打系统能力成熟度。更新优先级按“直接支撑论文实验与主体目标”排序：先补 planner/executor contract、failure diagnosability、operator observability、input robustness、scenario boundedness，再补可选优化如 retrieval prioritization、front-end evidence surface。所有更新必须服从 thesis research plan，不允许引入新的主题扩张。

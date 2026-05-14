@@ -28,6 +28,27 @@ def test_create_scenario_run_generates_summary_and_reports(tmp_path, monkeypatch
     assert payload["output_dir"].startswith(str(tmp_path))
 
 
+def test_create_scenario_run_accepts_spatial_extent(tmp_path, monkeypatch):
+    monkeypatch.setenv("GEOFUSION_SCENARIO_OUTPUT_ROOT", str(tmp_path))
+    fake_service = _FakeScenarioService(str(tmp_path))
+    monkeypatch.setattr(scenario_runs_router, "scenario_run_service", fake_service)
+
+    client = TestClient(create_app())
+    response = client.post(
+        "/api/v2/scenario-runs",
+        json={
+            "scenario_name": "Nairobi building",
+            "trigger_content": "need building data for Nairobi, Kenya",
+            "job_types": ["building"],
+            "spatial_extent": "bbox(36.79,-1.31,36.81,-1.29)",
+        },
+    )
+
+    assert response.status_code == 200
+    assert fake_service.last_request is not None
+    assert fake_service.last_request.spatial_extent == "bbox(36.79,-1.31,36.81,-1.29)"
+
+
 def test_create_scenario_run_returns_422_for_out_of_scope_request(monkeypatch):
     class _RejectingScenarioService:
         def create_scenario_run(self, request):
@@ -55,8 +76,10 @@ def test_create_scenario_run_returns_422_for_out_of_scope_request(monkeypatch):
 class _FakeScenarioService:
     def __init__(self, output_dir: str) -> None:
         self.output_dir = output_dir
+        self.last_request = None
 
     def create_scenario_run(self, request):
+        self.last_request = request
         return ScenarioRunResponse(
             scenario_id="scenario-test",
             phase=ScenarioPhase.succeeded,

@@ -22,6 +22,7 @@ class ScenarioEvalCase(BaseModel):
     trigger_content: str
     disaster_type: Optional[str] = None
     job_types: List[JobType] = Field(default_factory=list)
+    spatial_extent: Optional[str] = None
     target_crs: Optional[str] = None
     expected_phase: List[str] = Field(default_factory=lambda: ["succeeded", "partial"])
     tags: List[str] = Field(default_factory=list)

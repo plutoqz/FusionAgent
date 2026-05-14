@@ -1198,6 +1198,92 @@ def test_agent_run_service_resolves_nairobi_before_input_materialization(tmp_pat
     assert resolved_event.details["resolved_aoi"]["display_name"] == "Nairobi, Nairobi County, Kenya"
 
 
+def test_agent_run_service_prefers_explicit_spatial_extent_but_still_records_aoi_resolution(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    service = AgentRunService(base_dir=tmp_path / "runs")
+    osm_shp = tmp_path / "resolved_osm_bbox.shp"
+    ref_shp = tmp_path / "resolved_ref_bbox.shp"
+    fused_shp = tmp_path / "fused_bbox.shp"
+    artifact_zip = tmp_path / "artifact_bbox.zip"
+    for path in [osm_shp, ref_shp]:
+        path.write_text("dummy", encoding="utf-8")
+    _write_minimal_polygon_shapefile(fused_shp)
+    artifact_zip.write_bytes(b"zip")
+
+    plan = _build_plan(workflow_id="wf_nairobi_explicit_bbox", revision=1)
+    plan.trigger = RunTrigger(
+        type=RunTriggerType.user_query,
+        content="need building data for Nairobi, Kenya",
+        spatial_extent="bbox(36.79,-1.31,36.81,-1.29)",
+    )
+    plan.tasks[0].input.data_source_id = "catalog.earthquake.building"
+
+    prepared_dir = tmp_path / "prepared_bbox"
+    prepared_dir.mkdir(parents=True, exist_ok=True)
+    resolved_inputs = ResolvedRunInputs(
+        osm_zip_path=prepared_dir / "osm.zip",
+        ref_zip_path=prepared_dir / "ref.zip",
+        source_mode="downloaded",
+        source_id="catalog.earthquake.building",
+        cache_hit=False,
+        version_token="ke-v1",
+    )
+    resolved_inputs.osm_zip_path.write_bytes(b"osm")
+    resolved_inputs.ref_zip_path.write_bytes(b"ref")
+
+    captured: dict[str, object] = {}
+    resolved_aoi = _resolved_nairobi_aoi()
+
+    monkeypatch.setattr(service.aoi_resolution_service, "resolve", lambda query: resolved_aoi)
+    monkeypatch.setattr(service.planner, "create_plan", lambda **_kwargs: plan.model_copy(deep=True))
+    monkeypatch.setattr(service.validator, "validate_and_repair", lambda input_plan: input_plan)
+
+    def fake_resolve_task_driven_inputs(**kwargs):
+        captured.update(kwargs)
+        return resolved_inputs
+
+    monkeypatch.setattr(service.input_acquisition_service, "resolve_task_driven_inputs", fake_resolve_task_driven_inputs)
+    monkeypatch.setattr(
+        "services.agent_run_service.validate_zip_has_shapefile",
+        lambda zip_path, *_args, **_kwargs: osm_shp if Path(zip_path).name.startswith("osm") else ref_shp,
+    )
+    monkeypatch.setattr(service.executor, "execute_plan", lambda **_kwargs: fused_shp)
+    monkeypatch.setattr("services.agent_run_service.zip_shapefile_bundle", lambda *_args, **_kwargs: artifact_zip)
+
+    status = service.create_run(
+        request=RunCreateRequest(
+            job_type=JobType.building,
+            trigger=RunTrigger(
+                type=RunTriggerType.user_query,
+                content="need building data for Nairobi, Kenya",
+                spatial_extent="bbox(36.79,-1.31,36.81,-1.29)",
+            ),
+            target_crs="EPSG:32643",
+            field_mapping={},
+            debug=False,
+            input_strategy=RunInputStrategy.task_driven_auto,
+        ),
+        osm_zip_name=None,
+        osm_zip_bytes=None,
+        ref_zip_name=None,
+        ref_zip_bytes=None,
+    )
+
+    latest = service.get_run(status.run_id)
+    assert latest is not None
+    assert latest.phase == RunPhase.succeeded
+    assert captured["resolved_aoi"] == resolved_aoi
+    assert captured["request_bbox"] == (36.79, -1.31, 36.81, -1.29)
+
+    audit_events = service.get_audit_events(status.run_id)
+    aoi_event = next(event for event in audit_events if event.kind == "aoi_resolved")
+    assert aoi_event.details["display_name"] == "Nairobi, Nairobi County, Kenya"
+    resolved_event = next(event for event in audit_events if event.kind == "task_inputs_resolved")
+    assert resolved_event.details["resolved_aoi"]["country_code"] == "ke"
+
+
 def test_agent_run_service_auto_selects_target_crs_from_nairobi_aoi_when_omitted(tmp_path: Path, monkeypatch) -> None:
     service = AgentRunService(base_dir=tmp_path / "runs")
     osm_shp = tmp_path / "resolved_osm_auto.shp"

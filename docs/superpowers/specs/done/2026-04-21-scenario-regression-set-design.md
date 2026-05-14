@@ -4,7 +4,7 @@
 
 Expand the scenario evaluation manifest from a single demo case into a small capability-oriented regression set that covers `building`, `road`, `water`, and bounded `poi`, while still allowing a small amount of realistic `partial` behavior.
 
-This design keeps the current scenario API contract mostly intact. It does not introduce provider steering, but it allows selected manifest cases to carry an optional bounded `spatial_extent` so execution-level regressions can stay deterministic without widening into full-city AOIs. Regression success depends on both:
+This design keeps the current scenario API contract intact. It does not introduce provider steering or new scenario runtime control fields. Instead, it upgrades the manifest and harness so regression success depends on both:
 
 - expected scenario phase
 - required scenario evidence appearing in `scenario_summary.json`
@@ -133,15 +133,12 @@ Role:
 
 Config:
 - `job_types=["building"]`
-- `spatial_extent="bbox(36.79,-1.31,36.81,-1.29)"`
 - `expected_phase=["succeeded", "partial"]`
 - `capability_checks.required_job_types=["building"]`
 - `capability_checks.min_succeeded_children=1`
 - `capability_checks.require_aoi_resolved=true`
 - `capability_checks.require_task_inputs_resolved=true`
 - `capability_checks.require_source_coverage=true`
-
-This case still requires natural-language AOI resolution evidence from the Nairobi query, but the explicit bounded bbox keeps the child execution on a stable, non-citywide slice.
 
 ## Harness Validation Rules
 

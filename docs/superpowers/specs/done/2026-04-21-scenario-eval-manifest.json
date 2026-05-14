@@ -135,7 +135,6 @@
       "job_types": [
         "building"
       ],
-      "spatial_extent": "bbox(36.79,-1.31,36.81,-1.29)",
       "expected_phase": [
         "succeeded",
         "partial"

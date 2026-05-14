@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+**Status Note:** Deferred to Phase 5 by `docs/superpowers/plans/2026-05-12-fusionagent-master-execution-plan.md`. The unchecked boxes below are bounded scale-validation backlog, not current active implementation work.
+
 **Goal:** Prepare FusionAgent for Benin-scale building workloads by adding source profiling, KG search-space expansion, tiled parallel runtime scaffolding for the currently supported building flow, and reserved seams for future multi-source fusion plus raster-based height enrichment.
 
 **Architecture:** Preserve the existing `planner -> validator -> executor -> healing/replan -> writeback` spine and the current executable building contract of `dt.building.bundle -> dt.building.fused`. Add a control plane around it: canonical source profiles, richer KG metadata with `runtime_candidate` versus `reservation_only`, a tile partition and clip cache layer, and a tiled fan-out/fan-in runtime that can run today's `OSM + single reference` building fusion per tile while leaving future multi-source and raster-height logic as explicit reserved hooks.

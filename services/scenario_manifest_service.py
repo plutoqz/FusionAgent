@@ -26,6 +26,7 @@ def scenario_case_to_request(case: ScenarioEvalCase, *, output_root: Optional[st
         trigger_content=case.trigger_content,
         disaster_type=case.disaster_type,
         job_types=list(case.job_types),
+        spatial_extent=case.spatial_extent,
         output_root=output_root,
         target_crs=case.target_crs,
         metadata=metadata,

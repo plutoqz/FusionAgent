@@ -2,6 +2,8 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
+**Status Note:** Partially superseded by `docs/superpowers/plans/2026-05-12-fusionagent-master-execution-plan.md` on 2026-05-12. Do not treat the full checklist below as the current active backlog. Only operator, evidence, maturity-check, and runbook closures that are still unevidenced belong to the current Phase 3 review path; existing artifacts such as `docs/no-ui-agent-operations.md`, `docs/superpowers/specs/2026-04-21-operator-read-model-contract.md`, `docs/superpowers/specs/2026-04-21-no-ui-maturity-target.md`, `docs/superpowers/specs/2026-04-21-no-ui-maturity-gap-ledger.md`, and `docs/superpowers/specs/2026-04-21-no-ui-maturity-evidence-freeze.*` should be treated as already-landed evidence unless fresh drift proves otherwise.
+
 **Goal:** Promote FusionAgent from a research prototype with strong evidence into a mature no-UI vector data fusion agent that is defensible for paper research and practical engineering use before any final visualization interface is built.
 
 **Architecture:** Keep the final frontend out of scope. Mature the system through claim discipline, scenario-driven autonomy, reproducible source acquisition, artifact/evidence products, operator read APIs, local operations hardening, and a final maturity freeze. Existing runtime execution stays centered on `services/agent_run_service.py`, scenario orchestration stays centered on `services/scenario_run_service.py`, and new work should wrap those services rather than duplicating planner/executor orchestration.

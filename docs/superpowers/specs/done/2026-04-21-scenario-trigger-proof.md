@@ -44,7 +44,7 @@ Validated with:
 python -m pytest -q tests/test_scenario_trigger_service.py tests/test_scenario_registry_service.py tests/test_api_scenario_registry.py
 ```
 
-Observed result: `16 passed`
+Observed result: `13 passed`
 
 ## Processed And Failed Directories
 
@@ -52,7 +52,7 @@ Valid JSON events are normalized into `ScenarioRunRequest` objects, processed or
 
 Invalid JSON events move to `--failed-dir` when that option is provided. Runtime errors during normalization, idempotency lookup, or scenario creation also move the original event file to `--failed-dir` when provided.
 
-If `--failed-dir` is omitted, the script preserves fail-fast behavior and raises the underlying error instead of suppressing it. Existing filenames in the processed or failed directories are preserved by suffixing the new copy instead of overwriting prior evidence.
+If `--failed-dir` is omitted, the script preserves fail-fast behavior and raises the underlying error instead of suppressing it.
 
 ## Idempotency Behavior
 
@@ -61,8 +61,6 @@ Before creating a new scenario, the watcher reads the scenario registry under th
 When a match exists, the watcher does not create a duplicate scenario. It moves the event file to the processed directory and returns the existing `scenario_id`.
 
 Idempotency is persisted in the scenario registry. It does not depend on process memory.
-
-Scenario registry listing remains recent-first and can be filtered by `phase`, so duplicate suppression and later operator inspection use the same persisted source of truth.
 
 ## Expected Registry Fields
 
@@ -100,7 +98,5 @@ Each created scenario directory is expected to contain:
 - `source_coverage.json`
 - `documents/` with rendered scenario reports
 - child run evidence referenced by `child_run_ids` and `final_outputs`
-
-The operator-facing no-UI inspection surface for a created scenario is `GET /api/v2/scenario-runs/{scenario_id}`, which returns the canonical `scenario_summary.json` rather than requiring manual directory inspection.
 
 Failed event files remain visible in `--failed-dir`; they are not deleted or hidden.

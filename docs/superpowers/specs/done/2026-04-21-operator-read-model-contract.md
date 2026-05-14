@@ -35,27 +35,6 @@ Contract notes:
 - Query filters may include `limit`, `phase`, and `job_type`.
 - The endpoint is for listing. Detailed inspection remains on the existing run inspection surface.
 
-### `GET /api/v2/runtime`
-
-Returns a `RuntimeMetadataResponse` from `schemas/agent.py`.
-
-Shape:
-
-```json
-{
-  "kg_backend": "neo4j",
-  "llm_provider": "openai",
-  "celery_eager": "1",
-  "api_port": "8000"
-}
-```
-
-Contract notes:
-
-- This endpoint exposes the current non-sensitive runtime metadata directly.
-- The same fields are also embedded into `GET /api/v2/operator/summary`.
-- Operators can use it as a minimal environment sanity check before reading run or scenario evidence.
-
 ### `GET /api/v2/operator/summary`
 
 Returns an `OperatorRuntimeSummaryResponse` from `schemas/operator.py`.
@@ -86,54 +65,6 @@ Contract notes:
 - `evidence_gaps` is a first-class field for missing run or scenario evidence rather than an implicit failure hidden in logs.
 - `limit` bounds the number of recent run and scenario records returned.
 
-### `GET /api/v2/runs/{run_id}/inspection`
-
-Returns a `RunInspectionResponse` from `schemas/agent.py`.
-
-Contract notes:
-
-- The inspection surface combines status, plan, audit events, artifact metadata, KG path trace, and a compact operator digest.
-- It is the default operator path for answering "what happened", "where did it fail", and "what should I do next" without opening raw files first.
-- The raw run artifacts remain the source of truth when inspection output and persisted files disagree.
-
-### `GET /api/v2/runs/{left_run_id}/compare/{right_run_id}`
-
-Returns a `RunComparisonResponse` from `schemas/agent.py`.
-
-Contract notes:
-
-- The compare surface reuses the inspection payload for both runs and adds differing decision selections.
-- It is intended for operator review and benchmark comparisons, not for replacing the underlying per-run artifacts.
-
-### `GET /api/v2/scenario-runs`
-
-Returns a `ScenarioRunListResponse` from `schemas/scenario.py`.
-
-Contract notes:
-
-- `records` are read from `scenario_runs_index.jsonl` in recent-first order.
-- Query filters may include `limit` and `phase`.
-- Scenario records preserve trigger metadata such as `idempotency_key`, `trigger_event`, and `case_id` when present.
-
-### `GET /api/v2/scenario-runs/{scenario_id}`
-
-Returns a `ScenarioRunInspectionResponse` from `schemas/scenario.py`.
-
-Contract notes:
-
-- The endpoint loads the canonical `scenario_summary.json` for the requested scenario.
-- This is the no-UI inspection surface for scenario-level evidence, separate from the raw scenario directory walk.
-
-### `GET /api/v2/runs/{run_id}/preview` and `GET /api/v2/runs/{run_id}/preview.geojson`
-
-Return an `ArtifactPreviewResponse` and the corresponding bounded GeoJSON preview file.
-
-Contract notes:
-
-- Preview generation is read-only and derived from the canonical artifact ZIP of a succeeded run.
-- The preview surface is meant for lightweight operator inspection and future UI map seeds.
-- Preview assets do not replace the canonical artifact bundle or frozen evidence records.
-
 ## Data Sources
 
 ### Runs Registry
@@ -157,10 +88,8 @@ Evidence gaps are explicit strings produced when persisted run or scenario recor
 Future UI work may consume these read models as stable no-UI summaries:
 
 - A run list page can use `/api/v2/runs` as the source of persisted single-run rows.
-- A runtime overview page can use `/api/v2/runtime` and `/api/v2/operator/summary` for recent runs, recent scenarios, runtime context, and gaps.
+- A runtime overview page can use `/api/v2/operator/summary` for recent runs, recent scenarios, runtime context, and gaps.
 - UI navigation can link from run rows to existing inspection and comparison APIs.
-- Scenario views can use `/api/v2/scenario-runs` and `/api/v2/scenario-runs/{scenario_id}` for list and detail flows.
-- Map-oriented operator views can start from `/api/v2/runs/{run_id}/preview` and `/api/v2/runs/{run_id}/preview.geojson`.
 - UI status panels should preserve `evidence_gaps` wording or map it to equivalent operator-facing warnings.
 
 Future UI work must not assume these surfaces provide write operations, authentication state, live streaming progress, or complete production observability.
@@ -169,8 +98,8 @@ Future UI work must not assume these surfaces provide write operations, authenti
 
 Stable for no-UI maturity:
 
-- Endpoint paths: `/api/v2/runs`, `/api/v2/runtime`, `/api/v2/operator/summary`, `/api/v2/scenario-runs`, `/api/v2/scenario-runs/{scenario_id}`, `/api/v2/runs/{run_id}/inspection`, `/api/v2/runs/{left_run_id}/compare/{right_run_id}`, `/api/v2/runs/{run_id}/preview`, and `/api/v2/runs/{run_id}/preview.geojson`.
-- Top-level response fields: `records`, `runtime`, `recent_runs`, `recent_scenarios`, `evidence_gaps`, `summary`, and the inspection/preview payloads already exercised by the API tests.
+- Endpoint paths: `/api/v2/runs` and `/api/v2/operator/summary`.
+- Top-level response fields: `records`, `runtime`, `recent_runs`, `recent_scenarios`, and `evidence_gaps`.
 - Read-only behavior over persisted local records.
 - Explicit evidence-gap reporting for missing run or scenario evidence.
 

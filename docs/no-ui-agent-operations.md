@@ -198,9 +198,16 @@ If an aggregate endpoint disagrees with raw `run.json`, `plan.json`, `audit.json
 
 ## Artifact Preview
 
-Artifact previews are lightweight operator and future-UI assets generated from canonical artifact bundles. The current entry point is a service-level utility, not a CLI command, API endpoint, or UI surface.
+Artifact previews are lightweight operator and future-UI assets generated from canonical artifact bundles. The current supported surfaces are the v2 API preview endpoints plus the underlying Python service utility.
 
-Call the service utility from Python when you need a bounded GeoJSON preview:
+API entry points:
+
+- `GET /api/v2/runs/{run_id}/preview`: returns preview metadata for a succeeded run artifact.
+- `GET /api/v2/runs/{run_id}/preview.geojson`: downloads the bounded GeoJSON preview generated from the canonical artifact bundle.
+
+Service entry point:
+
+Call the service utility from Python when you need the same bounded GeoJSON preview directly from an artifact ZIP:
 
 ```python
 from pathlib import Path
@@ -221,6 +228,7 @@ Failure and scope boundaries:
 - artifacts without a declared CRS fail clearly because WGS84 preview generation would otherwise be ambiguous
 - preview GeoJSON does not replace the canonical shapefile artifact bundle or frozen evidence records
 - final dashboard rendering, map interaction, and frontend visualization remain out of scope
+- preview generation is bounded to succeeded runs with a canonical artifact bundle; it is not a replacement for `run.json`, `plan.json`, `audit.jsonl`, or frozen evidence
 
 ## Cleanup And Retention
 

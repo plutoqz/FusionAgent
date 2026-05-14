@@ -1235,7 +1235,7 @@ class AgentRunService:
             source_id=source_id,
             required_output_type=required_output_type,
             input_dir=input_dir,
-            request_bbox=tuple(resolved_aoi.bbox) if resolved_aoi is not None else None,
+            request_bbox=self._resolve_request_bbox(request, resolved_aoi=resolved_aoi),
             resolved_aoi=resolved_aoi,
         )
         return resolved.osm_zip_path, resolved.ref_zip_path, resolved
@@ -1565,20 +1565,19 @@ class AgentRunService:
         *,
         resolved_aoi: ResolvedAOI | None,
     ) -> tuple[float, float, float, float] | None:
+        value = request.trigger.spatial_extent
+        if value:
+            match = re.match(r"^bbox\(\s*([-\d.]+)\s*,\s*([-\d.]+)\s*,\s*([-\d.]+)\s*,\s*([-\d.]+)\s*\)\s*$", value)
+            if match:
+                return (
+                    float(match.group(1)),
+                    float(match.group(2)),
+                    float(match.group(3)),
+                    float(match.group(4)),
+                )
         if resolved_aoi is not None:
             return tuple(float(value) for value in resolved_aoi.bbox)
-        value = request.trigger.spatial_extent
-        if not value:
-            return None
-        match = re.match(r"^bbox\(\s*([-\d.]+)\s*,\s*([-\d.]+)\s*,\s*([-\d.]+)\s*,\s*([-\d.]+)\s*\)\s*$", value)
-        if not match:
-            return None
-        return (
-            float(match.group(1)),
-            float(match.group(2)),
-            float(match.group(3)),
-            float(match.group(4)),
-        )
+        return None
 
     @staticmethod
     def _max_component_feature_count(component_coverage: Dict[str, object]) -> int:
@@ -2183,8 +2182,6 @@ class AgentRunService:
         if request.input_strategy != RunInputStrategy.task_driven_auto:
             return False
         if request.trigger.type != RunTriggerType.user_query:
-            return False
-        if request.trigger.spatial_extent:
             return False
         content = (request.trigger.content or "").strip()
         if not content:

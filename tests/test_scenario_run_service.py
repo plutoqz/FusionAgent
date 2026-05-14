@@ -24,6 +24,21 @@ def test_build_child_run_specs_expands_building_and_road_tasks(tmp_path):
     assert all(spec.disaster_type == "earthquake" for spec in specs)
 
 
+def test_build_child_run_specs_propagates_spatial_extent(tmp_path):
+    request = ScenarioRunRequest(
+        scenario_name="Nairobi building",
+        trigger_content="need building data for Nairobi, Kenya",
+        job_types=[JobType.building],
+        output_root=str(tmp_path),
+        spatial_extent="bbox(36.79,-1.31,36.81,-1.29)",
+    )
+
+    specs = build_child_run_specs(request)
+
+    assert len(specs) == 1
+    assert specs[0].spatial_extent == "bbox(36.79,-1.31,36.81,-1.29)"
+
+
 def test_scenario_run_service_writes_summary_and_reports(tmp_path):
     service = ScenarioRunService(agent_run_service=_FakeAgentRunService(tmp_path))
 
