@@ -183,7 +183,8 @@
     - CI 对应 mock/in-memory slice: `89 passed, 8 warnings`
     - scenario/integration 扩展 slice: `22 passed, 2 warnings`
     - `python scripts/run_no_ui_maturity_check.py`: `passed=true`, `static_check_passed=true`
-- [ ] B6. 在 no-ui maturity gate 真实通过之前，不改 README 定位；若 gate 全通过，再决定是否补充 maturity marker 并清理 prototype-only 残余表述。
+- [x] B6. 在 no-ui maturity gate 真实通过之前，不改 README 定位；若 gate 全通过，再决定是否补充 maturity marker 并清理 prototype-only 残余表述。
+  - 2026-05-14：README 中英文入口已补充 no-ui maturity marker，后续以 `python scripts/run_no_ui_maturity_check.py --require-readme-repositioning` 作为定位切换验收门槛。
 
 ### 验证
 
@@ -228,16 +229,18 @@
 
 ### 执行清单
 
-- [ ] C1. 先锁定“当前能稳定声称什么”：
+- [x] C1. 先锁定“当前能稳定声称什么”：
   - 哪些 source-set 形式已稳定支持
   - tiled execution 的输入/输出契约是什么
   - clip cache 与 stitch 结果的证据边界是什么
   - raster presence / raster height 分别处于什么 claim 等级
+  - 2026-05-14：已在 `README`、`docs/v2-operations.md`、`docs/fusioncode-algorithm-library.md` 与 capability inventory 中锁定共享 runtime 的 large-AOI `OSM + single-reference` tiled building 路径、tile manifest / stitch 证据面，以及 multi-source+raster 仍属于 research utility 的边界。
 - [ ] C2. 清理所有 Benin 特化措辞，把阶段目标改写为：
   - 大 AOI building runtime scale-up
   - 多源 building source-set 输入建模
   - tiled execution / cache / stitch
   - 大规模 building benchmarking 与 evidence freeze
+  - 2026-05-14：高层 README / operations / algorithm-library 口径已切到通用规模化叙事；残余 Benin 特化脚本名与历史文档引用继续保留到后续收口。
 - [ ] C3. 对齐“代码已实现”和“文档仍然保守”的冲突：
   - 如果多源 building vector 路径已可稳定运行，提升其 claim_state
   - 如果 raster height 仍缺少稳定证据，则保持可选/有界，不强行升级
@@ -248,9 +251,11 @@
   - tiled runtime summary
   - stitch 后 artifact 合法性
   - inspection / operator 可读证据
-- [ ] C5. 明确“Benin national script”在文档中的角色：
+  - 2026-05-14：已新增 `tests/test_benchmark_tiled_building.py` 与扩展 `tests/test_run_benin_multisource_building_fusion.py`，把 `source_profile_snapshot.json`、`tile_manifest.json`、`selected_sources.json`、`timing.json`、`benchmark_summary.md` 等规模化验证产物纳入回归护栏；真实 inspection/operator freeze 级证据仍待后续补齐。
+- [x] C5. 明确“Benin national script”在文档中的角色：
   - 可以作为规模化验证样例
   - 不能再作为“仅 Benin 专用实验脚本”的孤岛能力叙事
+  - 2026-05-14：`scripts/run_benin_multisource_building_fusion.py` 与相关文档已改写为“大规模多源 building 验证样例”，并明确 Benin 只是当前仓库示例数据集。
 
 ### 验证
 
@@ -294,24 +299,27 @@
 
 ### 执行清单
 
-- [ ] D1. 建立一份 parity ledger，逐项对齐外部 `fusioncode` 能力与本仓库内部落点：
+- [x] D1. 建立一份 parity ledger，逐项对齐外部 `fusioncode` 能力与本仓库内部落点：
   - building primitives
   - road fusion
   - water line fusion
   - water polygon fusion
   - poi fusion
   - conflict / quality metrics
-- [ ] D2. 对每个能力族检查 6 个要素是否齐全：
+  - 2026-05-14：已新增 live `docs/superpowers/specs/2026-05-14-fusioncode-parity-ledger.md`，把 building / road / water / poi / conflict-quality 族分别映射到 adapter、KG、parameter spec、executor、retriever 与测试证据。
+- [x] D2. 对每个能力族检查 6 个要素是否齐全：
   - wrapper/primitive
   - KG algorithm node
   - parameter specs
   - executor handler
   - planner/retriever 可见性
   - 对应测试
-- [ ] D3. 解决当前文档与实现状态冲突：
+  - 2026-05-14：parity ledger 已显式记录六要素齐备情况；当前主要缺口已收敛到 shared-runtime smoke/inspection evidence 与最终 wording 全量统一，而不是代码挂点缺失。
+- [x] D3. 解决当前文档与实现状态冲突：
   - road / water / bounded poi 已有实现与测试的，继续保持或升级为明确支持
   - building decomposed multi-source 若经 Phase C 证据确认可用，则从 `reservation_only` 升级到合适级别
   - 仍无足够运行证据的子能力继续显式标为 bounded / optional / reservation_only
+  - 2026-05-14：road / water / bounded poi 已稳定保持 `runtime_supported` / `bounded_supported`；building multi-source、presence raster、height raster 已从早期“仅 reserved seam”口径收敛为 `research_utility`，并在 `docs/fusioncode-algorithm-library.md`、capability inventory 与 parity ledger 中保持一致。
 - [ ] D4. 增加跨主题 smoke/inspection 证据，证明这些 KG 算法节点不仅“存在于 seed”，还能够被 planner/executor 选中并产生可审计输出。
 - [ ] D5. 更新算法库文档与 operations 文档，禁止继续把“代码已接入、文档却说 deferred”长期并存。
 

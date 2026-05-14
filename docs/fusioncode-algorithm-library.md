@@ -15,10 +15,12 @@ Use the same vocabulary as the capability inventory:
 | `algo.fusion.water.line_three_source_priority.v1` | `core` | `runtime_supported` | aligned with the current water runtime family |
 | `algo.fusion.water.polygon_priority_merge.v1` | `core` | `runtime_supported` | aligned with the current water polygon slice |
 | `algo.fusion.poi.geohash_neighbor_match.v1` | `core` | `bounded_supported` | bounded POI slice only |
-| `wp.building.drs4br.decomposed.v1` | `deferred` | `reservation_only` | visible in KG but not part of the current stable runtime claim |
-| `algo.fusion.building.multi_source.decomposed.v1` | `deferred` | `reservation_only` | do not describe as stable executable runtime support |
-| `algo.validate.building.presence_raster.v1` | `deferred` | `reservation_only` | raster validation remains outside the stable runtime contract |
-| `algo.enrich.building.height_from_raster.v1` | `deferred` | `reservation_only` | raster height extraction remains outside the stable runtime contract |
+| `wp.building.drs4br.decomposed.v1` | `optional` | `research_utility` | executable through the tiled validation utility, not the shared runtime contract |
+| `algo.fusion.building.multi_source.decomposed.v1` | `optional` | `research_utility` | executable in the scale-validation utility, not the shared runtime contract |
+| `algo.validate.building.presence_raster.v1` | `optional` | `research_utility` | optional validation step in the scale-validation utility |
+| `algo.enrich.building.height_from_raster.v1` | `optional` | `research_utility` | optional enrichment step in the scale-validation utility |
+
+Current shared runtime support still stops at the tiled `OSM + single-reference` building path in `AgentRunService`. The multi-source workflow below is intentionally kept as an executable research utility for large-AOI validation rather than the default `task_driven_auto` runtime contract.
 
 ## Architecture
 
@@ -68,9 +70,9 @@ KG parameter specs cover the main FusionCode controls:
 
 Full FusionCode execution requires the optional geospatial stack declared in `requirements.txt`: `networkx`, `joblib`, `rasterio`, and `python-geohash` in addition to GeoPandas/Shapely/SciPy. Unit tests avoid requiring those heavy modules by testing wrappers, KG metadata, and fallback paths separately.
 
-## Benin National Building Runtime
+## Large-AOI Multi-Source Building Validation Path
 
-`scripts/run_benin_multisource_building_fusion.py` remains a research utility for large Benin building experiments. It is not part of the current stable runtime contract.
+`scripts/run_benin_multisource_building_fusion.py` remains a research utility for large-AOI multi-source building validation. The repo examples use Benin as the validation dataset, but the capability statement is about source-set orchestration and tiled validation rather than a Benin-only runtime.
 
 If you need to inspect the current research utility path:
 
@@ -85,7 +87,7 @@ python scripts/run_benin_multisource_building_fusion.py `
   --max-workers 4
 ```
 
-The script profiles the source root, selects `MS`, `OBM`, `GG`, and `OSM` building vectors, discovers available Google `building_presence` and `building_height` rasters, partitions the Benin bbox into buffered tiles, runs the decomposed multi-source FusionCode flow per tile, and stitches tile-owned features into `runtime_output/fused_buildings.gpkg`. Keep this as a research utility description unless the same capability is promoted through shared runtime evidence, tests, and operations wording.
+The script profiles a validation dataset root, selects `MS`, `OBM`, `GG`, and `OSM` building vectors, discovers available Google `building_presence` and `building_height` rasters, partitions the working bbox into buffered tiles, runs the decomposed multi-source FusionCode flow per tile, and stitches tile-owned features into `runtime_output/fused_buildings.gpkg`. Keep this as a research utility description unless the same capability is promoted through shared runtime evidence, tests, and operations wording.
 
 Height fields are intentionally non-destructive:
 
@@ -95,4 +97,4 @@ Height fields are intentionally non-destructive:
 - `height_final`: final height used by downstream consumers.
 - `height_final_source`: provenance for `height_final`, normally `raster` when a positive raster height is available, otherwise the winning vector height field.
 
-The local `building_presence_2023_benin_4m.tif` can validate building presence. The height raster is optional; if `building_height_2023_benin_4m.tif` is absent, vector heights are still preserved and `height_final` falls back to the best vector value.
+The checked-in Benin `building_presence_2023_benin_4m.tif` is the current validation-dataset example for building presence. The height raster is optional; if `building_height_2023_benin_4m.tif` is absent, vector heights are still preserved and `height_final` falls back to the best vector value.

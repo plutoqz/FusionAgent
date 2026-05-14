@@ -8,6 +8,8 @@ FusionAgent is a bounded geospatial vector-fusion agent runtime for disaster-res
 
 The project is not positioned as an unbounded general-purpose agent. Its goal is to turn task understanding, input acquisition, constrained planning, fusion execution, failure healing, and evidence preservation into a testable and auditable engineering system.
 
+FusionAgent can now run as a mature no-UI vector data fusion agent: the no-UI operator surface, scenario regression, maturity freeze, and shared evidence contract are aligned behind one regression-tested execution path.
+
 ## What This Repository Contains
 
 The current codebase provides:

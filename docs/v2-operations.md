@@ -26,29 +26,31 @@ Freeze the runtime wording to the following contract:
 
 In plain language: trajectory-to-road remains reservation-only and is not a live runtime ingestion path.
 
-### Benin Preparation Boundary
+### Large-AOI Building Scale Boundary
 
-For the Benin building-runtime preparation slice, keep the capability wording frozen as:
+For the current large-AOI building scale-validation slice, keep the capability wording frozen as:
 
 | Capability | Status |
 | --- | --- |
-| tiled parallel execution for the current `OSM + single-ref` building runtime | supported |
-| Benin canonical source profiling | supported |
-| KG exposure for OpenBuildingMap / local Microsoft / Google Open Buildings | supported in KG, not executable |
+| tiled parallel execution for the large-AOI `OSM + single-reference` building runtime | supported in the shared runtime |
+| canonical source profiling for the checked-in scale-validation dataset | supported as a preparation utility |
+| source-profile metadata for `OSM`, `MS`, `OBM`, and `GG` building vectors | supported for inspection and validation |
+| tile manifest, clipped tile bundles, stitch outputs, and tile audit events | supported evidence surfaces |
 | Google building-presence raster inspection and profiling | inspect-only |
-| raster-based building presence validation and height extraction | reserved |
-| true multi-source building fusion semantics | reserved |
+| tiled multi-source building fusion with optional raster enrichment | research utility, not part of the shared runtime contract |
+| raster-based building presence validation and height extraction inside the multi-source utility | research utility, not a shared runtime claim |
 
-FusionCode integration and Benin research utilities may expose richer metadata or reserved seams in KG, but the stable runtime wording stays bounded. Raster and extra vector catalog entries may be visible to retrieval as `reservation_only`, but that does not promote them into the current executable contract.
+The checked-in implementation currently has two different claim levels. The shared runtime can automatically route large `task_driven_auto` building runs onto the tiled `OSM + single-reference` path and emit tile-manifest plus audit evidence. The richer multi-source building path remains an offline scale-validation utility. The repo examples use Benin as the validation dataset, but that does not make Benin a country-specific runtime capability.
 
 Operator commands:
 
 ```powershell
 python scripts/profile_benin_sources.py --source-root E:\fyx\data\Benin --output runs\benin-source-profile.json
 python scripts/benchmark_tiled_building.py --source-root E:\fyx\data\Benin --bbox 2.48,9.23,2.77,9.44 --target-crs EPSG:32631 --output-root runs\benin-benchmark
+python scripts/run_benin_multisource_building_fusion.py --source-root E:\fyx\data\Benin --output-root runs\benin-national-multisource --target-crs EPSG:32631
 ```
 
-Do not describe Benin national multi-source building scripts as part of the stable runtime contract unless the same capability is explicitly frozen in README, tests, and the evidence contract.
+Do not describe the multi-source validation script as part of the stable runtime contract unless the same capability is explicitly frozen in README, tests, and the evidence contract.
 
 ### Artifact Preview Products
 

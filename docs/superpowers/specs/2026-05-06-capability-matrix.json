@@ -42,29 +42,53 @@
         ]
       },
       {
-        "capability_id": "building.benin_source_profiling",
+        "capability_id": "building.large_aoi_tiled_runtime",
+        "theme": "building",
+        "status": "core",
+        "claim_state": "runtime_supported",
+        "evidence_contract": [
+          "run.json",
+          "audit.jsonl",
+          "tile_manifest.json",
+          "artifact_bundle"
+        ],
+        "owner_files": [
+          "services/agent_run_service.py",
+          "services/tiled_building_runtime_service.py",
+          "docs/v2-operations.md",
+          "tests/test_agent_run_service_enhancements.py"
+        ]
+      },
+      {
+        "capability_id": "building.scale_validation_source_profiling",
         "theme": "building",
         "status": "optional",
         "claim_state": "research_utility",
         "evidence_contract": [
-          "runs/benin-source-profile.json",
+          "source_profile_snapshot.json",
           "preparation_docs"
         ],
         "owner_files": [
           "scripts/profile_benin_sources.py",
-          "services/source_profile_service.py"
+          "services/source_profile_service.py",
+          "docs/v2-operations.md"
         ]
       },
       {
         "capability_id": "building.multisource_fusion_semantics",
         "theme": "building",
-        "status": "deferred",
-        "claim_state": "reservation_only",
+        "status": "optional",
+        "claim_state": "research_utility",
         "evidence_contract": [
-          "boundary_docs_only"
+          "tile_manifest.json",
+          "source_profile_snapshot.json",
+          "selected_sources.json",
+          "runtime_output/fused_buildings.gpkg",
+          "targeted_tests"
         ],
         "owner_files": [
-          "docs/v2-operations.md",
+          "scripts/run_benin_multisource_building_fusion.py",
+          "services/tiled_building_runtime_service.py",
           "docs/fusioncode-algorithm-library.md"
         ]
       }
