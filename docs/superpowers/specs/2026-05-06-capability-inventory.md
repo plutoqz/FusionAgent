@@ -13,9 +13,10 @@
 | capability_id | status | claim_state | evidence_contract | owner_files |
 | --- | --- | --- | --- | --- |
 | `building.task_driven_auto` | `core` | `runtime_supported` | `run.json`, `plan.json`, `validation.json`, `audit.jsonl`, artifact bundle | `README.md`, `docs/v2-operations.md`, `services/agent_run_service.py` |
-| `building.benin_source_profiling` | `optional` | `research_utility` | `runs/benin-source-profile.json`, bounded preparation docs | `scripts/profile_benin_sources.py`, `services/source_profile_service.py` |
+| `building.large_aoi_tiled_runtime` | `core` | `runtime_supported` | `run.json`, `audit.jsonl`, `tile_manifest.json`, artifact bundle | `services/agent_run_service.py`, `services/tiled_building_runtime_service.py`, `docs/v2-operations.md`, `tests/test_agent_run_service_enhancements.py` |
+| `building.scale_validation_source_profiling` | `optional` | `research_utility` | `source_profile_snapshot.json` plus bounded preparation docs for the checked-in validation dataset | `scripts/profile_benin_sources.py`, `services/source_profile_service.py`, `docs/v2-operations.md` |
 | `building.benin_cleanup_rules` | `optional` | `research_utility` | cleanup report and targeted tests | `scripts/clean_benin_final_buildings.py`, `tests/test_clean_benin_final_buildings.py` |
-| `building.multisource_fusion_semantics` | `deferred` | `reservation_only` | no stable runtime evidence yet | `docs/v2-operations.md`, `docs/fusioncode-algorithm-library.md` |
+| `building.multisource_fusion_semantics` | `optional` | `research_utility` | `tile_manifest.json`, `source_profile_snapshot.json`, `selected_sources.json`, `runtime_output/fused_buildings.gpkg`, targeted tests | `scripts/run_benin_multisource_building_fusion.py`, `services/tiled_building_runtime_service.py`, `docs/fusioncode-algorithm-library.md` |
 
 ### Road
 

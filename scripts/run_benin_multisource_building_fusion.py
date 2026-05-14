@@ -1,5 +1,5 @@
 """
-Run Benin-scale multi-source building fusion with tiled FusionCode primitives.
+Run large-AOI multi-source building fusion validation with tiled FusionCode primitives.
 
 Expected outputs:
 - timing.json
@@ -92,10 +92,10 @@ def _select_benin_context_vectors(road_shp: Path | None) -> dict[str, Path]:
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Run tiled FusionCode building fusion for Benin national data")
-    parser.add_argument("--source-root", required=True, help="Benin source root, e.g. E:\\fyx\\data\\Benin")
+    parser = argparse.ArgumentParser(description="Run tiled FusionCode building fusion for large-AOI scale-validation data")
+    parser.add_argument("--source-root", required=True, help="Scale-validation source root, e.g. E:\\fyx\\data\\Benin")
     parser.add_argument("--output-root", required=True)
-    parser.add_argument("--bbox", default=None, help="Optional minx,miny,maxx,maxy in EPSG:4326; defaults to Benin bbox")
+    parser.add_argument("--bbox", default=None, help="Optional minx,miny,maxx,maxy in EPSG:4326; defaults to the checked-in Benin validation bbox")
     parser.add_argument("--target-crs", default="EPSG:32631")
     parser.add_argument("--tile-width-m", type=float, default=10000.0)
     parser.add_argument("--tile-height-m", type=float, default=10000.0)
@@ -159,7 +159,7 @@ def main() -> None:
     runtime = TiledBuildingRuntimeService(max_workers=args.max_workers)
     fusion_started = time.perf_counter()
     result = runtime.run_tiled_multisource_building_job(
-        run_id="benin-national-multisource",
+        run_id="scale-validation-multisource",
         tile_manifest=tile_manifest,
         vector_sources=vector_sources,
         raster_sources=raster_sources,
@@ -193,7 +193,7 @@ def main() -> None:
     (output_root / "benchmark_summary.md").write_text(
         "\n".join(
             [
-                "# Benin National Multi-Source Building Fusion",
+                "# Large-AOI Multi-Source Building Validation",
                 "",
                 f"- source root: `{source_root}`",
                 f"- bbox: `{','.join(str(value) for value in request_bbox)}`",

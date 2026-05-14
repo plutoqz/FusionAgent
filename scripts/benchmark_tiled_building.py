@@ -69,7 +69,7 @@ def _select_reference_profile(profile_map: dict[str, dict[str, Any]]) -> dict[st
 
 
 def main() -> None:
-    parser = argparse.ArgumentParser(description="Benchmark tiled building runtime preparation for Benin data")
+    parser = argparse.ArgumentParser(description="Benchmark tiled building runtime preparation for large-AOI scale-validation data")
     parser.add_argument("--source-root", required=True)
     parser.add_argument("--bbox", required=True, help="minx,miny,maxx,maxy in EPSG:4326")
     parser.add_argument("--target-crs", required=True)
@@ -155,7 +155,7 @@ def main() -> None:
     runtime_service = TiledBuildingRuntimeService(max_workers=args.max_workers)
     fuse_started = time.perf_counter()
     result = runtime_service.run_tiled_building_job(
-        run_id="benin-benchmark",
+        run_id="scale-validation-benchmark",
         tile_manifest=tile_manifest,
         osm_bundle_factory=lambda tile, target_path: preclipped_dir / tile.tile_id / "osm.zip",
         ref_bundle_factory=lambda tile, target_path: preclipped_dir / tile.tile_id / "ref.zip",
@@ -196,7 +196,7 @@ def main() -> None:
 
     summary = "\n".join(
         [
-            "# Benin Tiled Building Benchmark",
+            "# Large-AOI Tiled Building Benchmark",
             "",
             f"- source root: `{source_root}`",
             f"- bbox: `{args.bbox}`",
