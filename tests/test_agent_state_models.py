@@ -7,6 +7,7 @@ from schemas.agent import (
     ArtifactReuseDecision,
     DecisionCandidate,
     DecisionRecord,
+    RunCreateRequest,
     RunPhase,
     RunStatus,
     RunTrigger,
@@ -78,6 +79,16 @@ def test_run_status_accepts_legacy_payload_without_planning_telemetry() -> None:
     assert status.planning_telemetry == {}
     assert status.checkpoint == {}
     assert status.updated_at is None
+
+
+def test_run_create_request_accepts_preferred_pattern_id() -> None:
+    request = RunCreateRequest(
+        job_type=JobType.road,
+        trigger=RunTrigger(type=RunTriggerType.user_query, content="need road data"),
+        preferred_pattern_id="wp.road.fusioncode.segment_topology.v1",
+    )
+
+    assert request.preferred_pattern_id == "wp.road.fusioncode.segment_topology.v1"
 
 
 def test_decision_validators_reject_inconsistencies() -> None:

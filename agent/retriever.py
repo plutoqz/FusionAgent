@@ -74,6 +74,7 @@ class PlanningContextBuilder:
         self.artifact_registry = artifact_registry
         self.aoi_resolution_service: AOIResolutionService | None = None
         self.resolved_aoi_override: ResolvedAOI | None = None
+        self.preferred_pattern_id_override: str | None = None
 
     def build(self, job_type: JobType, trigger: RunTrigger) -> Tuple[Dict[str, Any], str]:
         kg_context = self.kg_repo.build_context(job_type=job_type, disaster_type=trigger.disaster_type)
@@ -118,6 +119,7 @@ class PlanningContextBuilder:
                     resolved_aoi,
                     relevant_sources=relevant_sources,
                     reserved_capability_hints=reserved_capability_hints,
+                    preferred_pattern_id=self.preferred_pattern_id_override,
                 ),
             },
             selection_reason,
@@ -297,7 +299,18 @@ class PlanningContextBuilder:
                 )
             )
             candidates.append(candidate)
-        return rank_retrieval_candidates(candidates)
+        ranked = rank_retrieval_candidates(candidates)
+        preferred_pattern_id = str(self.preferred_pattern_id_override or "").strip()
+        if preferred_pattern_id:
+            preferred = [
+                item for item in ranked if str(item.get("pattern_id") or "").strip() == preferred_pattern_id
+            ]
+            others = [
+                item for item in ranked if str(item.get("pattern_id") or "").strip() != preferred_pattern_id
+            ]
+            if preferred:
+                ranked = preferred + others
+        return ranked
 
     def _rank_data_source_candidates(
         self,
@@ -451,11 +464,15 @@ class PlanningContextBuilder:
         *,
         relevant_sources: List[DataSourceNode] | None = None,
         reserved_capability_hints: List[Dict[str, Any]] | None = None,
+        preferred_pattern_id: str | None = None,
     ) -> Dict[str, Any]:
         sources = relevant_sources or kg_context.data_sources
+        effective_preferred_pattern_id = preferred_pattern_id or (kg_context.patterns[0].pattern_id if kg_context.patterns else None)
         hints = {
-            "preferred_pattern_id": kg_context.patterns[0].pattern_id if kg_context.patterns else None,
-            "fallback_pattern_ids": [pattern.pattern_id for pattern in kg_context.patterns[1:]],
+            "preferred_pattern_id": effective_preferred_pattern_id,
+            "fallback_pattern_ids": [
+                pattern.pattern_id for pattern in kg_context.patterns if pattern.pattern_id != effective_preferred_pattern_id
+            ],
             "available_data_source_ids": [source.source_id for source in sources],
             "selectable_source_ids": [
                 source.source_id

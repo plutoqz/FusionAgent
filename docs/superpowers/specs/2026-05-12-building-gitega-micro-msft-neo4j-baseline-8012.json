@@ -1,0 +1,94 @@
+{
+  "generated_at": "2026-05-12T10:16:23Z",
+  "command_mode": "manifest",
+  "base_url": "http://127.0.0.1:8012",
+  "timeout_sec": 1200.0,
+  "commit_sha": "95153ba6241b160b75414900e724647761a917f6",
+  "environment": {
+    "kg_backend": "neo4j",
+    "llm_provider": "openai",
+    "celery_eager": "1"
+  },
+  "totals": {
+    "total": 1,
+    "passed": 1,
+    "failed": 0,
+    "skipped": 0
+  },
+  "all_passed": true,
+  "cases": [
+    {
+      "case_id": "building_gitega_micro_msft_agent",
+      "case_dir": null,
+      "status": "passed",
+      "duration_ms": 82499,
+      "run_id": "07ebbedd856b43a09ad3bf62ee55a440",
+      "artifact_size": 4402626,
+      "artifact_entries": [
+        "fused_buildings.cpg",
+        "fused_buildings.dbf",
+        "fused_buildings.prj",
+        "fused_buildings.shp",
+        "fused_buildings.shx"
+      ],
+      "plan_algorithms": [
+        "algo.fusion.building.v1",
+        "algo.fusion.building.safe",
+        "algo.transform.raw_to_building_bundle"
+      ],
+      "output_data_types": [
+        "dt.building.fused"
+      ],
+      "inspection_artifact_available": true,
+      "inspection_download_path": "/api/v2/runs/07ebbedd856b43a09ad3bf62ee55a440/artifact",
+      "error": null,
+      "timeout_sec": 1200.0,
+      "theme": "building",
+      "priority": "P0",
+      "baseline": "full_system",
+      "proof_targets": [],
+      "inputs": {
+        "osm_source_id": "raw.osm.building",
+        "reference_source_id": "raw.microsoft.building"
+      },
+      "notes": [
+        "Fresh-checkout reproducible micro AOI benchmark based on official Geofabrik Burundi shapefiles and Microsoft Global ML Building Footprints.",
+        "The harness materializes both source ids into clipped shapefile bundles before upload so the benchmark no longer depends on a pre-restored local Data tree."
+      ],
+      "clip_bbox": [
+        29.817351,
+        -3.646572,
+        29.931113,
+        -3.412421
+      ],
+      "evidence": {
+        "planning_validity": true,
+        "artifact_validity": true,
+        "inspection_artifact_available": true,
+        "inspection_download_path": "/api/v2/runs/07ebbedd856b43a09ad3bf62ee55a440/artifact",
+        "required_algorithms": [],
+        "observed_algorithms": [
+          "algo.fusion.building.v1",
+          "algo.fusion.building.safe",
+          "algo.transform.raw_to_building_bundle"
+        ],
+        "required_output_type": "",
+        "observed_output_types": [
+          "dt.building.fused"
+        ],
+        "required_suffixes": [],
+        "artifact_entries": [
+          "fused_buildings.cpg",
+          "fused_buildings.dbf",
+          "fused_buildings.prj",
+          "fused_buildings.shp",
+          "fused_buildings.shx"
+        ]
+      }
+    }
+  ],
+  "manifest": "E:\\vscode\\fusionAgent\\docs\\superpowers\\specs\\2026-04-07-real-data-eval-manifest.json",
+  "selected_cases": [
+    "building_gitega_micro_msft_agent"
+  ]
+}

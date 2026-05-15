@@ -36,13 +36,16 @@ For the current large-AOI building scale-validation slice, keep the capability w
 | canonical source profiling for the checked-in scale-validation dataset | supported as a preparation utility |
 | source-profile metadata for `OSM`, `MS`, `OBM`, and `GG` building vectors | supported for inspection and validation |
 | tile manifest, clipped tile bundles, stitch outputs, and tile audit events | supported evidence surfaces |
+| `inspection_summary.json` emitted by the checked-in scale-validation scripts | operator-readable scale-validation summary, not shared-runtime inspection API |
 | Google building-presence raster inspection and profiling | inspect-only |
 | tiled multi-source building fusion with optional raster enrichment | research utility, not part of the shared runtime contract |
 | raster-based building presence validation and height extraction inside the multi-source utility | research utility, not a shared runtime claim |
 
 The checked-in implementation currently has two different claim levels. The shared runtime can automatically route large `task_driven_auto` building runs onto the tiled `OSM + single-reference` path and emit tile-manifest plus audit evidence. The richer multi-source building path remains an offline scale-validation utility. The repo examples use Benin as the validation dataset, but that does not make Benin a country-specific runtime capability.
 
-Operator commands:
+Validation-dataset example commands:
+
+The Benin-labeled script names below reflect the current checked-in dataset layout, not a country-specific capability boundary.
 
 ```powershell
 python scripts/profile_benin_sources.py --source-root E:\fyx\data\Benin --output runs\benin-source-profile.json
@@ -51,6 +54,8 @@ python scripts/run_benin_multisource_building_fusion.py --source-root E:\fyx\dat
 ```
 
 Do not describe the multi-source validation script as part of the stable runtime contract unless the same capability is explicitly frozen in README, tests, and the evidence contract.
+
+For the checked-in scale-validation scripts, the operator-readable inspection surface is the local `inspection_summary.json` written next to `timing.json`, `tile_manifest.json`, and `benchmark_summary.md`. This is evidence for bounded validation utilities; it is not the same thing as the shared `/api/v2/runs/{run_id}/inspection` surface used by the stable runtime.
 
 ### Artifact Preview Products
 

@@ -239,6 +239,42 @@ def _build_task_driven_water_plan() -> WorkflowPlan:
     )
 
 
+def test_create_run_accepts_preferred_pattern_id_for_task_driven_requests(tmp_path: Path, monkeypatch) -> None:
+    app = create_app()
+    client = TestClient(app)
+
+    captured: dict[str, object] = {}
+
+    def fake_create_run(*, request, **kwargs):
+        captured["preferred_pattern_id"] = request.preferred_pattern_id
+        return RunStatus(
+            run_id="run-preferred-pattern",
+            job_type=request.job_type,
+            trigger=request.trigger,
+            phase=RunPhase.queued,
+            target_crs="EPSG:4326",
+            created_at="2026-05-15T00:00:00Z",
+        )
+
+    monkeypatch.setattr(runs_v2_router.agent_run_service, "create_run", fake_create_run)
+
+    response = client.post(
+        "/api/v2/runs",
+        data={
+            "job_type": "road",
+            "trigger_type": "user_query",
+            "trigger_content": "need road data for Gilgit city, Pakistan",
+            "input_strategy": "task_driven_auto",
+            "field_mapping": "{}",
+            "debug": "false",
+            "preferred_pattern_id": "wp.road.fusioncode.segment_topology.v1",
+        },
+    )
+
+    assert response.status_code == 200
+    assert captured["preferred_pattern_id"] == "wp.road.fusioncode.segment_topology.v1"
+
+
 def _build_task_driven_poi_plan() -> WorkflowPlan:
     return WorkflowPlan(
         workflow_id="wf_poi_task_driven_auto",

@@ -23,6 +23,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from services.artifact_evaluation_service import evaluate_vector_artifact
 from services.source_profile_service import SourceProfileService
 from services.tile_partition_service import TilePartitionService
 from services.tiled_building_runtime_service import TiledBuildingRuntimeService
@@ -174,6 +175,7 @@ def main() -> None:
         on_event=on_event,
     )
     timing["fusion"] = time.perf_counter() - fusion_started
+    artifact_metrics = evaluate_vector_artifact(result.output_path, required_fields=["geometry"])
 
     timing_path = output_root / "timing.json"
     timing_path.write_text(
@@ -184,6 +186,46 @@ def main() -> None:
                 "stitched_feature_count": result.stitched_feature_count,
                 "output_path": str(result.output_path),
                 "events": events,
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    inspection_summary_path = output_root / "inspection_summary.json"
+    inspection_summary_path.write_text(
+        json.dumps(
+            {
+                "mode": "large_aoi_multisource_validation",
+                "claim_state": "research_utility",
+                "run_type": "scale_validation_utility",
+                "bbox": list(request_bbox),
+                "target_crs": args.target_crs,
+                "tile_count": result.tile_count,
+                "source_priority_order": list(DEFAULT_SOURCE_PRIORITY_ORDER),
+                "selected_sources": {
+                    "vector_sources": {key: str(value) for key, value in vector_sources.items()},
+                    "raster_sources": {key: str(value) for key, value in raster_sources.items()},
+                    "context_vectors": {key: str(value) for key, value in context_vectors.items()},
+                },
+                "evidence": {
+                    "source_profile_snapshot": "source_profile_snapshot.json",
+                    "selected_sources": "selected_sources.json",
+                    "tile_manifest": "tile_manifest.json",
+                    "timing": "timing.json",
+                    "benchmark_summary": "benchmark_summary.md",
+                    "artifact_path": str(result.output_path),
+                },
+                "artifact_metrics": artifact_metrics,
+                "operator_readable_summary": {
+                    "artifact_validity": bool(artifact_metrics.get("artifact_validity", False)),
+                    "feature_count": artifact_metrics.get("feature_count"),
+                    "geometry_types": artifact_metrics.get("geometry_types"),
+                    "profile_sec": timing["profile"],
+                    "fusion_sec": timing["fusion"],
+                    "stitched_feature_count": result.stitched_feature_count,
+                    "event_count": len(events),
+                },
             },
             ensure_ascii=False,
             indent=2,
@@ -208,8 +250,10 @@ def main() -> None:
                 f"- stitched feature count: `{result.stitched_feature_count}`",
                 f"- profile sec: `{timing['profile']:.3f}`",
                 f"- fusion sec: `{timing['fusion']:.3f}`",
+                f"- artifact valid: `{artifact_metrics['artifact_validity']}`",
                 f"- output: `{result.output_path}`",
                 f"- timing json: `{timing_path}`",
+                f"- inspection summary: `{inspection_summary_path}`",
             ]
         ),
         encoding="utf-8",

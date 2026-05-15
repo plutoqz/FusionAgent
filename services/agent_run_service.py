@@ -871,11 +871,14 @@ class AgentRunService:
         )
 
         previous_override = planner.context_builder.resolved_aoi_override
+        previous_pattern_override = planner.context_builder.preferred_pattern_id_override
         planner.context_builder.resolved_aoi_override = resolved_aoi
+        planner.context_builder.preferred_pattern_id_override = request.preferred_pattern_id
         try:
             plan = planner.create_plan(run_id=run_id, job_type=request.job_type, trigger=request.trigger)
         finally:
             planner.context_builder.resolved_aoi_override = previous_override
+            planner.context_builder.preferred_pattern_id_override = previous_pattern_override
         intent = dict(plan.context.get("intent", {}))
         if intent.get("request_input_strategy") != request.input_strategy.value:
             intent["request_input_strategy"] = request.input_strategy.value
@@ -2112,12 +2115,45 @@ class AgentRunService:
 
     @staticmethod
     def _extract_pattern_id(plan: WorkflowPlan) -> Optional[str]:
+        explicit = plan.context.get("selected_pattern_id")
+        if explicit:
+            return str(explicit)
         retrieval = plan.context.get("retrieval", {})
         candidates = retrieval.get("candidate_patterns", []) if isinstance(retrieval, dict) else []
+        for candidate in candidates:
+            if not isinstance(candidate, dict):
+                continue
+            pattern_id = str(candidate.get("pattern_id") or "").strip()
+            if not pattern_id:
+                continue
+            steps = candidate.get("steps")
+            if not isinstance(steps, list):
+                continue
+            if AgentRunService._candidate_pattern_matches_plan(plan, steps):
+                return pattern_id
         if candidates:
             return candidates[0].get("pattern_id")
         value = plan.context.get("pattern_id")
         return str(value) if value else None
+
+    @staticmethod
+    def _candidate_pattern_matches_plan(plan: WorkflowPlan, steps: Any) -> bool:
+        executable_tasks = [task for task in sorted(plan.tasks, key=lambda item: item.step) if not task.is_transform]
+        if not executable_tasks:
+            return False
+        normalized_steps = [step for step in steps if isinstance(step, dict)]
+        if len(normalized_steps) < len(executable_tasks):
+            return False
+        for task, step in zip(executable_tasks, normalized_steps):
+            if str(step.get("algorithm_id") or "").strip() != task.algorithm_id:
+                return False
+            if str(step.get("input_data_type") or "").strip() != task.input.data_type_id:
+                return False
+            if str(step.get("data_source_id") or "").strip() != task.input.data_source_id:
+                return False
+            if str(step.get("output_data_type") or "").strip() != task.output.data_type_id:
+                return False
+        return True
 
     @staticmethod
     def _extract_algorithm_id(plan: WorkflowPlan, repair_records: List[RepairRecord]) -> Optional[str]:
@@ -2293,6 +2329,16 @@ class AgentRunService:
         retrieval = plan.context.get("retrieval", {})
         raw_patterns = retrieval.get("candidate_patterns", []) if isinstance(retrieval, dict) else []
         learning_summaries = self._durable_pattern_summaries_by_id(retrieval)
+        actual_selected_pattern_id = str(plan.context.get("selected_pattern_id") or "").strip()
+        if not actual_selected_pattern_id:
+            for raw in raw_patterns:
+                if not isinstance(raw, dict):
+                    continue
+                pattern_id = str(raw.get("pattern_id") or "").strip()
+                steps = raw.get("steps")
+                if pattern_id and isinstance(steps, list) and self._candidate_pattern_matches_plan(plan, steps):
+                    actual_selected_pattern_id = pattern_id
+                    break
         candidates: List[CandidateScoreInput] = []
         for raw in raw_patterns:
             if not isinstance(raw, dict):
@@ -2323,6 +2369,21 @@ class AgentRunService:
         if not candidates:
             return None
         decision = self.policy_engine.select("pattern_selection", candidates)
+        if actual_selected_pattern_id and any(
+            candidate.candidate_id == actual_selected_pattern_id for candidate in decision.candidates
+        ):
+            selected = next(candidate for candidate in decision.candidates if candidate.candidate_id == actual_selected_pattern_id)
+            decision = decision.model_copy(
+                update={
+                    "selected_id": selected.candidate_id,
+                    "selected_score": selected.score,
+                    "rationale": (
+                        f"Selected '{selected.candidate_id}' because the executable plan resolves to that workflow pattern. "
+                        f"Candidate scoring remains attached for audit comparison; policy-only winner before execution was "
+                        f"'{decision.selected_id}'."
+                    ),
+                }
+            )
         evidence_refs = ["context.retrieval.candidate_patterns", "policy:deterministic_weighted_sum"]
         if any(candidate.learning_adjustment is not None for candidate in candidates):
             evidence_refs.append("context.retrieval.durable_learning_summaries.patterns")

@@ -1,0 +1,3044 @@
+{
+  "run": {
+    "run_id": "d7b3d61a48644fc18edf1064c272bb7d",
+    "job_type": "road",
+    "trigger": {
+      "type": "user_query",
+      "content": "need road data for Gilgit city, Pakistan",
+      "disaster_type": null,
+      "spatial_extent": null,
+      "force_aoi_resolution": false,
+      "temporal_start": null,
+      "temporal_end": null
+    },
+    "phase": "succeeded",
+    "progress": 100,
+    "target_crs": "EPSG:32643",
+    "debug": false,
+    "error": null,
+    "log_path": "runs\\d7b3d61a48644fc18edf1064c272bb7d\\logs\\run.log",
+    "plan_path": "runs\\d7b3d61a48644fc18edf1064c272bb7d\\plan.json",
+    "validation_path": "runs\\d7b3d61a48644fc18edf1064c272bb7d\\validation.json",
+    "audit_path": "runs\\d7b3d61a48644fc18edf1064c272bb7d\\audit.jsonl",
+    "artifact": {
+      "filename": "road_fusion_result.zip",
+      "path": "runs\\d7b3d61a48644fc18edf1064c272bb7d\\output\\road_fusion_result.zip",
+      "size_bytes": 293085
+    },
+    "decision_records": [
+      {
+        "decision_type": "pattern_selection",
+        "selected_id": "wp.road.fusioncode.segment_topology.v1",
+        "selected_score": 0.5488000000000001,
+        "rationale": "Selected 'wp.road.fusioncode.segment_topology.v1' because the executable plan resolves to that workflow pattern. Candidate scoring remains attached for audit comparison; policy-only winner before execution was 'wp.typhoon.road.default'.",
+        "candidates": [
+          {
+            "candidate_id": "wp.typhoon.road.default",
+            "score": 0.672,
+            "reason": "weighted_sum=0.58*(success/accuracy=0.900) + 0.20*(data_quality=0.000) + 0.12*(stability=0.000) + 0.05*(freshness=0.500) + 0.03*(reuse=0.500) + 0.01*(speed=0.500) + 0.01*(cost=0.500) + learning_adjustment=0.100",
+            "evidence": {
+              "metrics": {
+                "success_rate": 0.9,
+                "accuracy": 0.9,
+                "data_quality": null,
+                "stability": null,
+                "freshness": null,
+                "reuse": null,
+                "speed": null,
+                "cost": null,
+                "learning_adjustment": 0.1
+              },
+              "meta": {
+                "durable_learning_summary": {
+                  "entity_kind": "pattern",
+                  "entity_id": "wp.typhoon.road.default",
+                  "job_type": "road",
+                  "disaster_type": null,
+                  "total_runs": 7,
+                  "success_count": 7,
+                  "failure_count": 0,
+                  "repaired_count": 0,
+                  "last_run_at": "2026-05-12T10:11:08.908458+00:00",
+                  "last_failure_reason": null
+                }
+              }
+            }
+          },
+          {
+            "candidate_id": "wp.flood.road.default",
+            "score": 0.5488000000000001,
+            "reason": "weighted_sum=0.58*(success/accuracy=0.860) + 0.20*(data_quality=0.000) + 0.12*(stability=0.000) + 0.05*(freshness=0.500) + 0.03*(reuse=0.500) + 0.01*(speed=0.500) + 0.01*(cost=0.500) + learning_adjustment=0.000",
+            "evidence": {
+              "metrics": {
+                "success_rate": 0.86,
+                "accuracy": 0.86,
+                "data_quality": null,
+                "stability": null,
+                "freshness": null,
+                "reuse": null,
+                "speed": null,
+                "cost": null,
+                "learning_adjustment": null
+              },
+              "meta": {}
+            }
+          },
+          {
+            "candidate_id": "wp.road.fusioncode.segment_topology.v1",
+            "score": 0.5488000000000001,
+            "reason": "weighted_sum=0.58*(success/accuracy=0.860) + 0.20*(data_quality=0.000) + 0.12*(stability=0.000) + 0.05*(freshness=0.500) + 0.03*(reuse=0.500) + 0.01*(speed=0.500) + 0.01*(cost=0.500) + learning_adjustment=0.000",
+            "evidence": {
+              "metrics": {
+                "success_rate": 0.86,
+                "accuracy": 0.86,
+                "data_quality": null,
+                "stability": null,
+                "freshness": null,
+                "reuse": null,
+                "speed": null,
+                "cost": null,
+                "learning_adjustment": null
+              },
+              "meta": {}
+            }
+          }
+        ],
+        "policy_version": "v2",
+        "evidence_refs": [
+          "context.retrieval.candidate_patterns",
+          "policy:deterministic_weighted_sum",
+          "context.retrieval.durable_learning_summaries.patterns"
+        ]
+      },
+      {
+        "decision_type": "data_source_selection",
+        "selected_id": "catalog.typhoon.road",
+        "selected_score": 0.23800000000000004,
+        "rationale": "Selected 'catalog.typhoon.road' with score=0.238000 using deterministic weighted scoring. Major factors: success_rate/accuracy (strongest), data_quality and stability, then freshness and reuse, then speed and cost. Runner-up 'catalog.flood.road' score=0.231500; winner had higher weighted sum on the major factors.",
+        "candidates": [
+          {
+            "candidate_id": "catalog.typhoon.road",
+            "score": 0.23800000000000004,
+            "reason": "weighted_sum=0.58*(success/accuracy=0.000) + 0.20*(data_quality=0.870) + 0.12*(stability=0.000) + 0.05*(freshness=0.780) + 0.03*(reuse=0.500) + 0.01*(speed=0.500) + 0.01*(cost=0.500) + learning_adjustment=0.000",
+            "evidence": {
+              "metrics": {
+                "success_rate": null,
+                "accuracy": null,
+                "data_quality": 0.87,
+                "stability": null,
+                "freshness": 0.78,
+                "reuse": null,
+                "speed": null,
+                "cost": null,
+                "learning_adjustment": null
+              },
+              "meta": {
+                "source_name": "Typhoon Road Bundle (OSM Baseline)",
+                "source_kind": "catalog",
+                "quality_tier": "curated",
+                "freshness_category": "event_snapshot",
+                "supported_types": [
+                  "dt.road.bundle"
+                ]
+              }
+            }
+          },
+          {
+            "candidate_id": "catalog.flood.road",
+            "score": 0.23150000000000004,
+            "reason": "weighted_sum=0.58*(success/accuracy=0.000) + 0.20*(data_quality=0.850) + 0.12*(stability=0.000) + 0.05*(freshness=0.730) + 0.03*(reuse=0.500) + 0.01*(speed=0.500) + 0.01*(cost=0.500) + learning_adjustment=0.000",
+            "evidence": {
+              "metrics": {
+                "success_rate": null,
+                "accuracy": null,
+                "data_quality": 0.85,
+                "stability": null,
+                "freshness": 0.73,
+                "reuse": null,
+                "speed": null,
+                "cost": null,
+                "learning_adjustment": null
+              },
+              "meta": {
+                "source_name": "Flood Road Bundle (OSM Baseline)",
+                "source_kind": "catalog",
+                "quality_tier": "curated",
+                "freshness_category": "event_snapshot",
+                "supported_types": [
+                  "dt.road.bundle"
+                ]
+              }
+            }
+          },
+          {
+            "candidate_id": "catalog.earthquake.road",
+            "score": 0.22750000000000004,
+            "reason": "weighted_sum=0.58*(success/accuracy=0.000) + 0.20*(data_quality=0.840) + 0.12*(stability=0.000) + 0.05*(freshness=0.690) + 0.03*(reuse=0.500) + 0.01*(speed=0.500) + 0.01*(cost=0.500) + learning_adjustment=0.000",
+            "evidence": {
+              "metrics": {
+                "success_rate": null,
+                "accuracy": null,
+                "data_quality": 0.84,
+                "stability": null,
+                "freshness": 0.69,
+                "reuse": null,
+                "speed": null,
+                "cost": null,
+                "learning_adjustment": null
+              },
+              "meta": {
+                "source_name": "Earthquake Road Bundle (OSM Baseline)",
+                "source_kind": "catalog",
+                "quality_tier": "curated",
+                "freshness_category": "event_snapshot",
+                "supported_types": [
+                  "dt.road.bundle"
+                ]
+              }
+            }
+          }
+        ],
+        "policy_version": "v2",
+        "evidence_refs": [
+          "context.retrieval.data_sources",
+          "policy:deterministic_weighted_sum"
+        ]
+      },
+      {
+        "decision_type": "artifact_reuse_selection",
+        "selected_id": "fresh_execution",
+        "selected_score": 0.131,
+        "rationale": "Selected 'fresh_execution' with score=0.131000 using deterministic weighted scoring. Major factors: success_rate/accuracy (strongest), data_quality and stability, then freshness and reuse, then speed and cost.",
+        "candidates": [
+          {
+            "candidate_id": "fresh_execution",
+            "score": 0.131,
+            "reason": "weighted_sum=0.58*(success/accuracy=0.000) + 0.20*(data_quality=0.000) + 0.12*(stability=0.800) + 0.05*(freshness=0.500) + 0.03*(reuse=0.000) + 0.01*(speed=0.500) + 0.01*(cost=0.500) + learning_adjustment=0.000",
+            "evidence": {
+              "metrics": {
+                "success_rate": null,
+                "accuracy": null,
+                "data_quality": null,
+                "stability": 0.8,
+                "freshness": 0.5,
+                "reuse": 0.0,
+                "speed": null,
+                "cost": null,
+                "learning_adjustment": null
+              },
+              "meta": {
+                "selection_source": "fallback_when_no_safe_reuse_candidate"
+              }
+            }
+          }
+        ],
+        "policy_version": "v2",
+        "evidence_refs": [
+          "context.retrieval.reusable_artifacts",
+          "policy:deterministic_weighted_sum"
+        ]
+      },
+      {
+        "decision_type": "parameter_strategy",
+        "selected_id": "kg_defaults_only",
+        "selected_score": 0.547,
+        "rationale": "Selected 'kg_defaults_only' with score=0.547000 using deterministic weighted scoring. Major factors: success_rate/accuracy (strongest), data_quality and stability, then freshness and reuse, then speed and cost.",
+        "candidates": [
+          {
+            "candidate_id": "kg_defaults_only",
+            "score": 0.547,
+            "reason": "weighted_sum=0.58*(success/accuracy=0.650) + 0.20*(data_quality=0.000) + 0.12*(stability=1.000) + 0.05*(freshness=0.500) + 0.03*(reuse=0.500) + 0.01*(speed=0.500) + 0.01*(cost=0.500) + learning_adjustment=0.000",
+            "evidence": {
+              "metrics": {
+                "success_rate": 1.0,
+                "accuracy": null,
+                "data_quality": null,
+                "stability": 1.0,
+                "freshness": null,
+                "reuse": null,
+                "speed": null,
+                "cost": null,
+                "learning_adjustment": null
+              },
+              "meta": {
+                "steps": [
+                  {
+                    "step": 1,
+                    "algorithm_id": "algo.fusion.road.segment_match_topology.v1",
+                    "parameter_keys": [
+                      "angle_threshold_deg",
+                      "buffer_dist_m",
+                      "max_hausdorff_m"
+                    ],
+                    "overridden_keys": []
+                  }
+                ],
+                "overridden_keys": [],
+                "total_specs": 3,
+                "total_bound": 3
+              }
+            }
+          }
+        ],
+        "policy_version": "v2",
+        "evidence_refs": [
+          "plan.tasks.input.parameters",
+          "kg.parameter_specs",
+          "policy:deterministic_weighted_sum"
+        ]
+      },
+      {
+        "decision_type": "output_schema_policy",
+        "selected_id": "osp.road.fused.v1",
+        "selected_score": 0.16999999999999998,
+        "rationale": "Selected 'osp.road.fused.v1' with score=0.170000 using deterministic weighted scoring. Major factors: success_rate/accuracy (strongest), data_quality and stability, then freshness and reuse, then speed and cost.",
+        "candidates": [
+          {
+            "candidate_id": "osp.road.fused.v1",
+            "score": 0.16999999999999998,
+            "reason": "weighted_sum=0.58*(success/accuracy=0.000) + 0.20*(data_quality=0.000) + 0.12*(stability=1.000) + 0.05*(freshness=0.500) + 0.03*(reuse=0.500) + 0.01*(speed=0.500) + 0.01*(cost=0.500) + learning_adjustment=0.000",
+            "evidence": {
+              "metrics": {
+                "success_rate": null,
+                "accuracy": null,
+                "data_quality": null,
+                "stability": 1.0,
+                "freshness": null,
+                "reuse": null,
+                "speed": null,
+                "cost": null,
+                "learning_adjustment": null
+              },
+              "meta": {
+                "output_type": "dt.road.fused",
+                "retention_mode": "preserve_listed",
+                "required_fields": [
+                  "geometry"
+                ],
+                "optional_fields": [
+                  "osm_id",
+                  "FID_1",
+                  "fclass"
+                ],
+                "rename_hints": {},
+                "compatibility_basis": "field_names"
+              }
+            }
+          }
+        ],
+        "policy_version": "v2",
+        "evidence_refs": [
+          "context.retrieval.output_schema_policies",
+          "policy:deterministic_weighted_sum"
+        ]
+      }
+    ],
+    "artifact_reuse": {
+      "reused": false,
+      "artifact_id": null,
+      "freshness_status": "not_available",
+      "rationale": "No reusable artifact candidates were found in planner retrieval context."
+    },
+    "repair_records": [
+      {
+        "attempt_no": 1,
+        "strategy": "alternative_source",
+        "step": 1,
+        "message": "Primary execution failed: Unknown column geometry",
+        "success": false,
+        "timestamp": "2026-05-15T08:52:00.987966+00:00",
+        "reason_code": "primary_execution_failed",
+        "from_algorithm": "algo.fusion.road.segment_match_topology.v1",
+        "to_algorithm": null
+      },
+      {
+        "attempt_no": 2,
+        "strategy": "alternative_source",
+        "step": 1,
+        "message": "Switched data source id to catalog.flood.road",
+        "success": true,
+        "timestamp": "2026-05-15T08:52:00.988963+00:00",
+        "reason_code": "alternative_source_selected",
+        "from_algorithm": "algo.fusion.road.segment_match_topology.v1",
+        "to_algorithm": null
+      },
+      {
+        "attempt_no": 3,
+        "strategy": "alternative_algorithm",
+        "step": 1,
+        "message": "Recovered with alternative algorithm algo.fusion.road.safe",
+        "success": true,
+        "timestamp": "2026-05-15T08:52:01.109764+00:00",
+        "reason_code": "alternative_algorithm_succeeded",
+        "from_algorithm": "algo.fusion.road.segment_match_topology.v1",
+        "to_algorithm": "algo.fusion.road.safe"
+      }
+    ],
+    "current_step": 1,
+    "attempt_no": 3,
+    "healing_summary": {
+      "attempted_repairs": 3,
+      "successful_repairs": 2,
+      "failed_repairs": 1,
+      "last_reason_code": "alternative_algorithm_succeeded",
+      "strategies": [
+        "alternative_source",
+        "alternative_algorithm"
+      ]
+    },
+    "failure_summary": null,
+    "planning_telemetry": {
+      "elapsed_ms": 68056,
+      "context_size_bytes": 42376,
+      "provider": "open_a_i_compatible",
+      "model": "gpt-5-mini-2025-08-07",
+      "llm_usage": {
+        "prompt_tokens": 12472,
+        "completion_tokens": 3888,
+        "total_tokens": 16360
+      }
+    },
+    "plan_revision": 1,
+    "event_count": 15,
+    "last_event": {
+      "timestamp": "2026-05-15T08:52:02.448731+00:00",
+      "kind": "run_succeeded",
+      "phase": "succeeded",
+      "message": "Run completed successfully and artifact is ready.",
+      "plan_revision": 1,
+      "progress": 100,
+      "attempt_no": 3,
+      "current_step": 1,
+      "details": {}
+    },
+    "checkpoint": {
+      "stage": "completed",
+      "plan_revision": 1,
+      "current_step": 1,
+      "attempt_no": 3
+    },
+    "created_at": "2026-05-15T08:49:57.096611+00:00",
+    "updated_at": "2026-05-15T08:52:02.448731+00:00",
+    "started_at": "2026-05-15T08:50:14.618712+00:00",
+    "finished_at": "2026-05-15T08:52:02.447731+00:00"
+  },
+  "plan": {
+    "workflow_id": "wf_wp.road.fusioncode.segment_topology.v1_c862b7c5",
+    "trigger": {
+      "type": "user_query",
+      "content": "need road data for Gilgit city, Pakistan",
+      "disaster_type": null,
+      "spatial_extent": null,
+      "force_aoi_resolution": false,
+      "temporal_start": null,
+      "temporal_end": null
+    },
+    "context": {
+      "intent": {
+        "job_type": "road",
+        "trigger": {
+          "type": "user_query",
+          "content": "need road data for Gilgit city, Pakistan",
+          "disaster_type": null,
+          "spatial_extent": null,
+          "force_aoi_resolution": false,
+          "temporal_start": null,
+          "temporal_end": null
+        },
+        "location_query": "Gilgit city, Pakistan",
+        "resolved_aoi": {
+          "query": "Gilgit city, Pakistan",
+          "display_name": "گلگت, تحصیل گلگت, ضلع گلگت, گلگت ڈویژن, گلگت بلتستان, 51100, پاکستان",
+          "country_name": "پاکستان",
+          "country_code": "pk",
+          "bbox": [
+            74.154044,
+            35.7608102,
+            74.474044,
+            36.0808102
+          ],
+          "confidence": 0.4930344686228157,
+          "selection_reason": "single_candidate",
+          "candidates": [
+            {
+              "query": "Gilgit city, Pakistan",
+              "display_name": "گلگت, تحصیل گلگت, ضلع گلگت, گلگت ڈویژن, گلگت بلتستان, 51100, پاکستان",
+              "country_name": "پاکستان",
+              "country_code": "pk",
+              "admin_level": "city",
+              "bbox": [
+                74.154044,
+                35.7608102,
+                74.474044,
+                36.0808102
+              ],
+              "source": "geocoder",
+              "confidence": 0.4930344686228157,
+              "raw": {
+                "place_id": 213299883,
+                "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+                "osm_type": "node",
+                "osm_id": 58568637,
+                "lat": "35.9208102",
+                "lon": "74.3140440",
+                "category": "place",
+                "type": "city",
+                "place_rank": 16,
+                "importance": 0.4930344686228157,
+                "addresstype": "city",
+                "name": "گلگت",
+                "display_name": "گلگت, تحصیل گلگت, ضلع گلگت, گلگت ڈویژن, گلگت بلتستان, 51100, پاکستان",
+                "address": {
+                  "city": "گلگت",
+                  "municipality": "تحصیل گلگت",
+                  "county": "ضلع گلگت",
+                  "state_district": "گلگت ڈویژن",
+                  "state": "گلگت بلتستان",
+                  "ISO3166-2-lvl4": "PK-GB",
+                  "postcode": "51100",
+                  "country": "پاکستان",
+                  "country_code": "pk"
+                },
+                "boundingbox": [
+                  "35.7608102",
+                  "36.0808102",
+                  "74.1540440",
+                  "74.4740440"
+                ]
+              }
+            }
+          ]
+        },
+        "expected_output_type": "dt.road.fused",
+        "spatial_extent": null,
+        "temporal_start": null,
+        "temporal_end": null,
+        "planning_mode": "task_driven",
+        "profile_source": "direct_task",
+        "task_bundle": {
+          "bundle_id": "task_bundle.direct_request",
+          "requested_tasks": [
+            "task.road.fusion"
+          ],
+          "requires_disaster_profile": false
+        },
+        "effective_scenario_profile_id": "scenario.default.task",
+        "effective_activated_tasks": [
+          "task.building.fusion",
+          "task.road.fusion",
+          "task.poi.fusion",
+          "task.vector.download"
+        ],
+        "effective_preferred_output_fields": [
+          "geometry"
+        ],
+        "effective_qos_priority": {
+          "accuracy": 0.35,
+          "stability": 0.25,
+          "freshness": 0.2,
+          "speed": 0.2
+        },
+        "request_input_strategy": "task_driven_auto"
+      },
+      "retrieval": {
+        "candidate_patterns": [
+          {
+            "pattern_id": "wp.road.fusioncode.segment_topology.v1",
+            "pattern_name": "FusionCode Road Segment Topology Fusion",
+            "job_type": "road",
+            "disaster_types": [
+              "flood",
+              "earthquake",
+              "typhoon",
+              "generic"
+            ],
+            "success_rate": 0.86,
+            "metadata": {
+              "version": "1.0.0",
+              "runtime_status": "runtime_candidate",
+              "algorithm_family": "fusioncode_decomposed"
+            },
+            "steps": [
+              {
+                "order": 1,
+                "name": "road_segment_match_topology",
+                "algorithm_id": "algo.fusion.road.segment_match_topology.v1",
+                "input_data_type": "dt.road.bundle",
+                "output_data_type": "dt.road.fused",
+                "data_source_id": "upload.bundle",
+                "depends_on": [],
+                "is_optional": false
+              }
+            ],
+            "source_quality": 1.0,
+            "algorithm_fit": 0.83,
+            "workflow_support": 1.0,
+            "missing_requirements": [],
+            "ranking_score": 0.9405,
+            "ranking_rationale": {
+              "source_quality": 1.0,
+              "algorithm_fit": 0.83,
+              "workflow_support": 1.0,
+              "penalty_for_missing_requirements": 0.0
+            }
+          },
+          {
+            "pattern_id": "wp.flood.road.default",
+            "pattern_name": "Flood Road Fusion",
+            "job_type": "road",
+            "disaster_types": [
+              "flood",
+              "earthquake",
+              "generic"
+            ],
+            "success_rate": 0.86,
+            "metadata": {
+              "version": "1.0.0",
+              "runtime_status": "runtime_candidate",
+              "scenario_focus": "flood",
+              "strategy": "throughput"
+            },
+            "steps": [
+              {
+                "order": 1,
+                "name": "road_fusion",
+                "algorithm_id": "algo.fusion.road.v1",
+                "input_data_type": "dt.road.bundle",
+                "output_data_type": "dt.road.fused",
+                "data_source_id": "upload.bundle",
+                "depends_on": [],
+                "is_optional": false
+              }
+            ],
+            "source_quality": 1.0,
+            "algorithm_fit": 0.872,
+            "workflow_support": 1.0,
+            "missing_requirements": [],
+            "ranking_score": 0.9552,
+            "ranking_rationale": {
+              "source_quality": 1.0,
+              "algorithm_fit": 0.872,
+              "workflow_support": 1.0,
+              "penalty_for_missing_requirements": 0.0
+            }
+          },
+          {
+            "pattern_id": "wp.typhoon.road.default",
+            "pattern_name": "Typhoon Road Fusion",
+            "job_type": "road",
+            "disaster_types": [
+              "typhoon"
+            ],
+            "success_rate": 0.9,
+            "metadata": {
+              "version": "1.0.0",
+              "runtime_status": "runtime_candidate",
+              "scenario_focus": "typhoon",
+              "strategy": "throughput"
+            },
+            "steps": [
+              {
+                "order": 1,
+                "name": "road_fusion_typhoon",
+                "algorithm_id": "algo.fusion.road.v1",
+                "input_data_type": "dt.road.bundle",
+                "output_data_type": "dt.road.fused",
+                "data_source_id": "upload.bundle",
+                "depends_on": [],
+                "is_optional": false
+              }
+            ],
+            "source_quality": 1.0,
+            "algorithm_fit": 0.872,
+            "workflow_support": 1.0,
+            "missing_requirements": [],
+            "ranking_score": 0.9552,
+            "ranking_rationale": {
+              "source_quality": 1.0,
+              "algorithm_fit": 0.872,
+              "workflow_support": 1.0,
+              "penalty_for_missing_requirements": 0.0
+            }
+          }
+        ],
+        "algorithms": {
+          "algo.fusion.road.v1": {
+            "algo_id": "algo.fusion.road.v1",
+            "algo_name": "Road Fusion Legacy",
+            "input_types": [
+              "dt.road.bundle"
+            ],
+            "output_type": "dt.road.fused",
+            "task_type": "road_fusion",
+            "tool_ref": "adapters.road_adapter:run_road_fusion",
+            "success_rate": 0.9,
+            "accuracy_score": 0.86,
+            "stability_score": 0.72,
+            "usage_mode": "throughput",
+            "metadata": {
+              "selection_profile": "primary",
+              "evidence_basis": "legacy_default_runtime"
+            },
+            "alternatives": [
+              "algo.fusion.road.safe"
+            ]
+          },
+          "algo.fusion.road.segment_match_topology.v1": {
+            "algo_id": "algo.fusion.road.segment_match_topology.v1",
+            "algo_name": "FusionCode Road Segment Match Topology",
+            "input_types": [
+              "dt.road.bundle"
+            ],
+            "output_type": "dt.road.fused",
+            "task_type": "road_fusion",
+            "tool_ref": "fusion_algorithms:_handle_road_segment_match_topology",
+            "success_rate": 0.82,
+            "accuracy_score": 0.86,
+            "stability_score": 0.82,
+            "usage_mode": "balanced",
+            "metadata": {
+              "runtime_status": "runtime_candidate",
+              "algorithm_family": "fusioncode_decomposed",
+              "source_file": "MapTileTool/FusionTool/road.py",
+              "handler_name": "_handle_road_segment_match_topology"
+            },
+            "alternatives": [
+              "algo.fusion.road.safe"
+            ]
+          },
+          "algo.transform.raw_to_road_bundle": {
+            "algo_id": "algo.transform.raw_to_road_bundle",
+            "algo_name": "Raw Vector to Road Bundle",
+            "input_types": [
+              "dt.raw.vector"
+            ],
+            "output_type": "dt.road.bundle",
+            "task_type": "transform",
+            "tool_ref": "builtin:transform",
+            "success_rate": 0.98,
+            "accuracy_score": 0.97,
+            "stability_score": 0.96,
+            "usage_mode": "normalization",
+            "metadata": {
+              "selection_profile": "preparation",
+              "evidence_basis": "deterministic_transform"
+            },
+            "alternatives": []
+          },
+          "algo.transform.trajectory_to_road_candidate": {
+            "algo_id": "algo.transform.trajectory_to_road_candidate",
+            "algo_name": "Trajectory To Road Candidate Reserved Seam",
+            "input_types": [
+              "dt.trajectory.raw"
+            ],
+            "output_type": "dt.road.candidate",
+            "task_type": "transform",
+            "tool_ref": "builtin:trajectory_pretransform_reserved",
+            "success_rate": 0.0,
+            "accuracy_score": 0.0,
+            "stability_score": 1.0,
+            "usage_mode": "reserved",
+            "metadata": {
+              "selection_profile": "reserved_seam",
+              "evidence_basis": "phase4_transform_reservation",
+              "runtime_scope": "metadata_only",
+              "activation": "non_default"
+            },
+            "alternatives": []
+          }
+        },
+        "task_nodes": [
+          {
+            "task_id": "task.building.fusion",
+            "task_name": "Building Fusion",
+            "category": "fusion",
+            "description": "Fuse multiple building vector sources into one output."
+          },
+          {
+            "task_id": "task.clip.raster.by_tile",
+            "task_name": "Raster Clip By Tile",
+            "category": "runtime",
+            "description": "Reserved tiled raster clipping task for future building enrichment workflows."
+          },
+          {
+            "task_id": "task.enrich.building.height.reserved",
+            "task_name": "Enrich Building Height",
+            "category": "enrichment",
+            "description": "Reserved seam for future raster-backed building height enrichment."
+          },
+          {
+            "task_id": "task.merge.building.tiles.reserved",
+            "task_name": "Merge Building Tiles",
+            "category": "runtime",
+            "description": "Reserved seam for future tile-level building artifact stitching."
+          },
+          {
+            "task_id": "task.partition.aoi",
+            "task_name": "AOI Partition",
+            "category": "runtime",
+            "description": "Reserved AOI partition task for future tiled execution workflows."
+          },
+          {
+            "task_id": "task.poi.fusion",
+            "task_name": "POI Fusion",
+            "category": "fusion",
+            "description": "Fuse multiple point-of-interest sources into one output."
+          },
+          {
+            "task_id": "task.road.fusion",
+            "task_name": "Road Fusion",
+            "category": "fusion",
+            "description": "Fuse multiple road vector sources into one output."
+          },
+          {
+            "task_id": "task.trajectory_to_road",
+            "task_name": "Trajectory To Road Candidate",
+            "category": "transform",
+            "description": "Reserved seam for future trajectory-to-road candidate pretransform before road fusion."
+          },
+          {
+            "task_id": "task.vector.download",
+            "task_name": "Vector Data Download",
+            "category": "acquisition",
+            "description": "Acquire vector data required by downstream fusion or enrichment tasks."
+          },
+          {
+            "task_id": "task.water.fusion",
+            "task_name": "Water Fusion",
+            "category": "fusion",
+            "description": "Fuse multiple water polygon sources into one output."
+          }
+        ],
+        "scenario_profiles": [
+          {
+            "profile_id": "scenario.default.task",
+            "profile_name": "Default Direct Task Profile",
+            "disaster_types": [
+              "generic"
+            ],
+            "activated_tasks": [
+              "task.building.fusion",
+              "task.road.fusion",
+              "task.poi.fusion",
+              "task.vector.download"
+            ],
+            "preferred_output_fields": [
+              "geometry"
+            ],
+            "qos_priority": {
+              "accuracy": 0.35,
+              "stability": 0.25,
+              "freshness": 0.2,
+              "speed": 0.2
+            },
+            "metadata": {
+              "entry_mode": "task_driven"
+            }
+          },
+          {
+            "profile_id": "scenario.earthquake.default",
+            "profile_name": "Earthquake Default Scenario",
+            "disaster_types": [
+              "earthquake"
+            ],
+            "activated_tasks": [
+              "task.building.fusion",
+              "task.road.fusion"
+            ],
+            "preferred_output_fields": [
+              "geometry",
+              "confidence",
+              "timestamp"
+            ],
+            "qos_priority": {
+              "accuracy": 0.4,
+              "stability": 0.3,
+              "freshness": 0.15,
+              "speed": 0.15
+            },
+            "metadata": {
+              "entry_mode": "scenario_driven"
+            }
+          },
+          {
+            "profile_id": "scenario.flood.default",
+            "profile_name": "Flood Default Scenario",
+            "disaster_types": [
+              "flood"
+            ],
+            "activated_tasks": [
+              "task.building.fusion",
+              "task.road.fusion"
+            ],
+            "preferred_output_fields": [
+              "geometry",
+              "confidence",
+              "timestamp"
+            ],
+            "qos_priority": {
+              "accuracy": 0.35,
+              "stability": 0.25,
+              "freshness": 0.25,
+              "speed": 0.15
+            },
+            "metadata": {
+              "entry_mode": "scenario_driven"
+            }
+          },
+          {
+            "profile_id": "scenario.typhoon.default",
+            "profile_name": "Typhoon Default Scenario",
+            "disaster_types": [
+              "typhoon"
+            ],
+            "activated_tasks": [
+              "task.building.fusion",
+              "task.road.fusion"
+            ],
+            "preferred_output_fields": [
+              "geometry",
+              "confidence",
+              "timestamp"
+            ],
+            "qos_priority": {
+              "accuracy": 0.3,
+              "stability": 0.25,
+              "freshness": 0.3,
+              "speed": 0.15
+            },
+            "metadata": {
+              "entry_mode": "scenario_driven"
+            }
+          }
+        ],
+        "parameter_specs": {
+          "algo.fusion.road.segment_match_topology.v1": [
+            {
+              "spec_id": "ps.algo.fusion.road.segment_match_topology.v1.angle_threshold_deg",
+              "algo_id": "algo.fusion.road.segment_match_topology.v1",
+              "key": "angle_threshold_deg",
+              "label": "Angle Threshold Deg",
+              "param_type": "int",
+              "default": 135,
+              "min_value": 0.0,
+              "max_value": 180.0,
+              "unit": "degree",
+              "description": "FusionCode parameter `angle_threshold_deg` for algo.fusion.road.segment_match_topology.v1.",
+              "required": false,
+              "choices": null,
+              "tunable": true,
+              "optimization_tags": [
+                "line"
+              ],
+              "order": 10
+            },
+            {
+              "spec_id": "ps.algo.fusion.road.segment_match_topology.v1.buffer_dist_m",
+              "algo_id": "algo.fusion.road.segment_match_topology.v1",
+              "key": "buffer_dist_m",
+              "label": "Buffer Dist M",
+              "param_type": "float",
+              "default": 20.0,
+              "min_value": 0.0,
+              "max_value": null,
+              "unit": "meter",
+              "description": "FusionCode parameter `buffer_dist_m` for algo.fusion.road.segment_match_topology.v1.",
+              "required": false,
+              "choices": null,
+              "tunable": true,
+              "optimization_tags": [
+                "matching"
+              ],
+              "order": 20
+            },
+            {
+              "spec_id": "ps.algo.fusion.road.segment_match_topology.v1.max_hausdorff_m",
+              "algo_id": "algo.fusion.road.segment_match_topology.v1",
+              "key": "max_hausdorff_m",
+              "label": "Max Hausdorff M",
+              "param_type": "float",
+              "default": 15.0,
+              "min_value": 0.0,
+              "max_value": null,
+              "unit": "meter",
+              "description": "FusionCode parameter `max_hausdorff_m` for algo.fusion.road.segment_match_topology.v1.",
+              "required": false,
+              "choices": null,
+              "tunable": true,
+              "optimization_tags": [
+                "matching"
+              ],
+              "order": 30
+            }
+          ],
+          "algo.fusion.road.v1": [
+            {
+              "spec_id": "ps.algo.fusion.road.v1.angle_threshold_deg",
+              "algo_id": "algo.fusion.road.v1",
+              "key": "angle_threshold_deg",
+              "label": "Split Angle Threshold",
+              "param_type": "int",
+              "default": 135,
+              "min_value": 0.0,
+              "max_value": 180.0,
+              "unit": "deg",
+              "description": "Split lines at sharp turns: angles below this threshold trigger a split.",
+              "required": false,
+              "choices": null,
+              "tunable": true,
+              "optimization_tags": [
+                "stability",
+                "segmentation"
+              ],
+              "order": 10
+            },
+            {
+              "spec_id": "ps.algo.fusion.road.v1.snap_tolerance_m",
+              "algo_id": "algo.fusion.road.v1",
+              "key": "snap_tolerance_m",
+              "label": "Snap Tolerance",
+              "param_type": "float",
+              "default": 1.0,
+              "min_value": 0.0,
+              "max_value": 10.0,
+              "unit": "m",
+              "description": "Endpoint snap tolerance used when normalizing line endpoints.",
+              "required": false,
+              "choices": null,
+              "tunable": true,
+              "optimization_tags": [
+                "stability",
+                "topology"
+              ],
+              "order": 20
+            },
+            {
+              "spec_id": "ps.algo.fusion.road.v1.match_buffer_m",
+              "algo_id": "algo.fusion.road.v1",
+              "key": "match_buffer_m",
+              "label": "Match Buffer Distance",
+              "param_type": "float",
+              "default": 20.0,
+              "min_value": 0.0,
+              "max_value": 100.0,
+              "unit": "m",
+              "description": "Buffer radius for candidate matching between OSM and reference lines.",
+              "required": false,
+              "choices": null,
+              "tunable": true,
+              "optimization_tags": [
+                "recall",
+                "matching"
+              ],
+              "order": 30
+            },
+            {
+              "spec_id": "ps.algo.fusion.road.v1.max_hausdorff_m",
+              "algo_id": "algo.fusion.road.v1",
+              "key": "max_hausdorff_m",
+              "label": "Max Hausdorff Distance",
+              "param_type": "float",
+              "default": 15.0,
+              "min_value": 0.0,
+              "max_value": 100.0,
+              "unit": "m",
+              "description": "Maximum Hausdorff distance allowed to consider two lines as a match.",
+              "required": false,
+              "choices": null,
+              "tunable": true,
+              "optimization_tags": [
+                "precision",
+                "stability",
+                "matching"
+              ],
+              "order": 40
+            },
+            {
+              "spec_id": "ps.algo.fusion.road.v1.dedupe_buffer_m",
+              "algo_id": "algo.fusion.road.v1",
+              "key": "dedupe_buffer_m",
+              "label": "Dedupe Buffer Distance",
+              "param_type": "float",
+              "default": 15.0,
+              "min_value": 0.0,
+              "max_value": 100.0,
+              "unit": "m",
+              "description": "Buffer distance used during post-fusion deduplication.",
+              "required": false,
+              "choices": null,
+              "tunable": true,
+              "optimization_tags": [
+                "stability",
+                "deduplication"
+              ],
+              "order": 50
+            }
+          ],
+          "algo.transform.raw_to_road_bundle": [],
+          "algo.transform.trajectory_to_road_candidate": []
+        },
+        "data_sources": [
+          {
+            "source_id": "upload.bundle",
+            "source_name": "Uploaded Bundle",
+            "supported_types": [
+              "dt.building.bundle",
+              "dt.building.source_set",
+              "dt.building.normalized_set",
+              "dt.building.presence_validated_set",
+              "dt.building.fused_raw",
+              "dt.building.conflict_optimized",
+              "dt.raster.building_presence",
+              "dt.raster.building_height",
+              "dt.road.network",
+              "dt.road.bundle",
+              "dt.water.line_bundle",
+              "dt.trajectory.raw",
+              "dt.road.candidate",
+              "dt.water.bundle",
+              "dt.poi.bundle",
+              "dt.raw.vector"
+            ],
+            "disaster_types": [
+              "generic",
+              "flood",
+              "earthquake",
+              "typhoon"
+            ],
+            "quality_score": 1.0,
+            "source_kind": "local_upload",
+            "quality_tier": "operator_provided",
+            "freshness_category": "request_bound",
+            "freshness_hours": 0,
+            "freshness_score": 1.0,
+            "supported_job_types": [
+              "building",
+              "road",
+              "water",
+              "poi"
+            ],
+            "supported_geometry_types": [
+              "mixed",
+              "polygon",
+              "line",
+              "point"
+            ],
+            "metadata": {
+              "kind": "local",
+              "provider_family": "manual_upload",
+              "bundle_strategy": "operator_supplied",
+              "reserved_transform_inputs": [
+                "dt.trajectory.raw",
+                "dt.road.candidate"
+              ],
+              "source_form": "mixed",
+              "runtime_status": "runtime_candidate",
+              "selectable_now": true
+            },
+            "source_quality": 1.0,
+            "algorithm_fit": 1.0,
+            "workflow_support": 1.0,
+            "missing_requirements": [],
+            "ranking_score": 1.0,
+            "ranking_rationale": {
+              "source_quality": 1.0,
+              "algorithm_fit": 1.0,
+              "workflow_support": 1.0,
+              "penalty_for_missing_requirements": 0.0
+            }
+          },
+          {
+            "source_id": "catalog.typhoon.road",
+            "source_name": "Typhoon Road Bundle (OSM Baseline)",
+            "supported_types": [
+              "dt.road.bundle"
+            ],
+            "disaster_types": [
+              "typhoon",
+              "generic"
+            ],
+            "quality_score": 0.87,
+            "source_kind": "catalog",
+            "quality_tier": "curated",
+            "freshness_category": "event_snapshot",
+            "freshness_hours": 48,
+            "freshness_score": 0.78,
+            "supported_job_types": [
+              "road"
+            ],
+            "supported_geometry_types": [
+              "line"
+            ],
+            "metadata": {
+              "kind": "catalog",
+              "priority": 2,
+              "provider_family": "local_bundle_catalog",
+              "bundle_strategy": "single_source_with_empty_ref",
+              "component_source_ids": [
+                "raw.osm.road"
+              ],
+              "path_hints": [
+                "Data/roads/OSM"
+              ],
+              "supports_aoi": true,
+              "materialization_scope": "resolved_aoi_clip",
+              "source_form": "bundle",
+              "runtime_status": "runtime_candidate",
+              "selectable_now": true
+            },
+            "source_quality": 0.87,
+            "algorithm_fit": 1.0,
+            "workflow_support": 1.0,
+            "missing_requirements": [],
+            "ranking_score": 0.948,
+            "ranking_rationale": {
+              "source_quality": 0.87,
+              "algorithm_fit": 1.0,
+              "workflow_support": 1.0,
+              "penalty_for_missing_requirements": 0.0
+            }
+          },
+          {
+            "source_id": "catalog.flood.road",
+            "source_name": "Flood Road Bundle (OSM Baseline)",
+            "supported_types": [
+              "dt.road.bundle"
+            ],
+            "disaster_types": [
+              "flood",
+              "generic"
+            ],
+            "quality_score": 0.85,
+            "source_kind": "catalog",
+            "quality_tier": "curated",
+            "freshness_category": "event_snapshot",
+            "freshness_hours": 72,
+            "freshness_score": 0.73,
+            "supported_job_types": [
+              "road"
+            ],
+            "supported_geometry_types": [
+              "line"
+            ],
+            "metadata": {
+              "kind": "catalog",
+              "priority": 2,
+              "provider_family": "local_bundle_catalog",
+              "bundle_strategy": "single_source_with_empty_ref",
+              "component_source_ids": [
+                "raw.osm.road"
+              ],
+              "path_hints": [
+                "Data/roads/OSM"
+              ],
+              "supports_aoi": true,
+              "materialization_scope": "resolved_aoi_clip",
+              "source_form": "bundle",
+              "runtime_status": "runtime_candidate",
+              "selectable_now": true
+            },
+            "source_quality": 0.85,
+            "algorithm_fit": 1.0,
+            "workflow_support": 1.0,
+            "missing_requirements": [],
+            "ranking_score": 0.94,
+            "ranking_rationale": {
+              "source_quality": 0.85,
+              "algorithm_fit": 1.0,
+              "workflow_support": 1.0,
+              "penalty_for_missing_requirements": 0.0
+            }
+          },
+          {
+            "source_id": "catalog.earthquake.road",
+            "source_name": "Earthquake Road Bundle (OSM Baseline)",
+            "supported_types": [
+              "dt.road.bundle"
+            ],
+            "disaster_types": [
+              "earthquake",
+              "generic"
+            ],
+            "quality_score": 0.84,
+            "source_kind": "catalog",
+            "quality_tier": "curated",
+            "freshness_category": "event_snapshot",
+            "freshness_hours": 96,
+            "freshness_score": 0.69,
+            "supported_job_types": [
+              "road"
+            ],
+            "supported_geometry_types": [
+              "line"
+            ],
+            "metadata": {
+              "kind": "catalog",
+              "priority": 2,
+              "provider_family": "local_bundle_catalog",
+              "bundle_strategy": "single_source_with_empty_ref",
+              "component_source_ids": [
+                "raw.osm.road"
+              ],
+              "path_hints": [
+                "Data/roads/OSM"
+              ],
+              "supports_aoi": true,
+              "materialization_scope": "resolved_aoi_clip",
+              "source_form": "bundle",
+              "runtime_status": "runtime_candidate",
+              "selectable_now": true
+            },
+            "source_quality": 0.84,
+            "algorithm_fit": 1.0,
+            "workflow_support": 1.0,
+            "missing_requirements": [],
+            "ranking_score": 0.936,
+            "ranking_rationale": {
+              "source_quality": 0.84,
+              "algorithm_fit": 1.0,
+              "workflow_support": 1.0,
+              "penalty_for_missing_requirements": 0.0
+            }
+          },
+          {
+            "source_id": "raw.osm.road",
+            "source_name": "OSM Road Network",
+            "supported_types": [
+              "dt.raw.vector"
+            ],
+            "disaster_types": [
+              "generic",
+              "flood",
+              "earthquake",
+              "typhoon"
+            ],
+            "quality_score": 0.82,
+            "source_kind": "open_data",
+            "quality_tier": "community_curated",
+            "freshness_category": "sample_snapshot",
+            "freshness_hours": 168,
+            "freshness_score": 0.63,
+            "supported_job_types": [
+              "road"
+            ],
+            "supported_geometry_types": [
+              "line"
+            ],
+            "metadata": {
+              "kind": "raw_vector",
+              "provider_family": "osm",
+              "theme": "road",
+              "source_role": "osm_primary",
+              "path_hint": "Data/roads/OSM",
+              "supports_aoi": true,
+              "materialization_scope": "country_bundle_then_clip",
+              "materialization_provider": "geofabrik",
+              "source_form": "vector",
+              "runtime_status": "runtime_candidate",
+              "selectable_now": true
+            },
+            "source_quality": 0.82,
+            "algorithm_fit": 0.6,
+            "workflow_support": 1.0,
+            "missing_requirements": [],
+            "ranking_score": 0.788,
+            "ranking_rationale": {
+              "source_quality": 0.82,
+              "algorithm_fit": 0.6,
+              "workflow_support": 1.0,
+              "penalty_for_missing_requirements": 0.0
+            }
+          },
+          {
+            "source_id": "raw.osm.water",
+            "source_name": "OSM Water Features",
+            "supported_types": [
+              "dt.raw.vector"
+            ],
+            "disaster_types": [
+              "generic",
+              "flood",
+              "earthquake",
+              "typhoon"
+            ],
+            "quality_score": 0.8,
+            "source_kind": "open_data",
+            "quality_tier": "community_curated",
+            "freshness_category": "sample_snapshot",
+            "freshness_hours": 168,
+            "freshness_score": 0.61,
+            "supported_job_types": [
+              "building",
+              "road",
+              "water"
+            ],
+            "supported_geometry_types": [
+              "polygon",
+              "line"
+            ],
+            "metadata": {
+              "kind": "raw_vector",
+              "provider_family": "osm",
+              "theme": "water",
+              "source_role": "environmental_context",
+              "path_hint": "Data/burundi-260127-free.shp/gis_osm_water_a_free_1.shp",
+              "supports_aoi": true,
+              "materialization_scope": "country_bundle_then_clip",
+              "materialization_provider": "geofabrik",
+              "source_form": "vector",
+              "runtime_status": "runtime_candidate",
+              "selectable_now": true
+            },
+            "source_quality": 0.8,
+            "algorithm_fit": 0.6,
+            "workflow_support": 1.0,
+            "missing_requirements": [],
+            "ranking_score": 0.78,
+            "ranking_rationale": {
+              "source_quality": 0.8,
+              "algorithm_fit": 0.6,
+              "workflow_support": 1.0,
+              "penalty_for_missing_requirements": 0.0
+            }
+          },
+          {
+            "source_id": "raw.osm.poi",
+            "source_name": "OSM Points Of Interest",
+            "supported_types": [
+              "dt.raw.vector"
+            ],
+            "disaster_types": [
+              "generic",
+              "flood",
+              "earthquake",
+              "typhoon"
+            ],
+            "quality_score": 0.78,
+            "source_kind": "open_data",
+            "quality_tier": "community_curated",
+            "freshness_category": "sample_snapshot",
+            "freshness_hours": 168,
+            "freshness_score": 0.6,
+            "supported_job_types": [
+              "building",
+              "road",
+              "poi"
+            ],
+            "supported_geometry_types": [
+              "point"
+            ],
+            "metadata": {
+              "kind": "raw_vector",
+              "provider_family": "osm",
+              "theme": "poi",
+              "source_role": "osm_primary",
+              "path_hint": "Data/burundi-260127-free.shp/gis_osm_pois_free_1.shp",
+              "supports_aoi": true,
+              "materialization_scope": "country_bundle_then_clip",
+              "materialization_provider": "geofabrik",
+              "source_form": "vector",
+              "runtime_status": "runtime_candidate",
+              "selectable_now": true
+            },
+            "source_quality": 0.78,
+            "algorithm_fit": 0.6,
+            "workflow_support": 1.0,
+            "missing_requirements": [],
+            "ranking_score": 0.772,
+            "ranking_rationale": {
+              "source_quality": 0.78,
+              "algorithm_fit": 0.6,
+              "workflow_support": 1.0,
+              "penalty_for_missing_requirements": 0.0
+            }
+          },
+          {
+            "source_id": "raw.gns.poi",
+            "source_name": "GNS Place Names",
+            "supported_types": [
+              "dt.raw.vector"
+            ],
+            "disaster_types": [
+              "generic",
+              "flood",
+              "earthquake",
+              "typhoon"
+            ],
+            "quality_score": 0.81,
+            "source_kind": "open_data",
+            "quality_tier": "gazetteer",
+            "freshness_category": "sample_snapshot",
+            "freshness_hours": 720,
+            "freshness_score": 0.42,
+            "supported_job_types": [
+              "building",
+              "road",
+              "poi"
+            ],
+            "supported_geometry_types": [
+              "point"
+            ],
+            "metadata": {
+              "kind": "raw_vector",
+              "provider_family": "gns",
+              "theme": "poi",
+              "source_role": "reference_candidate",
+              "path_hint": "Data/POI/**/GNS.shp",
+              "supports_aoi": false,
+              "materialization_scope": "local_only",
+              "source_form": "vector",
+              "runtime_status": "runtime_candidate",
+              "selectable_now": true
+            },
+            "source_quality": 0.81,
+            "algorithm_fit": 0.6,
+            "workflow_support": 0.85,
+            "missing_requirements": [
+              "aoi_not_supported"
+            ],
+            "ranking_score": 0.4965,
+            "ranking_rationale": {
+              "source_quality": 0.81,
+              "algorithm_fit": 0.6,
+              "workflow_support": 0.85,
+              "penalty_for_missing_requirements": 0.25
+            }
+          },
+          {
+            "source_id": "raw.local.water",
+            "source_name": "Local Open Water Sample",
+            "supported_types": [
+              "dt.raw.vector"
+            ],
+            "disaster_types": [
+              "generic",
+              "flood",
+              "earthquake",
+              "typhoon"
+            ],
+            "quality_score": 0.79,
+            "source_kind": "open_data",
+            "quality_tier": "local_sample",
+            "freshness_category": "sample_snapshot",
+            "freshness_hours": 240,
+            "freshness_score": 0.55,
+            "supported_job_types": [
+              "building",
+              "road",
+              "water"
+            ],
+            "supported_geometry_types": [
+              "polygon"
+            ],
+            "metadata": {
+              "kind": "raw_vector",
+              "provider_family": "local_open_data",
+              "theme": "water",
+              "source_role": "reference_candidate",
+              "path_hint": "Data/water",
+              "supports_aoi": false,
+              "materialization_scope": "local_only",
+              "source_form": "vector",
+              "runtime_status": "runtime_candidate",
+              "selectable_now": true
+            },
+            "source_quality": 0.79,
+            "algorithm_fit": 0.6,
+            "workflow_support": 0.85,
+            "missing_requirements": [
+              "aoi_not_supported"
+            ],
+            "ranking_score": 0.4885,
+            "ranking_rationale": {
+              "source_quality": 0.79,
+              "algorithm_fit": 0.6,
+              "workflow_support": 0.85,
+              "penalty_for_missing_requirements": 0.25
+            }
+          },
+          {
+            "source_id": "raw.rh.poi",
+            "source_name": "RH Points Of Interest",
+            "supported_types": [
+              "dt.raw.vector"
+            ],
+            "disaster_types": [
+              "generic",
+              "flood",
+              "earthquake",
+              "typhoon"
+            ],
+            "quality_score": 0.76,
+            "source_kind": "open_data",
+            "quality_tier": "local_sample",
+            "freshness_category": "sample_snapshot",
+            "freshness_hours": 720,
+            "freshness_score": 0.4,
+            "supported_job_types": [
+              "building",
+              "road",
+              "poi"
+            ],
+            "supported_geometry_types": [
+              "point"
+            ],
+            "metadata": {
+              "kind": "raw_vector",
+              "provider_family": "rh",
+              "theme": "poi",
+              "source_role": "reference_candidate",
+              "path_hint": "Data/POI/**/RH.shp",
+              "supports_aoi": false,
+              "materialization_scope": "local_only",
+              "source_form": "vector",
+              "runtime_status": "runtime_candidate",
+              "selectable_now": true
+            },
+            "source_quality": 0.76,
+            "algorithm_fit": 0.6,
+            "workflow_support": 0.85,
+            "missing_requirements": [
+              "aoi_not_supported"
+            ],
+            "ranking_score": 0.4765,
+            "ranking_rationale": {
+              "source_quality": 0.76,
+              "algorithm_fit": 0.6,
+              "workflow_support": 0.85,
+              "penalty_for_missing_requirements": 0.25
+            }
+          }
+        ],
+        "output_schema_policies": {
+          "dt.road.fused": {
+            "policy_id": "osp.road.fused.v1",
+            "output_type": "dt.road.fused",
+            "job_type": "road",
+            "retention_mode": "preserve_listed",
+            "required_fields": [
+              "geometry"
+            ],
+            "optional_fields": [
+              "osm_id",
+              "FID_1",
+              "fclass"
+            ],
+            "rename_hints": {},
+            "compatibility_basis": "field_names",
+            "metadata": {
+              "policy_scope": "current_runtime",
+              "notes": "Road output schema remains metadata-only until explicit output policy execution is added."
+            }
+          }
+        },
+        "durable_learning_summaries": {
+          "patterns": [
+            {
+              "entity_kind": "pattern",
+              "entity_id": "wp.typhoon.road.default",
+              "job_type": "road",
+              "disaster_type": null,
+              "total_runs": 7,
+              "success_count": 7,
+              "failure_count": 0,
+              "repaired_count": 0,
+              "last_run_at": "2026-05-12T10:11:08.908458+00:00",
+              "last_failure_reason": null
+            }
+          ],
+          "algorithms": [
+            {
+              "entity_kind": "algorithm",
+              "entity_id": "algo.fusion.road.v1",
+              "job_type": "road",
+              "disaster_type": null,
+              "total_runs": 7,
+              "success_count": 7,
+              "failure_count": 0,
+              "repaired_count": 0,
+              "last_run_at": "2026-05-12T10:11:08.908458+00:00",
+              "last_failure_reason": null
+            }
+          ],
+          "data_sources": [
+            {
+              "entity_kind": "data_source",
+              "entity_id": "catalog.typhoon.road",
+              "job_type": "road",
+              "disaster_type": null,
+              "total_runs": 6,
+              "success_count": 6,
+              "failure_count": 0,
+              "repaired_count": 0,
+              "last_run_at": "2026-05-12T10:11:08.908458+00:00",
+              "last_failure_reason": null
+            },
+            {
+              "entity_kind": "data_source",
+              "entity_id": "upload.bundle",
+              "job_type": "road",
+              "disaster_type": null,
+              "total_runs": 1,
+              "success_count": 1,
+              "failure_count": 0,
+              "repaired_count": 0,
+              "last_run_at": "2026-05-09T09:32:41.554167+00:00",
+              "last_failure_reason": null
+            }
+          ]
+        },
+        "data_types": [
+          {
+            "type_id": "dt.building.bundle",
+            "theme": "building",
+            "geometry_type": "polygon",
+            "description": "Prepared building fusion input bundle."
+          },
+          {
+            "type_id": "dt.building.conflict_optimized",
+            "theme": "building",
+            "geometry_type": "polygon",
+            "description": "Fused buildings after spatial conflict graph optimization."
+          },
+          {
+            "type_id": "dt.building.fused",
+            "theme": "building",
+            "geometry_type": "polygon",
+            "description": "Fused building output."
+          },
+          {
+            "type_id": "dt.building.fused_raw",
+            "theme": "building",
+            "geometry_type": "polygon",
+            "description": "Raw cascaded building fusion rows before conflict optimization."
+          },
+          {
+            "type_id": "dt.building.height_enriched",
+            "theme": "building",
+            "geometry_type": "polygon",
+            "description": "Fused buildings enriched with height raster values."
+          },
+          {
+            "type_id": "dt.building.match_candidate_graph",
+            "theme": "building",
+            "geometry_type": "graph",
+            "description": "FusionCode V8 candidate edge graph for a pair of building sources."
+          },
+          {
+            "type_id": "dt.building.match_components",
+            "theme": "building",
+            "geometry_type": "graph",
+            "description": "Accepted V8 building match components and relationship groups."
+          },
+          {
+            "type_id": "dt.building.normalized_set",
+            "theme": "building",
+            "geometry_type": "polygon",
+            "description": "Normalized named building sources after CRS, geometry and source-label preparation."
+          },
+          {
+            "type_id": "dt.building.presence_validated_set",
+            "theme": "building",
+            "geometry_type": "polygon",
+            "description": "Building sources enriched with presence-raster support and existence status."
+          },
+          {
+            "type_id": "dt.building.quality_report",
+            "theme": "building",
+            "geometry_type": "none",
+            "description": "Quality and conflict metrics for the building fusion run."
+          },
+          {
+            "type_id": "dt.building.road_topology_adjusted",
+            "theme": "building",
+            "geometry_type": "polygon",
+            "description": "Fused buildings after road-aware topology adjustment."
+          },
+          {
+            "type_id": "dt.building.source_set",
+            "theme": "building",
+            "geometry_type": "mixed",
+            "description": "Reserved multi-source building input set for future fusion algorithms."
+          },
+          {
+            "type_id": "dt.partition.tile_manifest",
+            "theme": "runtime",
+            "geometry_type": "none",
+            "description": "Reserved deterministic AOI tile partition manifest."
+          },
+          {
+            "type_id": "dt.poi.bundle",
+            "theme": "poi",
+            "geometry_type": "point",
+            "description": "Prepared point-of-interest fusion input bundle."
+          },
+          {
+            "type_id": "dt.poi.fused",
+            "theme": "poi",
+            "geometry_type": "point",
+            "description": "Fused point-of-interest output."
+          },
+          {
+            "type_id": "dt.raster.building_height",
+            "theme": "building",
+            "geometry_type": "raster",
+            "description": "Building height raster input."
+          },
+          {
+            "type_id": "dt.raster.building_presence",
+            "theme": "building",
+            "geometry_type": "raster",
+            "description": "Reserved building-presence raster input."
+          },
+          {
+            "type_id": "dt.raw.vector",
+            "theme": "generic",
+            "geometry_type": "mixed",
+            "description": "Uploaded raw vector bundle."
+          },
+          {
+            "type_id": "dt.road.bundle",
+            "theme": "transportation",
+            "geometry_type": "line",
+            "description": "Prepared road fusion input bundle."
+          },
+          {
+            "type_id": "dt.road.candidate",
+            "theme": "transportation",
+            "geometry_type": "line",
+            "description": "Reserved intermediate road candidates derived from trajectory pretransform."
+          },
+          {
+            "type_id": "dt.road.fused",
+            "theme": "transportation",
+            "geometry_type": "line",
+            "description": "Fused road output."
+          },
+          {
+            "type_id": "dt.road.network",
+            "theme": "transportation",
+            "geometry_type": "line",
+            "description": "Road network used as contextual constraint for building fusion."
+          },
+          {
+            "type_id": "dt.trajectory.raw",
+            "theme": "transportation",
+            "geometry_type": "line",
+            "description": "Reserved pretransform trajectory observations for future road candidate generation."
+          },
+          {
+            "type_id": "dt.water.bundle",
+            "theme": "water",
+            "geometry_type": "polygon",
+            "description": "Prepared water polygon fusion input bundle."
+          },
+          {
+            "type_id": "dt.water.fused",
+            "theme": "water",
+            "geometry_type": "polygon",
+            "description": "Fused water polygon output."
+          },
+          {
+            "type_id": "dt.water.line_bundle",
+            "theme": "water",
+            "geometry_type": "line",
+            "description": "Prepared river or water-line source bundle."
+          },
+          {
+            "type_id": "dt.water.line_fused",
+            "theme": "water",
+            "geometry_type": "line",
+            "description": "Fused river or water-line output."
+          }
+        ],
+        "source_coverage_hints": [
+          {
+            "source_id": "upload.bundle",
+            "source_name": "Uploaded Bundle",
+            "source_kind": "local_upload",
+            "provider_family": "manual_upload",
+            "path_hint": null,
+            "supports_aoi": null,
+            "materialization_scope": null,
+            "materialization_provider": null,
+            "source_form": "mixed",
+            "runtime_status": "runtime_candidate",
+            "selectable_now": true,
+            "supports_tiling": null,
+            "height_semantics": null,
+            "supported_job_types": [
+              "building",
+              "road",
+              "water",
+              "poi"
+            ],
+            "supported_geometry_types": [
+              "mixed",
+              "polygon",
+              "line",
+              "point"
+            ],
+            "quality_score": 1.0,
+            "freshness_score": 1.0,
+            "resolved_aoi": {
+              "display_name": "گلگت, تحصیل گلگت, ضلع گلگت, گلگت ڈویژن, گلگت بلتستان, 51100, پاکستان",
+              "country_code": "pk",
+              "country_name": "پاکستان",
+              "bbox": [
+                74.154044,
+                35.7608102,
+                74.474044,
+                36.0808102
+              ]
+            }
+          },
+          {
+            "source_id": "catalog.typhoon.road",
+            "source_name": "Typhoon Road Bundle (OSM Baseline)",
+            "source_kind": "catalog",
+            "provider_family": "local_bundle_catalog",
+            "path_hint": [
+              "Data/roads/OSM"
+            ],
+            "supports_aoi": true,
+            "materialization_scope": "resolved_aoi_clip",
+            "materialization_provider": null,
+            "source_form": "bundle",
+            "runtime_status": "runtime_candidate",
+            "selectable_now": true,
+            "supports_tiling": null,
+            "height_semantics": null,
+            "supported_job_types": [
+              "road"
+            ],
+            "supported_geometry_types": [
+              "line"
+            ],
+            "quality_score": 0.87,
+            "freshness_score": 0.78,
+            "resolved_aoi": {
+              "display_name": "گلگت, تحصیل گلگت, ضلع گلگت, گلگت ڈویژن, گلگت بلتستان, 51100, پاکستان",
+              "country_code": "pk",
+              "country_name": "پاکستان",
+              "bbox": [
+                74.154044,
+                35.7608102,
+                74.474044,
+                36.0808102
+              ]
+            }
+          },
+          {
+            "source_id": "catalog.flood.road",
+            "source_name": "Flood Road Bundle (OSM Baseline)",
+            "source_kind": "catalog",
+            "provider_family": "local_bundle_catalog",
+            "path_hint": [
+              "Data/roads/OSM"
+            ],
+            "supports_aoi": true,
+            "materialization_scope": "resolved_aoi_clip",
+            "materialization_provider": null,
+            "source_form": "bundle",
+            "runtime_status": "runtime_candidate",
+            "selectable_now": true,
+            "supports_tiling": null,
+            "height_semantics": null,
+            "supported_job_types": [
+              "road"
+            ],
+            "supported_geometry_types": [
+              "line"
+            ],
+            "quality_score": 0.85,
+            "freshness_score": 0.73,
+            "resolved_aoi": {
+              "display_name": "گلگت, تحصیل گلگت, ضلع گلگت, گلگت ڈویژن, گلگت بلتستان, 51100, پاکستان",
+              "country_code": "pk",
+              "country_name": "پاکستان",
+              "bbox": [
+                74.154044,
+                35.7608102,
+                74.474044,
+                36.0808102
+              ]
+            }
+          },
+          {
+            "source_id": "catalog.earthquake.road",
+            "source_name": "Earthquake Road Bundle (OSM Baseline)",
+            "source_kind": "catalog",
+            "provider_family": "local_bundle_catalog",
+            "path_hint": [
+              "Data/roads/OSM"
+            ],
+            "supports_aoi": true,
+            "materialization_scope": "resolved_aoi_clip",
+            "materialization_provider": null,
+            "source_form": "bundle",
+            "runtime_status": "runtime_candidate",
+            "selectable_now": true,
+            "supports_tiling": null,
+            "height_semantics": null,
+            "supported_job_types": [
+              "road"
+            ],
+            "supported_geometry_types": [
+              "line"
+            ],
+            "quality_score": 0.84,
+            "freshness_score": 0.69,
+            "resolved_aoi": {
+              "display_name": "گلگت, تحصیل گلگت, ضلع گلگت, گلگت ڈویژن, گلگت بلتستان, 51100, پاکستان",
+              "country_code": "pk",
+              "country_name": "پاکستان",
+              "bbox": [
+                74.154044,
+                35.7608102,
+                74.474044,
+                36.0808102
+              ]
+            }
+          },
+          {
+            "source_id": "raw.osm.road",
+            "source_name": "OSM Road Network",
+            "source_kind": "open_data",
+            "provider_family": "osm",
+            "path_hint": "Data/roads/OSM",
+            "supports_aoi": true,
+            "materialization_scope": "country_bundle_then_clip",
+            "materialization_provider": "geofabrik",
+            "source_form": "vector",
+            "runtime_status": "runtime_candidate",
+            "selectable_now": true,
+            "supports_tiling": null,
+            "height_semantics": null,
+            "supported_job_types": [
+              "road"
+            ],
+            "supported_geometry_types": [
+              "line"
+            ],
+            "quality_score": 0.82,
+            "freshness_score": 0.63,
+            "resolved_aoi": {
+              "display_name": "گلگت, تحصیل گلگت, ضلع گلگت, گلگت ڈویژن, گلگت بلتستان, 51100, پاکستان",
+              "country_code": "pk",
+              "country_name": "پاکستان",
+              "bbox": [
+                74.154044,
+                35.7608102,
+                74.474044,
+                36.0808102
+              ]
+            }
+          },
+          {
+            "source_id": "raw.gns.poi",
+            "source_name": "GNS Place Names",
+            "source_kind": "open_data",
+            "provider_family": "gns",
+            "path_hint": "Data/POI/**/GNS.shp",
+            "supports_aoi": false,
+            "materialization_scope": "local_only",
+            "materialization_provider": null,
+            "source_form": "vector",
+            "runtime_status": "runtime_candidate",
+            "selectable_now": true,
+            "supports_tiling": null,
+            "height_semantics": null,
+            "supported_job_types": [
+              "building",
+              "road",
+              "poi"
+            ],
+            "supported_geometry_types": [
+              "point"
+            ],
+            "quality_score": 0.81,
+            "freshness_score": 0.42,
+            "resolved_aoi": {
+              "display_name": "گلگت, تحصیل گلگت, ضلع گلگت, گلگت ڈویژن, گلگت بلتستان, 51100, پاکستان",
+              "country_code": "pk",
+              "country_name": "پاکستان",
+              "bbox": [
+                74.154044,
+                35.7608102,
+                74.474044,
+                36.0808102
+              ]
+            }
+          },
+          {
+            "source_id": "raw.osm.water",
+            "source_name": "OSM Water Features",
+            "source_kind": "open_data",
+            "provider_family": "osm",
+            "path_hint": "Data/burundi-260127-free.shp/gis_osm_water_a_free_1.shp",
+            "supports_aoi": true,
+            "materialization_scope": "country_bundle_then_clip",
+            "materialization_provider": "geofabrik",
+            "source_form": "vector",
+            "runtime_status": "runtime_candidate",
+            "selectable_now": true,
+            "supports_tiling": null,
+            "height_semantics": null,
+            "supported_job_types": [
+              "building",
+              "road",
+              "water"
+            ],
+            "supported_geometry_types": [
+              "polygon",
+              "line"
+            ],
+            "quality_score": 0.8,
+            "freshness_score": 0.61,
+            "resolved_aoi": {
+              "display_name": "گلگت, تحصیل گلگت, ضلع گلگت, گلگت ڈویژن, گلگت بلتستان, 51100, پاکستان",
+              "country_code": "pk",
+              "country_name": "پاکستان",
+              "bbox": [
+                74.154044,
+                35.7608102,
+                74.474044,
+                36.0808102
+              ]
+            }
+          },
+          {
+            "source_id": "raw.local.water",
+            "source_name": "Local Open Water Sample",
+            "source_kind": "open_data",
+            "provider_family": "local_open_data",
+            "path_hint": "Data/water",
+            "supports_aoi": false,
+            "materialization_scope": "local_only",
+            "materialization_provider": null,
+            "source_form": "vector",
+            "runtime_status": "runtime_candidate",
+            "selectable_now": true,
+            "supports_tiling": null,
+            "height_semantics": null,
+            "supported_job_types": [
+              "building",
+              "road",
+              "water"
+            ],
+            "supported_geometry_types": [
+              "polygon"
+            ],
+            "quality_score": 0.79,
+            "freshness_score": 0.55,
+            "resolved_aoi": {
+              "display_name": "گلگت, تحصیل گلگت, ضلع گلگت, گلگت ڈویژن, گلگت بلتستان, 51100, پاکستان",
+              "country_code": "pk",
+              "country_name": "پاکستان",
+              "bbox": [
+                74.154044,
+                35.7608102,
+                74.474044,
+                36.0808102
+              ]
+            }
+          },
+          {
+            "source_id": "raw.osm.poi",
+            "source_name": "OSM Points Of Interest",
+            "source_kind": "open_data",
+            "provider_family": "osm",
+            "path_hint": "Data/burundi-260127-free.shp/gis_osm_pois_free_1.shp",
+            "supports_aoi": true,
+            "materialization_scope": "country_bundle_then_clip",
+            "materialization_provider": "geofabrik",
+            "source_form": "vector",
+            "runtime_status": "runtime_candidate",
+            "selectable_now": true,
+            "supports_tiling": null,
+            "height_semantics": null,
+            "supported_job_types": [
+              "building",
+              "road",
+              "poi"
+            ],
+            "supported_geometry_types": [
+              "point"
+            ],
+            "quality_score": 0.78,
+            "freshness_score": 0.6,
+            "resolved_aoi": {
+              "display_name": "گلگت, تحصیل گلگت, ضلع گلگت, گلگت ڈویژن, گلگت بلتستان, 51100, پاکستان",
+              "country_code": "pk",
+              "country_name": "پاکستان",
+              "bbox": [
+                74.154044,
+                35.7608102,
+                74.474044,
+                36.0808102
+              ]
+            }
+          },
+          {
+            "source_id": "raw.rh.poi",
+            "source_name": "RH Points Of Interest",
+            "source_kind": "open_data",
+            "provider_family": "rh",
+            "path_hint": "Data/POI/**/RH.shp",
+            "supports_aoi": false,
+            "materialization_scope": "local_only",
+            "materialization_provider": null,
+            "source_form": "vector",
+            "runtime_status": "runtime_candidate",
+            "selectable_now": true,
+            "supports_tiling": null,
+            "height_semantics": null,
+            "supported_job_types": [
+              "building",
+              "road",
+              "poi"
+            ],
+            "supported_geometry_types": [
+              "point"
+            ],
+            "quality_score": 0.76,
+            "freshness_score": 0.4,
+            "resolved_aoi": {
+              "display_name": "گلگت, تحصیل گلگت, ضلع گلگت, گلگت ڈویژن, گلگت بلتستان, 51100, پاکستان",
+              "country_code": "pk",
+              "country_name": "پاکستان",
+              "bbox": [
+                74.154044,
+                35.7608102,
+                74.474044,
+                36.0808102
+              ]
+            }
+          }
+        ],
+        "transform_paths": {
+          "dt.road.bundle": [
+            "dt.raw.vector",
+            "dt.road.bundle"
+          ]
+        },
+        "knowledge_hits": [
+          {
+            "kind": "algorithm",
+            "id": "algo.optimize.road.topology_for_buildings.v1",
+            "label": "FusionCode Road Topology For Buildings",
+            "score": 2.7058229446411133
+          },
+          {
+            "kind": "data_source",
+            "id": "raw.osm.road",
+            "label": "OSM Road Network",
+            "score": 1.6456029415130615
+          },
+          {
+            "kind": "algorithm",
+            "id": "algo.fusion.road.v1",
+            "label": "Road Fusion Legacy",
+            "score": 1.6059235334396362
+          },
+          {
+            "kind": "algorithm",
+            "id": "algo.fusion.road.safe",
+            "label": "Road Fusion Safe Fallback",
+            "score": 1.4557948112487793
+          },
+          {
+            "kind": "data_source",
+            "id": "catalog.earthquake.road",
+            "label": "Earthquake Road Bundle (OSM Baseline)",
+            "score": 1.3383617401123047
+          }
+        ]
+      },
+      "execution_hints": {
+        "preferred_pattern_id": "wp.road.fusioncode.segment_topology.v1",
+        "fallback_pattern_ids": [
+          "wp.typhoon.road.default",
+          "wp.flood.road.default"
+        ],
+        "available_data_source_ids": [
+          "upload.bundle",
+          "catalog.typhoon.road",
+          "catalog.flood.road",
+          "catalog.earthquake.road",
+          "raw.osm.road",
+          "raw.gns.poi",
+          "raw.osm.water",
+          "raw.local.water",
+          "raw.osm.poi",
+          "raw.rh.poi"
+        ],
+        "selectable_source_ids": [
+          "upload.bundle",
+          "catalog.typhoon.road",
+          "catalog.flood.road",
+          "catalog.earthquake.road",
+          "raw.osm.road",
+          "raw.gns.poi",
+          "raw.osm.water",
+          "raw.local.water",
+          "raw.osm.poi",
+          "raw.rh.poi"
+        ],
+        "reserved_source_ids": [],
+        "available_aoi": {
+          "query": "Gilgit city, Pakistan",
+          "display_name": "گلگت, تحصیل گلگت, ضلع گلگت, گلگت ڈویژن, گلگت بلتستان, 51100, پاکستان",
+          "country_name": "پاکستان",
+          "country_code": "pk",
+          "bbox": [
+            74.154044,
+            35.7608102,
+            74.474044,
+            36.0808102
+          ],
+          "confidence": 0.4930344686228157,
+          "selection_reason": "single_candidate",
+          "candidates": [
+            {
+              "query": "Gilgit city, Pakistan",
+              "display_name": "گلگت, تحصیل گلگت, ضلع گلگت, گلگت ڈویژن, گلگت بلتستان, 51100, پاکستان",
+              "country_name": "پاکستان",
+              "country_code": "pk",
+              "admin_level": "city",
+              "bbox": [
+                74.154044,
+                35.7608102,
+                74.474044,
+                36.0808102
+              ],
+              "source": "geocoder",
+              "confidence": 0.4930344686228157,
+              "raw": {
+                "place_id": 213299883,
+                "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+                "osm_type": "node",
+                "osm_id": 58568637,
+                "lat": "35.9208102",
+                "lon": "74.3140440",
+                "category": "place",
+                "type": "city",
+                "place_rank": 16,
+                "importance": 0.4930344686228157,
+                "addresstype": "city",
+                "name": "گلگت",
+                "display_name": "گلگت, تحصیل گلگت, ضلع گلگت, گلگت ڈویژن, گلگت بلتستان, 51100, پاکستان",
+                "address": {
+                  "city": "گلگت",
+                  "municipality": "تحصیل گلگت",
+                  "county": "ضلع گلگت",
+                  "state_district": "گلگت ڈویژن",
+                  "state": "گلگت بلتستان",
+                  "ISO3166-2-lvl4": "PK-GB",
+                  "postcode": "51100",
+                  "country": "پاکستان",
+                  "country_code": "pk"
+                },
+                "boundingbox": [
+                  "35.7608102",
+                  "36.0808102",
+                  "74.1540440",
+                  "74.4740440"
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "selection_reason": "preferred_wp.road.fusioncode.segment_topology.v1_by_ranked_retrieval",
+      "llm_provider": "open_a_i_compatible",
+      "plan_revision": 1,
+      "planning_mode": "task_driven",
+      "planning_source": "kg_fallback",
+      "planning_telemetry": {
+        "elapsed_ms": 68056,
+        "context_size_bytes": 42376,
+        "provider": "open_a_i_compatible",
+        "model": "gpt-5-mini-2025-08-07",
+        "llm_usage": {
+          "prompt_tokens": 12472,
+          "completion_tokens": 3888,
+          "total_tokens": 16360
+        }
+      },
+      "pattern_id": "wp.road.fusioncode.segment_topology.v1",
+      "pattern_name": "FusionCode Road Segment Topology Fusion",
+      "source": "kg_fallback",
+      "selected_pattern_id": "wp.road.fusioncode.segment_topology.v1",
+      "grounding_report": {
+        "grounded": false,
+        "grounded_step_count": 0,
+        "total_step_count": 1,
+        "grounding_score": 0.0,
+        "steps": [
+          {
+            "step": 1,
+            "algorithm_id": "algo.fusion.road.segment_match_topology.v1",
+            "input_data_type": "dt.road.bundle",
+            "data_source_id": "catalog.flood.road",
+            "output_data_type": "dt.road.fused",
+            "algorithm_grounded": true,
+            "algorithm_known": true,
+            "data_source_known": true,
+            "output_type_matches_intent": true,
+            "schema_policy_known": true,
+            "pattern_ids": [
+              "wp.road.fusioncode.segment_topology.v1"
+            ],
+            "issue_codes": [
+              "CANDIDATE_PATTERN_STEP_MISMATCH"
+            ],
+            "evidence_refs": [
+              "plan.task(step=1).algorithm_id",
+              "plan.task(step=1).input.data_type_id",
+              "plan.task(step=1).input.data_source_id",
+              "plan.task(step=1).output.data_type_id",
+              "context.retrieval.candidate_patterns",
+              "context.retrieval.data_sources",
+              "context.retrieval.output_schema_policies",
+              "context.intent.expected_output_type"
+            ]
+          }
+        ]
+      }
+    },
+    "tasks": [
+      {
+        "step": 1,
+        "name": "road_segment_match_topology",
+        "description": "Execute algo.fusion.road.segment_match_topology.v1",
+        "algorithm_id": "algo.fusion.road.segment_match_topology.v1",
+        "input": {
+          "data_type_id": "dt.road.bundle",
+          "data_source_id": "catalog.flood.road",
+          "parameters": {
+            "angle_threshold_deg": 135,
+            "buffer_dist_m": 20.0,
+            "max_hausdorff_m": 15.0
+          }
+        },
+        "output": {
+          "data_type_id": "dt.road.fused",
+          "description": "Output generated by workflow step"
+        },
+        "depends_on": [],
+        "is_transform": false,
+        "kg_validated": true,
+        "alternatives": [
+          "algo.fusion.road.safe"
+        ]
+      }
+    ],
+    "expected_output": "road fusion result",
+    "estimated_time": "unknown",
+    "validation": {
+      "valid": true,
+      "inserted_transform_steps": 0,
+      "issues": []
+    }
+  },
+  "audit_events": [
+    {
+      "timestamp": "2026-05-15T08:49:57.100609+00:00",
+      "kind": "run_created",
+      "phase": "queued",
+      "message": "Run created and input bundles persisted.",
+      "plan_revision": 0,
+      "progress": 0,
+      "attempt_no": 0,
+      "current_step": null,
+      "details": {
+        "request_path": "runs\\d7b3d61a48644fc18edf1064c272bb7d\\request.json",
+        "input_strategy": "task_driven_auto",
+        "osm_zip_name": null,
+        "ref_zip_name": null
+      }
+    },
+    {
+      "timestamp": "2026-05-15T08:50:14.618712+00:00",
+      "kind": "run_started",
+      "phase": "planning",
+      "message": "Run started for job_type=road.",
+      "plan_revision": 0,
+      "progress": 5,
+      "attempt_no": 0,
+      "current_step": 0,
+      "details": {}
+    },
+    {
+      "timestamp": "2026-05-15T08:50:27.642976+00:00",
+      "kind": "aoi_resolved",
+      "phase": "planning",
+      "message": "Resolved AOI for گلگت, تحصیل گلگت, ضلع گلگت, گلگت ڈویژن, گلگت بلتستان, 51100, پاکستان.",
+      "plan_revision": 0,
+      "progress": 12,
+      "attempt_no": 0,
+      "current_step": 0,
+      "details": {
+        "query": "Gilgit city, Pakistan",
+        "display_name": "گلگت, تحصیل گلگت, ضلع گلگت, گلگت ڈویژن, گلگت بلتستان, 51100, پاکستان",
+        "country_name": "پاکستان",
+        "country_code": "pk",
+        "bbox": [
+          74.154044,
+          35.7608102,
+          74.474044,
+          36.0808102
+        ],
+        "selection_reason": "single_candidate",
+        "confidence": 0.4930344686228157
+      }
+    },
+    {
+      "timestamp": "2026-05-15T08:50:27.652011+00:00",
+      "kind": "target_crs_resolved",
+      "phase": "planning",
+      "message": "Resolved target CRS EPSG:32643.",
+      "plan_revision": 0,
+      "progress": 14,
+      "attempt_no": 0,
+      "current_step": 0,
+      "details": {
+        "target_crs": "EPSG:32643",
+        "source": "resolved_aoi_default"
+      }
+    },
+    {
+      "timestamp": "2026-05-15T08:51:37.619561+00:00",
+      "kind": "plan_created",
+      "phase": "validating",
+      "message": "Workflow plan revision 1 created.",
+      "plan_revision": 1,
+      "progress": 25,
+      "attempt_no": 0,
+      "current_step": 0,
+      "details": {
+        "workflow_id": "wf_wp.road.fusioncode.segment_topology.v1_c862b7c5",
+        "grounded": false,
+        "grounding_score": 0.0,
+        "planning_telemetry": {
+          "elapsed_ms": 68056,
+          "context_size_bytes": 42376,
+          "provider": "open_a_i_compatible",
+          "model": "gpt-5-mini-2025-08-07",
+          "llm_usage": {
+            "prompt_tokens": 12472,
+            "completion_tokens": 3888,
+            "total_tokens": 16360
+          }
+        },
+        "effective_parameters": {
+          "1": {
+            "angle_threshold_deg": 135,
+            "buffer_dist_m": 20.0,
+            "max_hausdorff_m": 15.0
+          }
+        },
+        "selected_decisions": {
+          "pattern_selection": "wp.road.fusioncode.segment_topology.v1",
+          "data_source_selection": "catalog.typhoon.road",
+          "artifact_reuse_selection": "fresh_execution",
+          "parameter_strategy": "kg_defaults_only",
+          "output_schema_policy": "osp.road.fused.v1"
+        },
+        "planning_mode": "task_driven",
+        "planning_source": "kg_fallback",
+        "profile_source": "direct_task",
+        "task_bundle": {
+          "bundle_id": "task_bundle.direct_request",
+          "requested_tasks": [
+            "task.road.fusion"
+          ],
+          "requires_disaster_profile": false
+        },
+        "selectable_source_ids": [
+          "upload.bundle",
+          "catalog.typhoon.road",
+          "catalog.flood.road",
+          "catalog.earthquake.road",
+          "raw.osm.road",
+          "raw.gns.poi",
+          "raw.osm.water",
+          "raw.local.water",
+          "raw.osm.poi",
+          "raw.rh.poi"
+        ],
+        "reserved_source_ids": [],
+        "required_reserved_capabilities": [],
+        "resolved_aoi": {
+          "query": "Gilgit city, Pakistan",
+          "display_name": "گلگت, تحصیل گلگت, ضلع گلگت, گلگت ڈویژن, گلگت بلتستان, 51100, پاکستان",
+          "country_name": "پاکستان",
+          "country_code": "pk",
+          "bbox": [
+            74.154044,
+            35.7608102,
+            74.474044,
+            36.0808102
+          ],
+          "confidence": 0.4930344686228157,
+          "selection_reason": "single_candidate",
+          "candidates": [
+            {
+              "query": "Gilgit city, Pakistan",
+              "display_name": "گلگت, تحصیل گلگت, ضلع گلگت, گلگت ڈویژن, گلگت بلتستان, 51100, پاکستان",
+              "country_name": "پاکستان",
+              "country_code": "pk",
+              "admin_level": "city",
+              "bbox": [
+                74.154044,
+                35.7608102,
+                74.474044,
+                36.0808102
+              ],
+              "source": "geocoder",
+              "confidence": 0.4930344686228157,
+              "raw": {
+                "place_id": 213299883,
+                "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+                "osm_type": "node",
+                "osm_id": 58568637,
+                "lat": "35.9208102",
+                "lon": "74.3140440",
+                "category": "place",
+                "type": "city",
+                "place_rank": 16,
+                "importance": 0.4930344686228157,
+                "addresstype": "city",
+                "name": "گلگت",
+                "display_name": "گلگت, تحصیل گلگت, ضلع گلگت, گلگت ڈویژن, گلگت بلتستان, 51100, پاکستان",
+                "address": {
+                  "city": "گلگت",
+                  "municipality": "تحصیل گلگت",
+                  "county": "ضلع گلگت",
+                  "state_district": "گلگت ڈویژن",
+                  "state": "گلگت بلتستان",
+                  "ISO3166-2-lvl4": "PK-GB",
+                  "postcode": "51100",
+                  "country": "پاکستان",
+                  "country_code": "pk"
+                },
+                "boundingbox": [
+                  "35.7608102",
+                  "36.0808102",
+                  "74.1540440",
+                  "74.4740440"
+                ]
+              }
+            }
+          ]
+        },
+        "selected_pattern": "wp.road.fusioncode.segment_topology.v1",
+        "artifact_reuse": {
+          "reused": false,
+          "artifact_id": null,
+          "freshness_status": "not_available",
+          "rationale": "No reusable artifact candidates were found in planner retrieval context."
+        }
+      }
+    },
+    {
+      "timestamp": "2026-05-15T08:51:37.641070+00:00",
+      "kind": "plan_validated",
+      "phase": "running",
+      "message": "Workflow plan revision 1 validated.",
+      "plan_revision": 1,
+      "progress": 45,
+      "attempt_no": 0,
+      "current_step": 0,
+      "details": {
+        "valid": true,
+        "inserted_transform_steps": 0
+      }
+    },
+    {
+      "timestamp": "2026-05-15T08:51:58.103438+00:00",
+      "kind": "input_bundle_created",
+      "phase": "running",
+      "message": "Input bundle was created for execution.",
+      "plan_revision": 1,
+      "progress": 49,
+      "attempt_no": 0,
+      "current_step": 0,
+      "details": {
+        "osm_zip_name": "osm.zip",
+        "ref_zip_name": "ref.zip",
+        "selected_source_id": "catalog.typhoon.road"
+      }
+    },
+    {
+      "timestamp": "2026-05-15T08:51:58.111438+00:00",
+      "kind": "task_inputs_resolved",
+      "phase": "running",
+      "message": "Task-driven input bundles prepared for execution.",
+      "plan_revision": 1,
+      "progress": 50,
+      "attempt_no": 0,
+      "current_step": 0,
+      "details": {
+        "input_strategy": "task_driven_auto",
+        "source_mode": "downloaded",
+        "source_id": "catalog.typhoon.road",
+        "requested_source_id": "catalog.typhoon.road",
+        "selected_source_id": "catalog.typhoon.road",
+        "fallback_from_source_id": null,
+        "component_coverage": {},
+        "cache_hit": false,
+        "version_token": "39abc611b1bc6656a12b147907ee55f1a9696611",
+        "osm_zip_name": "osm.zip",
+        "ref_zip_name": "ref.zip",
+        "target_crs": "EPSG:32643",
+        "resolved_aoi": {
+          "display_name": "گلگت, تحصیل گلگت, ضلع گلگت, گلگت ڈویژن, گلگت بلتستان, 51100, پاکستان",
+          "country_code": "pk",
+          "country_name": "پاکستان",
+          "bbox": [
+            74.154044,
+            35.7608102,
+            74.474044,
+            36.0808102
+          ]
+        }
+      }
+    },
+    {
+      "timestamp": "2026-05-15T08:51:58.143467+00:00",
+      "kind": "execution_started",
+      "phase": "running",
+      "message": "Execution stage started.",
+      "plan_revision": 1,
+      "progress": 55,
+      "attempt_no": 0,
+      "current_step": 0,
+      "details": {}
+    },
+    {
+      "timestamp": "2026-05-15T08:51:58.151438+00:00",
+      "kind": "step_started",
+      "phase": "running",
+      "message": "Execution step started: step=1.",
+      "plan_revision": 1,
+      "progress": 55,
+      "attempt_no": 0,
+      "current_step": 1,
+      "details": {
+        "status": "started",
+        "step": 1,
+        "algorithm_id": "algo.fusion.road.segment_match_topology.v1",
+        "data_source_id": "catalog.typhoon.road"
+      }
+    },
+    {
+      "timestamp": "2026-05-15T08:52:01.110764+00:00",
+      "kind": "step_succeeded",
+      "phase": "running",
+      "message": "Execution step succeeded: step=1.",
+      "plan_revision": 1,
+      "progress": 55,
+      "attempt_no": 3,
+      "current_step": 1,
+      "details": {
+        "status": "succeeded",
+        "step": 1,
+        "algorithm_id": "algo.fusion.road.segment_match_topology.v1",
+        "data_source_id": "catalog.flood.road",
+        "effective_algorithm_id": "algo.fusion.road.safe",
+        "output_path": "runs\\d7b3d61a48644fc18edf1064c272bb7d\\output\\fused_roads.shp"
+      }
+    },
+    {
+      "timestamp": "2026-05-15T08:52:01.119764+00:00",
+      "kind": "execution_completed",
+      "phase": "running",
+      "message": "Execution stage completed and produced an output artifact.",
+      "plan_revision": 1,
+      "progress": 80,
+      "attempt_no": 3,
+      "current_step": 1,
+      "details": {
+        "repair_count": 3
+      }
+    },
+    {
+      "timestamp": "2026-05-15T08:52:01.187998+00:00",
+      "kind": "output_schema_validated",
+      "phase": "running",
+      "message": "Artifact validated against policy osp.road.fused.v1.",
+      "plan_revision": 1,
+      "progress": 90,
+      "attempt_no": 3,
+      "current_step": 1,
+      "details": {
+        "output_data_type": "dt.road.fused",
+        "policy_id": "osp.road.fused.v1",
+        "required_fields": [
+          "geometry"
+        ],
+        "missing_fields": [],
+        "artifact_validity": true
+      }
+    },
+    {
+      "timestamp": "2026-05-15T08:52:02.431733+00:00",
+      "kind": "durable_learning_recorded",
+      "phase": "running",
+      "message": "Durable learning record was written for this run.",
+      "plan_revision": 1,
+      "progress": 90,
+      "attempt_no": 3,
+      "current_step": 1,
+      "details": {
+        "record_id": "dlr.d7b3d61a48644fc18edf1064c272bb7d",
+        "pattern_id": "wp.road.fusioncode.segment_topology.v1",
+        "algorithm_id": "algo.fusion.road.safe",
+        "selected_data_source": "catalog.flood.road"
+      }
+    },
+    {
+      "timestamp": "2026-05-15T08:52:02.448731+00:00",
+      "kind": "run_succeeded",
+      "phase": "succeeded",
+      "message": "Run completed successfully and artifact is ready.",
+      "plan_revision": 1,
+      "progress": 100,
+      "attempt_no": 3,
+      "current_step": 1,
+      "details": {}
+    }
+  ],
+  "artifact": {
+    "available": true,
+    "filename": "road_fusion_result.zip",
+    "path": "runs\\d7b3d61a48644fc18edf1064c272bb7d\\output\\road_fusion_result.zip",
+    "size_bytes": 293085,
+    "download_path": "/api/v2/runs/d7b3d61a48644fc18edf1064c272bb7d/artifact"
+  },
+  "kg_path_trace": {
+    "workflow_id": "wf_wp.road.fusioncode.segment_topology.v1_c862b7c5",
+    "selected_pattern_id": "wp.road.fusioncode.segment_topology.v1",
+    "grounding_report": {
+      "grounded": false,
+      "grounded_step_count": 0,
+      "total_step_count": 1,
+      "grounding_score": 0.0,
+      "steps": [
+        {
+          "step": 1,
+          "algorithm_id": "algo.fusion.road.segment_match_topology.v1",
+          "input_data_type": "dt.road.bundle",
+          "data_source_id": "catalog.flood.road",
+          "output_data_type": "dt.road.fused",
+          "algorithm_grounded": true,
+          "algorithm_known": true,
+          "data_source_known": true,
+          "output_type_matches_intent": true,
+          "schema_policy_known": true,
+          "pattern_ids": [
+            "wp.road.fusioncode.segment_topology.v1"
+          ],
+          "issue_codes": [
+            "CANDIDATE_PATTERN_STEP_MISMATCH"
+          ],
+          "evidence_refs": [
+            "plan.task(step=1).algorithm_id",
+            "plan.task(step=1).input.data_type_id",
+            "plan.task(step=1).input.data_source_id",
+            "plan.task(step=1).output.data_type_id",
+            "context.retrieval.candidate_patterns",
+            "context.retrieval.data_sources",
+            "context.retrieval.output_schema_policies",
+            "context.intent.expected_output_type"
+          ]
+        }
+      ]
+    },
+    "chains": [
+      {
+        "task_step": 1,
+        "task_name": "road_segment_match_topology",
+        "nodes": [
+          {
+            "kind": "trigger",
+            "id": "trigger",
+            "label": "need road data for Gilgit city, Pakistan",
+            "evidence": {
+              "type": "user_query",
+              "content": "need road data for Gilgit city, Pakistan",
+              "disaster_type": null,
+              "spatial_extent": null,
+              "force_aoi_resolution": false,
+              "temporal_start": null,
+              "temporal_end": null
+            }
+          },
+          {
+            "kind": "workflow_pattern",
+            "id": "wp.road.fusioncode.segment_topology.v1",
+            "label": "FusionCode Road Segment Topology Fusion",
+            "evidence": {
+              "pattern_id": "wp.road.fusioncode.segment_topology.v1",
+              "pattern_name": "FusionCode Road Segment Topology Fusion",
+              "job_type": "road",
+              "disaster_types": [
+                "flood",
+                "earthquake",
+                "typhoon",
+                "generic"
+              ],
+              "success_rate": 0.86,
+              "metadata": {
+                "version": "1.0.0",
+                "runtime_status": "runtime_candidate",
+                "algorithm_family": "fusioncode_decomposed"
+              },
+              "steps": [
+                {
+                  "order": 1,
+                  "name": "road_segment_match_topology",
+                  "algorithm_id": "algo.fusion.road.segment_match_topology.v1",
+                  "input_data_type": "dt.road.bundle",
+                  "output_data_type": "dt.road.fused",
+                  "data_source_id": "upload.bundle",
+                  "depends_on": [],
+                  "is_optional": false
+                }
+              ],
+              "source_quality": 1.0,
+              "algorithm_fit": 0.83,
+              "workflow_support": 1.0,
+              "missing_requirements": [],
+              "ranking_score": 0.9405,
+              "ranking_rationale": {
+                "source_quality": 1.0,
+                "algorithm_fit": 0.83,
+                "workflow_support": 1.0,
+                "penalty_for_missing_requirements": 0.0
+              }
+            }
+          },
+          {
+            "kind": "task",
+            "id": "task:1",
+            "label": "road_segment_match_topology",
+            "evidence": {
+              "step": 1,
+              "description": "Execute algo.fusion.road.segment_match_topology.v1"
+            }
+          },
+          {
+            "kind": "data_source",
+            "id": "catalog.flood.road",
+            "label": "Flood Road Bundle (OSM Baseline)",
+            "evidence": {
+              "source_id": "catalog.flood.road",
+              "source_name": "Flood Road Bundle (OSM Baseline)",
+              "supported_types": [
+                "dt.road.bundle"
+              ],
+              "disaster_types": [
+                "flood",
+                "generic"
+              ],
+              "quality_score": 0.85,
+              "source_kind": "catalog",
+              "quality_tier": "curated",
+              "freshness_category": "event_snapshot",
+              "freshness_hours": 72,
+              "freshness_score": 0.73,
+              "supported_job_types": [
+                "road"
+              ],
+              "supported_geometry_types": [
+                "line"
+              ],
+              "metadata": {
+                "kind": "catalog",
+                "priority": 2,
+                "provider_family": "local_bundle_catalog",
+                "bundle_strategy": "single_source_with_empty_ref",
+                "component_source_ids": [
+                  "raw.osm.road"
+                ],
+                "path_hints": [
+                  "Data/roads/OSM"
+                ],
+                "supports_aoi": true,
+                "materialization_scope": "resolved_aoi_clip",
+                "source_form": "bundle",
+                "runtime_status": "runtime_candidate",
+                "selectable_now": true
+              },
+              "source_quality": 0.85,
+              "algorithm_fit": 1.0,
+              "workflow_support": 1.0,
+              "missing_requirements": [],
+              "ranking_score": 0.94,
+              "ranking_rationale": {
+                "source_quality": 0.85,
+                "algorithm_fit": 1.0,
+                "workflow_support": 1.0,
+                "penalty_for_missing_requirements": 0.0
+              }
+            }
+          },
+          {
+            "kind": "algorithm",
+            "id": "algo.fusion.road.segment_match_topology.v1",
+            "label": "algo.fusion.road.segment_match_topology.v1",
+            "evidence": {
+              "algorithm_id": "algo.fusion.road.segment_match_topology.v1"
+            }
+          },
+          {
+            "kind": "output_data_type",
+            "id": "dt.road.fused",
+            "label": "dt.road.fused",
+            "evidence": {
+              "data_type_id": "dt.road.fused",
+              "description": "Output generated by workflow step"
+            }
+          }
+        ],
+        "edges": [
+          {
+            "from": "trigger",
+            "to": "wp.road.fusioncode.segment_topology.v1",
+            "relationship": "selects_pattern"
+          },
+          {
+            "from": "wp.road.fusioncode.segment_topology.v1",
+            "to": "task:1",
+            "relationship": "activates_task"
+          },
+          {
+            "from": "task:1",
+            "to": "catalog.flood.road",
+            "relationship": "uses_data_source"
+          },
+          {
+            "from": "catalog.flood.road",
+            "to": "algo.fusion.road.segment_match_topology.v1",
+            "relationship": "executes_algorithm"
+          },
+          {
+            "from": "algo.fusion.road.segment_match_topology.v1",
+            "to": "dt.road.fused",
+            "relationship": "produces_output"
+          }
+        ]
+      }
+    ]
+  },
+  "digest": {
+    "current_phase": "succeeded",
+    "failed_step": "step 1",
+    "root_cause": null,
+    "recoverability": null,
+    "next_operator_action": "download the artifact or compare this run against a baseline"
+  }
+}

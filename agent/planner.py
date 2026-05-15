@@ -50,6 +50,7 @@ class WorkflowPlanner:
         candidate_patterns = planning_context["retrieval"]["candidate_patterns"]
         if not candidate_patterns:
             raise ValueError(f"No workflow pattern found for job_type={job_type.value}")
+        preferred_pattern_id = str(planning_context.get("execution_hints", {}).get("preferred_pattern_id") or "").strip()
 
         planning_telemetry: Dict[str, Any] | None = None
         try:
@@ -62,12 +63,20 @@ class WorkflowPlanner:
         except _ProviderPlanningCallError as exc:
             planning_telemetry = exc.telemetry
             self.logger.warning("LLM planning failed (%s), fallback to top KG pattern.", exc)
-            top_pattern = self.kg_repo.get_candidate_patterns(job_type=job_type, disaster_type=trigger.disaster_type, limit=1)[0]
+            top_pattern = self._select_fallback_pattern(
+                job_type=job_type,
+                disaster_type=trigger.disaster_type,
+                preferred_pattern_id=preferred_pattern_id,
+            )
             plan = self._build_skeleton_plan(top_pattern, trigger=trigger)
             planning_source = "kg_fallback"
         except Exception as exc:  # noqa: BLE001
             self.logger.warning("LLM planning failed (%s), fallback to top KG pattern.", exc)
-            top_pattern = self.kg_repo.get_candidate_patterns(job_type=job_type, disaster_type=trigger.disaster_type, limit=1)[0]
+            top_pattern = self._select_fallback_pattern(
+                job_type=job_type,
+                disaster_type=trigger.disaster_type,
+                preferred_pattern_id=preferred_pattern_id,
+            )
             plan = self._build_skeleton_plan(top_pattern, trigger=trigger)
             planning_source = "kg_fallback"
         if planning_telemetry is None:
@@ -86,7 +95,62 @@ class WorkflowPlanner:
             planning_source=planning_source,
             existing_context=plan.context,
         )
+        selected_pattern_id = self._infer_selected_pattern_id(plan, candidate_patterns)
+        if selected_pattern_id:
+            plan.context["selected_pattern_id"] = selected_pattern_id
         return plan
+
+    def _select_fallback_pattern(
+        self,
+        *,
+        job_type: JobType,
+        disaster_type: str | None,
+        preferred_pattern_id: str | None,
+    ) -> WorkflowPatternNode:
+        patterns = self.kg_repo.get_candidate_patterns(job_type=job_type, disaster_type=disaster_type, limit=20)
+        preferred = str(preferred_pattern_id or "").strip()
+        if preferred:
+            for pattern in patterns:
+                if pattern.pattern_id == preferred:
+                    return pattern
+        if not patterns:
+            raise ValueError(f"No workflow pattern found for job_type={job_type.value}")
+        return patterns[0]
+
+    @staticmethod
+    def _infer_selected_pattern_id(plan: WorkflowPlan, candidate_patterns: List[Dict[str, Any]]) -> str | None:
+        executable_tasks = [task for task in sorted(plan.tasks, key=lambda item: item.step) if not task.is_transform]
+        if not executable_tasks:
+            return None
+        for candidate in candidate_patterns:
+            if not isinstance(candidate, dict):
+                continue
+            steps = candidate.get("steps")
+            if not isinstance(steps, list) or len(steps) < len(executable_tasks):
+                continue
+            matched = True
+            for task, step in zip(executable_tasks, steps):
+                if str(step.get("algorithm_id") or "").strip() != task.algorithm_id:
+                    matched = False
+                    break
+                if str(step.get("input_data_type") or "").strip() != task.input.data_type_id:
+                    matched = False
+                    break
+                if str(step.get("data_source_id") or "").strip() != task.input.data_source_id:
+                    matched = False
+                    break
+                if str(step.get("output_data_type") or "").strip() != task.output.data_type_id:
+                    matched = False
+                    break
+            if matched:
+                pattern_id = str(candidate.get("pattern_id") or "").strip()
+                if pattern_id:
+                    return pattern_id
+        if candidate_patterns:
+            fallback = str(candidate_patterns[0].get("pattern_id") or "").strip()
+            if fallback:
+                return fallback
+        return None
 
     def replan_from_error(
         self,
@@ -121,6 +185,12 @@ class WorkflowPlanner:
                 failed_step=failed_step,
                 error_message=error_message,
             )
+            selected_pattern_id = self._infer_selected_pattern_id(
+                plan,
+                planning_context["retrieval"]["candidate_patterns"],
+            )
+            if selected_pattern_id:
+                plan.context["selected_pattern_id"] = selected_pattern_id
             return plan
         except _ProviderPlanningCallError as exc:
             planning_telemetry = exc.telemetry

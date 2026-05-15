@@ -384,6 +384,17 @@ def test_repo_paper_experiment_matrix_and_freeze_outputs_promote_c3_c4_and_add_c
     freeze_md_path = _REPO_ROOT / "docs" / "superpowers" / "specs" / "2026-04-21-paper-evidence-freeze.md"
 
     matrix = json.loads(matrix_path.read_text(encoding="utf-8"))
+    assert set(matrix["research_questions"]) == {"RQ1", "RQ2", "RQ3"}
+    assert matrix["baseline_catalog"]["A2"]["row_baseline"] == "full_system"
+    assert matrix["baseline_catalog"]["B0"]["row_baseline"] == "no_repair_or_replan"
+    assert "ablation_A" in matrix["ablation_catalog"]
+    assert "decision_trace_completeness" in matrix["metric_catalog"]
+    assert matrix["case_pool_policy"]["stable_tasks"] == [
+        "building",
+        "road",
+        "water",
+        "bounded_poi",
+    ]
     rows_by_id = {row["row_id"]: row for row in matrix["rows"]}
     assert rows_by_id["c3_replan_fault_recovery"]["claim_ids"] == ["C3"]
     assert rows_by_id["c3_replan_fault_recovery"]["baseline"] == "no_repair_or_replan"
@@ -438,3 +449,15 @@ def test_repo_paper_experiment_matrix_and_freeze_outputs_promote_c3_c4_and_add_c
     assert "13 passed" in markdown
     assert "artifact_validity=pass" in markdown
     assert "Water shares the same task-driven runtime and evidence contract after Phase 1 stabilization." in markdown
+
+
+def test_repo_paper_matrix_summary_inputs_exist_in_live_specs_root() -> None:
+    matrix_path = _REPO_ROOT / "docs" / "superpowers" / "specs" / "2026-04-21-paper-experiment-matrix.json"
+    matrix = json.loads(matrix_path.read_text(encoding="utf-8"))
+
+    for row in matrix["rows"]:
+        summary_json = row.get("summary_json")
+        if not summary_json:
+            continue
+        summary_path = _REPO_ROOT / summary_json
+        assert summary_path.exists(), f"Missing live summary_json for {row['row_id']}: {summary_json}"

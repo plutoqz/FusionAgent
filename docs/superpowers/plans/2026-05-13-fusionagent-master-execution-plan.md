@@ -235,23 +235,27 @@
   - clip cache 与 stitch 结果的证据边界是什么
   - raster presence / raster height 分别处于什么 claim 等级
   - 2026-05-14：已在 `README`、`docs/v2-operations.md`、`docs/fusioncode-algorithm-library.md` 与 capability inventory 中锁定共享 runtime 的 large-AOI `OSM + single-reference` tiled building 路径、tile manifest / stitch 证据面，以及 multi-source+raster 仍属于 research utility 的边界。
-- [ ] C2. 清理所有 Benin 特化措辞，把阶段目标改写为：
+- [x] C2. 清理所有 Benin 特化措辞，把阶段目标改写为：
   - 大 AOI building runtime scale-up
   - 多源 building source-set 输入建模
   - tiled execution / cache / stitch
   - 大规模 building benchmarking 与 evidence freeze
   - 2026-05-14：高层 README / operations / algorithm-library 口径已切到通用规模化叙事；残余 Benin 特化脚本名与历史文档引用继续保留到后续收口。
-- [ ] C3. 对齐“代码已实现”和“文档仍然保守”的冲突：
+  - 2026-05-15：`docs/v2-operations.md`、`docs/fusioncode-algorithm-library.md`、capability inventory / matrix 已统一声明“Benin 只作为校验数据集示例”，脚本名保留但不再承担国家特化能力叙事。
+- [x] C3. 对齐“代码已实现”和“文档仍然保守”的冲突：
   - 如果多源 building vector 路径已可稳定运行，提升其 claim_state
   - 如果 raster height 仍缺少稳定证据，则保持可选/有界，不强行升级
   - 保证 `docs/fusioncode-algorithm-library.md`、capability inventory、README、operations 的说法一致
-- [ ] C4. 补齐通用规模化证据，而不是只保留脚本存在：
+  - 2026-05-15：live capability inventory / matrix 新增 `building.scale_validation_cleanup_rules`，并继续把 multi-source / raster building 维持在 `research_utility`；shared runtime 与 validation utility 的边界已在 operations、algorithm library、parity ledger 中对齐。
+- [x] C4. 补齐通用规模化证据，而不是只保留脚本存在：
   - source profile 产物
   - tile manifest
   - tiled runtime summary
   - stitch 后 artifact 合法性
   - inspection / operator 可读证据
   - 2026-05-14：已新增 `tests/test_benchmark_tiled_building.py` 与扩展 `tests/test_run_benin_multisource_building_fusion.py`，把 `source_profile_snapshot.json`、`tile_manifest.json`、`selected_sources.json`、`timing.json`、`benchmark_summary.md` 等规模化验证产物纳入回归护栏；真实 inspection/operator freeze 级证据仍待后续补齐。
+  - 2026-05-15：已恢复 `2026-04-08-benchmark-followup-summary.md` 与 `2026-05-12-building-gitega-micro-msft-neo4j-baseline-8012.json` 等被 live 文档引用的基准 spec 资产到 `docs/superpowers/specs/`，修复 live 账本悬空引用。
+  - 2026-05-15：`scripts/benchmark_tiled_building.py` 与 `scripts/run_benin_multisource_building_fusion.py` 现已稳定产出 `inspection_summary.json`，把 `source_profile_snapshot.json`、`tile_manifest.json`、`selected_sources.json`、`timing.json`、`benchmark_summary.md` 与 stitch 后 `artifact_validity` 收敛成 operator-readable 规模化摘要；对应测试、operations wording 与 capability inventory 已同步收口。
 - [x] C5. 明确“Benin national script”在文档中的角色：
   - 可以作为规模化验证样例
   - 不能再作为“仅 Benin 专用实验脚本”的孤岛能力叙事
@@ -320,8 +324,15 @@
   - building decomposed multi-source 若经 Phase C 证据确认可用，则从 `reservation_only` 升级到合适级别
   - 仍无足够运行证据的子能力继续显式标为 bounded / optional / reservation_only
   - 2026-05-14：road / water / bounded poi 已稳定保持 `runtime_supported` / `bounded_supported`；building multi-source、presence raster、height raster 已从早期“仅 reserved seam”口径收敛为 `research_utility`，并在 `docs/fusioncode-algorithm-library.md`、capability inventory 与 parity ledger 中保持一致。
-- [ ] D4. 增加跨主题 smoke/inspection 证据，证明这些 KG 算法节点不仅“存在于 seed”，还能够被 planner/executor 选中并产生可审计输出。
-- [ ] D5. 更新算法库文档与 operations 文档，禁止继续把“代码已接入、文档却说 deferred”长期并存。
+- [x] D4. 增加跨主题 smoke/inspection 证据，证明这些 KG 算法节点不仅“存在于 seed”，还能够被 planner/executor 选中并产生可审计输出。
+  - 2026-05-15：已为 task-driven smoke 增加 `preferred_pattern_id` 受控入口，并把实际执行得到的 `selected_pattern_id` 写回 plan / inspection / `kg_path_trace`。
+  - 2026-05-15：fresh live smoke 已生成并 checked in：
+    - `runs/smoke-road-gilgit-city-fusioncode-inspection-8012.json` -> `wp.road.fusioncode.segment_topology.v1` / `algo.fusion.road.segment_match_topology.v1`
+    - `runs/smoke-water-nairobi-fusioncode-inspection-8012.json` -> `wp.water.fusioncode.line_and_polygon.v1` / `algo.fusion.water.polygon_priority_merge.v1`
+    - `runs/smoke-poi-nairobi-fusioncode-inspection-8012.json` -> `wp.poi.fusioncode.geohash_priority.v1` / `algo.fusion.poi.geohash_neighbor_match.v1`
+  - 结论：road / water / bounded poi 现在不只是“FusionCode candidate 可见”，而是已具备 planner/executor 真实选中后的 run-level 审计证据。
+- [x] D5. 更新算法库文档与 operations 文档，禁止继续把“代码已接入、文档却说 deferred”长期并存。
+  - 2026-05-15：`docs/fusioncode-algorithm-library.md`、`docs/v2-operations.md`、`docs/superpowers/specs/2026-05-06-capability-inventory.md`、`docs/superpowers/specs/2026-05-14-fusioncode-parity-ledger.md` 已统一 wording，明确 shared runtime claim 与 `research_utility` building flows 的边界。
 
 ### 验证
 
@@ -368,23 +379,24 @@
 
 ### 执行清单
 
-- [ ] E1. 写 thesis research spec，锁定：
+- [x] E1. 写 thesis research spec，锁定：
   - 研究对象
   - RQ1 / RQ2 / RQ3
   - 主 claim 与非主 claim
   - 明确不把前端、运维增强、trajectory seam 写成主创新点
-- [ ] E2. 写 claims ledger，把每个 claim 映射到当前 live evidence、测试、freeze、run artifact，而不是映射到未来计划。
-- [ ] E3. 以 `2026-04-21-paper-experiment-matrix.json` 为 canonical matrix，按 Phase B-D 的最终能力边界更新 baseline、ablation、metrics、case pool。
-- [ ] E4. 基于 `2026-05-06-related-work-gap-matrix.*` 产出论文可直接写作的 related-work matrix 与 narrative，明确：
+- [x] E2. 写 claims ledger，把每个 claim 映射到当前 live evidence、测试、freeze、run artifact，而不是映射到未来计划。
+- [x] E3. 以 `2026-04-21-paper-experiment-matrix.json` 为 canonical matrix，按 Phase B-D 的最终能力边界更新 baseline、ablation、metrics、case pool。
+- [x] E4. 基于 `2026-05-06-related-work-gap-matrix.*` 产出论文可直接写作的 related-work matrix 与 narrative，明确：
   - closest overlap
   - our difference
   - borrowed idea
   - 不能类比的边界
-- [ ] E5. 产出 thesis outline / timeline，确保实验顺序、论文章节、能力边界和 freeze 节奏一致。
-- [ ] E6. 产出 capability-handshake 文档，明确：
+- [x] E5. 产出 thesis outline / timeline，确保实验顺序、论文章节、能力边界和 freeze 节奏一致。
+- [x] E6. 产出 capability-handshake 文档，明确：
   - thesis plan 负责回答“为什么值得证明、如何证明”
   - runtime/capability plan 负责回答“什么已经能声称、什么必须继续收口”
   - 论文叙事不得超出 Phase A-D 的最终能力主张
+  - 2026-05-15：已新增 `2026-05-13-thesis-research-spec.md`、`2026-05-13-thesis-claims-ledger.md`、`2026-05-13-thesis-related-work-matrix.*`、`2026-05-13-thesis-outline-and-timeline.md`、`2026-05-13-thesis-capability-handshake.md`，并把 canonical paper matrix 补充为带 `research_questions`、`baseline_catalog`、`ablation_catalog`、`metric_catalog`、`case_pool_policy` 的 live 研究入口。
 
 ### 验证
 

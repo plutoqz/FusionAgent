@@ -21,6 +21,7 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from services.artifact_evaluation_service import evaluate_vector_artifact
 from services.source_profile_service import SourceProfileService
 from services.tile_partition_service import TilePartitionService
 from services.tiled_building_runtime_service import TiledBuildingRuntimeService
@@ -174,6 +175,7 @@ def main() -> None:
         timing["stitch"] = max(0.0, stitch_end - tile_end)
 
     final_feature_count = _feature_count(result.output_shp)
+    artifact_metrics = evaluate_vector_artifact(result.output_shp, required_fields=["geometry"])
     timing_path = output_root / "timing.json"
     timing_path.write_text(
         json.dumps(
@@ -187,6 +189,44 @@ def main() -> None:
                     "reference": ref_profile["source_id"],
                 },
                 "output_shp": str(result.output_shp),
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    inspection_summary_path = output_root / "inspection_summary.json"
+    inspection_summary_path.write_text(
+        json.dumps(
+            {
+                "mode": "large_aoi_tiled_runtime",
+                "claim_state": "runtime_supported",
+                "run_type": "scale_validation_utility",
+                "bbox": list(request_bbox),
+                "target_crs": args.target_crs,
+                "tile_count": result.tile_count,
+                "selected_profiles": {
+                    "osm": osm_profile["source_id"],
+                    "reference": ref_profile["source_id"],
+                },
+                "evidence": {
+                    "source_profile_snapshot": "source_profile_snapshot.json",
+                    "tile_manifest": "tile_manifest.json",
+                    "timing": "timing.json",
+                    "benchmark_summary": "benchmark_summary.md",
+                    "artifact_path": str(result.output_shp),
+                },
+                "artifact_metrics": artifact_metrics,
+                "operator_readable_summary": {
+                    "artifact_validity": bool(artifact_metrics.get("artifact_validity", False)),
+                    "feature_count": artifact_metrics.get("feature_count"),
+                    "geometry_types": artifact_metrics.get("geometry_types"),
+                    "final_feature_count": final_feature_count,
+                    "profile_sec": timing["profile"],
+                    "clip_sec": timing["clip"],
+                    "fuse_sec": timing["fuse"],
+                    "stitch_sec": timing["stitch"],
+                },
             },
             ensure_ascii=False,
             indent=2,
@@ -209,10 +249,12 @@ def main() -> None:
             f"- clip sec: `{timing['clip']:.3f}`",
             f"- fuse sec: `{timing['fuse']:.3f}`",
             f"- stitch sec: `{timing['stitch']:.3f}`",
+            f"- artifact valid: `{artifact_metrics['artifact_validity']}`",
             "",
             f"- timing json: `{timing_path}`",
             f"- tile manifest: `{output_root / 'tile_manifest.json'}`",
             f"- source profile snapshot: `{output_root / 'source_profile_snapshot.json'}`",
+            f"- inspection summary: `{inspection_summary_path}`",
         ]
     )
     (output_root / "benchmark_summary.md").write_text(summary, encoding="utf-8")

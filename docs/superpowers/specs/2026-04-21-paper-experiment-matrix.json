@@ -1,5 +1,100 @@
 {
   "version": "2026-04-21",
+  "research_questions": {
+    "RQ1": {
+      "question": "Does KG-grounded, decomposed planning improve executable-plan validity and end-to-end execution success?",
+      "primary_claim_ids": [
+        "C1"
+      ],
+      "frozen_rows": [
+        "c1_c2_building_google_full_system",
+        "c1_c2_c7_scenario_trigger_autonomy"
+      ]
+    },
+    "RQ2": {
+      "question": "Does bounded healing and replan improve robustness under failure?",
+      "primary_claim_ids": [
+        "C3"
+      ],
+      "frozen_rows": [
+        "c3_replan_fault_recovery"
+      ]
+    },
+    "RQ3": {
+      "question": "Does the evidence contract improve inspectability, reproducibility, and paper-evidence curation?",
+      "primary_claim_ids": [
+        "C2"
+      ],
+      "frozen_rows": [
+        "c1_c2_building_google_full_system",
+        "c8_no_ui_operator_surface"
+      ]
+    }
+  },
+  "baseline_catalog": {
+    "A0": {
+      "label": "coarse task-to-handler runtime without decomposed KG planning",
+      "freeze_state": "planned_not_yet_frozen"
+    },
+    "A1": {
+      "label": "KG-aware but monolithic algorithm-selection runtime",
+      "freeze_state": "planned_not_yet_frozen"
+    },
+    "A2": {
+      "label": "full system",
+      "row_baseline": "full_system",
+      "freeze_state": "frozen"
+    },
+    "B0": {
+      "label": "no repair or replan",
+      "row_baseline": "no_repair_or_replan",
+      "freeze_state": "verification_frozen"
+    },
+    "B1": {
+      "label": "healing enabled full runtime",
+      "row_baseline": "full_system",
+      "freeze_state": "frozen"
+    },
+    "C0": {
+      "label": "result-only output without full evidence contract",
+      "freeze_state": "planned_not_yet_frozen"
+    },
+    "C1": {
+      "label": "full evidence contract",
+      "row_baseline": "operator_api_smoke",
+      "freeze_state": "frozen"
+    }
+  },
+  "ablation_catalog": {
+    "ablation_A": "remove decomposed primitive expansion while keeping the task scope unchanged",
+    "ablation_B": "remove or weaken grounding visibility and planner evidence",
+    "ablation_C": "remove healing and replan from the bounded runtime",
+    "ablation_D": "remove run-level evidence contract outputs and inspection-facing traces"
+  },
+  "metric_catalog": {
+    "executable_plan_rate": "percentage of plans that survive validation without manual repair",
+    "planning_validity_rate": "planning validity proxy used by the current frozen harness summaries",
+    "execution_success_rate": "percentage of runs that reach succeeded status with valid artifacts",
+    "recovery_success_rate": "percentage of injected failures that recover through repair or replan",
+    "decision_trace_completeness": "presence of selected ids, candidates, rationale, and bounded trace evidence",
+    "evidence_completeness_rate": "presence of run.json, plan.json, validation.json, audit.jsonl, and artifact bundle",
+    "artifact_validity": "artifact bundle contains readable and expected vector outputs",
+    "reproducibility_status": "whether the case runs from tracked source ids or documented providers"
+  },
+  "case_pool_policy": {
+    "stable_tasks": [
+      "building",
+      "road",
+      "water",
+      "bounded_poi"
+    ],
+    "excluded_or_non_promoted": [
+      "trajectory_to_road",
+      "final_product_ui",
+      "unbounded_multi_source_building_runtime"
+    ],
+    "scale_validation_note": "Benin-labeled scripts remain validation-dataset examples and must not be promoted into shared-runtime claim rows without new frozen evidence."
+  },
   "rows": [
     {
       "row_id": "c1_c2_building_google_full_system",

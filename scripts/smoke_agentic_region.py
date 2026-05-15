@@ -29,6 +29,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
         help="Fusion job type.",
     )
     parser.add_argument("--target-crs", default="", help="Optional explicit target CRS override.")
+    parser.add_argument(
+        "--preferred-pattern-id",
+        default="",
+        help="Optional workflow pattern id override for bounded smoke verification.",
+    )
     parser.add_argument("--timeout", type=float, default=1200.0, help="Overall timeout in seconds.")
     parser.add_argument("--poll-interval", type=float, default=2.0, help="Polling interval in seconds.")
     parser.add_argument("--output-json", default="", help="Optional path to save the final inspection payload.")
@@ -46,6 +51,8 @@ def build_create_run_form(args: argparse.Namespace) -> dict[str, str]:
     }
     if args.target_crs:
         payload["target_crs"] = args.target_crs
+    if args.preferred_pattern_id:
+        payload["preferred_pattern_id"] = args.preferred_pattern_id
     return payload
 
 
@@ -83,6 +90,7 @@ def run_smoke(
     query: str,
     job_type: str,
     target_crs: str,
+    preferred_pattern_id: str,
     timeout_sec: float,
     poll_interval_sec: float,
 ) -> dict[str, Any]:
@@ -97,6 +105,8 @@ def run_smoke(
     }
     if target_crs:
         create_payload["target_crs"] = target_crs
+    if preferred_pattern_id:
+        create_payload["preferred_pattern_id"] = preferred_pattern_id
     created = _json_request("POST", create_url, form_data=create_payload, timeout_sec=timeout_sec)
     run_id = created["run_id"]
 
@@ -151,6 +161,7 @@ def main(argv: list[str] | None = None) -> int:
         query=args.query,
         job_type=args.job_type,
         target_crs=args.target_crs,
+        preferred_pattern_id=args.preferred_pattern_id,
         timeout_sec=args.timeout,
         poll_interval_sec=args.poll_interval,
     )

@@ -1,0 +1,68 @@
+{
+  "fields": [
+    "paper",
+    "closest_overlap",
+    "our_difference",
+    "borrowed_idea",
+    "non_comparable_boundary",
+    "citation_role"
+  ],
+  "papers": [
+    "Geo-Agent",
+    "CyVerACT",
+    "OntoLLM",
+    "PathMind",
+    "UniAI-GraphRAG",
+    "地下车站洪水脆弱性级联效应分析"
+  ],
+  "entries": [
+    {
+      "paper": "Geo-Agent",
+      "closest_overlap": "natural-language GIS interaction and spatial intent decomposition",
+      "our_difference": "FusionAgent ends in executable fusion artifacts, run-level evidence, and bounded runtime stages rather than interactive GIS responses alone",
+      "borrowed_idea": "spatial intent decomposition and graph-aware retrieval",
+      "non_comparable_boundary": "FusionAgent should not be reframed as a general GIS copilot or UX-first assistant",
+      "citation_role": "adjacent geospatial agent"
+    },
+    {
+      "paper": "CyVerACT",
+      "closest_overlap": "schema-aware deterministic verification and structured failure reasoning",
+      "our_difference": "FusionAgent couples verification with executable planning, healing, and artifact evidence instead of stopping at query correctness",
+      "borrowed_idea": "machine-readable error metadata and deterministic verification loops",
+      "non_comparable_boundary": "the thesis should not collapse into text-to-query evaluation only",
+      "citation_role": "verification baseline analogue"
+    },
+    {
+      "paper": "OntoLLM",
+      "closest_overlap": "ontology-grounded reasoning constraints and digression prevention",
+      "our_difference": "FusionAgent binds KG structure to executable task, algorithm, and output contracts rather than an ontology reasoning layer alone",
+      "borrowed_idea": "ontology-grounded rejection and bounded reasoning discipline",
+      "non_comparable_boundary": "do not expand into a broad ontology-engineering thesis",
+      "citation_role": "supporting reasoning-method reference"
+    },
+    {
+      "paper": "PathMind",
+      "closest_overlap": "path prioritization and low-noise retrieval",
+      "our_difference": "FusionAgent adds bounded execution, healing, and evidence writeback after retrieval instead of stopping at path ranking",
+      "borrowed_idea": "path prioritization and token-efficiency heuristics",
+      "non_comparable_boundary": "do not add expensive multi-round self-dialogue just to resemble path-search literature",
+      "citation_role": "retrieval-method reference"
+    },
+    {
+      "paper": "UniAI-GraphRAG",
+      "closest_overlap": "dual-channel retrieval and ontology-guided extraction",
+      "our_difference": "FusionAgent centers on executable geospatial fusion outputs, not report or QA endpoints",
+      "borrowed_idea": "dual-channel retrieval summaries and structured extraction patterns",
+      "non_comparable_boundary": "do not shift the runtime into a text QA or generic GraphRAG system",
+      "citation_role": "adjacent knowledge-workflow reference"
+    },
+    {
+      "paper": "地下车站洪水脆弱性级联效应分析",
+      "closest_overlap": "facility dependency and flood cascade reasoning for disaster scenarios",
+      "our_difference": "FusionAgent contributes a bounded scenario runtime and evidence contract rather than a domain-specific simulation stack",
+      "borrowed_idea": "bounded facility dependency and cascade reasoning for scenario profiles",
+      "non_comparable_boundary": "do not turn the scenario layer into a full digital-twin simulation platform",
+      "citation_role": "domain motivation and bounded future-direction reference"
+    }
+  ]
+}

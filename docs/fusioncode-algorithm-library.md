@@ -74,6 +74,8 @@ Full FusionCode execution requires the optional geospatial stack declared in `re
 
 `scripts/run_benin_multisource_building_fusion.py` remains a research utility for large-AOI multi-source building validation. The repo examples use Benin as the validation dataset, but the capability statement is about source-set orchestration and tiled validation rather than a Benin-only runtime.
 
+The checked-in script names still carry Benin labels because the repository example dataset is organized that way. Treat those names as validation-dataset entrypoints, not capability names.
+
 If you need to inspect the current research utility path:
 
 ```powershell
@@ -87,7 +89,7 @@ python scripts/run_benin_multisource_building_fusion.py `
   --max-workers 4
 ```
 
-The script profiles a validation dataset root, selects `MS`, `OBM`, `GG`, and `OSM` building vectors, discovers available Google `building_presence` and `building_height` rasters, partitions the working bbox into buffered tiles, runs the decomposed multi-source FusionCode flow per tile, and stitches tile-owned features into `runtime_output/fused_buildings.gpkg`. Keep this as a research utility description unless the same capability is promoted through shared runtime evidence, tests, and operations wording.
+The script profiles a validation dataset root, selects `MS`, `OBM`, `GG`, and `OSM` building vectors, discovers available Google `building_presence` and `building_height` rasters, partitions the working bbox into buffered tiles, runs the decomposed multi-source FusionCode flow per tile, stitches tile-owned features into `runtime_output/fused_buildings.gpkg`, and emits a local `inspection_summary.json` so operators can review source selection, tile count, and artifact validity without opening raw files one by one. Keep this as a research utility description unless the same capability is promoted through shared runtime evidence, tests, and operations wording.
 
 Height fields are intentionally non-destructive:
 
