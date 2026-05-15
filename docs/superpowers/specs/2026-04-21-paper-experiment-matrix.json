@@ -173,8 +173,8 @@
       ],
       "verification_result": "2 passed",
       "evidence_paths": [
-        "docs/superpowers/plans/done/2026-04-20-full-replan-loop-v1.md",
         "tests/test_agent_run_service_enhancements.py",
+        "tests/test_agent_run_service_enhancements.py::test_task_driven_replan_refreshes_inputs_when_source_changes",
         "docs/superpowers/specs/2026-04-20-evaluation-contract-claim-lock.md"
       ],
       "supports_metrics": [
@@ -201,9 +201,8 @@
       ],
       "verification_result": "2 passed",
       "evidence_paths": [
-        "docs/superpowers/plans/done/2026-04-20-durable-learning-policy-hints.md",
         "tests/test_policy_engine.py",
-        "tests/test_agent_run_service_enhancements.py",
+        "tests/test_agent_run_service_enhancements.py::test_pattern_selection_uses_durable_learning_summaries_as_policy_hints",
         "docs/superpowers/specs/2026-04-20-evaluation-contract-claim-lock.md"
       ],
       "supports_metrics": [
@@ -294,8 +293,8 @@
       "evidence_id": "c7_water_uploaded_vertical_slice",
       "claim_ids": ["C7"],
       "paths": [
-        "docs/superpowers/plans/done/2026-04-20-water-vertical-slice.md",
         "tests/test_water_adapter.py",
+        "tests/test_api_v2_integration.py::test_v2_run_water_task_driven_auto_integration",
         "docs/superpowers/specs/2026-04-20-evidence-ledger.md"
       ],
       "summary": "Water shares the same task-driven runtime and evidence contract after Phase 1 stabilization. Keep the bounded extensibility note explicit even though the runtime contract is now shared."

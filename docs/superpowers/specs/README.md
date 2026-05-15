@@ -37,7 +37,12 @@ execution chain defined by
 - `2026-04-08-benchmark-followup-summary.md`
 - `2026-04-08-building-real-benchmark-result.json`
 - `2026-04-08-building-micro-benchmark-result.json`
+- `2026-04-07-real-data-eval-manifest.json`
+- `2026-04-07-fusion-agent-v2-design.md`
+- `2026-04-10-thesis-aligned-agent-design.md`
 - `2026-04-16-building-micro-msft-fresh-checkout-result.json`
+- `2026-04-16-building-micro-alignment-result.json`
+- `2026-04-17-agentic-any-region-fusion-design.md`
 - `2026-04-20-evaluation-contract-claim-lock.md`
 - `2026-04-20-evidence-ledger.md`
 - `2026-04-21-no-ui-maturity-target.md`
@@ -62,6 +67,7 @@ execution chain defined by
 - `2026-05-06-consolidation-backlog.md`
 - `2026-05-06-next-execution-sequence.md`
 - `2026-05-06-redundancy-and-drift-ledger.md`
+- `2026-04-23-system-next-improvement-review.md`
 - `2026-05-06-related-work-gap-matrix.json`
 - `2026-05-06-related-work-gap-matrix.md`
 - `2026-05-09-kg-closure-gates.md`

@@ -15,6 +15,15 @@ def _coerce_repo_relative(value: str | None, *, repo_root: Path) -> str | None:
         return None
 
     raw = Path(value)
+    normalized_value = value.replace("\\", "/")
+    marker = "docs/superpowers/specs/"
+    marker_index = normalized_value.find(marker)
+    if marker_index != -1:
+        candidate_rel = normalized_value[marker_index:]
+        candidate = repo_root / Path(candidate_rel)
+        if candidate.exists():
+            return candidate.relative_to(repo_root).as_posix()
+
     if raw.is_absolute():
         try:
             return raw.resolve().relative_to(repo_root.resolve()).as_posix()

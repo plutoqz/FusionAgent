@@ -429,11 +429,11 @@
 
 ### 执行清单
 
-- [ ] F1. 运行 Phase A-E 的全部聚焦验证命令。
-- [ ] F2. 刷新所有 live freeze 文档，确认路径不再引用 `done/` 作为活跃入口。
-- [ ] F3. 核对 `README.md`、`README.en.md`、`docs/v2-operations.md`、`docs/fusioncode-algorithm-library.md`、capability inventory 的术语一致性。
-- [ ] F4. 检查 `docs/superpowers/plans/` 根目录只剩本文件一份活跃计划。
-- [ ] F5. 检查 `docs/superpowers/plans/done/` 和 `docs/superpowers/specs/done/` 中的历史文档不再承担当前执行语义。
+- [x] F1. 运行 Phase A-E 的全部聚焦验证命令。
+- [x] F2. 刷新所有 live freeze 文档，确认路径不再引用 `done/` 作为活跃入口。
+- [x] F3. 核对 `README.md`、`README.en.md`、`docs/v2-operations.md`、`docs/fusioncode-algorithm-library.md`、capability inventory 的术语一致性。
+- [x] F4. 检查 `docs/superpowers/plans/` 根目录只剩本文件一份活跃计划。
+- [x] F5. 检查 `docs/superpowers/plans/done/` 和 `docs/superpowers/specs/done/` 中的历史文档不再承担当前执行语义。
 
 ### 推荐最终验证命令
 
@@ -442,6 +442,14 @@
 - `python -m pytest -q tests/test_source_profile_service.py tests/test_tile_partition_service.py tests/test_tiled_building_runtime_service.py tests/test_raster_cli.py tests/test_tiled_multisource_building_runtime_service.py tests/test_run_benin_multisource_building_fusion.py`
 - `python -m pytest -q tests/test_fusioncode_inventory_contract.py tests/test_fusioncode_contracts.py tests/test_fusioncode_building_raster.py tests/test_fusioncode_building_v8_decomposition.py tests/test_fusioncode_linear_water_road.py tests/test_fusioncode_poi.py tests/test_fusioncode_executor_handlers.py tests/test_fusioncode_kg_metadata.py`
 - `python -m pytest -q tests/test_related_work_gap_matrix.py tests/test_capability_inventory_matrix.py`
+
+### 2026-05-15 Final Phase closure note
+
+- 已 fresh 运行 `python scripts/run_no_ui_maturity_check.py`，结果 `passed: true`。
+- 已 fresh 运行 Final Phase 推荐的 Phase A-E 聚焦测试命令，结果分别为 `36 passed`、`17 passed, 8 warnings`、`24 passed`、`22 passed`。
+- 已 fresh 刷新 `paper / scenario / no-ui maturity` 三条 live freeze。
+- 已把 live specs 真正恢复到根目录并补充索引：`2026-04-07-real-data-eval-manifest.json`、`2026-04-07-fusion-agent-v2-design.md`、`2026-04-10-thesis-aligned-agent-design.md`、`2026-04-16-building-micro-alignment-result.json`、`2026-04-17-agentic-any-region-fusion-design.md`、`2026-04-23-system-next-improvement-review.md`。
+- 已新增守护测试，确保 live paper evidence chain 不再依赖 `docs/superpowers/plans/done/`，且 live spec 引用真实落在 live 根目录。
 
 ### 完成判定
 

@@ -40,7 +40,7 @@
 - Metrics: recovery_success_rate=pass, decision_trace_completeness=pass, execution_success_rate=pass
 - Verification command: `python -m pytest -q tests/test_agent_run_service_enhancements.py::test_agent_run_service_replans_after_execution_failure tests/test_agent_run_service_enhancements.py::test_task_driven_replan_refreshes_inputs_when_source_changes`
 - Verification result: 2 passed
-- Evidence paths: `docs/superpowers/plans/done/2026-04-20-full-replan-loop-v1.md`, `tests/test_agent_run_service_enhancements.py`, `docs/superpowers/specs/2026-04-20-evaluation-contract-claim-lock.md`
+- Evidence paths: `tests/test_agent_run_service_enhancements.py`, `tests/test_agent_run_service_enhancements.py::test_task_driven_replan_refreshes_inputs_when_source_changes`, `docs/superpowers/specs/2026-04-20-evaluation-contract-claim-lock.md`
 
 ### `c4_learning_hints_pattern_selection`
 
@@ -52,7 +52,7 @@
 - Metrics: decision_trace_completeness=pass, planning_validity_rate=pass
 - Verification command: `python -m pytest -q tests/test_policy_engine.py::test_policy_engine_applies_learning_adjustment_and_emits_it_in_evidence tests/test_agent_run_service_enhancements.py::test_pattern_selection_uses_durable_learning_summaries_as_policy_hints`
 - Verification result: 2 passed
-- Evidence paths: `docs/superpowers/plans/done/2026-04-20-durable-learning-policy-hints.md`, `tests/test_policy_engine.py`, `tests/test_agent_run_service_enhancements.py`, `docs/superpowers/specs/2026-04-20-evaluation-contract-claim-lock.md`
+- Evidence paths: `tests/test_policy_engine.py`, `tests/test_agent_run_service_enhancements.py::test_pattern_selection_uses_durable_learning_summaries_as_policy_hints`, `docs/superpowers/specs/2026-04-20-evaluation-contract-claim-lock.md`
 
 ### `c1_c2_c7_scenario_trigger_autonomy`
 
@@ -94,4 +94,4 @@
 
 ## Qualitative Evidence
 
-- `c7_water_uploaded_vertical_slice` (C7): Water shares the same task-driven runtime and evidence contract after Phase 1 stabilization. Keep the bounded extensibility note explicit even though the runtime contract is now shared. Paths: `docs/superpowers/plans/done/2026-04-20-water-vertical-slice.md`, `tests/test_water_adapter.py`, `docs/superpowers/specs/2026-04-20-evidence-ledger.md`
+- `c7_water_uploaded_vertical_slice` (C7): Water shares the same task-driven runtime and evidence contract after Phase 1 stabilization. Keep the bounded extensibility note explicit even though the runtime contract is now shared. Paths: `tests/test_water_adapter.py`, `tests/test_api_v2_integration.py::test_v2_run_water_task_driven_auto_integration`, `docs/superpowers/specs/2026-04-20-evidence-ledger.md`

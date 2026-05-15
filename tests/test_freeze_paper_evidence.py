@@ -288,8 +288,8 @@ def test_build_freeze_report_supports_status_evidence_rows_and_renders_metric_de
                     ],
                     "verification_result": "2 passed",
                     "evidence_paths": [
-                        "docs/superpowers/plans/done/2026-04-20-full-replan-loop-v1.md",
                         "tests/test_agent_run_service_enhancements.py",
+                        "tests/test_agent_run_service_enhancements.py::test_task_driven_replan_refreshes_inputs_when_source_changes",
                     ],
                     "supports_metrics": [
                         "recovery_success_rate",
@@ -349,8 +349,8 @@ def test_build_freeze_report_supports_status_evidence_rows_and_renders_metric_de
         "execution_success_rate": "pass",
     }
     assert row["evidence_paths"] == [
-        "docs/superpowers/plans/done/2026-04-20-full-replan-loop-v1.md",
         "tests/test_agent_run_service_enhancements.py",
+        "tests/test_agent_run_service_enhancements.py::test_task_driven_replan_refreshes_inputs_when_source_changes",
     ]
     assert scenario_row["summary_source_format"] == "scenario_trigger_proof"
     assert scenario_row["observed_status"] == "passed"
@@ -374,7 +374,7 @@ def test_build_freeze_report_supports_status_evidence_rows_and_renders_metric_de
     assert "c1_c2_c7_scenario_trigger_autonomy" in markdown
     assert "planning_validity_rate=pass" in markdown
     assert "13 passed" in markdown
-    assert "docs/superpowers/plans/done/2026-04-20-full-replan-loop-v1.md" in markdown
+    assert "tests/test_agent_run_service_enhancements.py::test_task_driven_replan_refreshes_inputs_when_source_changes" in markdown
     assert "Water shares the same task-driven runtime and evidence contract after Phase 1 stabilization." in markdown
 
 

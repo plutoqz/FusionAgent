@@ -34,7 +34,7 @@
         "zh": "E:\\vscode\\fusionAgent\\tmp\\eval\\scenario-runs\\scenario_0bfdb28080194892afad2f8ddfda55e8\\documents\\scenario_report.zh.md",
         "en": "E:\\vscode\\fusionAgent\\tmp\\eval\\scenario-runs\\scenario_0bfdb28080194892afad2f8ddfda55e8\\documents\\scenario_report.en.md"
       },
-      "source_dir": "E:\\vscode\\fusionAgent\\tmp\\eval\\scenario-runs\\scenario_0bfdb28080194892afad2f8ddfda55e8"
+      "source_dir": "tmp\\eval\\scenario-runs\\scenario_0bfdb28080194892afad2f8ddfda55e8"
     },
     {
       "scenario_id": "scenario_64ecceacb7f446b495e8da4457c11466",
@@ -69,7 +69,7 @@
         "zh": "E:\\vscode\\fusionAgent\\tmp\\eval\\scenario-runs\\scenario_64ecceacb7f446b495e8da4457c11466\\documents\\scenario_report.zh.md",
         "en": "E:\\vscode\\fusionAgent\\tmp\\eval\\scenario-runs\\scenario_64ecceacb7f446b495e8da4457c11466\\documents\\scenario_report.en.md"
       },
-      "source_dir": "E:\\vscode\\fusionAgent\\tmp\\eval\\scenario-runs\\scenario_64ecceacb7f446b495e8da4457c11466"
+      "source_dir": "tmp\\eval\\scenario-runs\\scenario_64ecceacb7f446b495e8da4457c11466"
     },
     {
       "scenario_id": "scenario_f1b29dd4d66b4da69bd672c44b3028bd",
@@ -104,7 +104,7 @@
         "zh": "E:\\vscode\\fusionAgent\\tmp\\eval\\scenario-runs\\scenario_f1b29dd4d66b4da69bd672c44b3028bd\\documents\\scenario_report.zh.md",
         "en": "E:\\vscode\\fusionAgent\\tmp\\eval\\scenario-runs\\scenario_f1b29dd4d66b4da69bd672c44b3028bd\\documents\\scenario_report.en.md"
       },
-      "source_dir": "E:\\vscode\\fusionAgent\\tmp\\eval\\scenario-runs\\scenario_f1b29dd4d66b4da69bd672c44b3028bd"
+      "source_dir": "tmp\\eval\\scenario-runs\\scenario_f1b29dd4d66b4da69bd672c44b3028bd"
     },
     {
       "scenario_id": "scenario_251e280d4ce54127b9b972a301e86cf3",
@@ -139,7 +139,7 @@
         "zh": "E:\\vscode\\fusionAgent\\tmp\\eval\\scenario-runs\\scenario_251e280d4ce54127b9b972a301e86cf3\\documents\\scenario_report.zh.md",
         "en": "E:\\vscode\\fusionAgent\\tmp\\eval\\scenario-runs\\scenario_251e280d4ce54127b9b972a301e86cf3\\documents\\scenario_report.en.md"
       },
-      "source_dir": "E:\\vscode\\fusionAgent\\tmp\\eval\\scenario-runs\\scenario_251e280d4ce54127b9b972a301e86cf3"
+      "source_dir": "tmp\\eval\\scenario-runs\\scenario_251e280d4ce54127b9b972a301e86cf3"
     },
     {
       "scenario_id": "scenario_6ad585462b75413fa8f93bd523e3c9d4",
@@ -174,7 +174,7 @@
         "zh": "E:\\vscode\\fusionAgent\\tmp\\eval\\scenario-runs\\scenario_6ad585462b75413fa8f93bd523e3c9d4\\documents\\scenario_report.zh.md",
         "en": "E:\\vscode\\fusionAgent\\tmp\\eval\\scenario-runs\\scenario_6ad585462b75413fa8f93bd523e3c9d4\\documents\\scenario_report.en.md"
       },
-      "source_dir": "E:\\vscode\\fusionAgent\\tmp\\eval\\scenario-runs\\scenario_6ad585462b75413fa8f93bd523e3c9d4"
+      "source_dir": "tmp\\eval\\scenario-runs\\scenario_6ad585462b75413fa8f93bd523e3c9d4"
     }
   ]
 }
