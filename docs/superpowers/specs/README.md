@@ -34,6 +34,10 @@ execution chain defined by
 
 ### Phase A / Phase B live evidence
 
+- `2026-04-08-benchmark-followup-summary.md`
+- `2026-04-08-building-real-benchmark-result.json`
+- `2026-04-08-building-micro-benchmark-result.json`
+- `2026-04-16-building-micro-msft-fresh-checkout-result.json`
 - `2026-04-20-evaluation-contract-claim-lock.md`
 - `2026-04-20-evidence-ledger.md`
 - `2026-04-21-no-ui-maturity-target.md`
@@ -62,6 +66,13 @@ execution chain defined by
 - `2026-05-06-related-work-gap-matrix.md`
 - `2026-05-09-kg-closure-gates.md`
 - `2026-05-10-kg-gates-evidence-summary.md`
+- `2026-05-12-building-gitega-micro-msft-neo4j-baseline-8012.json`
+- `2026-05-13-thesis-research-spec.md`
+- `2026-05-13-thesis-claims-ledger.md`
+- `2026-05-13-thesis-related-work-matrix.json`
+- `2026-05-13-thesis-related-work-matrix.md`
+- `2026-05-13-thesis-outline-and-timeline.md`
+- `2026-05-13-thesis-capability-handshake.md`
 
 ### Consolidation design context
 

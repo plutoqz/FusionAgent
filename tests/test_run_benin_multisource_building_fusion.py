@@ -3,7 +3,9 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import geopandas as gpd
 import pytest
+from shapely.geometry import box
 
 from scripts import run_benin_multisource_building_fusion
 from scripts.run_benin_multisource_building_fusion import (
@@ -111,6 +113,12 @@ def test_multisource_validation_main_writes_selected_sources_timing_and_summary(
     road_path = tmp_path / "roads.shp"
     road_path.write_text("placeholder", encoding="utf-8")
     output_path = output_root / "runtime_output" / "fused_buildings.gpkg"
+    output_path.parent.mkdir(parents=True, exist_ok=True)
+    gpd.GeoDataFrame(
+        {"source": ["MS"], "confidence": [0.97]},
+        geometry=[box(0.80, 6.20, 0.81, 6.21)],
+        crs="EPSG:32631",
+    ).to_file(output_path, driver="GPKG")
     manifest = _single_tile_manifest()
 
     profile_payload = {
@@ -177,6 +185,9 @@ def test_multisource_validation_main_writes_selected_sources_timing_and_summary(
         (output_root / "tile_manifest.json").read_text(encoding="utf-8")
     )
     timing = json.loads((output_root / "timing.json").read_text(encoding="utf-8"))
+    inspection_summary = json.loads(
+        (output_root / "inspection_summary.json").read_text(encoding="utf-8")
+    )
     summary = (output_root / "benchmark_summary.md").read_text(encoding="utf-8")
 
     assert len(source_profile_snapshot["profiles"]) == 6
@@ -191,6 +202,12 @@ def test_multisource_validation_main_writes_selected_sources_timing_and_summary(
         "tile_execution_started",
         "tile_execution_completed",
     ]
+    assert inspection_summary["mode"] == "large_aoi_multisource_validation"
+    assert inspection_summary["claim_state"] == "research_utility"
+    assert inspection_summary["artifact_metrics"]["artifact_validity"] is True
+    assert inspection_summary["operator_readable_summary"]["stitched_feature_count"] == 7
+    assert inspection_summary["evidence"]["selected_sources"] == "selected_sources.json"
     assert "# Large-AOI Multi-Source Building Validation" in summary
     assert "source priority order" in summary
     assert "raster inputs" in summary
+    assert "inspection summary" in summary

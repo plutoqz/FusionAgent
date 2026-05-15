@@ -92,6 +92,25 @@ def test_smoke_agentic_region_accepts_water_and_poi_job_types() -> None:
     assert build_create_run_form(poi)["job_type"] == "poi"
 
 
+def test_smoke_agentic_region_includes_preferred_pattern_id_when_provided() -> None:
+    parsed = parse_args(
+        [
+            "--base-url",
+            "http://127.0.0.1:8010",
+            "--query",
+            "need road data for Gilgit city, Pakistan",
+            "--job-type",
+            "road",
+            "--preferred-pattern-id",
+            "wp.road.fusioncode.segment_topology.v1",
+        ]
+    )
+
+    payload = build_create_run_form(parsed)
+
+    assert payload["preferred_pattern_id"] == "wp.road.fusioncode.segment_topology.v1"
+
+
 def test_smoke_agentic_region_requires_explicit_job_type() -> None:
     with pytest.raises(SystemExit):
         parse_args(
@@ -124,6 +143,7 @@ def test_smoke_agentic_region_uses_total_timeout_for_create_request(monkeypatch:
         query="need road data for Gilgit city, Pakistan",
         job_type="road",
         target_crs="",
+        preferred_pattern_id="",
         timeout_sec=1200.0,
         poll_interval_sec=0.2,
     )

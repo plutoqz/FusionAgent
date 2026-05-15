@@ -1,0 +1,2262 @@
+{
+  "run": {
+    "run_id": "0ed6dfa8baf249ecb87082df08f5f89d",
+    "job_type": "poi",
+    "trigger": {
+      "type": "user_query",
+      "content": "show hospitals in Nairobi, Kenya",
+      "disaster_type": null,
+      "spatial_extent": null,
+      "force_aoi_resolution": false,
+      "temporal_start": null,
+      "temporal_end": null
+    },
+    "phase": "succeeded",
+    "progress": 100,
+    "target_crs": "EPSG:32737",
+    "debug": false,
+    "error": null,
+    "log_path": "runs\\0ed6dfa8baf249ecb87082df08f5f89d\\logs\\run.log",
+    "plan_path": "runs\\0ed6dfa8baf249ecb87082df08f5f89d\\plan.json",
+    "validation_path": "runs\\0ed6dfa8baf249ecb87082df08f5f89d\\validation.json",
+    "audit_path": "runs\\0ed6dfa8baf249ecb87082df08f5f89d\\audit.jsonl",
+    "artifact": {
+      "filename": "poi_fusion_result.zip",
+      "path": "runs\\0ed6dfa8baf249ecb87082df08f5f89d\\output\\poi_fusion_result.zip",
+      "size_bytes": 844632
+    },
+    "decision_records": [
+      {
+        "decision_type": "pattern_selection",
+        "selected_id": "wp.poi.fusioncode.geohash_priority.v1",
+        "selected_score": 0.514,
+        "rationale": "Selected 'wp.poi.fusioncode.geohash_priority.v1' because the executable plan resolves to that workflow pattern. Candidate scoring remains attached for audit comparison; policy-only winner before execution was 'wp.generic.poi.default'.",
+        "candidates": [
+          {
+            "candidate_id": "wp.generic.poi.default",
+            "score": 0.580667,
+            "reason": "weighted_sum=0.58*(success/accuracy=0.800) + 0.20*(data_quality=0.000) + 0.12*(stability=0.000) + 0.05*(freshness=0.500) + 0.03*(reuse=0.500) + 0.01*(speed=0.500) + 0.01*(cost=0.500) + learning_adjustment=0.067",
+            "evidence": {
+              "metrics": {
+                "success_rate": 0.8,
+                "accuracy": 0.8,
+                "data_quality": null,
+                "stability": null,
+                "freshness": null,
+                "reuse": null,
+                "speed": null,
+                "cost": null,
+                "learning_adjustment": 0.066667
+              },
+              "meta": {
+                "durable_learning_summary": {
+                  "entity_kind": "pattern",
+                  "entity_id": "wp.generic.poi.default",
+                  "job_type": "poi",
+                  "disaster_type": null,
+                  "total_runs": 6,
+                  "success_count": 5,
+                  "failure_count": 1,
+                  "repaired_count": 0,
+                  "last_run_at": "2026-05-12T10:14:47.276817+00:00",
+                  "last_failure_reason": "ValueError: task-driven input materialization failed for catalog.generic.poi: AOI-scoped bundle has empty source coverage for catalog.generic.poi"
+                }
+              }
+            }
+          },
+          {
+            "candidate_id": "wp.poi.fusioncode.geohash_priority.v1",
+            "score": 0.514,
+            "reason": "weighted_sum=0.58*(success/accuracy=0.800) + 0.20*(data_quality=0.000) + 0.12*(stability=0.000) + 0.05*(freshness=0.500) + 0.03*(reuse=0.500) + 0.01*(speed=0.500) + 0.01*(cost=0.500) + learning_adjustment=0.000",
+            "evidence": {
+              "metrics": {
+                "success_rate": 0.8,
+                "accuracy": 0.8,
+                "data_quality": null,
+                "stability": null,
+                "freshness": null,
+                "reuse": null,
+                "speed": null,
+                "cost": null,
+                "learning_adjustment": null
+              },
+              "meta": {}
+            }
+          }
+        ],
+        "policy_version": "v2",
+        "evidence_refs": [
+          "context.retrieval.candidate_patterns",
+          "policy:deterministic_weighted_sum",
+          "context.retrieval.durable_learning_summaries.patterns"
+        ]
+      },
+      {
+        "decision_type": "data_source_selection",
+        "selected_id": "catalog.generic.poi",
+        "selected_score": 0.21950000000000003,
+        "rationale": "Selected 'catalog.generic.poi' with score=0.219500 using deterministic weighted scoring. Major factors: success_rate/accuracy (strongest), data_quality and stability, then freshness and reuse, then speed and cost.",
+        "candidates": [
+          {
+            "candidate_id": "catalog.generic.poi",
+            "score": 0.21950000000000003,
+            "reason": "weighted_sum=0.58*(success/accuracy=0.000) + 0.20*(data_quality=0.820) + 0.12*(stability=0.000) + 0.05*(freshness=0.610) + 0.03*(reuse=0.500) + 0.01*(speed=0.500) + 0.01*(cost=0.500) + learning_adjustment=0.000",
+            "evidence": {
+              "metrics": {
+                "success_rate": null,
+                "accuracy": null,
+                "data_quality": 0.82,
+                "stability": null,
+                "freshness": 0.61,
+                "reuse": null,
+                "speed": null,
+                "cost": null,
+                "learning_adjustment": null
+              },
+              "meta": {
+                "source_name": "Generic POI Bundle (OSM + GNS)",
+                "source_kind": "catalog",
+                "quality_tier": "curated",
+                "freshness_category": "sample_snapshot",
+                "supported_types": [
+                  "dt.poi.bundle"
+                ]
+              }
+            }
+          }
+        ],
+        "policy_version": "v2",
+        "evidence_refs": [
+          "context.retrieval.data_sources",
+          "policy:deterministic_weighted_sum"
+        ]
+      },
+      {
+        "decision_type": "artifact_reuse_selection",
+        "selected_id": "fresh_execution",
+        "selected_score": 0.131,
+        "rationale": "Selected 'fresh_execution' with score=0.131000 using deterministic weighted scoring. Major factors: success_rate/accuracy (strongest), data_quality and stability, then freshness and reuse, then speed and cost.",
+        "candidates": [
+          {
+            "candidate_id": "fresh_execution",
+            "score": 0.131,
+            "reason": "weighted_sum=0.58*(success/accuracy=0.000) + 0.20*(data_quality=0.000) + 0.12*(stability=0.800) + 0.05*(freshness=0.500) + 0.03*(reuse=0.000) + 0.01*(speed=0.500) + 0.01*(cost=0.500) + learning_adjustment=0.000",
+            "evidence": {
+              "metrics": {
+                "success_rate": null,
+                "accuracy": null,
+                "data_quality": null,
+                "stability": 0.8,
+                "freshness": 0.5,
+                "reuse": 0.0,
+                "speed": null,
+                "cost": null,
+                "learning_adjustment": null
+              },
+              "meta": {
+                "selection_source": "fallback_when_no_safe_reuse_candidate"
+              }
+            }
+          }
+        ],
+        "policy_version": "v2",
+        "evidence_refs": [
+          "context.retrieval.reusable_artifacts",
+          "policy:deterministic_weighted_sum"
+        ]
+      },
+      {
+        "decision_type": "parameter_strategy",
+        "selected_id": "kg_defaults_only",
+        "selected_score": 0.547,
+        "rationale": "Selected 'kg_defaults_only' with score=0.547000 using deterministic weighted scoring. Major factors: success_rate/accuracy (strongest), data_quality and stability, then freshness and reuse, then speed and cost.",
+        "candidates": [
+          {
+            "candidate_id": "kg_defaults_only",
+            "score": 0.547,
+            "reason": "weighted_sum=0.58*(success/accuracy=0.650) + 0.20*(data_quality=0.000) + 0.12*(stability=1.000) + 0.05*(freshness=0.500) + 0.03*(reuse=0.500) + 0.01*(speed=0.500) + 0.01*(cost=0.500) + learning_adjustment=0.000",
+            "evidence": {
+              "metrics": {
+                "success_rate": 1.0,
+                "accuracy": null,
+                "data_quality": null,
+                "stability": 1.0,
+                "freshness": null,
+                "reuse": null,
+                "speed": null,
+                "cost": null,
+                "learning_adjustment": null
+              },
+              "meta": {
+                "steps": [
+                  {
+                    "step": 1,
+                    "algorithm_id": "algo.fusion.poi.geohash_neighbor_match.v1",
+                    "parameter_keys": [
+                      "name_similarity_threshold",
+                      "neighbor_rings"
+                    ],
+                    "overridden_keys": []
+                  }
+                ],
+                "overridden_keys": [],
+                "total_specs": 2,
+                "total_bound": 2
+              }
+            }
+          }
+        ],
+        "policy_version": "v2",
+        "evidence_refs": [
+          "plan.tasks.input.parameters",
+          "kg.parameter_specs",
+          "policy:deterministic_weighted_sum"
+        ]
+      },
+      {
+        "decision_type": "output_schema_policy",
+        "selected_id": "osp.poi.fused.v1",
+        "selected_score": 0.16999999999999998,
+        "rationale": "Selected 'osp.poi.fused.v1' with score=0.170000 using deterministic weighted scoring. Major factors: success_rate/accuracy (strongest), data_quality and stability, then freshness and reuse, then speed and cost.",
+        "candidates": [
+          {
+            "candidate_id": "osp.poi.fused.v1",
+            "score": 0.16999999999999998,
+            "reason": "weighted_sum=0.58*(success/accuracy=0.000) + 0.20*(data_quality=0.000) + 0.12*(stability=1.000) + 0.05*(freshness=0.500) + 0.03*(reuse=0.500) + 0.01*(speed=0.500) + 0.01*(cost=0.500) + learning_adjustment=0.000",
+            "evidence": {
+              "metrics": {
+                "success_rate": null,
+                "accuracy": null,
+                "data_quality": null,
+                "stability": 1.0,
+                "freshness": null,
+                "reuse": null,
+                "speed": null,
+                "cost": null,
+                "learning_adjustment": null
+              },
+              "meta": {
+                "output_type": "dt.poi.fused",
+                "retention_mode": "preserve_listed",
+                "required_fields": [
+                  "geometry"
+                ],
+                "optional_fields": [
+                  "POI_ID",
+                  "OSM_ID",
+                  "REF_ID",
+                  "MATCH_REF",
+                  "DIST_M",
+                  "SRC",
+                  "NAME",
+                  "CATEGORY"
+                ],
+                "rename_hints": {},
+                "compatibility_basis": "field_names"
+              }
+            }
+          }
+        ],
+        "policy_version": "v2",
+        "evidence_refs": [
+          "context.retrieval.output_schema_policies",
+          "policy:deterministic_weighted_sum"
+        ]
+      }
+    ],
+    "artifact_reuse": {
+      "reused": false,
+      "artifact_id": null,
+      "freshness_status": "not_available",
+      "rationale": "No reusable artifact candidates were found in planner retrieval context."
+    },
+    "repair_records": [],
+    "current_step": 1,
+    "attempt_no": 0,
+    "healing_summary": {
+      "attempted_repairs": 0,
+      "successful_repairs": 0,
+      "failed_repairs": 0,
+      "last_reason_code": null,
+      "strategies": []
+    },
+    "failure_summary": null,
+    "planning_telemetry": {
+      "elapsed_ms": 62084,
+      "context_size_bytes": 27094,
+      "provider": "open_a_i_compatible",
+      "model": "gpt-5-mini-2025-08-07",
+      "llm_usage": {
+        "prompt_tokens": 7921,
+        "completion_tokens": 3354,
+        "total_tokens": 11275
+      }
+    },
+    "plan_revision": 1,
+    "event_count": 15,
+    "last_event": {
+      "timestamp": "2026-05-15T08:54:39.650756+00:00",
+      "kind": "run_succeeded",
+      "phase": "succeeded",
+      "message": "Run completed successfully and artifact is ready.",
+      "plan_revision": 1,
+      "progress": 100,
+      "attempt_no": 0,
+      "current_step": 1,
+      "details": {}
+    },
+    "checkpoint": {
+      "stage": "completed",
+      "plan_revision": 1,
+      "current_step": 1,
+      "attempt_no": 0
+    },
+    "created_at": "2026-05-15T08:52:17.251072+00:00",
+    "updated_at": "2026-05-15T08:54:39.650756+00:00",
+    "started_at": "2026-05-15T08:53:18.712760+00:00",
+    "finished_at": "2026-05-15T08:54:39.649756+00:00"
+  },
+  "plan": {
+    "workflow_id": "wf_wp.poi.fusioncode.geohash_priority.v1_867b9b87",
+    "trigger": {
+      "type": "user_query",
+      "content": "show hospitals in Nairobi, Kenya",
+      "disaster_type": null,
+      "spatial_extent": null,
+      "force_aoi_resolution": false,
+      "temporal_start": null,
+      "temporal_end": null
+    },
+    "context": {
+      "intent": {
+        "job_type": "poi",
+        "trigger": {
+          "type": "user_query",
+          "content": "show hospitals in Nairobi, Kenya",
+          "disaster_type": null,
+          "spatial_extent": null,
+          "force_aoi_resolution": false,
+          "temporal_start": null,
+          "temporal_end": null
+        },
+        "location_query": "Nairobi, Kenya",
+        "resolved_aoi": {
+          "query": "Nairobi, Kenya",
+          "display_name": "Nairobi, Kenya",
+          "country_name": "Kenya",
+          "country_code": "ke",
+          "bbox": [
+            36.6647016,
+            -1.4448822,
+            37.1048735,
+            -1.1606749
+          ],
+          "confidence": 0.6767112080878018,
+          "selection_reason": "single_candidate",
+          "candidates": [
+            {
+              "query": "Nairobi, Kenya",
+              "display_name": "Nairobi, Kenya",
+              "country_name": "Kenya",
+              "country_code": "ke",
+              "admin_level": "city",
+              "bbox": [
+                36.6647016,
+                -1.4448822,
+                37.1048735,
+                -1.1606749
+              ],
+              "source": "geocoder",
+              "confidence": 0.6767112080878018,
+              "raw": {
+                "place_id": 381831305,
+                "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+                "osm_type": "relation",
+                "osm_id": 9721587,
+                "lat": "-1.2890006",
+                "lon": "36.8172812",
+                "category": "boundary",
+                "type": "administrative",
+                "place_rank": 5,
+                "importance": 0.6767112080878018,
+                "addresstype": "city",
+                "name": "Nairobi",
+                "display_name": "Nairobi, Kenya",
+                "address": {
+                  "city": "Nairobi",
+                  "state": "Nairobi",
+                  "ISO3166-2-lvl4": "KE-30",
+                  "country": "Kenya",
+                  "country_code": "ke"
+                },
+                "boundingbox": [
+                  "-1.4448822",
+                  "-1.1606749",
+                  "36.6647016",
+                  "37.1048735"
+                ]
+              }
+            }
+          ]
+        },
+        "expected_output_type": "dt.poi.fused",
+        "spatial_extent": null,
+        "temporal_start": null,
+        "temporal_end": null,
+        "planning_mode": "task_driven",
+        "profile_source": "direct_task",
+        "task_bundle": {
+          "bundle_id": "task_bundle.direct_request",
+          "requested_tasks": [
+            "task.poi.fusion"
+          ],
+          "requires_disaster_profile": false
+        },
+        "effective_scenario_profile_id": "scenario.default.task",
+        "effective_activated_tasks": [
+          "task.building.fusion",
+          "task.road.fusion",
+          "task.poi.fusion",
+          "task.vector.download"
+        ],
+        "effective_preferred_output_fields": [
+          "geometry"
+        ],
+        "effective_qos_priority": {
+          "accuracy": 0.35,
+          "stability": 0.25,
+          "freshness": 0.2,
+          "speed": 0.2
+        },
+        "request_input_strategy": "task_driven_auto"
+      },
+      "retrieval": {
+        "candidate_patterns": [
+          {
+            "pattern_id": "wp.poi.fusioncode.geohash_priority.v1",
+            "pattern_name": "FusionCode POI Geohash Priority Fusion",
+            "job_type": "poi",
+            "disaster_types": [
+              "generic"
+            ],
+            "success_rate": 0.8,
+            "metadata": {
+              "version": "1.0.0",
+              "runtime_status": "runtime_candidate",
+              "algorithm_family": "fusioncode_decomposed"
+            },
+            "steps": [
+              {
+                "order": 1,
+                "name": "poi_geohash_neighbor_match",
+                "algorithm_id": "algo.fusion.poi.geohash_neighbor_match.v1",
+                "input_data_type": "dt.poi.bundle",
+                "output_data_type": "dt.poi.fused",
+                "data_source_id": "upload.bundle",
+                "depends_on": [],
+                "is_optional": false
+              }
+            ],
+            "source_quality": 1.0,
+            "algorithm_fit": 0.83,
+            "workflow_support": 1.0,
+            "missing_requirements": [
+              "task_driven_bundle_not_supported"
+            ],
+            "ranking_score": 0.6905,
+            "ranking_rationale": {
+              "source_quality": 1.0,
+              "algorithm_fit": 0.83,
+              "workflow_support": 1.0,
+              "penalty_for_missing_requirements": 0.25
+            }
+          },
+          {
+            "pattern_id": "wp.generic.poi.default",
+            "pattern_name": "Generic POI Fusion",
+            "job_type": "poi",
+            "disaster_types": [
+              "generic"
+            ],
+            "success_rate": 0.8,
+            "metadata": {
+              "version": "1.0.0",
+              "runtime_status": "runtime_candidate",
+              "scenario_focus": "generic",
+              "strategy": "conservative",
+              "input_strategy": "task_driven_auto_supported",
+              "source_family": "catalog_poi_bundle"
+            },
+            "steps": [
+              {
+                "order": 1,
+                "name": "poi_fusion",
+                "algorithm_id": "algo.fusion.poi.v1",
+                "input_data_type": "dt.poi.bundle",
+                "output_data_type": "dt.poi.fused",
+                "data_source_id": "catalog.generic.poi",
+                "depends_on": [],
+                "is_optional": false
+              }
+            ],
+            "source_quality": 0.82,
+            "algorithm_fit": 0.801,
+            "workflow_support": 1.0,
+            "missing_requirements": [],
+            "ranking_score": 0.85835,
+            "ranking_rationale": {
+              "source_quality": 0.82,
+              "algorithm_fit": 0.801,
+              "workflow_support": 1.0,
+              "penalty_for_missing_requirements": 0.0
+            }
+          }
+        ],
+        "algorithms": {
+          "algo.fusion.poi.v1": {
+            "algo_id": "algo.fusion.poi.v1",
+            "algo_name": "POI Fusion",
+            "input_types": [
+              "dt.poi.bundle"
+            ],
+            "output_type": "dt.poi.fused",
+            "task_type": "poi_fusion",
+            "tool_ref": "adapters.poi_adapter:run_poi_fusion",
+            "success_rate": 0.8,
+            "accuracy_score": 0.78,
+            "stability_score": 0.86,
+            "usage_mode": "conservative",
+            "metadata": {
+              "selection_profile": "primary",
+              "evidence_basis": "shared_bundle_runtime",
+              "runtime_scope": "uploaded_or_task_driven_auto"
+            },
+            "alternatives": []
+          },
+          "algo.fusion.poi.geohash_neighbor_match.v1": {
+            "algo_id": "algo.fusion.poi.geohash_neighbor_match.v1",
+            "algo_name": "FusionCode POI Geohash Neighbor Match",
+            "input_types": [
+              "dt.poi.bundle"
+            ],
+            "output_type": "dt.poi.fused",
+            "task_type": "poi_fusion",
+            "tool_ref": "fusion_algorithms:_handle_poi_geohash_neighbor_match",
+            "success_rate": 0.82,
+            "accuracy_score": 0.86,
+            "stability_score": 0.82,
+            "usage_mode": "balanced",
+            "metadata": {
+              "runtime_status": "runtime_candidate",
+              "algorithm_family": "fusioncode_decomposed",
+              "source_file": "MapTileTool/FusionPOI.py",
+              "handler_name": "_handle_poi_geohash_neighbor_match"
+            },
+            "alternatives": []
+          }
+        },
+        "task_nodes": [
+          {
+            "task_id": "task.building.fusion",
+            "task_name": "Building Fusion",
+            "category": "fusion",
+            "description": "Fuse multiple building vector sources into one output."
+          },
+          {
+            "task_id": "task.clip.raster.by_tile",
+            "task_name": "Raster Clip By Tile",
+            "category": "runtime",
+            "description": "Reserved tiled raster clipping task for future building enrichment workflows."
+          },
+          {
+            "task_id": "task.enrich.building.height.reserved",
+            "task_name": "Enrich Building Height",
+            "category": "enrichment",
+            "description": "Reserved seam for future raster-backed building height enrichment."
+          },
+          {
+            "task_id": "task.merge.building.tiles.reserved",
+            "task_name": "Merge Building Tiles",
+            "category": "runtime",
+            "description": "Reserved seam for future tile-level building artifact stitching."
+          },
+          {
+            "task_id": "task.partition.aoi",
+            "task_name": "AOI Partition",
+            "category": "runtime",
+            "description": "Reserved AOI partition task for future tiled execution workflows."
+          },
+          {
+            "task_id": "task.poi.fusion",
+            "task_name": "POI Fusion",
+            "category": "fusion",
+            "description": "Fuse multiple point-of-interest sources into one output."
+          },
+          {
+            "task_id": "task.road.fusion",
+            "task_name": "Road Fusion",
+            "category": "fusion",
+            "description": "Fuse multiple road vector sources into one output."
+          },
+          {
+            "task_id": "task.trajectory_to_road",
+            "task_name": "Trajectory To Road Candidate",
+            "category": "transform",
+            "description": "Reserved seam for future trajectory-to-road candidate pretransform before road fusion."
+          },
+          {
+            "task_id": "task.vector.download",
+            "task_name": "Vector Data Download",
+            "category": "acquisition",
+            "description": "Acquire vector data required by downstream fusion or enrichment tasks."
+          },
+          {
+            "task_id": "task.water.fusion",
+            "task_name": "Water Fusion",
+            "category": "fusion",
+            "description": "Fuse multiple water polygon sources into one output."
+          }
+        ],
+        "scenario_profiles": [
+          {
+            "profile_id": "scenario.default.task",
+            "profile_name": "Default Direct Task Profile",
+            "disaster_types": [
+              "generic"
+            ],
+            "activated_tasks": [
+              "task.building.fusion",
+              "task.road.fusion",
+              "task.poi.fusion",
+              "task.vector.download"
+            ],
+            "preferred_output_fields": [
+              "geometry"
+            ],
+            "qos_priority": {
+              "accuracy": 0.35,
+              "stability": 0.25,
+              "freshness": 0.2,
+              "speed": 0.2
+            },
+            "metadata": {
+              "entry_mode": "task_driven"
+            }
+          },
+          {
+            "profile_id": "scenario.earthquake.default",
+            "profile_name": "Earthquake Default Scenario",
+            "disaster_types": [
+              "earthquake"
+            ],
+            "activated_tasks": [
+              "task.building.fusion",
+              "task.road.fusion"
+            ],
+            "preferred_output_fields": [
+              "geometry",
+              "confidence",
+              "timestamp"
+            ],
+            "qos_priority": {
+              "accuracy": 0.4,
+              "stability": 0.3,
+              "freshness": 0.15,
+              "speed": 0.15
+            },
+            "metadata": {
+              "entry_mode": "scenario_driven"
+            }
+          },
+          {
+            "profile_id": "scenario.flood.default",
+            "profile_name": "Flood Default Scenario",
+            "disaster_types": [
+              "flood"
+            ],
+            "activated_tasks": [
+              "task.building.fusion",
+              "task.road.fusion"
+            ],
+            "preferred_output_fields": [
+              "geometry",
+              "confidence",
+              "timestamp"
+            ],
+            "qos_priority": {
+              "accuracy": 0.35,
+              "stability": 0.25,
+              "freshness": 0.25,
+              "speed": 0.15
+            },
+            "metadata": {
+              "entry_mode": "scenario_driven"
+            }
+          },
+          {
+            "profile_id": "scenario.typhoon.default",
+            "profile_name": "Typhoon Default Scenario",
+            "disaster_types": [
+              "typhoon"
+            ],
+            "activated_tasks": [
+              "task.building.fusion",
+              "task.road.fusion"
+            ],
+            "preferred_output_fields": [
+              "geometry",
+              "confidence",
+              "timestamp"
+            ],
+            "qos_priority": {
+              "accuracy": 0.3,
+              "stability": 0.25,
+              "freshness": 0.3,
+              "speed": 0.15
+            },
+            "metadata": {
+              "entry_mode": "scenario_driven"
+            }
+          }
+        ],
+        "parameter_specs": {
+          "algo.fusion.poi.geohash_neighbor_match.v1": [
+            {
+              "spec_id": "ps.algo.fusion.poi.geohash_neighbor_match.v1.neighbor_rings",
+              "algo_id": "algo.fusion.poi.geohash_neighbor_match.v1",
+              "key": "neighbor_rings",
+              "label": "Neighbor Rings",
+              "param_type": "int",
+              "default": 1,
+              "min_value": 0.0,
+              "max_value": null,
+              "unit": null,
+              "description": "FusionCode parameter `neighbor_rings` for algo.fusion.poi.geohash_neighbor_match.v1.",
+              "required": false,
+              "choices": null,
+              "tunable": true,
+              "optimization_tags": [
+                "geohash"
+              ],
+              "order": 10
+            },
+            {
+              "spec_id": "ps.algo.fusion.poi.geohash_neighbor_match.v1.name_similarity_threshold",
+              "algo_id": "algo.fusion.poi.geohash_neighbor_match.v1",
+              "key": "name_similarity_threshold",
+              "label": "Name Similarity Threshold",
+              "param_type": "float",
+              "default": 0.75,
+              "min_value": 0.0,
+              "max_value": 1.0,
+              "unit": "ratio",
+              "description": "FusionCode parameter `name_similarity_threshold` for algo.fusion.poi.geohash_neighbor_match.v1.",
+              "required": false,
+              "choices": null,
+              "tunable": true,
+              "optimization_tags": [
+                "name"
+              ],
+              "order": 20
+            }
+          ],
+          "algo.fusion.poi.v1": []
+        },
+        "data_sources": [
+          {
+            "source_id": "upload.bundle",
+            "source_name": "Uploaded Bundle",
+            "supported_types": [
+              "dt.building.bundle",
+              "dt.building.source_set",
+              "dt.building.normalized_set",
+              "dt.building.presence_validated_set",
+              "dt.building.fused_raw",
+              "dt.building.conflict_optimized",
+              "dt.raster.building_presence",
+              "dt.raster.building_height",
+              "dt.road.network",
+              "dt.road.bundle",
+              "dt.water.line_bundle",
+              "dt.trajectory.raw",
+              "dt.road.candidate",
+              "dt.water.bundle",
+              "dt.poi.bundle",
+              "dt.raw.vector"
+            ],
+            "disaster_types": [
+              "generic",
+              "flood",
+              "earthquake",
+              "typhoon"
+            ],
+            "quality_score": 1.0,
+            "source_kind": "local_upload",
+            "quality_tier": "operator_provided",
+            "freshness_category": "request_bound",
+            "freshness_hours": 0,
+            "freshness_score": 1.0,
+            "supported_job_types": [
+              "building",
+              "road",
+              "water",
+              "poi"
+            ],
+            "supported_geometry_types": [
+              "mixed",
+              "polygon",
+              "line",
+              "point"
+            ],
+            "metadata": {
+              "kind": "local",
+              "provider_family": "manual_upload",
+              "bundle_strategy": "operator_supplied",
+              "reserved_transform_inputs": [
+                "dt.trajectory.raw",
+                "dt.road.candidate"
+              ],
+              "source_form": "mixed",
+              "runtime_status": "runtime_candidate",
+              "selectable_now": true
+            },
+            "source_quality": 1.0,
+            "algorithm_fit": 1.0,
+            "workflow_support": 1.0,
+            "missing_requirements": [],
+            "ranking_score": 1.0,
+            "ranking_rationale": {
+              "source_quality": 1.0,
+              "algorithm_fit": 1.0,
+              "workflow_support": 1.0,
+              "penalty_for_missing_requirements": 0.0
+            }
+          },
+          {
+            "source_id": "catalog.generic.poi",
+            "source_name": "Generic POI Bundle (OSM + GNS)",
+            "supported_types": [
+              "dt.poi.bundle"
+            ],
+            "disaster_types": [
+              "generic"
+            ],
+            "quality_score": 0.82,
+            "source_kind": "catalog",
+            "quality_tier": "curated",
+            "freshness_category": "sample_snapshot",
+            "freshness_hours": 168,
+            "freshness_score": 0.61,
+            "supported_job_types": [
+              "poi"
+            ],
+            "supported_geometry_types": [
+              "point"
+            ],
+            "metadata": {
+              "kind": "catalog",
+              "priority": 2,
+              "provider_family": "local_bundle_catalog",
+              "bundle_strategy": "osm_ref_pair",
+              "component_source_ids": [
+                "raw.osm.poi",
+                "raw.gns.poi"
+              ],
+              "path_hints": [
+                "Data/burundi-260127-free.shp/gis_osm_pois_free_1.shp",
+                "Data/POI/**/GNS.shp"
+              ],
+              "supports_aoi": true,
+              "materialization_scope": "resolved_aoi_clip",
+              "source_form": "bundle",
+              "runtime_status": "runtime_candidate",
+              "selectable_now": true
+            },
+            "source_quality": 0.82,
+            "algorithm_fit": 1.0,
+            "workflow_support": 1.0,
+            "missing_requirements": [],
+            "ranking_score": 0.928,
+            "ranking_rationale": {
+              "source_quality": 0.82,
+              "algorithm_fit": 1.0,
+              "workflow_support": 1.0,
+              "penalty_for_missing_requirements": 0.0
+            }
+          },
+          {
+            "source_id": "raw.osm.poi",
+            "source_name": "OSM Points Of Interest",
+            "supported_types": [
+              "dt.raw.vector"
+            ],
+            "disaster_types": [
+              "generic",
+              "flood",
+              "earthquake",
+              "typhoon"
+            ],
+            "quality_score": 0.78,
+            "source_kind": "open_data",
+            "quality_tier": "community_curated",
+            "freshness_category": "sample_snapshot",
+            "freshness_hours": 168,
+            "freshness_score": 0.6,
+            "supported_job_types": [
+              "building",
+              "road",
+              "poi"
+            ],
+            "supported_geometry_types": [
+              "point"
+            ],
+            "metadata": {
+              "kind": "raw_vector",
+              "provider_family": "osm",
+              "theme": "poi",
+              "source_role": "osm_primary",
+              "path_hint": "Data/burundi-260127-free.shp/gis_osm_pois_free_1.shp",
+              "supports_aoi": true,
+              "materialization_scope": "country_bundle_then_clip",
+              "materialization_provider": "geofabrik",
+              "source_form": "vector",
+              "runtime_status": "runtime_candidate",
+              "selectable_now": true
+            },
+            "source_quality": 0.78,
+            "algorithm_fit": 0.6,
+            "workflow_support": 1.0,
+            "missing_requirements": [],
+            "ranking_score": 0.772,
+            "ranking_rationale": {
+              "source_quality": 0.78,
+              "algorithm_fit": 0.6,
+              "workflow_support": 1.0,
+              "penalty_for_missing_requirements": 0.0
+            }
+          },
+          {
+            "source_id": "raw.gns.poi",
+            "source_name": "GNS Place Names",
+            "supported_types": [
+              "dt.raw.vector"
+            ],
+            "disaster_types": [
+              "generic",
+              "flood",
+              "earthquake",
+              "typhoon"
+            ],
+            "quality_score": 0.81,
+            "source_kind": "open_data",
+            "quality_tier": "gazetteer",
+            "freshness_category": "sample_snapshot",
+            "freshness_hours": 720,
+            "freshness_score": 0.42,
+            "supported_job_types": [
+              "building",
+              "road",
+              "poi"
+            ],
+            "supported_geometry_types": [
+              "point"
+            ],
+            "metadata": {
+              "kind": "raw_vector",
+              "provider_family": "gns",
+              "theme": "poi",
+              "source_role": "reference_candidate",
+              "path_hint": "Data/POI/**/GNS.shp",
+              "supports_aoi": false,
+              "materialization_scope": "local_only",
+              "source_form": "vector",
+              "runtime_status": "runtime_candidate",
+              "selectable_now": true
+            },
+            "source_quality": 0.81,
+            "algorithm_fit": 0.6,
+            "workflow_support": 0.85,
+            "missing_requirements": [
+              "aoi_not_supported"
+            ],
+            "ranking_score": 0.4965,
+            "ranking_rationale": {
+              "source_quality": 0.81,
+              "algorithm_fit": 0.6,
+              "workflow_support": 0.85,
+              "penalty_for_missing_requirements": 0.25
+            }
+          },
+          {
+            "source_id": "raw.rh.poi",
+            "source_name": "RH Points Of Interest",
+            "supported_types": [
+              "dt.raw.vector"
+            ],
+            "disaster_types": [
+              "generic",
+              "flood",
+              "earthquake",
+              "typhoon"
+            ],
+            "quality_score": 0.76,
+            "source_kind": "open_data",
+            "quality_tier": "local_sample",
+            "freshness_category": "sample_snapshot",
+            "freshness_hours": 720,
+            "freshness_score": 0.4,
+            "supported_job_types": [
+              "building",
+              "road",
+              "poi"
+            ],
+            "supported_geometry_types": [
+              "point"
+            ],
+            "metadata": {
+              "kind": "raw_vector",
+              "provider_family": "rh",
+              "theme": "poi",
+              "source_role": "reference_candidate",
+              "path_hint": "Data/POI/**/RH.shp",
+              "supports_aoi": false,
+              "materialization_scope": "local_only",
+              "source_form": "vector",
+              "runtime_status": "runtime_candidate",
+              "selectable_now": true
+            },
+            "source_quality": 0.76,
+            "algorithm_fit": 0.6,
+            "workflow_support": 0.85,
+            "missing_requirements": [
+              "aoi_not_supported"
+            ],
+            "ranking_score": 0.4765,
+            "ranking_rationale": {
+              "source_quality": 0.76,
+              "algorithm_fit": 0.6,
+              "workflow_support": 0.85,
+              "penalty_for_missing_requirements": 0.25
+            }
+          }
+        ],
+        "output_schema_policies": {
+          "dt.poi.fused": {
+            "policy_id": "osp.poi.fused.v1",
+            "output_type": "dt.poi.fused",
+            "job_type": "poi",
+            "retention_mode": "preserve_listed",
+            "required_fields": [
+              "geometry"
+            ],
+            "optional_fields": [
+              "POI_ID",
+              "OSM_ID",
+              "REF_ID",
+              "MATCH_REF",
+              "DIST_M",
+              "SRC",
+              "NAME",
+              "CATEGORY"
+            ],
+            "rename_hints": {},
+            "compatibility_basis": "field_names",
+            "metadata": {
+              "policy_scope": "current_runtime",
+              "enforcement": "metadata_only",
+              "notes": "POI output schema documents current shared bundle runtime columns for uploaded and task-driven auto runs without enforcing adapter output."
+            }
+          }
+        },
+        "durable_learning_summaries": {
+          "patterns": [
+            {
+              "entity_kind": "pattern",
+              "entity_id": "wp.generic.poi.default",
+              "job_type": "poi",
+              "disaster_type": null,
+              "total_runs": 6,
+              "success_count": 5,
+              "failure_count": 1,
+              "repaired_count": 0,
+              "last_run_at": "2026-05-12T10:14:47.276817+00:00",
+              "last_failure_reason": "ValueError: task-driven input materialization failed for catalog.generic.poi: AOI-scoped bundle has empty source coverage for catalog.generic.poi"
+            }
+          ],
+          "algorithms": [
+            {
+              "entity_kind": "algorithm",
+              "entity_id": "algo.fusion.poi.v1",
+              "job_type": "poi",
+              "disaster_type": null,
+              "total_runs": 6,
+              "success_count": 5,
+              "failure_count": 1,
+              "repaired_count": 0,
+              "last_run_at": "2026-05-12T10:14:47.276817+00:00",
+              "last_failure_reason": "ValueError: task-driven input materialization failed for catalog.generic.poi: AOI-scoped bundle has empty source coverage for catalog.generic.poi"
+            }
+          ],
+          "data_sources": [
+            {
+              "entity_kind": "data_source",
+              "entity_id": "catalog.generic.poi",
+              "job_type": "poi",
+              "disaster_type": null,
+              "total_runs": 6,
+              "success_count": 5,
+              "failure_count": 1,
+              "repaired_count": 0,
+              "last_run_at": "2026-05-12T10:14:47.276817+00:00",
+              "last_failure_reason": "ValueError: task-driven input materialization failed for catalog.generic.poi: AOI-scoped bundle has empty source coverage for catalog.generic.poi"
+            }
+          ]
+        },
+        "data_types": [
+          {
+            "type_id": "dt.building.bundle",
+            "theme": "building",
+            "geometry_type": "polygon",
+            "description": "Prepared building fusion input bundle."
+          },
+          {
+            "type_id": "dt.building.conflict_optimized",
+            "theme": "building",
+            "geometry_type": "polygon",
+            "description": "Fused buildings after spatial conflict graph optimization."
+          },
+          {
+            "type_id": "dt.building.fused",
+            "theme": "building",
+            "geometry_type": "polygon",
+            "description": "Fused building output."
+          },
+          {
+            "type_id": "dt.building.fused_raw",
+            "theme": "building",
+            "geometry_type": "polygon",
+            "description": "Raw cascaded building fusion rows before conflict optimization."
+          },
+          {
+            "type_id": "dt.building.height_enriched",
+            "theme": "building",
+            "geometry_type": "polygon",
+            "description": "Fused buildings enriched with height raster values."
+          },
+          {
+            "type_id": "dt.building.match_candidate_graph",
+            "theme": "building",
+            "geometry_type": "graph",
+            "description": "FusionCode V8 candidate edge graph for a pair of building sources."
+          },
+          {
+            "type_id": "dt.building.match_components",
+            "theme": "building",
+            "geometry_type": "graph",
+            "description": "Accepted V8 building match components and relationship groups."
+          },
+          {
+            "type_id": "dt.building.normalized_set",
+            "theme": "building",
+            "geometry_type": "polygon",
+            "description": "Normalized named building sources after CRS, geometry and source-label preparation."
+          },
+          {
+            "type_id": "dt.building.presence_validated_set",
+            "theme": "building",
+            "geometry_type": "polygon",
+            "description": "Building sources enriched with presence-raster support and existence status."
+          },
+          {
+            "type_id": "dt.building.quality_report",
+            "theme": "building",
+            "geometry_type": "none",
+            "description": "Quality and conflict metrics for the building fusion run."
+          },
+          {
+            "type_id": "dt.building.road_topology_adjusted",
+            "theme": "building",
+            "geometry_type": "polygon",
+            "description": "Fused buildings after road-aware topology adjustment."
+          },
+          {
+            "type_id": "dt.building.source_set",
+            "theme": "building",
+            "geometry_type": "mixed",
+            "description": "Reserved multi-source building input set for future fusion algorithms."
+          },
+          {
+            "type_id": "dt.partition.tile_manifest",
+            "theme": "runtime",
+            "geometry_type": "none",
+            "description": "Reserved deterministic AOI tile partition manifest."
+          },
+          {
+            "type_id": "dt.poi.bundle",
+            "theme": "poi",
+            "geometry_type": "point",
+            "description": "Prepared point-of-interest fusion input bundle."
+          },
+          {
+            "type_id": "dt.poi.fused",
+            "theme": "poi",
+            "geometry_type": "point",
+            "description": "Fused point-of-interest output."
+          },
+          {
+            "type_id": "dt.raster.building_height",
+            "theme": "building",
+            "geometry_type": "raster",
+            "description": "Building height raster input."
+          },
+          {
+            "type_id": "dt.raster.building_presence",
+            "theme": "building",
+            "geometry_type": "raster",
+            "description": "Reserved building-presence raster input."
+          },
+          {
+            "type_id": "dt.raw.vector",
+            "theme": "generic",
+            "geometry_type": "mixed",
+            "description": "Uploaded raw vector bundle."
+          },
+          {
+            "type_id": "dt.road.bundle",
+            "theme": "transportation",
+            "geometry_type": "line",
+            "description": "Prepared road fusion input bundle."
+          },
+          {
+            "type_id": "dt.road.candidate",
+            "theme": "transportation",
+            "geometry_type": "line",
+            "description": "Reserved intermediate road candidates derived from trajectory pretransform."
+          },
+          {
+            "type_id": "dt.road.fused",
+            "theme": "transportation",
+            "geometry_type": "line",
+            "description": "Fused road output."
+          },
+          {
+            "type_id": "dt.road.network",
+            "theme": "transportation",
+            "geometry_type": "line",
+            "description": "Road network used as contextual constraint for building fusion."
+          },
+          {
+            "type_id": "dt.trajectory.raw",
+            "theme": "transportation",
+            "geometry_type": "line",
+            "description": "Reserved pretransform trajectory observations for future road candidate generation."
+          },
+          {
+            "type_id": "dt.water.bundle",
+            "theme": "water",
+            "geometry_type": "polygon",
+            "description": "Prepared water polygon fusion input bundle."
+          },
+          {
+            "type_id": "dt.water.fused",
+            "theme": "water",
+            "geometry_type": "polygon",
+            "description": "Fused water polygon output."
+          },
+          {
+            "type_id": "dt.water.line_bundle",
+            "theme": "water",
+            "geometry_type": "line",
+            "description": "Prepared river or water-line source bundle."
+          },
+          {
+            "type_id": "dt.water.line_fused",
+            "theme": "water",
+            "geometry_type": "line",
+            "description": "Fused river or water-line output."
+          }
+        ],
+        "source_coverage_hints": [
+          {
+            "source_id": "upload.bundle",
+            "source_name": "Uploaded Bundle",
+            "source_kind": "local_upload",
+            "provider_family": "manual_upload",
+            "path_hint": null,
+            "supports_aoi": null,
+            "materialization_scope": null,
+            "materialization_provider": null,
+            "source_form": "mixed",
+            "runtime_status": "runtime_candidate",
+            "selectable_now": true,
+            "supports_tiling": null,
+            "height_semantics": null,
+            "supported_job_types": [
+              "building",
+              "road",
+              "water",
+              "poi"
+            ],
+            "supported_geometry_types": [
+              "mixed",
+              "polygon",
+              "line",
+              "point"
+            ],
+            "quality_score": 1.0,
+            "freshness_score": 1.0,
+            "resolved_aoi": {
+              "display_name": "Nairobi, Kenya",
+              "country_code": "ke",
+              "country_name": "Kenya",
+              "bbox": [
+                36.6647016,
+                -1.4448822,
+                37.1048735,
+                -1.1606749
+              ]
+            }
+          },
+          {
+            "source_id": "catalog.generic.poi",
+            "source_name": "Generic POI Bundle (OSM + GNS)",
+            "source_kind": "catalog",
+            "provider_family": "local_bundle_catalog",
+            "path_hint": [
+              "Data/burundi-260127-free.shp/gis_osm_pois_free_1.shp",
+              "Data/POI/**/GNS.shp"
+            ],
+            "supports_aoi": true,
+            "materialization_scope": "resolved_aoi_clip",
+            "materialization_provider": null,
+            "source_form": "bundle",
+            "runtime_status": "runtime_candidate",
+            "selectable_now": true,
+            "supports_tiling": null,
+            "height_semantics": null,
+            "supported_job_types": [
+              "poi"
+            ],
+            "supported_geometry_types": [
+              "point"
+            ],
+            "quality_score": 0.82,
+            "freshness_score": 0.61,
+            "resolved_aoi": {
+              "display_name": "Nairobi, Kenya",
+              "country_code": "ke",
+              "country_name": "Kenya",
+              "bbox": [
+                36.6647016,
+                -1.4448822,
+                37.1048735,
+                -1.1606749
+              ]
+            }
+          },
+          {
+            "source_id": "raw.gns.poi",
+            "source_name": "GNS Place Names",
+            "source_kind": "open_data",
+            "provider_family": "gns",
+            "path_hint": "Data/POI/**/GNS.shp",
+            "supports_aoi": false,
+            "materialization_scope": "local_only",
+            "materialization_provider": null,
+            "source_form": "vector",
+            "runtime_status": "runtime_candidate",
+            "selectable_now": true,
+            "supports_tiling": null,
+            "height_semantics": null,
+            "supported_job_types": [
+              "building",
+              "road",
+              "poi"
+            ],
+            "supported_geometry_types": [
+              "point"
+            ],
+            "quality_score": 0.81,
+            "freshness_score": 0.42,
+            "resolved_aoi": {
+              "display_name": "Nairobi, Kenya",
+              "country_code": "ke",
+              "country_name": "Kenya",
+              "bbox": [
+                36.6647016,
+                -1.4448822,
+                37.1048735,
+                -1.1606749
+              ]
+            }
+          },
+          {
+            "source_id": "raw.osm.poi",
+            "source_name": "OSM Points Of Interest",
+            "source_kind": "open_data",
+            "provider_family": "osm",
+            "path_hint": "Data/burundi-260127-free.shp/gis_osm_pois_free_1.shp",
+            "supports_aoi": true,
+            "materialization_scope": "country_bundle_then_clip",
+            "materialization_provider": "geofabrik",
+            "source_form": "vector",
+            "runtime_status": "runtime_candidate",
+            "selectable_now": true,
+            "supports_tiling": null,
+            "height_semantics": null,
+            "supported_job_types": [
+              "building",
+              "road",
+              "poi"
+            ],
+            "supported_geometry_types": [
+              "point"
+            ],
+            "quality_score": 0.78,
+            "freshness_score": 0.6,
+            "resolved_aoi": {
+              "display_name": "Nairobi, Kenya",
+              "country_code": "ke",
+              "country_name": "Kenya",
+              "bbox": [
+                36.6647016,
+                -1.4448822,
+                37.1048735,
+                -1.1606749
+              ]
+            }
+          },
+          {
+            "source_id": "raw.rh.poi",
+            "source_name": "RH Points Of Interest",
+            "source_kind": "open_data",
+            "provider_family": "rh",
+            "path_hint": "Data/POI/**/RH.shp",
+            "supports_aoi": false,
+            "materialization_scope": "local_only",
+            "materialization_provider": null,
+            "source_form": "vector",
+            "runtime_status": "runtime_candidate",
+            "selectable_now": true,
+            "supports_tiling": null,
+            "height_semantics": null,
+            "supported_job_types": [
+              "building",
+              "road",
+              "poi"
+            ],
+            "supported_geometry_types": [
+              "point"
+            ],
+            "quality_score": 0.76,
+            "freshness_score": 0.4,
+            "resolved_aoi": {
+              "display_name": "Nairobi, Kenya",
+              "country_code": "ke",
+              "country_name": "Kenya",
+              "bbox": [
+                36.6647016,
+                -1.4448822,
+                37.1048735,
+                -1.1606749
+              ]
+            }
+          }
+        ],
+        "transform_paths": {
+          "dt.poi.bundle": [
+            "dt.raw.vector",
+            "dt.poi.bundle"
+          ]
+        },
+        "knowledge_hits": [
+          {
+            "kind": "algorithm",
+            "id": "algo.fusion.poi.v1",
+            "label": "POI Fusion",
+            "score": 1.546034336090088
+          },
+          {
+            "kind": "algorithm",
+            "id": "algo.fusion.poi.geohash_neighbor_match.v1",
+            "label": "FusionCode POI Geohash Neighbor Match",
+            "score": 1.1495124101638794
+          },
+          {
+            "kind": "data_source",
+            "id": "catalog.generic.poi",
+            "label": "Generic POI Bundle (OSM + GNS)",
+            "score": 1.1198139190673828
+          },
+          {
+            "kind": "pattern",
+            "id": "wp.generic.poi.default",
+            "label": "Generic POI Fusion",
+            "score": 0.9283727407455444
+          },
+          {
+            "kind": "pattern",
+            "id": "wp.poi.fusioncode.geohash_priority.v1",
+            "label": "FusionCode POI Geohash Priority Fusion",
+            "score": 0.7624508142471313
+          }
+        ]
+      },
+      "execution_hints": {
+        "preferred_pattern_id": "wp.poi.fusioncode.geohash_priority.v1",
+        "fallback_pattern_ids": [
+          "wp.generic.poi.default"
+        ],
+        "available_data_source_ids": [
+          "upload.bundle",
+          "catalog.generic.poi",
+          "raw.gns.poi",
+          "raw.osm.poi",
+          "raw.rh.poi"
+        ],
+        "selectable_source_ids": [
+          "upload.bundle",
+          "catalog.generic.poi",
+          "raw.gns.poi",
+          "raw.osm.poi",
+          "raw.rh.poi"
+        ],
+        "reserved_source_ids": [],
+        "available_aoi": {
+          "query": "Nairobi, Kenya",
+          "display_name": "Nairobi, Kenya",
+          "country_name": "Kenya",
+          "country_code": "ke",
+          "bbox": [
+            36.6647016,
+            -1.4448822,
+            37.1048735,
+            -1.1606749
+          ],
+          "confidence": 0.6767112080878018,
+          "selection_reason": "single_candidate",
+          "candidates": [
+            {
+              "query": "Nairobi, Kenya",
+              "display_name": "Nairobi, Kenya",
+              "country_name": "Kenya",
+              "country_code": "ke",
+              "admin_level": "city",
+              "bbox": [
+                36.6647016,
+                -1.4448822,
+                37.1048735,
+                -1.1606749
+              ],
+              "source": "geocoder",
+              "confidence": 0.6767112080878018,
+              "raw": {
+                "place_id": 381831305,
+                "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+                "osm_type": "relation",
+                "osm_id": 9721587,
+                "lat": "-1.2890006",
+                "lon": "36.8172812",
+                "category": "boundary",
+                "type": "administrative",
+                "place_rank": 5,
+                "importance": 0.6767112080878018,
+                "addresstype": "city",
+                "name": "Nairobi",
+                "display_name": "Nairobi, Kenya",
+                "address": {
+                  "city": "Nairobi",
+                  "state": "Nairobi",
+                  "ISO3166-2-lvl4": "KE-30",
+                  "country": "Kenya",
+                  "country_code": "ke"
+                },
+                "boundingbox": [
+                  "-1.4448822",
+                  "-1.1606749",
+                  "36.6647016",
+                  "37.1048735"
+                ]
+              }
+            }
+          ]
+        }
+      },
+      "selection_reason": "preferred_wp.poi.fusioncode.geohash_priority.v1_by_ranked_retrieval",
+      "llm_provider": "open_a_i_compatible",
+      "plan_revision": 1,
+      "planning_mode": "task_driven",
+      "planning_source": "kg_fallback",
+      "planning_telemetry": {
+        "elapsed_ms": 62084,
+        "context_size_bytes": 27094,
+        "provider": "open_a_i_compatible",
+        "model": "gpt-5-mini-2025-08-07",
+        "llm_usage": {
+          "prompt_tokens": 7921,
+          "completion_tokens": 3354,
+          "total_tokens": 11275
+        }
+      },
+      "pattern_id": "wp.poi.fusioncode.geohash_priority.v1",
+      "pattern_name": "FusionCode POI Geohash Priority Fusion",
+      "source": "kg_fallback",
+      "selected_pattern_id": "wp.poi.fusioncode.geohash_priority.v1",
+      "grounding_report": {
+        "grounded": false,
+        "grounded_step_count": 0,
+        "total_step_count": 1,
+        "grounding_score": 0.0,
+        "steps": [
+          {
+            "step": 1,
+            "algorithm_id": "algo.fusion.poi.geohash_neighbor_match.v1",
+            "input_data_type": "dt.poi.bundle",
+            "data_source_id": "catalog.generic.poi",
+            "output_data_type": "dt.poi.fused",
+            "algorithm_grounded": true,
+            "algorithm_known": true,
+            "data_source_known": true,
+            "output_type_matches_intent": true,
+            "schema_policy_known": true,
+            "pattern_ids": [
+              "wp.poi.fusioncode.geohash_priority.v1"
+            ],
+            "issue_codes": [
+              "CANDIDATE_PATTERN_STEP_MISMATCH"
+            ],
+            "evidence_refs": [
+              "plan.task(step=1).algorithm_id",
+              "plan.task(step=1).input.data_type_id",
+              "plan.task(step=1).input.data_source_id",
+              "plan.task(step=1).output.data_type_id",
+              "context.retrieval.candidate_patterns",
+              "context.retrieval.data_sources",
+              "context.retrieval.output_schema_policies",
+              "context.intent.expected_output_type"
+            ]
+          }
+        ]
+      }
+    },
+    "tasks": [
+      {
+        "step": 1,
+        "name": "poi_geohash_neighbor_match",
+        "description": "Execute algo.fusion.poi.geohash_neighbor_match.v1",
+        "algorithm_id": "algo.fusion.poi.geohash_neighbor_match.v1",
+        "input": {
+          "data_type_id": "dt.poi.bundle",
+          "data_source_id": "catalog.generic.poi",
+          "parameters": {
+            "neighbor_rings": 1,
+            "name_similarity_threshold": 0.75
+          }
+        },
+        "output": {
+          "data_type_id": "dt.poi.fused",
+          "description": "Output generated by workflow step"
+        },
+        "depends_on": [],
+        "is_transform": false,
+        "kg_validated": true,
+        "alternatives": []
+      }
+    ],
+    "expected_output": "poi fusion result",
+    "estimated_time": "unknown",
+    "validation": {
+      "valid": true,
+      "inserted_transform_steps": 0,
+      "issues": []
+    }
+  },
+  "audit_events": [
+    {
+      "timestamp": "2026-05-15T08:52:17.253720+00:00",
+      "kind": "run_created",
+      "phase": "queued",
+      "message": "Run created and input bundles persisted.",
+      "plan_revision": 0,
+      "progress": 0,
+      "attempt_no": 0,
+      "current_step": null,
+      "details": {
+        "request_path": "runs\\0ed6dfa8baf249ecb87082df08f5f89d\\request.json",
+        "input_strategy": "task_driven_auto",
+        "osm_zip_name": null,
+        "ref_zip_name": null
+      }
+    },
+    {
+      "timestamp": "2026-05-15T08:53:18.713760+00:00",
+      "kind": "run_started",
+      "phase": "planning",
+      "message": "Run started for job_type=poi.",
+      "plan_revision": 0,
+      "progress": 5,
+      "attempt_no": 0,
+      "current_step": 0,
+      "details": {}
+    },
+    {
+      "timestamp": "2026-05-15T08:53:30.722132+00:00",
+      "kind": "aoi_resolved",
+      "phase": "planning",
+      "message": "Resolved AOI for Nairobi, Kenya.",
+      "plan_revision": 0,
+      "progress": 12,
+      "attempt_no": 0,
+      "current_step": 0,
+      "details": {
+        "query": "Nairobi, Kenya",
+        "display_name": "Nairobi, Kenya",
+        "country_name": "Kenya",
+        "country_code": "ke",
+        "bbox": [
+          36.6647016,
+          -1.4448822,
+          37.1048735,
+          -1.1606749
+        ],
+        "selection_reason": "single_candidate",
+        "confidence": 0.6767112080878018
+      }
+    },
+    {
+      "timestamp": "2026-05-15T08:53:30.732132+00:00",
+      "kind": "target_crs_resolved",
+      "phase": "planning",
+      "message": "Resolved target CRS EPSG:32737.",
+      "plan_revision": 0,
+      "progress": 14,
+      "attempt_no": 0,
+      "current_step": 0,
+      "details": {
+        "target_crs": "EPSG:32737",
+        "source": "resolved_aoi_default"
+      }
+    },
+    {
+      "timestamp": "2026-05-15T08:54:33.026610+00:00",
+      "kind": "plan_created",
+      "phase": "validating",
+      "message": "Workflow plan revision 1 created.",
+      "plan_revision": 1,
+      "progress": 25,
+      "attempt_no": 0,
+      "current_step": 0,
+      "details": {
+        "workflow_id": "wf_wp.poi.fusioncode.geohash_priority.v1_867b9b87",
+        "grounded": false,
+        "grounding_score": 0.0,
+        "planning_telemetry": {
+          "elapsed_ms": 62084,
+          "context_size_bytes": 27094,
+          "provider": "open_a_i_compatible",
+          "model": "gpt-5-mini-2025-08-07",
+          "llm_usage": {
+            "prompt_tokens": 7921,
+            "completion_tokens": 3354,
+            "total_tokens": 11275
+          }
+        },
+        "effective_parameters": {
+          "1": {
+            "neighbor_rings": 1,
+            "name_similarity_threshold": 0.75
+          }
+        },
+        "selected_decisions": {
+          "pattern_selection": "wp.poi.fusioncode.geohash_priority.v1",
+          "data_source_selection": "catalog.generic.poi",
+          "artifact_reuse_selection": "fresh_execution",
+          "parameter_strategy": "kg_defaults_only",
+          "output_schema_policy": "osp.poi.fused.v1"
+        },
+        "planning_mode": "task_driven",
+        "planning_source": "kg_fallback",
+        "profile_source": "direct_task",
+        "task_bundle": {
+          "bundle_id": "task_bundle.direct_request",
+          "requested_tasks": [
+            "task.poi.fusion"
+          ],
+          "requires_disaster_profile": false
+        },
+        "selectable_source_ids": [
+          "upload.bundle",
+          "catalog.generic.poi",
+          "raw.gns.poi",
+          "raw.osm.poi",
+          "raw.rh.poi"
+        ],
+        "reserved_source_ids": [],
+        "required_reserved_capabilities": [],
+        "resolved_aoi": {
+          "query": "Nairobi, Kenya",
+          "display_name": "Nairobi, Kenya",
+          "country_name": "Kenya",
+          "country_code": "ke",
+          "bbox": [
+            36.6647016,
+            -1.4448822,
+            37.1048735,
+            -1.1606749
+          ],
+          "confidence": 0.6767112080878018,
+          "selection_reason": "single_candidate",
+          "candidates": [
+            {
+              "query": "Nairobi, Kenya",
+              "display_name": "Nairobi, Kenya",
+              "country_name": "Kenya",
+              "country_code": "ke",
+              "admin_level": "city",
+              "bbox": [
+                36.6647016,
+                -1.4448822,
+                37.1048735,
+                -1.1606749
+              ],
+              "source": "geocoder",
+              "confidence": 0.6767112080878018,
+              "raw": {
+                "place_id": 381831305,
+                "licence": "Data © OpenStreetMap contributors, ODbL 1.0. http://osm.org/copyright",
+                "osm_type": "relation",
+                "osm_id": 9721587,
+                "lat": "-1.2890006",
+                "lon": "36.8172812",
+                "category": "boundary",
+                "type": "administrative",
+                "place_rank": 5,
+                "importance": 0.6767112080878018,
+                "addresstype": "city",
+                "name": "Nairobi",
+                "display_name": "Nairobi, Kenya",
+                "address": {
+                  "city": "Nairobi",
+                  "state": "Nairobi",
+                  "ISO3166-2-lvl4": "KE-30",
+                  "country": "Kenya",
+                  "country_code": "ke"
+                },
+                "boundingbox": [
+                  "-1.4448822",
+                  "-1.1606749",
+                  "36.6647016",
+                  "37.1048735"
+                ]
+              }
+            }
+          ]
+        },
+        "selected_pattern": "wp.poi.fusioncode.geohash_priority.v1",
+        "artifact_reuse": {
+          "reused": false,
+          "artifact_id": null,
+          "freshness_status": "not_available",
+          "rationale": "No reusable artifact candidates were found in planner retrieval context."
+        }
+      }
+    },
+    {
+      "timestamp": "2026-05-15T08:54:33.045691+00:00",
+      "kind": "plan_validated",
+      "phase": "running",
+      "message": "Workflow plan revision 1 validated.",
+      "plan_revision": 1,
+      "progress": 45,
+      "attempt_no": 0,
+      "current_step": 0,
+      "details": {
+        "valid": true,
+        "inserted_transform_steps": 0
+      }
+    },
+    {
+      "timestamp": "2026-05-15T08:54:37.671159+00:00",
+      "kind": "input_bundle_created",
+      "phase": "running",
+      "message": "Input bundle was created for execution.",
+      "plan_revision": 1,
+      "progress": 49,
+      "attempt_no": 0,
+      "current_step": 0,
+      "details": {
+        "osm_zip_name": "osm.zip",
+        "ref_zip_name": "ref.zip",
+        "selected_source_id": "catalog.generic.poi"
+      }
+    },
+    {
+      "timestamp": "2026-05-15T08:54:37.680129+00:00",
+      "kind": "task_inputs_resolved",
+      "phase": "running",
+      "message": "Task-driven input bundles prepared for execution.",
+      "plan_revision": 1,
+      "progress": 50,
+      "attempt_no": 0,
+      "current_step": 0,
+      "details": {
+        "input_strategy": "task_driven_auto",
+        "source_mode": "downloaded",
+        "source_id": "catalog.generic.poi",
+        "requested_source_id": "catalog.generic.poi",
+        "selected_source_id": "catalog.generic.poi",
+        "fallback_from_source_id": null,
+        "component_coverage": {},
+        "cache_hit": false,
+        "version_token": "7ec7627a391a701ff659c9fa224ffbf217b2ea9c|3ce00e1d02c2daeb6a9d574f02b0a88ce4edb5d0",
+        "osm_zip_name": "osm.zip",
+        "ref_zip_name": "ref.zip",
+        "target_crs": "EPSG:32737",
+        "resolved_aoi": {
+          "display_name": "Nairobi, Kenya",
+          "country_code": "ke",
+          "country_name": "Kenya",
+          "bbox": [
+            36.6647016,
+            -1.4448822,
+            37.1048735,
+            -1.1606749
+          ]
+        }
+      }
+    },
+    {
+      "timestamp": "2026-05-15T08:54:37.718129+00:00",
+      "kind": "execution_started",
+      "phase": "running",
+      "message": "Execution stage started.",
+      "plan_revision": 1,
+      "progress": 55,
+      "attempt_no": 0,
+      "current_step": 0,
+      "details": {}
+    },
+    {
+      "timestamp": "2026-05-15T08:54:37.726132+00:00",
+      "kind": "step_started",
+      "phase": "running",
+      "message": "Execution step started: step=1.",
+      "plan_revision": 1,
+      "progress": 55,
+      "attempt_no": 0,
+      "current_step": 1,
+      "details": {
+        "status": "started",
+        "step": 1,
+        "algorithm_id": "algo.fusion.poi.geohash_neighbor_match.v1",
+        "data_source_id": "catalog.generic.poi"
+      }
+    },
+    {
+      "timestamp": "2026-05-15T08:54:39.342861+00:00",
+      "kind": "step_succeeded",
+      "phase": "running",
+      "message": "Execution step succeeded: step=1.",
+      "plan_revision": 1,
+      "progress": 55,
+      "attempt_no": 0,
+      "current_step": 1,
+      "details": {
+        "status": "succeeded",
+        "step": 1,
+        "algorithm_id": "algo.fusion.poi.geohash_neighbor_match.v1",
+        "data_source_id": "catalog.generic.poi",
+        "output_path": "runs\\0ed6dfa8baf249ecb87082df08f5f89d\\output\\step_01_poi_geohash_neighbor_match.gpkg"
+      }
+    },
+    {
+      "timestamp": "2026-05-15T08:54:39.351859+00:00",
+      "kind": "execution_completed",
+      "phase": "running",
+      "message": "Execution stage completed and produced an output artifact.",
+      "plan_revision": 1,
+      "progress": 80,
+      "attempt_no": 0,
+      "current_step": 1,
+      "details": {
+        "repair_count": 0
+      }
+    },
+    {
+      "timestamp": "2026-05-15T08:54:39.474131+00:00",
+      "kind": "output_schema_validated",
+      "phase": "running",
+      "message": "Artifact validated against policy osp.poi.fused.v1.",
+      "plan_revision": 1,
+      "progress": 90,
+      "attempt_no": 0,
+      "current_step": 1,
+      "details": {
+        "output_data_type": "dt.poi.fused",
+        "policy_id": "osp.poi.fused.v1",
+        "required_fields": [
+          "geometry"
+        ],
+        "missing_fields": [],
+        "artifact_validity": true
+      }
+    },
+    {
+      "timestamp": "2026-05-15T08:54:39.635757+00:00",
+      "kind": "durable_learning_recorded",
+      "phase": "running",
+      "message": "Durable learning record was written for this run.",
+      "plan_revision": 1,
+      "progress": 90,
+      "attempt_no": 0,
+      "current_step": 1,
+      "details": {
+        "record_id": "dlr.0ed6dfa8baf249ecb87082df08f5f89d",
+        "pattern_id": "wp.poi.fusioncode.geohash_priority.v1",
+        "algorithm_id": "algo.fusion.poi.geohash_neighbor_match.v1",
+        "selected_data_source": "catalog.generic.poi"
+      }
+    },
+    {
+      "timestamp": "2026-05-15T08:54:39.650756+00:00",
+      "kind": "run_succeeded",
+      "phase": "succeeded",
+      "message": "Run completed successfully and artifact is ready.",
+      "plan_revision": 1,
+      "progress": 100,
+      "attempt_no": 0,
+      "current_step": 1,
+      "details": {}
+    }
+  ],
+  "artifact": {
+    "available": true,
+    "filename": "poi_fusion_result.zip",
+    "path": "runs\\0ed6dfa8baf249ecb87082df08f5f89d\\output\\poi_fusion_result.zip",
+    "size_bytes": 844632,
+    "download_path": "/api/v2/runs/0ed6dfa8baf249ecb87082df08f5f89d/artifact"
+  },
+  "kg_path_trace": {
+    "workflow_id": "wf_wp.poi.fusioncode.geohash_priority.v1_867b9b87",
+    "selected_pattern_id": "wp.poi.fusioncode.geohash_priority.v1",
+    "grounding_report": {
+      "grounded": false,
+      "grounded_step_count": 0,
+      "total_step_count": 1,
+      "grounding_score": 0.0,
+      "steps": [
+        {
+          "step": 1,
+          "algorithm_id": "algo.fusion.poi.geohash_neighbor_match.v1",
+          "input_data_type": "dt.poi.bundle",
+          "data_source_id": "catalog.generic.poi",
+          "output_data_type": "dt.poi.fused",
+          "algorithm_grounded": true,
+          "algorithm_known": true,
+          "data_source_known": true,
+          "output_type_matches_intent": true,
+          "schema_policy_known": true,
+          "pattern_ids": [
+            "wp.poi.fusioncode.geohash_priority.v1"
+          ],
+          "issue_codes": [
+            "CANDIDATE_PATTERN_STEP_MISMATCH"
+          ],
+          "evidence_refs": [
+            "plan.task(step=1).algorithm_id",
+            "plan.task(step=1).input.data_type_id",
+            "plan.task(step=1).input.data_source_id",
+            "plan.task(step=1).output.data_type_id",
+            "context.retrieval.candidate_patterns",
+            "context.retrieval.data_sources",
+            "context.retrieval.output_schema_policies",
+            "context.intent.expected_output_type"
+          ]
+        }
+      ]
+    },
+    "chains": [
+      {
+        "task_step": 1,
+        "task_name": "poi_geohash_neighbor_match",
+        "nodes": [
+          {
+            "kind": "trigger",
+            "id": "trigger",
+            "label": "show hospitals in Nairobi, Kenya",
+            "evidence": {
+              "type": "user_query",
+              "content": "show hospitals in Nairobi, Kenya",
+              "disaster_type": null,
+              "spatial_extent": null,
+              "force_aoi_resolution": false,
+              "temporal_start": null,
+              "temporal_end": null
+            }
+          },
+          {
+            "kind": "workflow_pattern",
+            "id": "wp.poi.fusioncode.geohash_priority.v1",
+            "label": "FusionCode POI Geohash Priority Fusion",
+            "evidence": {
+              "pattern_id": "wp.poi.fusioncode.geohash_priority.v1",
+              "pattern_name": "FusionCode POI Geohash Priority Fusion",
+              "job_type": "poi",
+              "disaster_types": [
+                "generic"
+              ],
+              "success_rate": 0.8,
+              "metadata": {
+                "version": "1.0.0",
+                "runtime_status": "runtime_candidate",
+                "algorithm_family": "fusioncode_decomposed"
+              },
+              "steps": [
+                {
+                  "order": 1,
+                  "name": "poi_geohash_neighbor_match",
+                  "algorithm_id": "algo.fusion.poi.geohash_neighbor_match.v1",
+                  "input_data_type": "dt.poi.bundle",
+                  "output_data_type": "dt.poi.fused",
+                  "data_source_id": "upload.bundle",
+                  "depends_on": [],
+                  "is_optional": false
+                }
+              ],
+              "source_quality": 1.0,
+              "algorithm_fit": 0.83,
+              "workflow_support": 1.0,
+              "missing_requirements": [
+                "task_driven_bundle_not_supported"
+              ],
+              "ranking_score": 0.6905,
+              "ranking_rationale": {
+                "source_quality": 1.0,
+                "algorithm_fit": 0.83,
+                "workflow_support": 1.0,
+                "penalty_for_missing_requirements": 0.25
+              }
+            }
+          },
+          {
+            "kind": "task",
+            "id": "task:1",
+            "label": "poi_geohash_neighbor_match",
+            "evidence": {
+              "step": 1,
+              "description": "Execute algo.fusion.poi.geohash_neighbor_match.v1"
+            }
+          },
+          {
+            "kind": "data_source",
+            "id": "catalog.generic.poi",
+            "label": "Generic POI Bundle (OSM + GNS)",
+            "evidence": {
+              "source_id": "catalog.generic.poi",
+              "source_name": "Generic POI Bundle (OSM + GNS)",
+              "supported_types": [
+                "dt.poi.bundle"
+              ],
+              "disaster_types": [
+                "generic"
+              ],
+              "quality_score": 0.82,
+              "source_kind": "catalog",
+              "quality_tier": "curated",
+              "freshness_category": "sample_snapshot",
+              "freshness_hours": 168,
+              "freshness_score": 0.61,
+              "supported_job_types": [
+                "poi"
+              ],
+              "supported_geometry_types": [
+                "point"
+              ],
+              "metadata": {
+                "kind": "catalog",
+                "priority": 2,
+                "provider_family": "local_bundle_catalog",
+                "bundle_strategy": "osm_ref_pair",
+                "component_source_ids": [
+                  "raw.osm.poi",
+                  "raw.gns.poi"
+                ],
+                "path_hints": [
+                  "Data/burundi-260127-free.shp/gis_osm_pois_free_1.shp",
+                  "Data/POI/**/GNS.shp"
+                ],
+                "supports_aoi": true,
+                "materialization_scope": "resolved_aoi_clip",
+                "source_form": "bundle",
+                "runtime_status": "runtime_candidate",
+                "selectable_now": true
+              },
+              "source_quality": 0.82,
+              "algorithm_fit": 1.0,
+              "workflow_support": 1.0,
+              "missing_requirements": [],
+              "ranking_score": 0.928,
+              "ranking_rationale": {
+                "source_quality": 0.82,
+                "algorithm_fit": 1.0,
+                "workflow_support": 1.0,
+                "penalty_for_missing_requirements": 0.0
+              }
+            }
+          },
+          {
+            "kind": "algorithm",
+            "id": "algo.fusion.poi.geohash_neighbor_match.v1",
+            "label": "algo.fusion.poi.geohash_neighbor_match.v1",
+            "evidence": {
+              "algorithm_id": "algo.fusion.poi.geohash_neighbor_match.v1"
+            }
+          },
+          {
+            "kind": "output_data_type",
+            "id": "dt.poi.fused",
+            "label": "dt.poi.fused",
+            "evidence": {
+              "data_type_id": "dt.poi.fused",
+              "description": "Output generated by workflow step"
+            }
+          }
+        ],
+        "edges": [
+          {
+            "from": "trigger",
+            "to": "wp.poi.fusioncode.geohash_priority.v1",
+            "relationship": "selects_pattern"
+          },
+          {
+            "from": "wp.poi.fusioncode.geohash_priority.v1",
+            "to": "task:1",
+            "relationship": "activates_task"
+          },
+          {
+            "from": "task:1",
+            "to": "catalog.generic.poi",
+            "relationship": "uses_data_source"
+          },
+          {
+            "from": "catalog.generic.poi",
+            "to": "algo.fusion.poi.geohash_neighbor_match.v1",
+            "relationship": "executes_algorithm"
+          },
+          {
+            "from": "algo.fusion.poi.geohash_neighbor_match.v1",
+            "to": "dt.poi.fused",
+            "relationship": "produces_output"
+          }
+        ]
+      }
+    ]
+  },
+  "digest": {
+    "current_phase": "succeeded",
+    "failed_step": "step 1",
+    "root_cause": null,
+    "recoverability": null,
+    "next_operator_action": "download the artifact or compare this run against a baseline"
+  }
+}

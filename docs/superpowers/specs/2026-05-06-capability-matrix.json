@@ -50,11 +50,13 @@
           "run.json",
           "audit.jsonl",
           "tile_manifest.json",
-          "artifact_bundle"
+          "artifact_bundle",
+          "inspection_summary.json"
         ],
         "owner_files": [
           "services/agent_run_service.py",
           "services/tiled_building_runtime_service.py",
+          "scripts/benchmark_tiled_building.py",
           "docs/v2-operations.md",
           "tests/test_agent_run_service_enhancements.py"
         ]
@@ -75,6 +77,21 @@
         ]
       },
       {
+        "capability_id": "building.scale_validation_cleanup_rules",
+        "theme": "building",
+        "status": "optional",
+        "claim_state": "research_utility",
+        "evidence_contract": [
+          "cleanup_report",
+          "targeted_tests"
+        ],
+        "owner_files": [
+          "scripts/clean_benin_final_buildings.py",
+          "tests/test_clean_benin_final_buildings.py",
+          "docs/v2-operations.md"
+        ]
+      },
+      {
         "capability_id": "building.multisource_fusion_semantics",
         "theme": "building",
         "status": "optional",
@@ -84,11 +101,13 @@
           "source_profile_snapshot.json",
           "selected_sources.json",
           "runtime_output/fused_buildings.gpkg",
+          "inspection_summary.json",
           "targeted_tests"
         ],
         "owner_files": [
           "scripts/run_benin_multisource_building_fusion.py",
           "services/tiled_building_runtime_service.py",
+          "docs/v2-operations.md",
           "docs/fusioncode-algorithm-library.md"
         ]
       }

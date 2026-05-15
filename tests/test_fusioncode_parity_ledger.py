@@ -15,3 +15,7 @@ def test_fusioncode_parity_ledger_tracks_required_families_and_claims() -> None:
     assert "`research_utility`" in text
     assert "`runtime_supported`" in text
     assert "`bounded_supported`" in text
+    assert "smoke-road-gilgit-city-fusioncode-inspection-8012.json" in text
+    assert "smoke-water-nairobi-fusioncode-inspection-8012.json" in text
+    assert "smoke-poi-nairobi-fusioncode-inspection-8012.json" in text
+    assert "D4 smoke / inspection evidence: completed" in text

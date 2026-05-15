@@ -181,3 +181,61 @@ def test_build_kg_path_trace_recomputes_cached_report_when_input_type_changes() 
 
     assert trace["grounding_report"]["grounded"] is False
     assert "CANDIDATE_PATTERN_STEP_MISMATCH" in trace["grounding_report"]["steps"][0]["issue_codes"]
+
+
+def test_build_kg_path_trace_prefers_pattern_matching_actual_task_step() -> None:
+    plan = WorkflowPlan(
+        workflow_id="wf-road-fusioncode",
+        trigger=RunTrigger(type=RunTriggerType.user_query, content="need road data for Gilgit city, Pakistan"),
+        context={
+            "retrieval": {
+                "candidate_patterns": [
+                    {
+                        "pattern_id": "wp.typhoon.road.default",
+                        "pattern_name": "Typhoon Road Fusion",
+                        "steps": [
+                            {
+                                "algorithm_id": "algo.fusion.road.v1",
+                                "input_data_type": "dt.road.bundle",
+                                "output_data_type": "dt.road.fused",
+                                "data_source_id": "upload.bundle",
+                            }
+                        ],
+                    },
+                    {
+                        "pattern_id": "wp.road.fusioncode.segment_topology.v1",
+                        "pattern_name": "FusionCode Road Segment Topology Fusion",
+                        "steps": [
+                            {
+                                "algorithm_id": "algo.fusion.road.segment_match_topology.v1",
+                                "input_data_type": "dt.road.bundle",
+                                "output_data_type": "dt.road.fused",
+                                "data_source_id": "upload.bundle",
+                            }
+                        ],
+                    },
+                ],
+                "data_sources": [{"source_id": "upload.bundle", "source_name": "Uploaded Bundle"}],
+                "algorithms": {
+                    "algo.fusion.road.v1": {"tool_ref": "builtin:road"},
+                    "algo.fusion.road.segment_match_topology.v1": {"tool_ref": "fusion_algorithms:_handle_road_segment_match_topology"},
+                },
+                "output_schema_policies": {"dt.road.fused": {"policy_id": "schema.road.fused"}},
+            },
+        },
+        tasks=[
+            WorkflowTask(
+                step=1,
+                name="road_segment_match_topology",
+                description="fusion",
+                algorithm_id="algo.fusion.road.segment_match_topology.v1",
+                input=WorkflowTaskInput(data_type_id="dt.road.bundle", data_source_id="upload.bundle"),
+                output=WorkflowTaskOutput(data_type_id="dt.road.fused"),
+            )
+        ],
+        expected_output="road result",
+    )
+
+    trace = build_kg_path_trace(plan)
+
+    assert trace["selected_pattern_id"] == "wp.road.fusioncode.segment_topology.v1"

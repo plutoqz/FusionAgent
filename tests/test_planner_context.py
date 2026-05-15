@@ -315,6 +315,28 @@ def test_planner_context_exposes_poi_metadata_and_builds_poi_plan() -> None:
     assert plan.tasks[0].output.data_type_id == "dt.poi.fused"
 
 
+def test_planner_context_preferred_pattern_override_reorders_candidates_and_selected_pattern() -> None:
+    provider = CapturingProvider()
+    planner = WorkflowPlanner(InMemoryKGRepository(), provider)
+    planner.context_builder.preferred_pattern_id_override = "wp.road.fusioncode.segment_topology.v1"
+    trigger = RunTrigger(
+        type=RunTriggerType.user_query,
+        content="need road data for Gilgit city, Pakistan",
+    )
+
+    try:
+        plan = planner.create_plan(run_id="run-road-override", job_type=JobType.road, trigger=trigger)
+    finally:
+        planner.context_builder.preferred_pattern_id_override = None
+
+    assert provider.last_context is not None
+    patterns = provider.last_context["retrieval"]["candidate_patterns"]
+    assert patterns[0]["pattern_id"] == "wp.road.fusioncode.segment_topology.v1"
+    assert plan.tasks[0].algorithm_id == "algo.fusion.road.segment_match_topology.v1"
+    assert plan.context["execution_hints"]["preferred_pattern_id"] == "wp.road.fusioncode.segment_topology.v1"
+    assert plan.context["selected_pattern_id"] == "wp.road.fusioncode.segment_topology.v1"
+
+
 def test_planner_context_exposes_reserved_trajectory_to_road_seams_without_changing_default_runtime_plan() -> None:
     provider = CapturingProvider()
     planner = WorkflowPlanner(InMemoryKGRepository(), provider)

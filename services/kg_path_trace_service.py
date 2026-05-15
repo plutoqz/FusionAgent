@@ -61,10 +61,38 @@ def _selected_pattern_id(plan: WorkflowPlan, candidate_patterns: list[Any]) -> s
     explicit = plan.context.get("selected_pattern_id") if isinstance(plan.context, dict) else None
     if explicit:
         return str(explicit)
+    for raw_pattern in candidate_patterns:
+        if not isinstance(raw_pattern, dict):
+            continue
+        steps = raw_pattern.get("steps")
+        if not isinstance(steps, list):
+            continue
+        if _pattern_matches_plan(plan, steps):
+            value = raw_pattern.get("pattern_id")
+            return str(value) if value else None
     if candidate_patterns and isinstance(candidate_patterns[0], dict):
         value = candidate_patterns[0].get("pattern_id")
         return str(value) if value else None
     return None
+
+
+def _pattern_matches_plan(plan: WorkflowPlan, steps: list[Any]) -> bool:
+    executable_tasks = [task for task in sorted(plan.tasks, key=lambda item: item.step) if not task.is_transform]
+    if not executable_tasks:
+        return False
+    normalized_steps = [step for step in steps if isinstance(step, dict)]
+    if len(normalized_steps) < len(executable_tasks):
+        return False
+    for task, step in zip(executable_tasks, normalized_steps):
+        if str(step.get("algorithm_id") or "").strip() != task.algorithm_id:
+            return False
+        if str(step.get("input_data_type") or "").strip() != task.input.data_type_id:
+            return False
+        if str(step.get("data_source_id") or "").strip() != task.input.data_source_id:
+            return False
+        if str(step.get("output_data_type") or "").strip() != task.output.data_type_id:
+            return False
+    return True
 
 
 def _pattern_name(candidate_patterns: list[Any], pattern_id: str | None) -> str | None:

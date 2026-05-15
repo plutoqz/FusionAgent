@@ -167,6 +167,7 @@ class RunCreateRequest(BaseModel):
     field_mapping: Dict[str, Dict[str, str]] = Field(default_factory=dict)
     debug: bool = False
     input_strategy: RunInputStrategy = RunInputStrategy.uploaded
+    preferred_pattern_id: Optional[str] = None
 
 
 class RunCreateResponse(BaseModel):

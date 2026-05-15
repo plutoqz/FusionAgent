@@ -237,6 +237,7 @@ async def create_run(
     field_mapping: str = Form("{}"),
     debug: bool = Form(False),
     input_strategy: RunInputStrategy = Form(RunInputStrategy.uploaded),
+    preferred_pattern_id: Optional[str] = Form(None),
 ) -> RunCreateResponse:
     if input_strategy == RunInputStrategy.uploaded:
         if osm_zip is None or ref_zip is None:
@@ -270,6 +271,7 @@ async def create_run(
         field_mapping=mapping.model_dump() if hasattr(mapping, "model_dump") else mapping.dict(),
         debug=debug,
         input_strategy=input_strategy,
+        preferred_pattern_id=preferred_pattern_id,
     )
 
     issues = classify_unsupported_intent(request.trigger.content, job_type=request.job_type)

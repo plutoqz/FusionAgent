@@ -16,7 +16,7 @@
       "observed_status": "passed",
       "summary_json": "docs/superpowers/specs/2026-04-08-building-real-benchmark-result.json",
       "summary_source_format": "harness-summary",
-      "manifest": "docs/superpowers/specs/2026-04-07-real-data-eval-manifest.json",
+      "manifest": "C:/Users/QDX/.config/superpowers/worktrees/fusionAgent/codex-plan-followup/docs/superpowers/specs/2026-04-07-real-data-eval-manifest.json",
       "command": [
         "python",
         "scripts/eval_harness.py",
@@ -363,7 +363,7 @@
       "observed_status": "failed",
       "summary_json": "docs/superpowers/specs/2026-04-08-building-micro-benchmark-result.json",
       "summary_source_format": "harness-summary",
-      "manifest": "docs/superpowers/specs/2026-04-07-real-data-eval-manifest.json",
+      "manifest": "C:/Users/QDX/.config/superpowers/worktrees/fusionAgent/codex-micro-benchmark/docs/superpowers/specs/2026-04-07-real-data-eval-manifest.json",
       "command": [
         "python",
         "scripts/eval_harness.py",
@@ -423,7 +423,7 @@
       "observed_status": "failed",
       "summary_json": "docs/superpowers/specs/2026-04-08-building-micro-benchmark-result.json",
       "summary_source_format": "harness-summary",
-      "manifest": "docs/superpowers/specs/2026-04-07-real-data-eval-manifest.json",
+      "manifest": "C:/Users/QDX/.config/superpowers/worktrees/fusionAgent/codex-micro-benchmark/docs/superpowers/specs/2026-04-07-real-data-eval-manifest.json",
       "command": [
         "python",
         "scripts/eval_harness.py",

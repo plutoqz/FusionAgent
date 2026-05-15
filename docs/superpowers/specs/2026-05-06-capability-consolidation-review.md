@@ -11,7 +11,7 @@
 - Keep the stable runtime contract at `building`, `road`, `water`, and bounded `poi`.
 - Keep the shared evidence contract at `run.json`, `plan.json`, `validation.json`, `audit.jsonl`, and the artifact bundle.
 - Keep `trajectory-to-road` as reservation-only metadata, not an executable ingestion capability.
-- Keep Benin preparation wording bounded to source profiling, current executable building flows, and research utilities.
+- Keep checked-in scale-validation dataset wording bounded to source profiling, current executable building flows, and research utilities. Benin-labeled script names remain dataset examples, not capability names.
 
 ## Authorized Next Additions
 
@@ -33,15 +33,15 @@ These are runtime-trustworthiness additions. They do not expand the domain bound
 - no live external event-feed integration claim
 - no final-product UI completion claim
 
-## Benin Preparation Boundary
+## Scale-Validation Dataset Boundary
 
-- Benin source profiling is a supported preparation capability.
+- Checked-in source profiling for the validation dataset is a supported preparation capability.
 - The current executable claim stays with the already supported building runtime and its bounded preprocessing or cleanup utilities.
-- Multi-source building fusion semantics, raster-derived height extraction, and other broader Benin research utilities must not be promoted beyond the current checked-in runtime proof.
+- Multi-source building fusion semantics, raster-derived height extraction, and other scale-validation research utilities must not be promoted beyond the current checked-in runtime proof.
 
 ## Documentation Rule
 
 - Use one stable wording for current runtime position.
 - Use one stable wording for the stability contract.
-- Use one stable wording for the Benin preparation boundary.
+- Use one stable wording for the scale-validation dataset boundary.
 - Use one stable wording for authorized next additions.

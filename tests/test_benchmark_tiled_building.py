@@ -139,6 +139,9 @@ def test_benchmark_tiled_building_writes_expected_contract_outputs(
         (output_root / "tile_manifest.json").read_text(encoding="utf-8")
     )
     timing = json.loads((output_root / "timing.json").read_text(encoding="utf-8"))
+    inspection_summary = json.loads(
+        (output_root / "inspection_summary.json").read_text(encoding="utf-8")
+    )
     summary = (output_root / "benchmark_summary.md").read_text(encoding="utf-8")
 
     assert [item["source_id"] for item in source_profile_snapshot["profiles"]] == [
@@ -153,6 +156,12 @@ def test_benchmark_tiled_building_writes_expected_contract_outputs(
         "osm": "raw.osm.building",
         "reference": "raw.local.microsoft.building",
     }
+    assert inspection_summary["mode"] == "large_aoi_tiled_runtime"
+    assert inspection_summary["claim_state"] == "runtime_supported"
+    assert inspection_summary["artifact_metrics"]["artifact_validity"] is True
+    assert inspection_summary["operator_readable_summary"]["final_feature_count"] == 1
+    assert inspection_summary["evidence"]["tile_manifest"] == "tile_manifest.json"
     assert "# Large-AOI Tiled Building Benchmark" in summary
     assert "source profile snapshot" in summary
     assert "tile manifest" in summary
+    assert "inspection summary" in summary

@@ -102,3 +102,25 @@
 - `building / road / water / poi` task-driven smoke pass
 
 这意味着继续推进后续更新与论文消融实验已经具备可用基线，不再停留在“图谱代码定义存在但默认 live runtime 漂移”的状态。
+
+## FusionCode Selection Follow-up (2026-05-15)
+
+在不改变默认 bounded runtime claim 的前提下，task-driven smoke 现在支持受控 `preferred_pattern_id` 入口，用于验证某个已注册 KG workflow pattern 是否真的会被 planner/executor 选中并留下审计证据。fresh 结果如下：
+
+- Road
+  - inspection: [smoke-road-gilgit-city-fusioncode-inspection-8012.json](/E:/vscode/fusionAgent/runs/smoke-road-gilgit-city-fusioncode-inspection-8012.json)
+  - `run_id = d7b3d61a48644fc18edf1064c272bb7d`
+  - `selected_pattern_id = wp.road.fusioncode.segment_topology.v1`
+  - `algorithm_id = algo.fusion.road.segment_match_topology.v1`
+- Water
+  - inspection: [smoke-water-nairobi-fusioncode-inspection-8012.json](/E:/vscode/fusionAgent/runs/smoke-water-nairobi-fusioncode-inspection-8012.json)
+  - `run_id = 471ae06f16404713af1b0f23ac9ffad3`
+  - `selected_pattern_id = wp.water.fusioncode.line_and_polygon.v1`
+  - `algorithm_id = algo.fusion.water.polygon_priority_merge.v1`
+- POI
+  - inspection: [smoke-poi-nairobi-fusioncode-inspection-8012.json](/E:/vscode/fusionAgent/runs/smoke-poi-nairobi-fusioncode-inspection-8012.json)
+  - `run_id = 0ed6dfa8baf249ecb87082df08f5f89d`
+  - `selected_pattern_id = wp.poi.fusioncode.geohash_priority.v1`
+  - `algorithm_id = algo.fusion.poi.geohash_neighbor_match.v1`
+
+结论：road / water / bounded poi 的 FusionCode KG 节点已经具备“live 可选中、可执行、可审计”的额外验证证据，不再只是 retrieval candidate 可见。
