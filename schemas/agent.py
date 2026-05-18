@@ -55,6 +55,7 @@ class WorkflowTask(BaseModel):
     step: int
     name: str
     description: str
+    task_id: Optional[str] = None
     algorithm_id: str
     input: WorkflowTaskInput
     output: WorkflowTaskOutput
@@ -76,6 +77,54 @@ class ValidationReport(BaseModel):
     issues: List[ValidationIssue] = Field(default_factory=list)
 
 
+class TaskBundleRef(BaseModel):
+    bundle_id: str
+    requested_tasks: List[str] = Field(default_factory=list)
+    requires_disaster_profile: bool = False
+    output_requirement_id: Optional[str] = None
+    qos_policy_id: Optional[str] = None
+    data_need_ids: List[str] = Field(default_factory=list)
+    repair_strategy_ids: List[str] = Field(default_factory=list)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+
+class OutputRequirementRef(BaseModel):
+    requirement_id: str
+    output_type: str
+    schema_policy_id: str
+    required_fields: List[str] = Field(default_factory=list)
+    preferred_fields: List[str] = Field(default_factory=list)
+    optional_fields: List[str] = Field(default_factory=list)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+
+class QoSPolicyRef(BaseModel):
+    policy_id: str
+    priority: Dict[str, float] = Field(default_factory=dict)
+    max_latency_seconds: Optional[int] = None
+    min_success_rate: Optional[float] = None
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+
+class DataNeedRef(BaseModel):
+    need_id: str
+    task_id: str
+    data_type_id: str
+    direction: str
+    required: bool = True
+    description: str = ""
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+
+class RepairStrategyRef(BaseModel):
+    strategy_id: str
+    reason_codes: List[str] = Field(default_factory=list)
+    from_algorithm_id: Optional[str] = None
+    to_algorithm_id: Optional[str] = None
+    applies_to_task_ids: List[str] = Field(default_factory=list)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+
 class WorkflowPlan(BaseModel):
     workflow_id: str
     trigger: RunTrigger
@@ -83,6 +132,11 @@ class WorkflowPlan(BaseModel):
     tasks: List[WorkflowTask] = Field(default_factory=list)
     expected_output: str
     estimated_time: str = "unknown"
+    task_bundle: Optional[TaskBundleRef] = None
+    output_requirement: Optional[OutputRequirementRef] = None
+    qos_policy: Optional[QoSPolicyRef] = None
+    data_needs: List[DataNeedRef] = Field(default_factory=list)
+    repair_strategies: List[RepairStrategyRef] = Field(default_factory=list)
     validation: Optional[ValidationReport] = None
 
 

@@ -232,6 +232,22 @@ def test_planner_context_exposes_task_bundle_task_nodes_and_scenario_profiles() 
     assert "task.building.fusion" in provider.last_context["intent"]["effective_activated_tasks"]
     assert "task.road.fusion" in provider.last_context["intent"]["effective_activated_tasks"]
     assert provider.last_context["intent"]["effective_preferred_output_fields"] == ["geometry"]
+    assert provider.last_context["intent"]["qos_policy"]["policy_id"] == "qos.task.default.v1"
+    assert provider.last_context["retrieval"]["task_bundles"]
+    assert provider.last_context["retrieval"]["output_requirements"]["dt.building.fused"]["requirement_id"] == (
+        "or.building.fused.v1"
+    )
+    assert provider.last_context["retrieval"]["qos_policies"]["qos.task.default.v1"]["policy_name"] == (
+        "Direct Task Default QoS"
+    )
+    assert any(
+        item["need_id"] == "dn.task.building.fusion.input"
+        for item in provider.last_context["retrieval"]["data_needs"]
+    )
+    assert any(
+        item["strategy_id"] == "repair.source_fallback.v1"
+        for item in provider.last_context["retrieval"]["repair_strategies"]
+    )
 
 
 def test_planner_context_exposes_data_types() -> None:

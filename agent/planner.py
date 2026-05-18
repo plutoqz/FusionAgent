@@ -13,6 +13,13 @@ from kg.models import WorkflowPatternNode
 from kg.repository import KGRepository
 from llm.providers.base import LLMProvider
 from schemas.agent import RunTrigger, WorkflowPlan, WorkflowTask
+from schemas.agent import (
+    DataNeedRef,
+    OutputRequirementRef,
+    QoSPolicyRef,
+    RepairStrategyRef,
+    TaskBundleRef,
+)
 from schemas.fusion import JobType
 from services.artifact_registry import ArtifactRegistry
 from services.run_telemetry_service import estimate_json_size_bytes, normalize_llm_usage
@@ -98,6 +105,7 @@ class WorkflowPlanner:
         selected_pattern_id = self._infer_selected_pattern_id(plan, candidate_patterns)
         if selected_pattern_id:
             plan.context["selected_pattern_id"] = selected_pattern_id
+        self._hydrate_plan_semantics(plan)
         return plan
 
     def _select_fallback_pattern(
@@ -191,6 +199,7 @@ class WorkflowPlanner:
             )
             if selected_pattern_id:
                 plan.context["selected_pattern_id"] = selected_pattern_id
+            self._hydrate_plan_semantics(plan)
             return plan
         except _ProviderPlanningCallError as exc:
             planning_telemetry = exc.telemetry
@@ -250,6 +259,7 @@ class WorkflowPlanner:
                     "step": idx,
                     "name": step.name,
                     "description": f"Execute {step.algorithm_id}",
+                    "task_id": self._infer_task_id_from_pattern_step(pattern, step.algorithm_id),
                     "algorithm_id": step.algorithm_id,
                     "input": {
                         "data_type_id": step.input_data_type,
@@ -269,6 +279,11 @@ class WorkflowPlanner:
             ],
             "expected_output": f"{pattern.job_type.value} fusion result",
             "estimated_time": "unknown",
+            "task_bundle": self._task_bundle_from_context({}),
+            "output_requirement": self._output_requirement_from_context({}),
+            "qos_policy": self._qos_policy_from_context({}),
+            "data_needs": [],
+            "repair_strategies": [],
         }
         # Roundtrip for stronger schema normalization.
         return WorkflowPlan.model_validate(json.loads(json.dumps(payload)))
@@ -283,6 +298,33 @@ class WorkflowPlanner:
 
         if not plan.workflow_id:
             plan.workflow_id = fallback_workflow_id or f"wf_{uuid.uuid4().hex}"
+        for task in plan.tasks:
+            if not task.task_id:
+                task.task_id = self._task_id_from_context(plan.context, task)
+        if plan.task_bundle is None:
+            raw = self._task_bundle_from_context(plan.context)
+            if isinstance(raw, dict):
+                plan.task_bundle = TaskBundleRef.model_validate(raw)
+        if plan.output_requirement is None:
+            raw = self._output_requirement_from_context(plan.context)
+            if isinstance(raw, dict):
+                plan.output_requirement = OutputRequirementRef.model_validate(raw)
+        if plan.qos_policy is None:
+            raw = self._qos_policy_from_context(plan.context)
+            if isinstance(raw, dict):
+                plan.qos_policy = QoSPolicyRef.model_validate(raw)
+        if not plan.data_needs:
+            plan.data_needs = [
+                DataNeedRef.model_validate(item)
+                for item in self._data_needs_from_context(plan.context, plan.tasks)
+                if isinstance(item, dict)
+            ]
+        if not plan.repair_strategies:
+            plan.repair_strategies = [
+                RepairStrategyRef.model_validate(item)
+                for item in self._repair_strategies_from_context(plan.context, plan.tasks)
+                if isinstance(item, dict)
+            ]
         return plan
 
     def _normalize_plan_context(
@@ -352,3 +394,130 @@ class WorkflowPlanner:
             "model": model,
             "llm_usage": normalize_llm_usage(self.llm_provider.last_usage),
         }
+
+    def _hydrate_plan_semantics(self, plan: WorkflowPlan) -> None:
+        for task in plan.tasks:
+            if not task.task_id:
+                task.task_id = self._task_id_from_context(plan.context, task)
+        if plan.task_bundle is None:
+            raw = self._task_bundle_from_context(plan.context)
+            if isinstance(raw, dict):
+                plan.task_bundle = TaskBundleRef.model_validate(raw)
+        if plan.output_requirement is None:
+            raw = self._output_requirement_from_context(plan.context)
+            if isinstance(raw, dict):
+                plan.output_requirement = OutputRequirementRef.model_validate(raw)
+        if plan.qos_policy is None:
+            raw = self._qos_policy_from_context(plan.context)
+            if isinstance(raw, dict):
+                plan.qos_policy = QoSPolicyRef.model_validate(raw)
+        if not plan.data_needs:
+            plan.data_needs = [
+                DataNeedRef.model_validate(item)
+                for item in self._data_needs_from_context(plan.context, plan.tasks)
+                if isinstance(item, dict)
+            ]
+        if not plan.repair_strategies:
+            plan.repair_strategies = [
+                RepairStrategyRef.model_validate(item)
+                for item in self._repair_strategies_from_context(plan.context, plan.tasks)
+                if isinstance(item, dict)
+            ]
+
+    @staticmethod
+    def _task_bundle_from_context(context: Dict[str, Any] | None):
+        if not isinstance(context, dict):
+            return None
+        intent = context.get("intent")
+        if not isinstance(intent, dict):
+            return None
+        return intent.get("task_bundle")
+
+    @staticmethod
+    def _output_requirement_from_context(context: Dict[str, Any] | None):
+        if not isinstance(context, dict):
+            return None
+        intent = context.get("intent")
+        if not isinstance(intent, dict):
+            return None
+        return intent.get("output_requirement")
+
+    @staticmethod
+    def _qos_policy_from_context(context: Dict[str, Any] | None):
+        if not isinstance(context, dict):
+            return None
+        intent = context.get("intent")
+        if not isinstance(intent, dict):
+            return None
+        return intent.get("qos_policy")
+
+    @staticmethod
+    def _data_needs_from_context(context: Dict[str, Any] | None, tasks: List[WorkflowTask]) -> List[Dict[str, Any]]:
+        if not isinstance(context, dict):
+            return []
+        retrieval = context.get("retrieval")
+        if not isinstance(retrieval, dict):
+            return []
+        raw_needs = retrieval.get("data_needs")
+        if not isinstance(raw_needs, list):
+            return []
+        task_ids = {task.task_id for task in tasks if task.task_id}
+        return [item for item in raw_needs if isinstance(item, dict) and item.get("task_id") in task_ids]
+
+    @staticmethod
+    def _repair_strategies_from_context(context: Dict[str, Any] | None, tasks: List[WorkflowTask]) -> List[Dict[str, Any]]:
+        if not isinstance(context, dict):
+            return []
+        retrieval = context.get("retrieval")
+        if not isinstance(retrieval, dict):
+            return []
+        raw_strategies = retrieval.get("repair_strategies")
+        if not isinstance(raw_strategies, list):
+            return []
+        task_ids = {task.task_id for task in tasks if task.task_id}
+        selected: List[Dict[str, Any]] = []
+        for item in raw_strategies:
+            if not isinstance(item, dict):
+                continue
+            applies = item.get("applies_to_task_ids")
+            if not isinstance(applies, list):
+                continue
+            if any(task_id in task_ids for task_id in applies):
+                selected.append(item)
+        return selected
+
+    @staticmethod
+    def _task_id_from_context(context: Dict[str, Any] | None, task: WorkflowTask) -> str | None:
+        if not isinstance(context, dict):
+            return None
+        retrieval = context.get("retrieval")
+        if not isinstance(retrieval, dict):
+            return None
+        task_nodes = retrieval.get("task_nodes")
+        if not isinstance(task_nodes, list):
+            return None
+        for item in task_nodes:
+            if not isinstance(item, dict):
+                continue
+            metadata = item.get("metadata")
+            output_type = None
+            input_types: List[str] = []
+            if isinstance(metadata, dict):
+                output_type = str(metadata.get("output_data_type") or "").strip() or None
+                raw_input_types = metadata.get("input_data_types")
+                if isinstance(raw_input_types, list):
+                    input_types = [str(value).strip() for value in raw_input_types if str(value).strip()]
+            if output_type == task.output.data_type_id and (
+                not input_types or task.input.data_type_id in input_types
+            ):
+                value = str(item.get("task_id") or "").strip()
+                if value:
+                    return value
+        return None
+
+    @staticmethod
+    def _infer_task_id_from_pattern_step(pattern: WorkflowPatternNode, algorithm_id: str) -> str | None:
+        default_task_id = f"task.{pattern.job_type.value}.fusion"
+        if any(step.algorithm_id == algorithm_id for step in pattern.steps):
+            return default_task_id
+        return None

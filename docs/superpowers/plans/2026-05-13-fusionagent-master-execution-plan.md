@@ -4,6 +4,275 @@
 **生效日期**: 2026-05-13  
 **执行规则**: 从本文件生效起，`docs/superpowers/plans/` 根目录只允许保留这一份活跃计划。后续新增 backlog 必须先并入本文件，再执行；`docs/superpowers/plans/done/` 中的文档只保留历史审计价值，不再作为执行入口。
 
+## 0. 2026-05-15 优先级重排
+
+从 2026-05-15 起，活跃执行队列只保留以下两条主线；其他未完成目标暂时不列入计划，也不再占用当前执行顺序：
+
+1. 将知识图谱与智能体结构完善到“论文理想本体的完全闭合版”。
+2. 实现国家级的多源建筑物、道路、水系和 POI 自动化融合，并把“数据获取 -> AOI/全国范围裁剪 -> 规范化 -> 融合 -> 结果产出 -> inspection/evidence”打通为一条可重复执行的全线链路。
+
+### 0.1 当前唯一激活范围
+
+- 只执行 `Track A` 与 `Track B`。
+- 本文件后文已有 Phase A-F 与 thesis/history 内容，后续仅作为证据索引和背景约束，不再构成当前待办队列。
+- 只有当 `Track A` 与 `Track B` 都完成后，才允许重新讨论其他 backlog 是否回到活跃计划。
+
+### 0.2 Track A: 论文理想本体完全闭合版
+
+#### 目标定义
+
+把当前“能运行的 KG/Agent 子集”补成“论文与运行时一一对应的闭合本体”，至少覆盖以下对象、关系、约束与可视化读面：
+
+- 核心三元：
+  - `Algorithm`
+  - `Task`
+  - `Data`
+- 场景约束层：
+  - `ScenarioProfile`
+  - `OutputRequirement`
+  - `QoSPolicy`
+  - `DataNeed`
+- 智能体运行层：
+  - `TaskBundle`
+  - `WorkflowPattern`
+  - `PatternStep`
+  - `Transform`
+  - `RepairStrategy`
+  - `DurableLearning / ExecutionFeedback`
+- 闭合关系：
+  - `task -> consumes/produces data`
+  - `algorithm -> solves task`
+  - `scenario -> activates tasks / output requirement / qos`
+  - `pattern -> composed_of steps`
+  - `step -> uses algorithm / input_type / output_type / source`
+  - `transform graph -> reachable / optional / reserved`
+  - `run evidence -> writes back to memory`
+
+#### 当前已确认缺口
+
+- `kg.models` 已有 `TaskNode`、`ScenarioProfileNode`，但仍缺少显式 `TaskBundle`、`OutputRequirement`、`QoSPolicy` 等论文本体对象。
+- `services/kg_graph_service.py` 当前 overview graph 只暴露 `workflow_pattern / algorithm / data_source`，还没有把 `data_type / task / scenario_profile / output_schema_policy / transform edge / parameter spec / durable learning` 一起纳入统一图视图。
+- `tests/test_ontology_closure.py` 当前主要保证“seed 引用不悬空”，还没有保证“论文本体对象齐全、关系齐全、图视图闭合、planner/validator/executor 实际消费同一套语义对象”。
+- `kg/seed.py` 仍保留大量 `reservation_only` / legacy / metadata-only 节点，需要重新梳理哪些属于闭合本体中的正式节点，哪些只应保留为 bounded future seam。
+
+#### 执行阶段
+
+##### A1. 本体建模收口
+
+- 在 `kg.models`、`schemas/agent.py`、`schemas/kg_graph.py` 中补齐最小必要对象：
+  - `TaskBundle`
+  - `OutputRequirement`
+  - `QoSPolicy`
+  - 必要时增加 `DataNeed` / `ScenarioConstraint`
+- 明确这些对象与现有 `RunCreateRequest`、`WorkflowPlan`、`WorkflowTask` 的映射，避免论文对象成为只写文档不进运行时的“悬空层”。
+
+##### A2. Seed 闭合与关系闭合
+
+- 扩展 `kg/seed.py`，让 seed 不只包含“节点存在”，还显式包含：
+  - task-data 输入输出关系
+  - scenario-task 激活关系
+  - output requirement / qos policy 默认绑定
+  - transform reachability
+  - repair / fallback / durable learning 的运行期挂点
+- 区分三类节点：
+  - `runtime_supported`
+  - `research_utility`
+  - `reservation_only`
+
+##### A3. 图服务与 operator 读面闭合
+
+- 扩展 `services/kg_graph_service.py` 与 `/api/routers/kg.py`，至少提供两类闭合视图：
+  - `overview_closure_graph`
+  - `runtime_path_graph`
+- 前者用于看“论文理想本体是否闭合”，后者用于看“某次 run 在闭合本体中的真实走法”。
+
+##### A4. Agent 结构与论文本体对齐
+
+- 梳理并固定：
+  - `perception`
+  - `reasoning/planning`
+  - `validation/policy`
+  - `action/healing`
+  - `audit/evolution`
+- 确保这些层都能在代码中回链到具体模块，而不是只存在于论文叙事。
+
+##### A5. 闭合门禁
+
+- 把当前 `tests/test_ontology_closure.py` 升级为多层 gate：
+  - seed 闭合
+  - object coverage 闭合
+  - relation coverage 闭合
+  - graph API 闭合
+  - planner/runtime consumption 闭合
+
+#### Track A 完成判定
+
+- 论文理想本体中的核心对象与关系都在 live 模型、seed、graph service、API 和测试中出现。
+- 任一论文主张都能从 `实体 -> 关系 -> runtime module -> evidence/test` 回链。
+- 不再出现“论文说有该层，运行时没有实体；或代码有实体，图谱/论文里没有位置”的双向悬空。
+
+### 0.3 Track B: 国家级多源融合全线贯通
+
+#### 目标定义
+
+在同一套共享 runtime 下，把国家级 AOI 的四个主题做成可重复执行的自动化链路：
+
+- building
+- road
+- water
+- poi
+
+链路必须覆盖：
+
+`source discovery -> official/manual source acquisition -> cache/preload -> AOI or national clip -> normalization -> fusion -> output schema -> artifact/inspection -> evidence freeze`
+
+#### 当前已确认基线
+
+- 已稳定自动化或半自动化：
+  - OSM/Geofabrik 原始矢量：`raw.osm.building`、`raw.osm.road`、`raw.osm.water`、`raw.osm.poi`
+  - Microsoft Global ML Building Footprints：`raw.microsoft.building`
+- 仍以本地手工/恢复数据为主：
+  - `raw.google.building`
+  - `raw.openbuildingmap.building`
+  - `raw.google.open_buildings.vector`
+  - `raw.local.water`
+  - `raw.gns.poi`
+  - `raw.rh.poi`
+- 当前 road / water / poi 的“多源”在 source catalog 层仍不充分，尤其 road 仍偏 OSM baseline；要达成“国家级多源自动化融合”，必须先补第二来源与标准化链路，而不是只强化现有单源入口。
+
+#### 执行阶段
+
+##### B1. 国家级数据源矩阵定版
+
+按主题先锁定“第一批必须打通”的国家级多源组合：
+
+- Building:
+  - `OSM/Geofabrik`
+  - `Microsoft Global ML Building Footprints`
+  - 本地预载参考源：`Google` / `OpenBuildingMap` / `Google Open Buildings Vector`
+- Road:
+  - `OSM/Geofabrik`
+  - 第二路国家级参考源接入为本阶段硬目标，优先评估 `Overture Transportation`
+- Water:
+  - `OSM/Geofabrik`
+  - 第二路国家级参考源接入为本阶段硬目标，优先评估 `HydroRIVERS / HydroLAKES` 或 `Overture Water`
+- POI:
+  - `OSM/Geofabrik`
+  - `GNS`
+  - 视字段对齐复杂度决定是否追加 `Overture Places` 作为第三源
+
+要求先把 source id、格式、裁剪方式、字段映射、license/claim boundary 一次性锁清，再进入实现。
+
+##### B2. 数据获取链路打通
+
+- 统一区分三类 source：
+  - `official_remote_supported`
+  - `manual_preload_required`
+  - `reservation_only / deferred`
+- 扩展 `services/source_asset_service.py`、`services/raw_vector_source_service.py`、`services/input_acquisition_service.py`：
+  - building 继续保留 `Geofabrik + Microsoft` 自动下载链
+  - road / water / poi 新增第二来源的 bbox/national materialization 逻辑
+  - 明确 `source_mode`、`cache_hit`、`coverage_status`、`fallback_from_source_id`
+
+##### B3. 国家级 clip / tiling / stitching 通路统一
+
+- building 继续用现有 tiled runtime 作为模板。
+- road / water / poi 补齐国家级 clip、分块、重组与 inspection 摘要，不允许只有 building 具备大 AOI 能力。
+- `tile manifest -> source profile -> selected sources -> stitched artifact -> inspection_summary` 必须对四个主题尽量统一。
+
+##### B4. 多源规范化与融合节点收口
+
+- building: 从当前 `OSM + Microsoft` 扩到真正多源，并把人工预载源纳入统一 source-set。
+- road: 从单源 baseline 升级到双源以上的 segment/topology fusion。
+- water: 明确 line / polygon 两类国家级来源与融合落点。
+- poi: 把 `OSM + GNS (+ optional RH/Overture)` 规范化到统一 POI schema，再进入去重与优先级融合。
+
+##### B5. 结果与证据闭环
+
+- 每个主题至少给出 1 条国家级或准国家级 smoke/bounded run：
+  - 有 source acquisition 证据
+  - 有 artifact
+  - 有 inspection
+  - 有 operator 可读摘要
+  - 有 freeze 或 regression hook
+
+#### 预下载清单与指定目录
+
+以下数据建议由你先手工下载并放到仓库当前约定目录，因为它们要么当前仓库未实现官方稳定远程化，要么全国范围临时下载/转换更容易失败：
+
+1. `raw.google.building`
+   - 目录：`E:\vscode\fusionAgent\Data\buildings\Google\`
+   - 规则：目录下放可直接读取的 shapefile bundle，服务会取该目录下第一个 `.shp`
+2. `raw.openbuildingmap.building`
+   - 目录：`E:\vscode\fusionAgent\Data\buildings\OpenBuildingMap\`
+   - 规则：同上
+3. `raw.google.open_buildings.vector`
+   - 目录：`E:\vscode\fusionAgent\Data\buildings\GoogleOpenBuildingsVector\`
+   - 规则：同上
+4. `raw.local.microsoft.building`
+   - 目录：`E:\vscode\fusionAgent\Data\buildings\MicrosoftLocal\`
+   - 用途：保留一个你手工筛好的本地 Microsoft national clip / cache 版本，避免在线多分块拉取反复失败
+5. `raw.local.water`
+   - 目录：`E:\vscode\fusionAgent\Data\water\`
+   - 规则：目录下放 shapefile bundle
+6. `raw.gns.poi`
+   - 目录：`E:\vscode\fusionAgent\Data\POI\<国家或地区>\`
+   - 文件名要求：路径下需要有 `GNS.shp`
+7. `raw.rh.poi`
+   - 目录：`E:\vscode\fusionAgent\Data\POI\<国家或地区>\`
+   - 文件名要求：路径下需要有 `RH.shp`
+
+以下数据可继续走自动远程下载，但如果你准备直接做国家级大范围实验，也建议提前预热到缓存目录，减少运行中断：
+
+- `raw.osm.building`
+- `raw.osm.road`
+- `raw.osm.water`
+- `raw.osm.poi`
+- `raw.microsoft.building`
+
+预热脚本仍使用：
+
+```powershell
+python scripts/materialize_source_assets.py --source raw.osm.building --source raw.microsoft.building
+```
+
+默认缓存目录：
+
+- `E:\vscode\fusionAgent\runs\source-assets\`
+
+#### 需要你优先手工预载的高风险数据
+
+优先级从高到低：
+
+1. `Google / OpenBuildingMap / Google Open Buildings Vector`
+   - 当前仓库没有稳定官方远程 materializer，属于手工预载优先级最高的数据。
+2. `GNS / RH`
+   - GNS 虽然有官方可下载文件，但当前仓库并未打通“官方下载 -> 转换为本地 shapefile -> 直接进入 POI bundle”的自动链；RH 更是本地样例源。
+3. `raw.local.water`
+   - 当前就是本地参考水系源，没有官方自动下载链。
+4. `raw.microsoft.building`
+   - 已支持自动下载，但国家级时往往要拉多个 country-quadkey 分块，体量大、耗时长，建议做正式 national run 前先预热或手工缓存一份。
+
+#### Track B 完成判定
+
+- building / road / water / poi 四个主题都能从 source acquisition 自动走到 fusion result。
+- 至少每个主题都具备“国家级或准国家级 AOI”的一条真实链路，而不是只有本地样例。
+- 高风险数据源都已被明确分流到手工预载目录或官方自动下载目录，不再在运行时临时碰运气。
+
+### 0.4 当前执行顺序
+
+严格按以下顺序推进，不并行发散其他 backlog：
+
+1. 先完成 `Track A / A1-A2`，把论文本体对象和 seed 关系补闭合。
+2. 紧接着做 `Track B / B1`，锁定四个主题的国家级多源矩阵和预载策略。
+3. 然后交替推进：
+   - `Track A / A3-A5`
+   - `Track B / B2-B5`
+4. 最后统一刷新：
+   - KG closure gates
+   - national-scale evidence freeze
+   - thesis claims ledger 中与这两条主线相关的 live evidence
+
 ## 1. 执行宪章
 
 本文件的目标不是重新发散出新的子计划，而是把当前仓库里仍然需要继续完成的工作收敛成一条可持续执行到结束的主线。

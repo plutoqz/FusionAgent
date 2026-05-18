@@ -129,7 +129,9 @@ def client(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> TestClient:
     monkeypatch.setenv("GEOFUSION_KG_BACKEND", "memory")
     monkeypatch.setattr(kg_router, "create_kg_repository", lambda: InMemoryKGRepository())
     status = _build_status(RunPhase.succeeded)
-    monkeypatch.setattr(runs_v2_router, "agent_run_service", StubRunService(status=status, plan=_build_plan()))
+    stub_service = StubRunService(status=status, plan=_build_plan())
+    monkeypatch.setattr(runs_v2_router, "agent_run_service", stub_service)
+    monkeypatch.setattr(kg_router, "agent_run_service", stub_service)
     return TestClient(create_app())
 
 
@@ -138,7 +140,7 @@ def test_kg_overview_endpoint_returns_graph(client: TestClient) -> None:
 
     assert resp.status_code == 200, resp.text
     payload = resp.json()
-    assert payload["meta"]["graph_type"] == "overview"
+    assert payload["meta"]["graph_type"] == "overview_closure_graph"
     assert any(node["kind"] == "workflow_pattern" for node in payload["nodes"])
     assert any(edge["relationship"] == "uses_algorithm" for edge in payload["edges"])
 
@@ -148,10 +150,19 @@ def test_run_kg_graph_endpoint_returns_per_run_graph(client: TestClient) -> None
 
     assert resp.status_code == 200, resp.text
     payload = resp.json()
-    assert payload["meta"]["graph_type"] == "run_path"
+    assert payload["meta"]["graph_type"] == "runtime_path_graph"
     assert payload["meta"]["workflow_id"] == "wf-api-kg"
     assert any(node["id"] == "task:1" and node["kind"] == "task" for node in payload["nodes"])
     assert any(edge["relationship"] == "executes_algorithm" for edge in payload["edges"])
+
+
+def test_kg_runtime_path_endpoint_returns_per_run_graph(client: TestClient) -> None:
+    resp = client.get("/api/v2/kg/runs/run-kg/runtime-path")
+
+    assert resp.status_code == 200, resp.text
+    payload = resp.json()
+    assert payload["meta"]["graph_type"] == "runtime_path_graph"
+    assert payload["meta"]["workflow_id"] == "wf-api-kg"
 
 
 def test_run_kg_graph_endpoint_returns_404_when_plan_missing(
@@ -159,7 +170,9 @@ def test_run_kg_graph_endpoint_returns_404_when_plan_missing(
 ) -> None:
     status = _build_status(RunPhase.succeeded)
     monkeypatch.setattr(kg_router, "create_kg_repository", lambda: InMemoryKGRepository())
-    monkeypatch.setattr(runs_v2_router, "agent_run_service", StubRunService(status=status, plan=None))
+    stub_service = StubRunService(status=status, plan=None)
+    monkeypatch.setattr(runs_v2_router, "agent_run_service", stub_service)
+    monkeypatch.setattr(kg_router, "agent_run_service", stub_service)
     client = TestClient(create_app())
 
     resp = client.get("/api/v2/runs/run-kg/kg-graph")
@@ -174,7 +187,9 @@ def test_run_kg_graph_endpoint_returns_409_when_plan_not_ready(
     phase: RunPhase,
 ) -> None:
     monkeypatch.setattr(kg_router, "create_kg_repository", lambda: InMemoryKGRepository())
-    monkeypatch.setattr(runs_v2_router, "agent_run_service", StubRunService(status=_build_status(phase), plan=None))
+    stub_service = StubRunService(status=_build_status(phase), plan=None)
+    monkeypatch.setattr(runs_v2_router, "agent_run_service", stub_service)
+    monkeypatch.setattr(kg_router, "agent_run_service", stub_service)
     client = TestClient(create_app())
 
     resp = client.get("/api/v2/runs/run-kg/kg-graph")

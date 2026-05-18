@@ -10,11 +10,16 @@ from kg.models import (
     AlgorithmParameterSpec,
     DataTypeNode,
     DataSourceNode,
+    DataNeedNode,
     DurableLearningRecord,
     ExecutionFeedback,
     KGContext,
     OutputSchemaPolicy,
+    OutputRequirementNode,
+    QoSPolicyNode,
     ScenarioProfileNode,
+    RepairStrategyNode,
+    TaskBundleNode,
     TaskNode,
     WorkflowPatternNode,
 )
@@ -22,11 +27,16 @@ from kg.repository import KGRepository
 from kg.seed import (
     ALGORITHMS,
     CAN_TRANSFORM_TO,
+    DATA_NEEDS,
     DATA_TYPES,
     DATA_SOURCES,
     OUTPUT_SCHEMA_POLICIES,
+    OUTPUT_REQUIREMENTS,
     PARAMETER_SPECS,
+    QOS_POLICIES,
+    REPAIR_STRATEGIES,
     SCENARIO_PROFILES,
+    TASK_BUNDLES,
     TASKS,
     WORKFLOW_PATTERNS,
 )
@@ -44,6 +54,11 @@ class InMemoryKGRepository(KGRepository):
         output_schema_policies: Optional[Dict[str, OutputSchemaPolicy]] = None,
         task_nodes: Optional[Dict[str, TaskNode]] = None,
         scenario_profiles: Optional[List[ScenarioProfileNode]] = None,
+        task_bundles: Optional[Dict[str, TaskBundleNode]] = None,
+        output_requirements: Optional[Dict[str, OutputRequirementNode]] = None,
+        qos_policies: Optional[Dict[str, QoSPolicyNode]] = None,
+        data_needs: Optional[List[DataNeedNode]] = None,
+        repair_strategies: Optional[Dict[str, RepairStrategyNode]] = None,
     ) -> None:
         self.algorithms = ALGORITHMS if algorithms is None else algorithms
         self.patterns = WORKFLOW_PATTERNS if patterns is None else patterns
@@ -54,6 +69,11 @@ class InMemoryKGRepository(KGRepository):
         self.output_schema_policies = OUTPUT_SCHEMA_POLICIES if output_schema_policies is None else output_schema_policies
         self.task_nodes = TASKS if task_nodes is None else task_nodes
         self.scenario_profiles = SCENARIO_PROFILES if scenario_profiles is None else scenario_profiles
+        self.task_bundles = TASK_BUNDLES if task_bundles is None else task_bundles
+        self.output_requirements = OUTPUT_REQUIREMENTS if output_requirements is None else output_requirements
+        self.qos_policies = QOS_POLICIES if qos_policies is None else qos_policies
+        self.data_needs = DATA_NEEDS if data_needs is None else data_needs
+        self.repair_strategies = REPAIR_STRATEGIES if repair_strategies is None else repair_strategies
         self.feedback_history: List[ExecutionFeedback] = []
         self.durable_learning_records: List[DurableLearningRecord] = []
         self._pattern_scores: Dict[str, float] = {}
@@ -85,6 +105,21 @@ class InMemoryKGRepository(KGRepository):
         ]
         profiles.sort(key=lambda item: item.profile_id)
         return profiles
+
+    def list_task_bundles(self) -> List[TaskBundleNode]:
+        return [self.task_bundles[bundle_id] for bundle_id in sorted(self.task_bundles)]
+
+    def list_output_requirements(self) -> List[OutputRequirementNode]:
+        return [self.output_requirements[requirement_id] for requirement_id in sorted(self.output_requirements)]
+
+    def list_qos_policies(self) -> List[QoSPolicyNode]:
+        return [self.qos_policies[policy_id] for policy_id in sorted(self.qos_policies)]
+
+    def list_data_needs(self) -> List[DataNeedNode]:
+        return list(self.data_needs)
+
+    def list_repair_strategies(self) -> List[RepairStrategyNode]:
+        return [self.repair_strategies[strategy_id] for strategy_id in sorted(self.repair_strategies)]
 
     def get_candidate_patterns(
         self,
@@ -138,6 +173,12 @@ class InMemoryKGRepository(KGRepository):
                 visited.add(nxt)
                 queue.append((nxt, path + [nxt], depth + 1))
         return []
+
+    def list_transform_edges(self) -> Dict[str, List[str]]:
+        return {
+            source_type: list(destination_types)
+            for source_type, destination_types in sorted(self.can_transform_to.items())
+        }
 
     def get_candidate_data_sources(
         self,
@@ -276,6 +317,11 @@ class InMemoryKGRepository(KGRepository):
             for output_type in sorted(output_types)
             if (policy := self.get_output_schema_policy(output_type)) is not None
         }
+        task_bundles = self.list_task_bundles()
+        output_requirements = {
+            requirement.output_type: requirement
+            for requirement in self.list_output_requirements()
+        }
         return KGContext(
             patterns=patterns,
             algorithms=algorithms,
@@ -290,5 +336,10 @@ class InMemoryKGRepository(KGRepository):
             ),
             task_nodes=self.list_task_nodes(),
             scenario_profiles=self.get_scenario_profiles(disaster_type),
+            task_bundles=task_bundles,
+            output_requirements=output_requirements,
+            qos_policies={policy.policy_id: policy for policy in self.list_qos_policies()},
+            data_needs=self.list_data_needs(),
+            repair_strategies=self.list_repair_strategies(),
             disaster_type=disaster_type,
         )

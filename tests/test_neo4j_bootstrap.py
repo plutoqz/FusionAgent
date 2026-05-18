@@ -29,6 +29,11 @@ def test_bootstrap_cypher_contains_schema_and_seed_entities() -> None:
     assert "HAS_PARAMETER_SPEC" in cypher
     assert "MERGE (ds:DataSource" in cypher
     assert "MERGE (dt:DataType" in cypher
+    assert "MERGE (tb:TaskBundle" in cypher
+    assert "MERGE (qos:QoSPolicy" in cypher
+    assert "MERGE (orq:OutputRequirement" in cypher
+    assert "MERGE (dn:DataNeed" in cypher
+    assert "MERGE (rs:RepairStrategy" in cypher
     assert f"SET wp:{MANAGED_LABEL}" in cypher
     assert f"SET algo:{MANAGED_LABEL}" in cypher
     assert "MERGE (run:WorkflowInstance" not in cypher
@@ -186,11 +191,16 @@ def test_expected_seed_inventory_matches_static_bootstrap_contract() -> None:
     assert inventory == {
         "DataType": 27,
         "Task": 10,
+        "TaskBundle": 4,
         "Algorithm": 33,
         "AlgorithmParameterSpec": 44,
         "DataSource": 22,
         "ScenarioProfile": 4,
+        "QoSPolicy": 4,
         "OutputSchemaPolicy": 4,
+        "OutputRequirement": 4,
+        "DataNeed": 10,
+        "RepairStrategy": 2,
         "WorkflowPattern": 14,
     }
 

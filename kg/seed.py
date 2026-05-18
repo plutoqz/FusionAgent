@@ -7,15 +7,38 @@ from schemas.fusion import JobType
 from kg.models import (
     AlgorithmNode,
     AlgorithmParameterSpec,
+    DataNeedNode,
     DataSourceNode,
     DataTypeNode,
     OutputSchemaPolicy,
+    OutputRequirementNode,
     PatternStep,
+    QoSPolicyNode,
+    RepairStrategyNode,
     ScenarioProfileNode,
+    TaskBundleNode,
     TaskNode,
     WorkflowPatternNode,
 )
 from kg.source_catalog import build_data_sources
+
+
+def _claim_state_to_runtime_status(claim_state: str) -> str:
+    normalized = claim_state.strip().lower()
+    if normalized == "reservation_only":
+        return "reservation_only"
+    if normalized in {"runtime_supported", "bounded_supported", "research_utility"}:
+        return "runtime_candidate"
+    return "runtime_candidate"
+
+
+def _closure_metadata(*, claim_state: str, runtime_role: str, **extra: object) -> Dict[str, object]:
+    return {
+        "claim_state": claim_state,
+        "runtime_status": _claim_state_to_runtime_status(claim_state),
+        "runtime_role": runtime_role,
+        **extra,
+    }
 
 
 DATA_TYPES: Dict[str, DataTypeNode] = {
@@ -112,60 +135,119 @@ TASKS: Dict[str, TaskNode] = {
         task_name="Building Fusion",
         category="fusion",
         description="Fuse multiple building vector sources into one output.",
+        metadata=_closure_metadata(
+            claim_state="runtime_supported",
+            runtime_role="core_task",
+            input_data_types=["dt.building.bundle", "dt.building.source_set"],
+            output_data_type="dt.building.fused",
+        ),
     ),
     "task.road.fusion": TaskNode(
         task_id="task.road.fusion",
         task_name="Road Fusion",
         category="fusion",
         description="Fuse multiple road vector sources into one output.",
+        metadata=_closure_metadata(
+            claim_state="runtime_supported",
+            runtime_role="core_task",
+            input_data_types=["dt.road.bundle", "dt.road.candidate"],
+            output_data_type="dt.road.fused",
+        ),
     ),
     "task.water.fusion": TaskNode(
         task_id="task.water.fusion",
         task_name="Water Fusion",
         category="fusion",
         description="Fuse multiple water polygon sources into one output.",
+        metadata=_closure_metadata(
+            claim_state="runtime_supported",
+            runtime_role="core_task",
+            input_data_types=["dt.water.bundle"],
+            output_data_type="dt.water.fused",
+        ),
     ),
     "task.poi.fusion": TaskNode(
         task_id="task.poi.fusion",
         task_name="POI Fusion",
         category="fusion",
         description="Fuse multiple point-of-interest sources into one output.",
+        metadata=_closure_metadata(
+            claim_state="bounded_supported",
+            runtime_role="core_task",
+            input_data_types=["dt.poi.bundle"],
+            output_data_type="dt.poi.fused",
+        ),
     ),
     "task.vector.download": TaskNode(
         task_id="task.vector.download",
         task_name="Vector Data Download",
         category="acquisition",
         description="Acquire vector data required by downstream fusion or enrichment tasks.",
+        metadata=_closure_metadata(
+            claim_state="runtime_supported",
+            runtime_role="support_task",
+            output_data_type="dt.raw.vector",
+        ),
     ),
     "task.trajectory_to_road": TaskNode(
         task_id="task.trajectory_to_road",
         task_name="Trajectory To Road Candidate",
         category="transform",
         description="Reserved seam for future trajectory-to-road candidate pretransform before road fusion.",
+        metadata=_closure_metadata(
+            claim_state="reservation_only",
+            runtime_role="reserved_seam",
+            input_data_types=["dt.trajectory.raw"],
+            output_data_type="dt.road.candidate",
+        ),
     ),
     "task.partition.aoi": TaskNode(
         task_id="task.partition.aoi",
         task_name="AOI Partition",
         category="runtime",
         description="Reserved AOI partition task for future tiled execution workflows.",
+        metadata=_closure_metadata(
+            claim_state="research_utility",
+            runtime_role="support_task",
+            input_data_types=["dt.raw.vector"],
+            output_data_type="dt.partition.tile_manifest",
+        ),
     ),
     "task.clip.raster.by_tile": TaskNode(
         task_id="task.clip.raster.by_tile",
         task_name="Raster Clip By Tile",
         category="runtime",
         description="Reserved tiled raster clipping task for future building enrichment workflows.",
+        metadata=_closure_metadata(
+            claim_state="reservation_only",
+            runtime_role="reserved_seam",
+            input_data_types=["dt.raster.building_presence"],
+            output_data_type="dt.raster.building_presence",
+        ),
     ),
     "task.merge.building.tiles.reserved": TaskNode(
         task_id="task.merge.building.tiles.reserved",
         task_name="Merge Building Tiles",
         category="runtime",
         description="Reserved seam for future tile-level building artifact stitching.",
+        metadata=_closure_metadata(
+            claim_state="reservation_only",
+            runtime_role="reserved_seam",
+            input_data_types=["dt.partition.tile_manifest"],
+            output_data_type="dt.building.fused",
+        ),
     ),
     "task.enrich.building.height.reserved": TaskNode(
         task_id="task.enrich.building.height.reserved",
         task_name="Enrich Building Height",
         category="enrichment",
         description="Reserved seam for future raster-backed building height enrichment.",
+        metadata=_closure_metadata(
+            claim_state="research_utility",
+            runtime_role="support_task",
+            input_data_types=["dt.raster.building_height", "dt.building.conflict_optimized"],
+            output_data_type="dt.building.height_enriched",
+        ),
     ),
 }
 
@@ -178,7 +260,14 @@ SCENARIO_PROFILES: List[ScenarioProfileNode] = [
         activated_tasks=["task.building.fusion", "task.road.fusion"],
         preferred_output_fields=["geometry", "confidence", "timestamp"],
         qos_priority={"accuracy": 0.35, "stability": 0.25, "freshness": 0.25, "speed": 0.15},
-        metadata={"entry_mode": "scenario_driven"},
+        qos_policy_id="qos.scenario.flood.v1",
+        metadata=_closure_metadata(
+            claim_state="runtime_supported",
+            runtime_role="scenario_constraint",
+            entry_mode="scenario_driven",
+            default_task_bundle_id="task_bundle.flood.building_road",
+            output_requirement_ids=["or.building.fused.v1", "or.road.fused.v1"],
+        ),
     ),
     ScenarioProfileNode(
         profile_id="scenario.earthquake.default",
@@ -187,7 +276,14 @@ SCENARIO_PROFILES: List[ScenarioProfileNode] = [
         activated_tasks=["task.building.fusion", "task.road.fusion"],
         preferred_output_fields=["geometry", "confidence", "timestamp"],
         qos_priority={"accuracy": 0.4, "stability": 0.3, "freshness": 0.15, "speed": 0.15},
-        metadata={"entry_mode": "scenario_driven"},
+        qos_policy_id="qos.scenario.earthquake.v1",
+        metadata=_closure_metadata(
+            claim_state="runtime_supported",
+            runtime_role="scenario_constraint",
+            entry_mode="scenario_driven",
+            default_task_bundle_id="task_bundle.earthquake.building_road",
+            output_requirement_ids=["or.building.fused.v1", "or.road.fused.v1"],
+        ),
     ),
     ScenarioProfileNode(
         profile_id="scenario.typhoon.default",
@@ -196,18 +292,95 @@ SCENARIO_PROFILES: List[ScenarioProfileNode] = [
         activated_tasks=["task.building.fusion", "task.road.fusion"],
         preferred_output_fields=["geometry", "confidence", "timestamp"],
         qos_priority={"accuracy": 0.3, "stability": 0.25, "freshness": 0.3, "speed": 0.15},
-        metadata={"entry_mode": "scenario_driven"},
+        qos_policy_id="qos.scenario.typhoon.v1",
+        metadata=_closure_metadata(
+            claim_state="runtime_supported",
+            runtime_role="scenario_constraint",
+            entry_mode="scenario_driven",
+            default_task_bundle_id="task_bundle.typhoon.building_road",
+            output_requirement_ids=["or.building.fused.v1", "or.road.fused.v1"],
+        ),
     ),
     ScenarioProfileNode(
         profile_id="scenario.default.task",
         profile_name="Default Direct Task Profile",
         disaster_types=["generic"],
-        activated_tasks=["task.building.fusion", "task.road.fusion", "task.poi.fusion", "task.vector.download"],
+        activated_tasks=[
+            "task.building.fusion",
+            "task.road.fusion",
+            "task.water.fusion",
+            "task.poi.fusion",
+            "task.vector.download",
+        ],
         preferred_output_fields=["geometry"],
         qos_priority={"accuracy": 0.35, "stability": 0.25, "freshness": 0.2, "speed": 0.2},
-        metadata={"entry_mode": "task_driven"},
+        qos_policy_id="qos.task.default.v1",
+        metadata=_closure_metadata(
+            claim_state="runtime_supported",
+            runtime_role="scenario_constraint",
+            entry_mode="task_driven",
+            default_task_bundle_id="task_bundle.direct_request",
+            output_requirement_ids=[
+                "or.building.fused.v1",
+                "or.road.fused.v1",
+                "or.water.fused.v1",
+                "or.poi.fused.v1",
+            ],
+        ),
     ),
 ]
+
+
+QOS_POLICIES: Dict[str, QoSPolicyNode] = {
+    "qos.scenario.flood.v1": QoSPolicyNode(
+        policy_id="qos.scenario.flood.v1",
+        policy_name="Flood Default QoS",
+        priority={"accuracy": 0.35, "stability": 0.25, "freshness": 0.25, "speed": 0.15},
+        max_latency_seconds=900,
+        min_success_rate=0.75,
+        metadata=_closure_metadata(
+            claim_state="runtime_supported",
+            runtime_role="qos_policy",
+            profile_scope="scenario.flood.default",
+        ),
+    ),
+    "qos.scenario.earthquake.v1": QoSPolicyNode(
+        policy_id="qos.scenario.earthquake.v1",
+        policy_name="Earthquake Default QoS",
+        priority={"accuracy": 0.4, "stability": 0.3, "freshness": 0.15, "speed": 0.15},
+        max_latency_seconds=900,
+        min_success_rate=0.78,
+        metadata=_closure_metadata(
+            claim_state="runtime_supported",
+            runtime_role="qos_policy",
+            profile_scope="scenario.earthquake.default",
+        ),
+    ),
+    "qos.scenario.typhoon.v1": QoSPolicyNode(
+        policy_id="qos.scenario.typhoon.v1",
+        policy_name="Typhoon Default QoS",
+        priority={"accuracy": 0.3, "stability": 0.25, "freshness": 0.3, "speed": 0.15},
+        max_latency_seconds=900,
+        min_success_rate=0.74,
+        metadata=_closure_metadata(
+            claim_state="runtime_supported",
+            runtime_role="qos_policy",
+            profile_scope="scenario.typhoon.default",
+        ),
+    ),
+    "qos.task.default.v1": QoSPolicyNode(
+        policy_id="qos.task.default.v1",
+        policy_name="Direct Task Default QoS",
+        priority={"accuracy": 0.35, "stability": 0.25, "freshness": 0.2, "speed": 0.2},
+        max_latency_seconds=900,
+        min_success_rate=0.72,
+        metadata=_closure_metadata(
+            claim_state="runtime_supported",
+            runtime_role="qos_policy",
+            profile_scope="scenario.default.task",
+        ),
+    ),
+}
 
 
 ALGORITHMS: Dict[str, AlgorithmNode] = {
@@ -993,10 +1166,12 @@ OUTPUT_SCHEMA_POLICIES: Dict[str, OutputSchemaPolicy] = {
             "geometry_y": "geometry",
         },
         compatibility_basis="field_names",
-        metadata={
-            "policy_scope": "current_runtime",
-            "notes": "Expose stable fused building columns without changing adapter behavior.",
-        },
+        metadata=_closure_metadata(
+            claim_state="runtime_supported",
+            runtime_role="output_schema_policy",
+            policy_scope="current_runtime",
+            notes="Expose stable fused building columns without changing adapter behavior.",
+        ),
     ),
     "dt.road.fused": OutputSchemaPolicy(
         policy_id="osp.road.fused.v1",
@@ -1007,10 +1182,12 @@ OUTPUT_SCHEMA_POLICIES: Dict[str, OutputSchemaPolicy] = {
         optional_fields=["osm_id", "FID_1", "fclass"],
         rename_hints={},
         compatibility_basis="field_names",
-        metadata={
-            "policy_scope": "current_runtime",
-            "notes": "Road output schema remains metadata-only until explicit output policy execution is added.",
-        },
+        metadata=_closure_metadata(
+            claim_state="runtime_supported",
+            runtime_role="output_schema_policy",
+            policy_scope="current_runtime",
+            notes="Road output schema remains metadata-only until explicit output policy execution is added.",
+        ),
     ),
     "dt.water.fused": OutputSchemaPolicy(
         policy_id="osp.water.fused.v1",
@@ -1031,14 +1208,16 @@ OUTPUT_SCHEMA_POLICIES: Dict[str, OutputSchemaPolicy] = {
         ],
         rename_hints={},
         compatibility_basis="field_names",
-        metadata={
-            "policy_scope": "current_runtime",
-            "enforcement": "metadata_only",
-            "notes": (
+        metadata=_closure_metadata(
+            claim_state="runtime_supported",
+            runtime_role="output_schema_policy",
+            policy_scope="current_runtime",
+            enforcement="metadata_only",
+            notes=(
                 "Water output schema documents current shared bundle runtime columns "
                 "for uploaded and task-driven auto runs without enforcing adapter output."
             ),
-        },
+        ),
     ),
     "dt.poi.fused": OutputSchemaPolicy(
         policy_id="osp.poi.fused.v1",
@@ -1058,14 +1237,272 @@ OUTPUT_SCHEMA_POLICIES: Dict[str, OutputSchemaPolicy] = {
         ],
         rename_hints={},
         compatibility_basis="field_names",
-        metadata={
-            "policy_scope": "current_runtime",
-            "enforcement": "metadata_only",
-            "notes": (
+        metadata=_closure_metadata(
+            claim_state="bounded_supported",
+            runtime_role="output_schema_policy",
+            policy_scope="current_runtime",
+            enforcement="metadata_only",
+            notes=(
                 "POI output schema documents current shared bundle runtime columns "
                 "for uploaded and task-driven auto runs without enforcing adapter output."
             ),
-        },
+        ),
+    ),
+}
+
+
+OUTPUT_REQUIREMENTS: Dict[str, OutputRequirementNode] = {
+    "or.building.fused.v1": OutputRequirementNode(
+        requirement_id="or.building.fused.v1",
+        job_type=JobType.building,
+        output_type="dt.building.fused",
+        schema_policy_id="osp.building.fused.v1",
+        required_fields=["geometry"],
+        preferred_fields=["confidence", "timestamp"],
+        optional_fields=["osm_id", "name", "type", "longitude", "latitude", "area_in_me"],
+        metadata=_closure_metadata(
+            claim_state="runtime_supported",
+            runtime_role="output_requirement",
+            output_requirement_scope="shared_runtime",
+        ),
+    ),
+    "or.road.fused.v1": OutputRequirementNode(
+        requirement_id="or.road.fused.v1",
+        job_type=JobType.road,
+        output_type="dt.road.fused",
+        schema_policy_id="osp.road.fused.v1",
+        required_fields=["geometry"],
+        preferred_fields=["confidence", "timestamp"],
+        optional_fields=["osm_id", "FID_1", "fclass"],
+        metadata=_closure_metadata(
+            claim_state="runtime_supported",
+            runtime_role="output_requirement",
+            output_requirement_scope="shared_runtime",
+        ),
+    ),
+    "or.water.fused.v1": OutputRequirementNode(
+        requirement_id="or.water.fused.v1",
+        job_type=JobType.water,
+        output_type="dt.water.fused",
+        schema_policy_id="osp.water.fused.v1",
+        required_fields=["geometry"],
+        preferred_fields=["timestamp"],
+        optional_fields=["OSM_ID", "REF_ID", "MATCH_REF", "OV_RATIO", "MATCH_CNT", "SRC", "NAME", "FCLASS", "WATER_TY"],
+        metadata=_closure_metadata(
+            claim_state="runtime_supported",
+            runtime_role="output_requirement",
+            output_requirement_scope="shared_runtime",
+        ),
+    ),
+    "or.poi.fused.v1": OutputRequirementNode(
+        requirement_id="or.poi.fused.v1",
+        job_type=JobType.poi,
+        output_type="dt.poi.fused",
+        schema_policy_id="osp.poi.fused.v1",
+        required_fields=["geometry"],
+        preferred_fields=["timestamp"],
+        optional_fields=["POI_ID", "OSM_ID", "REF_ID", "MATCH_REF", "DIST_M", "SRC", "NAME", "CATEGORY"],
+        metadata=_closure_metadata(
+            claim_state="bounded_supported",
+            runtime_role="output_requirement",
+            output_requirement_scope="shared_runtime",
+        ),
+    ),
+}
+
+
+DATA_NEEDS: List[DataNeedNode] = [
+    DataNeedNode(
+        need_id="dn.task.building.fusion.input",
+        task_id="task.building.fusion",
+        data_type_id="dt.building.bundle",
+        direction="consumes",
+        required=True,
+        description="Building fusion consumes prepared building bundles in the shared runtime path.",
+        metadata=_closure_metadata(claim_state="runtime_supported", runtime_role="data_need"),
+    ),
+    DataNeedNode(
+        need_id="dn.task.building.fusion.output",
+        task_id="task.building.fusion",
+        data_type_id="dt.building.fused",
+        direction="produces",
+        required=True,
+        description="Building fusion produces fused building output.",
+        metadata=_closure_metadata(claim_state="runtime_supported", runtime_role="data_need"),
+    ),
+    DataNeedNode(
+        need_id="dn.task.road.fusion.input",
+        task_id="task.road.fusion",
+        data_type_id="dt.road.bundle",
+        direction="consumes",
+        required=True,
+        description="Road fusion consumes prepared road bundles.",
+        metadata=_closure_metadata(claim_state="runtime_supported", runtime_role="data_need"),
+    ),
+    DataNeedNode(
+        need_id="dn.task.road.fusion.output",
+        task_id="task.road.fusion",
+        data_type_id="dt.road.fused",
+        direction="produces",
+        required=True,
+        description="Road fusion produces fused road output.",
+        metadata=_closure_metadata(claim_state="runtime_supported", runtime_role="data_need"),
+    ),
+    DataNeedNode(
+        need_id="dn.task.water.fusion.input",
+        task_id="task.water.fusion",
+        data_type_id="dt.water.bundle",
+        direction="consumes",
+        required=True,
+        description="Water fusion consumes prepared water bundles.",
+        metadata=_closure_metadata(claim_state="runtime_supported", runtime_role="data_need"),
+    ),
+    DataNeedNode(
+        need_id="dn.task.water.fusion.output",
+        task_id="task.water.fusion",
+        data_type_id="dt.water.fused",
+        direction="produces",
+        required=True,
+        description="Water fusion produces fused water polygons.",
+        metadata=_closure_metadata(claim_state="runtime_supported", runtime_role="data_need"),
+    ),
+    DataNeedNode(
+        need_id="dn.task.poi.fusion.input",
+        task_id="task.poi.fusion",
+        data_type_id="dt.poi.bundle",
+        direction="consumes",
+        required=True,
+        description="POI fusion consumes prepared POI bundles.",
+        metadata=_closure_metadata(claim_state="bounded_supported", runtime_role="data_need"),
+    ),
+    DataNeedNode(
+        need_id="dn.task.poi.fusion.output",
+        task_id="task.poi.fusion",
+        data_type_id="dt.poi.fused",
+        direction="produces",
+        required=True,
+        description="POI fusion produces fused POI output.",
+        metadata=_closure_metadata(claim_state="bounded_supported", runtime_role="data_need"),
+    ),
+    DataNeedNode(
+        need_id="dn.task.trajectory_to_road.input",
+        task_id="task.trajectory_to_road",
+        data_type_id="dt.trajectory.raw",
+        direction="consumes",
+        required=True,
+        description="Reserved trajectory seam consumes raw trajectories.",
+        metadata=_closure_metadata(claim_state="reservation_only", runtime_role="data_need"),
+    ),
+    DataNeedNode(
+        need_id="dn.task.trajectory_to_road.output",
+        task_id="task.trajectory_to_road",
+        data_type_id="dt.road.candidate",
+        direction="produces",
+        required=True,
+        description="Reserved trajectory seam produces road candidates.",
+        metadata=_closure_metadata(claim_state="reservation_only", runtime_role="data_need"),
+    ),
+]
+
+
+REPAIR_STRATEGIES: Dict[str, RepairStrategyNode] = {
+    "repair.alternative_algorithm.v1": RepairStrategyNode(
+        strategy_id="repair.alternative_algorithm.v1",
+        strategy_name="Alternative Algorithm Fallback",
+        reason_codes=["primary_execution_failed", "alternative_algorithm_succeeded"],
+        applies_to_task_ids=["task.building.fusion", "task.road.fusion"],
+        metadata=_closure_metadata(
+            claim_state="runtime_supported",
+            runtime_role="repair_strategy",
+            strategy="alternative_algorithm",
+        ),
+    ),
+    "repair.source_fallback.v1": RepairStrategyNode(
+        strategy_id="repair.source_fallback.v1",
+        strategy_name="Alternative Source Fallback",
+        reason_codes=["source_fallback_selected", "fallback_when_no_safe_reuse_candidate"],
+        applies_to_task_ids=[
+            "task.building.fusion",
+            "task.road.fusion",
+            "task.water.fusion",
+            "task.poi.fusion",
+        ],
+        metadata=_closure_metadata(
+            claim_state="runtime_supported",
+            runtime_role="repair_strategy",
+            strategy="alternative_source",
+        ),
+    ),
+}
+
+
+TASK_BUNDLES: Dict[str, TaskBundleNode] = {
+    "task_bundle.direct_request": TaskBundleNode(
+        bundle_id="task_bundle.direct_request",
+        bundle_name="Direct Task Request Bundle",
+        requested_tasks=["task.building.fusion", "task.road.fusion", "task.water.fusion", "task.poi.fusion"],
+        qos_policy_id="qos.task.default.v1",
+        data_need_ids=[
+            "dn.task.building.fusion.input",
+            "dn.task.road.fusion.input",
+            "dn.task.water.fusion.input",
+            "dn.task.poi.fusion.input",
+        ],
+        repair_strategy_ids=["repair.source_fallback.v1", "repair.alternative_algorithm.v1"],
+        requires_disaster_profile=False,
+        metadata=_closure_metadata(
+            claim_state="runtime_supported",
+            runtime_role="task_bundle",
+            entry_mode="task_driven",
+        ),
+    ),
+    "task_bundle.flood.building_road": TaskBundleNode(
+        bundle_id="task_bundle.flood.building_road",
+        bundle_name="Flood Building And Road Bundle",
+        requested_tasks=["task.building.fusion", "task.road.fusion"],
+        qos_policy_id="qos.scenario.flood.v1",
+        output_requirement_id="or.building.fused.v1",
+        data_need_ids=["dn.task.building.fusion.input", "dn.task.road.fusion.input"],
+        repair_strategy_ids=["repair.source_fallback.v1", "repair.alternative_algorithm.v1"],
+        requires_disaster_profile=True,
+        metadata=_closure_metadata(
+            claim_state="runtime_supported",
+            runtime_role="task_bundle",
+            entry_mode="scenario_driven",
+            scenario_profile_id="scenario.flood.default",
+        ),
+    ),
+    "task_bundle.earthquake.building_road": TaskBundleNode(
+        bundle_id="task_bundle.earthquake.building_road",
+        bundle_name="Earthquake Building And Road Bundle",
+        requested_tasks=["task.building.fusion", "task.road.fusion"],
+        qos_policy_id="qos.scenario.earthquake.v1",
+        output_requirement_id="or.building.fused.v1",
+        data_need_ids=["dn.task.building.fusion.input", "dn.task.road.fusion.input"],
+        repair_strategy_ids=["repair.source_fallback.v1", "repair.alternative_algorithm.v1"],
+        requires_disaster_profile=True,
+        metadata=_closure_metadata(
+            claim_state="runtime_supported",
+            runtime_role="task_bundle",
+            entry_mode="scenario_driven",
+            scenario_profile_id="scenario.earthquake.default",
+        ),
+    ),
+    "task_bundle.typhoon.building_road": TaskBundleNode(
+        bundle_id="task_bundle.typhoon.building_road",
+        bundle_name="Typhoon Building And Road Bundle",
+        requested_tasks=["task.building.fusion", "task.road.fusion"],
+        qos_policy_id="qos.scenario.typhoon.v1",
+        output_requirement_id="or.building.fused.v1",
+        data_need_ids=["dn.task.building.fusion.input", "dn.task.road.fusion.input"],
+        repair_strategy_ids=["repair.source_fallback.v1", "repair.alternative_algorithm.v1"],
+        requires_disaster_profile=True,
+        metadata=_closure_metadata(
+            claim_state="runtime_supported",
+            runtime_role="task_bundle",
+            entry_mode="scenario_driven",
+            scenario_profile_id="scenario.typhoon.default",
+        ),
     ),
 }
 

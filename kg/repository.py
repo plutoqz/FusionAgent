@@ -11,12 +11,17 @@ from kg.models import (
     AlgorithmParameterSpec,
     DataTypeNode,
     DataSourceNode,
+    DataNeedNode,
     DurableLearningRecord,
     DurableLearningSummary,
     ExecutionFeedback,
     KGContext,
     OutputSchemaPolicy,
+    OutputRequirementNode,
+    QoSPolicyNode,
+    RepairStrategyNode,
     ScenarioProfileNode,
+    TaskBundleNode,
     TaskNode,
     WorkflowPatternNode,
 )
@@ -48,6 +53,26 @@ class KGRepository(ABC):
         raise NotImplementedError
 
     @abstractmethod
+    def list_task_bundles(self) -> List[TaskBundleNode]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def list_output_requirements(self) -> List[OutputRequirementNode]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def list_qos_policies(self) -> List[QoSPolicyNode]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def list_data_needs(self) -> List[DataNeedNode]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def list_repair_strategies(self) -> List[RepairStrategyNode]:
+        raise NotImplementedError
+
+    @abstractmethod
     def get_candidate_patterns(
         self,
         job_type: JobType,
@@ -70,6 +95,10 @@ class KGRepository(ABC):
 
     @abstractmethod
     def find_transform_path(self, from_type: str, to_type: str, max_depth: int = 3) -> List[str]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def list_transform_edges(self) -> Dict[str, List[str]]:
         raise NotImplementedError
 
     @abstractmethod

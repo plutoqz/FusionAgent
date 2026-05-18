@@ -11,7 +11,10 @@ from kg.models import (
     DurableLearningSummary,
     KGContext,
     OutputSchemaPolicy,
+    OutputRequirementNode,
+    QoSPolicyNode,
     ScenarioProfileNode,
+    TaskBundleNode,
     WorkflowPatternNode,
 )
 from kg.repository import KGRepository
@@ -85,6 +88,21 @@ class PlanningContextBuilder:
             kg_context.scenario_profiles,
             trigger=trigger,
         )
+        task_bundle = self._select_task_bundle(
+            job_type=job_type,
+            trigger=trigger,
+            resolved_mode=resolved_mode,
+            bundles=kg_context.task_bundles,
+        )
+        output_requirement = self._select_output_requirement(
+            job_type=job_type,
+            output_requirements=kg_context.output_requirements,
+        )
+        qos_policy = self._select_qos_policy(
+            effective_profile=effective_profile,
+            task_bundle=task_bundle,
+            qos_policies=kg_context.qos_policies,
+        )
         relevant_sources = self._collect_relevant_data_sources(
             job_type=job_type,
             disaster_type=trigger.disaster_type,
@@ -111,6 +129,9 @@ class PlanningContextBuilder:
                     resolved_aoi,
                     effective_profile=effective_profile,
                     resolved_mode=resolved_mode,
+                    task_bundle=task_bundle,
+                    output_requirement=output_requirement,
+                    qos_policy=qos_policy,
                 ),
                 "retrieval": retrieval_payload,
                 "constraints": self._build_constraints(job_type),
@@ -151,19 +172,10 @@ class PlanningContextBuilder:
         resolved_aoi: ResolvedAOI | None,
         effective_profile: ScenarioProfileNode | None,
         resolved_mode: Dict[str, object],
+        task_bundle: TaskBundleNode | None,
+        output_requirement: OutputRequirementNode | None,
+        qos_policy: QoSPolicyNode | None,
     ) -> Dict[str, Any]:
-        if resolved_mode["planning_mode"] == "task_driven":
-            task_bundle = {
-                "bundle_id": "task_bundle.direct_request",
-                "requested_tasks": [f"task.{job_type.value}.fusion"],
-                "requires_disaster_profile": False,
-            }
-        else:
-            task_bundle = {
-                "bundle_id": f"task_bundle.{trigger.disaster_type or 'default'}",
-                "requested_tasks": [f"task.{job_type.value}.fusion"],
-                "requires_disaster_profile": True,
-            }
         return {
             "job_type": job_type.value,
             "trigger": trigger.model_dump(),
@@ -175,13 +187,23 @@ class PlanningContextBuilder:
             "temporal_end": trigger.temporal_end,
             "planning_mode": resolved_mode["planning_mode"],
             "profile_source": resolved_mode["profile_source"],
-            "task_bundle": task_bundle,
+            "task_bundle": PlanningContextBuilder._task_bundle_to_dict(task_bundle) if task_bundle is not None else None,
+            "output_requirement": (
+                PlanningContextBuilder._output_requirement_node_to_dict(output_requirement)
+                if output_requirement is not None
+                else None
+            ),
+            "qos_policy": PlanningContextBuilder._qos_policy_node_to_dict(qos_policy) if qos_policy is not None else None,
             "effective_scenario_profile_id": effective_profile.profile_id if effective_profile is not None else None,
             "effective_activated_tasks": list(effective_profile.activated_tasks) if effective_profile is not None else [],
             "effective_preferred_output_fields": (
                 list(effective_profile.preferred_output_fields) if effective_profile is not None else []
             ),
-            "effective_qos_priority": dict(effective_profile.qos_priority) if effective_profile is not None else {},
+            "effective_qos_priority": (
+                dict(qos_policy.priority)
+                if qos_policy is not None
+                else (dict(effective_profile.qos_priority) if effective_profile is not None else {})
+            ),
         }
 
     @staticmethod
@@ -241,6 +263,7 @@ class PlanningContextBuilder:
             "algorithms": {algo_id: self._algo_to_dict(algo) for algo_id, algo in kg_context.algorithms.items()},
             "task_nodes": [self._task_node_to_dict(task) for task in kg_context.task_nodes],
             "scenario_profiles": [self._scenario_profile_to_dict(item) for item in kg_context.scenario_profiles],
+            "task_bundles": [self._task_bundle_to_dict(item) for item in kg_context.task_bundles],
             "parameter_specs": {
                 algo_id: [self._parameter_spec_to_dict(spec) for spec in specs]
                 for algo_id, specs in kg_context.parameter_specs.items()
@@ -254,6 +277,16 @@ class PlanningContextBuilder:
                 output_type: self._output_schema_policy_to_dict(policy)
                 for output_type, policy in kg_context.output_schema_policies.items()
             },
+            "output_requirements": {
+                output_type: self._output_requirement_node_to_dict(requirement)
+                for output_type, requirement in kg_context.output_requirements.items()
+            },
+            "qos_policies": {
+                policy_id: self._qos_policy_node_to_dict(policy)
+                for policy_id, policy in kg_context.qos_policies.items()
+            },
+            "data_needs": [self._data_need_to_dict(item) for item in kg_context.data_needs],
+            "repair_strategies": [self._repair_strategy_to_dict(item) for item in kg_context.repair_strategies],
             "durable_learning_summaries": {
                 key: [self._durable_learning_summary_to_dict(item) for item in items]
                 for key, items in kg_context.durable_learning_summaries.items()
@@ -272,6 +305,56 @@ class PlanningContextBuilder:
         if reusable:
             payload["reusable_artifacts"] = [self._artifact_to_dict(item) for item in reusable]
         return payload
+
+    @staticmethod
+    def _select_task_bundle(
+        *,
+        job_type: JobType,
+        trigger: RunTrigger,
+        resolved_mode: Dict[str, object],
+        bundles: List[TaskBundleNode],
+    ) -> TaskBundleNode | None:
+        requested_task = f"task.{job_type.value}.fusion"
+        if resolved_mode["planning_mode"] == "task_driven":
+            preferred_ids = ["task_bundle.direct_request"]
+        else:
+            preferred_ids = [f"task_bundle.{trigger.disaster_type or 'default'}.{job_type.value}_road"]
+        for bundle_id in preferred_ids:
+            for bundle in bundles:
+                if bundle.bundle_id == bundle_id and requested_task in bundle.requested_tasks:
+                    return bundle
+        for bundle in bundles:
+            if requested_task in bundle.requested_tasks and bundle.requires_disaster_profile == (
+                resolved_mode["planning_mode"] != "task_driven"
+            ):
+                return bundle
+        return None
+
+    @staticmethod
+    def _select_output_requirement(
+        *,
+        job_type: JobType,
+        output_requirements: Dict[str, OutputRequirementNode],
+    ) -> OutputRequirementNode | None:
+        return output_requirements.get(f"dt.{job_type.value}.fused")
+
+    @staticmethod
+    def _select_qos_policy(
+        *,
+        effective_profile: ScenarioProfileNode | None,
+        task_bundle: TaskBundleNode | None,
+        qos_policies: Dict[str, QoSPolicyNode],
+    ) -> QoSPolicyNode | None:
+        candidate_ids = []
+        if effective_profile is not None and effective_profile.qos_policy_id:
+            candidate_ids.append(effective_profile.qos_policy_id)
+        if task_bundle is not None and task_bundle.qos_policy_id:
+            candidate_ids.append(task_bundle.qos_policy_id)
+        for policy_id in candidate_ids:
+            policy = qos_policies.get(policy_id)
+            if policy is not None:
+                return policy
+        return None
 
     def _rank_pattern_candidates(
         self,
@@ -623,6 +706,7 @@ class PlanningContextBuilder:
             "task_name": task.task_name,
             "category": task.category,
             "description": task.description,
+            "metadata": getattr(task, "metadata", {}) or {},
         }
 
     @staticmethod
@@ -634,7 +718,70 @@ class PlanningContextBuilder:
             "activated_tasks": profile.activated_tasks,
             "preferred_output_fields": profile.preferred_output_fields,
             "qos_priority": profile.qos_priority,
+            "qos_policy_id": getattr(profile, "qos_policy_id", None),
             "metadata": profile.metadata,
+        }
+
+    @staticmethod
+    def _task_bundle_to_dict(bundle) -> Dict[str, Any]:
+        return {
+            "bundle_id": bundle.bundle_id,
+            "bundle_name": bundle.bundle_name,
+            "requested_tasks": bundle.requested_tasks,
+            "output_requirement_id": bundle.output_requirement_id,
+            "qos_policy_id": bundle.qos_policy_id,
+            "data_need_ids": bundle.data_need_ids,
+            "repair_strategy_ids": bundle.repair_strategy_ids,
+            "requires_disaster_profile": bundle.requires_disaster_profile,
+            "metadata": bundle.metadata,
+        }
+
+    @staticmethod
+    def _output_requirement_node_to_dict(requirement) -> Dict[str, Any]:
+        return {
+            "requirement_id": requirement.requirement_id,
+            "job_type": requirement.job_type.value,
+            "output_type": requirement.output_type,
+            "schema_policy_id": requirement.schema_policy_id,
+            "required_fields": requirement.required_fields,
+            "preferred_fields": requirement.preferred_fields,
+            "optional_fields": requirement.optional_fields,
+            "metadata": requirement.metadata,
+        }
+
+    @staticmethod
+    def _qos_policy_node_to_dict(policy) -> Dict[str, Any]:
+        return {
+            "policy_id": policy.policy_id,
+            "policy_name": policy.policy_name,
+            "priority": policy.priority,
+            "max_latency_seconds": policy.max_latency_seconds,
+            "min_success_rate": policy.min_success_rate,
+            "metadata": policy.metadata,
+        }
+
+    @staticmethod
+    def _data_need_to_dict(data_need) -> Dict[str, Any]:
+        return {
+            "need_id": data_need.need_id,
+            "task_id": data_need.task_id,
+            "data_type_id": data_need.data_type_id,
+            "direction": data_need.direction,
+            "required": data_need.required,
+            "description": data_need.description,
+            "metadata": data_need.metadata,
+        }
+
+    @staticmethod
+    def _repair_strategy_to_dict(strategy) -> Dict[str, Any]:
+        return {
+            "strategy_id": strategy.strategy_id,
+            "strategy_name": strategy.strategy_name,
+            "reason_codes": strategy.reason_codes,
+            "from_algorithm_id": strategy.from_algorithm_id,
+            "to_algorithm_id": strategy.to_algorithm_id,
+            "applies_to_task_ids": strategy.applies_to_task_ids,
+            "metadata": strategy.metadata,
         }
 
     @staticmethod

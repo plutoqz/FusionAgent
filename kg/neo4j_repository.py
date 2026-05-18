@@ -12,12 +12,17 @@ from kg.models import (
     AlgorithmParameterSpec,
     DataTypeNode,
     DataSourceNode,
+    DataNeedNode,
     DurableLearningRecord,
     ExecutionFeedback,
     KGContext,
     OutputSchemaPolicy,
+    OutputRequirementNode,
     PatternStep,
+    QoSPolicyNode,
+    RepairStrategyNode,
     ScenarioProfileNode,
+    TaskBundleNode,
     TaskNode,
     WorkflowPatternNode,
 )
@@ -239,6 +244,7 @@ class Neo4jKGRepository(KGRepository):
                 task_name=str(row["task"].get("taskName", row["task"].get("taskId"))),
                 category=str(row["task"].get("category", "unknown")),
                 description=str(row["task"].get("description", "")),
+                metadata=self._parse_metadata_json(row["task"].get("metadataJson")),
             )
             for row in rows
         ]
@@ -269,10 +275,150 @@ class Neo4jKGRepository(KGRepository):
                     activated_tasks=list(profile.get("activatedTasks", [])),
                     preferred_output_fields=list(profile.get("preferredOutputFields", [])),
                     qos_priority=self._parse_metadata_json(profile.get("qosPriorityJson")),
+                    qos_policy_id=(
+                        str(profile.get("qosPolicyId")) if profile.get("qosPolicyId") is not None else None
+                    ),
                     metadata=self._parse_metadata_json(profile.get("metadataJson")),
                 )
             )
         return result
+
+    def list_task_bundles(self) -> List[TaskBundleNode]:
+        rows = self._execute(
+            f"""
+            MATCH (tb:TaskBundle:{MANAGED_LABEL})
+            WHERE tb.graphNamespace = $graph_namespace
+            RETURN tb
+            ORDER BY tb.bundleId ASC
+            """,
+            **self._with_namespace(),
+        )
+        return [
+            TaskBundleNode(
+                bundle_id=str(row["tb"].get("bundleId")),
+                bundle_name=str(row["tb"].get("bundleName", row["tb"].get("bundleId"))),
+                requested_tasks=list(row["tb"].get("requestedTasks", [])),
+                output_requirement_id=(
+                    str(row["tb"].get("outputRequirementId"))
+                    if row["tb"].get("outputRequirementId") is not None
+                    else None
+                ),
+                qos_policy_id=(
+                    str(row["tb"].get("qosPolicyId")) if row["tb"].get("qosPolicyId") is not None else None
+                ),
+                data_need_ids=list(row["tb"].get("dataNeedIds", [])),
+                repair_strategy_ids=list(row["tb"].get("repairStrategyIds", [])),
+                requires_disaster_profile=bool(row["tb"].get("requiresDisasterProfile", False)),
+                metadata=self._parse_metadata_json(row["tb"].get("metadataJson")),
+            )
+            for row in rows
+        ]
+
+    def list_output_requirements(self) -> List[OutputRequirementNode]:
+        rows = self._execute(
+            f"""
+            MATCH (orq:OutputRequirement:{MANAGED_LABEL})
+            WHERE orq.graphNamespace = $graph_namespace
+            RETURN orq
+            ORDER BY orq.requirementId ASC
+            """,
+            **self._with_namespace(),
+        )
+        return [
+            OutputRequirementNode(
+                requirement_id=str(row["orq"].get("requirementId")),
+                job_type=JobType(str(row["orq"].get("jobType"))),
+                output_type=str(row["orq"].get("outputType")),
+                schema_policy_id=str(row["orq"].get("schemaPolicyId")),
+                required_fields=list(row["orq"].get("requiredFields", [])),
+                preferred_fields=list(row["orq"].get("preferredFields", [])),
+                optional_fields=list(row["orq"].get("optionalFields", [])),
+                metadata=self._parse_metadata_json(row["orq"].get("metadataJson")),
+            )
+            for row in rows
+        ]
+
+    def list_qos_policies(self) -> List[QoSPolicyNode]:
+        rows = self._execute(
+            f"""
+            MATCH (qos:QoSPolicy:{MANAGED_LABEL})
+            WHERE qos.graphNamespace = $graph_namespace
+            RETURN qos
+            ORDER BY qos.policyId ASC
+            """,
+            **self._with_namespace(),
+        )
+        return [
+            QoSPolicyNode(
+                policy_id=str(row["qos"].get("policyId")),
+                policy_name=str(row["qos"].get("policyName", row["qos"].get("policyId"))),
+                priority=self._parse_metadata_json(row["qos"].get("priorityJson")),
+                max_latency_seconds=(
+                    int(row["qos"].get("maxLatencySeconds"))
+                    if row["qos"].get("maxLatencySeconds") is not None
+                    else None
+                ),
+                min_success_rate=(
+                    float(row["qos"].get("minSuccessRate"))
+                    if row["qos"].get("minSuccessRate") is not None
+                    else None
+                ),
+                metadata=self._parse_metadata_json(row["qos"].get("metadataJson")),
+            )
+            for row in rows
+        ]
+
+    def list_data_needs(self) -> List[DataNeedNode]:
+        rows = self._execute(
+            f"""
+            MATCH (dn:DataNeed:{MANAGED_LABEL})
+            WHERE dn.graphNamespace = $graph_namespace
+            RETURN dn
+            ORDER BY dn.needId ASC
+            """,
+            **self._with_namespace(),
+        )
+        return [
+            DataNeedNode(
+                need_id=str(row["dn"].get("needId")),
+                task_id=str(row["dn"].get("taskId")),
+                data_type_id=str(row["dn"].get("dataTypeId")),
+                direction=str(row["dn"].get("direction")),
+                required=bool(row["dn"].get("required", True)),
+                description=str(row["dn"].get("description", "")),
+                metadata=self._parse_metadata_json(row["dn"].get("metadataJson")),
+            )
+            for row in rows
+        ]
+
+    def list_repair_strategies(self) -> List[RepairStrategyNode]:
+        rows = self._execute(
+            f"""
+            MATCH (rs:RepairStrategy:{MANAGED_LABEL})
+            WHERE rs.graphNamespace = $graph_namespace
+            RETURN rs
+            ORDER BY rs.strategyId ASC
+            """,
+            **self._with_namespace(),
+        )
+        return [
+            RepairStrategyNode(
+                strategy_id=str(row["rs"].get("strategyId")),
+                strategy_name=str(row["rs"].get("strategyName", row["rs"].get("strategyId"))),
+                reason_codes=list(row["rs"].get("reasonCodes", [])),
+                from_algorithm_id=(
+                    str(row["rs"].get("fromAlgorithmId"))
+                    if row["rs"].get("fromAlgorithmId") is not None
+                    else None
+                ),
+                to_algorithm_id=(
+                    str(row["rs"].get("toAlgorithmId")) if row["rs"].get("toAlgorithmId") is not None else None
+                ),
+                applies_to_task_ids=list(row["rs"].get("appliesToTaskIds", [])),
+                metadata=self._parse_metadata_json(row["rs"].get("metadataJson")),
+            )
+            for row in rows
+        ]
 
     def get_candidate_patterns(
         self,
@@ -479,6 +625,31 @@ class Neo4jKGRepository(KGRepository):
         if not rows:
             return []
         return list(rows[0].get("path", []))
+
+    def list_transform_edges(self) -> Dict[str, List[str]]:
+        rows = self._execute(
+            f"""
+            MATCH (src:DataType:{MANAGED_LABEL})-[:CAN_TRANSFORM_TO]->(dst:DataType:{MANAGED_LABEL})
+            WHERE src.graphNamespace = $graph_namespace
+              AND dst.graphNamespace = $graph_namespace
+            RETURN src.typeId AS source_type, collect(dst.typeId) AS destination_types
+            ORDER BY source_type ASC
+            """,
+            **self._with_namespace(),
+        )
+        result: Dict[str, List[str]] = {}
+        for row in rows:
+            source_type = str(row.get("source_type") or "").strip()
+            if not source_type:
+                continue
+            result[source_type] = sorted(
+                {
+                    str(value).strip()
+                    for value in (row.get("destination_types") or [])
+                    if str(value).strip()
+                }
+            )
+        return result
 
     def get_candidate_data_sources(
         self,
@@ -760,6 +931,11 @@ class Neo4jKGRepository(KGRepository):
             for output_type in sorted(output_types)
             if (policy := self.get_output_schema_policy(output_type)) is not None
         }
+        task_bundles = self.list_task_bundles()
+        output_requirements = {
+            requirement.output_type: requirement
+            for requirement in self.list_output_requirements()
+        }
         return KGContext(
             patterns=patterns,
             algorithms=algorithms,
@@ -774,6 +950,11 @@ class Neo4jKGRepository(KGRepository):
             ),
             task_nodes=self.list_task_nodes(),
             scenario_profiles=self.get_scenario_profiles(disaster_type),
+            task_bundles=task_bundles,
+            output_requirements=output_requirements,
+            qos_policies={policy.policy_id: policy for policy in self.list_qos_policies()},
+            data_needs=self.list_data_needs(),
+            repair_strategies=self.list_repair_strategies(),
             disaster_type=disaster_type,
         )
 

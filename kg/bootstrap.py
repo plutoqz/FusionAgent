@@ -10,11 +10,16 @@ from typing import Any, Iterable, List
 from kg.seed import (
     ALGORITHMS,
     CAN_TRANSFORM_TO,
+    DATA_NEEDS,
     DATA_SOURCES,
     DATA_TYPES,
     OUTPUT_SCHEMA_POLICIES,
+    OUTPUT_REQUIREMENTS,
     PARAMETER_SPECS,
+    QOS_POLICIES,
+    REPAIR_STRATEGIES,
     SCENARIO_PROFILES,
+    TASK_BUNDLES,
     TASKS,
     WORKFLOW_PATTERNS,
 )
@@ -30,11 +35,16 @@ def expected_seed_inventory() -> dict[str, int]:
     return {
         "DataType": len(DATA_TYPES),
         "Task": len(TASKS),
+        "TaskBundle": len(TASK_BUNDLES),
         "Algorithm": len(ALGORITHMS),
         "AlgorithmParameterSpec": sum(len(items) for items in PARAMETER_SPECS.values()),
         "DataSource": len(DATA_SOURCES),
         "ScenarioProfile": len(SCENARIO_PROFILES),
+        "QoSPolicy": len(QOS_POLICIES),
         "OutputSchemaPolicy": len(OUTPUT_SCHEMA_POLICIES),
+        "OutputRequirement": len(OUTPUT_REQUIREMENTS),
+        "DataNeed": len(DATA_NEEDS),
+        "RepairStrategy": len(REPAIR_STRATEGIES),
         "WorkflowPattern": len(WORKFLOW_PATTERNS),
     }
 
@@ -80,11 +90,16 @@ def build_bootstrap_cypher(graph_namespace: str | None = None) -> str:
         _build_schema_section(),
         _build_datatype_section(namespace),
         _build_task_section(namespace),
+        _build_task_bundle_section(namespace),
         _build_algorithm_section(namespace),
         _build_parameter_spec_section(namespace),
         _build_datasource_section(namespace),
         _build_scenario_profile_section(namespace),
+        _build_qos_policy_section(namespace),
         _build_output_schema_policy_section(namespace),
+        _build_output_requirement_section(namespace),
+        _build_data_need_section(namespace),
+        _build_repair_strategy_section(namespace),
         _build_pattern_section(namespace),
         _build_transform_section(),
     ]
@@ -114,8 +129,18 @@ def _build_schema_section() -> str:
             "FOR (dt:DataType) REQUIRE dt.typeId IS UNIQUE;",
             "CREATE CONSTRAINT task_task_id IF NOT EXISTS",
             "FOR (task:Task) REQUIRE task.taskId IS UNIQUE;",
+            "CREATE CONSTRAINT task_bundle_bundle_id IF NOT EXISTS",
+            "FOR (tb:TaskBundle) REQUIRE tb.bundleId IS UNIQUE;",
             "CREATE CONSTRAINT scenario_profile_profile_id IF NOT EXISTS",
             "FOR (profile:ScenarioProfile) REQUIRE profile.profileId IS UNIQUE;",
+            "CREATE CONSTRAINT qos_policy_policy_id IF NOT EXISTS",
+            "FOR (qos:QoSPolicy) REQUIRE qos.policyId IS UNIQUE;",
+            "CREATE CONSTRAINT output_requirement_requirement_id IF NOT EXISTS",
+            "FOR (orq:OutputRequirement) REQUIRE orq.requirementId IS UNIQUE;",
+            "CREATE CONSTRAINT data_need_need_id IF NOT EXISTS",
+            "FOR (dn:DataNeed) REQUIRE dn.needId IS UNIQUE;",
+            "CREATE CONSTRAINT repair_strategy_strategy_id IF NOT EXISTS",
+            "FOR (rs:RepairStrategy) REQUIRE rs.strategyId IS UNIQUE;",
             "CREATE CONSTRAINT step_template_step_key IF NOT EXISTS",
             "FOR (st:StepTemplate) REQUIRE st.stepKey IS UNIQUE;",
             "CREATE CONSTRAINT workflow_instance_instance_id IF NOT EXISTS",
@@ -156,6 +181,35 @@ def _build_task_section(graph_namespace: str) -> str:
             f"SET task:{MANAGED_LABEL} "
             f"SET task += {{{_merge_properties(properties)}}};"
         )
+    return _statement_lines(lines)
+
+
+def _build_task_bundle_section(graph_namespace: str) -> str:
+    lines = ["// Seed TaskBundle nodes"]
+    for bundle in TASK_BUNDLES.values():
+        properties = {
+            "bundleId": bundle.bundle_id,
+            "bundleName": bundle.bundle_name,
+            "requestedTasks": bundle.requested_tasks,
+            "outputRequirementId": bundle.output_requirement_id,
+            "qosPolicyId": bundle.qos_policy_id,
+            "dataNeedIds": bundle.data_need_ids,
+            "repairStrategyIds": bundle.repair_strategy_ids,
+            "requiresDisasterProfile": bundle.requires_disaster_profile,
+            "metadataJson": json.dumps(bundle.metadata, ensure_ascii=False),
+            "graphNamespace": graph_namespace,
+        }
+        lines.append(
+            f"MERGE (tb:TaskBundle {{{_merge_properties({'bundleId': bundle.bundle_id})}}}) "
+            f"SET tb:{MANAGED_LABEL} "
+            f"SET tb += {{{_merge_properties(properties)}}};"
+        )
+        for task_id in bundle.requested_tasks:
+            lines.append(
+                f"MATCH (tb:TaskBundle:{MANAGED_LABEL} {{bundleId: {_cypher_literal(bundle.bundle_id)}}}), "
+                f"(task:Task:{MANAGED_LABEL} {{taskId: {_cypher_literal(task_id)}}}) "
+                "MERGE (tb)-[:REQUESTS_TASK]->(task);"
+            )
     return _statement_lines(lines)
 
 
@@ -263,6 +317,7 @@ def _build_scenario_profile_section(graph_namespace: str) -> str:
             "activatedTasks": profile.activated_tasks,
             "preferredOutputFields": profile.preferred_output_fields,
             "qosPriorityJson": json.dumps(profile.qos_priority, ensure_ascii=False),
+            "qosPolicyId": profile.qos_policy_id,
             "metadataJson": json.dumps(profile.metadata, ensure_ascii=False),
             "graphNamespace": graph_namespace,
         }
@@ -271,6 +326,39 @@ def _build_scenario_profile_section(graph_namespace: str) -> str:
             f"SET profile:{MANAGED_LABEL} "
             f"SET profile += {{{_merge_properties(properties)}}};"
         )
+        for task_id in profile.activated_tasks:
+            lines.append(
+                f"MATCH (profile:ScenarioProfile:{MANAGED_LABEL} {{profileId: {_cypher_literal(profile.profile_id)}}}), "
+                f"(task:Task:{MANAGED_LABEL} {{taskId: {_cypher_literal(task_id)}}}) "
+                "MERGE (profile)-[:ACTIVATES_TASK]->(task);"
+            )
+    return _statement_lines(lines)
+
+
+def _build_qos_policy_section(graph_namespace: str) -> str:
+    lines = ["// Seed QoSPolicy nodes"]
+    for policy in QOS_POLICIES.values():
+        properties = {
+            "policyId": policy.policy_id,
+            "policyName": policy.policy_name,
+            "priorityJson": json.dumps(policy.priority, ensure_ascii=False),
+            "maxLatencySeconds": policy.max_latency_seconds,
+            "minSuccessRate": policy.min_success_rate,
+            "metadataJson": json.dumps(policy.metadata, ensure_ascii=False),
+            "graphNamespace": graph_namespace,
+        }
+        lines.append(
+            f"MERGE (qos:QoSPolicy {{{_merge_properties({'policyId': policy.policy_id})}}}) "
+            f"SET qos:{MANAGED_LABEL} "
+            f"SET qos += {{{_merge_properties(properties)}}};"
+        )
+    for profile in SCENARIO_PROFILES:
+        if profile.qos_policy_id:
+            lines.append(
+                f"MATCH (profile:ScenarioProfile:{MANAGED_LABEL} {{profileId: {_cypher_literal(profile.profile_id)}}}), "
+                f"(qos:QoSPolicy:{MANAGED_LABEL} {{policyId: {_cypher_literal(profile.qos_policy_id)}}}) "
+                "MERGE (profile)-[:DEFAULTS_TO_QOS]->(qos);"
+            )
     return _statement_lines(lines)
 
 
@@ -299,6 +387,110 @@ def _build_output_schema_policy_section(graph_namespace: str) -> str:
             f"(dt:DataType:{MANAGED_LABEL} {{typeId: {_cypher_literal(policy.output_type)}}}) "
             "MERGE (osp)-[:APPLIES_TO_OUTPUT_TYPE]->(dt);"
         )
+    return _statement_lines(lines)
+
+
+def _build_output_requirement_section(graph_namespace: str) -> str:
+    lines = ["// Seed OutputRequirement nodes"]
+    for requirement in OUTPUT_REQUIREMENTS.values():
+        properties = {
+            "requirementId": requirement.requirement_id,
+            "jobType": requirement.job_type.value,
+            "outputType": requirement.output_type,
+            "schemaPolicyId": requirement.schema_policy_id,
+            "requiredFields": requirement.required_fields,
+            "preferredFields": requirement.preferred_fields,
+            "optionalFields": requirement.optional_fields,
+            "metadataJson": json.dumps(requirement.metadata, ensure_ascii=False),
+            "graphNamespace": graph_namespace,
+        }
+        lines.append(
+            f"MERGE (orq:OutputRequirement {{{_merge_properties({'requirementId': requirement.requirement_id})}}}) "
+            f"SET orq:{MANAGED_LABEL} "
+            f"SET orq += {{{_merge_properties(properties)}}};"
+        )
+        lines.append(
+            f"MATCH (orq:OutputRequirement:{MANAGED_LABEL} {{requirementId: {_cypher_literal(requirement.requirement_id)}}}), "
+            f"(dt:DataType:{MANAGED_LABEL} {{typeId: {_cypher_literal(requirement.output_type)}}}) "
+            "MERGE (orq)-[:REQUIRES_OUTPUT_TYPE]->(dt);"
+        )
+        lines.append(
+            f"MATCH (orq:OutputRequirement:{MANAGED_LABEL} {{requirementId: {_cypher_literal(requirement.requirement_id)}}}), "
+            f"(osp:OutputSchemaPolicy:{MANAGED_LABEL} {{policyId: {_cypher_literal(requirement.schema_policy_id)}}}) "
+            "MERGE (orq)-[:USES_SCHEMA_POLICY]->(osp);"
+        )
+    for bundle in TASK_BUNDLES.values():
+        if bundle.output_requirement_id:
+            lines.append(
+                f"MATCH (tb:TaskBundle:{MANAGED_LABEL} {{bundleId: {_cypher_literal(bundle.bundle_id)}}}), "
+                f"(orq:OutputRequirement:{MANAGED_LABEL} {{requirementId: {_cypher_literal(bundle.output_requirement_id)}}}) "
+                "MERGE (tb)-[:TARGETS_OUTPUT_REQUIREMENT]->(orq);"
+            )
+    return _statement_lines(lines)
+
+
+def _build_data_need_section(graph_namespace: str) -> str:
+    lines = ["// Seed DataNeed nodes"]
+    for need in DATA_NEEDS:
+        properties = {
+            "needId": need.need_id,
+            "taskId": need.task_id,
+            "dataTypeId": need.data_type_id,
+            "direction": need.direction,
+            "required": need.required,
+            "description": need.description,
+            "metadataJson": json.dumps(need.metadata, ensure_ascii=False),
+            "graphNamespace": graph_namespace,
+        }
+        lines.append(
+            f"MERGE (dn:DataNeed {{{_merge_properties({'needId': need.need_id})}}}) "
+            f"SET dn:{MANAGED_LABEL} "
+            f"SET dn += {{{_merge_properties(properties)}}};"
+        )
+        lines.append(
+            f"MATCH (dn:DataNeed:{MANAGED_LABEL} {{needId: {_cypher_literal(need.need_id)}}}), "
+            f"(task:Task:{MANAGED_LABEL} {{taskId: {_cypher_literal(need.task_id)}}}) "
+            "MERGE (task)-[:HAS_DATA_NEED]->(dn);"
+        )
+        lines.append(
+            f"MATCH (dn:DataNeed:{MANAGED_LABEL} {{needId: {_cypher_literal(need.need_id)}}}), "
+            f"(dt:DataType:{MANAGED_LABEL} {{typeId: {_cypher_literal(need.data_type_id)}}}) "
+            "MERGE (dn)-[:REFERS_TO_DATA_TYPE]->(dt);"
+        )
+    return _statement_lines(lines)
+
+
+def _build_repair_strategy_section(graph_namespace: str) -> str:
+    lines = ["// Seed RepairStrategy nodes"]
+    for strategy in REPAIR_STRATEGIES.values():
+        properties = {
+            "strategyId": strategy.strategy_id,
+            "strategyName": strategy.strategy_name,
+            "reasonCodes": strategy.reason_codes,
+            "fromAlgorithmId": strategy.from_algorithm_id,
+            "toAlgorithmId": strategy.to_algorithm_id,
+            "appliesToTaskIds": strategy.applies_to_task_ids,
+            "metadataJson": json.dumps(strategy.metadata, ensure_ascii=False),
+            "graphNamespace": graph_namespace,
+        }
+        lines.append(
+            f"MERGE (rs:RepairStrategy {{{_merge_properties({'strategyId': strategy.strategy_id})}}}) "
+            f"SET rs:{MANAGED_LABEL} "
+            f"SET rs += {{{_merge_properties(properties)}}};"
+        )
+        for task_id in strategy.applies_to_task_ids:
+            lines.append(
+                f"MATCH (rs:RepairStrategy:{MANAGED_LABEL} {{strategyId: {_cypher_literal(strategy.strategy_id)}}}), "
+                f"(task:Task:{MANAGED_LABEL} {{taskId: {_cypher_literal(task_id)}}}) "
+                "MERGE (rs)-[:APPLIES_TO_TASK]->(task);"
+            )
+    for bundle in TASK_BUNDLES.values():
+        for strategy_id in bundle.repair_strategy_ids:
+            lines.append(
+                f"MATCH (tb:TaskBundle:{MANAGED_LABEL} {{bundleId: {_cypher_literal(bundle.bundle_id)}}}), "
+                f"(rs:RepairStrategy:{MANAGED_LABEL} {{strategyId: {_cypher_literal(strategy_id)}}}) "
+                "MERGE (tb)-[:USES_REPAIR_STRATEGY]->(rs);"
+            )
     return _statement_lines(lines)
 
 
