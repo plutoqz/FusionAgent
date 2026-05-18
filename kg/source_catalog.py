@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from typing import List, Optional, Tuple
 
 from kg.models import DataSourceNode
+from kg.track_b_source_contract import track_b_source_metadata, track_b_theme_metadata
 
 
 DEFAULT_DISASTER_TYPES = ["generic", "flood", "earthquake", "typhoon"]
@@ -75,14 +76,29 @@ RAW_VECTOR_SOURCE_SPECS: Tuple[RawVectorSourceSpec, ...] = (
         relative_path=("Data", "roads", "OSM"),
     ),
     RawVectorSourceSpec(
+        source_id="raw.overture.road",
+        locator_kind="first_shp_in_dir",
+        relative_path=("Data", "roads", "Overture"),
+    ),
+    RawVectorSourceSpec(
         source_id="raw.osm.water",
         locator_kind="exact_path",
         relative_path=("Data", "burundi-260127-free.shp", "gis_osm_water_a_free_1.shp"),
     ),
     RawVectorSourceSpec(
         source_id="raw.local.water",
-        locator_kind="first_shp_in_dir",
-        relative_path=("Data", "water"),
+        locator_kind="exact_path",
+        relative_path=("Data", "water", "布隆迪湖泊.shp"),
+    ),
+    RawVectorSourceSpec(
+        source_id="raw.hydrorivers.water",
+        locator_kind="exact_path",
+        relative_path=("Data", "water", "BDI.shp"),
+    ),
+    RawVectorSourceSpec(
+        source_id="raw.hydrolakes.water",
+        locator_kind="exact_path",
+        relative_path=("Data", "water", "布隆迪湖泊.shp"),
     ),
     RawVectorSourceSpec(
         source_id="raw.osm.poi",
@@ -127,8 +143,8 @@ CATALOG_BUNDLE_SPECS: Tuple[CatalogBundleSpec, ...] = (
     CatalogBundleSpec(
         source_id="catalog.flood.road",
         osm_source_id="raw.osm.road",
-        ref_source_id=None,
-        bundle_strategy="single_source_with_empty_ref",
+        ref_source_id="raw.overture.road",
+        bundle_strategy="osm_ref_pair",
     ),
     CatalogBundleSpec(
         source_id="catalog.earthquake.building",
@@ -139,14 +155,14 @@ CATALOG_BUNDLE_SPECS: Tuple[CatalogBundleSpec, ...] = (
     CatalogBundleSpec(
         source_id="catalog.earthquake.road",
         osm_source_id="raw.osm.road",
-        ref_source_id=None,
-        bundle_strategy="single_source_with_empty_ref",
+        ref_source_id="raw.overture.road",
+        bundle_strategy="osm_ref_pair",
     ),
     CatalogBundleSpec(
         source_id="catalog.typhoon.road",
         osm_source_id="raw.osm.road",
-        ref_source_id=None,
-        bundle_strategy="single_source_with_empty_ref",
+        ref_source_id="raw.overture.road",
+        bundle_strategy="osm_ref_pair",
     ),
 )
 
@@ -252,6 +268,7 @@ def build_data_sources() -> List[DataSourceNode]:
                 "selectable_now": True,
                 "supports_tiling": True,
                 "height_semantics": "confidence_only",
+                **track_b_theme_metadata("building"),
             },
         ),
         DataSourceNode(
@@ -279,6 +296,7 @@ def build_data_sources() -> List[DataSourceNode]:
                 "source_form": "bundle",
                 "runtime_status": "runtime_candidate",
                 "selectable_now": True,
+                **track_b_theme_metadata("water"),
             },
         ),
         DataSourceNode(
@@ -306,6 +324,7 @@ def build_data_sources() -> List[DataSourceNode]:
                 "source_form": "bundle",
                 "runtime_status": "runtime_candidate",
                 "selectable_now": True,
+                **track_b_theme_metadata("poi"),
             },
         ),
         DataSourceNode(
@@ -335,6 +354,7 @@ def build_data_sources() -> List[DataSourceNode]:
                 "selectable_now": True,
                 "supports_tiling": True,
                 "height_semantics": "confidence_only",
+                **track_b_theme_metadata("building"),
             },
         ),
         DataSourceNode(
@@ -362,6 +382,7 @@ def build_data_sources() -> List[DataSourceNode]:
                 "source_form": "bundle",
                 "runtime_status": "runtime_candidate",
                 "selectable_now": True,
+                **track_b_theme_metadata("road"),
             },
         ),
         DataSourceNode(
@@ -389,6 +410,7 @@ def build_data_sources() -> List[DataSourceNode]:
                 "source_form": "bundle",
                 "runtime_status": "runtime_candidate",
                 "selectable_now": True,
+                **track_b_theme_metadata("road"),
             },
         ),
         DataSourceNode(
@@ -416,6 +438,7 @@ def build_data_sources() -> List[DataSourceNode]:
                 "source_form": "bundle",
                 "runtime_status": "runtime_candidate",
                 "selectable_now": True,
+                **track_b_theme_metadata("road"),
             },
         ),
         DataSourceNode(
@@ -446,6 +469,7 @@ def build_data_sources() -> List[DataSourceNode]:
                 "supports_tiling": True,
                 "height_semantics": "unknown",
                 "coverage_scope": "country_bundle",
+                **track_b_source_metadata("raw.osm.building"),
             },
         ),
         DataSourceNode(
@@ -475,6 +499,7 @@ def build_data_sources() -> List[DataSourceNode]:
                 "supports_tiling": True,
                 "height_semantics": "unknown",
                 "coverage_scope": "local_only",
+                **track_b_source_metadata("raw.google.building"),
             },
         ),
         DataSourceNode(
@@ -506,6 +531,7 @@ def build_data_sources() -> List[DataSourceNode]:
                 "height_fields": ["height"],
                 "height_semantics": "estimated_height",
                 "coverage_scope": "country_tiles",
+                **track_b_source_metadata("raw.microsoft.building"),
             },
         ),
         DataSourceNode(
@@ -536,6 +562,7 @@ def build_data_sources() -> List[DataSourceNode]:
                 "height_fields": ["height"],
                 "height_semantics": "estimated_height",
                 "coverage_scope": "national_clip",
+                **track_b_source_metadata("raw.openbuildingmap.building"),
             },
         ),
         DataSourceNode(
@@ -566,6 +593,7 @@ def build_data_sources() -> List[DataSourceNode]:
                 "height_fields": ["height"],
                 "height_semantics": "estimated_height",
                 "coverage_scope": "national_clip",
+                **track_b_source_metadata("raw.local.microsoft.building"),
             },
         ),
         DataSourceNode(
@@ -595,6 +623,7 @@ def build_data_sources() -> List[DataSourceNode]:
                 "supports_tiling": True,
                 "height_semantics": "unknown",
                 "coverage_scope": "national_clip",
+                **track_b_source_metadata("raw.google.open_buildings.vector"),
             },
         ),
         DataSourceNode(
@@ -680,6 +709,35 @@ def build_data_sources() -> List[DataSourceNode]:
                 "source_form": "vector",
                 "runtime_status": "runtime_candidate",
                 "selectable_now": True,
+                **track_b_source_metadata("raw.osm.road"),
+            },
+        ),
+        DataSourceNode(
+            source_id="raw.overture.road",
+            source_name="Overture Transportation Extract",
+            supported_types=["dt.raw.vector"],
+            disaster_types=list(DEFAULT_DISASTER_TYPES),
+            quality_score=0.86,
+            source_kind="open_data",
+            quality_tier="provider_curated",
+            freshness_category="sample_snapshot",
+            freshness_hours=240,
+            freshness_score=0.57,
+            supported_job_types=["road"],
+            supported_geometry_types=["line"],
+            metadata={
+                "kind": "raw_vector",
+                "provider_family": "overture",
+                "theme": "road",
+                "source_role": "reference_candidate",
+                "path_hint": _raw_path_hint("raw.overture.road"),
+                "supports_aoi": False,
+                "materialization_scope": "local_only",
+                "source_form": "vector",
+                "runtime_status": "reservation_only",
+                "selectable_now": False,
+                "coverage_scope": "national_clip",
+                **track_b_source_metadata("raw.overture.road"),
             },
         ),
         DataSourceNode(
@@ -707,6 +765,7 @@ def build_data_sources() -> List[DataSourceNode]:
                 "source_form": "vector",
                 "runtime_status": "runtime_candidate",
                 "selectable_now": True,
+                **track_b_source_metadata("raw.osm.water"),
             },
         ),
         DataSourceNode(
@@ -733,6 +792,63 @@ def build_data_sources() -> List[DataSourceNode]:
                 "source_form": "vector",
                 "runtime_status": "runtime_candidate",
                 "selectable_now": True,
+                **track_b_source_metadata("raw.local.water"),
+            },
+        ),
+        DataSourceNode(
+            source_id="raw.hydrorivers.water",
+            source_name="HydroRIVERS Reference",
+            supported_types=["dt.raw.vector"],
+            disaster_types=list(DEFAULT_DISASTER_TYPES),
+            quality_score=0.82,
+            source_kind="open_data",
+            quality_tier="hydro_reference",
+            freshness_category="sample_snapshot",
+            freshness_hours=720,
+            freshness_score=0.44,
+            supported_job_types=["water"],
+            supported_geometry_types=["line"],
+            metadata={
+                "kind": "raw_vector",
+                "provider_family": "hydrorivers",
+                "theme": "water",
+                "source_role": "reference_candidate",
+                "path_hint": _raw_path_hint("raw.hydrorivers.water"),
+                "supports_aoi": False,
+                "materialization_scope": "local_only",
+                "source_form": "vector",
+                "runtime_status": "reservation_only",
+                "selectable_now": False,
+                "coverage_scope": "national_clip",
+                **track_b_source_metadata("raw.hydrorivers.water"),
+            },
+        ),
+        DataSourceNode(
+            source_id="raw.hydrolakes.water",
+            source_name="HydroLAKES Reference",
+            supported_types=["dt.raw.vector"],
+            disaster_types=list(DEFAULT_DISASTER_TYPES),
+            quality_score=0.81,
+            source_kind="open_data",
+            quality_tier="hydro_reference",
+            freshness_category="sample_snapshot",
+            freshness_hours=720,
+            freshness_score=0.43,
+            supported_job_types=["water"],
+            supported_geometry_types=["polygon"],
+            metadata={
+                "kind": "raw_vector",
+                "provider_family": "hydrolakes",
+                "theme": "water",
+                "source_role": "reference_candidate",
+                "path_hint": _raw_path_hint("raw.hydrolakes.water"),
+                "supports_aoi": False,
+                "materialization_scope": "local_only",
+                "source_form": "vector",
+                "runtime_status": "reservation_only",
+                "selectable_now": False,
+                "coverage_scope": "national_clip",
+                **track_b_source_metadata("raw.hydrolakes.water"),
             },
         ),
         DataSourceNode(
@@ -760,6 +876,7 @@ def build_data_sources() -> List[DataSourceNode]:
                 "source_form": "vector",
                 "runtime_status": "runtime_candidate",
                 "selectable_now": True,
+                **track_b_source_metadata("raw.osm.poi"),
             },
         ),
         DataSourceNode(
@@ -786,6 +903,7 @@ def build_data_sources() -> List[DataSourceNode]:
                 "source_form": "vector",
                 "runtime_status": "runtime_candidate",
                 "selectable_now": True,
+                **track_b_source_metadata("raw.gns.poi"),
             },
         ),
         DataSourceNode(
@@ -812,6 +930,7 @@ def build_data_sources() -> List[DataSourceNode]:
                 "source_form": "vector",
                 "runtime_status": "runtime_candidate",
                 "selectable_now": True,
+                **track_b_source_metadata("raw.rh.poi"),
             },
         ),
     ]

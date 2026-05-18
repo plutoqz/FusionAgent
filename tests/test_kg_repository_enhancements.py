@@ -200,6 +200,9 @@ def test_repository_exposes_bundle_and_raw_sources_for_catalog_expansion() -> No
     assert "raw.osm.poi" in raw_ids
     assert "raw.microsoft.building" in raw_ids
     assert "raw.google.building" in raw_ids
+    assert "raw.overture.road" in raw_ids
+    assert "raw.hydrorivers.water" in raw_ids
+    assert "raw.hydrolakes.water" in raw_ids
 
     flood_bundle = next(source for source in bundle_sources if source.source_id == "catalog.flood.building")
     assert flood_bundle.metadata["component_source_ids"] == ["raw.osm.building", "raw.google.building"]
@@ -207,6 +210,24 @@ def test_repository_exposes_bundle_and_raw_sources_for_catalog_expansion() -> No
     water_bundle = next(source for source in water_bundle_sources if source.source_id == "catalog.flood.water")
     assert water_bundle.metadata["component_source_ids"] == ["raw.osm.water", "raw.local.water"]
     assert water_bundle.metadata["bundle_strategy"] == "osm_ref_pair"
+
+
+def test_repository_exposes_locked_track_b_manual_preload_sources_for_road_and_water() -> None:
+    repo = InMemoryKGRepository()
+
+    raw_sources = repo.get_candidate_data_sources(
+        job_type=JobType.road,
+        disaster_type="generic",
+        required_type="dt.raw.vector",
+        limit=16,
+    )
+
+    by_id = {source.source_id: source for source in raw_sources}
+
+    assert by_id["raw.overture.road"].metadata["acquisition_class"] == "manual_preload_required"
+    assert by_id["raw.overture.road"].metadata["runtime_status"] == "reservation_only"
+    assert by_id["raw.hydrorivers.water"].metadata["acquisition_class"] == "manual_preload_required"
+    assert by_id["raw.hydrolakes.water"].metadata["acquisition_class"] == "manual_preload_required"
 
 
 def test_repository_exposes_reserved_building_sources_and_raster_inputs() -> None:

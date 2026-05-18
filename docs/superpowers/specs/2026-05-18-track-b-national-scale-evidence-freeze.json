@@ -1,0 +1,476 @@
+{
+  "captured_at": "2026-05-18",
+  "scope": "Track B national-scale evidence freeze for the Burundi local-data matrix",
+  "worktree": ".",
+  "source_contract_ref": "docs/superpowers/specs/2026-05-18-track-b-national-source-matrix.md",
+  "evidence_root": "runs/2026-05-18-track-b-national-evidence",
+  "request_bbox": [
+    28.976001,
+    -4.698707,
+    30.884489,
+    -2.30746
+  ],
+  "request_bbox_crs": "EPSG:4326",
+  "request_bbox_note": "Derived from Data/burundi-260127-free.shp/gis_osm_roads_free_1.shp total_bounds to keep road/water/poi on the same country bundle boundary.",
+  "target_crs": "EPSG:32735",
+  "tile_width_m": 50000.0,
+  "tile_height_m": 50000.0,
+  "overlap_m": 0.0,
+  "runtime_notes": [
+    "road keeps raw.overture.road as the locked second source id, but the current checked-in snapshot still has no preload under Data/roads/Overture, so the road claim stays national_scale_partial_reference.",
+    "water fuses the current OSM plus raw.local.water pair and also emits normalized supplemental artifacts for raw.hydrorivers.water and raw.hydrolakes.water as B4 field-mapping evidence.",
+    "poi fuses the current OSM plus raw.gns.poi pair and also emits a normalized supplemental artifact for raw.rh.poi as B4 field-mapping evidence.",
+    "Raw national run directories stay under runs/ and are referenced here instead of being copied into docs/."
+  ],
+  "runs": [
+    {
+      "theme": "road",
+      "job_type": "road",
+      "claim_state": "national_scale_partial_reference",
+      "selected_source_id": "catalog.flood.road",
+      "component_source_ids": [
+        "raw.osm.road",
+        "raw.overture.road"
+      ],
+      "tile_count": 30,
+      "artifact_path": "runs/2026-05-18-track-b-national-evidence/road/road_national_scale_fused.gpkg",
+      "inspection_summary": "runs/2026-05-18-track-b-national-evidence/road/inspection_summary.json",
+      "selected_sources": "runs/2026-05-18-track-b-national-evidence/road/selected_sources.json",
+      "source_profile_snapshot": "runs/2026-05-18-track-b-national-evidence/road/source_profile_snapshot.json",
+      "normalization_summary": "runs/2026-05-18-track-b-national-evidence/road/normalization_summary.json",
+      "tile_manifest": "runs/2026-05-18-track-b-national-evidence/road/tile_manifest.json",
+      "timing": "runs/2026-05-18-track-b-national-evidence/road/timing.json",
+      "artifact_metrics": {
+        "artifact_validity": true,
+        "feature_count": 3863,
+        "crs": "EPSG:32735",
+        "geometry_types": [
+          "MultiLineString"
+        ],
+        "missing_fields": [],
+        "bbox": [
+          29.568980143593354,
+          -3.7176374339240583,
+          29.872323613733226,
+          -3.2993580462903376
+        ],
+        "total_area_sq_km": 0.0,
+        "total_length_km": 2363.3848717705773
+      },
+      "component_coverage": {
+        "raw.osm.road": {
+          "source_id": "raw.osm.road",
+          "source_mode": "downloaded",
+          "feature_count": 3863,
+          "coverage_status": "available",
+          "path": "runs/2026-05-18-track-b-national-evidence/road/input_bundle/osm.zip",
+          "error": null
+        },
+        "raw.overture.road": {
+          "source_id": "raw.overture.road",
+          "source_mode": "missing_optional_ref",
+          "feature_count": 0,
+          "coverage_status": "empty",
+          "path": "runs/2026-05-18-track-b-national-evidence/road/input_bundle/ref.zip",
+          "error": null
+        }
+      },
+      "selected_normalized_sources": {
+        "raw.osm.road": {
+          "source_id": "raw.osm.road",
+          "artifact_path": "runs/2026-05-18-track-b-national-evidence/road/normalized/raw_osm_road.gpkg",
+          "feature_count": 3863,
+          "columns": [
+            "osm_id",
+            "code",
+            "fclass",
+            "name",
+            "ref",
+            "oneway",
+            "maxspeed",
+            "layer",
+            "bridge",
+            "tunnel",
+            "geometry",
+            "source_id",
+            "track_b_theme",
+            "field_mapping_profile",
+            "source_feature_id",
+            "road_class"
+          ]
+        },
+        "raw.overture.road": {
+          "source_id": "raw.overture.road",
+          "artifact_path": "runs/2026-05-18-track-b-national-evidence/road/normalized/raw_overture_road.gpkg",
+          "feature_count": 0,
+          "columns": [
+            "osm_id",
+            "code",
+            "fclass",
+            "name",
+            "ref",
+            "oneway",
+            "maxspeed",
+            "layer",
+            "bridge",
+            "tunnel",
+            "geometry",
+            "source_id",
+            "track_b_theme",
+            "field_mapping_profile",
+            "source_feature_id",
+            "FID_1",
+            "road_class"
+          ]
+        }
+      },
+      "supplemental_normalized_sources": {}
+    },
+    {
+      "theme": "water",
+      "job_type": "water",
+      "claim_state": "national_scale_supported",
+      "selected_source_id": "catalog.flood.water",
+      "component_source_ids": [
+        "raw.osm.water",
+        "raw.local.water"
+      ],
+      "tile_count": 30,
+      "artifact_path": "runs/2026-05-18-track-b-national-evidence/water/water_national_scale_fused.gpkg",
+      "inspection_summary": "runs/2026-05-18-track-b-national-evidence/water/inspection_summary.json",
+      "selected_sources": "runs/2026-05-18-track-b-national-evidence/water/selected_sources.json",
+      "source_profile_snapshot": "runs/2026-05-18-track-b-national-evidence/water/source_profile_snapshot.json",
+      "normalization_summary": "runs/2026-05-18-track-b-national-evidence/water/normalization_summary.json",
+      "tile_manifest": "runs/2026-05-18-track-b-national-evidence/water/tile_manifest.json",
+      "timing": "runs/2026-05-18-track-b-national-evidence/water/timing.json",
+      "artifact_metrics": {
+        "artifact_validity": true,
+        "feature_count": 1145,
+        "crs": "EPSG:32735",
+        "geometry_types": [
+          "MultiPolygon"
+        ],
+        "missing_fields": [],
+        "bbox": [
+          28.999994300000004,
+          -4.6987070000000015,
+          30.8494518,
+          -2.307459999999993
+        ],
+        "total_area_sq_km": 6647.431237712232,
+        "total_length_km": 0.0
+      },
+      "component_coverage": {
+        "raw.osm.water": {
+          "source_id": "raw.osm.water",
+          "source_mode": "downloaded",
+          "feature_count": 1143,
+          "coverage_status": "available",
+          "path": "runs/2026-05-18-track-b-national-evidence/water/input_bundle/osm.zip",
+          "error": null
+        },
+        "raw.local.water": {
+          "source_id": "raw.local.water",
+          "source_mode": "downloaded",
+          "feature_count": 16,
+          "coverage_status": "available",
+          "path": "runs/2026-05-18-track-b-national-evidence/water/input_bundle/ref.zip",
+          "error": null
+        }
+      },
+      "selected_normalized_sources": {
+        "raw.osm.water": {
+          "source_id": "raw.osm.water",
+          "artifact_path": "runs/2026-05-18-track-b-national-evidence/water/normalized/raw_osm_water.gpkg",
+          "feature_count": 1143,
+          "columns": [
+            "osm_id",
+            "code",
+            "fclass",
+            "name",
+            "geometry",
+            "source_id",
+            "track_b_theme",
+            "field_mapping_profile",
+            "source_feature_id",
+            "water_ty"
+          ]
+        },
+        "raw.local.water": {
+          "source_id": "raw.local.water",
+          "artifact_path": "runs/2026-05-18-track-b-national-evidence/water/normalized/raw_local_water.gpkg",
+          "feature_count": 16,
+          "columns": [
+            "Hylak_id",
+            "Lake_name",
+            "Country",
+            "Continent",
+            "Poly_src",
+            "Lake_type",
+            "Grand_id",
+            "Lake_area",
+            "Shore_len",
+            "Shore_dev",
+            "Vol_total",
+            "Vol_res",
+            "Vol_src",
+            "Depth_avg",
+            "Dis_avg",
+            "Res_time",
+            "Elevation",
+            "Slope_100",
+            "Wshd_area",
+            "Pour_long",
+            "Pour_lat",
+            "geometry",
+            "source_id",
+            "track_b_theme",
+            "field_mapping_profile",
+            "source_feature_id",
+            "name",
+            "fclass",
+            "water_ty"
+          ]
+        }
+      },
+      "supplemental_normalized_sources": {
+        "raw.hydrorivers.water": {
+          "source_id": "raw.hydrorivers.water",
+          "artifact_path": "runs/2026-05-18-track-b-national-evidence/water/normalized/supplemental/raw_hydrorivers_water.gpkg",
+          "feature_count": 1244,
+          "columns": [
+            "HYRIV_ID",
+            "NEXT_DOWN",
+            "MAIN_RIV",
+            "LENGTH_KM",
+            "DIST_DN_KM",
+            "DIST_UP_KM",
+            "CATCH_SKM",
+            "UPLAND_SKM",
+            "ENDORHEIC",
+            "DIS_AV_CMS",
+            "ORD_STRA",
+            "ORD_CLAS",
+            "ORD_FLOW",
+            "HYBAS_L12",
+            "geometry",
+            "source_id",
+            "track_b_theme",
+            "field_mapping_profile",
+            "source_feature_id",
+            "name",
+            "fclass",
+            "water_ty"
+          ],
+          "source_mode": "local_data_clipped"
+        },
+        "raw.hydrolakes.water": {
+          "source_id": "raw.hydrolakes.water",
+          "artifact_path": "runs/2026-05-18-track-b-national-evidence/water/normalized/supplemental/raw_hydrolakes_water.gpkg",
+          "feature_count": 16,
+          "columns": [
+            "Hylak_id",
+            "Lake_name",
+            "Country",
+            "Continent",
+            "Poly_src",
+            "Lake_type",
+            "Grand_id",
+            "Lake_area",
+            "Shore_len",
+            "Shore_dev",
+            "Vol_total",
+            "Vol_res",
+            "Vol_src",
+            "Depth_avg",
+            "Dis_avg",
+            "Res_time",
+            "Elevation",
+            "Slope_100",
+            "Wshd_area",
+            "Pour_long",
+            "Pour_lat",
+            "geometry",
+            "source_id",
+            "track_b_theme",
+            "field_mapping_profile",
+            "source_feature_id",
+            "name",
+            "fclass",
+            "water_ty"
+          ],
+          "source_mode": "local_data_clipped"
+        },
+        "raw.overture.water": {
+          "source_id": "raw.overture.water",
+          "artifact_path": null,
+          "feature_count": 0,
+          "columns": [],
+          "error": "FileNotFoundError: No local or remote source asset path available for raw.overture.water"
+        }
+      }
+    },
+    {
+      "theme": "poi",
+      "job_type": "poi",
+      "claim_state": "national_scale_supported",
+      "selected_source_id": "catalog.generic.poi",
+      "component_source_ids": [
+        "raw.osm.poi",
+        "raw.gns.poi"
+      ],
+      "tile_count": 30,
+      "artifact_path": "runs/2026-05-18-track-b-national-evidence/poi/poi_national_scale_fused.gpkg",
+      "inspection_summary": "runs/2026-05-18-track-b-national-evidence/poi/inspection_summary.json",
+      "selected_sources": "runs/2026-05-18-track-b-national-evidence/poi/selected_sources.json",
+      "source_profile_snapshot": "runs/2026-05-18-track-b-national-evidence/poi/source_profile_snapshot.json",
+      "normalization_summary": "runs/2026-05-18-track-b-national-evidence/poi/normalization_summary.json",
+      "tile_manifest": "runs/2026-05-18-track-b-national-evidence/poi/tile_manifest.json",
+      "timing": "runs/2026-05-18-track-b-national-evidence/poi/timing.json",
+      "artifact_metrics": {
+        "artifact_validity": true,
+        "feature_count": 15424,
+        "crs": "EPSG:32735",
+        "geometry_types": [
+          "Point"
+        ],
+        "missing_fields": [],
+        "bbox": [
+          29.01980000000009,
+          -4.454999999999921,
+          30.88333300000005,
+          -2.3269999999999493
+        ],
+        "total_area_sq_km": 0.0,
+        "total_length_km": 0.0
+      },
+      "component_coverage": {
+        "raw.osm.poi": {
+          "source_id": "raw.osm.poi",
+          "source_mode": "downloaded",
+          "feature_count": 2284,
+          "coverage_status": "available",
+          "path": "runs/2026-05-18-track-b-national-evidence/poi/input_bundle/osm.zip",
+          "error": null
+        },
+        "raw.gns.poi": {
+          "source_id": "raw.gns.poi",
+          "source_mode": "downloaded",
+          "feature_count": 13866,
+          "coverage_status": "available",
+          "path": "runs/2026-05-18-track-b-national-evidence/poi/input_bundle/ref.zip",
+          "error": null
+        }
+      },
+      "selected_normalized_sources": {
+        "raw.osm.poi": {
+          "source_id": "raw.osm.poi",
+          "artifact_path": "runs/2026-05-18-track-b-national-evidence/poi/normalized/raw_osm_poi.gpkg",
+          "feature_count": 2284,
+          "columns": [
+            "osm_id",
+            "code",
+            "fclass",
+            "name",
+            "geometry",
+            "source_id",
+            "track_b_theme",
+            "field_mapping_profile",
+            "source_feature_id",
+            "name_alt",
+            "category",
+            "GeoHash"
+          ]
+        },
+        "raw.gns.poi": {
+          "source_id": "raw.gns.poi",
+          "artifact_path": "runs/2026-05-18-track-b-national-evidence/poi/normalized/raw_gns_poi.gpkg",
+          "feature_count": 13866,
+          "columns": [
+            "rk",
+            "ufi",
+            "uni",
+            "full_name",
+            "nt",
+            "lat_dd",
+            "long_dd",
+            "efctv_dt",
+            "term_dt_f",
+            "term_dt_n",
+            "desig_cd",
+            "fc",
+            "cc_ft",
+            "adm1",
+            "ft_link",
+            "name_rank",
+            "lang_cd",
+            "transl_cd",
+            "script_cd",
+            "name_link",
+            "cc_nm",
+            "generic",
+            "full_nm_nd",
+            "sort_gen",
+            "sort_name",
+            "lat_dms",
+            "long_dms",
+            "mgrs",
+            "mgrs_X",
+            "mgrs_Y",
+            "mod_dt_ft",
+            "mod_dt_nm",
+            "dialect_cd",
+            "display",
+            "gis_notes",
+            "geometry",
+            "source_id",
+            "track_b_theme",
+            "field_mapping_profile",
+            "source_feature_id",
+            "name",
+            "name_alt",
+            "category",
+            "GeoHash"
+          ]
+        }
+      },
+      "supplemental_normalized_sources": {
+        "raw.rh.poi": {
+          "source_id": "raw.rh.poi",
+          "artifact_path": "runs/2026-05-18-track-b-national-evidence/poi/normalized/supplemental/raw_rh_poi.gpkg",
+          "feature_count": 24901,
+          "columns": [
+            "id",
+            "name",
+            "alternaten",
+            "GeoHash",
+            "type",
+            "type_intro",
+            "class",
+            "label",
+            "region",
+            "population",
+            "elevation",
+            "source",
+            "sourceid",
+            "geometry",
+            "source_id",
+            "track_b_theme",
+            "field_mapping_profile",
+            "source_feature_id",
+            "name_alt",
+            "category"
+          ],
+          "source_mode": "local_data_clipped"
+        },
+        "raw.overture.poi": {
+          "source_id": "raw.overture.poi",
+          "artifact_path": null,
+          "feature_count": 0,
+          "columns": [],
+          "error": "FileNotFoundError: No local or remote source asset path available for raw.overture.poi"
+        }
+      }
+    }
+  ]
+}

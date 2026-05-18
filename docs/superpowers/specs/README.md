@@ -73,6 +73,9 @@ execution chain defined by
 - `2026-05-09-kg-closure-gates.md`
 - `2026-05-10-kg-gates-evidence-summary.md`
 - `2026-05-12-building-gitega-micro-msft-neo4j-baseline-8012.json`
+- `2026-05-18-track-b-national-source-matrix.md`
+- `2026-05-18-track-b-national-scale-evidence-freeze.json`
+- `2026-05-18-track-b-smoke-evidence-freeze-8010.json`
 - `2026-05-13-thesis-research-spec.md`
 - `2026-05-13-thesis-claims-ledger.md`
 - `2026-05-13-thesis-related-work-matrix.json`

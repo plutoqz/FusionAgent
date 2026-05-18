@@ -9,7 +9,7 @@ from pathlib import Path
 
 import geopandas as gpd
 import pytest
-from shapely.geometry import Point, Polygon
+from shapely.geometry import LineString, Point, Polygon
 
 from services.artifact_registry import ArtifactRegistry
 from services.aoi_resolution_service import ResolvedAOI
@@ -58,6 +58,30 @@ def _seed_raw_source_tree(root: Path) -> None:
             crs="EPSG:4326",
         ),
     )
+    _write_frame(
+        root / "Data" / "roads" / "Overture" / "overture_roads.shp",
+        gpd.GeoDataFrame(
+            {"ov_road_id": [30]},
+            geometry=[LineString([(36.7, -1.3), (36.9, -1.2)])],
+            crs="EPSG:4326",
+        ),
+    )
+    _write_frame(
+        root / "Data" / "water" / "HydroRIVERS" / "hydrorivers.shp",
+        gpd.GeoDataFrame(
+            {"river_id": [40]},
+            geometry=[LineString([(36.6, -1.4), (37.0, -1.1)])],
+            crs="EPSG:4326",
+        ),
+    )
+    _write_frame(
+        root / "Data" / "water" / "HydroLAKES" / "hydrolakes.shp",
+        gpd.GeoDataFrame(
+            {"lake_id": [50]},
+            geometry=[Polygon([(36.7, -1.35), (36.7, -1.2), (36.9, -1.2), (36.9, -1.35)])],
+            crs="EPSG:4326",
+        ),
+    )
 
 
 def _resolved_nairobi_aoi() -> ResolvedAOI:
@@ -80,7 +104,7 @@ def test_raw_vector_source_service_supports_directory_exact_and_recursive_locato
         from pathlib import Path
 
         import geopandas as gpd
-        from shapely.geometry import Point, Polygon
+        from shapely.geometry import LineString, Point, Polygon
 
         from services.artifact_registry import ArtifactRegistry
         from services.raw_vector_source_service import RawVectorSourceService
@@ -117,6 +141,14 @@ def test_raw_vector_source_service_supports_directory_exact_and_recursive_locato
                     crs="EPSG:4326",
                 ),
             )
+            write_frame(
+                tmp_path / "Data" / "roads" / "Overture" / "overture_roads.shp",
+                gpd.GeoDataFrame(
+                    {"ov_road_id": [30]},
+                    geometry=[LineString([(0, 0), (1, 1)])],
+                    crs="EPSG:4326",
+                ),
+            )
             service = RawVectorSourceService(
                 root_dir=tmp_path,
                 registry=ArtifactRegistry(index_path=tmp_path / "artifact_registry.json"),
@@ -140,12 +172,20 @@ def test_raw_vector_source_service_supports_directory_exact_and_recursive_locato
                 target_path=tmp_path / "run" / "poi.zip",
                 target_crs="EPSG:4326",
             )
+            overture = service.resolve(
+                source_id="raw.overture.road",
+                request_bbox=None,
+                target_path=tmp_path / "run" / "overture.zip",
+                target_crs="EPSG:4326",
+            )
             assert building.zip_path.exists()
             assert water.zip_path.exists()
             assert poi.zip_path.exists()
+            assert overture.zip_path.exists()
             assert building.source_mode == "downloaded"
             assert water.source_mode == "downloaded"
             assert poi.source_mode == "downloaded"
+            assert overture.source_mode == "downloaded"
         """
     )
     completed = subprocess.run(
@@ -316,6 +356,46 @@ def test_raw_vector_source_service_materializes_local_water_source_with_stable_v
     assert resolved.cache_hit is False
     assert resolved.version_token == version_a
     assert _extract_bounds(resolved.zip_path) == [2.5, 2.5, 5.5, 5.5]
+
+
+def test_raw_vector_source_service_materializes_track_b_manual_preload_road_and_water_refs(tmp_path: Path) -> None:
+    _seed_raw_source_tree(tmp_path)
+    registry = ArtifactRegistry(index_path=tmp_path / "artifact_registry.json")
+    service = RawVectorSourceService(root_dir=tmp_path, registry=registry, cache_dir=tmp_path / "cache")
+
+    overture = service.resolve(
+        source_id="raw.overture.road",
+        request_bbox=(36.72, -1.31, 36.88, -1.21),
+        target_path=tmp_path / "run" / "overture.zip",
+        target_crs="EPSG:4326",
+    )
+    rivers = service.resolve(
+        source_id="raw.hydrorivers.water",
+        request_bbox=(36.65, -1.45, 37.02, -1.09),
+        target_path=tmp_path / "run" / "hydrorivers.zip",
+        target_crs="EPSG:4326",
+    )
+    lakes = service.resolve(
+        source_id="raw.hydrolakes.water",
+        request_bbox=(36.72, -1.34, 36.88, -1.21),
+        target_path=tmp_path / "run" / "hydrolakes.zip",
+        target_crs="EPSG:4326",
+    )
+
+    assert overture.source_id == "raw.overture.road"
+    assert overture.source_mode == "downloaded"
+    assert overture.cache_hit is False
+    assert _extract_bounds(overture.zip_path) == pytest.approx([36.72, -1.29, 36.88, -1.21], abs=1e-3)
+
+    assert rivers.source_id == "raw.hydrorivers.water"
+    assert rivers.source_mode == "downloaded"
+    assert rivers.cache_hit is False
+    assert _extract_bounds(rivers.zip_path) == pytest.approx([36.65, -1.3625, 37.0, -1.1], abs=1e-3)
+
+    assert lakes.source_id == "raw.hydrolakes.water"
+    assert lakes.source_mode == "downloaded"
+    assert lakes.cache_hit is False
+    assert _extract_bounds(lakes.zip_path) == pytest.approx([36.72, -1.34, 36.88, -1.21], abs=1e-3)
 
 
 def test_raw_vector_source_service_selects_gns_reference_by_resolved_aoi_country_hint(tmp_path: Path) -> None:

@@ -52,6 +52,14 @@ def _seed_local_catalog_tree(root: Path) -> None:
         ),
     )
     _write_frame(
+        root / "Data" / "roads" / "Overture" / "overture_roads.shp",
+        geopandas.GeoDataFrame(
+            {"ov_road_id": [2]},
+            geometry=[LineString([(0, 0), (1, 1)])],
+            crs="EPSG:4326",
+        ),
+    )
+    _write_frame(
         root / "Data" / "burundi-260127-free.shp" / "gis_osm_water_a_free_1.shp",
         geopandas.GeoDataFrame(
             {"osmw_id": [301]},
@@ -152,6 +160,76 @@ def test_local_bundle_catalog_materializes_flood_water_bundle_from_shared_provid
     assert materialized.ref_zip_path.name == "ref.zip"
     assert "osmw_id" in _read_columns(materialized.osm_zip_path)
     assert "locw_id" in _read_columns(materialized.ref_zip_path)
+
+
+def test_local_bundle_catalog_materializes_flood_road_bundle_with_overture_reference(tmp_path: Path) -> None:
+    _seed_local_catalog_tree(tmp_path)
+    provider = LocalBundleCatalogProvider(
+        tmp_path,
+        raw_source_service=RawVectorSourceService(
+            root_dir=tmp_path,
+            registry=ArtifactRegistry(index_path=tmp_path / "artifact_registry.json"),
+            cache_dir=tmp_path / "raw-cache",
+        ),
+    )
+
+    materialized = provider.materialize(
+        source_id="catalog.flood.road",
+        request_bbox=None,
+        target_dir=tmp_path / "road_bundle",
+        target_crs="EPSG:4326",
+    )
+
+    assert "road_id" in _read_columns(materialized.osm_zip_path)
+    assert "ov_road_id" in _read_columns(materialized.ref_zip_path)
+
+
+def test_local_bundle_catalog_road_bundle_tolerates_missing_manual_overture_reference(tmp_path: Path) -> None:
+    _seed_local_catalog_tree(tmp_path)
+    overture_dir = tmp_path / "Data" / "roads" / "Overture"
+    for path in overture_dir.glob("*"):
+        path.unlink()
+
+    provider = LocalBundleCatalogProvider(
+        tmp_path,
+        raw_source_service=RawVectorSourceService(
+            root_dir=tmp_path,
+            registry=ArtifactRegistry(index_path=tmp_path / "artifact_registry.json"),
+            cache_dir=tmp_path / "raw-cache",
+        ),
+    )
+
+    materialized = provider.materialize_with_fallback(
+        source_id="catalog.flood.road",
+        request_bbox=None,
+        target_dir=tmp_path / "road_bundle_missing_ref",
+        target_crs="EPSG:4326",
+    )
+
+    assert materialized.source_id == "catalog.flood.road"
+    assert materialized.component_coverage["raw.overture.road"].feature_count == 0
+    assert materialized.component_coverage["raw.overture.road"].source_mode == "missing_optional_ref"
+
+
+def test_local_bundle_catalog_current_version_tolerates_missing_manual_overture_reference(tmp_path: Path) -> None:
+    _seed_local_catalog_tree(tmp_path)
+    overture_dir = tmp_path / "Data" / "roads" / "Overture"
+    for path in overture_dir.glob("*"):
+        path.unlink()
+
+    provider = LocalBundleCatalogProvider(
+        tmp_path,
+        raw_source_service=RawVectorSourceService(
+            root_dir=tmp_path,
+            registry=ArtifactRegistry(index_path=tmp_path / "artifact_registry.json"),
+            cache_dir=tmp_path / "raw-cache",
+        ),
+    )
+
+    version = provider.current_version("catalog.flood.road")
+
+    assert version
+    assert "|missing:raw.overture.road" in version
 
 
 def test_local_bundle_catalog_water_bundle_raises_when_aoi_has_empty_component_coverage(tmp_path: Path) -> None:

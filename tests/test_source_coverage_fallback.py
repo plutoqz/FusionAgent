@@ -75,6 +75,29 @@ def test_poi_catalog_accepts_empty_reference_when_osm_has_coverage(tmp_path):
     assert bundle.component_coverage["raw.gns.poi"].feature_count == 0
 
 
+def test_road_catalog_accepts_missing_overture_reference_when_osm_has_coverage(tmp_path):
+    provider = _make_provider_with_component_counts(
+        tmp_path,
+        counts={
+            "raw.osm.road": 25,
+            "raw.overture.road": 0,
+        },
+    )
+
+    bundle = provider.materialize_with_fallback(
+        source_id="catalog.flood.road",
+        request_bbox=(36.66, -1.44, 37.10, -1.16),
+        resolved_aoi=_make_resolved_aoi("Nairobi, Kenya", country_name="Kenya", country_code="ke"),
+        target_dir=tmp_path / "road-bundle",
+        target_crs="EPSG:32737",
+    )
+
+    assert bundle.source_id == "catalog.flood.road"
+    assert bundle.fallback_from is None
+    assert bundle.component_coverage["raw.osm.road"].feature_count == 25
+    assert bundle.component_coverage["raw.overture.road"].feature_count == 0
+
+
 def _make_provider_with_component_counts(tmp_path: Path, *, counts: dict[str, int]) -> LocalBundleCatalogProvider:
     return LocalBundleCatalogProvider(
         tmp_path,

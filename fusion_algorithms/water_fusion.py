@@ -83,4 +83,7 @@ def fuse_water_polygons(
             data = row.to_dict()
             data["SRC"] = "target"
             rows.append(data)
+    if not rows:
+        template = base if "geometry" in base.columns else target
+        return template.iloc[0:0].copy()
     return gpd.GeoDataFrame(rows, geometry="geometry", crs=base.crs or target.crs)

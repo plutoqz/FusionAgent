@@ -336,6 +336,42 @@ def test_source_asset_service_falls_back_to_curl_when_httpx_https_download_fails
     ]
 
 
+def test_source_asset_service_falls_back_to_urllib_when_curl_https_download_fails(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    service = SourceAssetService(repo_root=tmp_path, cache_dir=tmp_path / "cache", prefer_local_data=False)
+    target_path = tmp_path / "download.bin"
+    calls: list[tuple[str, str]] = []
+
+    def fake_stream(*args, **kwargs):
+        del kwargs
+        calls.append(("httpx", str(args[1])))
+        raise httpx.ConnectError("boom")
+
+    def fake_curl(url: str, temp_path: Path) -> None:
+        del temp_path
+        calls.append(("curl", url))
+        raise RuntimeError("curl: (35) schannel: next InitializeSecurityContext failed: CRYPT_E_REVOCATION_OFFLINE")
+
+    def fake_urllib(url: str, temp_path: Path) -> None:
+        calls.append(("urllib", url))
+        temp_path.write_bytes(b"urllib")
+
+    monkeypatch.setattr("services.source_asset_service.httpx.stream", fake_stream)
+    monkeypatch.setattr("services.source_asset_service.SourceAssetService._download_http_via_curl", staticmethod(fake_curl))
+    monkeypatch.setattr(service, "_download_via_urllib", fake_urllib)
+
+    service._download_file("https://example.com/data.zip", target_path)
+
+    assert target_path.read_bytes() == b"urllib"
+    assert calls == [
+        ("httpx", "https://example.com/data.zip"),
+        ("curl", "https://example.com/data.zip"),
+        ("urllib", "https://example.com/data.zip"),
+    ]
+
+
 def test_source_asset_service_water_prefers_local_source_and_clips_request_bbox(tmp_path: Path) -> None:
     local_shp = tmp_path / "Data" / "burundi-260127-free.shp" / "gis_osm_water_a_free_1.shp"
     _write_frame(
@@ -697,3 +733,116 @@ def test_source_asset_service_redownloads_corrupt_msft_part(tmp_path: Path, monk
     assert len(frame) == 1
     assert frame.iloc[0]["tile"] == "inside"
     assert set(frame.geom_type) == {"Polygon"}
+
+
+def test_source_asset_service_recognizes_track_b_manual_preload_refs_via_local_tree(tmp_path: Path) -> None:
+    _write_frame(
+        tmp_path / "Data" / "roads" / "Overture" / "overture_roads.shp",
+        geopandas.GeoDataFrame(
+            {"segment_id": [1]},
+            geometry=[LineString([(36.80, -1.35), (36.90, -1.25)])],
+            crs="EPSG:4326",
+        ),
+    )
+    _write_frame(
+        tmp_path / "Data" / "water" / "HydroRIVERS" / "hydrorivers.shp",
+        geopandas.GeoDataFrame(
+            {"river_id": [1]},
+            geometry=[LineString([(36.79, -1.36), (36.88, -1.24)])],
+            crs="EPSG:4326",
+        ),
+    )
+    _write_frame(
+        tmp_path / "Data" / "water" / "HydroLAKES" / "hydrolakes.shp",
+        geopandas.GeoDataFrame(
+            {"lake_id": [1]},
+            geometry=[Polygon([(36.78, -1.34), (36.78, -1.28), (36.84, -1.28), (36.84, -1.34)])],
+            crs="EPSG:4326",
+        ),
+    )
+
+    service = SourceAssetService(repo_root=tmp_path, cache_dir=tmp_path / "cache")
+
+    overture = service.resolve_raw_source_path("raw.overture.road")
+    hydrorivers = service.resolve_raw_source_path("raw.hydrorivers.water")
+    hydrolakes = service.resolve_raw_source_path("raw.hydrolakes.water")
+
+    assert service.can_materialize("raw.overture.road") is True
+    assert service.can_materialize("raw.hydrorivers.water") is True
+    assert service.can_materialize("raw.hydrolakes.water") is True
+    assert service.can_materialize("raw.openbuildingmap.building") is True
+    assert service.can_materialize("raw.local.microsoft.building") is True
+    assert service.can_materialize("raw.google.open_buildings.vector") is True
+    assert service.can_materialize("raw.local.water") is True
+    assert service.can_materialize("raw.gns.poi") is True
+    assert service.can_materialize("raw.rh.poi") is True
+    assert overture.path.name == "overture_roads.shp"
+    assert hydrorivers.path.name == "hydrorivers.shp"
+    assert hydrolakes.path.name == "hydrolakes.shp"
+    assert overture.source_mode == "local_data"
+    assert hydrorivers.source_mode == "local_data"
+    assert hydrolakes.source_mode == "local_data"
+    assert overture.feature_count == 1
+    assert hydrorivers.feature_count == 1
+    assert hydrolakes.feature_count == 1
+
+
+def test_source_asset_service_resolves_recursive_track_b_poi_preloads_from_aoi_hint(tmp_path: Path) -> None:
+    _write_frame(
+        tmp_path / "Data" / "POI" / "Kenya" / "GNS.shp",
+        geopandas.GeoDataFrame(
+            {"gns_id": [1]},
+            geometry=[Point(36.817223, -1.286389)],
+            crs="EPSG:4326",
+        ),
+    )
+    _write_frame(
+        tmp_path / "Data" / "POI" / "Kenya" / "RH.shp",
+        geopandas.GeoDataFrame(
+            {"rh_id": [2]},
+            geometry=[Point(36.82, -1.29)],
+            crs="EPSG:4326",
+        ),
+    )
+
+    service = SourceAssetService(repo_root=tmp_path, cache_dir=tmp_path / "cache")
+
+    gns = service.resolve_raw_source_path("raw.gns.poi", aoi=_resolved_nairobi_aoi())
+    rh = service.resolve_raw_source_path("raw.rh.poi", aoi=_resolved_nairobi_aoi())
+
+    assert gns.path.name == "GNS.shp"
+    assert rh.path.name == "RH.shp"
+    assert gns.source_mode == "local_data_clipped"
+    assert rh.source_mode == "local_data_clipped"
+    assert gns.feature_count == 1
+    assert rh.feature_count == 1
+
+
+def test_source_asset_service_matches_repo_track_b_water_filenames_to_locked_source_ids(tmp_path: Path) -> None:
+    lake_filename = "\u5e03\u9686\u8fea\u6e56\u6cca.shp"
+    _write_frame(
+        tmp_path / "Data" / "water" / "BDI.shp",
+        geopandas.GeoDataFrame(
+            {"HYRIV_ID": [1]},
+            geometry=[LineString([(29.0, -3.0), (29.2, -2.8)])],
+            crs="EPSG:4326",
+        ),
+    )
+    _write_frame(
+        tmp_path / "Data" / "water" / lake_filename,
+        geopandas.GeoDataFrame(
+            {"Hylak_id": [2]},
+            geometry=[Polygon([(29.1, -3.1), (29.1, -2.9), (29.3, -2.9), (29.3, -3.1)])],
+            crs="EPSG:4326",
+        ),
+    )
+
+    service = SourceAssetService(repo_root=tmp_path, cache_dir=tmp_path / "cache")
+
+    local_water = service.resolve_raw_source_path("raw.local.water")
+    hydrorivers = service.resolve_raw_source_path("raw.hydrorivers.water")
+    hydrolakes = service.resolve_raw_source_path("raw.hydrolakes.water")
+
+    assert local_water.path.name == lake_filename
+    assert hydrorivers.path.name == "BDI.shp"
+    assert hydrolakes.path.name == lake_filename

@@ -284,6 +284,19 @@ python scripts/smoke_agentic_region.py `
   --timeout 1200
 ```
 
+If you also want a checked-in operator-readable evidence bundle from the same bounded smoke, add `--evidence-dir`:
+
+```powershell
+python scripts/smoke_agentic_region.py `
+  --base-url http://127.0.0.1:8000 `
+  --job-type water `
+  --query "need water polygons for Nairobi, Kenya" `
+  --timeout 1200 `
+  --evidence-dir tmp/smoke-water-evidence
+```
+
+The smoke evidence bundle writes `inspection.json`, `source_profile_snapshot.json`, `selected_sources.json`, `tile_manifest.json`, and `inspection_summary.json`. Unlike the building benchmark utilities, this smoke `tile_manifest.json` is explicitly a `single_request_aoi` manifest derived from the resolved AOI, so operators can compare artifact/source evidence across `building / road / water / bounded poi` without over-claiming true large-AOI tiled runtime support.
+
 ### Real Evidence
 
 Start a fresh isolated full-loop runtime first:
@@ -333,6 +346,31 @@ Currently materializable source ids:
 - `raw.osm.poi`
 - `raw.microsoft.building`
 
+The same `SourceAssetService` entrypoint now also resolves repo-local manual-preload Track B sources when they are present under the checked-in `Data/` tree. This is still local/manual support, not remote automation:
+
+- building manual-preload refs: `raw.google.building`, `raw.openbuildingmap.building`, `raw.google.open_buildings.vector`, `raw.local.microsoft.building`
+- road manual-preload refs: `raw.overture.road`
+- water manual-preload refs: `raw.local.water`, `raw.hydrorivers.water`, `raw.hydrolakes.water`
+- poi manual-preload refs: `raw.gns.poi`, `raw.rh.poi`
+
+For recursive local POI preloads such as `raw.gns.poi` and `raw.rh.poi`, the source-asset layer now follows the same source-catalog locator contract and uses AOI hints when it needs to disambiguate between multiple country folders.
+
+### Track B National-Scale Freeze
+
+The current live Track B national-scale freeze is:
+
+- `docs/superpowers/specs/2026-05-18-track-b-national-scale-evidence-freeze.json`
+
+It captures the checked-in Burundi local-data matrix on the shared bbox
+`28.976001,-4.698707,30.884489,-2.307460` in `EPSG:32735` and references the
+raw run outputs under `runs/2026-05-18-track-b-national-evidence/`.
+
+Current claim boundary:
+
+- `road`: `national_scale_partial_reference` because `raw.overture.road` is still the locked second source id but the checked-in snapshot has no preload bundle under `Data/roads/Overture/`
+- `water`: `national_scale_supported` for the current `OSM + raw.local.water` fused path, with supplemental normalized evidence for `raw.hydrorivers.water` and `raw.hydrolakes.water`
+- `poi`: `national_scale_supported` for the current `OSM + raw.gns.poi` fused path, with supplemental normalized evidence for `raw.rh.poi`
+
 | Source ID | Local Data Supported | Remote Materialization Supported | Current Claim |
 | --- | --- | --- | --- |
 | raw.osm.building | yes | yes | mature no-UI supported |
@@ -341,6 +379,15 @@ Currently materializable source ids:
 | raw.osm.poi | yes | yes | bounded POI evidence only |
 | raw.microsoft.building | yes | yes | mature no-UI supported for bounded building |
 | raw.google.building | yes | no | manual/local-only boundary |
+| raw.openbuildingmap.building | yes | no | manual-preload Track B building reference |
+| raw.google.open_buildings.vector | yes | no | manual-preload Track B building reference |
+| raw.local.microsoft.building | yes | no | manual-preload Track B building cache |
+| raw.overture.road | yes | no | manual-preload Track B road reference |
+| raw.local.water | yes | no | manual-preload Track B water reference |
+| raw.hydrorivers.water | yes | no | manual-preload Track B water line reference |
+| raw.hydrolakes.water | yes | no | manual-preload Track B water polygon reference |
+| raw.gns.poi | yes | no | manual-preload Track B POI gazetteer reference |
+| raw.rh.poi | yes | no | manual-preload Track B POI local supplement |
 
 Water and bounded POI are mature as bounded task-driven runtime slices, but the default fast-mode scenario regression set still treats them as planner-level capability checks when local raw source materialization is unavailable.
 

@@ -4,8 +4,12 @@ import geopandas as gpd
 from shapely.geometry import LineString, box
 
 from fusion_algorithms.contracts import RoadFusionParams, WaterPolygonFusionParams
-from fusion_algorithms.road_fusion import build_road_match_candidates, split_features_in_gdf
-from fusion_algorithms.water_fusion import match_water_polygons
+from fusion_algorithms.road_fusion import (
+    build_road_match_candidates,
+    run_road_segment_match_topology,
+    split_features_in_gdf,
+)
+from fusion_algorithms.water_fusion import fuse_water_polygons, match_water_polygons
 
 
 def test_road_match_candidates_use_decoupled_thresholds() -> None:
@@ -32,3 +36,28 @@ def test_water_polygon_overlap_threshold_is_parameterized() -> None:
     strict = match_water_polygons(base, target, WaterPolygonFusionParams(overlap_threshold=0.5))
     assert len(loose) == 1
     assert strict.empty
+
+
+def test_run_road_segment_match_topology_returns_base_when_reference_is_empty() -> None:
+    base = gpd.GeoDataFrame(
+        {"id": [1, 2]},
+        geometry=[LineString([(0, 0), (10, 0)]), LineString([(10, 0), (20, 0)])],
+        crs="EPSG:3857",
+    )
+    empty_ref = gpd.GeoDataFrame({"id": []}, geometry=[], crs="EPSG:3857")
+
+    result = run_road_segment_match_topology(base, empty_ref)
+
+    assert len(result) == 2
+    assert list(result["id"]) == [1, 2]
+    assert set(result["SRC"]) == {"base"}
+
+
+def test_fuse_water_polygons_returns_empty_frame_when_both_inputs_are_empty() -> None:
+    empty_base = gpd.GeoDataFrame({"id": []}, geometry=[], crs="EPSG:3857")
+    empty_ref = gpd.GeoDataFrame({"id": []}, geometry=[], crs="EPSG:3857")
+
+    result = fuse_water_polygons(empty_base, empty_ref)
+
+    assert result.empty
+    assert result.crs.to_epsg() == 3857

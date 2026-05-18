@@ -15,6 +15,8 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
+from services.tile_partition_service import TilePartitionService
+
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(
@@ -37,6 +39,11 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--timeout", type=float, default=1200.0, help="Overall timeout in seconds.")
     parser.add_argument("--poll-interval", type=float, default=2.0, help="Polling interval in seconds.")
     parser.add_argument("--output-json", default="", help="Optional path to save the final inspection payload.")
+    parser.add_argument(
+        "--evidence-dir",
+        default="",
+        help="Optional directory to write Track B smoke evidence bundle outputs.",
+    )
     return parser.parse_args(argv)
 
 
@@ -82,6 +89,182 @@ def _extract_event(events: list[dict[str, Any]], kind: str) -> dict[str, Any] | 
         if event.get("kind") == kind:
             return event
     return None
+
+
+def _write_json(path: Path, payload: Any) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def _claim_state_for_job_type(job_type: str) -> str:
+    return "bounded_supported" if job_type == "poi" else "runtime_supported"
+
+
+def _resolved_aoi_payload(inspection: dict[str, Any]) -> dict[str, Any]:
+    audit_events = inspection.get("audit_events", [])
+    source_event = _extract_event(audit_events, "task_inputs_resolved")
+    if source_event is not None:
+        source_details = source_event.get("details", {})
+        if isinstance(source_details, dict):
+            resolved_aoi = source_details.get("resolved_aoi")
+            if isinstance(resolved_aoi, dict) and resolved_aoi.get("bbox"):
+                return dict(resolved_aoi)
+    aoi_event = _extract_event(audit_events, "aoi_resolved")
+    if aoi_event is not None:
+        details = aoi_event.get("details", {})
+        if isinstance(details, dict) and details.get("bbox"):
+            return dict(details)
+    plan_aoi = inspection.get("plan", {}).get("context", {}).get("intent", {}).get("resolved_aoi")
+    if isinstance(plan_aoi, dict):
+        return dict(plan_aoi)
+    return {}
+
+
+def _retrieved_source_profiles(inspection: dict[str, Any]) -> list[dict[str, Any]]:
+    profiles = inspection.get("plan", {}).get("context", {}).get("retrieval", {}).get("data_sources", [])
+    if not isinstance(profiles, list):
+        return []
+    return [dict(item) for item in profiles if isinstance(item, dict)]
+
+
+def _selected_source_details(inspection: dict[str, Any]) -> dict[str, Any]:
+    source_event = _extract_event(inspection.get("audit_events", []), "task_inputs_resolved")
+    if source_event is None:
+        return {}
+    details = source_event.get("details", {})
+    return dict(details) if isinstance(details, dict) else {}
+
+
+def _selected_source_profile(inspection: dict[str, Any], selected_source_id: str) -> dict[str, Any] | None:
+    for profile in _retrieved_source_profiles(inspection):
+        if str(profile.get("source_id") or "") == selected_source_id:
+            return profile
+    return None
+
+
+def _build_selected_sources_payload(inspection: dict[str, Any]) -> dict[str, Any]:
+    source_details = _selected_source_details(inspection)
+    selected_source_id = str(source_details.get("selected_source_id") or source_details.get("source_id") or "")
+    selected_profile = _selected_source_profile(inspection, selected_source_id) or {}
+    metadata = selected_profile.get("metadata", {}) if isinstance(selected_profile, dict) else {}
+    component_source_ids = metadata.get("component_source_ids", [])
+    if not isinstance(component_source_ids, list):
+        component_source_ids = []
+    return {
+        "run_id": inspection.get("run", {}).get("run_id"),
+        "job_type": inspection.get("run", {}).get("job_type"),
+        "requested_source_id": source_details.get("requested_source_id"),
+        "selected_source_id": selected_source_id or None,
+        "source_id": source_details.get("source_id"),
+        "fallback_from_source_id": source_details.get("fallback_from_source_id"),
+        "source_mode": source_details.get("source_mode"),
+        "cache_hit": bool(source_details.get("cache_hit", False)),
+        "target_crs": source_details.get("target_crs") or inspection.get("run", {}).get("target_crs"),
+        "component_source_ids": component_source_ids,
+        "component_coverage": source_details.get("component_coverage") or {},
+        "selected_profile": selected_profile or None,
+    }
+
+
+def _build_source_profile_snapshot(inspection: dict[str, Any]) -> dict[str, Any]:
+    selected_sources = _build_selected_sources_payload(inspection)
+    profiles = _retrieved_source_profiles(inspection)
+    return {
+        "snapshot_mode": "task_driven_retrieval_snapshot",
+        "run_id": inspection.get("run", {}).get("run_id"),
+        "job_type": inspection.get("run", {}).get("job_type"),
+        "selected_source_id": selected_sources.get("selected_source_id"),
+        "profile_count": len(profiles),
+        "profiles": profiles,
+        "selected_profile": selected_sources.get("selected_profile"),
+    }
+
+
+def _build_tile_manifest_payload(inspection: dict[str, Any]) -> dict[str, Any]:
+    resolved_aoi = _resolved_aoi_payload(inspection)
+    bbox = resolved_aoi.get("bbox")
+    target_crs = (
+        _selected_source_details(inspection).get("target_crs")
+        or inspection.get("run", {}).get("target_crs")
+        or "EPSG:4326"
+    )
+    if not isinstance(bbox, list) or len(bbox) != 4:
+        return {
+            "manifest_mode": "single_request_aoi",
+            "tile_count": 0,
+            "bbox": [],
+            "bbox_crs": "EPSG:4326",
+            "working_crs": target_crs,
+            "tiles": [],
+        }
+    manifest = TilePartitionService(
+        tile_width_m=10_000_000.0,
+        tile_height_m=10_000_000.0,
+        overlap_m=0.0,
+    ).partition_bbox(
+        bbox=tuple(float(value) for value in bbox),
+        bbox_crs="EPSG:4326",
+        working_crs=str(target_crs),
+    )
+    payload = manifest.to_dict()
+    payload["manifest_mode"] = "single_request_aoi"
+    payload["tile_count"] = len(manifest.tiles)
+    return payload
+
+
+def _build_inspection_summary(inspection: dict[str, Any]) -> dict[str, Any]:
+    run = inspection.get("run", {})
+    job_type = str(run.get("job_type") or "")
+    resolved_aoi = _resolved_aoi_payload(inspection)
+    selected_sources = _build_selected_sources_payload(inspection)
+    tile_manifest = _build_tile_manifest_payload(inspection)
+    output_schema_event = _extract_event(inspection.get("audit_events", []), "output_schema_validated")
+    output_schema = output_schema_event.get("details", {}) if output_schema_event is not None else {}
+    artifact = inspection.get("artifact", {}) or run.get("artifact", {})
+    return {
+        "mode": "task_driven_smoke_inspection",
+        "claim_state": _claim_state_for_job_type(job_type),
+        "run_type": "bounded_smoke_utility",
+        "job_type": job_type,
+        "run_id": run.get("run_id"),
+        "workflow_id": inspection.get("kg_path_trace", {}).get("workflow_id"),
+        "selected_pattern_id": inspection.get("kg_path_trace", {}).get("selected_pattern_id"),
+        "bbox": resolved_aoi.get("bbox", []),
+        "target_crs": run.get("target_crs"),
+        "tile_count": tile_manifest.get("tile_count", 0),
+        "selected_sources": {
+            "requested_source_id": selected_sources.get("requested_source_id"),
+            "selected_source_id": selected_sources.get("selected_source_id"),
+            "component_source_ids": selected_sources.get("component_source_ids", []),
+        },
+        "evidence": {
+            "inspection": "inspection.json",
+            "source_profile_snapshot": "source_profile_snapshot.json",
+            "selected_sources": "selected_sources.json",
+            "tile_manifest": "tile_manifest.json",
+            "artifact_path": artifact.get("path"),
+        },
+        "artifact_metrics": output_schema,
+        "operator_readable_summary": {
+            "aoi_display_name": resolved_aoi.get("display_name"),
+            "selected_source_id": selected_sources.get("selected_source_id"),
+            "source_mode": selected_sources.get("source_mode"),
+            "cache_hit": selected_sources.get("cache_hit"),
+            "component_source_count": len(selected_sources.get("component_source_ids", [])),
+            "artifact_validity": bool(output_schema.get("artifact_validity", False)),
+            "artifact_path": artifact.get("path"),
+            "tile_count": tile_manifest.get("tile_count", 0),
+        },
+    }
+
+
+def _write_evidence_bundle(evidence_dir: Path, inspection: dict[str, Any]) -> None:
+    evidence_dir.mkdir(parents=True, exist_ok=True)
+    _write_json(evidence_dir / "inspection.json", inspection)
+    _write_json(evidence_dir / "selected_sources.json", _build_selected_sources_payload(inspection))
+    _write_json(evidence_dir / "source_profile_snapshot.json", _build_source_profile_snapshot(inspection))
+    _write_json(evidence_dir / "tile_manifest.json", _build_tile_manifest_payload(inspection))
+    _write_json(evidence_dir / "inspection_summary.json", _build_inspection_summary(inspection))
 
 
 def run_smoke(
@@ -167,8 +350,9 @@ def main(argv: list[str] | None = None) -> int:
     )
     if args.output_json:
         output_path = Path(args.output_json).resolve()
-        output_path.parent.mkdir(parents=True, exist_ok=True)
-        output_path.write_text(json.dumps(result["inspection"], ensure_ascii=False, indent=2), encoding="utf-8")
+        _write_json(output_path, result["inspection"])
+    if args.evidence_dir:
+        _write_evidence_bundle(Path(args.evidence_dir).resolve(), result["inspection"])
     _print_summary(result)
     return 0
 

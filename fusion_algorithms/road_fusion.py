@@ -47,12 +47,16 @@ def split_at_sharp_turns(line, angle_threshold: float) -> list[LineString]:
 
 
 def split_features_in_gdf(gdf: gpd.GeoDataFrame, params: RoadFusionParams) -> gpd.GeoDataFrame:
+    if gdf.empty:
+        return gdf.iloc[0:0].copy()
     rows: list[dict[str, Any]] = []
     for _, row in gdf.iterrows():
         for part in split_at_sharp_turns(row.geometry, params.angle_threshold_deg):
             data = row.drop(labels=["geometry"]).to_dict()
             data["geometry"] = part
             rows.append(data)
+    if not rows:
+        return gdf.iloc[0:0].copy()
     return gpd.GeoDataFrame(rows, geometry="geometry", crs=gdf.crs)
 
 
@@ -131,6 +135,9 @@ def fuse_road_segments(
         data = row.to_dict()
         data["SRC"] = "target"
         rows.append(data)
+    if not rows:
+        template = base if "geometry" in base.columns else target
+        return template.iloc[0:0].copy()
     return gpd.GeoDataFrame(rows, geometry="geometry", crs=base.crs or target.crs)
 
 
@@ -181,6 +188,17 @@ def run_road_segment_match_topology(
     params: RoadFusionParams | None = None,
 ) -> gpd.GeoDataFrame:
     params = params or RoadFusionParams()
+    if base.empty and target.empty:
+        template = base if "geometry" in base.columns else target
+        return template.iloc[0:0].copy()
+    if target.empty:
+        passthrough = base.copy()
+        passthrough["SRC"] = "base"
+        return passthrough
+    if base.empty:
+        passthrough = target.copy()
+        passthrough["SRC"] = "target"
+        return passthrough
     base_split = split_features_in_gdf(base, params)
     target_split = split_features_in_gdf(target, params)
     fused = fuse_road_segments(base_split, target_split, params)

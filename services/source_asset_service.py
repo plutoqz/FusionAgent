@@ -19,6 +19,7 @@ import geopandas as gpd
 import httpx
 from shapely.geometry import shape
 
+from kg.source_catalog import get_raw_vector_source_spec
 from services.aoi_resolution_service import ResolvedAOI
 from utils.raster_cli import gdalinfo_json
 from utils.shp_zip import collect_bundle_files, safe_extract_zip
@@ -46,12 +47,33 @@ _LOCAL_SOURCE_CANDIDATES = {
         ("Data", "roads", "OSM"),
         ("Data", "burundi-260127-free.shp", "gis_osm_roads_free_1.shp"),
     ],
+    "raw.overture.road": [
+        ("Data", "roads", "Overture"),
+    ],
     "raw.osm.water": [
         ("Data", "burundi-260127-free.shp", "gis_osm_water_a_free_1.shp"),
+    ],
+    "raw.local.water": [
+        ("Data", "water", "布隆迪湖泊.shp"),
+        ("Data", "water"),
+    ],
+    "raw.hydrorivers.water": [
+        ("Data", "water", "BDI.shp"),
+        ("Data", "water", "HydroRIVERS"),
+    ],
+    "raw.hydrolakes.water": [
+        ("Data", "water", "布隆迪湖泊.shp"),
+        ("Data", "water", "HydroLAKES"),
     ],
     "raw.osm.poi": [
         ("Data", "POI"),
         ("Data", "burundi-260127-free.shp", "gis_osm_pois_free_1.shp"),
+    ],
+    "raw.gns.poi": [
+        ("Data", "POI"),
+    ],
+    "raw.rh.poi": [
+        ("Data", "POI"),
     ],
     "raw.microsoft.building": [
         ("Data", "buildings", "Microsoft"),
@@ -196,6 +218,18 @@ def _slugify(value: str | None) -> str:
     return "-".join(parts) or "unknown"
 
 
+def _normalize_match_hint(value: str | None) -> str:
+    text = "".join(character.lower() if character.isalnum() else " " for character in str(value or ""))
+    return " ".join(part for part in text.split() if part)
+
+
+def _tokenize_match_hint(value: str | None) -> set[str]:
+    normalized = _normalize_match_hint(value)
+    if not normalized:
+        return set()
+    return {token for token in normalized.split() if len(token) >= 3}
+
+
 def _bbox_cache_key(request_bbox: Optional[BBox]) -> str:
     if request_bbox is None:
         return "full"
@@ -248,7 +282,13 @@ class SourceAssetService:
         self._geofabrik_index_cache: list[dict[str, Any]] | None = None
 
     def can_materialize(self, source_id: str) -> bool:
-        return source_id in _REMOTELY_MATERIALIZABLE_SOURCE_IDS or source_id in _LOCAL_SOURCE_CANDIDATES
+        if source_id in _REMOTELY_MATERIALIZABLE_SOURCE_IDS or source_id in _LOCAL_SOURCE_CANDIDATES:
+            return True
+        try:
+            get_raw_vector_source_spec(source_id)
+        except KeyError:
+            return False
+        return True
 
     def inspect_local_raster_profile(self, source_id: str, path: Path) -> dict[str, object]:
         info = gdalinfo_json(path)
@@ -273,6 +313,8 @@ class SourceAssetService:
 
         if self.prefer_local_data:
             local_path = self._try_local_path(source_id)
+            if local_path is None:
+                local_path = self._try_spec_local_path(source_id, aoi=aoi)
             if local_path is not None:
                 local_resolution = self._build_local_resolution(
                     source_id,
@@ -339,6 +381,79 @@ class SourceAssetService:
             if _is_usable_local_vector_path(candidate):
                 return candidate
         return None
+
+    def _try_spec_local_path(self, source_id: str, *, aoi: ResolvedAOI | None) -> Optional[Path]:
+        try:
+            spec = get_raw_vector_source_spec(source_id)
+        except KeyError:
+            return None
+
+        base_path = self.repo_root.joinpath(*spec.relative_path)
+        if spec.locator_kind == "exact_path":
+            if _is_usable_local_vector_path(base_path):
+                return base_path
+            return None
+
+        if spec.locator_kind == "first_shp_in_dir":
+            if not base_path.exists():
+                return None
+            matches = [path for path in sorted(base_path.glob("*.shp")) if _is_usable_local_vector_path(path)]
+            return matches[0] if matches else None
+
+        if spec.locator_kind == "recursive_glob":
+            if not base_path.exists():
+                return None
+            matches = [path for path in sorted(base_path.glob(spec.glob_pattern or "**/*.shp")) if _is_usable_local_vector_path(path)]
+            if not matches:
+                return None
+            if len(matches) == 1:
+                return matches[0]
+            ranked = self._rank_recursive_matches(matches, aoi=aoi)
+            top_score, top_path = ranked[0]
+            if top_score > 0 and all(score < top_score for score, _ in ranked[1:]):
+                return top_path
+            raise ValueError(
+                f"Ambiguous raw source match for {source_id}: "
+                + ", ".join(str(path) for path in matches[:5])
+                + (" ..." if len(matches) > 5 else "")
+            )
+
+        return None
+
+    @staticmethod
+    def _rank_recursive_matches(matches: list[Path], *, aoi: ResolvedAOI | None) -> list[tuple[int, Path]]:
+        if aoi is None:
+            return [(0, path) for path in matches]
+
+        exact_hints = [
+            _normalize_match_hint(aoi.country_name),
+            _normalize_match_hint(aoi.display_name),
+            _normalize_match_hint(aoi.query),
+        ]
+        exact_hints = [hint for hint in exact_hints if hint]
+
+        token_hints = set()
+        token_hints.update(_tokenize_match_hint(aoi.country_name))
+        token_hints.update(_tokenize_match_hint(aoi.display_name))
+        token_hints.update(_tokenize_match_hint(aoi.query))
+        if aoi.country_code:
+            token_hints.add(str(aoi.country_code).strip().casefold())
+
+        ranked: list[tuple[int, Path]] = []
+        for path in matches:
+            parts = [_normalize_match_hint(part) for part in path.parts]
+            non_empty_parts = [part for part in parts if part]
+            path_tokens = {token for part in non_empty_parts for token in part.split()}
+
+            score = 0
+            for hint in exact_hints:
+                if any(hint == part for part in non_empty_parts):
+                    score += 20
+            score += sum(1 for token in token_hints if token in path_tokens)
+            ranked.append((score, path))
+
+        ranked.sort(key=lambda item: (-item[0], str(item[1])))
+        return ranked
 
     def _resolve_geofabrik_source(
         self,
@@ -656,8 +771,7 @@ class SourceAssetService:
         if last_error is not None:
             raise last_error
 
-    @staticmethod
-    def _download_http_stream(url: str, target_path: Path) -> None:
+    def _download_http_stream(self, url: str, target_path: Path) -> None:
         try:
             with httpx.stream("GET", url, timeout=120.0, follow_redirects=True) as response:
                 response.raise_for_status()
@@ -669,7 +783,13 @@ class SourceAssetService:
         except Exception:
             pass
 
-        SourceAssetService._download_http_via_curl(url, target_path)
+        try:
+            self._download_http_via_curl(url, target_path)
+            return
+        except Exception:
+            pass
+
+        self._download_via_urllib(url, target_path)
 
     @staticmethod
     def _download_via_urllib(url: str, target_path: Path) -> None:

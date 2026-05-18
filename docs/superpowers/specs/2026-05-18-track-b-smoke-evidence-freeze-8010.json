@@ -1,0 +1,81 @@
+{
+  "captured_at": "2026-05-18",
+  "scope": "Track B bounded smoke evidence freeze on isolated runtime port 8010",
+  "base_url": "http://127.0.0.1:8010",
+  "worktree": "C:\\Users\\QDX\\.config\\superpowers\\worktrees\\fusionAgent\\codex\\track-b-source-matrix",
+  "evidence_root": "runs/2026-05-18-smoke-evidence",
+  "runtime_notes": [
+    "Runtime launched from the Track B worktree on port 8010.",
+    "The worktree used the primary workspace dependency file via GEOFUSION_DEPENDENCY_FILE.",
+    "Road bundle versioning now tolerates missing manual Overture preload when the catalog source is marked partial-coverage-allowed.",
+    "HTTPS source downloads now fall back from httpx to curl and then to urllib when Windows curl schannel revocation checks fail."
+  ],
+  "runs": [
+    {
+      "theme": "road",
+      "job_type": "road",
+      "query": "road for Gilgit city, Pakistan",
+      "run_id": "fdf2eefb69254719838f2012a08d72cd",
+      "claim_state": "runtime_supported",
+      "status": "succeeded",
+      "evidence_dir": "runs/2026-05-18-smoke-evidence/road-aoi",
+      "inspection_summary": "runs/2026-05-18-smoke-evidence/road-aoi/inspection_summary.json",
+      "artifact_path": "runs\\fdf2eefb69254719838f2012a08d72cd\\output\\road_fusion_result.zip",
+      "selected_source_id": "catalog.typhoon.road",
+      "selected_pattern_id": "wp.flood.road.default",
+      "source_mode": "downloaded",
+      "cache_hit": false,
+      "component_source_ids": [
+        "raw.osm.road",
+        "raw.overture.road"
+      ],
+      "operator_note": "The bounded road smoke succeeded with OSM materialized and no checked-in Overture preload. The selected_sources snapshot still records raw.overture.road as the locked Track B manual-preload reference source."
+    },
+    {
+      "theme": "water",
+      "job_type": "water",
+      "query": "need water polygons for Nairobi, Kenya",
+      "run_id": "0a54773c96484d3ea83e03392a121cef",
+      "claim_state": "runtime_supported",
+      "status": "succeeded",
+      "evidence_dir": "runs/2026-05-18-smoke-evidence/water",
+      "inspection_summary": "runs/2026-05-18-smoke-evidence/water/inspection_summary.json",
+      "artifact_path": "runs\\0a54773c96484d3ea83e03392a121cef\\output\\water_fusion_result.zip",
+      "selected_source_id": "catalog.flood.water",
+      "selected_pattern_id": "wp.flood.water.default",
+      "source_mode": "downloaded",
+      "cache_hit": false,
+      "component_source_ids": [
+        "raw.osm.water",
+        "raw.local.water"
+      ]
+    },
+    {
+      "theme": "poi",
+      "job_type": "poi",
+      "query": "show hospitals in Nairobi, Kenya",
+      "run_id": "025eae713dab462d8deb6c2b46245386",
+      "claim_state": "bounded_supported",
+      "status": "succeeded",
+      "evidence_dir": "runs/2026-05-18-smoke-evidence/poi",
+      "inspection_summary": "runs/2026-05-18-smoke-evidence/poi/inspection_summary.json",
+      "artifact_path": "runs\\025eae713dab462d8deb6c2b46245386\\output\\poi_fusion_result.zip",
+      "selected_source_id": "catalog.generic.poi",
+      "selected_pattern_id": "wp.generic.poi.default",
+      "source_mode": "downloaded",
+      "cache_hit": false,
+      "component_source_ids": [
+        "raw.osm.poi",
+        "raw.gns.poi"
+      ]
+    }
+  ],
+  "additional_attempts": [
+    {
+      "theme": "road",
+      "query": "need road data for Gilgit city, Pakistan",
+      "status": "failed",
+      "reason": "Intermittent AOI geocoder HTTPS URLError in one retry path; the shorter 'road for ...' query above produced the successful bounded evidence freeze for the same AOI."
+    }
+  ]
+}

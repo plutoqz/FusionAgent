@@ -163,6 +163,8 @@
 
 要求先把 source id、格式、裁剪方式、字段映射、license/claim boundary 一次性锁清，再进入实现。
 
+- 2026-05-18：已新增 live `docs/superpowers/specs/2026-05-18-track-b-national-source-matrix.md`，并把第一批 building / road / water / poi source contract 回写到 `kg/track_b_source_contract.py` 与 `kg/source_catalog.py` 元数据；后续 B2-B5 以这份矩阵为准，不再临时改口径。
+
 ##### B2. 数据获取链路打通
 
 - 统一区分三类 source：
@@ -174,11 +176,16 @@
   - road / water / poi 新增第二来源的 bbox/national materialization 逻辑
   - 明确 `source_mode`、`cache_hit`、`coverage_status`、`fallback_from_source_id`
 
+- 2026-05-18：已完成 B2 第一层 source registration，把 `raw.overture.road`、`raw.hydrorivers.water`、`raw.hydrolakes.water` 加入 raw source contract、catalog metadata 与 local resolver 入口；后续仍需继续做 bundle/provider 接线与 national clip 运行证据。
+- 2026-05-18：已把 `services/source_asset_service.py` 接到同一套 Track B raw source locator contract，统一支持 `raw.overture.road`、`raw.local.water`、`raw.hydrorivers.water`、`raw.hydrolakes.water` 以及递归定位的 `raw.gns.poi` / `raw.rh.poi` 本地预载解析；`can_materialize()` 与 `materialize_source_assets.py` 入口不再只认识早期 building/OSM 资产。
+
 ##### B3. 国家级 clip / tiling / stitching 通路统一
 
 - building 继续用现有 tiled runtime 作为模板。
 - road / water / poi 补齐国家级 clip、分块、重组与 inspection 摘要，不允许只有 building 具备大 AOI 能力。
 - `tile manifest -> source profile -> selected sources -> stitched artifact -> inspection_summary` 必须对四个主题尽量统一。
+- 2026-05-18：`scripts/smoke_agentic_region.py` 已新增 `--evidence-dir`，可直接把 shared runtime 的 road / water / poi / building smoke inspection 归档为统一的 `inspection.json`、`source_profile_snapshot.json`、`selected_sources.json`、`tile_manifest.json`、`inspection_summary.json`。其中 smoke 的 `tile_manifest.json` 明确标记为 `single_request_aoi`，用于 operator-readable bounded evidence，而不是伪装成 building 的真实 tiled runtime。
+- 2026-05-18：已新增 `services/track_b_national_scale_service.py` 与 `scripts/build_track_b_national_evidence.py`，把 road / water / poi 的 national clip、tile manifest、normalized artifacts、stitch output 与 inspection summary 收口到同一套 utility；对应 live freeze 见 `docs/superpowers/specs/2026-05-18-track-b-national-scale-evidence-freeze.json`。
 
 ##### B4. 多源规范化与融合节点收口
 
@@ -186,6 +193,7 @@
 - road: 从单源 baseline 升级到双源以上的 segment/topology fusion。
 - water: 明确 line / polygon 两类国家级来源与融合落点。
 - poi: 把 `OSM + GNS (+ optional RH/Overture)` 规范化到统一 POI schema，再进入去重与优先级融合。
+- 2026-05-18：已新增 `services/track_b_source_normalization.py`，按 `fields.road.osm`、`fields.road.overture_transportation`、`fields.water.*`、`fields.poi.*` 真实 profile 生成统一 canonical 字段；当前 freeze 已落出 `source_feature_id`、`road_class`、`water_ty`、`category`、`GeoHash` 等规范化证据，并对 `raw.hydrorivers.water`、`raw.hydrolakes.water`、`raw.rh.poi` 保留 supplemental normalized artifacts。
 
 ##### B5. 结果与证据闭环
 
@@ -195,6 +203,9 @@
   - 有 inspection
   - 有 operator 可读摘要
   - 有 freeze 或 regression hook
+- 2026-05-18：`tests/test_smoke_agentic_region.py` 已把上述 smoke evidence bundle 落盘契约纳入回归，当前至少保证 water 与 bounded poi 的 operator-readable 摘要、claim_state 和 source-selection 证据不会回退；road / building 复用同一路径。
+- 2026-05-18：已在隔离 `8010` runtime 上生成 fresh Track B smoke freeze，见 `docs/superpowers/specs/2026-05-18-track-b-smoke-evidence-freeze-8010.json`。其中 water / poi 直接通过标准 query 成功，road 通过 `road for Gilgit city, Pakistan` 成功生成 AOI-bounded evidence；对应 smoke evidence 目录位于 `runs/2026-05-18-smoke-evidence/`。本轮 road 还顺带补齐了两个 live blocker：Windows HTTPS 下载链从 `httpx -> curl -> urllib` 的回退，以及缺失手工 Overture 预载时 `catalog.*.road` version token 不再提前失败。
+- 2026-05-18：已生成真实 repo-local national-scale freeze，见 `docs/superpowers/specs/2026-05-18-track-b-national-scale-evidence-freeze.json`。当前 road 基于 `raw.osm.road + raw.overture.road` 记录为 `national_scale_partial_reference`，因为 Overture 预载缺失；water 基于 `raw.osm.water + raw.local.water` 记录为 `national_scale_supported`，同时附带 `raw.hydrorivers.water` / `raw.hydrolakes.water` 的 supplemental normalization 证据；poi 基于 `raw.osm.poi + raw.gns.poi` 记录为 `national_scale_supported`，同时附带 `raw.rh.poi` supplemental normalization 证据。
 
 #### 预下载清单与指定目录
 
@@ -214,11 +225,20 @@
    - 用途：保留一个你手工筛好的本地 Microsoft national clip / cache 版本，避免在线多分块拉取反复失败
 5. `raw.local.water`
    - 目录：`E:\vscode\fusionAgent\Data\water\`
-   - 规则：目录下放 shapefile bundle
-6. `raw.gns.poi`
+   - 当前 repo 实际样本：`布隆迪湖泊.shp`
+6. `raw.overture.road`
+   - 目录：`E:\vscode\fusionAgent\Data\roads\Overture\`
+   - 规则：目录下放可被 loader 识别的 Overture Transportation national extract；如果缺失，这一轮 national evidence 只能记录为 `national_scale_partial_reference`
+7. `raw.hydrorivers.water`
+   - 文件：`E:\vscode\fusionAgent\Data\water\BDI.shp`
+   - 用途：作为 Track B 第一批国家级水系线参考源
+8. `raw.hydrolakes.water`
+   - 文件：`E:\vscode\fusionAgent\Data\water\布隆迪湖泊.shp`
+   - 用途：作为 Track B 第一批国家级湖泊面参考源
+9. `raw.gns.poi`
    - 目录：`E:\vscode\fusionAgent\Data\POI\<国家或地区>\`
    - 文件名要求：路径下需要有 `GNS.shp`
-7. `raw.rh.poi`
+10. `raw.rh.poi`
    - 目录：`E:\vscode\fusionAgent\Data\POI\<国家或地区>\`
    - 文件名要求：路径下需要有 `RH.shp`
 
@@ -248,9 +268,11 @@ python scripts/materialize_source_assets.py --source raw.osm.building --source r
    - 当前仓库没有稳定官方远程 materializer，属于手工预载优先级最高的数据。
 2. `GNS / RH`
    - GNS 虽然有官方可下载文件，但当前仓库并未打通“官方下载 -> 转换为本地 shapefile -> 直接进入 POI bundle”的自动链；RH 更是本地样例源。
-3. `raw.local.water`
-   - 当前就是本地参考水系源，没有官方自动下载链。
-4. `raw.microsoft.building`
+3. `raw.overture.road`
+   - 当前 national freeze 已把它锁为第二道路源，但本地 repo 快照仍没有对应预载；要把 road 从 `partial_reference` 提升到真正双源 national support，优先补这一份。
+4. `raw.local.water / raw.hydrorivers.water / raw.hydrolakes.water`
+   - 当前水系 national freeze 已证明本地 clip 可以走通，但三者都仍属于本地预载边界，没有官方自动下载链。
+5. `raw.microsoft.building`
    - 已支持自动下载，但国家级时往往要拉多个 country-quadkey 分块，体量大、耗时长，建议做正式 national run 前先预热或手工缓存一份。
 
 #### Track B 完成判定

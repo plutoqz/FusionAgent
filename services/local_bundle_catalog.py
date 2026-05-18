@@ -21,6 +21,9 @@ BUILDING_SOURCE_FALLBACKS = {
 }
 
 PARTIAL_COVERAGE_ALLOWED_SOURCES = {
+    "catalog.flood.road",
+    "catalog.earthquake.road",
+    "catalog.typhoon.road",
     "catalog.flood.water",
     "catalog.generic.poi",
 }
@@ -51,13 +54,18 @@ class LocalBundleCatalogProvider:
             )
         ]
         if spec.ref_source_id is not None:
-            tokens.append(
-                self.raw_source_service.current_version(
-                    spec.ref_source_id,
-                    request_bbox=request_bbox,
-                    resolved_aoi=resolved_aoi,
+            try:
+                tokens.append(
+                    self.raw_source_service.current_version(
+                        spec.ref_source_id,
+                        request_bbox=request_bbox,
+                        resolved_aoi=resolved_aoi,
+                    )
                 )
-            )
+            except FileNotFoundError:
+                if self._requires_complete_pair_coverage(source_id):
+                    raise
+                tokens.append(f"missing:{spec.ref_source_id}")
         return "|".join(tokens)
 
     def materialize(
@@ -150,13 +158,24 @@ class LocalBundleCatalogProvider:
             resolved_aoi=resolved_aoi,
         )
         if spec.ref_source_id is not None:
-            ref = self.raw_source_service.resolve(
-                source_id=spec.ref_source_id,
-                request_bbox=request_bbox,
-                target_path=target_dir / "ref.zip",
-                target_crs=target_crs,
-                resolved_aoi=resolved_aoi,
-            )
+            try:
+                ref = self.raw_source_service.resolve(
+                    source_id=spec.ref_source_id,
+                    request_bbox=request_bbox,
+                    target_path=target_dir / "ref.zip",
+                    target_crs=target_crs,
+                    resolved_aoi=resolved_aoi,
+                )
+            except FileNotFoundError:
+                if not self._requires_complete_pair_coverage(source_id):
+                    ref = self._create_empty_reference_bundle(
+                        osm=osm,
+                        output_zip=target_dir / "ref.zip",
+                        source_id=spec.ref_source_id,
+                        source_mode="missing_optional_ref",
+                    )
+                else:
+                    raise
             osm_count = osm.feature_count or 0
             ref_count = ref.feature_count or 0
             if osm_count == 0 and ref_count == 0:
@@ -187,16 +206,18 @@ class LocalBundleCatalogProvider:
         ref: MaterializedRawVectorSource,
         component_source_ids: tuple[str, ...],
     ) -> dict[str, SourceCoverageStatus]:
-        components = [osm] if len(component_source_ids) == 1 else [osm, ref]
+        components = [(component_source_ids[0], osm)]
+        if len(component_source_ids) == 2:
+            components.append((component_source_ids[1], ref))
         return {
-            component.source_id: SourceCoverageStatus(
-                source_id=component.source_id,
+            source_id: SourceCoverageStatus(
+                source_id=source_id,
                 source_mode=component.source_mode,
                 feature_count=component.feature_count,
                 coverage_status=coverage_status_for_count(component.feature_count),
                 path=component.zip_path,
             )
-            for component in components
+            for source_id, component in components
         }
 
     def _has_empty_required_component(
@@ -224,6 +245,8 @@ class LocalBundleCatalogProvider:
         *,
         osm: MaterializedRawVectorSource,
         output_zip: Path,
+        source_id: str,
+        source_mode: str = "generated_empty_ref",
     ) -> MaterializedRawVectorSource:
         extract_dir = output_zip.parent / f"_empty_ref_src_{uuid.uuid4().hex[:8]}"
         shp_path = validate_zip_has_shapefile(osm.zip_path, extract_dir)
@@ -240,8 +263,8 @@ class LocalBundleCatalogProvider:
             zip_path=output_zip,
             bbox=osm.bbox,
             target_crs=osm.target_crs,
-            source_id=f"{osm.source_id}.empty_ref",
-            source_mode="generated_empty_ref",
+            source_id=source_id,
+            source_mode=source_mode,
             cache_hit=False,
             version_token=osm.version_token,
             feature_count=0,
