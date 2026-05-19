@@ -89,7 +89,7 @@ python scripts/run_benin_multisource_building_fusion.py `
   --max-workers 4
 ```
 
-The script profiles a validation dataset root, selects `MS`, `OBM`, `GG`, and `OSM` building vectors, discovers available Google `building_presence` and `building_height` rasters, partitions the working bbox into buffered tiles, runs the decomposed multi-source FusionCode flow per tile, stitches tile-owned features into `runtime_output/fused_buildings.gpkg`, and emits a local `inspection_summary.json` so operators can review source selection, tile count, and artifact validity without opening raw files one by one. Keep this as a research utility description unless the same capability is promoted through shared runtime evidence, tests, and operations wording.
+The script profiles a validation dataset root, selects `MS`, `OBM`, `GG`, and `OSM` building vectors, discovers available Google `building_presence` and `building_height` rasters, partitions the working bbox into buffered tiles, runs the decomposed multi-source FusionCode flow per tile, stitches tile-owned features into `runtime_output/fused_buildings.gpkg`, and emits local `selected_sources.json`, `stitched_artifact.json`, and `inspection_summary.json` so operators can review source selection, tile count, and artifact validity without opening raw files one by one. Keep this as a research utility description unless the same capability is promoted through shared runtime evidence, tests, and operations wording.
 
 Height fields are intentionally non-destructive:
 

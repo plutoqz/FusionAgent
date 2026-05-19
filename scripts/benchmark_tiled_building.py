@@ -2,7 +2,9 @@
 Expected outputs:
 - timing.json
 - source_profile_snapshot.json
+- selected_sources.json
 - tile_manifest.json
+- stitched_artifact.json
 - benchmark_summary.md
 """
 
@@ -56,6 +58,12 @@ def _feature_count(path: Path) -> int:
     return int(len(gpd.read_file(path).index))
 
 
+def _serialize_tile_output(tile_output: Any) -> dict[str, Any]:
+    if hasattr(tile_output, "to_dict"):
+        return dict(tile_output.to_dict())
+    return {"value": str(tile_output)}
+
+
 def _select_reference_profile(profile_map: dict[str, dict[str, Any]]) -> dict[str, Any]:
     for source_id in [
         "raw.local.microsoft.building",
@@ -98,6 +106,25 @@ def main() -> None:
 
     osm_profile = profile_map["raw.osm.building"]
     ref_profile = _select_reference_profile(profile_map)
+    selected_profile_ids = {
+        "osm": osm_profile["source_id"],
+        "reference": ref_profile["source_id"],
+    }
+    (output_root / "selected_sources.json").write_text(
+        json.dumps(
+            {
+                "selection_mode": "large_aoi_tiled_runtime",
+                "selected_profile_ids": selected_profile_ids,
+                "component_source_ids": [
+                    osm_profile["source_id"],
+                    ref_profile["source_id"],
+                ],
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
 
     partition_service = TilePartitionService(
         tile_width_m=args.tile_width_m,
@@ -109,8 +136,11 @@ def main() -> None:
         bbox_crs="EPSG:4326",
         working_crs=args.target_crs,
     )
+    tile_manifest_payload = tile_manifest.to_dict()
+    tile_manifest_payload["manifest_mode"] = "large_aoi_bbox_tiling"
+    tile_manifest_payload["tile_count"] = len(tile_manifest.tiles)
     (output_root / "tile_manifest.json").write_text(
-        json.dumps(tile_manifest.to_dict(), ensure_ascii=False, indent=2),
+        json.dumps(tile_manifest_payload, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
 
@@ -176,6 +206,21 @@ def main() -> None:
 
     final_feature_count = _feature_count(result.output_shp)
     artifact_metrics = evaluate_vector_artifact(result.output_shp, required_fields=["geometry"])
+    stitched_artifact_path = output_root / "stitched_artifact.json"
+    stitched_artifact_path.write_text(
+        json.dumps(
+            {
+                "artifact_path": str(result.output_shp),
+                "tile_count": result.tile_count,
+                "stitched_feature_count": result.stitched_feature_count,
+                "artifact_metrics": artifact_metrics,
+                "tile_outputs": [_serialize_tile_output(item) for item in result.tile_outputs],
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
     timing_path = output_root / "timing.json"
     timing_path.write_text(
         json.dumps(
@@ -205,13 +250,12 @@ def main() -> None:
                 "bbox": list(request_bbox),
                 "target_crs": args.target_crs,
                 "tile_count": result.tile_count,
-                "selected_profiles": {
-                    "osm": osm_profile["source_id"],
-                    "reference": ref_profile["source_id"],
-                },
+                "selected_profiles": selected_profile_ids,
                 "evidence": {
                     "source_profile_snapshot": "source_profile_snapshot.json",
+                    "selected_sources": "selected_sources.json",
                     "tile_manifest": "tile_manifest.json",
+                    "stitched_artifact": "stitched_artifact.json",
                     "timing": "timing.json",
                     "benchmark_summary": "benchmark_summary.md",
                     "artifact_path": str(result.output_shp),
@@ -252,7 +296,9 @@ def main() -> None:
             f"- artifact valid: `{artifact_metrics['artifact_validity']}`",
             "",
             f"- timing json: `{timing_path}`",
+            f"- selected sources: `{output_root / 'selected_sources.json'}`",
             f"- tile manifest: `{output_root / 'tile_manifest.json'}`",
+            f"- stitched artifact: `{stitched_artifact_path}`",
             f"- source profile snapshot: `{output_root / 'source_profile_snapshot.json'}`",
             f"- inspection summary: `{inspection_summary_path}`",
         ]

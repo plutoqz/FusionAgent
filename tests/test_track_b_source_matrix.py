@@ -119,13 +119,16 @@ def test_track_b_national_scale_freeze_captures_current_claim_boundary() -> None
     runs = {item["theme"]: item for item in freeze["runs"]}
 
     assert runs["road"]["claim_state"] == "national_scale_partial_reference"
+    assert runs["road"]["stitched_artifact"].endswith("road/stitched_artifact.json")
     road_coverage = runs["road"]["component_coverage"]
     road_ref_id = "raw.overture.transportation" if "raw.overture.transportation" in road_coverage else "raw.overture.road"
     assert road_coverage[road_ref_id]["source_mode"] == "missing_optional_ref"
 
     assert runs["water"]["claim_state"] == "national_scale_supported"
+    assert runs["water"]["stitched_artifact"].endswith("water/stitched_artifact.json")
     assert "raw.hydrorivers.water" in runs["water"]["supplemental_normalized_sources"]
     assert "raw.hydrolakes.water" in runs["water"]["supplemental_normalized_sources"]
 
     assert runs["poi"]["claim_state"] == "national_scale_supported"
+    assert runs["poi"]["stitched_artifact"].endswith("poi/stitched_artifact.json")
     assert "raw.rh.poi" in runs["poi"]["supplemental_normalized_sources"]

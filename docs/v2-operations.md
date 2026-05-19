@@ -36,7 +36,7 @@ For the current large-AOI building scale-validation slice, keep the capability w
 | canonical source profiling for the checked-in scale-validation dataset | supported as a preparation utility |
 | source-profile metadata for `OSM`, `MS`, `OBM`, and `GG` building vectors | supported for inspection and validation |
 | tile manifest, clipped tile bundles, stitch outputs, and tile audit events | supported evidence surfaces |
-| `inspection_summary.json` emitted by the checked-in scale-validation scripts | operator-readable scale-validation summary, not shared-runtime inspection API |
+| `inspection_summary.json`, `selected_sources.json`, and `stitched_artifact.json` emitted by the checked-in scale-validation scripts | operator-readable scale-validation summary and source-selection contract, not shared-runtime inspection API |
 | Google building-presence raster inspection and profiling | inspect-only |
 | tiled multi-source building fusion with optional raster enrichment | research utility, not part of the shared runtime contract |
 | raster-based building presence validation and height extraction inside the multi-source utility | research utility, not a shared runtime claim |
@@ -55,7 +55,7 @@ python scripts/run_benin_multisource_building_fusion.py --source-root E:\fyx\dat
 
 Do not describe the multi-source validation script as part of the stable runtime contract unless the same capability is explicitly frozen in README, tests, and the evidence contract.
 
-For the checked-in scale-validation scripts, the operator-readable inspection surface is the local `inspection_summary.json` written next to `timing.json`, `tile_manifest.json`, and `benchmark_summary.md`. This is evidence for bounded validation utilities; it is not the same thing as the shared `/api/v2/runs/{run_id}/inspection` surface used by the stable runtime.
+For the checked-in scale-validation scripts, the operator-readable inspection surface is the local `inspection_summary.json` written next to `selected_sources.json`, `stitched_artifact.json`, `timing.json`, `tile_manifest.json`, and `benchmark_summary.md`. This is evidence for bounded validation utilities; it is not the same thing as the shared `/api/v2/runs/{run_id}/inspection` surface used by the stable runtime.
 
 ### Artifact Preview Products
 

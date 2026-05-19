@@ -50,6 +50,8 @@
           "run.json",
           "audit.jsonl",
           "tile_manifest.json",
+          "selected_sources.json",
+          "stitched_artifact.json",
           "artifact_bundle",
           "inspection_summary.json"
         ],
@@ -100,6 +102,7 @@
           "tile_manifest.json",
           "source_profile_snapshot.json",
           "selected_sources.json",
+          "stitched_artifact.json",
           "runtime_output/fused_buildings.gpkg",
           "inspection_summary.json",
           "targeted_tests"
