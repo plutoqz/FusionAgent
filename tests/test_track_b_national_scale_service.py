@@ -56,6 +56,7 @@ def test_track_b_national_scale_service_writes_poi_evidence_with_real_tiling(tmp
     tile_manifest = json.loads((output_root / "tile_manifest.json").read_text(encoding="utf-8"))
     selected_sources = json.loads((output_root / "selected_sources.json").read_text(encoding="utf-8"))
     normalization_summary = json.loads((output_root / "normalization_summary.json").read_text(encoding="utf-8"))
+    stitched_artifact = json.loads((output_root / "stitched_artifact.json").read_text(encoding="utf-8"))
     inspection_summary = json.loads((output_root / "inspection_summary.json").read_text(encoding="utf-8"))
 
     assert summary["claim_state"] == "national_scale_supported"
@@ -65,7 +66,11 @@ def test_track_b_national_scale_service_writes_poi_evidence_with_real_tiling(tmp
     assert selected_sources["component_source_ids"] == ["raw.osm.poi", "raw.gns.poi"]
     assert normalization_summary["selected_sources"]["raw.gns.poi"]["feature_count"] == 2
     assert "GeoHash" in normalization_summary["selected_sources"]["raw.gns.poi"]["columns"]
+    assert stitched_artifact["tile_count"] == tile_manifest["tile_count"]
+    assert len(stitched_artifact["tile_outputs"]) == tile_manifest["tile_count"]
+    assert stitched_artifact["artifact_metrics"]["artifact_validity"] is True
     assert inspection_summary["claim_state"] == "national_scale_supported"
+    assert inspection_summary["evidence"]["stitched_artifact"] == "stitched_artifact.json"
     assert Path(inspection_summary["artifact_path"]).exists()
 
 
@@ -102,9 +107,13 @@ def test_track_b_national_scale_service_marks_road_evidence_as_partial_when_manu
     )
 
     selected_sources = json.loads((output_root / "selected_sources.json").read_text(encoding="utf-8"))
+    stitched_artifact = json.loads((output_root / "stitched_artifact.json").read_text(encoding="utf-8"))
     inspection_summary = json.loads((output_root / "inspection_summary.json").read_text(encoding="utf-8"))
 
     assert summary["claim_state"] == "national_scale_partial_reference"
     assert selected_sources["component_source_ids"] == ["raw.osm.road", "raw.overture.transportation"]
     assert selected_sources["component_coverage"]["raw.overture.transportation"]["feature_count"] == 0
+    assert stitched_artifact["artifact_path"] == summary["artifact_path"]
+    assert stitched_artifact["stitched_feature_count"] == inspection_summary["artifact_metrics"]["feature_count"]
     assert inspection_summary["claim_state"] == "national_scale_partial_reference"
+    assert inspection_summary["evidence"]["stitched_artifact"] == "stitched_artifact.json"

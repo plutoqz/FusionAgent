@@ -135,8 +135,14 @@ def test_benchmark_tiled_building_writes_expected_contract_outputs(
     source_profile_snapshot = json.loads(
         (output_root / "source_profile_snapshot.json").read_text(encoding="utf-8")
     )
+    selected_sources = json.loads(
+        (output_root / "selected_sources.json").read_text(encoding="utf-8")
+    )
     tile_manifest = json.loads(
         (output_root / "tile_manifest.json").read_text(encoding="utf-8")
+    )
+    stitched_artifact = json.loads(
+        (output_root / "stitched_artifact.json").read_text(encoding="utf-8")
     )
     timing = json.loads((output_root / "timing.json").read_text(encoding="utf-8"))
     inspection_summary = json.loads(
@@ -148,7 +154,21 @@ def test_benchmark_tiled_building_writes_expected_contract_outputs(
         "raw.osm.building",
         "raw.local.microsoft.building",
     ]
+    assert selected_sources["selection_mode"] == "large_aoi_tiled_runtime"
+    assert selected_sources["selected_profile_ids"] == {
+        "osm": "raw.osm.building",
+        "reference": "raw.local.microsoft.building",
+    }
+    assert selected_sources["component_source_ids"] == [
+        "raw.osm.building",
+        "raw.local.microsoft.building",
+    ]
+    assert tile_manifest["manifest_mode"] == "large_aoi_bbox_tiling"
+    assert tile_manifest["tile_count"] == 1
     assert tile_manifest["tiles"][0]["tile_id"] == "tile_000_000"
+    assert stitched_artifact["artifact_path"] == str(output_shp)
+    assert stitched_artifact["tile_count"] == 1
+    assert stitched_artifact["stitched_feature_count"] == 1
     assert timing["tile_count"] == 1
     assert timing["stitched_feature_count"] == 1
     assert timing["final_feature_count"] == 1
@@ -160,8 +180,12 @@ def test_benchmark_tiled_building_writes_expected_contract_outputs(
     assert inspection_summary["claim_state"] == "runtime_supported"
     assert inspection_summary["artifact_metrics"]["artifact_validity"] is True
     assert inspection_summary["operator_readable_summary"]["final_feature_count"] == 1
+    assert inspection_summary["evidence"]["selected_sources"] == "selected_sources.json"
+    assert inspection_summary["evidence"]["stitched_artifact"] == "stitched_artifact.json"
     assert inspection_summary["evidence"]["tile_manifest"] == "tile_manifest.json"
     assert "# Large-AOI Tiled Building Benchmark" in summary
+    assert "selected sources" in summary
+    assert "stitched artifact" in summary
     assert "source profile snapshot" in summary
     assert "tile manifest" in summary
     assert "inspection summary" in summary

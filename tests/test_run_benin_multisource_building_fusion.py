@@ -184,6 +184,9 @@ def test_multisource_validation_main_writes_selected_sources_timing_and_summary(
     tile_manifest = json.loads(
         (output_root / "tile_manifest.json").read_text(encoding="utf-8")
     )
+    stitched_artifact = json.loads(
+        (output_root / "stitched_artifact.json").read_text(encoding="utf-8")
+    )
     timing = json.loads((output_root / "timing.json").read_text(encoding="utf-8"))
     inspection_summary = json.loads(
         (output_root / "inspection_summary.json").read_text(encoding="utf-8")
@@ -195,7 +198,12 @@ def test_multisource_validation_main_writes_selected_sources_timing_and_summary(
     assert selected_sources["vector_sources"]["MS"].endswith("ms.shp")
     assert selected_sources["raster_sources"]["building_presence"].endswith("presence.tif")
     assert selected_sources["context_vectors"] == {"roads": str(road_path)}
+    assert tile_manifest["manifest_mode"] == "large_aoi_bbox_tiling"
+    assert tile_manifest["tile_count"] == 1
     assert tile_manifest["tiles"][0]["tile_id"] == "tile_000_000"
+    assert stitched_artifact["artifact_path"] == str(output_path)
+    assert stitched_artifact["tile_count"] == 1
+    assert stitched_artifact["stitched_feature_count"] == 7
     assert timing["tile_count"] == 1
     assert timing["stitched_feature_count"] == 7
     assert [event["kind"] for event in timing["events"]] == [
@@ -207,7 +215,9 @@ def test_multisource_validation_main_writes_selected_sources_timing_and_summary(
     assert inspection_summary["artifact_metrics"]["artifact_validity"] is True
     assert inspection_summary["operator_readable_summary"]["stitched_feature_count"] == 7
     assert inspection_summary["evidence"]["selected_sources"] == "selected_sources.json"
+    assert inspection_summary["evidence"]["stitched_artifact"] == "stitched_artifact.json"
     assert "# Large-AOI Multi-Source Building Validation" in summary
     assert "source priority order" in summary
     assert "raster inputs" in summary
+    assert "stitched artifact" in summary
     assert "inspection summary" in summary

@@ -6,6 +6,7 @@ Expected outputs:
 - source_profile_snapshot.json
 - tile_manifest.json
 - selected_sources.json
+- stitched_artifact.json
 - benchmark_summary.md
 - runtime_output/fused_buildings.gpkg
 """
@@ -92,6 +93,12 @@ def _select_benin_context_vectors(road_shp: Path | None) -> dict[str, Path]:
     return {"roads": road_path}
 
 
+def _serialize_tile_output(tile_output: Any) -> dict[str, Any]:
+    if hasattr(tile_output, "to_dict"):
+        return dict(tile_output.to_dict())
+    return {"value": str(tile_output)}
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Run tiled FusionCode building fusion for large-AOI scale-validation data")
     parser.add_argument("--source-root", required=True, help="Scale-validation source root, e.g. E:\\fyx\\data\\Benin")
@@ -149,8 +156,11 @@ def main() -> None:
         bbox_crs="EPSG:4326",
         working_crs=args.target_crs,
     )
+    tile_manifest_payload = tile_manifest.to_dict()
+    tile_manifest_payload["manifest_mode"] = "large_aoi_bbox_tiling"
+    tile_manifest_payload["tile_count"] = len(tile_manifest.tiles)
     (output_root / "tile_manifest.json").write_text(
-        json.dumps(tile_manifest.to_dict(), ensure_ascii=False, indent=2),
+        json.dumps(tile_manifest_payload, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
 
@@ -176,6 +186,21 @@ def main() -> None:
     )
     timing["fusion"] = time.perf_counter() - fusion_started
     artifact_metrics = evaluate_vector_artifact(result.output_path, required_fields=["geometry"])
+    stitched_artifact_path = output_root / "stitched_artifact.json"
+    stitched_artifact_path.write_text(
+        json.dumps(
+            {
+                "artifact_path": str(result.output_path),
+                "tile_count": result.tile_count,
+                "stitched_feature_count": result.stitched_feature_count,
+                "artifact_metrics": artifact_metrics,
+                "tile_outputs": [_serialize_tile_output(item) for item in result.tile_outputs],
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
 
     timing_path = output_root / "timing.json"
     timing_path.write_text(
@@ -212,6 +237,7 @@ def main() -> None:
                     "source_profile_snapshot": "source_profile_snapshot.json",
                     "selected_sources": "selected_sources.json",
                     "tile_manifest": "tile_manifest.json",
+                    "stitched_artifact": "stitched_artifact.json",
                     "timing": "timing.json",
                     "benchmark_summary": "benchmark_summary.md",
                     "artifact_path": str(result.output_path),
@@ -253,6 +279,7 @@ def main() -> None:
                 f"- artifact valid: `{artifact_metrics['artifact_validity']}`",
                 f"- output: `{result.output_path}`",
                 f"- timing json: `{timing_path}`",
+                f"- stitched artifact: `{stitched_artifact_path}`",
                 f"- inspection summary: `{inspection_summary_path}`",
             ]
         ),

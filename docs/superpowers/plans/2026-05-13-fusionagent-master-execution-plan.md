@@ -157,7 +157,7 @@
 
 - [x] B1. 国家级数据源矩阵定版
 - [x] B2. 数据获取链路打通
-- [ ] B3. 国家级 clip / tiling / stitching 通路统一
+- [x] B3. 国家级 clip / tiling / stitching 通路统一
 - [ ] B4. 多源规范化与融合节点收口
 - [ ] B5. 结果与证据闭环
 - 2026-05-18 fresh verification:
@@ -165,7 +165,7 @@
   - 结果：`9 passed in 3.23s`
 - 当前判定：
   - `Track A` 已具备 live 模型、graph API 与闭合门禁证据；
-  - `Track B` 的 `B1-B2` 已完成，当前主缺口集中在 `B3-B5`。
+  - `Track B` 的 `B1-B3` 已完成，当前主缺口集中在 `B4-B5`。
 
 ##### B1. 国家级数据源矩阵定版
 
@@ -265,8 +265,13 @@
 - building 继续用现有 tiled runtime 作为模板。
 - road / water / poi 补齐国家级 clip、分块、重组与 inspection 摘要，不允许只有 building 具备大 AOI 能力。
 - `tile manifest -> source profile -> selected sources -> stitched artifact -> inspection_summary` 必须对四个主题尽量统一。
+- 2026-05-19：已把 `scripts/benchmark_tiled_building.py` 与 `scripts/run_benin_multisource_building_fusion.py` 的 building 模板证据面补齐到同一条 B3 contract：两者现在都会显式落 `selected_sources.json` 与 `stitched_artifact.json`，且 `tile_manifest.json` 统一带 `manifest_mode` 与 `tile_count`，避免 building 与 road / water / poi 在 operator-readable 证据链上继续漂移。
+- 2026-05-19：`services/track_b_national_scale_service.py` 现已为 road / water / poi 显式落 `stitched_artifact.json`，并把该证据节点写入 `inspection_summary.json` 与 live freeze，引导 national-scale utility 与 building 模板沿同一条 stitched-artifact contract 收口。
 - 2026-05-18：`scripts/smoke_agentic_region.py` 已新增 `--evidence-dir`，可直接把 shared runtime 的 road / water / poi / building smoke inspection 归档为统一的 `inspection.json`、`source_profile_snapshot.json`、`selected_sources.json`、`tile_manifest.json`、`inspection_summary.json`。其中 smoke 的 `tile_manifest.json` 明确标记为 `single_request_aoi`，用于 operator-readable bounded evidence，而不是伪装成 building 的真实 tiled runtime。
 - 2026-05-18：已新增 `services/track_b_national_scale_service.py` 与 `scripts/build_track_b_national_evidence.py`，把 road / water / poi 的 national clip、tile manifest、normalized artifacts、stitch output 与 inspection summary 收口到同一套 utility；对应 live freeze 见 `docs/superpowers/specs/2026-05-18-track-b-national-scale-evidence-freeze.json`。
+- 2026-05-19 fresh verification:
+  - `python -m pytest -q tests/test_benchmark_tiled_building.py tests/test_run_benin_multisource_building_fusion.py tests/test_scale_validation_doc_alignment.py tests/test_capability_inventory_matrix.py tests/test_track_b_national_scale_service.py tests/test_track_b_source_matrix.py tests/test_national_source_matrix.py`
+  - 结果：`20 passed in 375.51s`
 
 ##### B4. 多源规范化与融合节点收口
 

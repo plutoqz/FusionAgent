@@ -39,6 +39,14 @@ class TileFusionArtifact:
     feature_count: int
     working_bbox: tuple[float, float, float, float]
 
+    def to_dict(self) -> dict[str, Any]:
+        return {
+            "tile_id": self.tile_id,
+            "output_path": str(self.output_path),
+            "feature_count": self.feature_count,
+            "working_bbox": [float(value) for value in self.working_bbox],
+        }
+
 
 class TrackBNationalScaleService:
     def __init__(self, *, root_dir: Path, cache_dir: Path) -> None:
@@ -177,6 +185,19 @@ class TrackBNationalScaleService:
         selected_coverage = _jsonable_component_coverage(materialized.component_coverage)
         claim_state = self._claim_state(selected_coverage)
         artifact_metrics = evaluate_vector_artifact(final_output, required_fields=["geometry"])
+        stitched_artifact_path = output_root / "stitched_artifact.json"
+        stitched_artifact_payload = {
+            "job_type": theme,
+            "artifact_path": str(final_output),
+            "tile_count": len(tile_results),
+            "stitched_feature_count": int(artifact_metrics.get("feature_count") or 0),
+            "artifact_metrics": artifact_metrics,
+            "tile_outputs": [item.to_dict() for item in tile_results],
+        }
+        stitched_artifact_path.write_text(
+            json.dumps(stitched_artifact_payload, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
 
         source_profile_snapshot = {
             "snapshot_mode": "track_b_national_scale",
@@ -260,6 +281,7 @@ class TrackBNationalScaleService:
                 "source_profile_snapshot": "source_profile_snapshot.json",
                 "normalization_summary": "normalization_summary.json",
                 "tile_manifest": "tile_manifest.json",
+                "stitched_artifact": "stitched_artifact.json",
                 "timing": "timing.json",
                 "artifact_path": str(final_output),
             },

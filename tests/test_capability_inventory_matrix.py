@@ -16,10 +16,13 @@ def test_capability_matrix_tracks_status_and_evidence() -> None:
     assert "core_next" in payload["status_vocab"]
     assert "evidence_contract" in payload["required_fields"]
     assert building["building.large_aoi_tiled_runtime"]["claim_state"] == "runtime_supported"
+    assert "selected_sources.json" in building["building.large_aoi_tiled_runtime"]["evidence_contract"]
+    assert "stitched_artifact.json" in building["building.large_aoi_tiled_runtime"]["evidence_contract"]
     assert building["building.scale_validation_source_profiling"]["claim_state"] == "research_utility"
     assert building["building.scale_validation_cleanup_rules"]["claim_state"] == "research_utility"
     assert building["building.multisource_fusion_semantics"]["status"] == "optional"
     assert building["building.multisource_fusion_semantics"]["claim_state"] == "research_utility"
     assert "inspection_summary.json" in building["building.multisource_fusion_semantics"]["evidence_contract"]
+    assert "stitched_artifact.json" in building["building.multisource_fusion_semantics"]["evidence_contract"]
     assert "docs/v2-operations.md" in building["building.multisource_fusion_semantics"]["owner_files"]
 
