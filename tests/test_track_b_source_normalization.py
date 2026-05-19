@@ -6,12 +6,35 @@ from shapely.geometry import LineString, Point, Polygon
 from services.track_b_source_normalization import normalize_track_b_source_frame
 
 
+def test_track_b_normalization_maps_building_profiles_to_canonical_height_and_confidence() -> None:
+    frame = gpd.GeoDataFrame(
+        {
+            "id": ["ms-1"],
+            "height": [12.5],
+            "confidence": [0.92],
+        },
+        geometry=[Polygon([(30.3, -2.4), (30.3, -2.3), (30.4, -2.3), (30.4, -2.4)])],
+        crs="EPSG:4326",
+    )
+
+    normalized = normalize_track_b_source_frame(
+        "raw.microsoft.building",
+        frame,
+        target_crs="EPSG:32735",
+    )
+
+    assert normalized.iloc[0]["source_feature_id"] == "ms-1"
+    assert float(normalized.iloc[0]["height_m"]) == 12.5
+    assert float(normalized.iloc[0]["confidence"]) == 0.92
+    assert normalized.iloc[0]["source_id"] == "raw.microsoft.building"
+
+
 def test_track_b_normalization_maps_hydrorivers_profile_to_canonical_water_fields() -> None:
     frame = gpd.GeoDataFrame(
         {
             "HYRIV_ID": [11061859],
-            "ORD_CLAS": [1],
-            "ORD_FLOW": [4],
+            "ORD_STRA": [1],
+            "DIS_AV_CMS": [4.5],
         },
         geometry=[LineString([(30.42, -2.33), (30.44, -2.32)])],
         crs="EPSG:4326",
@@ -26,6 +49,9 @@ def test_track_b_normalization_maps_hydrorivers_profile_to_canonical_water_field
     assert normalized.iloc[0]["source_feature_id"] == "11061859"
     assert normalized.iloc[0]["fclass"] == "river"
     assert normalized.iloc[0]["water_ty"] == "line"
+    assert normalized.iloc[0]["feature_kind"] == "line"
+    assert normalized.iloc[0]["water_class"] == "1"
+    assert float(normalized.iloc[0]["perennial_flag"]) == 4.5
     assert normalized.iloc[0]["source_id"] == "raw.hydrorivers.water"
 
 
@@ -50,6 +76,8 @@ def test_track_b_normalization_maps_hydrolakes_profile_to_canonical_water_fields
     assert normalized.iloc[0]["name"] == "Rweru"
     assert normalized.iloc[0]["fclass"] == "lake"
     assert normalized.iloc[0]["water_ty"] == "1"
+    assert normalized.iloc[0]["feature_kind"] == "polygon"
+    assert normalized.iloc[0]["water_class"] == "1"
 
 
 def test_track_b_normalization_computes_gns_poi_geohash_and_category() -> None:
@@ -58,6 +86,7 @@ def test_track_b_normalization_computes_gns_poi_geohash_and_category() -> None:
             "ufi": [6034032],
             "full_name": ["Usumbura"],
             "desig_cd": ["ADM1"],
+            "CC1": ["BI"],
         },
         geometry=[Point(29.256944, -3.333333)],
         crs="EPSG:4326",
@@ -72,6 +101,7 @@ def test_track_b_normalization_computes_gns_poi_geohash_and_category() -> None:
     assert normalized.iloc[0]["source_feature_id"] == "6034032"
     assert normalized.iloc[0]["name"] == "Usumbura"
     assert normalized.iloc[0]["category"] == "ADM1"
+    assert normalized.iloc[0]["admin_country"] == "BI"
     assert isinstance(normalized.iloc[0]["GeoHash"], str)
     assert len(normalized.iloc[0]["GeoHash"]) == 8
 
@@ -98,3 +128,26 @@ def test_track_b_normalization_preserves_rh_poi_geohash_and_name_aliases() -> No
     assert normalized.iloc[0]["name"] == "Alt Clinic"
     assert normalized.iloc[0]["GeoHash"] == "kxm1xp8"
     assert normalized.iloc[0]["category"] == "clinic"
+
+
+def test_track_b_normalization_maps_overture_road_surface_and_lanes() -> None:
+    frame = gpd.GeoDataFrame(
+        {
+            "id": ["seg-1"],
+            "class": ["primary"],
+            "surface": ["paved"],
+            "lane_count": [2],
+        },
+        geometry=[LineString([(30.42, -2.33), (30.44, -2.32)])],
+        crs="EPSG:4326",
+    )
+
+    normalized = normalize_track_b_source_frame(
+        "raw.overture.transportation",
+        frame,
+        target_crs="EPSG:32735",
+    )
+
+    assert normalized.iloc[0]["road_class"] == "primary"
+    assert normalized.iloc[0]["surface"] == "paved"
+    assert normalized.iloc[0]["lanes"] == 2

@@ -23,8 +23,8 @@ def _parse_bbox(value: str) -> tuple[float, float, float, float]:
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Build Track B national-scale evidence for road, water, or poi.")
-    parser.add_argument("--job-type", choices=["road", "water", "poi"], required=True)
+    parser = argparse.ArgumentParser(description="Build Track B national-scale evidence for building, road, water, or poi.")
+    parser.add_argument("--job-type", choices=["building", "road", "water", "poi"], required=True)
     parser.add_argument("--source-id", default="", help="Optional catalog source id override.")
     parser.add_argument("--bbox", required=True, help="minx,miny,maxx,maxy in EPSG:4326")
     parser.add_argument("--target-crs", required=True)

@@ -146,6 +146,7 @@ class TiledBuildingRuntimeService:
         vector_sources: dict[str, Path],
         output_dir: Path,
         target_crs: str,
+        vector_source_crs: str | None = None,
         raster_sources: Optional[dict[str, Path]] = None,
         context_vectors: Optional[dict[str, Path]] = None,
         source_priority_order: tuple[str, ...] | None = None,
@@ -168,7 +169,7 @@ class TiledBuildingRuntimeService:
                     raster_sources=raster_sources or {},
                     context_vectors=context_vectors or {},
                     target_crs=target_crs,
-                    source_crs=tile_manifest.bbox_crs,
+                    source_crs=vector_source_crs or tile_manifest.bbox_crs,
                     parameters=parameters,
                     on_event=on_event,
                 )
@@ -506,7 +507,8 @@ class TiledBuildingRuntimeService:
         source_crs: str,
         target_crs: str,
     ) -> gpd.GeoDataFrame:
-        frame = gpd.read_file(path, bbox=tile.buffered_bbox)
+        read_bbox = tile.working_buffered_bbox if source_crs == target_crs else tile.buffered_bbox
+        frame = gpd.read_file(path, bbox=read_bbox)
         if frame.empty:
             return gpd.GeoDataFrame(geometry=gpd.GeoSeries([], dtype="geometry", crs=target_crs), crs=target_crs)
         if frame.crs is None:

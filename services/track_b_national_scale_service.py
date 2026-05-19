@@ -21,15 +21,35 @@ from services.local_bundle_catalog import LocalBundleCatalogProvider
 from services.raw_vector_source_service import RawVectorSourceService
 from services.source_asset_service import SourceCoverageStatus
 from services.tile_partition_service import TilePartitionService, TileSpec
+from services.tiled_building_runtime_service import TiledBuildingRuntimeService
 from services.track_b_source_normalization import normalize_track_b_source_frame
 from utils.shp_zip import validate_zip_has_shapefile
 
 
 DEFAULT_THEME_SOURCE_IDS = {
+    "building": "catalog.earthquake.building",
     "road": "catalog.flood.road",
     "water": "catalog.flood.water",
     "poi": "catalog.generic.poi",
 }
+
+BUILDING_SOURCE_ALIASES = {
+    "raw.osm.building": "OSM",
+    "raw.microsoft.building": "MS",
+    "raw.local.microsoft.building": "MICROSOFT_LOCAL",
+    "raw.google.building": "GOOGLE",
+    "raw.google.open_buildings.vector": "GOOGLE_OPEN_BUILDINGS",
+    "raw.openbuildingmap.building": "OBM",
+}
+
+BUILDING_SOURCE_PRIORITY_ORDER = (
+    "MS",
+    "MICROSOFT_LOCAL",
+    "OBM",
+    "GOOGLE_OPEN_BUILDINGS",
+    "GOOGLE",
+    "OSM",
+)
 
 
 @dataclass(frozen=True)
@@ -78,7 +98,7 @@ class TrackBNationalScaleService:
         overlap_m: float = 0.0,
     ) -> dict[str, Any]:
         theme = str(job_type).strip().lower()
-        if theme not in {"road", "water", "poi"}:
+        if theme not in {"building", "road", "water", "poi"}:
             raise ValueError(f"Unsupported Track B national-scale theme={job_type}")
         selected_source_id = source_id or DEFAULT_THEME_SOURCE_IDS[theme]
         output_root = Path(output_root)
@@ -158,29 +178,45 @@ class TrackBNationalScaleService:
             encoding="utf-8",
         )
 
-        tile_started = time.perf_counter()
-        tile_dir = output_root / "tiles"
-        tile_dir.mkdir(parents=True, exist_ok=True)
-        tile_results: list[TileFusionArtifact] = []
-        for tile in tile_manifest.tiles:
-            tile_output = self._run_tile_fusion(
-                theme=theme,
-                tile=tile,
-                osm_frame=osm_normalized,
-                ref_frame=ref_normalized,
+        building_fusion_summary: dict[str, Any] = {}
+        if theme == "building":
+            tile_started = time.perf_counter()
+            final_output, tile_results, building_fusion_summary = self._run_building_national_fusion(
+                tile_manifest=tile_manifest,
                 target_crs=target_crs,
-                tile_dir=tile_dir / tile.tile_id,
+                output_root=output_root,
+                selected_sources={
+                    osm_source_id: osm_normalized_path,
+                    **({ref_source_id: ref_normalized_path} if ref_source_id and ref_normalized_path else {}),
+                },
+                supplemental_summary=supplemental_summary,
             )
-            tile_results.append(tile_output)
-        timings["tile_fusion_sec"] = time.perf_counter() - tile_started
+            timings["tile_fusion_sec"] = time.perf_counter() - tile_started
+            timings["stitch_sec"] = 0.0
+        else:
+            tile_started = time.perf_counter()
+            tile_dir = output_root / "tiles"
+            tile_dir.mkdir(parents=True, exist_ok=True)
+            tile_results = []
+            for tile in tile_manifest.tiles:
+                tile_output = self._run_tile_fusion(
+                    theme=theme,
+                    tile=tile,
+                    osm_frame=osm_normalized,
+                    ref_frame=ref_normalized,
+                    target_crs=target_crs,
+                    tile_dir=tile_dir / tile.tile_id,
+                )
+                tile_results.append(tile_output)
+            timings["tile_fusion_sec"] = time.perf_counter() - tile_started
 
-        stitch_started = time.perf_counter()
-        final_output = self._stitch_tile_outputs(
-            tile_results=tile_results,
-            output_path=output_root / f"{theme}_national_scale_fused.gpkg",
-            target_crs=target_crs,
-        )
-        timings["stitch_sec"] = time.perf_counter() - stitch_started
+            stitch_started = time.perf_counter()
+            final_output = self._stitch_tile_outputs(
+                tile_results=tile_results,
+                output_path=output_root / f"{theme}_national_scale_fused.gpkg",
+                target_crs=target_crs,
+            )
+            timings["stitch_sec"] = time.perf_counter() - stitch_started
 
         selected_coverage = _jsonable_component_coverage(materialized.component_coverage)
         claim_state = self._claim_state(selected_coverage)
@@ -193,6 +229,7 @@ class TrackBNationalScaleService:
             "stitched_feature_count": int(artifact_metrics.get("feature_count") or 0),
             "artifact_metrics": artifact_metrics,
             "tile_outputs": [item.to_dict() for item in tile_results],
+            **({"fusion_summary": building_fusion_summary} if building_fusion_summary else {}),
         }
         stitched_artifact_path.write_text(
             json.dumps(stitched_artifact_payload, ensure_ascii=False, indent=2),
@@ -215,6 +252,7 @@ class TrackBNationalScaleService:
                 if item is not None and path is not None
             ],
             "supplemental_profiles": list(supplemental_summary.values()),
+            **({"fusion_summary": building_fusion_summary} if building_fusion_summary else {}),
         }
         (output_root / "source_profile_snapshot.json").write_text(
             json.dumps(source_profile_snapshot, ensure_ascii=False, indent=2),
@@ -230,6 +268,7 @@ class TrackBNationalScaleService:
             "target_crs": target_crs,
             "component_source_ids": component_source_ids,
             "component_coverage": selected_coverage,
+            **({"fusion_summary": building_fusion_summary} if building_fusion_summary else {}),
         }
         (output_root / "selected_sources.json").write_text(
             json.dumps(selected_sources_payload, ensure_ascii=False, indent=2),
@@ -257,6 +296,7 @@ class TrackBNationalScaleService:
             "tile_count": len(tile_results),
             "stitched_feature_count": int(artifact_metrics.get("feature_count") or 0),
             "artifact_path": str(final_output),
+            **({"fusion_summary": building_fusion_summary} if building_fusion_summary else {}),
         }
         (output_root / "timing.json").write_text(
             json.dumps(timing_payload, ensure_ascii=False, indent=2),
@@ -291,6 +331,7 @@ class TrackBNationalScaleService:
                 "feature_count": artifact_metrics.get("feature_count"),
                 "component_coverage": selected_coverage,
                 "supplemental_source_ids": sorted(supplemental_summary.keys()),
+                **({"fusion_summary": building_fusion_summary} if building_fusion_summary else {}),
             },
         }
         (output_root / "inspection_summary.json").write_text(
@@ -344,6 +385,79 @@ class TrackBNationalScaleService:
                     "error": f"{type(exc).__name__}: {exc}",
                 }
         return summary
+
+    def _run_building_national_fusion(
+        self,
+        *,
+        tile_manifest,
+        target_crs: str,
+        output_root: Path,
+        selected_sources: dict[str, Path | None],
+        supplemental_summary: dict[str, dict[str, Any]],
+    ) -> tuple[Path, list[TileFusionArtifact], dict[str, Any]]:
+        vector_sources, source_id_by_alias = self._building_vector_sources(
+            selected_sources=selected_sources,
+            supplemental_summary=supplemental_summary,
+        )
+        if not vector_sources:
+            output_path = output_root / "runtime_output" / "fused_buildings.gpkg"
+            self._write_gpkg(_empty_frame(target_crs), output_path, target_crs=target_crs)
+            return output_path, [], {"vector_source_ids": [], "source_priority_order": []}
+
+        source_priority_order = tuple(
+            alias for alias in BUILDING_SOURCE_PRIORITY_ORDER if alias in vector_sources
+        ) + tuple(alias for alias in vector_sources if alias not in BUILDING_SOURCE_PRIORITY_ORDER)
+        runtime = TiledBuildingRuntimeService(max_workers=1)
+        result = runtime.run_tiled_multisource_building_job(
+            run_id="track-b-national-building",
+            tile_manifest=tile_manifest,
+            vector_sources=vector_sources,
+            output_dir=output_root / "runtime_output",
+            target_crs=target_crs,
+            vector_source_crs=target_crs,
+            source_priority_order=source_priority_order,
+        )
+        tile_results = [
+            TileFusionArtifact(
+                tile_id=item.tile_id,
+                output_path=item.output_path,
+                feature_count=item.feature_count,
+                working_bbox=item.working_bbox,
+            )
+            for item in result.tile_outputs
+        ]
+        fusion_summary = {
+            "vector_source_ids": [source_id_by_alias[alias] for alias in source_priority_order],
+            "vector_source_aliases": {source_id_by_alias[alias]: alias for alias in source_priority_order},
+            "source_priority_order": list(source_priority_order),
+        }
+        return result.output_path, tile_results, fusion_summary
+
+    def _building_vector_sources(
+        self,
+        *,
+        selected_sources: dict[str, Path | None],
+        supplemental_summary: dict[str, dict[str, Any]],
+    ) -> tuple[dict[str, Path], dict[str, str]]:
+        vector_sources: dict[str, Path] = {}
+        source_id_by_alias: dict[str, str] = {}
+
+        candidate_paths: dict[str, Path | None] = dict(selected_sources)
+        for source_id, summary in supplemental_summary.items():
+            raw_path = summary.get("artifact_path")
+            candidate_paths[source_id] = Path(raw_path) if raw_path else None
+
+        for source_id, artifact_path in candidate_paths.items():
+            if artifact_path is None or not artifact_path.exists():
+                continue
+            if source_id == "raw.local.microsoft.building" and "raw.microsoft.building" in candidate_paths:
+                continue
+            alias = BUILDING_SOURCE_ALIASES.get(source_id)
+            if not alias or alias in vector_sources:
+                continue
+            vector_sources[alias] = artifact_path
+            source_id_by_alias[alias] = source_id
+        return vector_sources, source_id_by_alias
 
     def _run_tile_fusion(
         self,

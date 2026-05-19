@@ -94,6 +94,11 @@ def _read_columns(bundle_zip: Path) -> list[str]:
     return list(frame.columns)
 
 
+class _NoRemoteSourceAssetService:
+    def can_materialize(self, _source_id: str) -> bool:
+        return False
+
+
 def test_local_bundle_catalog_supports_expanded_building_and_flood_road_sources(tmp_path: Path) -> None:
     _seed_local_catalog_tree(tmp_path)
     provider = LocalBundleCatalogProvider(
@@ -102,6 +107,7 @@ def test_local_bundle_catalog_supports_expanded_building_and_flood_road_sources(
             root_dir=tmp_path,
             registry=ArtifactRegistry(index_path=tmp_path / "artifact_registry.json"),
             cache_dir=tmp_path / "raw-cache",
+            source_asset_service=_NoRemoteSourceAssetService(),
         ),
     )
 
@@ -131,6 +137,7 @@ def test_local_bundle_catalog_materializes_flood_road_bundle_from_osm_and_overtu
             root_dir=tmp_path,
             registry=ArtifactRegistry(index_path=tmp_path / "artifact_registry.json"),
             cache_dir=tmp_path / "raw-cache",
+            source_asset_service=_NoRemoteSourceAssetService(),
         ),
     )
 
@@ -235,6 +242,7 @@ def test_local_bundle_catalog_road_bundle_tolerates_missing_manual_overture_refe
             root_dir=tmp_path,
             registry=ArtifactRegistry(index_path=tmp_path / "artifact_registry.json"),
             cache_dir=tmp_path / "raw-cache",
+            source_asset_service=_NoRemoteSourceAssetService(),
         ),
     )
 
@@ -262,6 +270,7 @@ def test_local_bundle_catalog_current_version_tolerates_missing_manual_overture_
             root_dir=tmp_path,
             registry=ArtifactRegistry(index_path=tmp_path / "artifact_registry.json"),
             cache_dir=tmp_path / "raw-cache",
+            source_asset_service=_NoRemoteSourceAssetService(),
         ),
     )
 

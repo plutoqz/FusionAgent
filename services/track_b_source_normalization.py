@@ -41,8 +41,11 @@ def normalize_track_b_source_frame(
 
 def _normalize_building_osm(frame: gpd.GeoDataFrame, *, geohash_precision: int) -> gpd.GeoDataFrame:
     del geohash_precision
-    frame["source_feature_id"] = _stringify(_coalesce(frame, ["osm_id", "id", "objectid", "fid"]))
+    frame["source_feature_id"] = _stringify(
+        _coalesce(frame, ["osm_id", "osm_way_id", "osm_rel_id", "id", "objectid", "fid"])
+    )
     frame["name"] = _coalesce(frame, ["name", "bld_name", "building_n"])
+    frame["height_m"] = _numeric_coalesce(frame, ["height", "Height", "HEIGHT", "building_h", "bld_h"])
     frame["building_class"] = _coalesce(frame, ["building", "type", "class", "use"], default="building")
     frame["confidence"] = _coalesce(frame, ["confidence"], default=1.0)
     return _filter_geometry(frame, {"Polygon", "MultiPolygon"})
@@ -51,9 +54,10 @@ def _normalize_building_osm(frame: gpd.GeoDataFrame, *, geohash_precision: int) 
 def _normalize_building_reference(frame: gpd.GeoDataFrame, *, geohash_precision: int) -> gpd.GeoDataFrame:
     del geohash_precision
     frame["source_feature_id"] = _stringify(
-        _coalesce(frame, ["id", "sourceid", "OBJECTID", "objectid", "fid"])
+        _coalesce(frame, ["id", "quadkey", "sourceid", "OBJECTID", "objectid", "fid"])
     )
     frame["name"] = _coalesce(frame, ["name", "Name"])
+    frame["height_m"] = _numeric_coalesce(frame, ["height", "Height", "HEIGHT", "building_h", "bld_h"])
     frame["building_class"] = _coalesce(frame, ["type", "class", "CATEGORY"], default="building")
     frame["confidence"] = _coalesce(frame, ["confidence", "probability", "prob"], default=1.0)
     return _filter_geometry(frame, {"Polygon", "MultiPolygon"})
@@ -65,6 +69,8 @@ def _normalize_road_osm(frame: gpd.GeoDataFrame, *, geohash_precision: int) -> g
     frame["name"] = _coalesce(frame, ["name", "ref"])
     frame["fclass"] = _stringify(_coalesce(frame, ["fclass", "highway", "class"], default="road"))
     frame["road_class"] = _stringify(_coalesce(frame, ["road_class", "fclass", "highway", "class"], default="road"))
+    frame["surface"] = _coalesce(frame, ["surface"])
+    frame["lanes"] = _coalesce(frame, ["lanes"])
     return _filter_geometry(frame, {"LineString", "MultiLineString"})
 
 
@@ -73,8 +79,12 @@ def _normalize_road_overture(frame: gpd.GeoDataFrame, *, geohash_precision: int)
     frame["source_feature_id"] = _stringify(_coalesce(frame, ["id", "segment_id", "road_id", "fid"]))
     frame["FID_1"] = _resolved_numeric_ids(frame["source_feature_id"])
     frame["name"] = _coalesce(frame, ["name", "names.primary", "names_primary", "primary_name", "ref"])
-    frame["fclass"] = _stringify(_coalesce(frame, ["class", "subtype", "type"], default="road"))
-    frame["road_class"] = _stringify(_coalesce(frame, ["road_class", "class", "subtype", "type"], default="road"))
+    frame["fclass"] = _stringify(_coalesce(frame, ["class", "subclass", "subtype", "type"], default="road"))
+    frame["road_class"] = _stringify(
+        _coalesce(frame, ["road_class", "class", "subclass", "subtype", "type"], default="road")
+    )
+    frame["surface"] = _coalesce(frame, ["surface"])
+    frame["lanes"] = _coalesce(frame, ["lane_count", "lanes"])
     return _filter_geometry(frame, {"LineString", "MultiLineString"})
 
 
@@ -84,6 +94,9 @@ def _normalize_water_osm_polygon(frame: gpd.GeoDataFrame, *, geohash_precision: 
     frame["name"] = _coalesce(frame, ["name", "waterway", "natural"])
     frame["fclass"] = _stringify(_coalesce(frame, ["fclass", "natural"], default="water"))
     frame["water_ty"] = _stringify(_coalesce(frame, ["water_ty", "water", "natural", "fclass"], default="polygon"))
+    frame["feature_kind"] = pd.Series(["polygon"] * len(frame), index=frame.index, dtype="object")
+    frame["water_class"] = _stringify(_coalesce(frame, ["fclass", "waterway", "natural"], default="water"))
+    frame["perennial_flag"] = _coalesce(frame, ["perennial_flag", "perennial"])
     return _filter_geometry(frame, {"Polygon", "MultiPolygon"})
 
 
@@ -93,6 +106,9 @@ def _normalize_water_local_reference(frame: gpd.GeoDataFrame, *, geohash_precisi
     frame["name"] = _coalesce(frame, ["Lake_name", "name", "Name"])
     frame["fclass"] = _stringify(_coalesce(frame, ["fclass", "Lake_type", "type"], default="lake"))
     frame["water_ty"] = _stringify(_coalesce(frame, ["Lake_type", "water_ty", "type"], default="polygon"))
+    frame["feature_kind"] = pd.Series(["polygon"] * len(frame), index=frame.index, dtype="object")
+    frame["water_class"] = _stringify(_coalesce(frame, ["type", "class", "Lake_type"], default="lake"))
+    frame["perennial_flag"] = _coalesce(frame, ["perennial_flag", "Depth_avg"])
     return _filter_geometry(frame, {"Polygon", "MultiPolygon"})
 
 
@@ -102,6 +118,9 @@ def _normalize_water_hydrorivers(frame: gpd.GeoDataFrame, *, geohash_precision: 
     frame["name"] = _coalesce(frame, ["name", "River_name", "river_name"])
     frame["fclass"] = _stringify(_coalesce(frame, ["fclass"], default="river"))
     frame["water_ty"] = _stringify(_coalesce(frame, ["water_ty"], default="line"))
+    frame["feature_kind"] = pd.Series(["line"] * len(frame), index=frame.index, dtype="object")
+    frame["water_class"] = _stringify(_coalesce(frame, ["ORD_STRA", "fclass"], default="river"))
+    frame["perennial_flag"] = _coalesce(frame, ["DIS_AV_CMS", "perennial_flag"])
     return _filter_geometry(frame, {"LineString", "MultiLineString"})
 
 
@@ -111,6 +130,9 @@ def _normalize_water_hydrolakes(frame: gpd.GeoDataFrame, *, geohash_precision: i
     frame["name"] = _coalesce(frame, ["Lake_name", "name", "Name"])
     frame["fclass"] = _stringify(_coalesce(frame, ["fclass"], default="lake"))
     frame["water_ty"] = _stringify(_coalesce(frame, ["Lake_type", "water_ty", "type"], default="polygon"))
+    frame["feature_kind"] = pd.Series(["polygon"] * len(frame), index=frame.index, dtype="object")
+    frame["water_class"] = _stringify(_coalesce(frame, ["Lake_type", "fclass"], default="lake"))
+    frame["perennial_flag"] = _coalesce(frame, ["Depth_avg", "perennial_flag"])
     return _filter_geometry(frame, {"Polygon", "MultiPolygon"})
 
 
@@ -120,6 +142,9 @@ def _normalize_water_overture(frame: gpd.GeoDataFrame, *, geohash_precision: int
     frame["name"] = _coalesce(frame, ["name", "names.primary", "names_primary"])
     frame["fclass"] = _stringify(_coalesce(frame, ["class", "subtype"], default="water"))
     frame["water_ty"] = _stringify(_coalesce(frame, ["type", "subtype"], default="water"))
+    frame["feature_kind"] = _geometry_feature_kind(frame)
+    frame["water_class"] = _stringify(_coalesce(frame, ["class", "subtype"], default="water"))
+    frame["perennial_flag"] = _coalesce(frame, ["perennial_flag"])
     return _filter_geometry(frame, {"LineString", "MultiLineString", "Polygon", "MultiPolygon"})
 
 
@@ -128,6 +153,7 @@ def _normalize_poi_osm(frame: gpd.GeoDataFrame, *, geohash_precision: int) -> gp
     frame["name"] = _coalesce(frame, ["name", "alt_name"])
     frame["name_alt"] = _coalesce(frame, ["alt_name", "name_en"])
     frame["category"] = _stringify(_coalesce(frame, ["fclass", "amenity", "type", "class"], default="poi"))
+    frame["admin_country"] = _coalesce(frame, ["admin_country", "country", "addr:country", "iso3166-1"])
     frame = _ensure_point_geometry(frame)
     frame["GeoHash"] = _ensure_geohash(frame, precision=geohash_precision)
     return frame
@@ -138,6 +164,7 @@ def _normalize_poi_gns(frame: gpd.GeoDataFrame, *, geohash_precision: int) -> gp
     frame["name"] = _coalesce(frame, ["full_name", "full_nm_nd", "name", "display"])
     frame["name_alt"] = _coalesce(frame, ["full_nm_nd", "generic"])
     frame["category"] = _stringify(_coalesce(frame, ["desig_cd", "fc", "type"], default="poi"))
+    frame["admin_country"] = _coalesce(frame, ["CC1", "cc1", "country", "admin_country"])
     frame = _ensure_point_geometry(frame)
     frame["GeoHash"] = _ensure_geohash(frame, precision=geohash_precision)
     return frame
@@ -148,6 +175,7 @@ def _normalize_poi_rh(frame: gpd.GeoDataFrame, *, geohash_precision: int) -> gpd
     frame["name"] = _coalesce(frame, ["name", "alternaten"])
     frame["name_alt"] = _coalesce(frame, ["alternaten"])
     frame["category"] = _stringify(_coalesce(frame, ["type", "class", "label"], default="poi"))
+    frame["admin_country"] = _coalesce(frame, ["country", "admin_country"])
     frame = _ensure_point_geometry(frame)
     frame["GeoHash"] = _ensure_geohash(frame, precision=geohash_precision)
     return frame
@@ -158,6 +186,7 @@ def _normalize_poi_overture(frame: gpd.GeoDataFrame, *, geohash_precision: int) 
     frame["name"] = _coalesce(frame, ["name", "names.primary", "names_primary"])
     frame["name_alt"] = _coalesce(frame, ["brand"])
     frame["category"] = _stringify(_coalesce(frame, ["category", "class", "type"], default="poi"))
+    frame["admin_country"] = _coalesce(frame, ["country", "admin_country"])
     frame = _ensure_point_geometry(frame)
     frame["GeoHash"] = _ensure_geohash(frame, precision=geohash_precision)
     return frame
@@ -229,6 +258,10 @@ def _stringify(series: pd.Series) -> pd.Series:
     return series.apply(lambda value: "" if _is_missing(value) else str(value))
 
 
+def _numeric_coalesce(frame: gpd.GeoDataFrame, columns: list[str], default: object = pd.NA) -> pd.Series:
+    return pd.to_numeric(_coalesce(frame, columns, default=default), errors="coerce")
+
+
 def _resolved_numeric_ids(series: pd.Series) -> pd.Series:
     numeric = pd.to_numeric(series, errors="coerce")
     used_ids = {int(value) for value in numeric.dropna().tolist()}
@@ -244,6 +277,21 @@ def _resolved_numeric_ids(series: pd.Series) -> pd.Series:
         used_ids.add(next_id)
         next_id += 1
     return pd.Series(resolved, index=series.index, dtype=int)
+
+
+def _geometry_feature_kind(frame: gpd.GeoDataFrame) -> pd.Series:
+    kinds: list[str] = []
+    for geometry_type in frame.geometry.geom_type.tolist():
+        value = str(geometry_type or "").lower()
+        if "polygon" in value:
+            kinds.append("polygon")
+        elif "line" in value:
+            kinds.append("line")
+        elif "point" in value:
+            kinds.append("point")
+        else:
+            kinds.append("")
+    return pd.Series(kinds, index=frame.index, dtype="object")
 
 
 def _ensure_geohash(frame: gpd.GeoDataFrame, *, precision: int) -> pd.Series:
