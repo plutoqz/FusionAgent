@@ -62,7 +62,7 @@ class LocalBundleCatalogProvider:
                         resolved_aoi=resolved_aoi,
                     )
                 )
-            except FileNotFoundError:
+            except (FileNotFoundError, RuntimeError):
                 if self._requires_complete_pair_coverage(source_id):
                     raise
                 tokens.append(f"missing:{spec.ref_source_id}")
@@ -166,7 +166,7 @@ class LocalBundleCatalogProvider:
                     target_crs=target_crs,
                     resolved_aoi=resolved_aoi,
                 )
-            except FileNotFoundError:
+            except (FileNotFoundError, RuntimeError):
                 if not self._requires_complete_pair_coverage(source_id):
                     ref = self._create_empty_reference_bundle(
                         osm=osm,

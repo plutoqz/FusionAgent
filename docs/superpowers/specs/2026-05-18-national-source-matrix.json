@@ -1,0 +1,588 @@
+{
+  "delivery_stage_vocab": [
+    "current_runtime",
+    "next_implementation",
+    "optional_reference",
+    "deferred"
+  ],
+  "source_mode_vocab": [
+    "official_remote_supported",
+    "manual_preload_required"
+  ],
+  "claim_boundary_vocab": [
+    "runtime_supported_now",
+    "bounded_runtime_now",
+    "local_reference_only",
+    "no_runtime_claim_until_b2",
+    "deferred_after_b1"
+  ],
+  "required_fields": [
+    "source_id",
+    "provider",
+    "theme",
+    "role",
+    "delivery_stage",
+    "source_mode",
+    "format",
+    "clip_strategy",
+    "field_mapping_profile",
+    "preload_path",
+    "claim_boundary"
+  ],
+  "bundle_targets": {
+    "building": {
+      "minimum_auto_sources": [
+        "raw.osm.building",
+        "raw.microsoft.building"
+      ],
+      "manual_validation_sources": [
+        "raw.google.building",
+        "raw.openbuildingmap.building",
+        "raw.google.open_buildings.vector",
+        "raw.local.microsoft.building"
+      ]
+    },
+    "road": {
+      "minimum_sources": [
+        "raw.osm.road",
+        "raw.overture.transportation"
+      ]
+    },
+    "water": {
+      "line_sources": [
+        "raw.osm.water",
+        "raw.hydrorivers.water"
+      ],
+      "polygon_sources": [
+        "raw.osm.water",
+        "raw.hydrolakes.water"
+      ],
+      "deferred_alternative_sources": [
+        "raw.overture.water"
+      ]
+    },
+    "poi": {
+      "minimum_sources": [
+        "raw.osm.poi",
+        "raw.gns.poi"
+      ],
+      "optional_local_reference_sources": [
+        "raw.rh.poi"
+      ],
+      "deferred_alternative_sources": [
+        "raw.overture.places"
+      ]
+    }
+  },
+  "field_mapping_profiles": {
+    "building.vector.v1": {
+      "canonical_fields": [
+        "geometry",
+        "source_feature_id",
+        "source_id",
+        "height_m",
+        "name",
+        "confidence"
+      ],
+      "provider_probe_order": {
+        "raw.osm.building": {
+          "source_feature_id": [
+            "osm_id",
+            "osm_way_id",
+            "osm_rel_id"
+          ],
+          "height_m": [
+            "height"
+          ],
+          "name": [
+            "name"
+          ]
+        },
+        "raw.microsoft.building": {
+          "source_feature_id": [
+            "id",
+            "quadkey"
+          ],
+          "height_m": [
+            "height"
+          ]
+        },
+        "raw.google.building": {
+          "source_feature_id": [
+            "id"
+          ],
+          "height_m": [
+            "height"
+          ],
+          "confidence": [
+            "confidence"
+          ],
+          "name": [
+            "name"
+          ]
+        },
+        "raw.openbuildingmap.building": {
+          "source_feature_id": [
+            "id"
+          ],
+          "height_m": [
+            "height"
+          ],
+          "name": [
+            "name"
+          ]
+        },
+        "raw.google.open_buildings.vector": {
+          "source_feature_id": [
+            "id"
+          ],
+          "height_m": [
+            "height"
+          ],
+          "confidence": [
+            "confidence"
+          ]
+        },
+        "raw.local.microsoft.building": {
+          "source_feature_id": [
+            "id",
+            "quadkey"
+          ],
+          "height_m": [
+            "height"
+          ]
+        }
+      }
+    },
+    "road.line.v1": {
+      "canonical_fields": [
+        "geometry",
+        "source_feature_id",
+        "source_id",
+        "road_class",
+        "name",
+        "surface",
+        "lanes"
+      ],
+      "provider_probe_order": {
+        "raw.osm.road": {
+          "source_feature_id": [
+            "osm_id"
+          ],
+          "road_class": [
+            "fclass",
+            "highway"
+          ],
+          "name": [
+            "name"
+          ],
+          "surface": [
+            "surface"
+          ],
+          "lanes": [
+            "lanes"
+          ]
+        },
+        "raw.overture.transportation": {
+          "source_feature_id": [
+            "id"
+          ],
+          "road_class": [
+            "class",
+            "subclass"
+          ],
+          "name": [
+            "names.primary"
+          ],
+          "surface": [
+            "surface"
+          ],
+          "lanes": [
+            "lane_count"
+          ]
+        }
+      }
+    },
+    "water.line_polygon.v1": {
+      "canonical_fields": [
+        "geometry",
+        "source_feature_id",
+        "source_id",
+        "feature_kind",
+        "water_class",
+        "name",
+        "perennial_flag"
+      ],
+      "provider_probe_order": {
+        "raw.osm.water": {
+          "source_feature_id": [
+            "osm_id"
+          ],
+          "feature_kind": [
+            "geometry_type"
+          ],
+          "water_class": [
+            "fclass",
+            "waterway",
+            "natural"
+          ],
+          "name": [
+            "name"
+          ]
+        },
+        "raw.local.water": {
+          "source_feature_id": [
+            "id"
+          ],
+          "feature_kind": [
+            "geometry_type"
+          ],
+          "water_class": [
+            "type",
+            "class"
+          ],
+          "name": [
+            "name"
+          ]
+        },
+        "raw.hydrorivers.water": {
+          "source_feature_id": [
+            "HYRIV_ID"
+          ],
+          "feature_kind": [
+            "line"
+          ],
+          "water_class": [
+            "ORD_STRA"
+          ],
+          "perennial_flag": [
+            "DIS_AV_CMS"
+          ]
+        },
+        "raw.hydrolakes.water": {
+          "source_feature_id": [
+            "Hylak_id"
+          ],
+          "feature_kind": [
+            "polygon"
+          ],
+          "water_class": [
+            "Lake_type"
+          ],
+          "perennial_flag": [
+            "Depth_avg"
+          ]
+        },
+        "raw.overture.water": {
+          "source_feature_id": [
+            "id"
+          ],
+          "feature_kind": [
+            "subtype"
+          ],
+          "water_class": [
+            "class"
+          ],
+          "name": [
+            "names.primary"
+          ]
+        }
+      }
+    },
+    "poi.point.v1": {
+      "canonical_fields": [
+        "geometry",
+        "source_feature_id",
+        "source_id",
+        "name",
+        "category",
+        "admin_country"
+      ],
+      "provider_probe_order": {
+        "raw.osm.poi": {
+          "source_feature_id": [
+            "osm_id"
+          ],
+          "name": [
+            "name"
+          ],
+          "category": [
+            "fclass",
+            "type"
+          ]
+        },
+        "raw.gns.poi": {
+          "source_feature_id": [
+            "UFI",
+            "UNI"
+          ],
+          "name": [
+            "FULL_NAME"
+          ],
+          "category": [
+            "DSG"
+          ],
+          "admin_country": [
+            "CC1"
+          ]
+        },
+        "raw.rh.poi": {
+          "source_feature_id": [
+            "ID"
+          ],
+          "name": [
+            "NAME"
+          ],
+          "category": [
+            "CATEGORY"
+          ]
+        },
+        "raw.overture.places": {
+          "source_feature_id": [
+            "id"
+          ],
+          "name": [
+            "names.primary"
+          ],
+          "category": [
+            "categories.primary"
+          ],
+          "admin_country": [
+            "country"
+          ]
+        }
+      }
+    }
+  },
+  "themes": {
+    "building": [
+      {
+        "source_id": "raw.osm.building",
+        "provider": "OSM/Geofabrik",
+        "theme": "building",
+        "role": "osm_primary",
+        "delivery_stage": "current_runtime",
+        "source_mode": "official_remote_supported",
+        "format": "shapefile bundle",
+        "clip_strategy": "country_bundle_then_clip",
+        "field_mapping_profile": "building.vector.v1",
+        "preload_path": "Data/buildings/OSM/",
+        "claim_boundary": "runtime_supported_now"
+      },
+      {
+        "source_id": "raw.microsoft.building",
+        "provider": "Microsoft Global ML Building Footprints",
+        "theme": "building",
+        "role": "national_reference",
+        "delivery_stage": "current_runtime",
+        "source_mode": "official_remote_supported",
+        "format": "shapefile bundle",
+        "clip_strategy": "country_tiles_then_clip",
+        "field_mapping_profile": "building.vector.v1",
+        "preload_path": "Data/buildings/Microsoft/",
+        "claim_boundary": "runtime_supported_now"
+      },
+      {
+        "source_id": "raw.google.building",
+        "provider": "Google Open Buildings",
+        "theme": "building",
+        "role": "local_validation_reference",
+        "delivery_stage": "optional_reference",
+        "source_mode": "manual_preload_required",
+        "format": "shapefile bundle",
+        "clip_strategy": "local_clip_then_reuse",
+        "field_mapping_profile": "building.vector.v1",
+        "preload_path": "Data/buildings/Google/",
+        "claim_boundary": "local_reference_only"
+      },
+      {
+        "source_id": "raw.openbuildingmap.building",
+        "provider": "OpenBuildingMap",
+        "theme": "building",
+        "role": "local_validation_reference",
+        "delivery_stage": "optional_reference",
+        "source_mode": "manual_preload_required",
+        "format": "shapefile bundle",
+        "clip_strategy": "local_clip_then_reuse",
+        "field_mapping_profile": "building.vector.v1",
+        "preload_path": "Data/buildings/OpenBuildingMap/",
+        "claim_boundary": "local_reference_only"
+      },
+      {
+        "source_id": "raw.google.open_buildings.vector",
+        "provider": "Google Open Buildings Vector",
+        "theme": "building",
+        "role": "local_validation_reference",
+        "delivery_stage": "optional_reference",
+        "source_mode": "manual_preload_required",
+        "format": "shapefile bundle",
+        "clip_strategy": "local_clip_then_reuse",
+        "field_mapping_profile": "building.vector.v1",
+        "preload_path": "Data/buildings/GoogleOpenBuildingsVector/",
+        "claim_boundary": "local_reference_only"
+      },
+      {
+        "source_id": "raw.local.microsoft.building",
+        "provider": "Local Microsoft National Clip",
+        "theme": "building",
+        "role": "local_cached_national_clip",
+        "delivery_stage": "optional_reference",
+        "source_mode": "manual_preload_required",
+        "format": "shapefile bundle",
+        "clip_strategy": "local_clip_then_reuse",
+        "field_mapping_profile": "building.vector.v1",
+        "preload_path": "Data/buildings/MicrosoftLocal/",
+        "claim_boundary": "local_reference_only"
+      }
+    ],
+    "road": [
+      {
+        "source_id": "raw.osm.road",
+        "provider": "OSM/Geofabrik",
+        "theme": "road",
+        "role": "osm_primary",
+        "delivery_stage": "current_runtime",
+        "source_mode": "official_remote_supported",
+        "format": "shapefile bundle",
+        "clip_strategy": "country_bundle_then_clip",
+        "field_mapping_profile": "road.line.v1",
+        "preload_path": "Data/roads/OSM/",
+        "claim_boundary": "runtime_supported_now"
+      },
+      {
+        "source_id": "raw.overture.transportation",
+        "provider": "Overture Transportation",
+        "theme": "road",
+        "role": "national_secondary_reference",
+        "delivery_stage": "next_implementation",
+        "source_mode": "official_remote_supported",
+        "format": "parquet or geoparquet partitions",
+        "clip_strategy": "theme_partition_then_clip",
+        "field_mapping_profile": "road.line.v1",
+        "preload_path": null,
+        "claim_boundary": "no_runtime_claim_until_b2"
+      }
+    ],
+    "water": [
+      {
+        "source_id": "raw.osm.water",
+        "provider": "OSM/Geofabrik",
+        "theme": "water",
+        "role": "osm_primary",
+        "delivery_stage": "current_runtime",
+        "source_mode": "official_remote_supported",
+        "format": "shapefile bundle",
+        "clip_strategy": "country_bundle_then_clip",
+        "field_mapping_profile": "water.line_polygon.v1",
+        "preload_path": "Data/burundi-260127-free.shp/gis_osm_water_a_free_1.shp",
+        "claim_boundary": "runtime_supported_now"
+      },
+      {
+        "source_id": "raw.local.water",
+        "provider": "Local Water Reference",
+        "theme": "water",
+        "role": "local_reference_sample",
+        "delivery_stage": "optional_reference",
+        "source_mode": "manual_preload_required",
+        "format": "shapefile bundle",
+        "clip_strategy": "local_clip_then_reuse",
+        "field_mapping_profile": "water.line_polygon.v1",
+        "preload_path": "Data/water/",
+        "claim_boundary": "local_reference_only"
+      },
+      {
+        "source_id": "raw.hydrorivers.water",
+        "provider": "HydroRIVERS",
+        "theme": "water",
+        "role": "line_secondary_reference",
+        "delivery_stage": "next_implementation",
+        "source_mode": "official_remote_supported",
+        "format": "shapefile bundle",
+        "clip_strategy": "global_bundle_then_clip",
+        "field_mapping_profile": "water.line_polygon.v1",
+        "preload_path": null,
+        "claim_boundary": "no_runtime_claim_until_b2"
+      },
+      {
+        "source_id": "raw.hydrolakes.water",
+        "provider": "HydroLAKES",
+        "theme": "water",
+        "role": "polygon_secondary_reference",
+        "delivery_stage": "next_implementation",
+        "source_mode": "official_remote_supported",
+        "format": "shapefile bundle",
+        "clip_strategy": "global_bundle_then_clip",
+        "field_mapping_profile": "water.line_polygon.v1",
+        "preload_path": null,
+        "claim_boundary": "no_runtime_claim_until_b2"
+      },
+      {
+        "source_id": "raw.overture.water",
+        "provider": "Overture Water",
+        "theme": "water",
+        "role": "deferred_alternative_reference",
+        "delivery_stage": "deferred",
+        "source_mode": "official_remote_supported",
+        "format": "parquet or geoparquet partitions",
+        "clip_strategy": "theme_partition_then_clip",
+        "field_mapping_profile": "water.line_polygon.v1",
+        "preload_path": null,
+        "claim_boundary": "deferred_after_b1"
+      }
+    ],
+    "poi": [
+      {
+        "source_id": "raw.osm.poi",
+        "provider": "OSM/Geofabrik",
+        "theme": "poi",
+        "role": "osm_primary",
+        "delivery_stage": "current_runtime",
+        "source_mode": "official_remote_supported",
+        "format": "shapefile bundle",
+        "clip_strategy": "country_bundle_then_clip",
+        "field_mapping_profile": "poi.point.v1",
+        "preload_path": "Data/burundi-260127-free.shp/gis_osm_pois_free_1.shp",
+        "claim_boundary": "bounded_runtime_now"
+      },
+      {
+        "source_id": "raw.gns.poi",
+        "provider": "GNS Gazetteer",
+        "theme": "poi",
+        "role": "national_gazetteer_reference",
+        "delivery_stage": "current_runtime",
+        "source_mode": "manual_preload_required",
+        "format": "shapefile bundle",
+        "clip_strategy": "recursive_local_clip",
+        "field_mapping_profile": "poi.point.v1",
+        "preload_path": "Data/POI/**/GNS.shp",
+        "claim_boundary": "bounded_runtime_now"
+      },
+      {
+        "source_id": "raw.rh.poi",
+        "provider": "RH Local POI",
+        "theme": "poi",
+        "role": "local_comparison_reference",
+        "delivery_stage": "optional_reference",
+        "source_mode": "manual_preload_required",
+        "format": "shapefile bundle",
+        "clip_strategy": "recursive_local_clip",
+        "field_mapping_profile": "poi.point.v1",
+        "preload_path": "Data/POI/**/RH.shp",
+        "claim_boundary": "local_reference_only"
+      },
+      {
+        "source_id": "raw.overture.places",
+        "provider": "Overture Places",
+        "theme": "poi",
+        "role": "deferred_third_source",
+        "delivery_stage": "deferred",
+        "source_mode": "official_remote_supported",
+        "format": "parquet or geoparquet partitions",
+        "clip_strategy": "theme_partition_then_clip",
+        "field_mapping_profile": "poi.point.v1",
+        "preload_path": null,
+        "claim_boundary": "deferred_after_b1"
+      }
+    ]
+  }
+}

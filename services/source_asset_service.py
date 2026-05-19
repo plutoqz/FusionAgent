@@ -29,6 +29,9 @@ from utils.vector_clip import BBox, clip_frame_to_request_bbox, frame_bbox_in_cr
 GEOFABRIK_BURUNDI_SHP_URL = "https://download.geofabrik.de/africa/burundi-latest-free.shp.zip"
 GEOFABRIK_INDEX_URL = "https://download.geofabrik.de/index-v1.json"
 MSFT_BUILDING_DATASET_LINKS_URL = "https://minedbuildings.z5.web.core.windows.net/global-buildings/dataset-links.csv"
+HYDRORIVERS_GLOBAL_ZIP_URL = "https://data.hydrosheds.org/file/HydroRIVERS/HydroRIVERS_v10_shp.zip"
+HYDROLAKES_GLOBAL_ZIP_URL = "https://data.hydrosheds.org/file/hydrolakes/HydroLAKES_polys_v10_shp.zip"
+OVERTURE_DOWNLOAD_TIMEOUT_SECONDS = 15
 
 
 _GEOFABRIK_LAYER_NAMES = {
@@ -47,6 +50,9 @@ _LOCAL_SOURCE_CANDIDATES = {
         ("Data", "roads", "OSM"),
         ("Data", "burundi-260127-free.shp", "gis_osm_roads_free_1.shp"),
     ],
+    "raw.overture.transportation": [
+        ("Data", "roads", "Overture"),
+    ],
     "raw.overture.road": [
         ("Data", "roads", "Overture"),
     ],
@@ -60,10 +66,12 @@ _LOCAL_SOURCE_CANDIDATES = {
     "raw.hydrorivers.water": [
         ("Data", "water", "BDI.shp"),
         ("Data", "water", "HydroRIVERS"),
+        ("Data", "water", "HydroRIVERS_v10.shp"),
     ],
     "raw.hydrolakes.water": [
         ("Data", "water", "布隆迪湖泊.shp"),
         ("Data", "water", "HydroLAKES"),
+        ("Data", "water", "HydroLAKES_polys_v10.shp"),
     ],
     "raw.osm.poi": [
         ("Data", "POI"),
@@ -89,6 +97,10 @@ _REMOTELY_MATERIALIZABLE_SOURCE_IDS = {
     "raw.osm.water",
     "raw.osm.poi",
     "raw.microsoft.building",
+    "raw.overture.transportation",
+    "raw.overture.road",
+    "raw.hydrorivers.water",
+    "raw.hydrolakes.water",
 }
 # raw.google.building is intentionally absent: it remains a local/manual-only
 # source until an official, tested remote materialization path exists.
@@ -268,6 +280,9 @@ class SourceAssetService:
         geofabrik_burundi_url: str = GEOFABRIK_BURUNDI_SHP_URL,
         geofabrik_index_url: str = GEOFABRIK_INDEX_URL,
         msft_dataset_links_url: str = MSFT_BUILDING_DATASET_LINKS_URL,
+        overture_transportation_url: str | None = None,
+        hydrorivers_global_zip_url: str = HYDRORIVERS_GLOBAL_ZIP_URL,
+        hydrolakes_global_zip_url: str = HYDROLAKES_GLOBAL_ZIP_URL,
         prefer_local_data: bool = True,
         http_max_retries: int = 3,
     ) -> None:
@@ -277,6 +292,9 @@ class SourceAssetService:
         self.geofabrik_burundi_url = geofabrik_burundi_url
         self.geofabrik_index_url = geofabrik_index_url
         self.msft_dataset_links_url = msft_dataset_links_url
+        self.overture_transportation_url = overture_transportation_url
+        self.hydrorivers_global_zip_url = hydrorivers_global_zip_url
+        self.hydrolakes_global_zip_url = hydrolakes_global_zip_url
         self.prefer_local_data = prefer_local_data
         self.http_max_retries = max(1, int(http_max_retries))
         self._geofabrik_index_cache: list[dict[str, Any]] | None = None
@@ -329,6 +347,10 @@ class SourceAssetService:
 
         if source_id == "raw.microsoft.building":
             return self._resolve_msft_buildings(request_bbox=effective_bbox, aoi=aoi)
+        if source_id in {"raw.overture.transportation", "raw.overture.road"}:
+            return self._resolve_overture_transportation(source_id=source_id, request_bbox=effective_bbox)
+        if source_id in {"raw.hydrorivers.water", "raw.hydrolakes.water"}:
+            return self._resolve_hydrosheds_water(source_id, request_bbox=effective_bbox)
 
         raise FileNotFoundError(f"No local or remote source asset path available for {source_id}")
 
@@ -645,6 +667,112 @@ class SourceAssetService:
             feature_count=feature_count,
         )
 
+    def _resolve_hydrosheds_water(
+        self,
+        source_id: str,
+        *,
+        request_bbox: Optional[BBox],
+    ) -> SourceAssetResolution:
+        archive_url = (
+            self.hydrorivers_global_zip_url
+            if source_id == "raw.hydrorivers.water"
+            else self.hydrolakes_global_zip_url
+        )
+        stem_hint = (
+            "HydroRIVERS"
+            if source_id == "raw.hydrorivers.water"
+            else "HydroLAKES"
+        )
+        asset_dir = self.cache_dir / "hydrosheds" / source_id.replace(".", "_")
+        filename = Path(urllib.parse.urlparse(archive_url).path).name or f"{source_id.replace('.', '_')}.zip"
+        zip_path = asset_dir / filename
+        extract_dir = asset_dir / "extract"
+        marker_path = extract_dir / ".ready"
+
+        if not (marker_path.exists() and any(extract_dir.glob("*.shp"))):
+            asset_dir.mkdir(parents=True, exist_ok=True)
+            if extract_dir.exists():
+                shutil.rmtree(extract_dir, ignore_errors=True)
+            if not zip_path.exists() or not zipfile.is_zipfile(zip_path):
+                self._download_file(archive_url, zip_path)
+            safe_extract_zip(zip_path, extract_dir)
+            marker_path.write_text("ready\n", encoding="utf-8")
+
+        shp_candidates = sorted(extract_dir.rglob("*.shp"))
+        shp_path = next((path for path in shp_candidates if stem_hint.casefold() in path.stem.casefold()), None)
+        if shp_path is None and shp_candidates:
+            shp_path = shp_candidates[0]
+        if shp_path is None:
+            raise FileNotFoundError(f"Expected HydroSHEDS shapefile missing after extraction: {extract_dir}")
+
+        version_token = _path_version_token(shp_path)
+        if request_bbox is None:
+            bbox, feature_count = self._inspect_vector_path(shp_path)
+            return SourceAssetResolution(
+                source_id=source_id,
+                path=shp_path,
+                source_mode="asset_cached" if marker_path.exists() else "asset_downloaded",
+                cache_hit=marker_path.exists(),
+                version_token=version_token,
+                bbox=bbox,
+                feature_count=feature_count,
+            )
+
+        target_dir = self.cache_dir / "hydrosheds_clips" / source_id.replace(".", "_") / _bbox_cache_key(request_bbox)
+        clipped_path, clip_cache_hit, bbox, feature_count = self._materialize_clipped_vector(
+            source_path=shp_path,
+            target_dir=target_dir,
+            request_bbox=request_bbox,
+        )
+        return SourceAssetResolution(
+            source_id=source_id,
+            path=clipped_path,
+            source_mode="coverage_empty" if feature_count == 0 else ("asset_cached" if clip_cache_hit else "asset_downloaded"),
+            cache_hit=clip_cache_hit,
+            version_token=version_token,
+            bbox=bbox,
+            feature_count=feature_count,
+        )
+
+    def _resolve_overture_transportation(
+        self,
+        *,
+        source_id: str = "raw.overture.transportation",
+        request_bbox: Optional[BBox],
+    ) -> SourceAssetResolution:
+        cache_key = _bbox_cache_key(request_bbox)
+        asset_dir = self.cache_dir / source_id.replace(".", "_") / cache_key
+        raw_path = asset_dir / "segment.geojson"
+        filtered_path = asset_dir / "road_segments.geojson"
+        marker_path = asset_dir / ".ready"
+        cache_hit = marker_path.exists() and filtered_path.exists()
+
+        if not cache_hit:
+            asset_dir.mkdir(parents=True, exist_ok=True)
+            if self.overture_transportation_url:
+                self._download_file(self.overture_transportation_url, raw_path)
+            else:
+                self._download_overture_transportation_segment(output_path=raw_path, request_bbox=request_bbox)
+
+            frame = gpd.read_file(raw_path)
+            if "subtype" in frame.columns:
+                frame = frame[frame["subtype"].fillna("").astype(str).str.casefold() == "road"].copy()
+            if request_bbox is not None and not frame.empty:
+                frame = clip_frame_to_request_bbox(frame, request_bbox)
+            frame.to_file(filtered_path, driver="GeoJSON")
+            marker_path.write_text("ready\n", encoding="utf-8")
+
+        bbox, feature_count = self._inspect_vector_path(filtered_path)
+        return SourceAssetResolution(
+            source_id=source_id,
+            path=filtered_path,
+            source_mode="coverage_empty" if feature_count == 0 else ("asset_cached" if cache_hit else "asset_downloaded"),
+            cache_hit=cache_hit,
+            version_token=_path_version_token(filtered_path),
+            bbox=bbox,
+            feature_count=feature_count,
+        )
+
     def _load_msft_dataset_rows(self, *, location: str) -> list[dict[str, str]]:
         target_name = _normalize_country_name(location)
         text = self._read_text(self.msft_dataset_links_url)
@@ -770,6 +898,56 @@ class SourceAssetService:
                 time.sleep(min(2 ** (attempt - 1), 3))
         if last_error is not None:
             raise last_error
+
+    @staticmethod
+    def _resolve_overturemaps_command() -> list[str]:
+        overturemaps_bin = shutil.which("overturemaps")
+        if overturemaps_bin:
+            return [overturemaps_bin]
+
+        uvx_bin = shutil.which("uvx")
+        if uvx_bin:
+            return [uvx_bin, "overturemaps"]
+
+        raise FileNotFoundError("Neither 'overturemaps' nor 'uvx overturemaps' is available for Overture downloads.")
+
+    def _download_overture_transportation_segment(
+        self,
+        *,
+        output_path: Path,
+        request_bbox: Optional[BBox],
+    ) -> None:
+        command = [
+            *self._resolve_overturemaps_command(),
+            "download",
+            "-f",
+            "geojson",
+            "--type=segment",
+            "-o",
+            str(output_path),
+        ]
+        if request_bbox is not None:
+            command.insert(-2, f"--bbox={request_bbox[0]},{request_bbox[1]},{request_bbox[2]},{request_bbox[3]}")
+        try:
+            completed = subprocess.run(
+                command,
+                check=False,
+                capture_output=True,
+                text=True,
+                timeout=OVERTURE_DOWNLOAD_TIMEOUT_SECONDS,
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise RuntimeError(
+                "Overture transportation download timed out: "
+                f"timeout={OVERTURE_DOWNLOAD_TIMEOUT_SECONDS}s command={' '.join(command)}"
+            ) from exc
+        if completed.returncode != 0:
+            raise RuntimeError(
+                "Overture transportation download failed: "
+                f"exit={completed.returncode} stderr={completed.stderr.strip() or completed.stdout.strip()}"
+            )
+        if not output_path.exists():
+            raise FileNotFoundError(f"Overture transportation download completed without output file: {output_path}")
 
     def _download_http_stream(self, url: str, target_path: Path) -> None:
         try:

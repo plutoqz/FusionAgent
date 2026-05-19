@@ -169,6 +169,18 @@ TRACK_B_SOURCE_CONTRACTS: Dict[str, TrackBSourceContract] = {
         runtime_status="reservation_only",
         notes="Chosen in B1 as the road second-source target, but still deferred for implementation.",
     ),
+    "raw.overture.transportation": TrackBSourceContract(
+        source_id="raw.overture.transportation",
+        theme="road",
+        role="reference_remote",
+        acquisition_class="official_remote_supported",
+        format_hint="geojson_extract",
+        clip_strategy="theme_partition_then_clip",
+        field_mapping_profile="fields.road.overture_transportation",
+        license_boundary="Bounded Overture transportation materialization path for the promoted B2 road second source; keep attribution and runtime claims tied to checked evidence.",
+        runtime_status="runtime_candidate",
+        notes="Promoted B2 road second-source id that resolves from local preload first and can fall back to the Overture download path.",
+    ),
     "raw.osm.water": TrackBSourceContract(
         source_id="raw.osm.water",
         theme="water",
@@ -276,6 +288,18 @@ TRACK_B_SOURCE_CONTRACTS: Dict[str, TrackBSourceContract] = {
         license_boundary="Optional future third source only; do not claim support before field-alignment and materialization work lands.",
         runtime_status="reservation_only",
         notes="Explicitly deferred until the OSM plus GNS path is stable.",
+    ),
+    "raw.overture.places": TrackBSourceContract(
+        source_id="raw.overture.places",
+        theme="poi",
+        role="deferred_optional_third_source",
+        acquisition_class="reservation_only",
+        format_hint="parquet_or_geoparquet_extract",
+        clip_strategy="deferred",
+        field_mapping_profile="fields.poi.overture_places",
+        license_boundary="Optional future third source only; do not claim support before field-alignment and materialization work lands.",
+        runtime_status="reservation_only",
+        notes="Promoted naming used by the B2 live national source matrix while the actual source remains deferred.",
     ),
 }
 

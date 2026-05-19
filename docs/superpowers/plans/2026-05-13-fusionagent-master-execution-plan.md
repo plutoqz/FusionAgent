@@ -57,6 +57,17 @@
 
 #### 执行阶段
 
+##### 2026-05-18 进度核实
+
+- [x] A1. 本体建模收口
+- [x] A2. Seed 闭合与关系闭合
+- [x] A3. 图服务与 operator 读面闭合
+- [x] A4. Agent 结构与论文本体对齐
+- [x] A5. 闭合门禁
+- 2026-05-18 fresh verification:
+  - `python -m pytest -q tests/test_ontology_closure.py tests/test_kg_graph_service.py tests/test_api_kg.py tests/test_check_kg_contract.py`
+  - 结果：`17 passed in 3.88s`
+
 ##### A1. 本体建模收口
 
 - 在 `kg.models`、`schemas/agent.py`、`schemas/kg_graph.py` 中补齐最小必要对象：
@@ -142,6 +153,20 @@
 
 #### 执行阶段
 
+##### 2026-05-18 进度核实
+
+- [x] B1. 国家级数据源矩阵定版
+- [x] B2. 数据获取链路打通
+- [ ] B3. 国家级 clip / tiling / stitching 通路统一
+- [ ] B4. 多源规范化与融合节点收口
+- [ ] B5. 结果与证据闭环
+- 2026-05-18 fresh verification:
+  - `python -m pytest -q tests/test_national_source_matrix.py tests/test_run_benin_multisource_building_fusion.py tests/test_benchmark_tiled_building.py`
+  - 结果：`9 passed in 3.23s`
+- 当前判定：
+  - `Track A` 已具备 live 模型、graph API 与闭合门禁证据；
+  - `Track B` 的 `B1-B2` 已完成，当前主缺口集中在 `B3-B5`。
+
 ##### B1. 国家级数据源矩阵定版
 
 按主题先锁定“第一批必须打通”的国家级多源组合：
@@ -163,7 +188,21 @@
 
 要求先把 source id、格式、裁剪方式、字段映射、license/claim boundary 一次性锁清，再进入实现。
 
-- 2026-05-18：已新增 live `docs/superpowers/specs/2026-05-18-track-b-national-source-matrix.md`，并把第一批 building / road / water / poi source contract 回写到 `kg/track_b_source_contract.py` 与 `kg/source_catalog.py` 元数据；后续 B2-B5 以这份矩阵为准，不再临时改口径。
+- 2026-05-18：已新增 live `docs/superpowers/specs/2026-05-18-track-b-national-source-matrix.md`，
+  并把第一批 building / road / water / poi source contract 回写到
+  `kg/track_b_source_contract.py` 与 `kg/source_catalog.py` 元数据；后续 B2-B5
+  以这份矩阵为准，不再临时改口径。
+- 2026-05-18：B2 live 入口已补到
+  `docs/superpowers/specs/2026-05-18-national-source-matrix.md` 与
+  `docs/superpowers/specs/2026-05-18-national-source-matrix.json`。
+  其中：
+  - road 第二来源硬目标固定为 `raw.overture.transportation`
+  - water 第二来源硬目标固定为 `raw.hydrorivers.water` +
+    `raw.hydrolakes.water`
+  - `raw.overture.water` 与 `raw.overture.places` 继续保留为 deferred
+    alternative
+  - building 的 Google / OpenBuildingMap / Google Open Buildings Vector /
+    local Microsoft clip 继续维持 `manual_preload_required` 边界
 
 ##### B2. 数据获取链路打通
 
@@ -175,6 +214,48 @@
   - building 继续保留 `Geofabrik + Microsoft` 自动下载链
   - road / water / poi 新增第二来源的 bbox/national materialization 逻辑
   - 明确 `source_mode`、`cache_hit`、`coverage_status`、`fallback_from_source_id`
+- 2026-05-18 进度补记：
+  - 已将 `raw.hydrorivers.water` 与 `raw.hydrolakes.water` 接入
+    `services/source_asset_service.py` 的官方远程 materialization，
+    并同步纳入 `kg/source_catalog.py` 与 `services/raw_vector_source_service.py`
+    可消费范围。
+  - 已将默认 `catalog.flood.water` reference 从本地样例 `raw.local.water`
+    收口到国家级 polygon 第二来源 `raw.hydrolakes.water`；`raw.local.water`
+    继续保留为手工参考源，不再承担默认 task-driven water bundle 的唯一第二来源语义。
+  - 已将 `raw.overture.transportation` 接入 `services/source_asset_service.py`
+    的 AOI 级 live materializer，并同步纳入 `kg/source_catalog.py` 与
+    `services/raw_vector_source_service.py` 可消费范围；默认下载路径走
+    Overture 官方 CLI（`overturemaps` 或 `uvx overturemaps`），测试侧用
+    本地 GeoJSON fixture 做 deterministic 验证。
+  - 已将 `catalog.flood.road` 从 `OSM baseline` 收口到 `OSM + Overture`
+    双源 bundle：`kg/source_catalog.py` 已改为 `osm_ref_pair`，
+    `services/local_bundle_catalog.py` / `services/input_acquisition_service.py`
+    的 task-driven acquisition 真实链可同时产出 OSM 与 Overture road
+    参考包，不再生成 empty ref 占位。
+  - fresh verification:
+    - `python -m pytest -q tests/test_source_asset_service.py::test_source_asset_service_materializes_hydrorivers_clip_from_remote_zip tests/test_source_asset_service.py::test_source_asset_service_materializes_hydrolakes_clip_from_remote_zip tests/test_raw_vector_source_service.py::test_raw_vector_source_service_supports_hydrosheds_water_sources_via_source_asset_service tests/test_kg_repository_enhancements.py::test_repository_exposes_bundle_and_raw_sources_for_catalog_expansion tests/test_national_source_matrix.py`
+    - 结果：`6 passed in 2.31s`
+    - `python -m pytest -q tests/test_ontology_closure.py::test_water_seed_records_exist tests/test_planner_context.py::test_planner_context_exposes_water_metadata_and_builds_water_plan tests/test_kg_repository_enhancements.py::test_repository_exposes_bundle_and_raw_sources_for_catalog_expansion tests/test_local_bundle_catalog.py::test_local_bundle_catalog_materializes_flood_water_bundle_from_shared_provider_path tests/test_source_coverage_fallback.py::test_water_catalog_accepts_empty_reference_when_osm_has_coverage`
+    - 结果：`5 passed in 1.72s`
+    - `python -m pytest -q tests/test_source_asset_service.py::test_source_asset_service_materializes_overture_transportation_clip_from_remote_geojson tests/test_raw_vector_source_service.py::test_raw_vector_source_service_supports_overture_transportation_via_source_asset_service tests/test_kg_repository_enhancements.py::test_repository_exposes_bundle_and_raw_sources_for_catalog_expansion`
+    - 结果：`3 passed in 2.12s`
+    - `python -m pytest -q tests/test_kg_repository_enhancements.py::test_repository_exposes_bundle_and_raw_sources_for_catalog_expansion tests/test_local_bundle_catalog.py::test_local_bundle_catalog_materializes_flood_road_bundle_from_osm_and_overture tests/test_agent_run_service_enhancements.py::test_agent_run_service_road_task_driven_auto_uses_real_shared_acquisition_chain`
+    - 结果：`3 passed in 2.10s`
+    - `python -m pytest -q tests/test_source_asset_service.py tests/test_raw_vector_source_service.py tests/test_local_bundle_catalog.py tests/test_input_acquisition_service.py tests/test_source_coverage_fallback.py tests/test_kg_repository_enhancements.py tests/test_agent_run_service_enhancements.py tests/test_ontology_closure.py tests/test_planner_context.py tests/test_national_source_matrix.py tests/test_neo4j_bootstrap.py`
+    - 结果：`129 passed, 8 warnings in 19.13s`
+  - 当前仍未完成：
+    - `catalog.earthquake.road` / `catalog.typhoon.road` 仍保留 OSM baseline，
+      尚未决定是否在本轮 B2 一并提升到 `OSM + Overture`
+    - national 级 road / water / poi clip/stitching 统一仍待 B3
+  - 2026-05-19 结论更新：
+    - `catalog.earthquake.road` / `catalog.typhoon.road` 也已同步收口到
+      `OSM + Overture` 双源 bundle；
+    - 以 `source asset -> raw vector -> local bundle catalog -> input acquisition
+      -> agent run` 为主线的 B2 fresh verification 已覆盖通过，可将 `B2`
+      正式判定为完成。
+  - 2026-05-19 fresh verification:
+    - `python -m pytest -q tests/test_source_asset_service.py tests/test_raw_vector_source_service.py tests/test_local_bundle_catalog.py tests/test_input_acquisition_service.py tests/test_kg_repository_enhancements.py tests/test_agent_run_service_enhancements.py tests/test_national_source_matrix.py tests/test_neo4j_bootstrap.py`
+    - 结果：`99 passed, 8 warnings in 17.22s`
 
 - 2026-05-18：已完成 B2 第一层 source registration，把 `raw.overture.road`、`raw.hydrorivers.water`、`raw.hydrolakes.water` 加入 raw source contract、catalog metadata 与 local resolver 入口；后续仍需继续做 bundle/provider 接线与 national clip 运行证据。
 - 2026-05-18：已把 `services/source_asset_service.py` 接到同一套 Track B raw source locator contract，统一支持 `raw.overture.road`、`raw.local.water`、`raw.hydrorivers.water`、`raw.hydrolakes.water` 以及递归定位的 `raw.gns.poi` / `raw.rh.poi` 本地预载解析；`can_materialize()` 与 `materialize_source_assets.py` 入口不再只认识早期 building/OSM 资产。

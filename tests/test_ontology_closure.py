@@ -112,7 +112,7 @@ def test_water_seed_records_exist() -> None:
     assert water_pattern.metadata["source_family"] == "catalog_water_bundle"
     water_source = next(source for source in DATA_SOURCES if source.source_id == "catalog.flood.water")
     assert water_source.supported_types == ["dt.water.bundle"]
-    assert water_source.metadata["component_source_ids"] == ["raw.osm.water", "raw.local.water"]
+    assert water_source.metadata["component_source_ids"] == ["raw.osm.water", "raw.hydrolakes.water"]
     water_policy_note = OUTPUT_SCHEMA_POLICIES["dt.water.fused"].metadata["notes"]
     assert "uploaded-only" not in water_policy_note
     assert "shared bundle runtime" in water_policy_note

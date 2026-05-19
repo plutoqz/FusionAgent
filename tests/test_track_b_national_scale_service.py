@@ -105,6 +105,6 @@ def test_track_b_national_scale_service_marks_road_evidence_as_partial_when_manu
     inspection_summary = json.loads((output_root / "inspection_summary.json").read_text(encoding="utf-8"))
 
     assert summary["claim_state"] == "national_scale_partial_reference"
-    assert selected_sources["component_source_ids"] == ["raw.osm.road", "raw.overture.road"]
-    assert selected_sources["component_coverage"]["raw.overture.road"]["feature_count"] == 0
+    assert selected_sources["component_source_ids"] == ["raw.osm.road", "raw.overture.transportation"]
+    assert selected_sources["component_coverage"]["raw.overture.transportation"]["feature_count"] == 0
     assert inspection_summary["claim_state"] == "national_scale_partial_reference"

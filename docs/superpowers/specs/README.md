@@ -83,6 +83,11 @@ execution chain defined by
 - `2026-05-13-thesis-outline-and-timeline.md`
 - `2026-05-13-thesis-capability-handshake.md`
 
+### Track B source-lock live specs
+
+- `2026-05-18-national-source-matrix.md`
+- `2026-05-18-national-source-matrix.json`
+
 ### Consolidation design context
 
 - `2026-05-13-single-plan-consolidation-design.md`

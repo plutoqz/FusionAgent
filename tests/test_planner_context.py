@@ -292,7 +292,7 @@ def test_planner_context_exposes_water_metadata_and_builds_water_plan() -> None:
     assert "dt.water.fused" in retrieval["output_schema_policies"]
     assert retrieval["transform_paths"]["dt.water.bundle"] == []
     water_source = next(item for item in retrieval["data_sources"] if item["source_id"] == "catalog.flood.water")
-    assert water_source["metadata"]["component_source_ids"] == ["raw.osm.water", "raw.local.water"]
+    assert water_source["metadata"]["component_source_ids"] == ["raw.osm.water", "raw.hydrolakes.water"]
     assert water_source["metadata"]["provider_family"] == "local_bundle_catalog"
     assert plan.tasks[0].algorithm_id == "algo.fusion.water.v1"
     assert plan.tasks[0].input.data_type_id == "dt.water.bundle"

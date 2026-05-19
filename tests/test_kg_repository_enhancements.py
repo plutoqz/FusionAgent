@@ -141,6 +141,12 @@ def test_repository_exposes_richer_data_source_signals_for_current_themes() -> N
 
     earthquake_building = next(source for source in building_sources if source.source_id == "catalog.earthquake.building")
     typhoon_road = next(source for source in road_sources if source.source_id == "catalog.typhoon.road")
+    earthquake_road = next(source for source in repo.get_candidate_data_sources(
+        job_type=JobType.road,
+        disaster_type="earthquake",
+        required_type="dt.road.bundle",
+        limit=4,
+    ) if source.source_id == "catalog.earthquake.road")
 
     assert earthquake_building.source_kind == "catalog"
     assert earthquake_building.quality_tier == "curated"
@@ -156,6 +162,8 @@ def test_repository_exposes_richer_data_source_signals_for_current_themes() -> N
     assert typhoon_road.freshness_hours == 48
     assert typhoon_road.supported_job_types == ["road"]
     assert typhoon_road.supported_geometry_types == ["line"]
+    assert typhoon_road.metadata["component_source_ids"] == ["raw.osm.road", "raw.overture.transportation"]
+    assert earthquake_road.metadata["component_source_ids"] == ["raw.osm.road", "raw.overture.transportation"]
 
 
 def test_repository_exposes_bundle_and_raw_sources_for_catalog_expansion() -> None:
@@ -195,8 +203,11 @@ def test_repository_exposes_bundle_and_raw_sources_for_catalog_expansion() -> No
     assert "catalog.earthquake.building" in bundle_ids
     assert "catalog.flood.road" in road_bundle_ids
     assert "catalog.flood.water" in water_bundle_ids
+    assert "raw.overture.transportation" in raw_ids
     assert "raw.osm.water" in raw_ids
     assert "raw.local.water" in raw_ids
+    assert "raw.hydrorivers.water" in raw_ids
+    assert "raw.hydrolakes.water" in raw_ids
     assert "raw.osm.poi" in raw_ids
     assert "raw.microsoft.building" in raw_ids
     assert "raw.google.building" in raw_ids
@@ -207,8 +218,11 @@ def test_repository_exposes_bundle_and_raw_sources_for_catalog_expansion() -> No
     flood_bundle = next(source for source in bundle_sources if source.source_id == "catalog.flood.building")
     assert flood_bundle.metadata["component_source_ids"] == ["raw.osm.building", "raw.google.building"]
     assert flood_bundle.metadata["bundle_strategy"] == "osm_ref_pair"
+    road_bundle = next(source for source in road_bundle_sources if source.source_id == "catalog.flood.road")
+    assert road_bundle.metadata["component_source_ids"] == ["raw.osm.road", "raw.overture.transportation"]
+    assert road_bundle.metadata["bundle_strategy"] == "osm_ref_pair"
     water_bundle = next(source for source in water_bundle_sources if source.source_id == "catalog.flood.water")
-    assert water_bundle.metadata["component_source_ids"] == ["raw.osm.water", "raw.local.water"]
+    assert water_bundle.metadata["component_source_ids"] == ["raw.osm.water", "raw.hydrolakes.water"]
     assert water_bundle.metadata["bundle_strategy"] == "osm_ref_pair"
 
 

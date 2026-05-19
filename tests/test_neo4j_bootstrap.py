@@ -194,7 +194,7 @@ def test_expected_seed_inventory_matches_static_bootstrap_contract() -> None:
         "TaskBundle": 4,
         "Algorithm": 33,
         "AlgorithmParameterSpec": 44,
-        "DataSource": 22,
+        "DataSource": 26,
         "ScenarioProfile": 4,
         "QoSPolicy": 4,
         "OutputSchemaPolicy": 4,

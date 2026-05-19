@@ -735,7 +735,7 @@ def test_source_asset_service_redownloads_corrupt_msft_part(tmp_path: Path, monk
     assert set(frame.geom_type) == {"Polygon"}
 
 
-def test_source_asset_service_recognizes_track_b_manual_preload_refs_via_local_tree(tmp_path: Path) -> None:
+def test_source_asset_service_recognizes_track_b_b2_refs_via_local_tree(tmp_path: Path) -> None:
     _write_frame(
         tmp_path / "Data" / "roads" / "Overture" / "overture_roads.shp",
         geopandas.GeoDataFrame(
@@ -763,11 +763,11 @@ def test_source_asset_service_recognizes_track_b_manual_preload_refs_via_local_t
 
     service = SourceAssetService(repo_root=tmp_path, cache_dir=tmp_path / "cache")
 
-    overture = service.resolve_raw_source_path("raw.overture.road")
+    overture = service.resolve_raw_source_path("raw.overture.transportation")
     hydrorivers = service.resolve_raw_source_path("raw.hydrorivers.water")
     hydrolakes = service.resolve_raw_source_path("raw.hydrolakes.water")
 
-    assert service.can_materialize("raw.overture.road") is True
+    assert service.can_materialize("raw.overture.transportation") is True
     assert service.can_materialize("raw.hydrorivers.water") is True
     assert service.can_materialize("raw.hydrolakes.water") is True
     assert service.can_materialize("raw.openbuildingmap.building") is True
@@ -846,3 +846,106 @@ def test_source_asset_service_matches_repo_track_b_water_filenames_to_locked_sou
     assert local_water.path.name == lake_filename
     assert hydrorivers.path.name == "BDI.shp"
     assert hydrolakes.path.name == lake_filename
+
+
+def test_source_asset_service_materializes_hydrorivers_clip_from_remote_zip(tmp_path: Path) -> None:
+    archive_path = tmp_path / "fixtures" / "hydrorivers_kenya.zip"
+    lines = geopandas.GeoDataFrame(
+        {"HYRIV_ID": [1, 2], "ORD_STRA": [4, 2], "DIS_AV_CMS": [10.0, 2.0]},
+        geometry=[
+            LineString([(36.80, -1.35), (36.90, -1.25)]),
+            LineString([(39.60, -4.10), (39.70, -4.00)]),
+        ],
+        crs="EPSG:4326",
+    )
+    _write_frame(tmp_path / "fixtures" / "hydrorivers_src" / "HydroRIVERS_v10_kenya.shp", lines)
+    zip_shapefile_bundle(tmp_path / "fixtures" / "hydrorivers_src" / "HydroRIVERS_v10_kenya.shp", archive_path)
+
+    service = SourceAssetService(
+        repo_root=tmp_path,
+        cache_dir=tmp_path / "cache",
+        hydrorivers_global_zip_url=archive_path.resolve().as_uri(),
+        prefer_local_data=False,
+    )
+
+    resolved = service.resolve_raw_source_path(
+        "raw.hydrorivers.water",
+        aoi=_resolved_nairobi_aoi(),
+    )
+    frame = geopandas.read_file(resolved.path)
+
+    assert resolved.source_mode == "asset_downloaded"
+    assert resolved.feature_count == 1
+    assert len(frame) == 1
+    assert frame.iloc[0]["HYRIV_ID"] == 1
+
+
+def test_source_asset_service_materializes_hydrolakes_clip_from_remote_zip(tmp_path: Path) -> None:
+    archive_path = tmp_path / "fixtures" / "hydrolakes_kenya.zip"
+    lakes = geopandas.GeoDataFrame(
+        {"Hylak_id": [11, 22], "Lake_type": [1, 2], "Depth_avg": [6.5, 1.2]},
+        geometry=[
+            Polygon([(36.80, -1.35), (36.80, -1.20), (36.95, -1.20), (36.95, -1.35)]),
+            Polygon([(39.60, -4.10), (39.60, -4.00), (39.75, -4.00), (39.75, -4.10)]),
+        ],
+        crs="EPSG:4326",
+    )
+    _write_frame(tmp_path / "fixtures" / "hydrolakes_src" / "HydroLAKES_polys_v10_kenya.shp", lakes)
+    zip_shapefile_bundle(tmp_path / "fixtures" / "hydrolakes_src" / "HydroLAKES_polys_v10_kenya.shp", archive_path)
+
+    service = SourceAssetService(
+        repo_root=tmp_path,
+        cache_dir=tmp_path / "cache",
+        hydrolakes_global_zip_url=archive_path.resolve().as_uri(),
+        prefer_local_data=False,
+    )
+
+    resolved = service.resolve_raw_source_path(
+        "raw.hydrolakes.water",
+        aoi=_resolved_nairobi_aoi(),
+    )
+    frame = geopandas.read_file(resolved.path)
+
+    assert resolved.source_mode == "asset_downloaded"
+    assert resolved.feature_count == 1
+    assert len(frame) == 1
+    assert frame.iloc[0]["Hylak_id"] == 11
+
+
+def test_source_asset_service_materializes_overture_transportation_clip_from_remote_geojson(
+    tmp_path: Path,
+) -> None:
+    remote_path = tmp_path / "fixtures" / "overture_transportation_kenya.geojson"
+    roads = geopandas.GeoDataFrame(
+        {
+            "id": ["seg-1", "seg-2"],
+            "class": ["primary", "residential"],
+            "subclass": ["arterial", "local"],
+            "surface": ["paved", "unpaved"],
+            "lane_count": [2, 1],
+        },
+        geometry=[
+            LineString([(36.80, -1.35), (36.90, -1.25)]),
+            LineString([(39.60, -4.10), (39.70, -4.00)]),
+        ],
+        crs="EPSG:4326",
+    )
+    _write_frame(remote_path, roads)
+
+    service = SourceAssetService(
+        repo_root=tmp_path,
+        cache_dir=tmp_path / "cache",
+        overture_transportation_url=remote_path.resolve().as_uri(),
+        prefer_local_data=False,
+    )
+
+    resolved = service.resolve_raw_source_path(
+        "raw.overture.transportation",
+        aoi=_resolved_nairobi_aoi(),
+    )
+    frame = geopandas.read_file(resolved.path)
+
+    assert resolved.source_mode == "asset_downloaded"
+    assert resolved.feature_count == 1
+    assert len(frame) == 1
+    assert frame.iloc[0]["id"] == "seg-1"

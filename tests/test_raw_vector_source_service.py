@@ -358,13 +358,13 @@ def test_raw_vector_source_service_materializes_local_water_source_with_stable_v
     assert _extract_bounds(resolved.zip_path) == [2.5, 2.5, 5.5, 5.5]
 
 
-def test_raw_vector_source_service_materializes_track_b_manual_preload_road_and_water_refs(tmp_path: Path) -> None:
+def test_raw_vector_source_service_materializes_track_b_local_road_and_water_refs(tmp_path: Path) -> None:
     _seed_raw_source_tree(tmp_path)
     registry = ArtifactRegistry(index_path=tmp_path / "artifact_registry.json")
     service = RawVectorSourceService(root_dir=tmp_path, registry=registry, cache_dir=tmp_path / "cache")
 
     overture = service.resolve(
-        source_id="raw.overture.road",
+        source_id="raw.overture.transportation",
         request_bbox=(36.72, -1.31, 36.88, -1.21),
         target_path=tmp_path / "run" / "overture.zip",
         target_crs="EPSG:4326",
@@ -382,7 +382,7 @@ def test_raw_vector_source_service_materializes_track_b_manual_preload_road_and_
         target_crs="EPSG:4326",
     )
 
-    assert overture.source_id == "raw.overture.road"
+    assert overture.source_id == "raw.overture.transportation"
     assert overture.source_mode == "downloaded"
     assert overture.cache_hit is False
     assert _extract_bounds(overture.zip_path) == pytest.approx([36.72, -1.29, 36.88, -1.21], abs=1e-3)
@@ -396,6 +396,120 @@ def test_raw_vector_source_service_materializes_track_b_manual_preload_road_and_
     assert lakes.source_mode == "downloaded"
     assert lakes.cache_hit is False
     assert _extract_bounds(lakes.zip_path) == pytest.approx([36.72, -1.34, 36.88, -1.21], abs=1e-3)
+
+
+def test_raw_vector_source_service_supports_hydrosheds_water_sources_via_source_asset_service(tmp_path: Path) -> None:
+    registry = ArtifactRegistry(index_path=tmp_path / "artifact_registry.json")
+    remote_shp = tmp_path / "remote" / "hydrorivers.shp"
+    _write_frame(
+        remote_shp,
+        gpd.GeoDataFrame(
+            {"HYRIV_ID": [1]},
+            geometry=[Point(36.80, -1.35).buffer(0.01).boundary],
+            crs="EPSG:4326",
+        ),
+    )
+
+    class _StubSourceAssetService:
+        def can_materialize(self, source_id: str) -> bool:
+            return source_id in {"raw.hydrorivers.water", "raw.hydrolakes.water"}
+
+        def resolve_raw_source_path(self, source_id: str, *, request_bbox=None, aoi=None):
+            assert source_id == "raw.hydrorivers.water"
+            assert request_bbox == _resolved_nairobi_aoi().bbox
+            assert aoi == _resolved_nairobi_aoi()
+            return type(
+                "Resolution",
+                (),
+                {
+                    "path": remote_shp,
+                    "version_token": "hydro-v1",
+                    "source_mode": "asset_downloaded",
+                    "cache_hit": False,
+                    "bbox": request_bbox,
+                    "feature_count": 1,
+                },
+            )()
+
+    service = RawVectorSourceService(
+        root_dir=tmp_path,
+        registry=registry,
+        cache_dir=tmp_path / "cache",
+        source_asset_service=_StubSourceAssetService(),
+    )
+
+    resolved = service.resolve(
+        source_id="raw.hydrorivers.water",
+        request_bbox=_resolved_nairobi_aoi().bbox,
+        target_path=tmp_path / "run" / "hydrorivers.zip",
+        target_crs="EPSG:4326",
+        resolved_aoi=_resolved_nairobi_aoi(),
+    )
+
+    assert resolved.zip_path.exists()
+    assert resolved.version_token == "hydro-v1"
+    assert resolved.source_mode == "downloaded"
+    assert resolved.cache_hit is False
+
+
+def test_raw_vector_source_service_supports_overture_transportation_via_source_asset_service(tmp_path: Path) -> None:
+    registry = ArtifactRegistry(index_path=tmp_path / "artifact_registry.json")
+    remote_geojson = tmp_path / "remote" / "overture_transportation.geojson"
+    _write_frame(
+        remote_geojson,
+        gpd.GeoDataFrame(
+            {
+                "id": ["seg-1"],
+                "class": ["primary"],
+                "subclass": ["arterial"],
+                "surface": ["paved"],
+                "lane_count": [2],
+            },
+            geometry=[Point(36.80, -1.35).buffer(0.01).boundary],
+            crs="EPSG:4326",
+        ),
+    )
+
+    class _StubSourceAssetService:
+        def can_materialize(self, source_id: str) -> bool:
+            return source_id == "raw.overture.transportation"
+
+        def resolve_raw_source_path(self, source_id: str, *, request_bbox=None, aoi=None):
+            assert source_id == "raw.overture.transportation"
+            assert request_bbox == _resolved_nairobi_aoi().bbox
+            assert aoi == _resolved_nairobi_aoi()
+            return type(
+                "Resolution",
+                (),
+                {
+                    "path": remote_geojson,
+                    "version_token": "overture-v1",
+                    "source_mode": "asset_downloaded",
+                    "cache_hit": False,
+                    "bbox": request_bbox,
+                    "feature_count": 1,
+                },
+            )()
+
+    service = RawVectorSourceService(
+        root_dir=tmp_path,
+        registry=registry,
+        cache_dir=tmp_path / "cache",
+        source_asset_service=_StubSourceAssetService(),
+    )
+
+    resolved = service.resolve(
+        source_id="raw.overture.transportation",
+        request_bbox=_resolved_nairobi_aoi().bbox,
+        target_path=tmp_path / "run" / "overture_transportation.zip",
+        target_crs="EPSG:4326",
+        resolved_aoi=_resolved_nairobi_aoi(),
+    )
+
+    assert resolved.zip_path.exists()
+    assert resolved.version_token == "overture-v1"
+    assert resolved.source_mode == "downloaded"
+    assert resolved.cache_hit is False
 
 
 def test_raw_vector_source_service_selects_gns_reference_by_resolved_aoi_country_hint(tmp_path: Path) -> None:

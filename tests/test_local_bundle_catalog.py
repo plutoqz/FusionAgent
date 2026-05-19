@@ -54,7 +54,7 @@ def _seed_local_catalog_tree(root: Path) -> None:
     _write_frame(
         root / "Data" / "roads" / "Overture" / "overture_roads.shp",
         geopandas.GeoDataFrame(
-            {"ov_road_id": [2]},
+            {"id": ["seg-1"], "class": ["primary"], "surface": ["paved"], "lane_count": [2]},
             geometry=[LineString([(0, 0), (1, 1)])],
             crs="EPSG:4326",
         ),
@@ -72,6 +72,14 @@ def _seed_local_catalog_tree(root: Path) -> None:
         geopandas.GeoDataFrame(
             {"locw_id": [401]},
             geometry=[Polygon([(0.5, 0.5), (0.5, 1.5), (1.5, 1.5), (1.5, 0.5)])],
+            crs="EPSG:4326",
+        ),
+    )
+    _write_frame(
+        root / "Data" / "water" / "HydroLAKES_polys_v10.shp",
+        geopandas.GeoDataFrame(
+            {"Hylak_id": [501]},
+            geometry=[Polygon([(0.25, 0.25), (0.25, 1.75), (1.75, 1.75), (1.75, 0.25)])],
             crs="EPSG:4326",
         ),
     )
@@ -97,7 +105,13 @@ def test_local_bundle_catalog_supports_expanded_building_and_flood_road_sources(
         ),
     )
 
-    for source_id in ["catalog.flood.building", "catalog.earthquake.building", "catalog.flood.road"]:
+    for source_id in [
+        "catalog.flood.building",
+        "catalog.earthquake.building",
+        "catalog.flood.road",
+        "catalog.earthquake.road",
+        "catalog.typhoon.road",
+    ]:
         assert provider.can_handle(source_id)
         materialized = provider.materialize(
             source_id=source_id,
@@ -107,6 +121,29 @@ def test_local_bundle_catalog_supports_expanded_building_and_flood_road_sources(
         )
         assert materialized.osm_zip_path.exists()
         assert materialized.ref_zip_path.exists()
+
+
+def test_local_bundle_catalog_materializes_flood_road_bundle_from_osm_and_overture(tmp_path: Path) -> None:
+    _seed_local_catalog_tree(tmp_path)
+    provider = LocalBundleCatalogProvider(
+        tmp_path,
+        raw_source_service=RawVectorSourceService(
+            root_dir=tmp_path,
+            registry=ArtifactRegistry(index_path=tmp_path / "artifact_registry.json"),
+            cache_dir=tmp_path / "raw-cache",
+        ),
+    )
+
+    materialized = provider.materialize(
+        source_id="catalog.flood.road",
+        request_bbox=None,
+        target_dir=tmp_path / "road_bundle",
+        target_crs="EPSG:4326",
+    )
+
+    assert provider.can_handle("catalog.flood.road")
+    assert "road_id" in _read_columns(materialized.osm_zip_path)
+    assert "id" in _read_columns(materialized.ref_zip_path)
 
 
 def test_local_bundle_catalog_uses_google_and_microsoft_reference_layers_for_building_pairs(tmp_path: Path) -> None:
@@ -159,7 +196,7 @@ def test_local_bundle_catalog_materializes_flood_water_bundle_from_shared_provid
     assert materialized.osm_zip_path.name == "osm.zip"
     assert materialized.ref_zip_path.name == "ref.zip"
     assert "osmw_id" in _read_columns(materialized.osm_zip_path)
-    assert "locw_id" in _read_columns(materialized.ref_zip_path)
+    assert "Hylak_id" in _read_columns(materialized.ref_zip_path)
 
 
 def test_local_bundle_catalog_materializes_flood_road_bundle_with_overture_reference(tmp_path: Path) -> None:
@@ -181,7 +218,9 @@ def test_local_bundle_catalog_materializes_flood_road_bundle_with_overture_refer
     )
 
     assert "road_id" in _read_columns(materialized.osm_zip_path)
-    assert "ov_road_id" in _read_columns(materialized.ref_zip_path)
+    ref_columns = _read_columns(materialized.ref_zip_path)
+    assert "id" in ref_columns
+    assert "class" in ref_columns
 
 
 def test_local_bundle_catalog_road_bundle_tolerates_missing_manual_overture_reference(tmp_path: Path) -> None:
@@ -207,8 +246,8 @@ def test_local_bundle_catalog_road_bundle_tolerates_missing_manual_overture_refe
     )
 
     assert materialized.source_id == "catalog.flood.road"
-    assert materialized.component_coverage["raw.overture.road"].feature_count == 0
-    assert materialized.component_coverage["raw.overture.road"].source_mode == "missing_optional_ref"
+    assert materialized.component_coverage["raw.overture.transportation"].feature_count == 0
+    assert materialized.component_coverage["raw.overture.transportation"].source_mode == "missing_optional_ref"
 
 
 def test_local_bundle_catalog_current_version_tolerates_missing_manual_overture_reference(tmp_path: Path) -> None:
@@ -229,7 +268,7 @@ def test_local_bundle_catalog_current_version_tolerates_missing_manual_overture_
     version = provider.current_version("catalog.flood.road")
 
     assert version
-    assert "|missing:raw.overture.road" in version
+    assert "|missing:raw.overture.transportation" in version
 
 
 def test_local_bundle_catalog_water_bundle_raises_when_aoi_has_empty_component_coverage(tmp_path: Path) -> None:

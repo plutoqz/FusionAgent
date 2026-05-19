@@ -263,9 +263,9 @@ def _seed_water_runtime_tree(root: Path) -> None:
         ),
     )
     _write_frame(
-        root / "Data" / "water" / "local_water.shp",
+        root / "Data" / "water" / "HydroLAKES_polys_v10.shp",
         gpd.GeoDataFrame(
-            {"locw_id": [2]},
+            {"Hylak_id": [2]},
             geometry=[box(0.5, 0.5, 1.5, 1.5)],
             crs="EPSG:4326",
         ),
@@ -448,7 +448,7 @@ def test_agent_run_service_water_task_driven_auto_uses_real_shared_acquisition_c
     assert Path(captured["osm_shp"]).exists()
     assert Path(captured["ref_shp"]).exists()
     assert list(captured["osm_frame"].columns)[:1] == ["osmw_id"]
-    assert list(captured["ref_frame"].columns)[:1] == ["locw_id"]
+    assert list(captured["ref_frame"].columns)[:1] == ["Hylak_id"]
     assert str(captured["osm_frame"].crs) == "EPSG:32643"
     assert str(captured["ref_frame"].crs) == "EPSG:32643"
     expected_osm_bounds = (
@@ -552,7 +552,7 @@ def test_agent_run_service_water_task_driven_auto_fails_at_materialization_time_
 
     class _EmptyWaterSourceAssetService:
         def can_materialize(self, source_id: str) -> bool:
-            return source_id in {"raw.osm.water", "raw.local.water"}
+            return source_id in {"raw.osm.water", "raw.hydrolakes.water"}
 
         def resolve_raw_source_path(self, source_id: str, *, request_bbox=None, aoi=None):
             path = empty_osm if source_id == "raw.osm.water" else empty_ref
@@ -685,6 +685,101 @@ def test_agent_run_service_road_task_driven_auto_keeps_trajectory_seam_reserved(
     assert saved_plan is not None
     assert saved_plan.tasks[0].algorithm_id == "algo.fusion.road.v1"
     assert all(task.algorithm_id != "algo.transform.trajectory_to_road_candidate" for task in saved_plan.tasks)
+
+
+def test_agent_run_service_road_task_driven_auto_uses_real_shared_acquisition_chain(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    root_dir = tmp_path / "runtime_root_road"
+    _write_frame(
+        root_dir / "Data" / "roads" / "OSM" / "osm_roads.shp",
+        gpd.GeoDataFrame(
+            {"road_id": [1]},
+            geometry=[box(74.10, 35.80, 74.30, 36.00).boundary],
+            crs="EPSG:4326",
+        ),
+    )
+    _write_frame(
+        root_dir / "Data" / "roads" / "Overture" / "overture_roads.shp",
+        gpd.GeoDataFrame(
+            {"id": ["seg-1"], "class": ["primary"], "surface": ["paved"], "lane_count": [2]},
+            geometry=[box(74.12, 35.82, 74.28, 35.98).boundary],
+            crs="EPSG:4326",
+        ),
+    )
+
+    service = AgentRunService(base_dir=tmp_path / "runs")
+    raw_service = RawVectorSourceService(
+        root_dir=root_dir,
+        registry=service.artifact_registry,
+        cache_dir=service.base_dir / "raw_source_cache",
+    )
+    service.raw_vector_source_service = raw_service
+    service.input_acquisition_service = InputAcquisitionService(
+        registry=service.artifact_registry,
+        providers=[LocalBundleCatalogProvider(root_dir, raw_source_service=raw_service)],
+        cache_dir=service.base_dir / "input_bundle_cache",
+    )
+
+    fused_shp = tmp_path / "fused_road_real.shp"
+    _write_frame(
+        fused_shp,
+        gpd.GeoDataFrame(
+            {"fid": [1]},
+            geometry=[box(74.10, 35.80, 74.30, 36.00)],
+            crs="EPSG:4326",
+        ),
+    )
+
+    plan = _build_road_task_driven_plan(workflow_id="wf_road_real_chain")
+    plan.trigger = RunTrigger(
+        type=RunTriggerType.user_query,
+        content="need road data",
+        spatial_extent="bbox(74.1,35.8,74.3,36.0)",
+    )
+
+    captured: dict[str, object] = {}
+
+    monkeypatch.setattr(service.planner, "create_plan", lambda **_kwargs: plan.model_copy(deep=True))
+    monkeypatch.setattr(service.validator, "validate_and_repair", lambda input_plan: input_plan)
+
+    def fake_execute_plan(*, context, **_kwargs):
+        captured["osm_shp"] = context.osm_shp
+        captured["ref_shp"] = context.ref_shp
+        captured["osm_frame"] = gpd.read_file(context.osm_shp)
+        captured["ref_frame"] = gpd.read_file(context.ref_shp)
+        return fused_shp
+
+    monkeypatch.setattr(service.executor, "execute_plan", fake_execute_plan)
+
+    status = service.create_run(
+        request=_build_auto_request(
+            spatial_extent="bbox(74.1,35.8,74.3,36.0)",
+            job_type=JobType.road,
+            content="need road data",
+        ),
+        osm_zip_name=None,
+        osm_zip_bytes=None,
+        ref_zip_name=None,
+        ref_zip_bytes=None,
+    )
+
+    latest = service.get_run(status.run_id)
+    assert latest is not None
+    assert latest.phase == RunPhase.succeeded
+    assert Path(captured["osm_shp"]).exists()
+    assert Path(captured["ref_shp"]).exists()
+    assert list(captured["osm_frame"].columns)[:1] == ["road_id"]
+    assert list(captured["ref_frame"].columns)[:1] == ["id"]
+    assert str(captured["osm_frame"].crs) == "EPSG:32643"
+    assert str(captured["ref_frame"].crs) == "EPSG:32643"
+
+    audit_events = service.get_audit_events(status.run_id)
+    resolved_event = next(event for event in audit_events if event.kind == "task_inputs_resolved")
+    assert resolved_event.details["source_id"] == "catalog.flood.road"
+    assert resolved_event.details["source_mode"] == "downloaded"
+    assert resolved_event.details["cache_hit"] is False
 
 
 def _resolved_nairobi_aoi() -> ResolvedAOI:

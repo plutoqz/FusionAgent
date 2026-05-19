@@ -34,7 +34,7 @@ def test_water_catalog_accepts_empty_reference_when_osm_has_coverage(tmp_path):
         tmp_path,
         counts={
             "raw.osm.water": 12,
-            "raw.local.water": 0,
+            "raw.hydrolakes.water": 0,
         },
     )
 
@@ -49,7 +49,7 @@ def test_water_catalog_accepts_empty_reference_when_osm_has_coverage(tmp_path):
     assert bundle.source_id == "catalog.flood.water"
     assert bundle.fallback_from is None
     assert bundle.component_coverage["raw.osm.water"].feature_count == 12
-    assert bundle.component_coverage["raw.local.water"].feature_count == 0
+    assert bundle.component_coverage["raw.hydrolakes.water"].feature_count == 0
 
 
 def test_poi_catalog_accepts_empty_reference_when_osm_has_coverage(tmp_path):
@@ -80,7 +80,7 @@ def test_road_catalog_accepts_missing_overture_reference_when_osm_has_coverage(t
         tmp_path,
         counts={
             "raw.osm.road": 25,
-            "raw.overture.road": 0,
+            "raw.overture.transportation": 0,
         },
     )
 
@@ -95,7 +95,7 @@ def test_road_catalog_accepts_missing_overture_reference_when_osm_has_coverage(t
     assert bundle.source_id == "catalog.flood.road"
     assert bundle.fallback_from is None
     assert bundle.component_coverage["raw.osm.road"].feature_count == 25
-    assert bundle.component_coverage["raw.overture.road"].feature_count == 0
+    assert bundle.component_coverage["raw.overture.transportation"].feature_count == 0
 
 
 def _make_provider_with_component_counts(tmp_path: Path, *, counts: dict[str, int]) -> LocalBundleCatalogProvider:
