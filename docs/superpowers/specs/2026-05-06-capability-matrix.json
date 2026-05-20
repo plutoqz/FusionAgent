@@ -240,16 +240,25 @@
       {
         "capability_id": "evidence.tool_contracts_grounding_recovery",
         "theme": "evidence",
-        "status": "core_next",
-        "claim_state": "reservation_only",
+        "status": "core",
+        "claim_state": "runtime_supported",
         "evidence_contract": [
-          "future_tests",
-          "future_inspection_surface",
-          "future_operations_wording"
+          "tool_contract_report",
+          "grounding_report",
+          "telemetry_summary",
+          "recovery_hint",
+          "/api/v2/operator/recovery",
+          "/api/v2/runs/preflight",
+          "focused_tests",
+          "operations_wording"
         ],
         "owner_files": [
-          "docs/superpowers/specs/2026-05-06-capability-consolidation-review.md",
-          "docs/superpowers/specs/2026-04-23-system-next-improvement-review.md"
+          "services/tool_contract_report_service.py",
+          "services/plan_grounding_service.py",
+          "services/run_telemetry_service.py",
+          "services/run_recovery_service.py",
+          "api/routers/runs_v2.py",
+          "docs/v2-operations.md"
         ]
       }
     ]

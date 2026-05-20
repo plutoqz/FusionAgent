@@ -1,6 +1,12 @@
 import json
 
-from services.run_telemetry_service import estimate_json_size_bytes, normalize_llm_usage
+from schemas.agent import RunEvent, RunPhase, RunStatus, RunTrigger, RunTriggerType
+from schemas.fusion import JobType
+from services.run_telemetry_service import (
+    build_run_telemetry_summary,
+    estimate_json_size_bytes,
+    normalize_llm_usage,
+)
 
 
 def test_estimate_json_size_bytes_matches_sorted_utf8_json_length() -> None:
@@ -42,3 +48,39 @@ def test_normalize_llm_usage_handles_non_mapping_inputs_defensively() -> None:
         "completion_tokens": None,
         "total_tokens": None,
     }
+
+
+def test_build_run_telemetry_summary_uses_status_planning_telemetry() -> None:
+    status = RunStatus(
+        run_id="run-telemetry",
+        job_type=JobType.building,
+        trigger=RunTrigger(type=RunTriggerType.user_query, content="building"),
+        phase=RunPhase.succeeded,
+        target_crs="EPSG:32643",
+        planning_telemetry={"provider": "mock", "model": "mock-model", "elapsed_ms": 12},
+        created_at="2026-05-20T00:00:00+00:00",
+        updated_at="2026-05-20T00:00:01+00:00",
+    )
+    events = [
+        RunEvent(
+            timestamp="2026-05-20T00:00:00+00:00",
+            kind="plan_created",
+            phase=RunPhase.planning,
+            message="plan",
+            details={"grounding_score": 1.0},
+        ),
+        RunEvent(
+            timestamp="2026-05-20T00:00:01+00:00",
+            kind="run_succeeded",
+            phase=RunPhase.succeeded,
+            message="ok",
+        ),
+    ]
+
+    summary = build_run_telemetry_summary(status=status, audit_events=events, plan=None)
+
+    assert summary["planning"]["provider"] == "mock"
+    assert summary["planning"]["elapsed_ms"] == 12
+    assert summary["audit_event_count"] == 2
+    assert summary["event_counts"] == {"plan_created": 1, "run_succeeded": 1}
+    assert summary["last_event_kind"] == "run_succeeded"

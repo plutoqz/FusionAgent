@@ -5,6 +5,7 @@ from pathlib import Path
 
 from services.agent_run_service import AgentRunService
 from services.run_recovery_service import (
+    build_recovery_hint,
     classify_recovery_action,
     collect_recoverable_runs,
 )
@@ -174,3 +175,34 @@ def test_collect_recoverable_runs_treats_healing_validation_checkpoint_as_recove
     assert len(records) == 1
     assert records[0]["run_id"] == "run-healing"
     assert records[0]["recovery_action"] == "redispatch_from_validation"
+
+
+def test_build_recovery_hint_marks_terminal_runs_not_recoverable() -> None:
+    hint = build_recovery_hint(
+        {
+            "phase": "succeeded",
+            "checkpoint": {"stage": "execution"},
+            "updated_at": "2026-05-20T00:00:00+00:00",
+        }
+    )
+
+    assert hint == {
+        "recoverable": False,
+        "recovery_action": "none",
+        "reason": "terminal_or_fresh_run",
+        "checkpoint": {"stage": "execution"},
+    }
+
+
+def test_build_recovery_hint_uses_checkpoint_stage_for_running_run() -> None:
+    hint = build_recovery_hint(
+        {
+            "phase": "running",
+            "checkpoint": {"stage": "execution", "plan_revision": 1, "current_step": 2},
+            "updated_at": "2026-05-20T00:00:00+00:00",
+        }
+    )
+
+    assert hint["recoverable"] is True
+    assert hint["recovery_action"] == "redispatch_from_execution"
+    assert hint["checkpoint"]["current_step"] == 2

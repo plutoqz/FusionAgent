@@ -435,6 +435,19 @@ Operators should be able to answer these four questions directly from `inspectio
 - whether the system can recover
 - what to do next
 
+### Runtime Hardening Evidence
+
+The run inspection payload includes these hardening views:
+
+- `kg_path_trace.grounding_report`: shows whether executable steps are grounded in retrieved workflow patterns, data sources, and output schema policies.
+- `tool_contract_report`: shows whether each planned algorithm is registered in `ToolRegistry`, which handler it maps to, which input/output types are expected, and whether the tool is reservation-only.
+- `telemetry_summary`: summarizes planning telemetry and audit event counts for the run.
+- `recovery_hint`: summarizes whether the current checkpoint can be redispatched or requires manual review.
+
+Preflight checks are available through `POST /api/v2/runs/preflight`. The endpoint returns `allowed=false` with structured `unsupported_intent` records for off-domain requests, unsupported schema customization, trajectory-to-road execution requests, and unbounded POI entity-alignment requests.
+
+Recoverable stale runs are listed through `GET /api/v2/operator/recovery?stale_after_seconds=300`. This endpoint is inspection-only; it does not redispatch runs by itself.
+
 ### Run Comparison
 
 - `GET /api/v2/runs/{left_run_id}/compare/{right_run_id}`: side-by-side run comparison using the same inspection payload

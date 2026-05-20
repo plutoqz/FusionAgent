@@ -725,6 +725,35 @@ def test_v2_run_rejects_unsupported_intent_with_structured_422(
     }
 
 
+def test_v2_run_preflight_reports_unsupported_intent_without_creating_run(
+    client: TestClient,
+) -> None:
+    response = client.post(
+        "/api/v2/runs/preflight",
+        json={
+            "job_type": "road",
+            "trigger": {
+                "type": "user_query",
+                "content": "please ingest GPS trajectory and build a road network",
+            },
+            "input_strategy": "task_driven_auto",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "allowed": False,
+        "unsupported_intent": [
+            {
+                "code": "RESERVATION_ONLY_TRAJECTORY_TO_ROAD",
+                "message": "Trajectory-to-road is reserved metadata only and is not an executable runtime path.",
+                "matched_keyword": "trajectory",
+                "job_type": "road",
+            }
+        ],
+    }
+
+
 def test_v2_run_inspection_includes_decision_friendly_digest(
     client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
@@ -884,6 +913,16 @@ def test_v2_run_task_driven_auto_input_integration(
     assert plan_grounding["steps"][0]["evidence_refs"][0] == "plan.task(step=2).algorithm_id"
     assert inspection["kg_path_trace"]["grounding_report"] == plan_grounding
     assert inspection["kg_path_trace"]["chains"][0]["task_step"] == 2
+    tool_contract_report = inspection["tool_contract_report"]
+    assert tool_contract_report["valid"] is True
+    assert tool_contract_report["steps"][0]["algorithm_id"] == "algo.fusion.building.v1"
+    assert tool_contract_report["steps"][0]["handler_name"] == "_handle_building"
+    assert tool_contract_report["steps"][0]["issue_codes"] == []
+    telemetry_summary = inspection["telemetry_summary"]
+    assert telemetry_summary["audit_event_count"] == len(inspection["audit_events"])
+    assert telemetry_summary["event_counts"]["plan_created"] == 1
+    assert telemetry_summary["event_counts"]["run_succeeded"] == 1
+    assert telemetry_summary["last_event_kind"] == "run_succeeded"
     plan_created = next(event for event in inspection["audit_events"] if event["kind"] == "plan_created")
     assert plan_created["details"]["grounded"] is True
     assert plan_created["details"]["grounding_score"] == 1.0

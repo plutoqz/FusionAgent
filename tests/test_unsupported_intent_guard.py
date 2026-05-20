@@ -55,3 +55,39 @@ def test_classify_unsupported_intent_allows_normal_building_request() -> None:
     )
 
     assert issues == []
+
+
+def test_classify_unsupported_intent_flags_trajectory_to_road_execution_request() -> None:
+    module = _load_guard_module()
+
+    issues = module.classify_unsupported_intent(
+        "please ingest GPS trajectory and build a road network",
+        job_type="road",
+    )
+
+    assert issues == [
+        {
+            "code": "RESERVATION_ONLY_TRAJECTORY_TO_ROAD",
+            "message": "Trajectory-to-road is reserved metadata only and is not an executable runtime path.",
+            "matched_keyword": "trajectory",
+            "job_type": "road",
+        }
+    ]
+
+
+def test_classify_unsupported_intent_flags_unbounded_poi_entity_alignment() -> None:
+    module = _load_guard_module()
+
+    issues = module.classify_unsupported_intent(
+        "merge all POI businesses and solve global entity resolution",
+        job_type="poi",
+    )
+
+    assert issues == [
+        {
+            "code": "UNBOUNDED_POI_ENTITY_ALIGNMENT",
+            "message": "POI fusion is bounded and does not support open-ended entity alignment.",
+            "matched_keyword": "entity resolution",
+            "job_type": "poi",
+        }
+    ]

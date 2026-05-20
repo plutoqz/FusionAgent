@@ -72,6 +72,38 @@ def classify_scenario_request(
     if any(
         keyword in combined_text
         for keyword in (
+            "trajectory",
+            "gps trajectory",
+            "gps trace",
+            "轨迹",
+            "轨迹到道路",
+        )
+    ):
+        return {
+            "decision": "reject",
+            "reason_code": "RESERVATION_ONLY_TRAJECTORY_TO_ROAD",
+            "message": "Trajectory-to-road is reserved metadata only and is not an executable runtime path.",
+        }
+
+    if any(
+        keyword in combined_text
+        for keyword in (
+            "entity resolution",
+            "entity alignment",
+            "all poi businesses",
+            "global entity",
+            "通用实体对齐",
+        )
+    ):
+        return {
+            "decision": "clarify",
+            "reason_code": "UNBOUNDED_POI_ENTITY_ALIGNMENT",
+            "message": "POI fusion is bounded and does not support open-ended entity alignment.",
+        }
+
+    if any(
+        keyword in combined_text
+        for keyword in (
             "event-feed",
             "event feed",
             "telemetry replay",

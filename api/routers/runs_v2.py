@@ -17,6 +17,7 @@ from schemas.agent import (
     RunInspectionArtifact,
     RunInspectionResponse,
     RunPhase,
+    RunPreflightResponse,
     RuntimeMetadataResponse,
     RunPlanResponse,
     RunStatus,
@@ -25,15 +26,22 @@ from schemas.agent import (
 )
 from schemas.fusion import FieldMapping, JobType
 from schemas.kg_graph import KgGraphResponse
-from schemas.operator import OperatorRunListResponse, OperatorRuntimeSummaryResponse
+from schemas.operator import (
+    OperatorRecoveryResponse,
+    OperatorRunListResponse,
+    OperatorRuntimeSummaryResponse,
+)
 from schemas.ui_assets import ArtifactPreviewResponse
 from services.agent_run_service import agent_run_service, derive_run_inspection_digest
 from services.artifact_preview_service import build_artifact_preview
 from services.kg_graph_service import build_run_path_graph
 from services.kg_path_trace_service import build_kg_path_trace
 from services.operator_read_model_service import OperatorReadModelService
+from services.run_recovery_service import build_recovery_hint
 from services.run_registry_service import RunRegistryService
+from services.run_telemetry_service import build_run_telemetry_summary
 from services.scenario_output import resolve_scenario_output_root
+from services.tool_contract_report_service import build_tool_contract_report
 from services.unsupported_intent_guard import classify_unsupported_intent
 from utils.crs import normalize_explicit_target_crs
 
@@ -78,6 +86,13 @@ def _build_run_inspection_response(run_id: str, status: RunStatus) -> RunInspect
         audit_events=audit_events,
         artifact=artifact,
         kg_path_trace=build_kg_path_trace(plan) if plan is not None else {},
+        tool_contract_report=build_tool_contract_report(plan) if plan is not None else {},
+        telemetry_summary=build_run_telemetry_summary(
+            status=status,
+            audit_events=audit_events,
+            plan=plan,
+        ),
+        recovery_hint=build_recovery_hint(status.model_dump(mode="json")),
         digest=derive_run_inspection_digest(status, audit_events),
     )
 
@@ -294,6 +309,25 @@ async def create_run(
         ref_zip_bytes=ref_bytes,
     )
     return RunCreateResponse(run_id=status.run_id, phase=status.phase)
+
+
+@router.post("/runs/preflight", response_model=RunPreflightResponse)
+async def preflight_run(request: RunCreateRequest) -> RunPreflightResponse:
+    issues = classify_unsupported_intent(
+        request.trigger.content,
+        job_type=request.job_type,
+    )
+    return RunPreflightResponse(allowed=not issues, unsupported_intent=issues)
+
+
+@router.get("/operator/recovery", response_model=OperatorRecoveryResponse)
+async def get_operator_recovery(
+    stale_after_seconds: int = Query(default=300, ge=1, le=86400),
+) -> OperatorRecoveryResponse:
+    records = agent_run_service.collect_recoverable_runs(
+        stale_after_seconds=stale_after_seconds,
+    )
+    return OperatorRecoveryResponse(records=records)
 
 
 @router.get("/runs/{run_id}", response_model=RunStatus)

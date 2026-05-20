@@ -26,3 +26,20 @@ def test_capability_matrix_tracks_status_and_evidence() -> None:
     assert "stitched_artifact.json" in building["building.multisource_fusion_semantics"]["evidence_contract"]
     assert "docs/v2-operations.md" in building["building.multisource_fusion_semantics"]["owner_files"]
 
+
+def test_capability_matrix_tracks_runtime_hardening_evidence_boundary() -> None:
+    payload = json.loads(
+        Path("docs/superpowers/specs/2026-05-06-capability-matrix.json").read_text(
+            encoding="utf-8"
+        )
+    )
+    evidence = {
+        item["capability_id"]: item for item in payload["themes"]["evidence"]
+    }
+
+    item = evidence["evidence.tool_contracts_grounding_recovery"]
+    assert item["status"] in {"core_next", "core"}
+    assert "tool_contract_report" in item["evidence_contract"]
+    assert "grounding_report" in item["evidence_contract"]
+    assert "recovery_hint" in item["evidence_contract"]
+

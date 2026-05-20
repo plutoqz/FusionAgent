@@ -229,6 +229,11 @@ class RunCreateResponse(BaseModel):
     phase: RunPhase
 
 
+class RunPreflightResponse(BaseModel):
+    allowed: bool
+    unsupported_intent: List[Dict[str, str]] = Field(default_factory=list)
+
+
 class RunStatus(BaseModel):
     run_id: str
     job_type: JobType
@@ -293,6 +298,9 @@ class RunInspectionResponse(BaseModel):
     audit_events: List[RunEvent] = Field(default_factory=list)
     artifact: RunInspectionArtifact = Field(default_factory=RunInspectionArtifact)
     kg_path_trace: Dict[str, Any] = Field(default_factory=dict)
+    tool_contract_report: Dict[str, Any] = Field(default_factory=dict)
+    telemetry_summary: Dict[str, Any] = Field(default_factory=dict)
+    recovery_hint: Dict[str, Any] = Field(default_factory=dict)
     digest: RunInspectionDigest = Field(default_factory=RunInspectionDigest)
 
 

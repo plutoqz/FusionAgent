@@ -51,7 +51,7 @@ Script and dataset names may still carry Benin labels because the current checke
 | capability_id | status | claim_state | evidence_contract | owner_files |
 | --- | --- | --- | --- | --- |
 | `evidence.shared_run_contract` | `core` | `runtime_supported` | `run.json`, `plan.json`, `validation.json`, `audit.jsonl`, artifact bundle | `README.md`, `docs/v2-operations.md`, `docs/no-ui-agent-operations.md` |
-| `evidence.tool_contracts_grounding_recovery` | `core_next` | `reservation_only` | tests plus future inspection and audit extensions | `docs/superpowers/specs/2026-05-06-capability-consolidation-review.md`, `docs/superpowers/specs/2026-04-23-system-next-improvement-review.md` |
+| `evidence.tool_contracts_grounding_recovery` | `core` | `runtime_supported` | `tool_contract_report`, `grounding_report`, `telemetry_summary`, `recovery_hint`, `/api/v2/operator/recovery`, `/api/v2/runs/preflight`, focused tests, operations wording | `services/tool_contract_report_service.py`, `services/plan_grounding_service.py`, `services/run_telemetry_service.py`, `services/run_recovery_service.py`, `api/routers/runs_v2.py`, `docs/v2-operations.md` |
 
 ## Inventory Rule
 

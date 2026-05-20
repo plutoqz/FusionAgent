@@ -32,3 +32,25 @@ def test_scenario_run_service_rejects_out_of_scope_request_before_creating_child
                 output_root=str(tmp_path / "scenarios"),
             )
         )
+
+
+def test_scenario_guard_rejects_trajectory_to_road_execution_request() -> None:
+    decision = classify_scenario_request(
+        scenario_name="Road trajectory ingestion",
+        trigger_content="ingest GPS trajectory and produce road network",
+        job_types=[JobType.road],
+    )
+
+    assert decision["decision"] == "reject"
+    assert decision["reason_code"] == "RESERVATION_ONLY_TRAJECTORY_TO_ROAD"
+
+
+def test_scenario_guard_clarifies_unbounded_poi_entity_alignment() -> None:
+    decision = classify_scenario_request(
+        scenario_name="Global POI entity alignment",
+        trigger_content="merge all POI businesses with global entity resolution",
+        job_types=[JobType.poi],
+    )
+
+    assert decision["decision"] == "clarify"
+    assert decision["reason_code"] == "UNBOUNDED_POI_ENTITY_ALIGNMENT"

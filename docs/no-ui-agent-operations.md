@@ -196,6 +196,12 @@ The no-UI operator surface is read-oriented and intended for CLI/API inspection 
 
 If an aggregate endpoint disagrees with raw `run.json`, `plan.json`, `audit.jsonl`, or scenario summary files, treat the raw evidence as source of truth and fix the API layer.
 
+### Preflight And Recovery
+
+- Use `POST /api/v2/runs/preflight` before creating operator-initiated runs when the request may contain unsupported scope.
+- Use `GET /api/v2/operator/recovery` to inspect stale non-terminal runs and their checkpoint-derived recovery action.
+- Treat `recovery_hint` and `/operator/recovery` as operator evidence. They do not automatically resume execution.
+
 ## Artifact Preview
 
 Artifact previews are lightweight operator and future-UI assets generated from canonical artifact bundles. The current supported surfaces are the v2 API preview endpoints plus the underlying Python service utility.

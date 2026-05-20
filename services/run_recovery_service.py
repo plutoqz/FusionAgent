@@ -94,6 +94,24 @@ def classify_recovery_action(record: dict[str, Any]) -> str:
     return "mark_failed_requires_manual_review"
 
 
+def build_recovery_hint(run_payload: dict[str, Any]) -> dict[str, Any]:
+    checkpoint = run_payload.get("checkpoint")
+    if not isinstance(checkpoint, dict):
+        checkpoint = {}
+    action = classify_recovery_action(run_payload)
+    recoverable = action in {
+        "redispatch_full_run",
+        "redispatch_from_validation",
+        "redispatch_from_execution",
+    }
+    return {
+        "recoverable": recoverable,
+        "recovery_action": action if recoverable else "none",
+        "reason": "checkpoint_recoverable" if recoverable else "terminal_or_fresh_run",
+        "checkpoint": dict(checkpoint),
+    }
+
+
 def _parse_iso_datetime(value: str | None) -> datetime | None:
     if not value:
         return None

@@ -9,6 +9,10 @@ class OperatorRunListResponse(BaseModel):
     records: List[Dict[str, Any]] = Field(default_factory=list)
 
 
+class OperatorRecoveryResponse(BaseModel):
+    records: List[Dict[str, Any]] = Field(default_factory=list)
+
+
 class OperatorRuntimeSummaryResponse(BaseModel):
     runtime: Dict[str, Any] = Field(default_factory=dict)
     recent_runs: List[Dict[str, Any]] = Field(default_factory=list)
