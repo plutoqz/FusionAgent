@@ -1,8 +1,8 @@
-# FusionAgent 唯一活跃主计划
+# FusionAgent 主计划归档记录
 
 **状态**: Active  
 **生效日期**: 2026-05-13  
-**执行规则**: 从本文件生效起，`docs/superpowers/plans/` 根目录只允许保留这一份活跃计划。后续新增 backlog 必须先并入本文件，再执行；`docs/superpowers/plans/done/` 中的文档只保留历史审计价值，不再作为执行入口。
+**归档状态**: 本文件已在 2026-05-20 完成 Track A / Track B 收口后移入 `docs/superpowers/plans/done/`。它只保留历史审计价值，不再作为当前执行入口；后续新增 backlog 需要新建或指定新的 live plan 后再执行。
 
 ## 0. 2026-05-15 优先级重排
 
@@ -158,14 +158,14 @@
 - [x] B1. 国家级数据源矩阵定版
 - [x] B2. 数据获取链路打通
 - [x] B3. 国家级 clip / tiling / stitching 通路统一
-- [ ] B4. 多源规范化与融合节点收口
-- [ ] B5. 结果与证据闭环
+- [x] B4. 多源规范化与融合节点收口
+- [x] B5. 结果与证据闭环
 - 2026-05-18 fresh verification:
   - `python -m pytest -q tests/test_national_source_matrix.py tests/test_run_benin_multisource_building_fusion.py tests/test_benchmark_tiled_building.py`
   - 结果：`9 passed in 3.23s`
 - 当前判定：
   - `Track A` 已具备 live 模型、graph API 与闭合门禁证据；
-  - `Track B` 的 `B1-B3` 已完成，当前主缺口集中在 `B4-B5`。
+  - `Track B` 的 `B1-B5` 已完成，当前 B4/B5 证据已收口到 refreshed national-scale freeze 与 Track B regression hooks。
 
 ##### B1. 国家级数据源矩阵定版
 
@@ -280,6 +280,7 @@
 - water: 明确 line / polygon 两类国家级来源与融合落点。
 - poi: 把 `OSM + GNS (+ optional RH/Overture)` 规范化到统一 POI schema，再进入去重与优先级融合。
 - 2026-05-18：已新增 `services/track_b_source_normalization.py`，按 `fields.road.osm`、`fields.road.overture_transportation`、`fields.water.*`、`fields.poi.*` 真实 profile 生成统一 canonical 字段；当前 freeze 已落出 `source_feature_id`、`road_class`、`water_ty`、`category`、`GeoHash` 等规范化证据，并对 `raw.hydrorivers.water`、`raw.hydrolakes.water`、`raw.rh.poi` 保留 supplemental normalized artifacts。
+- 2026-05-20：B4 已收口到 refreshed national evidence 与 building scale-validation contract。`building` 的稳定 runtime 继续保持 `OSM + Microsoft`，更丰富的人工预载 source-set 通过 `scripts/run_benin_multisource_building_fusion.py` 的 `MS + OBM + GG + OSM` validation utility 留在 `research_utility` 边界内；`road` 现在以 `raw.osm.road + raw.overture.transportation` 双源进入 segment/topology fusion，并在 `runs/2026-05-18-track-b-national-evidence/road/normalization_summary.json` 中记录 `raw_overture_transportation.gpkg` 非空规范化产物；`water` 以 `raw.osm.water + raw.hydrolakes.water` 为 polygon selected pair，并保留 `raw.hydrorivers.water` line-style supplemental normalized artifact；`poi` 以 `raw.osm.poi + raw.gns.poi` 进入统一 POI schema，并保留 `raw.rh.poi` 的可选 supplemental boundary。
 
 ##### B5. 结果与证据闭环
 
@@ -291,7 +292,8 @@
   - 有 freeze 或 regression hook
 - 2026-05-18：`tests/test_smoke_agentic_region.py` 已把上述 smoke evidence bundle 落盘契约纳入回归，当前至少保证 water 与 bounded poi 的 operator-readable 摘要、claim_state 和 source-selection 证据不会回退；road / building 复用同一路径。
 - 2026-05-18：已在隔离 `8010` runtime 上生成 fresh Track B smoke freeze，见 `docs/superpowers/specs/2026-05-18-track-b-smoke-evidence-freeze-8010.json`。其中 water / poi 直接通过标准 query 成功，road 通过 `road for Gilgit city, Pakistan` 成功生成 AOI-bounded evidence；对应 smoke evidence 目录位于 `runs/2026-05-18-smoke-evidence/`。本轮 road 还顺带补齐了两个 live blocker：Windows HTTPS 下载链从 `httpx -> curl -> urllib` 的回退，以及缺失手工 Overture 预载时 `catalog.*.road` version token 不再提前失败。
-- 2026-05-18：已生成真实 repo-local national-scale freeze，见 `docs/superpowers/specs/2026-05-18-track-b-national-scale-evidence-freeze.json`。当前 road 基于 `raw.osm.road + raw.overture.road` 记录为 `national_scale_partial_reference`，因为 Overture 预载缺失；water 基于 `raw.osm.water + raw.local.water` 记录为 `national_scale_supported`，同时附带 `raw.hydrorivers.water` / `raw.hydrolakes.water` 的 supplemental normalization 证据；poi 基于 `raw.osm.poi + raw.gns.poi` 记录为 `national_scale_supported`，同时附带 `raw.rh.poi` supplemental normalization 证据。
+- 2026-05-18：已生成真实 repo-local national-scale freeze，见 `docs/superpowers/specs/2026-05-18-track-b-national-scale-evidence-freeze.json`。当时 road 基于 `raw.osm.road + raw.overture.road` 记录为 `national_scale_partial_reference`，因为 Overture 预载缺失；water 基于 `raw.osm.water + raw.local.water` 记录为 `national_scale_supported`，同时附带 `raw.hydrorivers.water` / `raw.hydrolakes.water` 的 supplemental normalization 证据；poi 基于 `raw.osm.poi + raw.gns.poi` 记录为 `national_scale_supported`，同时附带 `raw.rh.poi` supplemental normalization 证据。
+- 2026-05-20：已刷新 repo-local national-scale freeze，见 `docs/superpowers/specs/2026-05-18-track-b-national-scale-evidence-freeze.json`。当前 `road`、`water`、`poi` 均记录为 `national_scale_supported`：road 使用 `raw.osm.road + raw.overture.transportation`，154 个 `20km x 20km` tile，fused artifact `feature_count=427849`；water 使用 `raw.osm.water + raw.hydrolakes.water`，保留 `raw.hydrorivers.water` supplemental line evidence；poi 使用 `raw.osm.poi + raw.gns.poi`，保留 `raw.rh.poi` optional supplement boundary。freeze 现以 `tile_config_scope=per_theme` 记录每个主题自己的 tile 参数，不再把 road 的 20km 运行误写为全局 50km。
 
 #### 预下载清单与指定目录
 
@@ -314,7 +316,7 @@
    - 当前 repo 实际样本：`布隆迪湖泊.shp`
 6. `raw.overture.road`
    - 目录：`E:\vscode\fusionAgent\Data\roads\Overture\`
-   - 规则：目录下放可被 loader 识别的 Overture Transportation national extract；如果缺失，这一轮 national evidence 只能记录为 `national_scale_partial_reference`
+   - 规则：目录下放可被 loader 识别的 Overture Transportation national extract；当前 `raw.overture.transportation` 已可走官方远程 materialization，`raw.overture.road` 仅作为可选本地缓存别名以减少重复下载。
 7. `raw.hydrorivers.water`
    - 文件：`E:\vscode\fusionAgent\Data\water\BDI.shp`
    - 用途：作为 Track B 第一批国家级水系线参考源
@@ -352,12 +354,12 @@ python scripts/materialize_source_assets.py --source raw.osm.building --source r
 
 1. `Google / OpenBuildingMap / Google Open Buildings Vector`
    - 当前仓库没有稳定官方远程 materializer，属于手工预载优先级最高的数据。
-2. `GNS / RH`
-   - GNS 虽然有官方可下载文件，但当前仓库并未打通“官方下载 -> 转换为本地 shapefile -> 直接进入 POI bundle”的自动链；RH 更是本地样例源。
+2. `RH`
+   - `raw.gns.poi` 已可通过官方 GNS country zip discovery 进入 national POI 证据链；`raw.rh.poi` 仍是本地样例/补充源，需要手工预载才会进入 supplemental artifact。
 3. `raw.overture.road`
-   - 当前 national freeze 已把它锁为第二道路源，但本地 repo 快照仍没有对应预载；要把 road 从 `partial_reference` 提升到真正双源 national support，优先补这一份。
-4. `raw.local.water / raw.hydrorivers.water / raw.hydrolakes.water`
-   - 当前水系 national freeze 已证明本地 clip 可以走通，但三者都仍属于本地预载边界，没有官方自动下载链。
+   - 当前 national freeze 已通过 `raw.overture.transportation` 远程 materialization 把 road 提升为真正双源 national support；`raw.overture.road` 仅作为可选本地缓存别名，适合大范围重复实验前预热。
+4. `raw.local.water`
+   - `raw.hydrorivers.water` / `raw.hydrolakes.water` 已有官方远程 materialization 与 national freeze 证据；`raw.local.water` 继续保留为手工本地 fallback。
 5. `raw.microsoft.building`
    - 已支持自动下载，但国家级时往往要拉多个 country-quadkey 分块，体量大、耗时长，建议做正式 national run 前先预热或手工缓存一份。
 

@@ -233,7 +233,7 @@ class RawVectorSourceService:
         target_path.parent.mkdir(parents=True, exist_ok=True)
         out_dir = target_path.parent / f"bundle_{uuid.uuid4().hex[:8]}"
         out_dir.mkdir(parents=True, exist_ok=True)
-        out_shp = out_dir / source_path.name
+        out_shp = out_dir / f"{source_path.stem}.shp"
         projected.to_file(out_shp)
         zip_shapefile_bundle(out_shp, target_path)
 

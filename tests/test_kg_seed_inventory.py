@@ -21,7 +21,7 @@ def test_seed_inventory_matches_expected_static_counts() -> None:
     assert len(TASK_BUNDLES) == 4
     assert len(ALGORITHMS) == 33
     assert sum(len(items) for items in PARAMETER_SPECS.values()) == 44
-    assert len(DATA_SOURCES) == 22
+    assert len(DATA_SOURCES) == 26
     assert len(SCENARIO_PROFILES) == 4
     assert len(QOS_POLICIES) == 4
     assert len(OUTPUT_SCHEMA_POLICIES) == 4

@@ -10,6 +10,12 @@ The project is not positioned as an unbounded general-purpose agent. Its goal is
 
 FusionAgent can now run as a mature no-UI vector data fusion agent: the no-UI operator surface, scenario regression, maturity freeze, and shared evidence contract are aligned behind one regression-tested execution path.
 
+## Current Evidence Snapshot
+
+- The Track A / Track B master plan is complete and archived at `docs/superpowers/plans/done/2026-05-13-fusionagent-master-execution-plan.md`.
+- Track B national-scale evidence is frozen in `docs/superpowers/specs/2026-05-18-track-b-national-scale-evidence-freeze.json`, with `road`, `water`, and `poi` all recorded as `national_scale_supported`.
+- The current road chain fuses `raw.osm.road + raw.overture.transportation`; the freeze records 154 `20km x 20km` tiles and `427849` fused features.
+
 ## What This Repository Contains
 
 The current codebase provides:

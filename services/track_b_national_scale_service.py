@@ -15,6 +15,7 @@ from fusion_algorithms.road_fusion import run_road_segment_match_topology
 from fusion_algorithms.water_fusion import fuse_water_polygons
 from kg.source_catalog import build_data_sources
 from kg.track_b_source_contract import TRACK_B_THEME_CONTRACTS
+from services.aoi_resolution_service import ResolvedAOI
 from services.artifact_evaluation_service import evaluate_vector_artifact
 from services.artifact_registry import ArtifactRegistry
 from services.local_bundle_catalog import LocalBundleCatalogProvider
@@ -96,6 +97,7 @@ class TrackBNationalScaleService:
         tile_width_m: float,
         tile_height_m: float,
         overlap_m: float = 0.0,
+        resolved_aoi: ResolvedAOI | None = None,
     ) -> dict[str, Any]:
         theme = str(job_type).strip().lower()
         if theme not in {"building", "road", "water", "poi"}:
@@ -110,6 +112,7 @@ class TrackBNationalScaleService:
         materialized = self.bundle_provider.materialize_with_fallback(
             source_id=selected_source_id,
             request_bbox=request_bbox,
+            resolved_aoi=resolved_aoi,
             target_dir=output_root / "input_bundle",
             target_crs=target_crs,
         )
@@ -357,11 +360,17 @@ class TrackBNationalScaleService:
     ) -> dict[str, dict[str, Any]]:
         normalized_dir.mkdir(parents=True, exist_ok=True)
         contract = TRACK_B_THEME_CONTRACTS[theme]
-        candidate_ids = list(contract.manual_preload_source_ids) + list(contract.reservation_only_source_ids)
+        candidate_ids = [
+            source_id
+            for source_id in (
+                list(contract.official_remote_source_ids)
+                + list(contract.manual_preload_source_ids)
+                + list(contract.reservation_only_source_ids)
+            )
+            if source_id not in selected_component_ids
+        ]
         summary: dict[str, dict[str, Any]] = {}
         for source_id in candidate_ids:
-            if source_id in selected_component_ids:
-                continue
             try:
                 resolution = self.raw_source_service.source_asset_service.resolve_raw_source_path(
                     source_id,

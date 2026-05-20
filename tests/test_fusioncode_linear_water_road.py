@@ -6,6 +6,7 @@ from shapely.geometry import LineString, box
 from fusion_algorithms.contracts import RoadFusionParams, WaterPolygonFusionParams
 from fusion_algorithms.road_fusion import (
     build_road_match_candidates,
+    remove_duplicate_roads,
     run_road_segment_match_topology,
     split_features_in_gdf,
 )
@@ -51,6 +52,32 @@ def test_run_road_segment_match_topology_returns_base_when_reference_is_empty() 
     assert len(result) == 2
     assert list(result["id"]) == [1, 2]
     assert set(result["SRC"]) == {"base"}
+
+
+def test_run_road_segment_match_topology_keeps_unmatched_reference_segments() -> None:
+    base = gpd.GeoDataFrame({"id": [1]}, geometry=[LineString([(0, 0), (10, 0)])], crs="EPSG:3857")
+    reference = gpd.GeoDataFrame({"id": [2]}, geometry=[LineString([(0, 20), (10, 20)])], crs="EPSG:3857")
+
+    result = run_road_segment_match_topology(base, reference)
+
+    assert len(result) == 2
+    assert set(result["SRC"]) == {"base", "target"}
+
+
+def test_remove_duplicate_roads_drops_shorter_contained_segments_only() -> None:
+    roads = gpd.GeoDataFrame(
+        {"id": [1, 2, 3]},
+        geometry=[
+            LineString([(0, 0), (20, 0)]),
+            LineString([(2, 0), (18, 0)]),
+            LineString([(0, 50), (20, 50)]),
+        ],
+        crs="EPSG:3857",
+    )
+
+    result = remove_duplicate_roads(roads, RoadFusionParams(dedupe_buffer_m=1.0))
+
+    assert list(result["id"]) == [1, 3]
 
 
 def test_fuse_water_polygons_returns_empty_frame_when_both_inputs_are_empty() -> None:

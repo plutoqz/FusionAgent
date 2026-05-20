@@ -106,6 +106,27 @@ def test_track_b_normalization_computes_gns_poi_geohash_and_category() -> None:
     assert len(normalized.iloc[0]["GeoHash"]) == 8
 
 
+def test_track_b_normalization_maps_gns_remote_country_code_from_cc_ft() -> None:
+    frame = gpd.GeoDataFrame(
+        {
+            "ufi": [6034032],
+            "full_name": ["Usumbura"],
+            "desig_cd": ["ADM1"],
+            "cc_ft": ["BDI,RWA"],
+        },
+        geometry=[Point(29.256944, -3.333333)],
+        crs="EPSG:4326",
+    )
+
+    normalized = normalize_track_b_source_frame(
+        "raw.gns.poi",
+        frame,
+        target_crs="EPSG:4326",
+    )
+
+    assert normalized.iloc[0]["admin_country"] == "BDI"
+
+
 def test_track_b_normalization_preserves_rh_poi_geohash_and_name_aliases() -> None:
     frame = gpd.GeoDataFrame(
         {

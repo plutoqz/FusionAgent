@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import gzip
+import hashlib
 import json
 import shutil
 from pathlib import Path
@@ -912,6 +913,52 @@ def test_source_asset_service_materializes_hydrolakes_clip_from_remote_zip(tmp_p
     assert frame.iloc[0]["Hylak_id"] == 11
 
 
+def test_source_asset_service_materializes_gns_poi_from_official_country_zip(tmp_path: Path) -> None:
+    archive_path = tmp_path / "fixtures" / "Kenya.zip"
+    archive_path.parent.mkdir(parents=True, exist_ok=True)
+    gns_rows = "\n".join(
+        [
+            "rk\tufi\tuni\tfull_name\tnt\tlat_dd\tlong_dd\tdesig_cd\tfc\tcc_ft\tfull_nm_nd\tgeneric\tdisplay",
+            "1\t100\t200\tNairobi\tN\t-1.286389\t36.817223\tPPLA\tP\tKEN\tNAIROBI\t\t",
+            "1\t101\t201\tMombasa\tN\t-4.0435\t39.6682\tPPLA\tP\tKEN\tMOMBASA\t\t",
+        ]
+    )
+    import zipfile
+
+    with zipfile.ZipFile(archive_path, "w") as archive:
+        archive.writestr("Kenya.txt", gns_rows)
+        archive.writestr("disclaimer.txt", "test")
+
+    index_path = tmp_path / "fixtures" / "gns-data.json"
+    index_path.write_text(
+        json.dumps(
+            {
+                "KEN": (
+                    "<tr id='KEN' cc='KEN' cn='Kenya'>"
+                    f"<td><a href='{archive_path.resolve().as_uri()}'>KEN</a></td></tr>"
+                )
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    service = SourceAssetService(
+        repo_root=tmp_path,
+        cache_dir=tmp_path / "cache",
+        gns_data_index_url=index_path.resolve().as_uri(),
+        prefer_local_data=False,
+    )
+
+    resolved = service.resolve_raw_source_path("raw.gns.poi", aoi=_resolved_nairobi_aoi())
+    frame = geopandas.read_file(resolved.path)
+
+    assert resolved.source_mode == "asset_downloaded"
+    assert resolved.feature_count == 1
+    assert len(frame) == 1
+    assert frame.iloc[0]["full_name"] == "Nairobi"
+    assert frame.iloc[0]["cc_ft"] == "KEN"
+
+
 def test_source_asset_service_materializes_overture_transportation_clip_from_remote_geojson(
     tmp_path: Path,
 ) -> None:
@@ -942,6 +989,56 @@ def test_source_asset_service_materializes_overture_transportation_clip_from_rem
     resolved = service.resolve_raw_source_path(
         "raw.overture.transportation",
         aoi=_resolved_nairobi_aoi(),
+    )
+    frame = geopandas.read_file(resolved.path)
+
+    assert resolved.source_mode == "asset_downloaded"
+    assert resolved.feature_count == 1
+    assert len(frame) == 1
+    assert frame.iloc[0]["id"] == "seg-1"
+
+
+def test_source_asset_service_reuses_existing_overture_raw_segment_without_redownload(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    request_bbox = (36.65, -1.45, 37.10, -1.10)
+    cache_key = hashlib.sha1(repr(tuple(request_bbox)).encode("utf-8")).hexdigest()[:12]
+    raw_path = (
+        tmp_path
+        / "cache"
+        / "raw_overture_transportation"
+        / cache_key
+        / "segment.geojson"
+    )
+    roads = geopandas.GeoDataFrame(
+        {
+            "id": ["seg-1", "seg-2"],
+            "subtype": ["road", "water"],
+            "class": ["primary", "canal"],
+        },
+        geometry=[
+            LineString([(36.80, -1.35), (36.90, -1.25)]),
+            LineString([(36.80, -1.35), (36.90, -1.25)]),
+        ],
+        crs="EPSG:4326",
+    )
+    _write_frame(raw_path, roads)
+
+    service = SourceAssetService(
+        repo_root=tmp_path,
+        cache_dir=tmp_path / "cache",
+        prefer_local_data=False,
+    )
+
+    def _fail_download(**kwargs):
+        raise AssertionError(f"unexpected download call: {kwargs}")
+
+    monkeypatch.setattr(service, "_download_overture_transportation_segment", _fail_download)
+
+    resolved = service.resolve_raw_source_path(
+        "raw.overture.transportation",
+        request_bbox=request_bbox,
     )
     frame = geopandas.read_file(resolved.path)
 

@@ -12,8 +12,10 @@
   - `docs/superpowers/specs/2026-05-13-thesis-claims-ledger.md`
   - `docs/superpowers/specs/2026-05-13-thesis-related-work-matrix.md`
   - `docs/superpowers/specs/2026-05-13-thesis-outline-and-timeline.md`
-- capability-facing owner doc:
-  - `docs/superpowers/plans/2026-05-13-fusionagent-master-execution-plan.md`
+- capability-facing owner docs:
+  - `docs/superpowers/specs/2026-05-06-capability-inventory.md`
+  - `docs/v2-operations.md`
+  - `docs/superpowers/specs/2026-05-18-track-b-national-scale-evidence-freeze.json`
 
 ## Handshake Rules
 

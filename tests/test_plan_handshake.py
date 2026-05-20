@@ -19,3 +19,11 @@ def test_specs_readme_lists_new_thesis_live_docs() -> None:
     assert "2026-05-13-thesis-related-work-matrix.json" in text
     assert "2026-05-13-thesis-outline-and-timeline.md" in text
     assert "2026-05-13-thesis-capability-handshake.md" in text
+
+
+def test_completed_master_plan_is_archived_with_no_active_plan_left() -> None:
+    plans_root = Path("docs/superpowers/plans")
+    active_plans = sorted(path.name for path in plans_root.glob("*.md"))
+
+    assert active_plans == []
+    assert (plans_root / "done" / "2026-05-13-fusionagent-master-execution-plan.md").exists()

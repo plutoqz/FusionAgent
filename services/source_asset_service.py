@@ -5,6 +5,7 @@ import gzip
 import hashlib
 import json
 import math
+import re
 import shutil
 import subprocess
 import time
@@ -12,11 +13,13 @@ import urllib.parse
 import urllib.request
 import zipfile
 from dataclasses import dataclass
+from html import unescape
 from pathlib import Path
 from typing import Any, Iterable, Optional
 
 import geopandas as gpd
 import httpx
+import pandas as pd
 from shapely.geometry import shape
 
 from kg.source_catalog import get_raw_vector_source_spec
@@ -29,9 +32,10 @@ from utils.vector_clip import BBox, clip_frame_to_request_bbox, frame_bbox_in_cr
 GEOFABRIK_BURUNDI_SHP_URL = "https://download.geofabrik.de/africa/burundi-latest-free.shp.zip"
 GEOFABRIK_INDEX_URL = "https://download.geofabrik.de/index-v1.json"
 MSFT_BUILDING_DATASET_LINKS_URL = "https://minedbuildings.z5.web.core.windows.net/global-buildings/dataset-links.csv"
+GNS_DATA_INDEX_URL = "https://geonames.nga.mil/geonames/GNSData/data/data.json"
 HYDRORIVERS_GLOBAL_ZIP_URL = "https://data.hydrosheds.org/file/HydroRIVERS/HydroRIVERS_v10_shp.zip"
 HYDROLAKES_GLOBAL_ZIP_URL = "https://data.hydrosheds.org/file/hydrolakes/HydroLAKES_polys_v10_shp.zip"
-OVERTURE_DOWNLOAD_TIMEOUT_SECONDS = 15
+OVERTURE_DOWNLOAD_TIMEOUT_SECONDS = 600
 
 
 _GEOFABRIK_LAYER_NAMES = {
@@ -101,6 +105,7 @@ _REMOTELY_MATERIALIZABLE_SOURCE_IDS = {
     "raw.overture.road",
     "raw.hydrorivers.water",
     "raw.hydrolakes.water",
+    "raw.gns.poi",
 }
 # raw.google.building is intentionally absent: it remains a local/manual-only
 # source until an official, tested remote materialization path exists.
@@ -162,6 +167,13 @@ def classify_source_fault(
 @dataclass(frozen=True)
 class _GeofabrikBundle:
     slug: str
+    download_url: str
+
+
+@dataclass(frozen=True)
+class _GNSCountryFile:
+    country_code: str
+    country_name: str
     download_url: str
 
 
@@ -280,6 +292,7 @@ class SourceAssetService:
         geofabrik_burundi_url: str = GEOFABRIK_BURUNDI_SHP_URL,
         geofabrik_index_url: str = GEOFABRIK_INDEX_URL,
         msft_dataset_links_url: str = MSFT_BUILDING_DATASET_LINKS_URL,
+        gns_data_index_url: str = GNS_DATA_INDEX_URL,
         overture_transportation_url: str | None = None,
         hydrorivers_global_zip_url: str = HYDRORIVERS_GLOBAL_ZIP_URL,
         hydrolakes_global_zip_url: str = HYDROLAKES_GLOBAL_ZIP_URL,
@@ -292,12 +305,14 @@ class SourceAssetService:
         self.geofabrik_burundi_url = geofabrik_burundi_url
         self.geofabrik_index_url = geofabrik_index_url
         self.msft_dataset_links_url = msft_dataset_links_url
+        self.gns_data_index_url = gns_data_index_url
         self.overture_transportation_url = overture_transportation_url
         self.hydrorivers_global_zip_url = hydrorivers_global_zip_url
         self.hydrolakes_global_zip_url = hydrolakes_global_zip_url
         self.prefer_local_data = prefer_local_data
         self.http_max_retries = max(1, int(http_max_retries))
         self._geofabrik_index_cache: list[dict[str, Any]] | None = None
+        self._gns_download_index_cache: list[_GNSCountryFile] | None = None
 
     def can_materialize(self, source_id: str) -> bool:
         if source_id in _REMOTELY_MATERIALIZABLE_SOURCE_IDS or source_id in _LOCAL_SOURCE_CANDIDATES:
@@ -351,6 +366,8 @@ class SourceAssetService:
             return self._resolve_overture_transportation(source_id=source_id, request_bbox=effective_bbox)
         if source_id in {"raw.hydrorivers.water", "raw.hydrolakes.water"}:
             return self._resolve_hydrosheds_water(source_id, request_bbox=effective_bbox)
+        if source_id == "raw.gns.poi":
+            return self._resolve_gns_poi(request_bbox=effective_bbox, aoi=aoi)
 
         raise FileNotFoundError(f"No local or remote source asset path available for {source_id}")
 
@@ -734,6 +751,45 @@ class SourceAssetService:
             feature_count=feature_count,
         )
 
+    def _resolve_gns_poi(
+        self,
+        *,
+        request_bbox: Optional[BBox],
+        aoi: ResolvedAOI | None,
+    ) -> SourceAssetResolution:
+        entry = self._select_gns_country_file(aoi)
+        archive_path = self._download_cached(
+            entry.download_url,
+            cache_subdir=f"gns_country_archives/{_slugify(entry.country_name)}",
+        )
+        version_token = _path_version_token(archive_path)
+        target_dir = (
+            self.cache_dir
+            / "gns_country_clips"
+            / _slugify(entry.country_name)
+            / version_token
+            / _bbox_cache_key(request_bbox)
+        )
+        output_gpkg = target_dir / "gns_points.gpkg"
+        cache_hit = output_gpkg.exists()
+        if not cache_hit:
+            frame = self._load_gns_country_frame(archive_path)
+            if request_bbox is not None and not frame.empty:
+                frame = clip_frame_to_request_bbox(frame, request_bbox)
+            target_dir.mkdir(parents=True, exist_ok=True)
+            frame.to_file(output_gpkg, driver="GPKG")
+
+        bbox, feature_count = self._inspect_vector_path(output_gpkg)
+        return SourceAssetResolution(
+            source_id="raw.gns.poi",
+            path=output_gpkg,
+            source_mode="coverage_empty" if feature_count == 0 else ("asset_cached" if cache_hit else "asset_downloaded"),
+            cache_hit=cache_hit,
+            version_token=version_token,
+            bbox=bbox,
+            feature_count=feature_count,
+        )
+
     def _resolve_overture_transportation(
         self,
         *,
@@ -749,14 +805,26 @@ class SourceAssetService:
 
         if not cache_hit:
             asset_dir.mkdir(parents=True, exist_ok=True)
-            if self.overture_transportation_url:
-                self._download_file(self.overture_transportation_url, raw_path)
-            else:
-                self._download_overture_transportation_segment(output_path=raw_path, request_bbox=request_bbox)
+            if not raw_path.exists() or raw_path.stat().st_size == 0:
+                if self.overture_transportation_url:
+                    self._download_file(self.overture_transportation_url, raw_path)
+                else:
+                    self._download_overture_transportation_segment(output_path=raw_path, request_bbox=request_bbox)
 
-            frame = gpd.read_file(raw_path)
-            if "subtype" in frame.columns:
-                frame = frame[frame["subtype"].fillna("").astype(str).str.casefold() == "road"].copy()
+            try:
+                frame = self._load_overture_transportation_frame(raw_path)
+            except Exception:
+                try:
+                    if raw_path.exists():
+                        raw_path.unlink()
+                except Exception:  # noqa: BLE001
+                    pass
+                if self.overture_transportation_url:
+                    self._download_file(self.overture_transportation_url, raw_path)
+                else:
+                    self._download_overture_transportation_segment(output_path=raw_path, request_bbox=request_bbox)
+                frame = self._load_overture_transportation_frame(raw_path)
+
             if request_bbox is not None and not frame.empty:
                 frame = clip_frame_to_request_bbox(frame, request_bbox)
             frame.to_file(filtered_path, driver="GeoJSON")
@@ -772,6 +840,93 @@ class SourceAssetService:
             bbox=bbox,
             feature_count=feature_count,
         )
+
+    @staticmethod
+    def _load_overture_transportation_frame(raw_path: Path) -> gpd.GeoDataFrame:
+        frame = gpd.read_file(raw_path)
+        if "subtype" in frame.columns:
+            frame = frame[frame["subtype"].fillna("").astype(str).str.casefold() == "road"].copy()
+        return frame
+
+    def _select_gns_country_file(self, aoi: ResolvedAOI | None) -> _GNSCountryFile:
+        if aoi is None or (not aoi.country_name and not aoi.country_code):
+            raise FileNotFoundError("raw.gns.poi remote materialization requires a resolved AOI with country hints")
+
+        requested_name = _normalize_match_hint(aoi.country_name)
+        requested_code = str(aoi.country_code or "").strip().upper()
+        entries = self._load_gns_download_index()
+
+        if requested_name:
+            for entry in entries:
+                if _normalize_match_hint(entry.country_name) == requested_name:
+                    return entry
+            for entry in entries:
+                normalized_entry_name = _normalize_match_hint(entry.country_name)
+                if requested_name in normalized_entry_name or normalized_entry_name in requested_name:
+                    return entry
+
+        if requested_code and len(requested_code) == 3:
+            for entry in entries:
+                if entry.country_code == requested_code:
+                    return entry
+
+        raise FileNotFoundError(
+            "No official GNS country download matched the resolved AOI: "
+            f"country_name={aoi.country_name!r} country_code={aoi.country_code!r}"
+        )
+
+    def _load_gns_download_index(self) -> list[_GNSCountryFile]:
+        if self._gns_download_index_cache is not None:
+            return self._gns_download_index_cache
+
+        payload = json.loads(self._read_text(self.gns_data_index_url))
+        entries: list[_GNSCountryFile] = []
+        for row_html in payload.values():
+            if not isinstance(row_html, str):
+                continue
+            href_match = re.search(r"href='([^']+\.(?:zip|7z))'", row_html, flags=re.IGNORECASE)
+            code_match = re.search(r"cc='([^']+)'", row_html)
+            name_match = re.search(r"cn='([^']+)'", row_html)
+            if href_match is None or code_match is None or name_match is None:
+                continue
+            download_url = unescape(href_match.group(1))
+            if "/fc_files/" in download_url or download_url.endswith(".7z"):
+                continue
+            entries.append(
+                _GNSCountryFile(
+                    country_code=unescape(code_match.group(1)).strip().upper(),
+                    country_name=unescape(name_match.group(1)).strip(),
+                    download_url=download_url,
+                )
+            )
+        self._gns_download_index_cache = entries
+        return entries
+
+    @staticmethod
+    def _load_gns_country_frame(archive_path: Path) -> gpd.GeoDataFrame:
+        with zipfile.ZipFile(archive_path, "r") as archive:
+            candidates = [
+                name
+                for name in archive.namelist()
+                if name.lower().endswith(".txt")
+                and "/" not in name
+                and not name.lower().startswith("disclaimer")
+                and "guide" not in name.lower()
+                and "glossary" not in name.lower()
+            ]
+            if not candidates:
+                raise FileNotFoundError(f"No top-level country text file found in {archive_path}")
+            entry_name = sorted(candidates, key=lambda item: len(item))[0]
+            with archive.open(entry_name, "r") as handle:
+                frame = pd.read_csv(handle, sep="\t", dtype=str, keep_default_na=False)
+
+        frame["lat_dd"] = pd.to_numeric(frame.get("lat_dd"), errors="coerce")
+        frame["long_dd"] = pd.to_numeric(frame.get("long_dd"), errors="coerce")
+        frame = frame[frame["lat_dd"].notna() & frame["long_dd"].notna()].copy()
+        if frame.empty:
+            return gpd.GeoDataFrame(frame, geometry=gpd.GeoSeries([], crs="EPSG:4326"), crs="EPSG:4326")
+        geometry = gpd.points_from_xy(frame["long_dd"], frame["lat_dd"], crs="EPSG:4326")
+        return gpd.GeoDataFrame(frame, geometry=geometry, crs="EPSG:4326")
 
     def _load_msft_dataset_rows(self, *, location: str) -> list[dict[str, str]]:
         target_name = _normalize_country_name(location)

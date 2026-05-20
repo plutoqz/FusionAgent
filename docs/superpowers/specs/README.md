@@ -28,9 +28,10 @@ runtime or thesis entrypoint again.
 
 ## Current active index
 
-The following files are the current live specs that participate in the active
-execution chain defined by
-`docs/superpowers/plans/2026-05-13-fusionagent-master-execution-plan.md`.
+The following files are the current live specs that remain consumed by tests,
+scripts, runbooks, and thesis evidence after the 2026-05-13 master plan was
+completed and archived. The archived plan is historical context, not an active
+automation target.
 
 ### Phase A / Phase B live evidence
 

@@ -13,6 +13,7 @@ from services.track_b_national_scale_service import (
     DEFAULT_THEME_SOURCE_IDS,
     TrackBNationalScaleService,
 )
+from services.aoi_resolution_service import ResolvedAOI
 
 
 def _parse_bbox(value: str) -> tuple[float, float, float, float]:
@@ -32,6 +33,8 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser.add_argument("--tile-width-m", type=float, default=50_000.0)
     parser.add_argument("--tile-height-m", type=float, default=50_000.0)
     parser.add_argument("--overlap-m", type=float, default=0.0)
+    parser.add_argument("--country-name", default="", help="Optional country hint for sources that need country-scoped remote discovery.")
+    parser.add_argument("--country-code", default="", help="Optional country code hint paired with --country-name.")
     parser.add_argument("--cache-dir", default=str(REPO_ROOT / "runs" / "track_b_national_scale_cache"))
     return parser.parse_args(argv)
 
@@ -42,6 +45,18 @@ def main(argv: list[str] | None = None) -> int:
         root_dir=REPO_ROOT,
         cache_dir=Path(args.cache_dir).resolve(),
     )
+    resolved_aoi = None
+    if args.country_name or args.country_code:
+        resolved_aoi = ResolvedAOI(
+            query=args.country_name or args.country_code or args.job_type,
+            display_name=args.country_name or args.country_code or args.job_type,
+            country_name=args.country_name or None,
+            country_code=args.country_code or None,
+            bbox=_parse_bbox(args.bbox),
+            confidence=1.0,
+            selection_reason="explicit_country_hint",
+            candidates=(),
+        )
     summary = service.build_theme_evidence(
         job_type=args.job_type,
         source_id=(args.source_id or DEFAULT_THEME_SOURCE_IDS[args.job_type]),
@@ -51,6 +66,7 @@ def main(argv: list[str] | None = None) -> int:
         tile_width_m=args.tile_width_m,
         tile_height_m=args.tile_height_m,
         overlap_m=args.overlap_m,
+        resolved_aoi=resolved_aoi,
     )
     print(f"claim_state={summary['claim_state']}")
     print(f"tile_count={summary['tile_count']}")

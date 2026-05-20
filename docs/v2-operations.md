@@ -345,15 +345,19 @@ Currently materializable source ids:
 - `raw.osm.water`
 - `raw.osm.poi`
 - `raw.microsoft.building`
+- `raw.overture.transportation`
+- `raw.hydrorivers.water`
+- `raw.hydrolakes.water`
+- `raw.gns.poi`
 
 The same `SourceAssetService` entrypoint now also resolves repo-local manual-preload Track B sources when they are present under the checked-in `Data/` tree. This is still local/manual support, not remote automation:
 
 - building manual-preload refs: `raw.google.building`, `raw.openbuildingmap.building`, `raw.google.open_buildings.vector`, `raw.local.microsoft.building`
 - road manual-preload refs: `raw.overture.road`
-- water manual-preload refs: `raw.local.water`, `raw.hydrorivers.water`, `raw.hydrolakes.water`
-- poi manual-preload refs: `raw.gns.poi`, `raw.rh.poi`
+- water manual-preload refs: `raw.local.water`
+- poi manual-preload refs: `raw.rh.poi`
 
-For recursive local POI preloads such as `raw.gns.poi` and `raw.rh.poi`, the source-asset layer now follows the same source-catalog locator contract and uses AOI hints when it needs to disambiguate between multiple country folders.
+For recursive local POI preloads such as `raw.rh.poi`, the source-asset layer follows the same source-catalog locator contract and uses AOI hints when it needs to disambiguate between multiple country folders. `raw.gns.poi` can now fall back to the official GNS country-zip index when no local preload exists.
 
 ### Track B National-Scale Freeze
 
@@ -367,8 +371,8 @@ raw run outputs under `runs/2026-05-18-track-b-national-evidence/`.
 
 Current claim boundary:
 
-- `road`: `national_scale_partial_reference` because `raw.overture.road` is still the locked second source id but the checked-in snapshot has no preload bundle under `Data/roads/Overture/`
-- `water`: `national_scale_supported` for the current `OSM + raw.local.water` fused path, with supplemental normalized evidence for `raw.hydrorivers.water` and `raw.hydrolakes.water`
+- `road`: `national_scale_supported` for the refreshed `OSM + raw.overture.transportation` fused path; the current freeze records 154 `20km x 20km` tiles, non-empty Overture coverage, and keeps `raw.overture.road` only as an optional local cache alias
+- `water`: `national_scale_supported` for the current `OSM + raw.hydrolakes.water` fused path, with supplemental normalized evidence for `raw.hydrorivers.water`
 - `poi`: `national_scale_supported` for the current `OSM + raw.gns.poi` fused path, with supplemental normalized evidence for `raw.rh.poi`
 
 | Source ID | Local Data Supported | Remote Materialization Supported | Current Claim |
@@ -382,11 +386,12 @@ Current claim boundary:
 | raw.openbuildingmap.building | yes | no | manual-preload Track B building reference |
 | raw.google.open_buildings.vector | yes | no | manual-preload Track B building reference |
 | raw.local.microsoft.building | yes | no | manual-preload Track B building cache |
-| raw.overture.road | yes | no | manual-preload Track B road reference |
+| raw.overture.road | yes | no | manual-preload cache alias for the promoted Track B road reference |
+| raw.overture.transportation | yes | yes | promoted Track B road second-source path |
 | raw.local.water | yes | no | manual-preload Track B water reference |
-| raw.hydrorivers.water | yes | no | manual-preload Track B water line reference |
-| raw.hydrolakes.water | yes | no | manual-preload Track B water polygon reference |
-| raw.gns.poi | yes | no | manual-preload Track B POI gazetteer reference |
+| raw.hydrorivers.water | yes | yes | promoted Track B water line reference |
+| raw.hydrolakes.water | yes | yes | promoted Track B water polygon reference |
+| raw.gns.poi | yes | yes | promoted Track B POI gazetteer reference |
 | raw.rh.poi | yes | no | manual-preload Track B POI local supplement |
 
 Water and bounded POI are mature as bounded task-driven runtime slices, but the default fast-mode scenario regression set still treats them as planner-level capability checks when local raw source materialization is unavailable.

@@ -164,7 +164,8 @@ def _normalize_poi_gns(frame: gpd.GeoDataFrame, *, geohash_precision: int) -> gp
     frame["name"] = _coalesce(frame, ["full_name", "full_nm_nd", "name", "display"])
     frame["name_alt"] = _coalesce(frame, ["full_nm_nd", "generic"])
     frame["category"] = _stringify(_coalesce(frame, ["desig_cd", "fc", "type"], default="poi"))
-    frame["admin_country"] = _coalesce(frame, ["CC1", "cc1", "country", "admin_country"])
+    admin_country = _stringify(_coalesce(frame, ["CC1", "cc1", "country", "admin_country", "cc_ft", "cc_nm"]))
+    frame["admin_country"] = admin_country.str.split(",").str[0]
     frame = _ensure_point_geometry(frame)
     frame["GeoHash"] = _ensure_geohash(frame, precision=geohash_precision)
     return frame

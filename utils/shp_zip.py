@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import shutil
 import zipfile
 from pathlib import Path
 from typing import Dict, List, Set
@@ -21,6 +22,8 @@ def _is_path_safe(base_dir: Path, target_path: Path) -> bool:
 
 
 def safe_extract_zip(zip_path: Path, output_dir: Path) -> None:
+    if output_dir.exists():
+        shutil.rmtree(output_dir)
     output_dir.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(zip_path, "r") as zf:
         for member in zf.infolist():

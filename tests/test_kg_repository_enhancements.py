@@ -240,8 +240,10 @@ def test_repository_exposes_locked_track_b_manual_preload_sources_for_road_and_w
 
     assert by_id["raw.overture.road"].metadata["acquisition_class"] == "manual_preload_required"
     assert by_id["raw.overture.road"].metadata["runtime_status"] == "reservation_only"
-    assert by_id["raw.hydrorivers.water"].metadata["acquisition_class"] == "manual_preload_required"
-    assert by_id["raw.hydrolakes.water"].metadata["acquisition_class"] == "manual_preload_required"
+    assert by_id["raw.hydrorivers.water"].metadata["acquisition_class"] == "official_remote_supported"
+    assert by_id["raw.hydrorivers.water"].metadata["runtime_status"] == "runtime_candidate"
+    assert by_id["raw.hydrolakes.water"].metadata["acquisition_class"] == "official_remote_supported"
+    assert by_id["raw.hydrolakes.water"].metadata["runtime_status"] == "runtime_candidate"
 
 
 def test_repository_exposes_reserved_building_sources_and_raster_inputs() -> None:

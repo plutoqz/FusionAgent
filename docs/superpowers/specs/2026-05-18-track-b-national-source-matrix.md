@@ -1,8 +1,9 @@
 # Track B National Source Matrix
 
-This live spec locks the first implementation wave for `Track B` in
-`docs/superpowers/plans/2026-05-13-fusionagent-master-execution-plan.md`.
-It is the contract that B2-B5 must implement against.
+This live spec preserves the first implementation wave source contract for
+`Track B` after the 2026-05-13 master plan was completed and archived. It is the
+contract that the current Track B evidence freezes and regression hooks continue
+to verify.
 
 ## Vocabulary
 
@@ -47,12 +48,13 @@ Locked source set:
 | Source ID | Role | Acquisition | Format | Clip Strategy | Field Mapping | Claim Boundary |
 | --- | --- | --- | --- | --- | --- | --- |
 | `raw.osm.road` | primary | `official_remote_supported` | `geofabrik_shapefile_bundle` | `country_bundle_then_clip` | `fields.road.osm` | ODbL-derived source; preserve attribution in fused outputs and evidence. |
-| `raw.overture.road` | second-source target | `manual_preload_required` | `parquet_or_geoparquet_extract` | `national_extract_then_aoi_clip` | `fields.road.overture_transportation` | Chosen in B1 as the second national road source, but still deferred until B2 materialization exists. |
+| `raw.overture.transportation` | second-source target | `official_remote_supported` | `geojson_extract` | `theme_partition_then_clip` | `fields.road.overture_transportation` | Promoted B2 road second source; keep claims tied to checked Overture materialization evidence. |
+| `raw.overture.road` | optional local preload alias | `manual_preload_required` | `parquet_or_geoparquet_extract` | `national_extract_then_aoi_clip` | `fields.road.overture_transportation` | Local operator cache alias for the promoted Overture transportation source. |
 
 Default preload directory for the current B2 slice:
 
-- expected local preload root: `raw.overture.road` -> `Data/roads/Overture/`
-- current checked-in snapshot note: no matching Overture Transportation preload bundle is present under that root, so the 2026-05-18 national freeze records `national_scale_partial_reference` instead of full dual-source road support.
+- expected local preload root for the cache alias: `raw.overture.road` -> `Data/roads/Overture/`
+- promoted remote path: `raw.overture.transportation` can materialize from the bounded Overture download flow when local cache data is absent.
 
 ### Water
 
@@ -65,12 +67,12 @@ Locked source set:
 | Source ID | Role | Acquisition | Format | Clip Strategy | Field Mapping | Claim Boundary |
 | --- | --- | --- | --- | --- | --- | --- |
 | `raw.osm.water` | primary | `official_remote_supported` | `geofabrik_shapefile_bundle` | `country_bundle_then_clip` | `fields.water.osm_polygon` | ODbL-derived source; keep line/polygon semantics explicit in claims. |
-| `raw.local.water` | current manual reference | `manual_preload_required` | `shapefile_bundle` | `local_national_clip_then_aoi_clip` | `fields.water.local_reference` | Manual local reference only; not a remote automation claim. |
-| `raw.hydrorivers.water` | national line reference | `manual_preload_required` | `shapefile_bundle` | `national_line_clip_then_bundle_normalization` | `fields.water.hydrorivers_line` | Locked for B2-B4; preserve upstream hydro attribution. |
-| `raw.hydrolakes.water` | national polygon reference | `manual_preload_required` | `shapefile_bundle` | `national_polygon_clip_then_bundle_normalization` | `fields.water.hydrolakes_polygon` | Locked for B2-B4; preserve upstream hydro attribution. |
+| `raw.local.water` | local cache fallback | `manual_preload_required` | `shapefile_bundle` | `local_national_clip_then_aoi_clip` | `fields.water.local_reference` | Local operator cache only; not a remote automation claim. |
+| `raw.hydrorivers.water` | national line reference | `official_remote_supported` | `shapefile_bundle` | `national_line_clip_then_bundle_normalization` | `fields.water.hydrorivers_line` | Promoted B2 line reference; preserve upstream hydro attribution and line-style evidence boundaries. |
+| `raw.hydrolakes.water` | national polygon reference | `official_remote_supported` | `shapefile_bundle` | `national_polygon_clip_then_bundle_normalization` | `fields.water.hydrolakes_polygon` | Promoted B2 polygon reference; preserve upstream hydro attribution and polygon-style evidence boundaries. |
 | `raw.overture.water` | deferred alternative | `reservation_only` | `parquet_or_geoparquet_extract` | `deferred` | `fields.water.overture` | Not part of the first implementation wave. |
 
-Default preload directories for the current B2 slice:
+Local cache paths retained for the current B2 slice:
 
 - `raw.local.water` -> `Data/water/布隆迪湖泊.shp`
 - `raw.hydrorivers.water` -> `Data/water/BDI.shp`
@@ -87,13 +89,13 @@ Locked source set:
 | Source ID | Role | Acquisition | Format | Clip Strategy | Field Mapping | Claim Boundary |
 | --- | --- | --- | --- | --- | --- | --- |
 | `raw.osm.poi` | primary | `official_remote_supported` | `geofabrik_shapefile_bundle` | `country_bundle_then_clip` | `fields.poi.osm` | ODbL-derived source; preserve attribution in normalized and fused POI outputs. |
-| `raw.gns.poi` | national reference | `manual_preload_required` | `shapefile_bundle` | `country_shapefile_then_aoi_clip` | `fields.poi.gns` | Manual gazetteer import; keep identifier provenance visible. |
+| `raw.gns.poi` | national reference | `official_remote_supported` | `country_zip_tabular_export` | `country_zip_then_aoi_clip` | `fields.poi.gns` | Official GNS country export; keep identifier provenance visible in normalized and fused outputs. |
 | `raw.rh.poi` | optional manual supplement | `manual_preload_required` | `shapefile_bundle` | `country_shapefile_then_aoi_clip` | `fields.poi.rh` | Local sample only; keep it out of promoted national claims unless explicit evidence is added. |
 | `raw.overture.poi` | deferred third source | `reservation_only` | `parquet_or_geoparquet_extract` | `deferred` | `fields.poi.overture_places` | Optional future third source only. |
 
-Default preload paths for the current B2 slice:
+Remote and local acquisition notes for the current B2 slice:
 
-- `raw.gns.poi` -> `Data/POI/**/GNS.shp`
+- `raw.gns.poi` -> official GNS country zip discovered from `https://geonames.nga.mil/geonames/GNSData/data/data.json`
 - `raw.rh.poi` -> `Data/POI/**/RH.shp`
 
 ## Implementation Notes
@@ -105,4 +107,4 @@ Default preload paths for the current B2 slice:
   claiming multi-source fusion parity.
 - B5 must produce run evidence against the exact source IDs and claim boundaries
   listed above.
-- The current live B5 freeze is `docs/superpowers/specs/2026-05-18-track-b-national-scale-evidence-freeze.json`. It records `road` as `national_scale_partial_reference`, and `water` / `poi` as `national_scale_supported`, with supplemental normalization evidence for `raw.hydrorivers.water`, `raw.hydrolakes.water`, and `raw.rh.poi`.
+- The current live B5 freeze is `docs/superpowers/specs/2026-05-18-track-b-national-scale-evidence-freeze.json`. It must reference the promoted source ids (`raw.overture.transportation`, `raw.hydrolakes.water`, `raw.gns.poi`) once refreshed, while preserving bounded claim-state wording if a second-source artifact is still absent at runtime.

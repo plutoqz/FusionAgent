@@ -42,3 +42,24 @@ def test_validate_zip_missing_parts(tmp_path: Path) -> None:
     with pytest.raises(ShapefileZipError):
         validate_zip_has_shapefile(zip_path, tmp_path / "extract_bad")
 
+
+def test_validate_zip_ignores_stale_extracted_shapefiles(tmp_path: Path) -> None:
+    zip_path = tmp_path / "fresh.zip"
+    extract_dir = tmp_path / "extract"
+
+    extract_dir.mkdir(parents=True, exist_ok=True)
+    for suffix in (".shp", ".shx", ".dbf"):
+        (extract_dir / f"aaa_stale{suffix}").write_bytes(b"stale")
+
+    _make_zip(
+        zip_path,
+        {
+            "zzz_fresh.shp": b"fresh-shp",
+            "zzz_fresh.shx": b"fresh-shx",
+            "zzz_fresh.dbf": b"fresh-dbf",
+        },
+    )
+
+    shp_path = validate_zip_has_shapefile(zip_path, extract_dir)
+
+    assert shp_path.name == "zzz_fresh.shp"

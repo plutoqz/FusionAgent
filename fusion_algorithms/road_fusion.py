@@ -89,30 +89,43 @@ def build_road_match_candidates(
     if base.empty or target.empty:
         return pd.DataFrame(columns=["base_index", "target_index", "hausdorff_m", "angle_diff_deg", "length_similarity"])
     target_sindex = target.sindex
+    target_geometries = list(target.geometry)
+    target_angles = [line_angle(geom) for geom in target_geometries]
+    target_lengths = [float(geom.length) if geom is not None else 0.0 for geom in target_geometries]
+
     for base_pos, (_, base_row) in enumerate(base.iterrows()):
         base_geom = base_row.geometry
-        for target_pos in target_sindex.intersection(base_geom.buffer(params.buffer_dist_m).bounds):
-            target_geom = target.iloc[int(target_pos)].geometry
-            if not base_geom.buffer(params.buffer_dist_m).intersects(target_geom):
+        if base_geom is None:
+            continue
+        base_buffer = base_geom.buffer(params.buffer_dist_m)
+        base_bounds = base_buffer.bounds
+        base_angle = line_angle(base_geom)
+        base_length = float(base_geom.length)
+        for target_pos in target_sindex.intersection(base_bounds):
+            target_pos = int(target_pos)
+            target_geom = target_geometries[target_pos]
+            if target_geom is None or not base_buffer.intersects(target_geom):
+                continue
+            angle_diff = abs(base_angle - target_angles[target_pos]) % 180
+            angle_diff = min(angle_diff, 180 - angle_diff)
+            if angle_diff > params.angle_diff_max_deg:
+                continue
+            target_length = target_lengths[target_pos]
+            length_similarity = min(base_length, target_length) / max(base_length, target_length, 1e-9)
+            if length_similarity < params.min_length_similarity:
                 continue
             hd = hausdorff_distance(base_geom, target_geom)
-            angle_diff = abs(line_angle(base_geom) - line_angle(target_geom)) % 180
-            angle_diff = min(angle_diff, 180 - angle_diff)
-            length_similarity = min(base_geom.length, target_geom.length) / max(base_geom.length, target_geom.length, 1e-9)
-            if (
-                hd <= params.max_hausdorff_m
-                and angle_diff <= params.angle_diff_max_deg
-                and length_similarity >= params.min_length_similarity
-            ):
-                rows.append(
-                    {
-                        "base_index": base_pos,
-                        "target_index": int(target_pos),
-                        "hausdorff_m": hd,
-                        "angle_diff_deg": angle_diff,
-                        "length_similarity": length_similarity,
-                    }
-                )
+            if hd > params.max_hausdorff_m:
+                continue
+            rows.append(
+                {
+                    "base_index": base_pos,
+                    "target_index": target_pos,
+                    "hausdorff_m": hd,
+                    "angle_diff_deg": angle_diff,
+                    "length_similarity": length_similarity,
+                }
+            )
     return pd.DataFrame(rows)
 
 
@@ -123,7 +136,12 @@ def fuse_road_segments(
 ) -> gpd.GeoDataFrame:
     params = params or RoadFusionParams()
     candidates = build_road_match_candidates(base, target, params)
-    used_target = set(candidates.sort_values(["hausdorff_m", "angle_diff_deg"]).drop_duplicates("base_index")["target_index"])
+    if candidates.empty:
+        used_target: set[int] = set()
+    else:
+        used_target = set(
+            candidates.sort_values(["hausdorff_m", "angle_diff_deg"]).drop_duplicates("base_index")["target_index"]
+        )
     rows = []
     for _, row in base.iterrows():
         data = row.to_dict()
@@ -143,15 +161,40 @@ def fuse_road_segments(
 
 def remove_duplicate_roads(gdf: gpd.GeoDataFrame, params: RoadFusionParams | None = None) -> gpd.GeoDataFrame:
     params = params or RoadFusionParams()
+    if gdf.empty or len(gdf.index) <= 1:
+        return gdf.copy()
+
+    geometries = list(gdf.geometry)
+    lengths = [float(geom.length) if geom is not None else 0.0 for geom in geometries]
+    spatial_index = gdf.sindex
     keep = [True] * len(gdf)
+
+    buffer_cache: dict[int, object] = {}
+
+    def _buffered(index: int):
+        buffered = buffer_cache.get(index)
+        if buffered is None:
+            buffered = geometries[index].buffer(params.dedupe_buffer_m)
+            buffer_cache[index] = buffered
+        return buffered
+
     for i, geom_a in enumerate(gdf.geometry):
-        if not keep[i]:
+        if not keep[i] or geom_a is None:
             continue
-        for j in range(i + 1, len(gdf)):
-            geom_b = gdf.geometry.iloc[j]
-            if geom_a.buffer(params.dedupe_buffer_m).contains(geom_b) and geom_b.length <= geom_a.length:
+        buffered_a = _buffered(i)
+        candidate_positions = spatial_index.intersection(buffered_a.bounds)
+        for candidate in candidate_positions:
+            j = int(candidate)
+            if j <= i or not keep[j]:
+                continue
+            geom_b = geometries[j]
+            if geom_b is None:
+                continue
+            if buffered_a.contains(geom_b) and lengths[j] <= lengths[i]:
                 keep[j] = False
-            elif geom_b.buffer(params.dedupe_buffer_m).contains(geom_a) and geom_a.length < geom_b.length:
+                continue
+            buffered_b = _buffered(j)
+            if buffered_b.contains(geom_a) and lengths[i] < lengths[j]:
                 keep[i] = False
                 break
     return gdf.loc[keep].copy()
