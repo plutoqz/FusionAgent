@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from schemas.agent import RunCreateRequest, RunInputStrategy, RunPhase, RunStatus, RunTrigger, RunTriggerType
+from schemas.fusion import JobType
 from services.agent_run_service import AgentRunService
 from services.run_recovery_service import (
     build_recovery_hint,
@@ -206,3 +208,58 @@ def test_build_recovery_hint_uses_checkpoint_stage_for_running_run() -> None:
     assert hint["recoverable"] is True
     assert hint["recovery_action"] == "redispatch_from_execution"
     assert hint["checkpoint"]["current_step"] == 2
+
+
+def test_agent_run_service_resume_full_run_reuses_existing_request(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    base_dir = tmp_path / "runs"
+    service = AgentRunService(base_dir=base_dir)
+    run_dir = base_dir / "run-resume"
+    for name in ["input", "intermediate", "output", "logs"]:
+        (run_dir / name).mkdir(parents=True, exist_ok=True)
+    request = RunCreateRequest(
+        job_type=JobType.road,
+        trigger=RunTrigger(
+            type=RunTriggerType.user_query,
+            content="fuse road",
+            spatial_extent="bbox(0,0,1,1)",
+        ),
+        input_strategy=RunInputStrategy.task_driven_auto,
+    )
+    (run_dir / "request.json").write_text(
+        json.dumps(request.model_dump(mode="json"), ensure_ascii=False),
+        encoding="utf-8",
+    )
+    status = RunStatus(
+        run_id="run-resume",
+        job_type=JobType.road,
+        trigger=request.trigger,
+        phase=RunPhase.running,
+        progress=66,
+        target_crs="EPSG:4326",
+        checkpoint={"stage": "execution", "plan_revision": 1},
+        created_at="2026-05-20T00:00:00+00:00",
+        updated_at="2026-05-20T00:00:00+00:00",
+    )
+    service._persist_status(status)
+    captured: dict[str, object] = {}
+
+    def fake_execute_run(**kwargs):
+        captured.update(kwargs)
+
+    monkeypatch.setattr(service, "execute_run", fake_execute_run)
+
+    try:
+        result = service.resume_run_from_checkpoint("run-resume", "redispatch_from_execution")
+    finally:
+        service.shutdown()
+
+    assert result["run_id"] == "run-resume"
+    assert result["recovery_action"] == "redispatch_from_execution"
+    assert captured["run_id"] == "run-resume"
+    assert captured["request"] == request
+    assert captured["intermediate_dir"] == run_dir / "intermediate"
+    assert captured["output_dir"] == run_dir / "output"
+    assert captured["log_dir"] == run_dir / "logs"

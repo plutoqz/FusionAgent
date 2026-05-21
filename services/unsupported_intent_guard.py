@@ -5,8 +5,8 @@ from typing import Any
 
 UNSUPPORTED_INTENT_RULES = [
     {
-        "code": "RESERVATION_ONLY_TRAJECTORY_TO_ROAD",
-        "message": "Trajectory-to-road is reserved metadata only and is not an executable runtime path.",
+        "code": "trajectory_to_road_deferred",
+        "message": "trajectory-to-road is reservation-only in this phase",
         "keywords": ("trajectory", "gps trace", "gps trajectory", "轨迹", "轨迹到道路"),
         "job_types": ("road",),
     },

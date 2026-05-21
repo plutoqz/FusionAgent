@@ -68,7 +68,7 @@ The next system-improvement chain is controlled by:
 - [System-Next Improvement Review](./superpowers/specs/2026-04-23-system-next-improvement-review.md), which maps each review challenge to required evidence before claims can be promoted.
 - [Complexity Boundary Ledger](./superpowers/specs/2026-04-23-complexity-boundary-ledger.md), which separates core runtime proof from deferred or optional complexity.
 
-The authorized next additions are registered tool contracts, KG grounding reports, unsupported-intent rejection, token/latency telemetry, checkpoint recovery inspection, and ablation evidence. In runtime terms, that means a `ToolSpec` registry, per-step grounding artifacts, unsupported-request guards, run telemetry, and checkpoint or stale-run recovery scanning. These additions strengthen the current no-UI operating layer; they do not authorize production `7x24` operation wording, arbitrary off-domain request claims, final UI completion claims, external event-feed integration claims, live trajectory-to-road ingestion claims, or autonomous durable learning claims beyond bounded policy hints.
+The authorized next additions are registered tool contracts, KG grounding reports, unsupported-intent rejection, token/latency telemetry, checkpoint recovery redispatch, runtime source semantics, and ablation evidence. In runtime terms, that means a `ToolSpec` registry, per-step grounding artifacts, unsupported-request guards, run telemetry, per-run recovery leases, stale-run redispatch from persisted request/checkpoint state, and task-driven source semantic contracts. These additions strengthen the current no-UI operating layer; they do not authorize production SaaS, auth or multitenant claims, final UI completion claims, external event-feed integration claims, live trajectory-to-road ingestion claims, or autonomous durable learning claims beyond bounded policy hints.
 
 ## Runtime Modes
 
@@ -396,6 +396,8 @@ Current claim boundary:
 
 Water and bounded POI are mature as bounded task-driven runtime slices, but the default fast-mode scenario regression set still treats them as planner-level capability checks when local raw source materialization is unavailable.
 
+Each task-driven building / road / water / POI run writes `source_semantic_contract.json` when sources are materialized and actual source profiling succeeds. The contract records KG source metadata, actual field profiles, canonical field matches, height semantics, and parameter hints used by execution. If source profiling cannot read the materialized file, the run records `source_semantics_unavailable` audit evidence and continues through the normal execution path.
+
 Current non-goals for this slice:
 
 - `raw.google.building` still requires locally restored data
@@ -443,10 +445,12 @@ The run inspection payload includes these hardening views:
 - `tool_contract_report`: shows whether each planned algorithm is registered in `ToolRegistry`, which handler it maps to, which input/output types are expected, and whether the tool is reservation-only.
 - `telemetry_summary`: summarizes planning telemetry and audit event counts for the run.
 - `recovery_hint`: summarizes whether the current checkpoint can be redispatched or requires manual review.
+- `source_semantic_contract`: records KG/source-contract metadata, actual source field profiles, matched canonical fields, and runtime parameter hints when available.
+- `recovery_worker_evidence`: shows recovery lease history from `recovery.history.jsonl` when a worker or manual recovery sweep redispatched the run.
 
 Preflight checks are available through `POST /api/v2/runs/preflight`. The endpoint returns `allowed=false` with structured `unsupported_intent` records for off-domain requests, unsupported schema customization, trajectory-to-road execution requests, and unbounded POI entity-alignment requests.
 
-Recoverable stale runs are listed through `GET /api/v2/operator/recovery?stale_after_seconds=300`. This endpoint is inspection-only; it does not redispatch runs by itself.
+Recoverable stale runs are listed through `GET /api/v2/operator/recovery?stale_after_seconds=300`. With worker beat enabled, `geofusion.recovery_tick` periodically acquires a per-run recovery lease and redispatches recoverable stale runs from persisted request/checkpoint state. Operators can also call `POST /api/v2/operator/recovery` for a manual sweep or a single-run recovery request.
 
 ### Run Comparison
 

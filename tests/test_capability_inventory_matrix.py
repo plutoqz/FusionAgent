@@ -25,6 +25,11 @@ def test_capability_matrix_tracks_status_and_evidence() -> None:
     assert "inspection_summary.json" in building["building.multisource_fusion_semantics"]["evidence_contract"]
     assert "stitched_artifact.json" in building["building.multisource_fusion_semantics"]["evidence_contract"]
     assert "docs/v2-operations.md" in building["building.multisource_fusion_semantics"]["owner_files"]
+    runtime = building["building.multisource_height_raster_runtime"]
+    assert runtime["status"] == "core"
+    assert runtime["claim_state"] == "bounded_supported"
+    assert "source_semantic_contract.json" in runtime["evidence_contract"]
+    assert "height_final_source" in runtime["evidence_contract"]
 
 
 def test_capability_matrix_tracks_runtime_hardening_evidence_boundary() -> None:
@@ -42,4 +47,15 @@ def test_capability_matrix_tracks_runtime_hardening_evidence_boundary() -> None:
     assert "tool_contract_report" in item["evidence_contract"]
     assert "grounding_report" in item["evidence_contract"]
     assert "recovery_hint" in item["evidence_contract"]
+
+    redispatch = evidence["evidence.recovery_redispatch"]
+    assert redispatch["status"] == "core"
+    assert redispatch["claim_state"] == "runtime_supported"
+    assert "recovery.history.jsonl" in redispatch["evidence_contract"]
+    assert "geofusion.recovery_tick" in redispatch["evidence_contract"]
+
+    semantics = evidence["source_semantics.runtime_binding"]
+    assert semantics["status"] == "core"
+    assert semantics["claim_state"] == "runtime_supported"
+    assert "source_semantic_contract.json" in semantics["evidence_contract"]
 

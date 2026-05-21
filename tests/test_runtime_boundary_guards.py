@@ -26,6 +26,18 @@ def test_building_multisource_remains_research_utility_boundary() -> None:
     assert "runtime_output/fused_buildings.gpkg" in item["evidence_contract"]
 
 
+def test_building_multisource_height_runtime_is_bounded_supported() -> None:
+    matrix = _capability_matrix()
+    item = {
+        capability["capability_id"]: capability
+        for capability in matrix["themes"]["building"]
+    }["building.multisource_height_raster_runtime"]
+
+    assert item["status"] == "core"
+    assert item["claim_state"] == "bounded_supported"
+    assert "source_semantic_contract.json" in item["evidence_contract"]
+
+
 def test_poi_runtime_claim_remains_bounded_supported() -> None:
     matrix = _capability_matrix()
     item = {
