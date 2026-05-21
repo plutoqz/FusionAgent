@@ -234,6 +234,17 @@ class RunPreflightResponse(BaseModel):
     unsupported_intent: List[Dict[str, str]] = Field(default_factory=list)
 
 
+class OperatorRecoveryExecuteRequest(BaseModel):
+    run_id: Optional[str] = None
+    stale_after_seconds: int = 300
+    limit: int = 20
+
+
+class OperatorRecoveryExecuteResponse(BaseModel):
+    enabled: bool = True
+    result: Dict[str, Any] = Field(default_factory=dict)
+
+
 class RunStatus(BaseModel):
     run_id: str
     job_type: JobType
@@ -260,6 +271,8 @@ class RunStatus(BaseModel):
     event_count: int = 0
     last_event: Optional[RunEvent] = None
     checkpoint: Dict[str, Any] = Field(default_factory=dict)
+    source_semantic_contract_path: Optional[str] = None
+    source_semantic_summary: Dict[str, Any] = Field(default_factory=dict)
     created_at: str
     updated_at: Optional[str] = None
     started_at: Optional[str] = None
@@ -301,6 +314,8 @@ class RunInspectionResponse(BaseModel):
     tool_contract_report: Dict[str, Any] = Field(default_factory=dict)
     telemetry_summary: Dict[str, Any] = Field(default_factory=dict)
     recovery_hint: Dict[str, Any] = Field(default_factory=dict)
+    source_semantic_contract: Dict[str, Any] = Field(default_factory=dict)
+    recovery_worker_evidence: Dict[str, Any] = Field(default_factory=dict)
     digest: RunInspectionDigest = Field(default_factory=RunInspectionDigest)
 
 

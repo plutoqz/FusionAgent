@@ -17,6 +17,7 @@
 | `building.scale_validation_source_profiling` | `optional` | `research_utility` | `source_profile_snapshot.json` plus bounded preparation docs for the checked-in validation dataset | `scripts/profile_benin_sources.py`, `services/source_profile_service.py`, `docs/v2-operations.md` |
 | `building.scale_validation_cleanup_rules` | `optional` | `research_utility` | cleanup report and targeted tests for the checked-in validation dataset | `scripts/clean_benin_final_buildings.py`, `tests/test_clean_benin_final_buildings.py`, `docs/v2-operations.md` |
 | `building.multisource_fusion_semantics` | `optional` | `research_utility` | `tile_manifest.json`, `source_profile_snapshot.json`, `selected_sources.json`, `stitched_artifact.json`, `runtime_output/fused_buildings.gpkg`, bounded `inspection_summary.json`, targeted tests | `scripts/run_benin_multisource_building_fusion.py`, `services/tiled_building_runtime_service.py`, `docs/v2-operations.md`, `docs/fusioncode-algorithm-library.md` |
+| `building.multisource_height_raster_runtime` | `core` | `bounded_supported` | `source_semantic_contract.json`, `tile_manifest.json`, `runtime_output/fused_buildings.gpkg`, `height_final`, `height_final_source`, targeted tests | `services/agent_run_service.py`, `services/tiled_building_runtime_service.py`, `tests/test_agent_run_service_multisource_building_runtime.py`, `tests/test_tiled_multisource_building_runtime_service.py` |
 
 Script and dataset names may still carry Benin labels because the current checked-in validation dataset is organized that way. Capability ids stay generic so they describe the validation role rather than a country-specific scope.
 
@@ -52,6 +53,8 @@ Script and dataset names may still carry Benin labels because the current checke
 | --- | --- | --- | --- | --- |
 | `evidence.shared_run_contract` | `core` | `runtime_supported` | `run.json`, `plan.json`, `validation.json`, `audit.jsonl`, artifact bundle | `README.md`, `docs/v2-operations.md`, `docs/no-ui-agent-operations.md` |
 | `evidence.tool_contracts_grounding_recovery` | `core` | `runtime_supported` | `tool_contract_report`, `grounding_report`, `telemetry_summary`, `recovery_hint`, `/api/v2/operator/recovery`, `/api/v2/runs/preflight`, focused tests, operations wording | `services/tool_contract_report_service.py`, `services/plan_grounding_service.py`, `services/run_telemetry_service.py`, `services/run_recovery_service.py`, `api/routers/runs_v2.py`, `docs/v2-operations.md` |
+| `evidence.recovery_redispatch` | `core` | `runtime_supported` | `recovery.lock.json`, `recovery.history.jsonl`, `geofusion.recovery_tick`, `geofusion.recover_run`, `POST /api/v2/operator/recovery`, focused tests | `services/run_recovery_executor.py`, `worker/tasks.py`, `worker/celery_app.py`, `api/routers/runs_v2.py`, `tests/test_run_recovery_executor.py`, `tests/test_worker_recovery_tick.py` |
+| `source_semantics.runtime_binding` | `core` | `runtime_supported` | `source_semantic_contract.json`, `source_semantics_bound` audit event, canonical field matches, semantic parameter hints, focused tests | `services/source_semantic_contract_service.py`, `services/source_field_profile_registry.py`, `agent/semantic_parameter_binding.py`, `services/agent_run_service.py`, `tests/test_source_semantic_contract_service.py`, `tests/test_agent_run_service_source_semantics.py` |
 
 ## Inventory Rule
 

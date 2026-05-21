@@ -25,6 +25,17 @@ def _load_scheduled_specs() -> List[Dict[str, Any]]:
     return [item for item in payload if isinstance(item, dict)]
 
 
+def _as_bool_env(name: str, default: str = "0") -> bool:
+    return os.getenv(name, default).strip().lower() in {"1", "true", "yes", "on"}
+
+
+def _as_int_env(name: str, default: str) -> int:
+    try:
+        return int(os.getenv(name, default).strip())
+    except ValueError:
+        return int(default)
+
+
 @celery_app.task(name="geofusion.plan_run")
 def plan_run_task(run_id: str, request: Dict[str, Any]) -> Dict[str, Any]:
     from services.agent_run_service import agent_run_service
@@ -171,3 +182,36 @@ def scheduled_tick() -> Dict[str, Any]:
         "run_ids": run_ids,
         "errors": errors,
     }
+
+
+@celery_app.task(name="geofusion.recover_run")
+def recover_run_task(run_id: str, recovery_action: str) -> Dict[str, Any]:
+    from services.agent_run_service import agent_run_service
+    from services.run_recovery_executor import RunRecoveryExecutor
+
+    executor = RunRecoveryExecutor(
+        runs_root=agent_run_service.base_dir,
+        agent_run_service=agent_run_service,
+        lease_seconds=_as_int_env("GEOFUSION_RECOVERY_LEASE_SECONDS", "300"),
+    )
+    return executor.recover_run(run_id=run_id, recovery_action=recovery_action)
+
+
+@celery_app.task(name="geofusion.recovery_tick")
+def recovery_tick() -> Dict[str, Any]:
+    if not _as_bool_env("GEOFUSION_RECOVERY_ENABLED", "1"):
+        return {"enabled": False, "reason": "disabled"}
+
+    from services.agent_run_service import agent_run_service
+    from services.run_recovery_executor import RunRecoveryExecutor
+
+    executor = RunRecoveryExecutor(
+        runs_root=agent_run_service.base_dir,
+        agent_run_service=agent_run_service,
+        lease_seconds=_as_int_env("GEOFUSION_RECOVERY_LEASE_SECONDS", "300"),
+    )
+    result = executor.recover_stale_runs(
+        stale_after_seconds=_as_int_env("GEOFUSION_RECOVERY_STALE_SECONDS", "300"),
+        limit=_as_int_env("GEOFUSION_RECOVERY_LIMIT", "20"),
+    )
+    return {"enabled": True, **result}

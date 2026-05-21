@@ -17,6 +17,7 @@ def normalize_track_b_source_frame(
     *,
     target_crs: str,
     geohash_precision: int = 8,
+    source_semantics=None,
 ) -> gpd.GeoDataFrame:
     contract = get_track_b_source_contract(source_id)
     if contract is None:
@@ -32,11 +33,93 @@ def normalize_track_b_source_frame(
     normalized["track_b_theme"] = contract.theme
     normalized["field_mapping_profile"] = contract.field_mapping_profile
 
-    handler = _PROFILE_HANDLERS.get(contract.field_mapping_profile)
-    if handler is None:
-        raise KeyError(f"Unsupported Track B field mapping profile={contract.field_mapping_profile}")
-    normalized = handler(normalized, geohash_precision=geohash_precision)
+    if source_semantics is not None:
+        normalized["field_mapping_profile"] = source_semantics.field_mapping_profile
+        normalized = _normalize_from_semantics(
+            normalized,
+            source_semantics,
+            contract.theme,
+            geohash_precision,
+        )
+    else:
+        handler = _PROFILE_HANDLERS.get(contract.field_mapping_profile)
+        if handler is None:
+            raise KeyError(f"Unsupported Track B field mapping profile={contract.field_mapping_profile}")
+        normalized = handler(normalized, geohash_precision=geohash_precision)
     return normalized.reset_index(drop=True)
+
+
+def _semantic_candidates(source_semantics, canonical_field: str) -> list[str]:
+    matched = source_semantics.matched_fields.get(canonical_field)
+    if matched is None:
+        return []
+    ordered: list[str] = []
+    if matched.matched_field:
+        ordered.append(matched.matched_field)
+    ordered.extend(item for item in matched.candidate_fields if item not in ordered)
+    return ordered
+
+
+def _normalize_from_semantics(
+    frame: gpd.GeoDataFrame,
+    source_semantics,
+    theme: str,
+    geohash_precision: int,
+) -> gpd.GeoDataFrame:
+    if theme == "building":
+        frame["source_feature_id"] = _stringify(
+            _coalesce(frame, _semantic_candidates(source_semantics, "source_feature_id"))
+        )
+        frame["name"] = _coalesce(frame, _semantic_candidates(source_semantics, "name"))
+        frame["height_m"] = _numeric_coalesce(frame, _semantic_candidates(source_semantics, "height_m"))
+        frame["building_class"] = _coalesce(
+            frame,
+            _semantic_candidates(source_semantics, "building_class"),
+            default="building",
+        )
+        frame["confidence"] = _coalesce(frame, _semantic_candidates(source_semantics, "confidence"), default=1.0)
+        return _filter_geometry(frame, {"Polygon", "MultiPolygon"})
+    if theme == "road":
+        frame["source_feature_id"] = _stringify(
+            _coalesce(frame, _semantic_candidates(source_semantics, "source_feature_id"))
+        )
+        frame["name"] = _coalesce(frame, _semantic_candidates(source_semantics, "name"))
+        frame["road_class"] = _stringify(
+            _coalesce(frame, _semantic_candidates(source_semantics, "road_class"), default="road")
+        )
+        frame["fclass"] = frame["road_class"]
+        frame["surface"] = _coalesce(frame, _semantic_candidates(source_semantics, "surface"))
+        frame["lanes"] = _coalesce(frame, _semantic_candidates(source_semantics, "lanes"))
+        return _filter_geometry(frame, {"LineString", "MultiLineString"})
+    if theme == "water":
+        frame["source_feature_id"] = _stringify(
+            _coalesce(frame, _semantic_candidates(source_semantics, "source_feature_id"))
+        )
+        frame["name"] = _coalesce(frame, _semantic_candidates(source_semantics, "name"))
+        feature_kind_candidates = _semantic_candidates(source_semantics, "feature_kind")
+        literal_kind = next((item for item in feature_kind_candidates if item in {"line", "polygon"}), None)
+        frame["feature_kind"] = literal_kind or _coalesce(frame, feature_kind_candidates, default="water")
+        frame["water_class"] = _stringify(
+            _coalesce(frame, _semantic_candidates(source_semantics, "water_class"), default="water")
+        )
+        frame["fclass"] = frame["water_class"]
+        frame["water_ty"] = frame["feature_kind"]
+        frame["perennial_flag"] = _coalesce(frame, _semantic_candidates(source_semantics, "perennial_flag"))
+        return _filter_geometry(frame, {"LineString", "MultiLineString", "Polygon", "MultiPolygon"})
+    if theme == "poi":
+        frame["source_feature_id"] = _stringify(
+            _coalesce(frame, _semantic_candidates(source_semantics, "source_feature_id"))
+        )
+        frame["name"] = _coalesce(frame, _semantic_candidates(source_semantics, "name"))
+        frame["name_alt"] = _coalesce(frame, _semantic_candidates(source_semantics, "name_alt"))
+        frame["category"] = _stringify(
+            _coalesce(frame, _semantic_candidates(source_semantics, "category"), default="poi")
+        )
+        frame["admin_country"] = _coalesce(frame, _semantic_candidates(source_semantics, "admin_country"))
+        frame = _ensure_point_geometry(frame)
+        frame["GeoHash"] = _ensure_geohash(frame, precision=geohash_precision)
+        return frame
+    return frame
 
 
 def _normalize_building_osm(frame: gpd.GeoDataFrame, *, geohash_precision: int) -> gpd.GeoDataFrame:

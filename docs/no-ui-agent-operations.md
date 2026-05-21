@@ -200,7 +200,8 @@ If an aggregate endpoint disagrees with raw `run.json`, `plan.json`, `audit.json
 
 - Use `POST /api/v2/runs/preflight` before creating operator-initiated runs when the request may contain unsupported scope.
 - Use `GET /api/v2/operator/recovery` to inspect stale non-terminal runs and their checkpoint-derived recovery action.
-- Treat `recovery_hint` and `/operator/recovery` as operator evidence. They do not automatically resume execution.
+- With worker beat enabled, `geofusion.recovery_tick` periodically acquires a per-run recovery lease and redispatches recoverable stale runs from the persisted request/checkpoint.
+- Use `POST /api/v2/operator/recovery` for a manual recovery sweep or a single-run recovery request.
 
 ## Artifact Preview
 

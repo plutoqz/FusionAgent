@@ -9,6 +9,8 @@ from fastapi import APIRouter, File, Form, HTTPException, Query, UploadFile
 from fastapi.responses import FileResponse
 
 from schemas.agent import (
+    OperatorRecoveryExecuteRequest,
+    OperatorRecoveryExecuteResponse,
     RunAuditResponse,
     RunCreateRequest,
     RunCreateResponse,
@@ -38,6 +40,7 @@ from services.kg_graph_service import build_run_path_graph
 from services.kg_path_trace_service import build_kg_path_trace
 from services.operator_read_model_service import OperatorReadModelService
 from services.run_recovery_service import build_recovery_hint
+from services.run_recovery_executor import RunRecoveryExecutor
 from services.run_registry_service import RunRegistryService
 from services.run_telemetry_service import build_run_telemetry_summary
 from services.scenario_output import resolve_scenario_output_root
@@ -73,6 +76,8 @@ def _build_run_inspection_response(run_id: str, status: RunStatus) -> RunInspect
     plan = agent_run_service.get_plan(run_id)
     audit_events = agent_run_service.get_audit_events(run_id)
     artifact_path = agent_run_service.get_artifact_path(run_id)
+    source_semantic_contract = _load_source_semantic_contract(status)
+    recovery_worker_evidence = _load_recovery_worker_evidence(run_id)
     artifact = RunInspectionArtifact(
         available=bool(artifact_path and artifact_path.exists()),
         filename=(artifact_path.name if artifact_path and artifact_path.exists() else None),
@@ -93,8 +98,43 @@ def _build_run_inspection_response(run_id: str, status: RunStatus) -> RunInspect
             plan=plan,
         ),
         recovery_hint=build_recovery_hint(status.model_dump(mode="json")),
+        source_semantic_contract=source_semantic_contract,
+        recovery_worker_evidence=recovery_worker_evidence,
         digest=derive_run_inspection_digest(status, audit_events),
     )
+
+
+def _load_source_semantic_contract(status: RunStatus) -> dict[str, object]:
+    path_text = str(status.source_semantic_contract_path or "").strip()
+    if not path_text:
+        return {}
+    path = Path(path_text)
+    try:
+        payload = json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def _load_recovery_worker_evidence(run_id: str) -> dict[str, object]:
+    history_path = Path(getattr(agent_run_service, "base_dir", Path("runs"))) / run_id / "recovery.history.jsonl"
+    if not history_path.exists():
+        return {}
+    records: list[dict[str, object]] = []
+    try:
+        lines = history_path.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return {}
+    for line in lines[-20:]:
+        try:
+            payload = json.loads(line)
+        except json.JSONDecodeError:
+            continue
+        if isinstance(payload, dict):
+            records.append(payload)
+    if not records:
+        return {}
+    return {"history_path": str(history_path), "records": records, "last_record": records[-1]}
 
 
 def _selected_decisions(status: RunStatus) -> dict[str, str]:
@@ -328,6 +368,32 @@ async def get_operator_recovery(
         stale_after_seconds=stale_after_seconds,
     )
     return OperatorRecoveryResponse(records=records)
+
+
+@router.post("/operator/recovery", response_model=OperatorRecoveryExecuteResponse)
+async def execute_operator_recovery(request: OperatorRecoveryExecuteRequest) -> OperatorRecoveryExecuteResponse:
+    executor = RunRecoveryExecutor(
+        runs_root=agent_run_service.base_dir,
+        agent_run_service=agent_run_service,
+    )
+    if request.run_id:
+        status = agent_run_service.get_run(request.run_id)
+        if status is None:
+            raise HTTPException(status_code=404, detail=f"Run not found: {request.run_id}")
+        hint = build_recovery_hint(status.model_dump(mode="json"))
+        action = str(hint.get("recovery_action") or "")
+        if action == "none":
+            return OperatorRecoveryExecuteResponse(
+                enabled=True,
+                result={"status": "skipped", "reason": "not_recoverable"},
+            )
+        result = executor.recover_run(run_id=request.run_id, recovery_action=action)
+    else:
+        result = executor.recover_stale_runs(
+            stale_after_seconds=request.stale_after_seconds,
+            limit=request.limit,
+        )
+    return OperatorRecoveryExecuteResponse(enabled=True, result=result)
 
 
 @router.get("/runs/{run_id}", response_model=RunStatus)

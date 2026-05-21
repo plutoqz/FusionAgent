@@ -79,6 +79,11 @@ celery_app.conf.update(
             "task": "geofusion.scheduled_tick",
             "schedule": float(os.getenv("GEOFUSION_SCHEDULED_INTERVAL_SECONDS", "3600")),
             "args": (),
+        },
+        "recovery-run-producer": {
+            "task": "geofusion.recovery_tick",
+            "schedule": float(os.getenv("GEOFUSION_RECOVERY_INTERVAL_SECONDS", "60")),
+            "args": (),
         }
     },
 )

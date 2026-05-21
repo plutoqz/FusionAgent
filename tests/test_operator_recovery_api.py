@@ -52,3 +52,26 @@ def test_operator_recovery_endpoint_lists_stale_recoverable_runs(
     payload = response.json()
     assert payload["records"][0]["run_id"] == "run-stale"
     assert payload["records"][0]["recovery_action"] == "redispatch_from_execution"
+
+
+def test_operator_recovery_post_executes_recovery(monkeypatch: pytest.MonkeyPatch) -> None:
+    calls: list[dict[str, object]] = []
+
+    class StubExecutor:
+        def __init__(self, **_kwargs):
+            pass
+
+        def recover_stale_runs(self, *, stale_after_seconds: int, limit: int):
+            calls.append({"stale_after_seconds": stale_after_seconds, "limit": limit})
+            return {"attempted": 1, "recovered": 1}
+
+    monkeypatch.setattr(runs_v2_router, "RunRecoveryExecutor", StubExecutor)
+
+    response = TestClient(create_app()).post(
+        "/api/v2/operator/recovery",
+        json={"stale_after_seconds": 300, "limit": 5},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["result"]["recovered"] == 1
+    assert calls == [{"stale_after_seconds": 300, "limit": 5}]

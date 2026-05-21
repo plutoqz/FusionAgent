@@ -67,8 +67,8 @@ def test_classify_unsupported_intent_flags_trajectory_to_road_execution_request(
 
     assert issues == [
         {
-            "code": "RESERVATION_ONLY_TRAJECTORY_TO_ROAD",
-            "message": "Trajectory-to-road is reserved metadata only and is not an executable runtime path.",
+            "code": "trajectory_to_road_deferred",
+            "message": "trajectory-to-road is reservation-only in this phase",
             "matched_keyword": "trajectory",
             "job_type": "road",
         }

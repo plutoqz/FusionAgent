@@ -13,6 +13,7 @@ from pathlib import Path
 from threading import Lock
 from typing import Any, Dict, List, Optional
 
+from agent.semantic_parameter_binding import bind_source_semantic_parameters
 from agent.policy import CandidateScoreInput, PolicyEngine
 from agent.executor import ExecutionContext, WorkflowExecutor
 from agent.planner import WorkflowPlanner
@@ -49,6 +50,7 @@ from services.plan_grounding_service import ensure_plan_grounding_report
 from services.raw_vector_source_service import RawVectorSourceService
 from services.runtime_settings_service import RuntimeSettingsService
 from services.run_recovery_service import collect_recoverable_runs
+from services.source_semantic_contract_service import SourceSemanticContractService
 from services.tile_partition_service import TilePartitionService
 from services.tiled_building_runtime_service import TiledBuildingRuntimeService
 from services.unsupported_intent_guard import classify_unsupported_intent
@@ -265,6 +267,7 @@ class AgentRunService:
         )
         self.tile_partition_service = TilePartitionService()
         self.tiled_building_runtime_service = TiledBuildingRuntimeService(max_workers=max_workers)
+        self.source_semantic_contract_service = SourceSemanticContractService(kg_repo=self.kg_repo)
         self.artifact_reuse_service = ArtifactReuseService(self.artifact_registry)
         self.validator = WorkflowValidator(self.kg_repo)
         self._apply_default_runtime(
@@ -425,6 +428,8 @@ class AgentRunService:
         plan: Optional[WorkflowPlan] = None
         repair_records: List[RepairRecord] = []
         runtime_request = request
+        source_semantic_contract = None
+        multisource_building_sources: tuple[dict[str, Path], dict[str, Path]] | None = None
 
         try:
             runtime_dependencies = self._build_runtime_dependencies(
@@ -537,6 +542,14 @@ class AgentRunService:
                     resolved_inputs.source_id,
                     resolved_inputs.cache_hit,
                 )
+                plan, source_semantic_contract = self._bind_source_semantics_for_resolved_inputs(
+                    run_id=run_id,
+                    request=runtime_request,
+                    plan=plan,
+                    resolved_inputs=resolved_inputs,
+                )
+                if source_semantic_contract is not None:
+                    multisource_building_sources = self._building_sources_from_semantic_contract(source_semantic_contract)
             should_tile = self._should_use_tiled_building_runtime(
                 request=runtime_request,
                 plan=plan,
@@ -546,7 +559,23 @@ class AgentRunService:
 
             while True:
                 try:
-                    if should_tile:
+                    if (
+                        multisource_building_sources is not None
+                        and self._should_use_multisource_building_runtime(runtime_request, plan)
+                        and len(multisource_building_sources[0]) >= 2
+                    ):
+                        fused_shp, repair_records = self.run_multisource_building_execution_stage(
+                            run_id=run_id,
+                            request=runtime_request,
+                            plan=plan,
+                            intermediate_dir=intermediate_dir,
+                            output_dir=output_dir,
+                            vector_sources=multisource_building_sources[0],
+                            raster_sources=multisource_building_sources[1],
+                            resolved_aoi=resolved_aoi,
+                            repair_records=repair_records,
+                        )
+                    elif should_tile:
                         fused_shp, repair_records = self.run_tiled_execution_stage(
                             run_id=run_id,
                             request=runtime_request,
@@ -714,6 +743,16 @@ class AgentRunService:
                                 progress=68,
                                 message="Task-driven input bundles refreshed after replan.",
                             )
+                            plan, source_semantic_contract = self._bind_source_semantics_for_resolved_inputs(
+                                run_id=run_id,
+                                request=runtime_request,
+                                plan=plan,
+                                resolved_inputs=resolved_inputs,
+                            )
+                            if source_semantic_contract is not None:
+                                multisource_building_sources = self._building_sources_from_semantic_contract(
+                                    source_semantic_contract
+                                )
                     should_tile = self._should_use_tiled_building_runtime(
                         request=runtime_request,
                         plan=plan,
@@ -1377,6 +1416,160 @@ class AgentRunService:
             event_details=event_details,
         )
 
+    def _bind_source_semantics_for_resolved_inputs(
+        self,
+        *,
+        run_id: str,
+        request: RunCreateRequest,
+        plan: WorkflowPlan,
+        resolved_inputs: ResolvedRunInputs,
+    ) -> tuple[WorkflowPlan, object | None]:
+        component_paths = self._source_component_paths_from_resolved_inputs(
+            run_id=run_id,
+            resolved_inputs=resolved_inputs,
+        )
+        if not component_paths:
+            return plan, None
+        try:
+            contract = self.source_semantic_contract_service.build_contract(
+                run_id=run_id,
+                job_type=request.job_type.value,
+                selected_source_id=resolved_inputs.selected_source_id or resolved_inputs.source_id,
+                component_paths=component_paths,
+                target_crs=resolve_target_crs(request.target_crs),
+                raster_paths=self._raster_paths_for_source_semantics(resolved_inputs),
+            )
+        except Exception as exc:  # noqa: BLE001
+            current = self.get_run(run_id)
+            if current is not None:
+                self._update_status(
+                    run_id,
+                    current.phase,
+                    plan_revision=self._extract_plan_revision(plan),
+                    checkpoint=self._checkpoint(stage="execution", plan_revision=self._extract_plan_revision(plan)),
+                    event_kind="source_semantics_unavailable",
+                    event_message="Source semantic contract could not be built for the resolved inputs.",
+                    event_details={
+                        "error": f"{type(exc).__name__}: {exc}",
+                        "component_source_ids": sorted(component_paths),
+                    },
+                )
+            return plan, None
+        return self._persist_source_semantics(
+            run_id=run_id,
+            request=request,
+            plan=plan,
+            contract=contract,
+        ), contract
+
+    def _persist_source_semantics(
+        self,
+        *,
+        run_id: str,
+        request: RunCreateRequest,
+        plan: WorkflowPlan,
+        contract,
+    ) -> WorkflowPlan:
+        del request
+        path = self.base_dir / run_id / "source_semantic_contract.json"
+        path.write_text(json.dumps(contract.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8")
+        updated_plan = bind_source_semantic_parameters(plan, contract)
+        self._persist_plan(self._plan_path(run_id), updated_plan)
+        summary = {
+            "job_type": contract.job_type,
+            "component_source_ids": list(contract.component_source_ids),
+            "valid": bool(contract.validation.get("valid")),
+            "issue_count": len(contract.validation.get("issues") or []),
+            "height_policy": dict(contract.height_policy),
+        }
+        current = self.get_run(run_id)
+        if current is not None:
+            current.source_semantic_contract_path = str(path)
+            current.source_semantic_summary = summary
+            self._runs[run_id] = current
+            self._persist_status(current)
+            self._update_status(
+                run_id,
+                current.phase,
+                checkpoint=self._checkpoint(
+                    stage="execution",
+                    plan_revision=self._extract_plan_revision(updated_plan),
+                ),
+                event_kind="source_semantics_bound",
+                event_message="Source semantic contract was bound to runtime parameters.",
+                event_details={"source_semantic_contract_path": str(path), **summary},
+            )
+        return updated_plan
+
+    def _source_component_paths_from_resolved_inputs(
+        self,
+        *,
+        run_id: str,
+        resolved_inputs: ResolvedRunInputs,
+    ) -> dict[str, Path]:
+        paths: dict[str, Path] = {}
+        coverage = dict(resolved_inputs.component_coverage or {})
+        for source_id, payload in coverage.items():
+            path = self._component_path_from_payload(payload)
+            if path is not None and path.exists():
+                paths[source_id] = path
+
+        if paths or coverage:
+            return paths
+
+        selected_source_id = resolved_inputs.selected_source_id or resolved_inputs.source_id
+        component_ids = self._component_source_ids_for_selected_source(selected_source_id)
+        zip_paths = [resolved_inputs.osm_zip_path, resolved_inputs.ref_zip_path]
+        extracted_root = self.base_dir / run_id / "intermediate" / "source_semantics"
+        for source_id, zip_path in zip(component_ids, zip_paths):
+            if source_id in paths or not zip_path.exists():
+                continue
+            extracted = self._extract_vector_artifact_for_source_semantics(
+                source_id=source_id,
+                zip_path=zip_path,
+                extracted_root=extracted_root,
+            )
+            if extracted is not None:
+                paths[source_id] = extracted
+        return paths
+
+    @staticmethod
+    def _component_path_from_payload(payload: object) -> Path | None:
+        if isinstance(payload, dict):
+            raw = payload.get("artifact_path") or payload.get("path") or payload.get("zip_path")
+        else:
+            raw = getattr(payload, "artifact_path", None) or getattr(payload, "path", None) or getattr(payload, "zip_path", None)
+        if not raw:
+            return None
+        return Path(str(raw))
+
+    @staticmethod
+    def _component_source_ids_for_selected_source(selected_source_id: str | None) -> list[str]:
+        try:
+            from kg.source_catalog import get_catalog_bundle_spec
+
+            return list(get_catalog_bundle_spec(str(selected_source_id)).component_source_ids)
+        except Exception:  # noqa: BLE001
+            return []
+
+    @staticmethod
+    def _extract_vector_artifact_for_source_semantics(
+        *,
+        source_id: str,
+        zip_path: Path,
+        extracted_root: Path,
+    ) -> Path | None:
+        extract_dir = extracted_root / source_id.replace(".", "_")
+        try:
+            return validate_zip_has_shapefile(zip_path, extract_dir)
+        except Exception:  # noqa: BLE001
+            return None
+
+    @staticmethod
+    def _raster_paths_for_source_semantics(resolved_inputs: ResolvedRunInputs) -> dict[str, Path]:
+        del resolved_inputs
+        return {}
+
     def run_writeback_stage(
         self,
         run_id: str,
@@ -1561,6 +1754,96 @@ class AgentRunService:
             return False
         threshold = self._read_env_int("GEOFUSION_BUILDING_TILING_MIN_FEATURES") or 250000
         return self._max_component_feature_count(resolved_inputs.component_coverage) >= threshold
+
+    def _should_use_multisource_building_runtime(self, request: RunCreateRequest, plan: WorkflowPlan) -> bool:
+        if request.job_type != JobType.building or request.input_strategy != RunInputStrategy.task_driven_auto:
+            return False
+        parameters = self._extract_step_parameters(plan)
+        priority = parameters.get("source_priority_order")
+        return isinstance(priority, list) and len(priority) >= 2
+
+    def run_multisource_building_execution_stage(
+        self,
+        *,
+        run_id: str,
+        request: RunCreateRequest,
+        plan: WorkflowPlan,
+        intermediate_dir: Path,
+        output_dir: Path,
+        vector_sources: dict[str, Path],
+        raster_sources: dict[str, Path] | None,
+        resolved_aoi: ResolvedAOI | None,
+        repair_records: Optional[List[RepairRecord]] = None,
+    ) -> tuple[Path, List[RepairRecord]]:
+        repair_records = repair_records if repair_records is not None else []
+        request_bbox = self._resolve_request_bbox(request, resolved_aoi=resolved_aoi)
+        if request_bbox is None:
+            raise ValueError("Multi-source tiled building runtime requires an AOI bbox.")
+        target_crs = self._request_with_effective_target_crs(run_id, request).target_crs
+        tile_manifest = self.tile_partition_service.partition_bbox(
+            bbox=request_bbox,
+            bbox_crs="EPSG:4326",
+            working_crs=target_crs,
+        )
+        manifest_path = intermediate_dir / "tile_manifest.json"
+        manifest_path.parent.mkdir(parents=True, exist_ok=True)
+        manifest_path.write_text(json.dumps(tile_manifest.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8")
+        parameters = self._extract_step_parameters(plan)
+        priority = tuple(parameters.get("source_priority_order") or vector_sources.keys())
+        self._update_status(
+            run_id,
+            RunPhase.running,
+            progress=58,
+            checkpoint=self._checkpoint(stage="execution", plan_revision=self._extract_plan_revision(plan)),
+            event_kind="multisource_building_runtime_started",
+            event_message="Multi-source tiled building runtime started.",
+            event_details={
+                "tile_count": len(tile_manifest.tiles),
+                "vector_source_aliases": sorted(vector_sources.keys()),
+                "raster_source_aliases": sorted((raster_sources or {}).keys()),
+            },
+        )
+        result = self.tiled_building_runtime_service.run_tiled_multisource_building_job(
+            run_id=run_id,
+            tile_manifest=tile_manifest,
+            vector_sources=vector_sources,
+            output_dir=output_dir,
+            target_crs=target_crs,
+            vector_source_crs=target_crs,
+            raster_sources=raster_sources or {},
+            source_priority_order=priority,
+            parameters=parameters,
+            on_event=lambda kind, details: self._record_tiled_runtime_event(
+                run_id=run_id,
+                plan=plan,
+                repair_records=repair_records,
+                kind=kind,
+                details=details,
+            ),
+        )
+        return result.output_path, repair_records
+
+    @staticmethod
+    def _building_sources_from_semantic_contract(contract) -> tuple[dict[str, Path], dict[str, Path]]:
+        alias_by_source = {
+            "raw.microsoft.building": "MS",
+            "raw.local.microsoft.building": "MICROSOFT_LOCAL",
+            "raw.openbuildingmap.building": "OBM",
+            "raw.google.open_buildings.vector": "GOOGLE_OPEN_BUILDINGS",
+            "raw.google.building": "GOOGLE",
+            "raw.osm.building": "OSM",
+        }
+        vectors: dict[str, Path] = {}
+        for source_id, entry in contract.sources.items():
+            alias = alias_by_source.get(source_id)
+            if alias:
+                vectors[alias] = Path(entry.artifact_path)
+        rasters = {
+            "building_height": Path(path)
+            for path in contract.height_policy.get("raster_height_sources", {}).values()
+            if Path(path).exists()
+        }
+        return vectors, rasters
 
     @staticmethod
     def _resolve_request_bbox(
@@ -1783,6 +2066,66 @@ class AgentRunService:
             runs_root=self.base_dir,
             stale_after_seconds=stale_after_seconds,
         )
+
+    def resume_run_from_checkpoint(self, run_id: str, recovery_action: str) -> dict[str, object]:
+        run_dir = self.base_dir / run_id
+        request_path = run_dir / "request.json"
+        if not request_path.exists():
+            raise FileNotFoundError(f"Missing request.json for run {run_id}")
+        request = RunCreateRequest.model_validate(json.loads(request_path.read_text(encoding="utf-8")))
+        status = self.get_run(run_id)
+        if status is None:
+            raise KeyError(run_id)
+
+        input_dir = run_dir / "input"
+        intermediate_dir = run_dir / "intermediate"
+        output_dir = run_dir / "output"
+        log_dir = run_dir / "logs"
+        for directory in [input_dir, intermediate_dir, output_dir, log_dir]:
+            directory.mkdir(parents=True, exist_ok=True)
+
+        uploaded_zips = sorted(input_dir.glob("*.zip"))
+        osm_zip_path = uploaded_zips[0] if request.input_strategy == RunInputStrategy.uploaded and uploaded_zips else None
+        ref_zip_path = (
+            uploaded_zips[1]
+            if request.input_strategy == RunInputStrategy.uploaded and len(uploaded_zips) > 1
+            else None
+        )
+        previous_checkpoint = dict(status.checkpoint or {})
+        self._update_status(
+            run_id,
+            RunPhase.queued,
+            progress=0,
+            checkpoint=self._checkpoint(
+                stage="queued",
+                resume_stage="planning",
+                plan_revision=status.plan_revision,
+            ),
+            event_kind="recovery_redispatch_started",
+            event_message="Recovery redispatch started from checkpoint.",
+            event_details={
+                "recovery_action": recovery_action,
+                "previous_checkpoint": previous_checkpoint,
+            },
+        )
+        runtime_snapshot_id = self._load_run_runtime_snapshot_id(run_id)
+        self.execute_run(
+            run_id=run_id,
+            request=request,
+            osm_zip_path=osm_zip_path,
+            ref_zip_path=ref_zip_path,
+            intermediate_dir=intermediate_dir,
+            output_dir=output_dir,
+            log_dir=log_dir,
+            runtime_snapshot_id=runtime_snapshot_id,
+        )
+        current = self.get_run(run_id)
+        return {
+            "run_id": run_id,
+            "recovery_action": recovery_action,
+            "phase": current.phase.value if current else "unknown",
+            "checkpoint": current.checkpoint if current else {},
+        }
 
     def _dispatch_run(
         self,
