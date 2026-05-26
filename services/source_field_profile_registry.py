@@ -47,6 +47,15 @@ WATER_FIELDS = {
     "perennial_flag": _field("perennial_flag", "perennial or flow/depth indicator", required=False),
 }
 
+WATERWAYS_FIELDS = {
+    "source_feature_id": _field("source_feature_id", "stable upstream waterways feature identifier"),
+    "feature_kind": _field("feature_kind", "waterways feature kind"),
+    "water_class": _field("water_class", "waterways classification"),
+    "name": _field("name", "waterways feature name", required=False),
+    "name_en": _field("name_en", "English waterways feature name", required=False),
+    "name_ur": _field("name_ur", "Urdu waterways feature name", required=False),
+}
+
 POI_FIELDS = {
     "source_feature_id": _field("source_feature_id", "stable upstream POI identifier"),
     "name": _field("name", "primary POI name"),
@@ -185,6 +194,45 @@ PROFILES: dict[str, SourceFieldProfile] = {
             "water_class": ["class", "subtype"],
             "name": ["name", "names.primary", "names_primary"],
             "perennial_flag": ["perennial_flag"],
+        },
+    ),
+    "fields.waterways.osm": SourceFieldProfile(
+        profile_id="fields.waterways.osm",
+        theme="waterways",
+        canonical_fields=WATERWAYS_FIELDS,
+        provider_probe_order={
+            "source_feature_id": ["osm_id", "id", "objectid", "fid"],
+            "feature_kind": ["line"],
+            "water_class": ["waterway", "fclass"],
+            "name": ["name", "waterway", "fclass"],
+            "name_en": ["name_en", "name"],
+            "name_ur": ["name_ur", "name"],
+        },
+    ),
+    "fields.waterways.local_osm_like": SourceFieldProfile(
+        profile_id="fields.waterways.local_osm_like",
+        theme="waterways",
+        canonical_fields=WATERWAYS_FIELDS,
+        provider_probe_order={
+            "source_feature_id": ["osm_id", "id", "objectid", "fid"],
+            "feature_kind": ["line"],
+            "water_class": ["waterway", "fclass"],
+            "name": ["name", "waterway", "fclass"],
+            "name_en": ["name_en", "name"],
+            "name_ur": ["name_ur", "name"],
+        },
+    ),
+    "fields.waterways.hydrorivers": SourceFieldProfile(
+        profile_id="fields.waterways.hydrorivers",
+        theme="waterways",
+        canonical_fields=WATERWAYS_FIELDS,
+        provider_probe_order={
+            "source_feature_id": ["HYRIV_ID", "river_id", "id"],
+            "feature_kind": ["line"],
+            "water_class": ["ORD_STRA", "fclass"],
+            "name": ["name", "River_name", "river_name"],
+            "name_en": ["name_en", "name"],
+            "name_ur": ["name_ur", "name"],
         },
     ),
     "fields.poi.osm": SourceFieldProfile(

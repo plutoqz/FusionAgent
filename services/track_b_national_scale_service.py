@@ -11,8 +11,12 @@ import pandas as pd
 from shapely.geometry import box
 
 from fusion_algorithms.poi_fusion import run_poi_geohash_priority_fusion
-from fusion_algorithms.road_fusion import run_road_segment_match_topology
+from fusion_algorithms.road_conflation_v7 import RoadConflationV7Config, run_road_conflation_v7
 from fusion_algorithms.water_fusion import fuse_water_polygons
+from fusion_algorithms.waterways_conflation_v7 import (
+    WaterwaysConflationV7Config,
+    run_waterways_conflation_v7,
+)
 from kg.source_catalog import build_data_sources
 from kg.track_b_source_contract import TRACK_B_THEME_CONTRACTS
 from services.aoi_resolution_service import ResolvedAOI
@@ -31,6 +35,7 @@ DEFAULT_THEME_SOURCE_IDS = {
     "building": "catalog.earthquake.building",
     "road": "catalog.flood.road",
     "water": "catalog.flood.water",
+    "waterways": "catalog.flood.waterways",
     "poi": "catalog.generic.poi",
 }
 
@@ -100,7 +105,7 @@ class TrackBNationalScaleService:
         resolved_aoi: ResolvedAOI | None = None,
     ) -> dict[str, Any]:
         theme = str(job_type).strip().lower()
-        if theme not in {"building", "road", "water", "poi"}:
+        if theme not in {"building", "road", "water", "waterways", "poi"}:
             raise ValueError(f"Unsupported Track B national-scale theme={job_type}")
         selected_source_id = source_id or DEFAULT_THEME_SOURCE_IDS[theme]
         output_root = Path(output_root)
@@ -155,12 +160,17 @@ class TrackBNationalScaleService:
             if ref_source_id is not None
             else None
         )
-        supplemental_summary = self._materialize_supplemental_normalized_sources(
-            theme=theme,
-            request_bbox=request_bbox,
-            target_crs=target_crs,
-            normalized_dir=normalized_dir / "supplemental",
-            selected_component_ids=set(component_source_ids),
+        supplemental_summary = (
+            {}
+            if theme in {"road", "waterways"}
+            else self._materialize_supplemental_normalized_sources(
+                theme=theme,
+                request_bbox=request_bbox,
+                target_crs=target_crs,
+                normalized_dir=normalized_dir / "supplemental",
+                selected_component_ids=set(component_source_ids),
+                resolved_aoi=resolved_aoi,
+            )
         )
         timings["normalize_sec"] = time.perf_counter() - normalization_started
 
@@ -181,10 +191,10 @@ class TrackBNationalScaleService:
             encoding="utf-8",
         )
 
-        building_fusion_summary: dict[str, Any] = {}
+        fusion_summary: dict[str, Any] = {}
         if theme == "building":
             tile_started = time.perf_counter()
-            final_output, tile_results, building_fusion_summary = self._run_building_national_fusion(
+            final_output, tile_results, fusion_summary = self._run_building_national_fusion(
                 tile_manifest=tile_manifest,
                 target_crs=target_crs,
                 output_root=output_root,
@@ -193,6 +203,19 @@ class TrackBNationalScaleService:
                     **({ref_source_id: ref_normalized_path} if ref_source_id and ref_normalized_path else {}),
                 },
                 supplemental_summary=supplemental_summary,
+            )
+            timings["tile_fusion_sec"] = time.perf_counter() - tile_started
+            timings["stitch_sec"] = 0.0
+        elif theme in {"road", "waterways"}:
+            tile_started = time.perf_counter()
+            final_output, tile_results, fusion_summary = self._run_v7_national_line_fusion(
+                theme=theme,
+                request_bbox=request_bbox,
+                target_crs=target_crs,
+                output_root=output_root,
+                base_frame=osm_normalized,
+                supplement_frame=ref_normalized,
+                resolved_aoi=resolved_aoi,
             )
             timings["tile_fusion_sec"] = time.perf_counter() - tile_started
             timings["stitch_sec"] = 0.0
@@ -207,6 +230,7 @@ class TrackBNationalScaleService:
                     tile=tile,
                     osm_frame=osm_normalized,
                     ref_frame=ref_normalized,
+                    supplemental_summary=supplemental_summary,
                     target_crs=target_crs,
                     tile_dir=tile_dir / tile.tile_id,
                 )
@@ -218,6 +242,7 @@ class TrackBNationalScaleService:
                 tile_results=tile_results,
                 output_path=output_root / f"{theme}_national_scale_fused.gpkg",
                 target_crs=target_crs,
+                clip_boundary=self._country_boundary_for_aoi(resolved_aoi, target_crs=target_crs) if theme == "water" else None,
             )
             timings["stitch_sec"] = time.perf_counter() - stitch_started
 
@@ -232,7 +257,15 @@ class TrackBNationalScaleService:
             "stitched_feature_count": int(artifact_metrics.get("feature_count") or 0),
             "artifact_metrics": artifact_metrics,
             "tile_outputs": [item.to_dict() for item in tile_results],
-            **({"fusion_summary": building_fusion_summary} if building_fusion_summary else {}),
+            **({"fusion_summary": fusion_summary} if fusion_summary else {}),
+            **(
+                {
+                    "algorithm_id": fusion_summary.get("algorithm_id"),
+                    "config_snapshot": fusion_summary.get("config_snapshot"),
+                }
+                if fusion_summary.get("algorithm_id")
+                else {}
+            ),
         }
         stitched_artifact_path.write_text(
             json.dumps(stitched_artifact_payload, ensure_ascii=False, indent=2),
@@ -255,7 +288,7 @@ class TrackBNationalScaleService:
                 if item is not None and path is not None
             ],
             "supplemental_profiles": list(supplemental_summary.values()),
-            **({"fusion_summary": building_fusion_summary} if building_fusion_summary else {}),
+            **({"fusion_summary": fusion_summary} if fusion_summary else {}),
         }
         (output_root / "source_profile_snapshot.json").write_text(
             json.dumps(source_profile_snapshot, ensure_ascii=False, indent=2),
@@ -271,7 +304,7 @@ class TrackBNationalScaleService:
             "target_crs": target_crs,
             "component_source_ids": component_source_ids,
             "component_coverage": selected_coverage,
-            **({"fusion_summary": building_fusion_summary} if building_fusion_summary else {}),
+            **({"fusion_summary": fusion_summary} if fusion_summary else {}),
         }
         (output_root / "selected_sources.json").write_text(
             json.dumps(selected_sources_payload, ensure_ascii=False, indent=2),
@@ -299,7 +332,7 @@ class TrackBNationalScaleService:
             "tile_count": len(tile_results),
             "stitched_feature_count": int(artifact_metrics.get("feature_count") or 0),
             "artifact_path": str(final_output),
-            **({"fusion_summary": building_fusion_summary} if building_fusion_summary else {}),
+            **({"fusion_summary": fusion_summary} if fusion_summary else {}),
         }
         (output_root / "timing.json").write_text(
             json.dumps(timing_payload, ensure_ascii=False, indent=2),
@@ -326,6 +359,7 @@ class TrackBNationalScaleService:
                 "tile_manifest": "tile_manifest.json",
                 "stitched_artifact": "stitched_artifact.json",
                 "timing": "timing.json",
+                **({"fusion_stats": "fusion_stats.json"} if (output_root / "fusion_stats.json").exists() else {}),
                 "artifact_path": str(final_output),
             },
             "artifact_metrics": artifact_metrics,
@@ -334,7 +368,8 @@ class TrackBNationalScaleService:
                 "feature_count": artifact_metrics.get("feature_count"),
                 "component_coverage": selected_coverage,
                 "supplemental_source_ids": sorted(supplemental_summary.keys()),
-                **({"fusion_summary": building_fusion_summary} if building_fusion_summary else {}),
+                **({"fusion_summary": fusion_summary} if fusion_summary else {}),
+                **({"algorithm_id": fusion_summary.get("algorithm_id")} if fusion_summary.get("algorithm_id") else {}),
             },
         }
         (output_root / "inspection_summary.json").write_text(
@@ -357,6 +392,7 @@ class TrackBNationalScaleService:
         target_crs: str,
         normalized_dir: Path,
         selected_component_ids: set[str],
+        resolved_aoi: ResolvedAOI | None,
     ) -> dict[str, dict[str, Any]]:
         normalized_dir.mkdir(parents=True, exist_ok=True)
         contract = TRACK_B_THEME_CONTRACTS[theme]
@@ -375,6 +411,7 @@ class TrackBNationalScaleService:
                 resolution = self.raw_source_service.source_asset_service.resolve_raw_source_path(
                     source_id,
                     request_bbox=request_bbox,
+                    aoi=resolved_aoi,
                 )
                 frame = gpd.read_file(resolution.path)
                 normalized = normalize_track_b_source_frame(source_id, frame, target_crs=target_crs)
@@ -442,6 +479,51 @@ class TrackBNationalScaleService:
         }
         return result.output_path, tile_results, fusion_summary
 
+    def _run_v7_national_line_fusion(
+        self,
+        *,
+        theme: str,
+        request_bbox: tuple[float, float, float, float],
+        target_crs: str,
+        output_root: Path,
+        base_frame: gpd.GeoDataFrame,
+        supplement_frame: gpd.GeoDataFrame,
+        resolved_aoi: ResolvedAOI | None,
+    ) -> tuple[Path, list[TileFusionArtifact], dict[str, Any]]:
+        if theme == "road":
+            config = RoadConflationV7Config(target_crs=target_crs, profile="balanced")
+            result = run_road_conflation_v7(base_frame, supplement_frame, config=config)
+        else:
+            config = WaterwaysConflationV7Config(target_crs=target_crs)
+            result = run_waterways_conflation_v7(base_frame, supplement_frame, config=config)
+
+        fused = result.frame
+        clip_boundary = self._country_boundary_for_aoi(resolved_aoi, target_crs=target_crs)
+        if clip_boundary is not None and not clip_boundary.empty:
+            fused = self._clip_frame_to_boundary(fused, clip_boundary=clip_boundary, target_crs=target_crs)
+        output_path = self._write_gpkg(fused, output_root / f"{theme}_national_scale_fused.gpkg", target_crs=target_crs)
+        self._write_fusion_stats(
+            output_root=output_root,
+            algorithm_id=result.lineage["algorithm_id"],
+            stats=result.stats,
+            config_snapshot=result.config,
+        )
+        tile_results = [
+            TileFusionArtifact(
+                tile_id="national",
+                output_path=output_path,
+                feature_count=int(len(fused.index)),
+                working_bbox=request_bbox,
+            )
+        ]
+        fusion_summary = {
+            "algorithm_id": result.lineage["algorithm_id"],
+            "config_snapshot": result.config,
+            "lineage": result.lineage,
+            "stats": result.stats,
+        }
+        return output_path, tile_results, fusion_summary
+
     def _building_vector_sources(
         self,
         *,
@@ -475,6 +557,7 @@ class TrackBNationalScaleService:
         tile: TileSpec,
         osm_frame: gpd.GeoDataFrame,
         ref_frame: gpd.GeoDataFrame,
+        supplemental_summary: dict[str, dict[str, Any]],
         target_crs: str,
         tile_dir: Path,
     ) -> TileFusionArtifact:
@@ -484,9 +567,19 @@ class TrackBNationalScaleService:
         ref_tile = ref_frame[ref_frame.geometry.intersects(buffered)].copy()
 
         if theme == "road":
-            fused = run_road_segment_match_topology(base_tile, ref_tile)
+            fused = run_road_conflation_v7(
+                base_tile,
+                ref_tile,
+                config=RoadConflationV7Config(target_crs=target_crs, profile="balanced"),
+            ).frame
         elif theme == "water":
             fused = fuse_water_polygons(base_tile, ref_tile)
+        elif theme == "waterways":
+            fused = run_waterways_conflation_v7(
+                base_tile,
+                ref_tile,
+                config=WaterwaysConflationV7Config(target_crs=target_crs),
+            ).frame
         else:
             sources = {"OSM": base_tile}
             if not ref_tile.empty:
@@ -511,6 +604,7 @@ class TrackBNationalScaleService:
         tile_results: list[TileFusionArtifact],
         output_path: Path,
         target_crs: str,
+        clip_boundary: gpd.GeoDataFrame | None = None,
     ) -> Path:
         frames: list[gpd.GeoDataFrame] = []
         for tile_result in tile_results:
@@ -536,7 +630,58 @@ class TrackBNationalScaleService:
         combined["_geometry_wkb"] = combined.geometry.apply(lambda geom: geom.wkb_hex if geom is not None else None)
         combined = combined.drop_duplicates(subset=["_geometry_wkb"], keep="first").copy()
         combined = combined.drop(columns=["_geometry_wkb", "_tile_id"], errors="ignore")
+        if clip_boundary is not None and not clip_boundary.empty:
+            combined = self._clip_frame_to_boundary(combined, clip_boundary=clip_boundary, target_crs=target_crs)
         return self._write_gpkg(combined, output_path, target_crs=target_crs)
+
+    @staticmethod
+    def _write_fusion_stats(
+        *,
+        output_root: Path,
+        algorithm_id: str,
+        stats: dict[str, Any],
+        config_snapshot: dict[str, Any],
+    ) -> None:
+        (output_root / "fusion_stats.json").write_text(
+            json.dumps(
+                {
+                    "algorithm_id": algorithm_id,
+                    "stats": stats,
+                    "config": config_snapshot,
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
+
+    def _country_boundary_for_aoi(self, resolved_aoi: ResolvedAOI | None, *, target_crs: str) -> gpd.GeoDataFrame | None:
+        boundary = self.raw_source_service.source_asset_service.resolve_country_boundary(resolved_aoi)
+        if boundary is None or boundary.empty:
+            return None
+        if boundary.crs is None:
+            boundary = boundary.set_crs("EPSG:4326")
+        return boundary.to_crs(target_crs)
+
+    @staticmethod
+    def _clip_frame_to_boundary(
+        frame: gpd.GeoDataFrame,
+        *,
+        clip_boundary: gpd.GeoDataFrame,
+        target_crs: str,
+    ) -> gpd.GeoDataFrame:
+        if frame.empty:
+            return frame
+        frame_ll = frame.to_crs("EPSG:4326")
+        boundary_geom = clip_boundary.to_crs("EPSG:4326").geometry.iloc[0]
+        clipped = frame_ll.copy()
+        clipped["geometry"] = clipped.geometry.apply(
+            lambda geom: geom.intersection(boundary_geom) if geom is not None and not geom.is_empty else geom
+        )
+        clipped = clipped[clipped.geometry.notna() & ~clipped.geometry.is_empty].copy()
+        if clipped.empty:
+            return _empty_frame(target_crs)
+        return clipped.to_crs(target_crs)
 
     def _profile_snapshot_entry(self, *, source_id: str, artifact_path: Path) -> dict[str, Any]:
         source = self.source_index.get(source_id)

@@ -13,6 +13,7 @@ def test_track_b_theme_contract_locks_first_wave_source_matrix() -> None:
     building = TRACK_B_THEME_CONTRACTS["building"]
     road = TRACK_B_THEME_CONTRACTS["road"]
     water = TRACK_B_THEME_CONTRACTS["water"]
+    waterways = TRACK_B_THEME_CONTRACTS["waterways"]
     poi = TRACK_B_THEME_CONTRACTS["poi"]
 
     assert building.official_remote_source_ids == ("raw.osm.building", "raw.microsoft.building")
@@ -22,13 +23,11 @@ def test_track_b_theme_contract_locks_first_wave_source_matrix() -> None:
     assert road.official_remote_source_ids == ("raw.osm.road", "raw.overture.transportation")
     assert "raw.overture.road" in road.manual_preload_source_ids
 
-    assert water.official_remote_source_ids == (
-        "raw.osm.water",
-        "raw.hydrorivers.water",
-        "raw.hydrolakes.water",
-    )
+    assert water.official_remote_source_ids == ("raw.osm.water", "raw.hydrolakes.water")
     assert water.manual_preload_source_ids == ("raw.local.water",)
     assert water.reservation_only_source_ids == ("raw.overture.water",)
+    assert waterways.official_remote_source_ids == ("raw.osm.waterways", "raw.hydrorivers.water")
+    assert waterways.manual_preload_source_ids == ("raw.local.pakistan.waterways",)
 
     assert poi.official_remote_source_ids == ("raw.osm.poi", "raw.gns.poi")
     assert poi.manual_preload_source_ids == ("raw.rh.poi",)
@@ -46,6 +45,8 @@ def test_source_catalog_metadata_carries_track_b_b1_contract_for_live_sources() 
     assert sources["raw.overture.road"].metadata["acquisition_class"] == "manual_preload_required"
     assert sources["raw.overture.transportation"].metadata["acquisition_class"] == "official_remote_supported"
     assert sources["raw.local.water"].metadata["acquisition_class"] == "manual_preload_required"
+    assert sources["raw.osm.waterways"].metadata["field_mapping_profile"] == "fields.waterways.osm"
+    assert sources["raw.local.pakistan.waterways"].metadata["field_mapping_profile"] == "fields.waterways.local_osm_like"
     assert sources["raw.hydrorivers.water"].metadata["acquisition_class"] == "official_remote_supported"
     assert sources["raw.hydrolakes.water"].metadata["runtime_status"] == "runtime_candidate"
     assert sources["raw.gns.poi"].metadata["acquisition_class"] == "official_remote_supported"
@@ -53,16 +54,18 @@ def test_source_catalog_metadata_carries_track_b_b1_contract_for_live_sources() 
 
     flood_road = sources["catalog.flood.road"]
     flood_water = sources["catalog.flood.water"]
+    flood_waterways = sources["catalog.flood.waterways"]
     generic_poi = sources["catalog.generic.poi"]
 
     assert flood_road.metadata["component_source_ids"] == ["raw.osm.road", "raw.overture.transportation"]
     assert "raw.overture.road" in flood_road.metadata["track_b_manual_preload_source_ids"]
     assert flood_water.metadata["track_b_manual_preload_source_ids"] == ["raw.local.water"]
-    assert flood_water.metadata["track_b_official_remote_source_ids"] == [
-        "raw.osm.water",
+    assert flood_water.metadata["track_b_official_remote_source_ids"] == ["raw.osm.water", "raw.hydrolakes.water"]
+    assert flood_waterways.metadata["track_b_official_remote_source_ids"] == [
+        "raw.osm.waterways",
         "raw.hydrorivers.water",
-        "raw.hydrolakes.water",
     ]
+    assert flood_waterways.metadata["track_b_manual_preload_source_ids"] == ["raw.local.pakistan.waterways"]
     assert generic_poi.metadata["track_b_official_remote_source_ids"] == ["raw.osm.poi", "raw.gns.poi"]
     assert "raw.overture.poi" in generic_poi.metadata["track_b_reservation_only_source_ids"] or "raw.overture.places" in generic_poi.metadata["track_b_reservation_only_source_ids"]
 
@@ -75,9 +78,11 @@ def test_track_b_live_spec_and_readme_index_exist() -> None:
     assert "raw.overture.transportation" in text
     assert "raw.hydrorivers.water" in text
     assert "raw.hydrolakes.water" in text
+    assert "raw.local.pakistan.waterways" in text
     assert "raw.overture.poi" in text or "raw.overture.places" in text
     assert "Data/water/BDI.shp" in text
     assert "Data/water/布隆迪湖泊.shp" in text
+    assert "Data/water/Pakistan_Waterways_Data.shp" in text
     assert "geonames.nga.mil/geonames/GNSData/data/data.json" in text
     assert "Data/POI/**/RH.shp" in text
     assert "official_remote_supported" in text
@@ -113,6 +118,8 @@ def test_source_catalog_exposes_locked_track_b_b2_raw_sources() -> None:
     assert "raw.overture.transportation" in sources
     assert "raw.hydrorivers.water" in sources
     assert "raw.hydrolakes.water" in sources
+    assert "raw.osm.waterways" in sources
+    assert "raw.local.pakistan.waterways" in sources
 
 
 def test_track_b_national_scale_freeze_captures_current_claim_boundary() -> None:

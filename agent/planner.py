@@ -70,7 +70,8 @@ class WorkflowPlanner:
         except _ProviderPlanningCallError as exc:
             planning_telemetry = exc.telemetry
             self.logger.warning("LLM planning failed (%s), fallback to top KG pattern.", exc)
-            top_pattern = self._select_fallback_pattern(
+            top_pattern = self._select_fallback_pattern_from_context(
+                planning_context=planning_context,
                 job_type=job_type,
                 disaster_type=trigger.disaster_type,
                 preferred_pattern_id=preferred_pattern_id,
@@ -79,7 +80,8 @@ class WorkflowPlanner:
             planning_source = "kg_fallback"
         except Exception as exc:  # noqa: BLE001
             self.logger.warning("LLM planning failed (%s), fallback to top KG pattern.", exc)
-            top_pattern = self._select_fallback_pattern(
+            top_pattern = self._select_fallback_pattern_from_context(
+                planning_context=planning_context,
                 job_type=job_type,
                 disaster_type=trigger.disaster_type,
                 preferred_pattern_id=preferred_pattern_id,
@@ -124,6 +126,35 @@ class WorkflowPlanner:
         if not patterns:
             raise ValueError(f"No workflow pattern found for job_type={job_type.value}")
         return patterns[0]
+
+    def _select_fallback_pattern_from_context(
+        self,
+        *,
+        planning_context: Dict[str, Any],
+        job_type: JobType,
+        disaster_type: str | None,
+        preferred_pattern_id: str | None,
+    ) -> WorkflowPatternNode:
+        retrieval = planning_context.get("retrieval", {})
+        candidates = retrieval.get("candidate_patterns", [])
+        ranked_ids = [
+            str(item.get("pattern_id") or "").strip()
+            for item in candidates
+            if isinstance(item, dict) and str(item.get("pattern_id") or "").strip()
+        ]
+        if ranked_ids:
+            by_id = {
+                pattern.pattern_id: pattern
+                for pattern in self.kg_repo.get_candidate_patterns(job_type=job_type, disaster_type=disaster_type, limit=20)
+            }
+            for pattern_id in ranked_ids:
+                if pattern_id in by_id:
+                    return by_id[pattern_id]
+        return self._select_fallback_pattern(
+            job_type=job_type,
+            disaster_type=disaster_type,
+            preferred_pattern_id=preferred_pattern_id,
+        )
 
     @staticmethod
     def _infer_selected_pattern_id(plan: WorkflowPlan, candidate_patterns: List[Dict[str, Any]]) -> str | None:
@@ -240,6 +271,7 @@ class WorkflowPlanner:
                     "data_source_id": step.data_source_id,
                     "depends_on": step.depends_on,
                     "is_optional": step.is_optional,
+                    "parameters": dict(step.parameters or {}),
                 }
                 for step in pattern.steps
             ],
@@ -264,7 +296,7 @@ class WorkflowPlanner:
                     "input": {
                         "data_type_id": step.input_data_type,
                         "data_source_id": step.data_source_id,
-                        "parameters": {},
+                        "parameters": dict(step.parameters or {}),
                     },
                     "output": {
                         "data_type_id": step.output_data_type,
@@ -517,6 +549,11 @@ class WorkflowPlanner:
 
     @staticmethod
     def _infer_task_id_from_pattern_step(pattern: WorkflowPatternNode, algorithm_id: str) -> str | None:
+        for step in pattern.steps:
+            if step.algorithm_id != algorithm_id:
+                continue
+            if step.output_data_type == "dt.waterways.fused":
+                return "task.waterways.fusion"
         default_task_id = f"task.{pattern.job_type.value}.fusion"
         if any(step.algorithm_id == algorithm_id for step in pattern.steps):
             return default_task_id

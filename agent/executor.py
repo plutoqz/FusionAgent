@@ -430,6 +430,18 @@ class WorkflowExecutor:
         return run_building_multi_source_decomposed(context)
 
     @staticmethod
+    def _handle_road_conflation_v7(context: ExecutionContext) -> Path:
+        from adapters.fusioncode_linear_adapter import run_road_conflation_v7
+
+        return run_road_conflation_v7(context)
+
+    @staticmethod
+    def _handle_waterways_conflation_v7(context: ExecutionContext) -> Path:
+        from adapters.fusioncode_linear_adapter import run_waterways_conflation_v7
+
+        return run_waterways_conflation_v7(context)
+
+    @staticmethod
     def _handle_road_segment_match_topology(context: ExecutionContext) -> Path:
         from adapters.fusioncode_linear_adapter import run_road_segment_topology
 

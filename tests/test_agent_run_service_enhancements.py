@@ -201,14 +201,18 @@ def _build_auto_request(
 
 
 def _build_water_task_driven_plan(*, workflow_id: str = "wf_water_auto_inputs", revision: int = 1) -> WorkflowPlan:
-    plan = _build_plan(workflow_id=workflow_id, revision=revision, algorithm_id="algo.fusion.water.v1")
+    plan = _build_plan(
+        workflow_id=workflow_id,
+        revision=revision,
+        algorithm_id="algo.fusion.water_polygon.priority_merge.v2",
+    )
     plan.trigger = RunTrigger(type=RunTriggerType.user_query, content="need water polygons for Nairobi, Kenya")
     plan.context["intent"]["job_type"] = "water"
     plan.context["intent"]["profile_source"] = "direct_task"
     plan.context["retrieval"]["candidate_patterns"] = [{"pattern_id": "wp.flood.water.default", "success_rate": 0.84}]
     plan.tasks[0].name = "water_fusion"
     plan.tasks[0].description = "water fusion"
-    plan.tasks[0].algorithm_id = "algo.fusion.water.v1"
+    plan.tasks[0].algorithm_id = "algo.fusion.water_polygon.priority_merge.v2"
     plan.tasks[0].input.data_type_id = "dt.water.bundle"
     plan.tasks[0].input.data_source_id = "catalog.flood.water"
     plan.tasks[0].output.data_type_id = "dt.water.fused"
@@ -236,7 +240,7 @@ def _build_poi_task_driven_plan(*, workflow_id: str = "wf_poi_auto_inputs", revi
 
 
 def _build_road_task_driven_plan(*, workflow_id: str = "wf_road_auto_inputs", revision: int = 1) -> WorkflowPlan:
-    plan = _build_plan(workflow_id=workflow_id, revision=revision, algorithm_id="algo.fusion.road.v1")
+    plan = _build_plan(workflow_id=workflow_id, revision=revision, algorithm_id="algo.fusion.road.conflation.v7")
     plan.trigger = RunTrigger(type=RunTriggerType.user_query, content="need road data for Gilgit, Pakistan")
     plan.context["intent"]["job_type"] = "road"
     plan.context["intent"]["profile_source"] = "direct_task"
@@ -244,11 +248,11 @@ def _build_road_task_driven_plan(*, workflow_id: str = "wf_road_auto_inputs", re
     plan.context["retrieval"]["candidate_patterns"] = [{"pattern_id": "wp.flood.road.default", "success_rate": 0.86}]
     plan.tasks[0].name = "road_fusion"
     plan.tasks[0].description = "road fusion"
-    plan.tasks[0].algorithm_id = "algo.fusion.road.v1"
+    plan.tasks[0].algorithm_id = "algo.fusion.road.conflation.v7"
     plan.tasks[0].input.data_type_id = "dt.road.bundle"
     plan.tasks[0].input.data_source_id = "catalog.flood.road"
     plan.tasks[0].output.data_type_id = "dt.road.fused"
-    plan.tasks[0].alternatives = ["algo.fusion.road.safe"]
+    plan.tasks[0].alternatives = []
     plan.expected_output = "road result"
     return plan
 
@@ -683,7 +687,7 @@ def test_agent_run_service_road_task_driven_auto_keeps_trajectory_seam_reserved(
 
     saved_plan = service.get_plan(status.run_id)
     assert saved_plan is not None
-    assert saved_plan.tasks[0].algorithm_id == "algo.fusion.road.v1"
+    assert saved_plan.tasks[0].algorithm_id == "algo.fusion.road.conflation.v7"
     assert all(task.algorithm_id != "algo.transform.trajectory_to_road_candidate" for task in saved_plan.tasks)
 
 
@@ -1871,7 +1875,7 @@ def test_agent_run_service_skips_stale_reuse_candidates_using_job_type_policy(tm
         )
     )
 
-    plan = _build_plan(workflow_id="wf_road_stale", revision=1, algorithm_id="algo.fusion.road.v1")
+    plan = _build_plan(workflow_id="wf_road_stale", revision=1, algorithm_id="algo.fusion.road.conflation.v7")
     plan.tasks[0].output.data_type_id = "dt.road.fused"
     plan.context["retrieval"]["reusable_artifacts"] = [
         {

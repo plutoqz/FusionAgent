@@ -103,24 +103,22 @@
 
 这意味着继续推进后续更新与论文消融实验已经具备可用基线，不再停留在“图谱代码定义存在但默认 live runtime 漂移”的状态。
 
-## FusionCode Selection Follow-up (2026-05-15)
+## FusionCode Selection Follow-up (2026-05-15, superseded by 2026-05-26 V7 replacement)
 
-在不改变默认 bounded runtime claim 的前提下，task-driven smoke 现在支持受控 `preferred_pattern_id` 入口，用于验证某个已注册 KG workflow pattern 是否真的会被 planner/executor 选中并留下审计证据。fresh 结果如下：
+这组 smoke 结论仍然证明 `preferred_pattern_id` 入口可用，但其中 road / water 的旧 FusionCode ID 已在 `2026-05-26` 的 V7 replacement 中退役，不能再被解读为当前 active runtime 结论。当前 active 选择语义应以如下 IDs 为准：
 
 - Road
-  - inspection: [smoke-road-gilgit-city-fusioncode-inspection-8012.json](/E:/vscode/fusionAgent/runs/smoke-road-gilgit-city-fusioncode-inspection-8012.json)
-  - `run_id = d7b3d61a48644fc18edf1064c272bb7d`
-  - `selected_pattern_id = wp.road.fusioncode.segment_topology.v1`
-  - `algorithm_id = algo.fusion.road.segment_match_topology.v1`
-- Water
-  - inspection: [smoke-water-nairobi-fusioncode-inspection-8012.json](/E:/vscode/fusionAgent/runs/smoke-water-nairobi-fusioncode-inspection-8012.json)
-  - `run_id = 471ae06f16404713af1b0f23ac9ffad3`
-  - `selected_pattern_id = wp.water.fusioncode.line_and_polygon.v1`
-  - `algorithm_id = algo.fusion.water.polygon_priority_merge.v1`
+  - `selected_pattern_id = wp.road.fusioncode.conflation.v7` 或 `wp.flood.road.default`
+  - `algorithm_id = algo.fusion.road.conflation.v7`
+- Water polygons
+  - `selected_pattern_id = wp.water_polygon.fusioncode.priority_merge.v2` 或 `wp.flood.water.default`
+  - `algorithm_id = algo.fusion.water_polygon.priority_merge.v2`
+- Waterways
+  - `selected_pattern_id = wp.waterways.fusioncode.conflation.v7` 或 `wp.flood.waterways.default`
+  - `algorithm_id = algo.fusion.waterways.conflation.v7`
 - POI
   - inspection: [smoke-poi-nairobi-fusioncode-inspection-8012.json](/E:/vscode/fusionAgent/runs/smoke-poi-nairobi-fusioncode-inspection-8012.json)
-  - `run_id = 0ed6dfa8baf249ecb87082df08f5f89d`
   - `selected_pattern_id = wp.poi.fusioncode.geohash_priority.v1`
   - `algorithm_id = algo.fusion.poi.geohash_neighbor_match.v1`
 
-结论：road / water / bounded poi 的 FusionCode KG 节点已经具备“live 可选中、可执行、可审计”的额外验证证据，不再只是 retrieval candidate 可见。
+结论：`preferred_pattern_id` 仍然是验证 KG workflow pattern 能否被 live planner/executor 选中的有效入口；但 road / water 的 current truth 已切换到 V7 road、V7 waterways、polygon-v2 三条路径。

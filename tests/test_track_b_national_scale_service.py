@@ -4,7 +4,7 @@ import json
 from pathlib import Path
 
 import geopandas as gpd
-from shapely.geometry import LineString, Point, Polygon
+from shapely.geometry import LineString, Point, Polygon, mapping
 
 from services.aoi_resolution_service import ResolvedAOI
 from services.source_asset_service import SourceAssetService
@@ -243,6 +243,14 @@ def test_track_b_national_scale_service_uses_hydrolakes_as_selected_water_refere
         ),
     )
     _write_frame(
+        tmp_path / "Data" / "burundi-260127-free.shp" / "gis_osm_waterways_free_1.shp",
+        gpd.GeoDataFrame(
+            {"osm_id": [2], "fclass": ["river"]},
+            geometry=[LineString([(29.18, -3.29), (29.47, -3.03)])],
+            crs="EPSG:4326",
+        ),
+    )
+    _write_frame(
         tmp_path / "Data" / "water" / "布隆迪湖泊.shp",
         gpd.GeoDataFrame(
             {"Hylak_id": [11], "Lake_name": ["Rweru"], "Lake_type": [1], "Depth_avg": [6.5]},
@@ -281,6 +289,214 @@ def test_track_b_national_scale_service_uses_hydrolakes_as_selected_water_refere
     assert normalization_summary["selected_sources"]["raw.hydrolakes.water"]["feature_count"] == 1
     assert normalization_summary["supplemental_sources"]["raw.hydrorivers.water"]["feature_count"] == 1
     assert "raw.hydrorivers.water" in inspection_summary["operator_readable_summary"]["supplemental_source_ids"]
+
+
+def test_track_b_national_scale_service_includes_hydrorivers_lines_in_water_output(
+    tmp_path: Path,
+) -> None:
+    _write_frame(
+        tmp_path / "Data" / "burundi-260127-free.shp" / "gis_osm_water_a_free_1.shp",
+        gpd.GeoDataFrame(
+            {"osm_id": [1]},
+            geometry=[Polygon([(29.2, -3.3), (29.2, -3.0), (29.5, -3.0), (29.5, -3.3)])],
+            crs="EPSG:4326",
+        ),
+    )
+    _write_frame(
+        tmp_path / "Data" / "burundi-260127-free.shp" / "gis_osm_waterways_free_1.shp",
+        gpd.GeoDataFrame(
+            {"osm_id": [2], "fclass": ["river"]},
+            geometry=[LineString([(29.18, -3.29), (29.47, -3.03)])],
+            crs="EPSG:4326",
+        ),
+    )
+    _write_frame(
+        tmp_path / "Data" / "water" / "布隆迪湖泊.shp",
+        gpd.GeoDataFrame(
+            {"Hylak_id": [11], "Lake_name": ["Rweru"], "Lake_type": [1], "Depth_avg": [6.5]},
+            geometry=[Polygon([(29.25, -3.25), (29.25, -3.05), (29.45, -3.05), (29.45, -3.25)])],
+            crs="EPSG:4326",
+        ),
+    )
+    _write_frame(
+        tmp_path / "Data" / "water" / "BDI.shp",
+        gpd.GeoDataFrame(
+            {"HYRIV_ID": [101], "ORD_STRA": [4], "DIS_AV_CMS": [10.0]},
+            geometry=[LineString([(29.2, -3.28), (29.48, -3.02)])],
+            crs="EPSG:4326",
+        ),
+    )
+
+    service = TrackBNationalScaleService(root_dir=tmp_path, cache_dir=tmp_path / "cache")
+    output_root = tmp_path / "evidence" / "water_lines"
+    summary = service.build_theme_evidence(
+        job_type="water",
+        source_id="catalog.flood.water",
+        request_bbox=(29.0, -3.5, 29.8, -2.9),
+        target_crs="EPSG:32735",
+        output_root=output_root,
+        tile_width_m=40_000.0,
+        tile_height_m=40_000.0,
+        overlap_m=0.0,
+    )
+
+    fused = gpd.read_file(summary["artifact_path"])
+    feature_kinds = {str(value) for value in fused.get("feature_kind", []) if str(value)}
+    geom_types = {str(value) for value in fused.geom_type.unique()}
+
+    assert "line" in feature_kinds
+    assert any("Line" in value for value in geom_types)
+    assert any("Polygon" in value for value in geom_types)
+
+
+def test_track_b_national_scale_service_includes_osm_waterways_lines_in_water_output(
+    tmp_path: Path,
+) -> None:
+    _write_frame(
+        tmp_path / "Data" / "burundi-260127-free.shp" / "gis_osm_water_a_free_1.shp",
+        gpd.GeoDataFrame(
+            {"osm_id": [1]},
+            geometry=[Polygon([(29.2, -3.3), (29.2, -3.0), (29.5, -3.0), (29.5, -3.3)])],
+            crs="EPSG:4326",
+        ),
+    )
+    _write_frame(
+        tmp_path / "Data" / "burundi-260127-free.shp" / "gis_osm_waterways_free_1.shp",
+        gpd.GeoDataFrame(
+            {"osm_id": [2], "fclass": ["river"]},
+            geometry=[LineString([(29.18, -3.29), (29.47, -3.03)])],
+            crs="EPSG:4326",
+        ),
+    )
+    _write_frame(
+        tmp_path / "Data" / "water" / "布隆迪湖泊.shp",
+        gpd.GeoDataFrame(
+            {"Hylak_id": [11], "Lake_name": ["Rweru"], "Lake_type": [1], "Depth_avg": [6.5]},
+            geometry=[Polygon([(29.25, -3.25), (29.25, -3.05), (29.45, -3.05), (29.45, -3.25)])],
+            crs="EPSG:4326",
+        ),
+    )
+    _write_frame(
+        tmp_path / "Data" / "water" / "BDI.shp",
+        gpd.GeoDataFrame(
+            {"HYRIV_ID": [101], "ORD_STRA": [4], "DIS_AV_CMS": [10.0]},
+            geometry=[LineString([(29.2, -3.28), (29.48, -3.02)])],
+            crs="EPSG:4326",
+        ),
+    )
+
+    service = TrackBNationalScaleService(root_dir=tmp_path, cache_dir=tmp_path / "cache")
+    output_root = tmp_path / "evidence" / "water_osm_lines"
+    summary = service.build_theme_evidence(
+        job_type="water",
+        source_id="catalog.flood.water",
+        request_bbox=(29.0, -3.5, 29.8, -2.9),
+        target_crs="EPSG:32735",
+        output_root=output_root,
+        tile_width_m=40_000.0,
+        tile_height_m=40_000.0,
+        overlap_m=0.0,
+    )
+
+    fused = gpd.read_file(summary["artifact_path"])
+    osm_line_rows = fused[
+        (fused.get("source_id") == "raw.osm.waterways")
+        | (fused.get("feature_kind") == "line")
+    ].copy()
+
+    assert not osm_line_rows.empty
+    assert any("Line" in value for value in osm_line_rows.geom_type.unique())
+
+
+def test_track_b_national_scale_service_clips_water_output_to_country_boundary_when_country_hint_available(
+    tmp_path: Path,
+) -> None:
+    _write_frame(
+        tmp_path / "Data" / "burundi-260127-free.shp" / "gis_osm_water_a_free_1.shp",
+        gpd.GeoDataFrame(
+            {"osm_id": [1]},
+            geometry=[Polygon([(0.5, 0.5), (0.5, 1.5), (1.5, 1.5), (1.5, 0.5)])],
+            crs="EPSG:4326",
+        ),
+    )
+    _write_frame(
+        tmp_path / "Data" / "burundi-260127-free.shp" / "gis_osm_waterways_free_1.shp",
+        gpd.GeoDataFrame(
+            {"osm_id": [2], "fclass": ["river"]},
+            geometry=[LineString([(0.2, 0.2), (1.8, 1.8)])],
+            crs="EPSG:4326",
+        ),
+    )
+    _write_frame(
+        tmp_path / "Data" / "water" / "布隆迪湖泊.shp",
+        gpd.GeoDataFrame(
+            {"Hylak_id": [11], "Lake_name": ["Inner Lake"], "Lake_type": [1], "Depth_avg": [6.5]},
+            geometry=[Polygon([(0.1, 0.1), (0.1, 0.8), (0.8, 0.8), (0.8, 0.1)])],
+            crs="EPSG:4326",
+        ),
+    )
+    _write_frame(
+        tmp_path / "Data" / "water" / "BDI.shp",
+        gpd.GeoDataFrame(
+            {"HYRIV_ID": [101], "ORD_STRA": [4], "DIS_AV_CMS": [10.0]},
+            geometry=[LineString([(0.2, 0.2), (1.8, 1.8)])],
+            crs="EPSG:4326",
+        ),
+    )
+
+    boundary = Polygon([(0.0, 0.0), (0.0, 1.0), (1.0, 1.0), (1.0, 0.0)])
+    geofabrik_index = tmp_path / "fixtures" / "geofabrik-index.json"
+    geofabrik_index.parent.mkdir(parents=True, exist_ok=True)
+    geofabrik_index.write_text(
+        json.dumps(
+            {
+                "features": [
+                    {
+                        "type": "Feature",
+                        "properties": {
+                            "id": "testland",
+                            "name": "Testland",
+                            "iso3166-1:alpha2": ["tl"],
+                            "urls": {"shp": "https://example.com/testland-latest-free.shp.zip"},
+                        },
+                        "geometry": mapping(boundary),
+                    }
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    service = TrackBNationalScaleService(root_dir=tmp_path, cache_dir=tmp_path / "cache")
+    service.raw_source_service.source_asset_service = SourceAssetService(
+        repo_root=tmp_path,
+        cache_dir=tmp_path / "cache" / "source_assets",
+        geofabrik_index_url=geofabrik_index.resolve().as_uri(),
+    )
+    output_root = tmp_path / "evidence" / "water_boundary"
+    summary = service.build_theme_evidence(
+        job_type="water",
+        source_id="catalog.flood.water",
+        request_bbox=(0.0, 0.0, 2.0, 2.0),
+        target_crs="EPSG:32631",
+        output_root=output_root,
+        tile_width_m=50_000.0,
+        tile_height_m=50_000.0,
+        overlap_m=0.0,
+        resolved_aoi=ResolvedAOI(
+            query="Testland",
+            display_name="Testland",
+            country_name="Testland",
+            country_code="tl",
+            bbox=(0.0, 0.0, 2.0, 2.0),
+            confidence=1.0,
+            selection_reason="test_fixture",
+            candidates=(),
+        ),
+    )
+
+    fused = gpd.read_file(summary["artifact_path"]).to_crs("EPSG:4326")
+    assert all(boundary.buffer(1e-9).covers(geom) for geom in fused.geometry if geom is not None and not geom.is_empty)
 
 
 def test_track_b_national_scale_service_can_materialize_remote_gns_reference_with_country_hint(

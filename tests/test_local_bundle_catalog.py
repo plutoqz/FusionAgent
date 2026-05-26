@@ -68,6 +68,14 @@ def _seed_local_catalog_tree(root: Path) -> None:
         ),
     )
     _write_frame(
+        root / "Data" / "burundi-260127-free.shp" / "gis_osm_waterways_free_1.shp",
+        geopandas.GeoDataFrame(
+            {"osmwl_id": [302], "fclass": ["river"]},
+            geometry=[LineString([(0, 0), (1, 1)])],
+            crs="EPSG:4326",
+        ),
+    )
+    _write_frame(
         root / "Data" / "water" / "local_water.shp",
         geopandas.GeoDataFrame(
             {"locw_id": [401]},

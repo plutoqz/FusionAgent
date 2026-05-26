@@ -25,6 +25,7 @@ PARTIAL_COVERAGE_ALLOWED_SOURCES = {
     "catalog.earthquake.road",
     "catalog.typhoon.road",
     "catalog.flood.water",
+    "catalog.flood.waterways",
     "catalog.generic.poi",
 }
 

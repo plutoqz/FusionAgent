@@ -42,6 +42,7 @@ _GEOFABRIK_LAYER_NAMES = {
     "raw.osm.building": "gis_osm_buildings_a_free_1.shp",
     "raw.osm.road": "gis_osm_roads_free_1.shp",
     "raw.osm.water": "gis_osm_water_a_free_1.shp",
+    "raw.osm.waterways": "gis_osm_waterways_free_1.shp",
     "raw.osm.poi": "gis_osm_pois_free_1.shp",
 }
 
@@ -62,6 +63,13 @@ _LOCAL_SOURCE_CANDIDATES = {
     ],
     "raw.osm.water": [
         ("Data", "burundi-260127-free.shp", "gis_osm_water_a_free_1.shp"),
+    ],
+    "raw.osm.waterways": [
+        ("Data", "burundi-260127-free.shp", "gis_osm_waterways_free_1.shp"),
+    ],
+    "raw.local.pakistan.waterways": [
+        ("Data", "water", "Pakistan_Waterways_Data.shp"),
+        ("Data", "water"),
     ],
     "raw.local.water": [
         ("Data", "water", "布隆迪湖泊.shp"),
@@ -99,6 +107,7 @@ _REMOTELY_MATERIALIZABLE_SOURCE_IDS = {
     "raw.osm.building",
     "raw.osm.road",
     "raw.osm.water",
+    "raw.osm.waterways",
     "raw.osm.poi",
     "raw.microsoft.building",
     "raw.overture.transportation",
@@ -168,6 +177,7 @@ def classify_source_fault(
 class _GeofabrikBundle:
     slug: str
     download_url: str
+    boundary_geometry: Any | None = None
 
 
 @dataclass(frozen=True)
@@ -252,6 +262,16 @@ def _tokenize_match_hint(value: str | None) -> set[str]:
     if not normalized:
         return set()
     return {token for token in normalized.split() if len(token) >= 3}
+
+
+def _feature_geometry(feature: dict[str, Any]) -> Any | None:
+    geometry = feature.get("geometry")
+    if not geometry:
+        return None
+    try:
+        return shape(geometry)
+    except Exception:  # noqa: BLE001
+        return None
 
 
 def _bbox_cache_key(request_bbox: Optional[BBox]) -> str:
@@ -370,6 +390,18 @@ class SourceAssetService:
             return self._resolve_gns_poi(request_bbox=effective_bbox, aoi=aoi)
 
         raise FileNotFoundError(f"No local or remote source asset path available for {source_id}")
+
+    def resolve_country_boundary(self, aoi: ResolvedAOI | None) -> gpd.GeoDataFrame | None:
+        if aoi is None or (aoi.country_name is None and aoi.country_code is None):
+            return None
+        bundle = self._select_geofabrik_bundle(aoi)
+        if bundle.boundary_geometry is None or bundle.boundary_geometry.is_empty:
+            return None
+        return gpd.GeoDataFrame(
+            {"country_name": [aoi.country_name or bundle.slug]},
+            geometry=[bundle.boundary_geometry],
+            crs="EPSG:4326",
+        )
 
     def _build_local_resolution(
         self,
@@ -550,7 +582,11 @@ class SourceAssetService:
                 iso_codes = [iso_codes]
             normalized_codes = {_normalize_country_code(code) for code in iso_codes}
             if country_code is not None and country_code in normalized_codes:
-                return _GeofabrikBundle(slug=self._geofabrik_slug(properties, download_url), download_url=download_url)
+                return _GeofabrikBundle(
+                    slug=self._geofabrik_slug(properties, download_url),
+                    download_url=download_url,
+                    boundary_geometry=_feature_geometry(feature),
+                )
 
         for feature in self._load_geofabrik_index():
             properties = feature.get("properties") or {}
@@ -562,7 +598,11 @@ class SourceAssetService:
                 _normalize_country_name(properties.get("id")),
             }
             if country_name is not None and country_name in names:
-                return _GeofabrikBundle(slug=self._geofabrik_slug(properties, download_url), download_url=download_url)
+                return _GeofabrikBundle(
+                    slug=self._geofabrik_slug(properties, download_url),
+                    download_url=download_url,
+                    boundary_geometry=_feature_geometry(feature),
+                )
 
         raise FileNotFoundError(
             f"No Geofabrik country bundle matched AOI country={aoi.country_name!r} code={aoi.country_code!r}"

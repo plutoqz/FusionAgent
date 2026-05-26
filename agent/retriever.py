@@ -25,6 +25,10 @@ from services.artifact_reuse_policy import get_artifact_reuse_max_age_seconds
 from services.artifact_registry import ArtifactLookupRequest, ArtifactRegistry, ArtifactRecord
 
 
+_WATERWAYS_HINT_RE = re.compile(r"\b(waterway|waterways|river|rivers|stream|streams|canal|canals|drain|drains|creek|creeks)\b", re.IGNORECASE)
+_WATER_POLYGON_HINT_RE = re.compile(r"\b(polygon|polygons|lake|lakes|reservoir|reservoirs|pond|ponds|waterbody|waterbodies)\b", re.IGNORECASE)
+
+
 def _to_unit_interval(value: Any, *, default: float = 0.0) -> float:
     try:
         numeric = float(value)
@@ -96,6 +100,7 @@ class PlanningContextBuilder:
         )
         output_requirement = self._select_output_requirement(
             job_type=job_type,
+            trigger=trigger,
             output_requirements=kg_context.output_requirements,
         )
         qos_policy = self._select_qos_policy(
@@ -176,12 +181,17 @@ class PlanningContextBuilder:
         output_requirement: OutputRequirementNode | None,
         qos_policy: QoSPolicyNode | None,
     ) -> Dict[str, Any]:
+        expected_output_type = (
+            output_requirement.output_type
+            if output_requirement is not None
+            else f"dt.{job_type.value}.fused"
+        )
         return {
             "job_type": job_type.value,
             "trigger": trigger.model_dump(),
             "location_query": location_query,
             "resolved_aoi": resolved_aoi.to_dict() if resolved_aoi is not None else None,
-            "expected_output_type": f"dt.{job_type.value}.fused",
+            "expected_output_type": expected_output_type,
             "spatial_extent": trigger.spatial_extent,
             "temporal_start": trigger.temporal_start,
             "temporal_end": trigger.temporal_end,
@@ -259,6 +269,7 @@ class PlanningContextBuilder:
                 algorithms=kg_context.algorithms,
                 sources=relevant_sources,
                 planning_mode=planning_mode,
+                trigger_content=trigger.content,
             ),
             "algorithms": {algo_id: self._algo_to_dict(algo) for algo_id, algo in kg_context.algorithms.items()},
             "task_nodes": [self._task_node_to_dict(task) for task in kg_context.task_nodes],
@@ -334,8 +345,13 @@ class PlanningContextBuilder:
     def _select_output_requirement(
         *,
         job_type: JobType,
+        trigger: RunTrigger,
         output_requirements: Dict[str, OutputRequirementNode],
     ) -> OutputRequirementNode | None:
+        if job_type == JobType.water:
+            preference = PlanningContextBuilder._infer_water_semantics_preference(trigger.content)
+            if preference == "waterways":
+                return output_requirements.get("dt.waterways.fused")
         return output_requirements.get(f"dt.{job_type.value}.fused")
 
     @staticmethod
@@ -363,8 +379,10 @@ class PlanningContextBuilder:
         algorithms: Dict[str, AlgorithmNode],
         sources: List[DataSourceNode],
         planning_mode: str,
+        trigger_content: str,
     ) -> List[Dict[str, Any]]:
         source_by_id = {source.source_id: source for source in sources}
+        water_preference = self._infer_water_semantics_preference(trigger_content)
         prefer_task_driven_catalog_patterns = planning_mode == "task_driven" and any(
             str((pattern.metadata or {}).get("input_strategy") or "").strip().lower() == "task_driven_auto_supported"
             and any(step.data_source_id != "upload.bundle" for step in pattern.steps)
@@ -379,6 +397,7 @@ class PlanningContextBuilder:
                     algorithms=algorithms,
                     source_by_id=source_by_id,
                     prefer_task_driven_catalog_patterns=prefer_task_driven_catalog_patterns,
+                    water_preference=water_preference,
                 )
             )
             candidates.append(candidate)
@@ -420,10 +439,13 @@ class PlanningContextBuilder:
             if resolved_aoi is not None and metadata.get("supports_aoi") is False:
                 workflow_support -= 0.15
                 missing_requirements.append("aoi_not_supported")
+            typed_match = any(item.startswith(required_prefix) for item in source.supported_types)
+            if job_type == JobType.water and "dt.waterways.bundle" in source.supported_types:
+                typed_match = True
             candidate.update(
                 {
                     "source_quality": _to_unit_interval(source.quality_score, default=0.0),
-                    "algorithm_fit": 1.0 if any(item.startswith(required_prefix) for item in source.supported_types) else 0.6,
+                    "algorithm_fit": 1.0 if typed_match else 0.6,
                     "workflow_support": max(0.0, min(1.0, workflow_support)),
                     "missing_requirements": missing_requirements,
                 }
@@ -438,6 +460,7 @@ class PlanningContextBuilder:
         algorithms: Dict[str, AlgorithmNode],
         source_by_id: Dict[str, DataSourceNode],
         prefer_task_driven_catalog_patterns: bool,
+        water_preference: str | None,
     ) -> Dict[str, Any]:
         source_scores: List[float] = []
         algorithm_scores: List[float] = []
@@ -474,12 +497,36 @@ class PlanningContextBuilder:
             workflow_support = min(1.0, workflow_support + 0.05)
         elif prefer_task_driven_catalog_patterns and all(step.data_source_id == "upload.bundle" for step in pattern.steps):
             missing_requirements.append("task_driven_bundle_not_supported")
+        water_semantics = str(metadata.get("water_semantics") or "").strip().lower()
+        if water_preference == "waterways":
+            if water_semantics == "waterways_line":
+                workflow_support = min(1.0, workflow_support + 0.18)
+            elif water_semantics == "polygon":
+                workflow_support = max(0.0, workflow_support - 0.12)
+                missing_requirements.append("water_semantics_polygon_when_waterways_requested")
+        elif water_preference == "polygon":
+            if water_semantics == "polygon":
+                workflow_support = min(1.0, workflow_support + 0.10)
+            elif water_semantics == "waterways_line":
+                workflow_support = max(0.0, workflow_support - 0.18)
+                missing_requirements.append("water_semantics_line_when_polygon_requested")
         return {
             "source_quality": round(sum(source_scores) / max(1, len(source_scores)), 6),
             "algorithm_fit": round(sum(algorithm_scores) / max(1, len(algorithm_scores)), 6),
             "workflow_support": round(workflow_support, 6),
             "missing_requirements": missing_requirements,
         }
+
+    @staticmethod
+    def _infer_water_semantics_preference(content: str | None) -> str | None:
+        text = str(content or "").strip().lower()
+        if not text:
+            return None
+        if _WATERWAYS_HINT_RE.search(text):
+            return "waterways"
+        if _WATER_POLYGON_HINT_RE.search(text):
+            return "polygon"
+        return None
 
     def _find_reusable_artifacts(self, *, job_type: JobType, trigger: RunTrigger, limit: int) -> List[ArtifactRecord]:
         if not self.artifact_registry:
@@ -975,6 +1022,7 @@ class PlanningContextBuilder:
                     "data_source_id": step.data_source_id,
                     "depends_on": step.depends_on,
                     "is_optional": step.is_optional,
+                    "parameters": dict(step.parameters or {}),
                 }
                 for step in pattern.steps
             ],

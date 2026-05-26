@@ -27,7 +27,7 @@ def test_national_source_matrix_locks_track_b_first_batch_sources() -> None:
         "raw.overture.transportation",
     ]
     assert payload["bundle_targets"]["water"]["line_sources"] == [
-        "raw.osm.water",
+        "raw.osm.waterways",
         "raw.hydrorivers.water",
     ]
     assert payload["bundle_targets"]["water"]["polygon_sources"] == [

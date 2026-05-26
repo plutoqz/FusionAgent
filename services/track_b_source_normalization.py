@@ -106,6 +106,20 @@ def _normalize_from_semantics(
         frame["water_ty"] = frame["feature_kind"]
         frame["perennial_flag"] = _coalesce(frame, _semantic_candidates(source_semantics, "perennial_flag"))
         return _filter_geometry(frame, {"LineString", "MultiLineString", "Polygon", "MultiPolygon"})
+    if theme == "waterways":
+        frame["source_feature_id"] = _stringify(
+            _coalesce(frame, _semantic_candidates(source_semantics, "source_feature_id"))
+        )
+        frame["name"] = _coalesce(frame, _semantic_candidates(source_semantics, "name"))
+        frame["name_en"] = _coalesce(frame, _semantic_candidates(source_semantics, "name_en"))
+        frame["name_ur"] = _coalesce(frame, _semantic_candidates(source_semantics, "name_ur"))
+        frame["feature_kind"] = "line"
+        frame["water_class"] = _stringify(
+            _coalesce(frame, _semantic_candidates(source_semantics, "water_class"), default="waterway")
+        )
+        frame["fclass"] = frame["water_class"]
+        frame["water_ty"] = "line"
+        return _filter_geometry(frame, {"LineString", "MultiLineString"})
     if theme == "poi":
         frame["source_feature_id"] = _stringify(
             _coalesce(frame, _semantic_candidates(source_semantics, "source_feature_id"))
@@ -183,6 +197,18 @@ def _normalize_water_osm_polygon(frame: gpd.GeoDataFrame, *, geohash_precision: 
     return _filter_geometry(frame, {"Polygon", "MultiPolygon"})
 
 
+def _normalize_water_osm_line(frame: gpd.GeoDataFrame, *, geohash_precision: int) -> gpd.GeoDataFrame:
+    del geohash_precision
+    frame["source_feature_id"] = _stringify(_coalesce(frame, ["osm_id", "id", "objectid", "fid"]))
+    frame["name"] = _coalesce(frame, ["name", "waterway", "fclass"])
+    frame["fclass"] = _stringify(_coalesce(frame, ["fclass", "waterway"], default="river"))
+    frame["water_ty"] = _stringify(_coalesce(frame, ["water_ty", "waterway"], default="line"))
+    frame["feature_kind"] = pd.Series(["line"] * len(frame), index=frame.index, dtype="object")
+    frame["water_class"] = _stringify(_coalesce(frame, ["waterway", "fclass"], default="river"))
+    frame["perennial_flag"] = _coalesce(frame, ["perennial_flag", "intermittent"])
+    return _filter_geometry(frame, {"LineString", "MultiLineString"})
+
+
 def _normalize_water_local_reference(frame: gpd.GeoDataFrame, *, geohash_precision: int) -> gpd.GeoDataFrame:
     del geohash_precision
     frame["source_feature_id"] = _stringify(_coalesce(frame, ["Hylak_id", "lake_id", "id", "OBJECTID", "fid"]))
@@ -229,6 +255,37 @@ def _normalize_water_overture(frame: gpd.GeoDataFrame, *, geohash_precision: int
     frame["water_class"] = _stringify(_coalesce(frame, ["class", "subtype"], default="water"))
     frame["perennial_flag"] = _coalesce(frame, ["perennial_flag"])
     return _filter_geometry(frame, {"LineString", "MultiLineString", "Polygon", "MultiPolygon"})
+
+
+def _normalize_waterways_osm(frame: gpd.GeoDataFrame, *, geohash_precision: int) -> gpd.GeoDataFrame:
+    del geohash_precision
+    frame["source_feature_id"] = _stringify(_coalesce(frame, ["osm_id", "id", "objectid", "fid"]))
+    frame["name"] = _coalesce(frame, ["name", "waterway", "fclass"])
+    frame["name_en"] = _coalesce(frame, ["name_en", "name"])
+    frame["name_ur"] = _coalesce(frame, ["name_ur", "name"])
+    frame["fclass"] = _stringify(_coalesce(frame, ["waterway", "fclass"], default="river"))
+    frame["water_ty"] = "line"
+    frame["feature_kind"] = pd.Series(["line"] * len(frame), index=frame.index, dtype="object")
+    frame["water_class"] = frame["fclass"]
+    return _filter_geometry(frame, {"LineString", "MultiLineString"})
+
+
+def _normalize_waterways_local_osm_like(frame: gpd.GeoDataFrame, *, geohash_precision: int) -> gpd.GeoDataFrame:
+    return _normalize_waterways_osm(frame, geohash_precision=geohash_precision)
+
+
+def _normalize_waterways_hydrorivers(frame: gpd.GeoDataFrame, *, geohash_precision: int) -> gpd.GeoDataFrame:
+    del geohash_precision
+    frame["source_feature_id"] = _stringify(_coalesce(frame, ["HYRIV_ID", "river_id", "id"]))
+    frame["name"] = _coalesce(frame, ["name", "River_name", "river_name"])
+    frame["name_en"] = _coalesce(frame, ["name_en", "name"])
+    frame["name_ur"] = _coalesce(frame, ["name_ur", "name"])
+    frame["fclass"] = _stringify(_coalesce(frame, ["fclass"], default="river"))
+    frame["water_ty"] = "line"
+    frame["feature_kind"] = pd.Series(["line"] * len(frame), index=frame.index, dtype="object")
+    frame["water_class"] = _stringify(_coalesce(frame, ["ORD_STRA", "fclass"], default="river"))
+    frame["perennial_flag"] = _coalesce(frame, ["DIS_AV_CMS", "perennial_flag"])
+    return _filter_geometry(frame, {"LineString", "MultiLineString"})
 
 
 def _normalize_poi_osm(frame: gpd.GeoDataFrame, *, geohash_precision: int) -> gpd.GeoDataFrame:
@@ -285,10 +342,14 @@ _PROFILE_HANDLERS: dict[str, Callable[[gpd.GeoDataFrame], gpd.GeoDataFrame]] = {
     "fields.road.osm": _normalize_road_osm,
     "fields.road.overture_transportation": _normalize_road_overture,
     "fields.water.osm_polygon": _normalize_water_osm_polygon,
+    "fields.water.osm_line": _normalize_water_osm_line,
     "fields.water.local_reference": _normalize_water_local_reference,
     "fields.water.hydrorivers_line": _normalize_water_hydrorivers,
     "fields.water.hydrolakes_polygon": _normalize_water_hydrolakes,
     "fields.water.overture": _normalize_water_overture,
+    "fields.waterways.osm": _normalize_waterways_osm,
+    "fields.waterways.local_osm_like": _normalize_waterways_local_osm_like,
+    "fields.waterways.hydrorivers": _normalize_waterways_hydrorivers,
     "fields.poi.osm": _normalize_poi_osm,
     "fields.poi.gns": _normalize_poi_gns,
     "fields.poi.rh": _normalize_poi_rh,

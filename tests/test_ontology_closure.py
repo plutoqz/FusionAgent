@@ -104,15 +104,23 @@ def test_seed_ontology_data_type_references_are_closed() -> None:
 def test_water_seed_records_exist() -> None:
     assert "dt.water.bundle" in DATA_TYPES
     assert "dt.water.fused" in DATA_TYPES
+    assert "dt.waterways.bundle" in DATA_TYPES
+    assert "dt.waterways.fused" in DATA_TYPES
     assert "task.water.fusion" in TASKS
-    assert "algo.fusion.water.v1" in ALGORITHMS
+    assert "task.waterways.fusion" in TASKS
+    assert "algo.fusion.water_polygon.priority_merge.v2" in ALGORITHMS
+    assert "algo.fusion.waterways.conflation.v7" in ALGORITHMS
     assert OUTPUT_SCHEMA_POLICIES["dt.water.fused"].policy_id == "osp.water.fused.v1"
+    assert OUTPUT_SCHEMA_POLICIES["dt.waterways.fused"].policy_id == "osp.waterways.fused.v1"
     water_pattern = next(pattern for pattern in WORKFLOW_PATTERNS if pattern.job_type == JobType.water)
     assert water_pattern.metadata["input_strategy"] == "task_driven_auto_supported"
     assert water_pattern.metadata["source_family"] == "catalog_water_bundle"
     water_source = next(source for source in DATA_SOURCES if source.source_id == "catalog.flood.water")
     assert water_source.supported_types == ["dt.water.bundle"]
     assert water_source.metadata["component_source_ids"] == ["raw.osm.water", "raw.hydrolakes.water"]
+    waterways_source = next(source for source in DATA_SOURCES if source.source_id == "catalog.flood.waterways")
+    assert waterways_source.supported_types == ["dt.waterways.bundle"]
+    assert waterways_source.metadata["component_source_ids"] == ["raw.osm.waterways", "raw.local.pakistan.waterways"]
     water_policy_note = OUTPUT_SCHEMA_POLICIES["dt.water.fused"].metadata["notes"]
     assert "uploaded-only" not in water_policy_note
     assert "shared bundle runtime" in water_policy_note
@@ -150,6 +158,7 @@ def test_seed_ontology_closure_exposes_task_bundles_and_constraint_objects() -> 
 
     direct = TASK_BUNDLES["task_bundle.direct_request"]
     assert "task.water.fusion" in direct.requested_tasks
+    assert "task.waterways.fusion" in direct.requested_tasks
     assert direct.qos_policy_id == "qos.task.default.v1"
     assert "repair.alternative_algorithm.v1" in direct.repair_strategy_ids
 

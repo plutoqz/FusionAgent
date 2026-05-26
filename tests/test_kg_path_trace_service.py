@@ -191,23 +191,23 @@ def test_build_kg_path_trace_prefers_pattern_matching_actual_task_step() -> None
             "retrieval": {
                 "candidate_patterns": [
                     {
-                        "pattern_id": "wp.typhoon.road.default",
-                        "pattern_name": "Typhoon Road Fusion",
+                        "pattern_id": "wp.flood.road.default",
+                        "pattern_name": "Flood Road Fusion",
                         "steps": [
                             {
-                                "algorithm_id": "algo.fusion.road.v1",
+                                "algorithm_id": "algo.fusion.road.conflation.v7",
                                 "input_data_type": "dt.road.bundle",
                                 "output_data_type": "dt.road.fused",
-                                "data_source_id": "upload.bundle",
+                                "data_source_id": "catalog.flood.road",
                             }
                         ],
                     },
                     {
-                        "pattern_id": "wp.road.fusioncode.segment_topology.v1",
-                        "pattern_name": "FusionCode Road Segment Topology Fusion",
+                        "pattern_id": "wp.road.fusioncode.conflation.v7",
+                        "pattern_name": "FusionCode V7 Road Conflation",
                         "steps": [
                             {
-                                "algorithm_id": "algo.fusion.road.segment_match_topology.v1",
+                                "algorithm_id": "algo.fusion.road.conflation.v7",
                                 "input_data_type": "dt.road.bundle",
                                 "output_data_type": "dt.road.fused",
                                 "data_source_id": "upload.bundle",
@@ -217,8 +217,7 @@ def test_build_kg_path_trace_prefers_pattern_matching_actual_task_step() -> None
                 ],
                 "data_sources": [{"source_id": "upload.bundle", "source_name": "Uploaded Bundle"}],
                 "algorithms": {
-                    "algo.fusion.road.v1": {"tool_ref": "builtin:road"},
-                    "algo.fusion.road.segment_match_topology.v1": {"tool_ref": "fusion_algorithms:_handle_road_segment_match_topology"},
+                    "algo.fusion.road.conflation.v7": {"tool_ref": "fusion_algorithms:_handle_road_conflation_v7"},
                 },
                 "output_schema_policies": {"dt.road.fused": {"policy_id": "schema.road.fused"}},
             },
@@ -226,9 +225,9 @@ def test_build_kg_path_trace_prefers_pattern_matching_actual_task_step() -> None
         tasks=[
             WorkflowTask(
                 step=1,
-                name="road_segment_match_topology",
+                name="road_conflation_v7",
                 description="fusion",
-                algorithm_id="algo.fusion.road.segment_match_topology.v1",
+                algorithm_id="algo.fusion.road.conflation.v7",
                 input=WorkflowTaskInput(data_type_id="dt.road.bundle", data_source_id="upload.bundle"),
                 output=WorkflowTaskOutput(data_type_id="dt.road.fused"),
             )
@@ -238,4 +237,4 @@ def test_build_kg_path_trace_prefers_pattern_matching_actual_task_step() -> None
 
     trace = build_kg_path_trace(plan)
 
-    assert trace["selected_pattern_id"] == "wp.road.fusioncode.segment_topology.v1"
+    assert trace["selected_pattern_id"] == "wp.road.fusioncode.conflation.v7"

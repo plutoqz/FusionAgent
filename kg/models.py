@@ -167,6 +167,7 @@ class PatternStep:
     data_source_id: str = "upload.bundle"
     depends_on: List[int] = field(default_factory=list)
     is_optional: bool = False
+    parameters: Dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
