@@ -1,12 +1,15 @@
 from __future__ import annotations
 
+from dataclasses import fields
 from typing import TYPE_CHECKING
 
 import geopandas as gpd
 
-from fusion_algorithms.contracts import RoadFusionParams, WaterLineFusionParams, params_from_mapping
-from fusion_algorithms.road_fusion import run_road_segment_match_topology
-from fusion_algorithms.water_fusion import fuse_water_lines
+from fusion_algorithms.road_conflation_v7 import RoadConflationV7Config, run_road_conflation_v7 as _run_road_v7
+from fusion_algorithms.waterways_conflation_v7 import (
+    WaterwaysConflationV7Config,
+    run_waterways_conflation_v7 as _run_waterways_v7,
+)
 
 if TYPE_CHECKING:
     from agent.executor import ExecutionContext
@@ -30,22 +33,28 @@ def _read_pair(context: ExecutionContext) -> tuple[gpd.GeoDataFrame, gpd.GeoData
     return base.to_crs(context.target_crs), target.to_crs(context.target_crs)
 
 
-def run_road_segment_topology(context: ExecutionContext):
+def _config_from_mapping(config_cls, values: dict | None):
+    allowed = {item.name for item in fields(config_cls)}
+    return config_cls(**{key: value for key, value in dict(values or {}).items() if key in allowed})
+
+
+def run_road_conflation_v7(context: ExecutionContext):
     base, target = _read_pair(context)
-    params = params_from_mapping(RoadFusionParams, context.step_parameters)
-    return _write_gdf(run_road_segment_match_topology(base, target, params), context, "road_segment_match_topology")
+    config = _config_from_mapping(RoadConflationV7Config, context.step_parameters)
+    result = _run_road_v7(base, target, config=config)
+    return _write_gdf(result.frame, context, "road_conflation_v7")
+
+
+def run_waterways_conflation_v7(context: ExecutionContext):
+    base, target = _read_pair(context)
+    config = _config_from_mapping(WaterwaysConflationV7Config, context.step_parameters)
+    result = _run_waterways_v7(base, target, config=config)
+    return _write_gdf(result.frame, context, "waterways_conflation_v7")
+
+
+def run_road_segment_topology(context: ExecutionContext):
+    return run_road_conflation_v7(context)
 
 
 def run_water_line_three_source(context: ExecutionContext):
-    sources = {}
-    if context.named_vectors:
-        for name, path in context.named_vectors.items():
-            frame = gpd.read_file(path)
-            if frame.crs is None:
-                frame = frame.set_crs(context.target_crs)
-            sources[name.upper()] = frame.to_crs(context.target_crs)
-    else:
-        base, target = _read_pair(context)
-        sources = {"OSM": base, "MS": target}
-    params = params_from_mapping(WaterLineFusionParams, context.step_parameters)
-    return _write_gdf(fuse_water_lines(sources, params), context, "water_line_three_source")
+    return run_waterways_conflation_v7(context)

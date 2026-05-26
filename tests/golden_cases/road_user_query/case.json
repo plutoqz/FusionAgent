@@ -10,8 +10,7 @@
   "expected_plan_checks": {
     "pattern_hint": "wp.flood.road.default",
     "required_algorithms": [
-      "algo.fusion.road.v1",
-      "algo.fusion.road.safe"
+      "algo.fusion.road.conflation.v7"
     ],
     "required_output_type": "dt.road.fused"
   },

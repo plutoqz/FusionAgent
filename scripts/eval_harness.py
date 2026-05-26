@@ -642,12 +642,11 @@ def _materialize_manifest_case(case: dict[str, Any], root: Path) -> Path:
         ]
     if theme == "road":
         payload["expected_plan_checks"]["required_algorithms"] = [
-            "algo.fusion.road.v1",
-            "algo.fusion.road.safe",
+            "algo.fusion.road.conflation.v7",
         ]
     if theme == "water":
         payload["expected_plan_checks"]["required_algorithms"] = [
-            "algo.fusion.water.v1",
+            "algo.fusion.water_polygon.priority_merge.v2",
         ]
     if clip_bbox is not None:
         payload["trigger"]["spatial_extent"] = _bbox_to_text(clip_bbox)

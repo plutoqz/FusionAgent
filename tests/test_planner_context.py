@@ -282,19 +282,19 @@ def test_planner_context_exposes_water_metadata_and_builds_water_plan() -> None:
     retrieval = provider.last_context["retrieval"]
     pattern_ids = [item["pattern_id"] for item in retrieval["candidate_patterns"]]
     assert "wp.flood.water.default" in pattern_ids
-    assert "wp.water.fusioncode.line_and_polygon.v1" in pattern_ids
+    assert any(pattern_id in pattern_ids for pattern_id in ("wp.flood.waterways.default", "wp.waterways.fusioncode.conflation.v7"))
     default_pattern = next(item for item in retrieval["candidate_patterns"] if item["pattern_id"] == "wp.flood.water.default")
     assert default_pattern["metadata"]["input_strategy"] == "task_driven_auto_supported"
     assert default_pattern["metadata"]["source_family"] == "catalog_water_bundle"
     assert any(item["type_id"] == "dt.water.bundle" for item in retrieval["data_types"])
     assert any(item["type_id"] == "dt.water.fused" for item in retrieval["data_types"])
-    assert "algo.fusion.water.v1" in retrieval["algorithms"]
+    assert "algo.fusion.water_polygon.priority_merge.v2" in retrieval["algorithms"]
     assert "dt.water.fused" in retrieval["output_schema_policies"]
     assert retrieval["transform_paths"]["dt.water.bundle"] == []
     water_source = next(item for item in retrieval["data_sources"] if item["source_id"] == "catalog.flood.water")
     assert water_source["metadata"]["component_source_ids"] == ["raw.osm.water", "raw.hydrolakes.water"]
     assert water_source["metadata"]["provider_family"] == "local_bundle_catalog"
-    assert plan.tasks[0].algorithm_id == "algo.fusion.water.v1"
+    assert plan.tasks[0].algorithm_id == "algo.fusion.water_polygon.priority_merge.v2"
     assert plan.tasks[0].input.data_type_id == "dt.water.bundle"
     assert plan.tasks[0].input.data_source_id == "catalog.flood.water"
     assert plan.tasks[0].output.data_type_id == "dt.water.fused"
@@ -334,7 +334,7 @@ def test_planner_context_exposes_poi_metadata_and_builds_poi_plan() -> None:
 def test_planner_context_preferred_pattern_override_reorders_candidates_and_selected_pattern() -> None:
     provider = CapturingProvider()
     planner = WorkflowPlanner(InMemoryKGRepository(), provider)
-    planner.context_builder.preferred_pattern_id_override = "wp.road.fusioncode.segment_topology.v1"
+    planner.context_builder.preferred_pattern_id_override = "wp.road.fusioncode.conflation.v7"
     trigger = RunTrigger(
         type=RunTriggerType.user_query,
         content="need road data for Gilgit city, Pakistan",
@@ -347,10 +347,10 @@ def test_planner_context_preferred_pattern_override_reorders_candidates_and_sele
 
     assert provider.last_context is not None
     patterns = provider.last_context["retrieval"]["candidate_patterns"]
-    assert patterns[0]["pattern_id"] == "wp.road.fusioncode.segment_topology.v1"
-    assert plan.tasks[0].algorithm_id == "algo.fusion.road.segment_match_topology.v1"
-    assert plan.context["execution_hints"]["preferred_pattern_id"] == "wp.road.fusioncode.segment_topology.v1"
-    assert plan.context["selected_pattern_id"] == "wp.road.fusioncode.segment_topology.v1"
+    assert patterns[0]["pattern_id"] == "wp.road.fusioncode.conflation.v7"
+    assert plan.tasks[0].algorithm_id == "algo.fusion.road.conflation.v7"
+    assert plan.context["execution_hints"]["preferred_pattern_id"] == "wp.road.fusioncode.conflation.v7"
+    assert plan.context["selected_pattern_id"] == "wp.road.fusioncode.conflation.v7"
 
 
 def test_planner_context_exposes_reserved_trajectory_to_road_seams_without_changing_default_runtime_plan() -> None:
@@ -372,9 +372,9 @@ def test_planner_context_exposes_reserved_trajectory_to_road_seams_without_chang
     assert retrieval["algorithms"]["algo.transform.trajectory_to_road_candidate"]["tool_ref"] == (
         "builtin:trajectory_pretransform_reserved"
     )
-    assert plan.tasks[0].algorithm_id == "algo.fusion.road.v1"
+    assert plan.tasks[0].algorithm_id == "algo.fusion.road.conflation.v7"
     assert plan.tasks[0].input.data_type_id == "dt.road.bundle"
-    assert plan.tasks[0].input.data_source_id == "upload.bundle"
+    assert plan.tasks[0].input.data_source_id == "catalog.flood.road"
     assert all(task.algorithm_id != "algo.transform.trajectory_to_road_candidate" for task in plan.tasks)
 
 
@@ -398,10 +398,10 @@ def test_replan_increments_plan_revision() -> None:
                     "step": 1,
                     "name": "road_fusion",
                     "description": "execute road fusion",
-                    "algorithm_id": "algo.fusion.road.v1",
+                    "algorithm_id": "algo.fusion.road.conflation.v7",
                     "input": {
                         "data_type_id": "dt.road.bundle",
-                        "data_source_id": "upload.bundle",
+                        "data_source_id": "catalog.flood.road",
                         "parameters": {},
                     },
                     "output": {"data_type_id": "dt.road.fused", "description": "road output"},
@@ -431,7 +431,7 @@ def test_replan_increments_plan_revision() -> None:
     assert replanned.context["planning_telemetry"]["provider"] == "capturing"
     assert replanned.context["planning_telemetry"]["model"] == "capturing-plan-model"
     assert replanned.context["planning_telemetry"]["llm_usage"]["total_tokens"] == 14
-    assert "algo.fusion.road.safe" in replanned.tasks[0].alternatives
+    assert replanned.tasks[0].alternatives == []
 
 
 def test_planner_fallback_context_records_telemetry_when_llm_call_fails() -> None:
@@ -489,10 +489,10 @@ def test_replan_failure_preserves_previous_planning_telemetry_and_records_failed
                     "step": 1,
                     "name": "road_fusion",
                     "description": "execute road fusion",
-                    "algorithm_id": "algo.fusion.road.v1",
+                    "algorithm_id": "algo.fusion.road.conflation.v7",
                     "input": {
                         "data_type_id": "dt.road.bundle",
-                        "data_source_id": "upload.bundle",
+                        "data_source_id": "catalog.flood.road",
                         "parameters": {},
                     },
                     "output": {"data_type_id": "dt.road.fused", "description": "road output"},

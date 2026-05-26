@@ -66,7 +66,8 @@ Locked source set:
 
 | Source ID | Role | Acquisition | Format | Clip Strategy | Field Mapping | Claim Boundary |
 | --- | --- | --- | --- | --- | --- | --- |
-| `raw.osm.water` | primary | `official_remote_supported` | `geofabrik_shapefile_bundle` | `country_bundle_then_clip` | `fields.water.osm_polygon` | ODbL-derived source; keep line/polygon semantics explicit in claims. |
+| `raw.osm.water` | primary polygon | `official_remote_supported` | `geofabrik_shapefile_bundle` | `country_bundle_then_clip` | `fields.water.osm_polygon` | ODbL-derived polygon water source; keep polygon semantics explicit in claims. |
+| `raw.osm.waterways` | primary line | `official_remote_supported` | `geofabrik_shapefile_bundle` | `country_bundle_then_clip` | `fields.water.osm_line` | ODbL-derived line water source; keep line semantics explicit in claims. |
 | `raw.local.water` | local cache fallback | `manual_preload_required` | `shapefile_bundle` | `local_national_clip_then_aoi_clip` | `fields.water.local_reference` | Local operator cache only; not a remote automation claim. |
 | `raw.hydrorivers.water` | national line reference | `official_remote_supported` | `shapefile_bundle` | `national_line_clip_then_bundle_normalization` | `fields.water.hydrorivers_line` | Promoted B2 line reference; preserve upstream hydro attribution and line-style evidence boundaries. |
 | `raw.hydrolakes.water` | national polygon reference | `official_remote_supported` | `shapefile_bundle` | `national_polygon_clip_then_bundle_normalization` | `fields.water.hydrolakes_polygon` | Promoted B2 polygon reference; preserve upstream hydro attribution and polygon-style evidence boundaries. |
@@ -77,6 +78,25 @@ Local cache paths retained for the current B2 slice:
 - `raw.local.water` -> `Data/water/布隆迪湖泊.shp`
 - `raw.hydrorivers.water` -> `Data/water/BDI.shp`
 - `raw.hydrolakes.water` -> `Data/water/布隆迪湖泊.shp`
+
+### Waterways
+
+Current runtime bundles:
+
+- `catalog.flood.waterways`
+
+Locked source set:
+
+| Source ID | Role | Acquisition | Format | Clip Strategy | Field Mapping | Claim Boundary |
+| --- | --- | --- | --- | --- | --- | --- |
+| `raw.osm.waterways` | primary line | `official_remote_supported` | `geofabrik_shapefile_bundle` | `country_bundle_then_clip` | `fields.waterways.osm` | ODbL-derived waterways line source; keep line semantics explicit in claims. |
+| `raw.local.pakistan.waterways` | manual supplement line | `manual_preload_required` | `shapefile_bundle` | `local_national_clip_then_aoi_clip` | `fields.waterways.local_osm_like` | Pakistan local waterways preload only; do not relabel it as HydroRIVERS or remote automation support. |
+| `raw.hydrorivers.water` | optional remote line reference | `official_remote_supported` | `shapefile_bundle` | `national_line_clip_then_bundle_normalization` | `fields.waterways.hydrorivers` | Remote hydro line reference stays semantically separate from the local Pakistan waterways supplement. |
+
+Local cache paths retained for the current V7 waterways slice:
+
+- `raw.local.pakistan.waterways` -> `Data/water/Pakistan_Waterways_Data.shp`
+- `raw.hydrorivers.water` -> `Data/water/BDI.shp`
 
 ### POI
 

@@ -44,12 +44,17 @@ def test_bootstrap_cypher_contains_water_vertical_slice() -> None:
 
     assert "dt.water.bundle" in cypher
     assert "dt.water.fused" in cypher
+    assert "dt.waterways.bundle" in cypher
+    assert "dt.waterways.fused" in cypher
     assert "task.water.fusion" in cypher
-    assert "algo.fusion.water.v1" in cypher
+    assert "task.waterways.fusion" in cypher
+    assert "algo.fusion.water_polygon.priority_merge.v2" in cypher
+    assert "algo.fusion.waterways.conflation.v7" in cypher
     assert "current uploaded-only runtime columns" not in cypher
     assert "shared bundle runtime columns" in cypher
     assert "wp.flood.water.default" in cypher
     assert "osp.water.fused.v1" in cypher
+    assert "osp.waterways.fused.v1" in cypher
 
 
 def test_build_bootstrap_cypher_uses_custom_graph_namespace() -> None:
@@ -190,18 +195,18 @@ def test_expected_seed_inventory_matches_static_bootstrap_contract() -> None:
 
     assert inventory == {
         "DataType": 27,
-        "Task": 10,
+        "Task": 11,
         "TaskBundle": 4,
         "Algorithm": 33,
-        "AlgorithmParameterSpec": 44,
-        "DataSource": 26,
+        "AlgorithmParameterSpec": 72,
+        "DataSource": 30,
         "ScenarioProfile": 4,
         "QoSPolicy": 4,
-        "OutputSchemaPolicy": 4,
-        "OutputRequirement": 4,
-        "DataNeed": 10,
+        "OutputSchemaPolicy": 5,
+        "OutputRequirement": 5,
+        "DataNeed": 12,
         "RepairStrategy": 2,
-        "WorkflowPattern": 14,
+        "WorkflowPattern": 15,
     }
 
 
@@ -236,7 +241,7 @@ def test_ensure_bootstrap_data_applies_seed_when_non_pattern_seed_labels_are_mis
                 assert params["graph_namespace"] == "fusionagent"
                 return FakeResult(
                     rows=[
-                        {"label": "WorkflowPattern", "count": 14},
+                        {"label": "WorkflowPattern", "count": 15},
                         {"label": "Task", "count": 0},
                         {"label": "ScenarioProfile", "count": 0},
                         {"label": "OutputSchemaPolicy", "count": 0},

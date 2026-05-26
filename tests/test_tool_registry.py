@@ -30,9 +30,17 @@ def test_build_default_tool_registry_exposes_expected_fusion_specs() -> None:
     expected_specs = {
         "algo.fusion.building.v1": (("dt.building.bundle",), "dt.building.fused", "_handle_building"),
         "algo.fusion.building.safe": (("dt.building.bundle",), "dt.building.fused", "_handle_building_safe"),
-        "algo.fusion.road.v1": (("dt.road.bundle",), "dt.road.fused", "_handle_road"),
-        "algo.fusion.road.safe": (("dt.road.bundle",), "dt.road.fused", "_handle_road"),
-        "algo.fusion.water.v1": (("dt.water.bundle",), "dt.water.fused", "_handle_water"),
+        "algo.fusion.road.conflation.v7": (("dt.road.bundle",), "dt.road.fused", "_handle_road_conflation_v7"),
+        "algo.fusion.water_polygon.priority_merge.v2": (
+            ("dt.water.bundle",),
+            "dt.water.fused",
+            "_handle_water_polygon_priority_merge",
+        ),
+        "algo.fusion.waterways.conflation.v7": (
+            ("dt.waterways.bundle",),
+            "dt.waterways.fused",
+            "_handle_waterways_conflation_v7",
+        ),
         "algo.fusion.poi.v1": (("dt.poi.bundle",), "dt.poi.fused", "_handle_poi"),
     }
 

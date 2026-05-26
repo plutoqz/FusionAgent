@@ -29,8 +29,9 @@ def test_tool_registry_exposes_fusioncode_handlers() -> None:
     expected = {
         "algo.fusion.building.multi_source.decomposed.v1": "_handle_building_multi_source_decomposed",
         "algo.enrich.building.height_from_raster.v1": "_handle_building_height_from_raster",
-        "algo.fusion.road.segment_match_topology.v1": "_handle_road_segment_match_topology",
-        "algo.fusion.water.polygon_priority_merge.v1": "_handle_water_polygon_priority_merge",
+        "algo.fusion.road.conflation.v7": "_handle_road_conflation_v7",
+        "algo.fusion.waterways.conflation.v7": "_handle_waterways_conflation_v7",
+        "algo.fusion.water_polygon.priority_merge.v2": "_handle_water_polygon_priority_merge",
         "algo.fusion.poi.geohash_neighbor_match.v1": "_handle_poi_geohash_neighbor_match",
     }
     for algorithm_id, handler_name in expected.items():

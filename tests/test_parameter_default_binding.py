@@ -34,9 +34,9 @@ def test_bind_plan_parameters_injects_kg_defaults_and_preserves_explicit_overrid
                 },
                 {
                     "step": 2,
-                    "name": "road_fusion_safe",
+                    "name": "road_fusion_v7",
                     "description": "execute road fusion",
-                    "algorithm_id": "algo.fusion.road.safe",
+                    "algorithm_id": "algo.fusion.road.conflation.v7",
                     "input": {
                         "data_type_id": "dt.road.bundle",
                         "data_source_id": "upload.bundle",
@@ -60,8 +60,8 @@ def test_bind_plan_parameters_injects_kg_defaults_and_preserves_explicit_overrid
 
     assert building_params["match_similarity_threshold"] == 0.55
     assert building_params["one_to_one_min_overlap_similarity"] == 0.3
-    assert road_params["max_hausdorff_m"] == 10.0
-    assert road_params["dedupe_buffer_m"] == 12.0
+    assert road_params["max_hausdorff"] == 15.0
+    assert road_params["duplicate_buffer_dist"] == 10.0
 
 
 class _PlannerProvider(LLMProvider):

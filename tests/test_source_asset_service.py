@@ -48,7 +48,15 @@ def _write_geofabrik_zip(zip_path: Path) -> None:
             archive.write(file, arcname=file.name)
 
 
-def _write_geofabrik_zip_with_layers(zip_path: Path, *, roads=None, buildings=None, waters=None, pois=None) -> None:
+def _write_geofabrik_zip_with_layers(
+    zip_path: Path,
+    *,
+    roads=None,
+    buildings=None,
+    waters=None,
+    waterways=None,
+    pois=None,
+) -> None:
     root = zip_path.parent / "geofabrik_src_custom"
     root.mkdir(parents=True, exist_ok=True)
     layers = {
@@ -67,6 +75,13 @@ def _write_geofabrik_zip_with_layers(zip_path: Path, *, roads=None, buildings=No
         else geopandas.GeoDataFrame(
             {"water_id": [1]},
             geometry=[Polygon([(0, 0), (0, 2), (2, 2), (2, 0)])],
+            crs="EPSG:4326",
+        ),
+        "gis_osm_waterways_free_1.shp": waterways
+        if waterways is not None
+        else geopandas.GeoDataFrame(
+            {"waterway_id": [1]},
+            geometry=[LineString([(0, 0), (1, 1)])],
             crs="EPSG:4326",
         ),
         "gis_osm_pois_free_1.shp": pois
@@ -443,6 +458,56 @@ def test_source_asset_service_water_empty_local_clip_falls_back_to_geofabrik_ass
     assert resolved.bbox == pytest.approx((10.0, 10.0, 11.0, 11.0))
     assert len(frame) == 1
     assert download_calls == [archive_path.resolve().as_uri()]
+
+
+def test_source_asset_service_materializes_osm_waterways_from_geofabrik_bundle(tmp_path: Path) -> None:
+    archive_path = tmp_path / "fixtures" / "kenya-latest-free.shp.zip"
+    waterways = geopandas.GeoDataFrame(
+        {"waterway_id": [1, 2]},
+        geometry=[
+            LineString([(36.80, -1.35), (36.90, -1.25)]),
+            LineString([(39.60, -4.10), (39.70, -4.00)]),
+        ],
+        crs="EPSG:4326",
+    )
+    _write_geofabrik_zip_with_layers(archive_path, waterways=waterways)
+    index_path = tmp_path / "fixtures" / "geofabrik-index.json"
+    index_path.write_text(
+        json.dumps(
+            {
+                "type": "FeatureCollection",
+                "features": [
+                    {
+                        "type": "Feature",
+                        "properties": {
+                            "id": "africa/kenya",
+                            "parent": "africa",
+                            "name": "Kenya",
+                            "iso3166-1:alpha2": ["KE"],
+                            "urls": {"shp": archive_path.resolve().as_uri()},
+                        },
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    service = SourceAssetService(
+        repo_root=tmp_path,
+        cache_dir=tmp_path / "cache",
+        geofabrik_index_url=index_path.resolve().as_uri(),
+        prefer_local_data=False,
+    )
+
+    resolved = service.resolve_raw_source_path("raw.osm.waterways", aoi=_resolved_nairobi_aoi())
+    frame = geopandas.read_file(resolved.path)
+
+    assert resolved.source_mode == "asset_downloaded"
+    assert resolved.feature_count == 1
+    assert len(frame) == 1
+    assert set(frame.geom_type) == {"LineString"}
+    assert frame.iloc[0]["waterway_i"] == 1
 
 
 def test_source_asset_service_skips_incomplete_local_shapefile_and_uses_remote_asset(

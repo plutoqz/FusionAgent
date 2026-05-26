@@ -52,22 +52,22 @@ def build_default_tool_registry() -> ToolRegistry:
                 handler_name="_handle_building_safe",
             ),
             ToolSpec(
-                algorithm_id="algo.fusion.road.v1",
+                algorithm_id="algo.fusion.road.conflation.v7",
                 input_types=("dt.road.bundle",),
                 output_type="dt.road.fused",
-                handler_name="_handle_road",
+                handler_name="_handle_road_conflation_v7",
             ),
             ToolSpec(
-                algorithm_id="algo.fusion.road.safe",
-                input_types=("dt.road.bundle",),
-                output_type="dt.road.fused",
-                handler_name="_handle_road",
-            ),
-            ToolSpec(
-                algorithm_id="algo.fusion.water.v1",
+                algorithm_id="algo.fusion.water_polygon.priority_merge.v2",
                 input_types=("dt.water.bundle",),
                 output_type="dt.water.fused",
-                handler_name="_handle_water",
+                handler_name="_handle_water_polygon_priority_merge",
+            ),
+            ToolSpec(
+                algorithm_id="algo.fusion.waterways.conflation.v7",
+                input_types=("dt.waterways.bundle",),
+                output_type="dt.waterways.fused",
+                handler_name="_handle_waterways_conflation_v7",
             ),
             ToolSpec(
                 algorithm_id="algo.fusion.poi.v1",
@@ -166,24 +166,6 @@ def build_default_tool_registry() -> ToolRegistry:
                 output_type="dt.building.fused",
                 handler_name="_handle_building_multi_source_decomposed",
                 timeout_seconds=1800,
-            ),
-            ToolSpec(
-                algorithm_id="algo.fusion.road.segment_match_topology.v1",
-                input_types=("dt.road.bundle",),
-                output_type="dt.road.fused",
-                handler_name="_handle_road_segment_match_topology",
-            ),
-            ToolSpec(
-                algorithm_id="algo.fusion.water.line_three_source_priority.v1",
-                input_types=("dt.water.line_bundle",),
-                output_type="dt.water.line_fused",
-                handler_name="_handle_water_line_three_source",
-            ),
-            ToolSpec(
-                algorithm_id="algo.fusion.water.polygon_priority_merge.v1",
-                input_types=("dt.water.bundle",),
-                output_type="dt.water.fused",
-                handler_name="_handle_water_polygon_priority_merge",
             ),
             ToolSpec(
                 algorithm_id="algo.fusion.poi.geohash_neighbor_match.v1",

@@ -221,7 +221,7 @@ def _build_task_driven_water_plan() -> WorkflowPlan:
                 step=1,
                 name="water_fusion",
                 description="water fusion",
-                algorithm_id="algo.fusion.water.v1",
+                algorithm_id="algo.fusion.water_polygon.priority_merge.v2",
                 input=WorkflowTaskInput(
                     data_type_id="dt.water.bundle",
                     data_source_id="catalog.flood.water",
@@ -267,12 +267,12 @@ def test_create_run_accepts_preferred_pattern_id_for_task_driven_requests(tmp_pa
             "input_strategy": "task_driven_auto",
             "field_mapping": "{}",
             "debug": "false",
-            "preferred_pattern_id": "wp.road.fusioncode.segment_topology.v1",
+            "preferred_pattern_id": "wp.road.fusioncode.conflation.v7",
         },
     )
 
     assert response.status_code == 200
-    assert captured["preferred_pattern_id"] == "wp.road.fusioncode.segment_topology.v1"
+    assert captured["preferred_pattern_id"] == "wp.road.fusioncode.conflation.v7"
 
 
 def _build_task_driven_poi_plan() -> WorkflowPlan:
@@ -469,7 +469,7 @@ def test_v2_run_water_uploaded_integration(tmp_path: Path, client: TestClient) -
     assert plan_resp.status_code == 200
     plan = plan_resp.json()["plan"]
     assert plan["tasks"]
-    assert plan["tasks"][0]["algorithm_id"] == "algo.fusion.water.v1"
+    assert plan["tasks"][0]["algorithm_id"] == "algo.fusion.water_polygon.priority_merge.v2"
     assert plan["tasks"][0]["input"]["data_type_id"] == "dt.water.bundle"
     assert plan["tasks"][0]["output"]["data_type_id"] == "dt.water.fused"
 

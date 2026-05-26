@@ -11,9 +11,9 @@ Use the same vocabulary as the capability inventory:
 
 | Capability | status | claim_state | Note |
 | --- | --- | --- | --- |
-| `algo.fusion.road.segment_match_topology.v1` | `core` | `runtime_supported` | aligned with the current road runtime slice |
-| `algo.fusion.water.line_three_source_priority.v1` | `core` | `runtime_supported` | aligned with the current water runtime family |
-| `algo.fusion.water.polygon_priority_merge.v1` | `core` | `runtime_supported` | aligned with the current water polygon slice |
+| `algo.fusion.road.conflation.v7` | `core` | `runtime_supported` | active road runtime slice backed by the V7 conflation pipeline |
+| `algo.fusion.waterways.conflation.v7` | `core` | `runtime_supported` | active waterways line runtime slice with explicit line semantics |
+| `algo.fusion.water_polygon.priority_merge.v2` | `core` | `runtime_supported` | active water polygon runtime slice |
 | `algo.fusion.poi.geohash_neighbor_match.v1` | `core` | `bounded_supported` | bounded POI slice only |
 | `wp.building.drs4br.decomposed.v1` | `optional` | `research_utility` | executable through the tiled validation utility, not the shared runtime contract |
 | `algo.fusion.building.multi_source.decomposed.v1` | `optional` | `research_utility` | executable in the scale-validation utility, not the shared runtime contract |
@@ -48,9 +48,9 @@ Compatibility composite: `algo.fusion.building.multi_source.decomposed.v1`.
 
 ## Other Themes
 
-- Road: `algo.fusion.road.segment_match_topology.v1`
-- Water line: `algo.fusion.water.line_three_source_priority.v1`
-- Water polygon: `algo.fusion.water.polygon_priority_merge.v1`
+- Road: `algo.fusion.road.conflation.v7`
+- Waterways line: `algo.fusion.waterways.conflation.v7`
+- Water polygon: `algo.fusion.water_polygon.priority_merge.v2`
 - POI: `algo.fusion.poi.geohash_neighbor_match.v1`
 - Conflicts: `algo.detect.spatial_conflicts.v1`
 
@@ -62,7 +62,7 @@ KG parameter specs cover the main FusionCode controls:
 - Presence raster: `prob_threshold`, `search_dist_m`, confirmed and uncertain score thresholds
 - Height raster: `n_jobs`, `height_output_field`, `positive_only`
 - Conflict optimization: `global_max_shift`, `overlap_delete_threshold`, `road_buffer_width`, `w_road_expulsion`, `max_outer_iterations`
-- Road line fusion: `angle_threshold_deg`, `buffer_dist_m`, `max_hausdorff_m`
+- Road and waterways V7 line conflation: `target_crs`, `angle_threshold`, `max_segment_length`, `match_buffer_dist`, `max_hausdorff`, `cleanup_mode`
 - Water polygon fusion: `overlap_threshold`
 - POI fusion: `neighbor_rings`, `name_similarity_threshold`
 

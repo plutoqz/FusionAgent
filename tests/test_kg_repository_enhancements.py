@@ -41,7 +41,7 @@ def test_inmemory_repository_returns_water_pattern_and_task_driven_bundle_source
 
     pattern_ids = [pattern.pattern_id for pattern in patterns]
     assert "wp.flood.water.default" in pattern_ids
-    assert "wp.water.fusioncode.line_and_polygon.v1" in pattern_ids
+    assert "wp.waterways.fusioncode.conflation.v7" in pattern_ids
     default_pattern = next(pattern for pattern in patterns if pattern.pattern_id == "wp.flood.water.default")
     assert default_pattern.metadata["input_strategy"] == "task_driven_auto_supported"
     assert default_pattern.metadata["source_family"] == "catalog_water_bundle"
@@ -114,7 +114,7 @@ def test_repository_exposes_multiple_disaster_specific_pattern_candidates() -> N
     assert any(pattern.pattern_id == "wp.earthquake.building.default" for pattern in building_patterns)
     assert any(pattern.pattern_id == "wp.earthquake.building.safe" for pattern in building_patterns)
     assert any(pattern.pattern_id == "wp.typhoon.road.default" for pattern in road_patterns)
-    assert any(pattern.pattern_id == "wp.typhoon.road.safe" for pattern in road_patterns)
+    assert any(pattern.pattern_id == "wp.road.fusioncode.conflation.v7" for pattern in road_patterns)
 
 
 def test_repository_exposes_richer_data_source_signals_for_current_themes() -> None:
@@ -179,7 +179,7 @@ def test_repository_exposes_bundle_and_raw_sources_for_catalog_expansion() -> No
         job_type=JobType.building,
         disaster_type="generic",
         required_type="dt.raw.vector",
-        limit=16,
+        limit=32,
     )
     road_bundle_sources = repo.get_candidate_data_sources(
         job_type=JobType.road,
@@ -310,7 +310,7 @@ def test_inmemory_repository_persists_and_filters_durable_learning_records() -> 
             success=False,
             disaster_type="flood",
             pattern_id="wp.flood.road.default",
-            algorithm_id="algo.fusion.road.v1",
+            algorithm_id="algo.fusion.road.conflation.v7",
             selected_data_source="catalog.typhoon.road",
             output_data_type="dt.road.fused",
             target_crs="EPSG:32643",

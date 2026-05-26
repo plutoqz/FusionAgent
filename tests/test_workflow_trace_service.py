@@ -31,7 +31,7 @@ def test_build_workflow_trace_includes_step_lifecycle_events() -> None:
                 details={
                     "status": "started",
                     "step": 1,
-                    "algorithm_id": "algo.fusion.road.v1",
+                    "algorithm_id": "algo.fusion.road.conflation.v7",
                     "data_source_id": "catalog.flood.road",
                 },
             ),
@@ -44,9 +44,9 @@ def test_build_workflow_trace_includes_step_lifecycle_events() -> None:
                 details={
                     "status": "succeeded",
                     "step": 1,
-                    "algorithm_id": "algo.fusion.road.v1",
+                    "algorithm_id": "algo.fusion.road.conflation.v7",
                     "data_source_id": "catalog.flood.road",
-                    "effective_algorithm_id": "algo.fusion.road.safe",
+                    "effective_algorithm_id": "algo.fusion.road.conflation.v7",
                 },
             ),
             RunEvent(
@@ -58,7 +58,7 @@ def test_build_workflow_trace_includes_step_lifecycle_events() -> None:
                 details={
                     "status": "failed",
                     "step": 2,
-                    "algorithm_id": "algo.fusion.water.v1",
+                    "algorithm_id": "algo.fusion.water_polygon.priority_merge.v2",
                     "data_source_id": "catalog.flood.water",
                     "error": "RuntimeError: primary failed",
                 },
@@ -73,10 +73,10 @@ def test_build_workflow_trace_includes_step_lifecycle_events() -> None:
     ]
     assert trace["steps"][0]["input"] == {
         "step": 1,
-        "algorithm_id": "algo.fusion.road.v1",
+        "algorithm_id": "algo.fusion.road.conflation.v7",
         "data_source_id": "catalog.flood.road",
     }
-    assert trace["steps"][1]["output"] == {"effective_algorithm_id": "algo.fusion.road.safe"}
+    assert trace["steps"][1]["output"] == {"effective_algorithm_id": "algo.fusion.road.conflation.v7"}
     assert trace["steps"][2]["output"] == {"error": "RuntimeError: primary failed"}
 
 

@@ -617,7 +617,7 @@ def test_materialize_manifest_case_supports_water_theme(tmp_path: Path) -> None:
 
     assert payload["case_id"] == "water_case"
     assert payload["job_type"] == "water"
-    assert payload["expected_plan_checks"]["required_algorithms"] == ["algo.fusion.water.v1"]
+    assert payload["expected_plan_checks"]["required_algorithms"] == ["algo.fusion.water_polygon.priority_merge.v2"]
     assert payload["expected_plan_checks"]["required_output_type"] == "dt.water.fused"
     assert (case_dir / "input" / "osm.zip").exists()
     assert (case_dir / "input" / "ref.zip").exists()
