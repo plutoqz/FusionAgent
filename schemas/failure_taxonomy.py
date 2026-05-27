@@ -69,29 +69,8 @@ def classify_failure_details(
     if not root_cause:
         root_cause = "UNKNOWN_REASON"
     category = classify_failure_category(reason_code or error)
-    default_recoverable = category in {
-        "SOURCE_DOWNLOAD_FAILED",
-        "SOURCE_MISSING",
-        "SOURCE_CORRUPTED",
-        "CRS_MISMATCH",
-        "ALGO_TIMEOUT",
-    }
-    resolved_recoverable = default_recoverable if recoverable is None else bool(recoverable)
-    default_action_by_category = {
-        "SOURCE_DOWNLOAD_FAILED": "retry_source_download",
-        "SOURCE_MISSING": "refresh_source_and_retry",
-        "SOURCE_CORRUPTED": "replace_source_and_retry",
-        "CRS_MISMATCH": "rerun_from_validation",
-        "ALGO_TIMEOUT": "retry_execution",
-        "PARAM_OUT_OF_RANGE": "inspect_and_retry",
-        "ALGO_RUNTIME_ERROR": "inspect_and_retry",
-        "SUSPECT_OUTPUT": "inspect_and_retry",
-    }
-    resolved_action = str(
-        suggested_action
-        or default_action_by_category.get(category)
-        or ("replan" if resolved_recoverable else "inspect_and_retry")
-    ).strip()
+    resolved_recoverable = True if recoverable is None else bool(recoverable)
+    resolved_action = str(suggested_action or ("replan" if resolved_recoverable else "inspect_and_retry")).strip()
     if not resolved_action:
         resolved_action = "replan" if resolved_recoverable else "inspect_and_retry"
     return FailureDetails(
