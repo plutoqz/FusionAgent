@@ -164,5 +164,7 @@ def run_road_fusion(
     gdf = gpd.read_file(dedup_path)
     if gdf.crs is None:
         gdf = gdf.set_crs(target_crs)
+    elif str(gdf.crs) != str(target_crs):
+        gdf = gdf.to_crs(target_crs)
     gdf.to_file(final_output)
     return final_output

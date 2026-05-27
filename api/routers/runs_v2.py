@@ -34,6 +34,7 @@ from schemas.operator import (
     OperatorRuntimeSummaryResponse,
 )
 from schemas.ui_assets import ArtifactPreviewResponse
+from schemas.ui_assets import RunDocumentListResponse, RunMarkdownDocumentResponse
 from services.agent_run_service import agent_run_service, derive_run_inspection_digest
 from services.artifact_preview_service import build_artifact_preview
 from services.kg_graph_service import build_run_path_graph
@@ -41,6 +42,7 @@ from services.kg_path_trace_service import build_kg_path_trace
 from services.operator_read_model_service import OperatorReadModelService
 from services.run_recovery_service import build_recovery_hint
 from services.run_recovery_executor import RunRecoveryExecutor
+from services.run_document_service import RunDocumentService
 from services.run_registry_service import RunRegistryService
 from services.run_telemetry_service import build_run_telemetry_summary
 from services.scenario_output import resolve_scenario_output_root
@@ -439,6 +441,25 @@ async def get_run_preview_geojson(run_id: str) -> FileResponse:
     if geojson_path is None:
         raise HTTPException(status_code=404, detail="Preview GeoJSON not found")
     return FileResponse(path=str(geojson_path), filename=geojson_path.name, media_type="application/geo+json")
+
+
+@router.get("/runs/{run_id}/documents", response_model=RunDocumentListResponse)
+async def list_run_documents(run_id: str) -> RunDocumentListResponse:
+    service = RunDocumentService(runs_root=Path(getattr(agent_run_service, "base_dir", Path("runs"))))
+    try:
+        documents = service.list_documents(run_id)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
+    return RunDocumentListResponse(run_id=run_id, documents=documents)
+
+
+@router.get("/runs/{run_id}/documents/{filename:path}", response_model=RunMarkdownDocumentResponse)
+async def get_run_document(run_id: str, filename: str) -> RunMarkdownDocumentResponse:
+    service = RunDocumentService(runs_root=Path(getattr(agent_run_service, "base_dir", Path("runs"))))
+    try:
+        return service.read_document(run_id, filename)
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=str(exc)) from exc
 
 
 @router.get("/runtime", response_model=RuntimeMetadataResponse)

@@ -26,6 +26,7 @@ tmp_paper.txt
 frontend/node_modules/
 frontend/dist/
 frontend/.vite/
+.playwright-mcp/
 
 jobs/*/
 !jobs/.gitkeep

@@ -273,6 +273,7 @@ class RunStatus(BaseModel):
     checkpoint: Dict[str, Any] = Field(default_factory=dict)
     source_semantic_contract_path: Optional[str] = None
     source_semantic_summary: Dict[str, Any] = Field(default_factory=dict)
+    document_paths: Dict[str, str] = Field(default_factory=dict)
     created_at: str
     updated_at: Optional[str] = None
     started_at: Optional[str] = None

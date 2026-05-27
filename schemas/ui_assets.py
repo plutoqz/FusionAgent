@@ -36,3 +36,24 @@ class MarkdownDocumentResponse(BaseModel):
     content: str
     size_bytes: int
     language: Optional[str] = None
+
+
+class RunDocumentEntry(BaseModel):
+    filename: str
+    path: str
+    size_bytes: int
+    language: Optional[str] = None
+
+
+class RunDocumentListResponse(BaseModel):
+    run_id: str
+    documents: list[RunDocumentEntry] = Field(default_factory=list)
+
+
+class RunMarkdownDocumentResponse(BaseModel):
+    run_id: str
+    filename: str
+    path: str
+    content: str
+    size_bytes: int
+    language: Optional[str] = None

@@ -1,0 +1,24 @@
+# {{ summary.run_id }} 运行报告
+
+## 运行概述
+
+- 任务类型：{{ summary.job_type }}
+- 阶段：{{ summary.phase }}
+- 目标 CRS：{{ summary.target_crs }}
+
+## 过程评价
+
+{{ summary.evaluation.process }}
+
+## 结果评价
+
+{{ summary.evaluation.result }}
+
+## 数据源覆盖与退化
+
+{{ summary.source_coverage }}
+{{ summary.fallback_summary }}
+
+## 自进化证据
+
+{{ summary.evaluation.self_evolution }}

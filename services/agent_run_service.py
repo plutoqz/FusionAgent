@@ -50,6 +50,7 @@ from services.plan_grounding_service import ensure_plan_grounding_report
 from services.raw_vector_source_service import RawVectorSourceService
 from services.runtime_settings_service import RuntimeSettingsService
 from services.run_recovery_service import collect_recoverable_runs
+from services.run_report_service import build_run_report_summary, render_run_reports
 from services.source_semantic_contract_service import SourceSemanticContractService
 from services.tile_partition_service import TilePartitionService
 from services.tiled_building_runtime_service import TiledBuildingRuntimeService
@@ -487,12 +488,19 @@ class AgentRunService:
                         "parent_artifact_id": reuse_result.source_record.artifact_id,
                     },
                 )
+                document_paths = self._generate_run_reports(
+                    run_id=run_id,
+                    status_artifact=artifact,
+                    plan=plan,
+                    artifact_path=Path(artifact.path),
+                )
                 self._update_status(
                     run_id,
                     RunPhase.succeeded,
                     progress=100,
                     finished_at=_utc_now(),
                     artifact=artifact,
+                    document_paths=document_paths,
                     repair_records=repair_records,
                     current_step=0,
                     attempt_no=self._max_attempt_no(repair_records),
@@ -770,6 +778,12 @@ class AgentRunService:
                 repair_records=repair_records,
                 output_dir=output_dir,
             )
+            document_paths = self._generate_run_reports(
+                run_id=run_id,
+                status_artifact=artifact,
+                plan=plan,
+                artifact_path=Path(artifact.path),
+            )
 
             self._update_status(
                 run_id,
@@ -777,6 +791,7 @@ class AgentRunService:
                 progress=100,
                 finished_at=_utc_now(),
                 artifact=artifact,
+                document_paths=document_paths,
                 repair_records=repair_records,
                 current_step=self._count_executable_steps(plan),
                 attempt_no=self._max_attempt_no(repair_records),
@@ -1709,6 +1724,49 @@ class AgentRunService:
         except Exception as exc:  # noqa: BLE001
             logging.getLogger("geofusion.run").warning("Failed to register artifact for reuse: %s", exc)
 
+    def _generate_run_reports(
+        self,
+        *,
+        run_id: str,
+        status_artifact: RunArtifactMeta,
+        plan: WorkflowPlan,
+        artifact_path: Path,
+    ) -> Dict[str, str]:
+        current = self.get_run(run_id)
+        if current is None:
+            return {}
+        status_for_report = current.model_copy(
+            update={
+                "phase": RunPhase.succeeded,
+                "progress": 100,
+                "artifact": status_artifact,
+            }
+        )
+        audit_events = self.get_audit_events(run_id)
+        source_semantic_contract = self._load_source_semantic_contract_for_report(status_for_report)
+        summary = build_run_report_summary(
+            status=status_for_report,
+            plan=plan,
+            audit_events=audit_events,
+            artifact_path=artifact_path,
+            source_semantic_contract=source_semantic_contract,
+        )
+        return render_run_reports(
+            summary=summary,
+            documents_dir=self.base_dir / run_id / "documents",
+        )
+
+    @staticmethod
+    def _load_source_semantic_contract_for_report(status: RunStatus) -> Dict[str, Any]:
+        path_text = str(status.source_semantic_contract_path or "").strip()
+        if not path_text:
+            return {}
+        try:
+            payload = json.loads(Path(path_text).read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+            return {}
+        return payload if isinstance(payload, dict) else {}
+
     @staticmethod
     def _parse_bbox(value: str | None):
         if not value:
@@ -2264,6 +2322,7 @@ class AgentRunService:
         planning_telemetry: Optional[Dict[str, object]] = None,
         plan_revision: Optional[int] = None,
         checkpoint: Optional[Dict[str, object]] = None,
+        document_paths: Optional[Dict[str, str]] = None,
         event_kind: Optional[str] = None,
         event_message: Optional[str] = None,
         event_details: Optional[Dict[str, object]] = None,
@@ -2314,6 +2373,8 @@ class AgentRunService:
                 current.plan_revision = plan_revision
             if checkpoint is not None:
                 current.checkpoint = dict(checkpoint)
+            if document_paths is not None:
+                current.document_paths = dict(document_paths)
             current.updated_at = status_updated_at
             if event_kind or phase != previous_phase:
                 event = RunEvent(
