@@ -6,6 +6,7 @@ from pydantic import BaseModel
 
 
 FAILURE_CATEGORIES = [
+    "SOURCE_DOWNLOAD_FAILED",
     "SOURCE_MISSING",
     "SOURCE_CORRUPTED",
     "CRS_MISMATCH",
@@ -27,6 +28,16 @@ def classify_failure_category(raw: str | None) -> str:
     text = str(raw or "").strip().lower()
     if not text:
         return "ALGO_RUNTIME_ERROR"
+    if (
+        "source_download_failed" in text
+        or "download failed" in text
+        or "download error" in text
+        or "failed to download" in text
+        or "http error" in text
+        or "fetch failed" in text
+        or "fault=source_download_failed" in text
+    ):
+        return "SOURCE_DOWNLOAD_FAILED"
     if "source_missing" in text or "missing source" in text or "source missing" in text or "fault=source_missing" in text:
         return "SOURCE_MISSING"
     if (
@@ -58,8 +69,29 @@ def classify_failure_details(
     if not root_cause:
         root_cause = "UNKNOWN_REASON"
     category = classify_failure_category(reason_code or error)
-    resolved_recoverable = True if recoverable is None else bool(recoverable)
-    resolved_action = str(suggested_action or ("replan" if resolved_recoverable else "inspect_and_retry")).strip()
+    default_recoverable = category in {
+        "SOURCE_DOWNLOAD_FAILED",
+        "SOURCE_MISSING",
+        "SOURCE_CORRUPTED",
+        "CRS_MISMATCH",
+        "ALGO_TIMEOUT",
+    }
+    resolved_recoverable = default_recoverable if recoverable is None else bool(recoverable)
+    default_action_by_category = {
+        "SOURCE_DOWNLOAD_FAILED": "retry_source_download",
+        "SOURCE_MISSING": "refresh_source_and_retry",
+        "SOURCE_CORRUPTED": "replace_source_and_retry",
+        "CRS_MISMATCH": "rerun_from_validation",
+        "ALGO_TIMEOUT": "retry_execution",
+        "PARAM_OUT_OF_RANGE": "inspect_and_retry",
+        "ALGO_RUNTIME_ERROR": "inspect_and_retry",
+        "SUSPECT_OUTPUT": "inspect_and_retry",
+    }
+    resolved_action = str(
+        suggested_action
+        or default_action_by_category.get(category)
+        or ("replan" if resolved_recoverable else "inspect_and_retry")
+    ).strip()
     if not resolved_action:
         resolved_action = "replan" if resolved_recoverable else "inspect_and_retry"
     return FailureDetails(

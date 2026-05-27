@@ -92,6 +92,47 @@ def test_process_inbox_once_moves_invalid_events_to_failed_dir(tmp_path, monkeyp
     assert (failed / "bad.json").exists()
 
 
+def test_process_inbox_once_creates_exactly_one_scenario_run_for_single_event(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    inbox = tmp_path / "inbox"
+    processed = tmp_path / "processed"
+    output_root = tmp_path / "out"
+    inbox.mkdir()
+    (inbox / "event.json").write_text(
+        json.dumps(
+            {
+                "event_id": "usgs-2026-001",
+                "event_type": "earthquake",
+                "location": "Parakou, Benin",
+                "requested_layers": ["building"],
+            }
+        ),
+        encoding="utf-8",
+    )
+    calls: list[ScenarioRunRequest] = []
+
+    def create_scenario_run(request: ScenarioRunRequest):
+        calls.append(request)
+        return type("ScenarioResponse", (), {"scenario_id": "scenario-created"})()
+
+    monkeypatch.setattr(
+        watch_scenario_inbox.scenario_run_service,
+        "create_scenario_run",
+        create_scenario_run,
+    )
+
+    processed_ids = process_inbox_once(inbox, processed, output_root=str(output_root))
+
+    assert processed_ids == ["scenario-created"]
+    assert len(calls) == 1
+    assert calls[0].metadata["idempotency_key"] == "usgs-2026-001"
+    assert calls[0].output_root == str(output_root)
+    assert not (inbox / "event.json").exists()
+    assert (processed / "event.json").exists()
+
+
 def test_process_inbox_once_does_not_overwrite_existing_failed_event(tmp_path) -> None:
     inbox = tmp_path / "inbox"
     processed = tmp_path / "processed"

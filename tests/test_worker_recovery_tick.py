@@ -43,5 +43,25 @@ def test_recovery_tick_can_be_disabled(monkeypatch) -> None:
 def test_celery_beat_registers_recovery_tick() -> None:
     module = importlib.import_module("worker.celery_app")
 
+    assert "scheduled-run-producer" in module.celery_app.conf["beat_schedule"]
+    assert module.celery_app.conf["beat_schedule"]["scheduled-run-producer"]["task"] == "geofusion.scheduled_tick"
     assert "recovery-run-producer" in module.celery_app.conf["beat_schedule"]
     assert module.celery_app.conf["beat_schedule"]["recovery-run-producer"]["task"] == "geofusion.recovery_tick"
+
+
+def test_recovery_tick_control_state_reports_current_settings(monkeypatch) -> None:
+    worker_tasks = importlib.import_module("worker.tasks")
+    monkeypatch.setenv("GEOFUSION_RECOVERY_ENABLED", "1")
+    monkeypatch.setenv("GEOFUSION_RECOVERY_STALE_SECONDS", "900")
+    monkeypatch.setenv("GEOFUSION_RECOVERY_LIMIT", "5")
+    monkeypatch.setenv("GEOFUSION_RECOVERY_LEASE_SECONDS", "120")
+
+    control = worker_tasks.recovery_tick_control_state()
+
+    assert control == {
+        "task": "geofusion.recovery_tick",
+        "enabled": True,
+        "stale_after_seconds": 900,
+        "limit": 5,
+        "lease_seconds": 120,
+    }

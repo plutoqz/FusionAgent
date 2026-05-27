@@ -449,7 +449,7 @@ async def get_runtime_metadata() -> RuntimeMetadataResponse:
 @router.get("/operator/summary", response_model=OperatorRuntimeSummaryResponse)
 async def get_operator_summary(limit: int = Query(default=10, ge=1, le=100)) -> OperatorRuntimeSummaryResponse:
     service = OperatorReadModelService(
-        runs_root=Path("runs"),
+        runs_root=Path(getattr(agent_run_service, "base_dir", Path("runs"))),
         scenario_output_root=resolve_scenario_output_root(None),
     )
     return OperatorRuntimeSummaryResponse(**service.runtime_summary(limit=limit))

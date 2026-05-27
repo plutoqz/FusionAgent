@@ -73,7 +73,7 @@ The default day-to-day API port remains `8000`; reserve `8010` for isolated real
 
 ## Scenario Trigger Inbox
 
-The local file inbox is the supported no-UI trigger demo path. It proves normalized event records can create scenario runs, persist registry evidence, and move processed or failed event files without claiming an external event-feed integration.
+The local file inbox is the supported no-UI trigger demo path. It proves normalized event records can create scenario runs, persist registry evidence, and move processed or failed event files without claiming an external event-feed integration. External event-feed replay is not supported in this phase.
 
 Scenario runs stay bounded to `building`, `road`, `water`, and bounded `poi` orchestration. Requests that imply live event-feed replay, full digital twin outputs, unsupported layers, or unsupported dependency reasoning must be rejected or clarified before child runs start.
 
@@ -187,7 +187,7 @@ The no-UI operator surface is read-oriented and intended for CLI/API inspection 
 - `GET /api/v2/runs/{run_id}/inspection`: one-shot operational run view.
 - `GET /api/v2/runs/{left_run_id}/compare/{right_run_id}`: compare two runs.
 - `GET /api/v2/runtime`: capture non-sensitive runtime metadata.
-- `GET /api/v2/operator/summary`: summarize runtime, run, scenario, evidence, and artifact state.
+- `GET /api/v2/operator/summary`: summarize runtime, worker-control, queue, run, scenario, evidence, and artifact state.
 - `POST /api/v2/scenario-runs`: create a scenario-level run.
 - `GET /api/v2/scenario-runs`: list scenario registry records.
 - `GET /api/v2/scenario-runs/{scenario_id}`: inspect canonical scenario summary evidence.
