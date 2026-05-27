@@ -2092,13 +2092,18 @@ class AgentRunService:
             else None
         )
         previous_checkpoint = dict(status.checkpoint or {})
+        resume_stage_by_action = {
+            "redispatch_full_run": "planning",
+            "redispatch_from_validation": "validation",
+            "redispatch_from_execution": "execution",
+        }
         self._update_status(
             run_id,
             RunPhase.queued,
             progress=0,
             checkpoint=self._checkpoint(
                 stage="queued",
-                resume_stage="planning",
+                resume_stage=resume_stage_by_action.get(recovery_action, "planning"),
                 plan_revision=status.plan_revision,
             ),
             event_kind="recovery_redispatch_started",

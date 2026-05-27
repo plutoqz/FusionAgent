@@ -87,3 +87,24 @@ celery_app.conf.update(
         }
     },
 )
+
+
+def describe_beat_schedule() -> Dict[str, Dict[str, Any]]:
+    beat_schedule = celery_app.conf.get("beat_schedule", {})
+    if not isinstance(beat_schedule, dict):
+        return {}
+
+    snapshot: Dict[str, Dict[str, Any]] = {}
+    for entry_name, raw_config in beat_schedule.items():
+        if not isinstance(raw_config, dict):
+            continue
+        schedule = raw_config.get("schedule")
+        try:
+            schedule_seconds = float(schedule)
+        except (TypeError, ValueError):
+            schedule_seconds = 0.0
+        snapshot[str(entry_name)] = {
+            "task": str(raw_config.get("task") or ""),
+            "beat_interval_seconds": schedule_seconds,
+        }
+    return snapshot

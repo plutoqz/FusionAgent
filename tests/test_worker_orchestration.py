@@ -76,6 +76,27 @@ def test_scheduled_tick_creates_runs_from_config(tmp_path: Path, monkeypatch) ->
     assert calls[0].job_type == JobType.building
 
 
+def test_scheduled_tick_control_state_reports_configured_specs(monkeypatch) -> None:
+    worker_tasks = importlib.import_module("worker.tasks")
+    monkeypatch.setenv(
+        "GEOFUSION_SCHEDULED_RUNS",
+        json.dumps(
+            [
+                {"job_type": "building", "osm_zip_path": "a.zip", "ref_zip_path": "b.zip"},
+                {"job_type": "road", "osm_zip_path": "c.zip", "ref_zip_path": "d.zip", "enabled": False},
+            ]
+        ),
+    )
+
+    control = worker_tasks.scheduled_tick_control_state()
+
+    assert control == {
+        "task": "geofusion.scheduled_tick",
+        "configured_specs": 2,
+        "enabled_specs": 1,
+    }
+
+
 def test_stage_tasks_delegate_to_agent_run_service(monkeypatch, tmp_path: Path) -> None:
     worker_tasks = importlib.import_module("worker.tasks")
     service_module = importlib.import_module("services.agent_run_service")

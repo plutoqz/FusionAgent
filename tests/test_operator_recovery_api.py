@@ -75,3 +75,49 @@ def test_operator_recovery_post_executes_recovery(monkeypatch: pytest.MonkeyPatc
     assert response.status_code == 200
     assert response.json()["result"]["recovered"] == 1
     assert calls == [{"stale_after_seconds": 300, "limit": 5}]
+
+
+def test_operator_recovery_endpoint_lists_failed_timeout_run_as_recoverable(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    runs_root = tmp_path / "runs"
+    run_dir = runs_root / "run-failed-timeout"
+    run_dir.mkdir(parents=True)
+    (run_dir / "run.json").write_text(
+        json.dumps(
+            {
+                "run_id": "run-failed-timeout",
+                "phase": "failed",
+                "job_type": "building",
+                "updated_at": "2026-04-23T00:00:00+00:00",
+                "checkpoint": {
+                    "stage": "execution",
+                    "plan_revision": 1,
+                    "current_step": 2,
+                },
+                "failure_summary": (
+                    "download timed out while materializing inputs"
+                    " | failure_category=ALGO_TIMEOUT"
+                ),
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    service = AgentRunService(base_dir=runs_root)
+    monkeypatch.setattr(runs_v2_router, "agent_run_service", service)
+
+    try:
+        response = TestClient(create_app()).get(
+            "/api/v2/operator/recovery?stale_after_seconds=300"
+        )
+    finally:
+        service.shutdown()
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["records"][0]["run_id"] == "run-failed-timeout"
+    assert payload["records"][0]["recovery_action"] == "redispatch_from_execution"
+    assert payload["records"][0]["failure_category"] == "ALGO_TIMEOUT"

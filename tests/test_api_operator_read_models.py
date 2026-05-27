@@ -51,36 +51,47 @@ def test_api_operator_summary_returns_runtime_and_recent_read_models(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
+    custom_runs_root = tmp_path / "custom-runs"
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("GEOFUSION_SCENARIO_OUTPUT_ROOT", str(tmp_path / "scenarios"))
     monkeypatch.setenv("GEOFUSION_KG_BACKEND", "memory")
     monkeypatch.setenv("GEOFUSION_LLM_PROVIDER", "mock")
     monkeypatch.setenv("GEOFUSION_CELERY_EAGER", "1")
     monkeypatch.setenv("GEOFUSION_API_PORT", "8000")
+    monkeypatch.setenv(
+        "GEOFUSION_SCHEDULED_RUNS",
+        '[{"job_type":"building","osm_zip_path":"a.zip","ref_zip_path":"b.zip"}]',
+    )
 
-    run_dir = tmp_path / "runs" / "run-a"
+    run_dir = custom_runs_root / "run-a"
     run_dir.mkdir(parents=True)
     (run_dir / "run.json").write_text(
-        '{"run_id":"run-a","phase":"succeeded","job_type":"building"}',
+        '{"run_id":"run-a","phase":"running","job_type":"building"}',
         encoding="utf-8",
     )
     ScenarioRegistryService(output_root=tmp_path / "scenarios").record(
         {"scenario_id": "scenario-a", "phase": "succeeded"}
+    )
+    monkeypatch.setattr(
+        runs_v2_router,
+        "agent_run_service",
+        type("StubRunService", (), {"base_dir": custom_runs_root})(),
     )
 
     response = TestClient(create_app()).get("/api/v2/operator/summary", params={"limit": 10})
 
     assert response.status_code == 200, response.text
     payload = response.json()
-    assert payload["runtime"] == {
-        "kg_backend": "memory",
-        "llm_provider": "mock",
-        "celery_eager": "1",
-        "api_port": "8000",
-    }
+    assert payload["runtime"]["kg_backend"] == "memory"
+    assert payload["runtime"]["llm_provider"] == "mock"
+    assert payload["runtime"]["celery_eager"] == "1"
+    assert payload["runtime"]["api_port"] == "8000"
     assert payload["recent_runs"][0]["run_id"] == "run-a"
     assert payload["recent_scenarios"][0]["scenario_id"] == "scenario-a"
     assert payload["evidence_gaps"] == []
+    assert payload["runtime"]["worker_controls"]["scheduled_tick"]["configured_specs"] == 1
+    assert payload["runtime"]["worker_controls"]["recovery_tick"]["task"] == "geofusion.recovery_tick"
+    assert payload["runtime"]["queue_state"]["active_phase_counts"] == {"running": 1}
 
 
 def test_api_runs_list_route_does_not_shadow_run_status_route(monkeypatch) -> None:

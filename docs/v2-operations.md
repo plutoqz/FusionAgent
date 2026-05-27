@@ -419,7 +419,7 @@ The v2 API now has a narrow but practical operator layer.
 - scenario evidence is additive; single-run `run.json`, `plan.json`, `validation.json`, `audit.jsonl`, and artifact bundles remain stable
 - scenario reports expose KG relationship chains, final workflow trace, source coverage and fallback evidence, data-fusion metrics, agentic metrics, and durable learning summary or policy-hint evidence
 
-The file inbox runner is an operations demo path, not a production event-feed integration. It proves that scenario requests can be triggered automatically from normalized event records while keeping external feed reliability out of this phase.
+The file inbox runner is an operations demo path, not a production event-feed integration. The local file inbox remains the supported no-UI trigger path, and external event-feed replay is not supported in this phase. It proves that scenario requests can be triggered automatically from normalized event records while keeping external feed reliability out of this phase.
 
 ### Single Run Inspection
 

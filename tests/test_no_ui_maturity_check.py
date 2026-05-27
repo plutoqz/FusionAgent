@@ -346,3 +346,14 @@ def test_build_summary_aggregates_static_readme_and_skipped_tests(
         "only a prototype"
     ]
     assert summary["tests"] == {"skipped": True}
+
+
+def test_no_ui_runbooks_keep_local_inbox_supported_and_external_event_feed_replay_rejected() -> None:
+    repo_root = Path(__file__).resolve().parents[1]
+    no_ui_runbook = (repo_root / "docs" / "no-ui-agent-operations.md").read_text(encoding="utf-8").lower()
+    v2_ops = (repo_root / "docs" / "v2-operations.md").read_text(encoding="utf-8").lower()
+
+    assert "local file inbox is the supported no-ui trigger" in no_ui_runbook
+    assert "external event-feed replay is not supported" in no_ui_runbook
+    assert "local file inbox remains the supported no-ui trigger path" in v2_ops
+    assert "external event-feed replay is not supported in this phase" in v2_ops

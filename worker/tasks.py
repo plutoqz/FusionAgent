@@ -36,6 +36,26 @@ def _as_int_env(name: str, default: str) -> int:
         return int(default)
 
 
+def scheduled_tick_control_state() -> Dict[str, Any]:
+    specs = _load_scheduled_specs()
+    enabled_specs = sum(1 for spec in specs if spec.get("enabled", True) is not False)
+    return {
+        "task": "geofusion.scheduled_tick",
+        "configured_specs": len(specs),
+        "enabled_specs": enabled_specs,
+    }
+
+
+def recovery_tick_control_state() -> Dict[str, Any]:
+    return {
+        "task": "geofusion.recovery_tick",
+        "enabled": _as_bool_env("GEOFUSION_RECOVERY_ENABLED", "1"),
+        "stale_after_seconds": _as_int_env("GEOFUSION_RECOVERY_STALE_SECONDS", "300"),
+        "limit": _as_int_env("GEOFUSION_RECOVERY_LIMIT", "20"),
+        "lease_seconds": _as_int_env("GEOFUSION_RECOVERY_LEASE_SECONDS", "300"),
+    }
+
+
 @celery_app.task(name="geofusion.plan_run")
 def plan_run_task(run_id: str, request: Dict[str, Any]) -> Dict[str, Any]:
     from services.agent_run_service import agent_run_service
