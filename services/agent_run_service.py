@@ -565,6 +565,12 @@ class AgentRunService:
                 resolved_inputs=resolved_inputs,
                 resolved_aoi=resolved_aoi,
             )
+            should_use_large_area_runtime = self._should_use_large_area_runtime(
+                request=runtime_request,
+                plan=plan,
+                resolved_inputs=resolved_inputs,
+                resolved_aoi=resolved_aoi,
+            )
 
             while True:
                 try:
@@ -596,6 +602,17 @@ class AgentRunService:
                             repair_records=repair_records,
                             resolved_inputs=resolved_inputs,
                             resolved_aoi=resolved_aoi,
+                        )
+                    elif should_use_large_area_runtime and resolved_inputs is not None:
+                        fused_shp, repair_records = self.run_large_area_execution_stage(
+                            run_id=run_id,
+                            request=runtime_request,
+                            plan=plan,
+                            intermediate_dir=intermediate_dir,
+                            output_dir=output_dir,
+                            resolved_inputs=resolved_inputs,
+                            resolved_aoi=resolved_aoi,
+                            repair_records=repair_records,
                         )
                     else:
                         fused_shp, repair_records = self.run_execution_stage(
@@ -763,6 +780,12 @@ class AgentRunService:
                                     source_semantic_contract
                                 )
                     should_tile = self._should_use_tiled_building_runtime(
+                        request=runtime_request,
+                        plan=plan,
+                        resolved_inputs=resolved_inputs,
+                        resolved_aoi=resolved_aoi,
+                    )
+                    should_use_large_area_runtime = self._should_use_large_area_runtime(
                         request=runtime_request,
                         plan=plan,
                         resolved_inputs=resolved_inputs,
@@ -1582,6 +1605,17 @@ class AgentRunService:
                 paths[source_id] = extracted
         return paths
 
+    def _component_paths_from_resolved_inputs_for_runtime(
+        self,
+        *,
+        run_id: str,
+        resolved_inputs: ResolvedRunInputs,
+    ) -> dict[str, Path]:
+        return self._source_component_paths_from_resolved_inputs(
+            run_id=run_id,
+            resolved_inputs=resolved_inputs,
+        )
+
     @staticmethod
     def _component_path_from_payload(payload: object) -> Path | None:
         if isinstance(payload, dict):
@@ -1867,6 +1901,29 @@ class AgentRunService:
         threshold = self._read_env_int("GEOFUSION_BUILDING_TILING_MIN_FEATURES") or 250000
         return self._max_component_feature_count(resolved_inputs.component_coverage) >= threshold
 
+    def _should_use_large_area_runtime(
+        self,
+        *,
+        request: RunCreateRequest,
+        plan: WorkflowPlan,
+        resolved_inputs: ResolvedRunInputs | None,
+        resolved_aoi: ResolvedAOI | None,
+    ) -> bool:
+        if request.input_strategy != RunInputStrategy.task_driven_auto:
+            return False
+        if request.job_type != JobType.road:
+            return False
+        if resolved_inputs is None:
+            return False
+        if self._resolve_request_bbox(request, resolved_aoi=resolved_aoi) is None:
+            return False
+        selected_source_id = (
+            resolved_inputs.selected_source_id
+            or resolved_inputs.source_id
+            or self._resolve_task_driven_source_id(plan)
+        )
+        return bool(selected_source_id)
+
     def _should_use_multisource_building_runtime(self, request: RunCreateRequest, plan: WorkflowPlan) -> bool:
         if request.job_type != JobType.building or request.input_strategy != RunInputStrategy.task_driven_auto:
             return False
@@ -1922,6 +1979,96 @@ class AgentRunService:
             target_crs=target_crs,
             parameters=parameters,
         )
+        self._record_large_area_runtime_completed(
+            run_id=run_id,
+            plan=plan,
+            repair_records=repair_records,
+            result=result,
+        )
+        return result.output_path, repair_records
+
+    def run_large_area_execution_stage(
+        self,
+        *,
+        run_id: str,
+        request: RunCreateRequest,
+        plan: WorkflowPlan,
+        intermediate_dir: Path,
+        output_dir: Path,
+        resolved_inputs: ResolvedRunInputs,
+        resolved_aoi: ResolvedAOI | None,
+        repair_records: Optional[List[RepairRecord]] = None,
+    ) -> tuple[Path, List[RepairRecord]]:
+        from services.domain_fusion_runners import run_road_tile
+        from services.large_area_runtime_service import LargeAreaRuntimeService, LargeAreaSlice
+
+        del intermediate_dir
+        repair_records = repair_records if repair_records is not None else []
+        step = self._first_executable_step(plan)
+        algorithm_id = self._algorithm_id_for_step(plan, step)
+        request_bbox = self._resolve_request_bbox(request, resolved_aoi=resolved_aoi)
+        if request_bbox is None:
+            raise ValueError("Shared large-area runtime requires an AOI bbox.")
+        target_crs = self._request_with_effective_target_crs(run_id, request).target_crs
+        component_paths = self._component_paths_from_resolved_inputs_for_runtime(
+            run_id=run_id,
+            resolved_inputs=resolved_inputs,
+        )
+        tile_manifest = self.tile_partition_service.partition_bbox(
+            bbox=request_bbox,
+            bbox_crs="EPSG:4326",
+            working_crs=target_crs,
+        )
+        if request.job_type == JobType.road:
+            road_sources = {
+                source_id: path
+                for source_id, path in {
+                    "raw.osm.road": component_paths.get("raw.osm.road"),
+                    "raw.overture.transportation": component_paths.get("raw.overture.transportation"),
+                }.items()
+                if path is not None
+            }
+            slices = [
+                LargeAreaSlice(
+                    name="road",
+                    geometry_family="line",
+                    sources=road_sources,
+                    runner=run_road_tile,
+                )
+            ]
+        else:
+            raise ValueError(f"Shared large-area runtime not wired for job_type={request.job_type.value}")
+        try:
+            result = LargeAreaRuntimeService(max_workers=1).run(
+                run_id=run_id,
+                job_type=request.job_type.value,
+                tile_manifest=tile_manifest,
+                slices=slices,
+                output_dir=output_dir,
+                target_crs=target_crs,
+                parameters=self._extract_step_parameters(plan),
+            )
+        except Exception as exc:  # noqa: BLE001
+            repair_records.append(
+                RepairRecord(
+                    attempt_no=self._max_attempt_no(repair_records) + 1,
+                    strategy="large_area_runtime_execution",
+                    step=step,
+                    message=(
+                        "Shared large-area runtime failed "
+                        f"for step={step}, algorithm_id={algorithm_id}: {type(exc).__name__}: {exc}"
+                    ),
+                    success=False,
+                    timestamp=_utc_now(),
+                    reason_code="large_area_runtime_failed",
+                    from_algorithm=algorithm_id,
+                    to_algorithm=None,
+                )
+            )
+            raise RuntimeError(
+                "large-area runtime failed "
+                f"for step={step}, algorithm_id={algorithm_id}: {type(exc).__name__}: {exc}"
+            ) from exc
         self._record_large_area_runtime_completed(
             run_id=run_id,
             plan=plan,
@@ -2618,6 +2765,20 @@ class AgentRunService:
             if not task.is_transform:
                 return task.algorithm_id
         return None
+
+    @staticmethod
+    def _first_executable_step(plan: WorkflowPlan) -> int:
+        for task in sorted(plan.tasks, key=lambda item: item.step):
+            if not task.is_transform:
+                return int(task.step)
+        return 0
+
+    @staticmethod
+    def _algorithm_id_for_step(plan: WorkflowPlan, step: int) -> str | None:
+        for task in sorted(plan.tasks, key=lambda item: item.step):
+            if int(task.step) == int(step):
+                return task.algorithm_id
+        return AgentRunService._extract_algorithm_id(plan, [])
 
     @staticmethod
     def _extract_selected_data_source(plan: WorkflowPlan) -> Optional[str]:

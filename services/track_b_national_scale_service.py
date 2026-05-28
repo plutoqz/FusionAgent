@@ -213,6 +213,11 @@ class TrackBNationalScaleService:
                 request_bbox=request_bbox,
                 target_crs=target_crs,
                 output_root=output_root,
+                tile_manifest=tile_manifest,
+                base_source_id=osm_source_id,
+                base_path=osm_normalized_path,
+                supplement_source_id=ref_source_id,
+                supplement_path=ref_normalized_path,
                 base_frame=osm_normalized,
                 supplement_frame=ref_normalized,
                 resolved_aoi=resolved_aoi,
@@ -486,16 +491,29 @@ class TrackBNationalScaleService:
         request_bbox: tuple[float, float, float, float],
         target_crs: str,
         output_root: Path,
+        tile_manifest,
+        base_source_id: str,
+        base_path: Path,
+        supplement_source_id: str | None,
+        supplement_path: Path | None,
         base_frame: gpd.GeoDataFrame,
         supplement_frame: gpd.GeoDataFrame,
         resolved_aoi: ResolvedAOI | None,
     ) -> tuple[Path, list[TileFusionArtifact], dict[str, Any]]:
         if theme == "road":
-            config = RoadConflationV7Config(target_crs=target_crs, profile="balanced")
-            result = run_road_conflation_v7(base_frame, supplement_frame, config=config)
-        else:
-            config = WaterwaysConflationV7Config(target_crs=target_crs)
-            result = run_waterways_conflation_v7(base_frame, supplement_frame, config=config)
+            return self._run_road_national_large_area_fusion(
+                tile_manifest=tile_manifest,
+                target_crs=target_crs,
+                output_root=output_root,
+                base_source_id=base_source_id,
+                base_path=base_path,
+                supplement_source_id=supplement_source_id,
+                supplement_path=supplement_path,
+                resolved_aoi=resolved_aoi,
+            )
+
+        config = WaterwaysConflationV7Config(target_crs=target_crs)
+        result = run_waterways_conflation_v7(base_frame, supplement_frame, config=config)
 
         fused = result.frame
         clip_boundary = self._country_boundary_for_aoi(resolved_aoi, target_crs=target_crs)
@@ -523,6 +541,79 @@ class TrackBNationalScaleService:
             "stats": result.stats,
         }
         return output_path, tile_results, fusion_summary
+
+    def _run_road_national_large_area_fusion(
+        self,
+        *,
+        tile_manifest,
+        target_crs: str,
+        output_root: Path,
+        base_source_id: str,
+        base_path: Path,
+        supplement_source_id: str | None,
+        supplement_path: Path | None,
+        resolved_aoi: ResolvedAOI | None,
+    ) -> tuple[Path, list[TileFusionArtifact], dict[str, Any]]:
+        from services.domain_fusion_runners import run_road_tile
+        from services.large_area_runtime_service import LargeAreaRuntimeService, LargeAreaSlice
+
+        road_sources: dict[str, Path] = {"raw.osm.road": base_path}
+        if supplement_path is not None and supplement_source_id is not None:
+            road_sources["raw.overture.transportation"] = supplement_path
+
+        runtime_result = LargeAreaRuntimeService(max_workers=1).run(
+            run_id="track-b-national-road",
+            job_type="road",
+            tile_manifest=tile_manifest,
+            slices=[
+                LargeAreaSlice(
+                    name="road",
+                    geometry_family="line",
+                    sources=road_sources,
+                    runner=run_road_tile,
+                    parameters={"profile": "balanced"},
+                )
+            ],
+            output_dir=output_root / "runtime_output" / "road_shared_runtime",
+            target_crs=target_crs,
+            parameters={},
+            clip_boundary=self._country_boundary_for_aoi(resolved_aoi, target_crs=target_crs),
+        )
+        output_path = output_root / "road_national_scale_fused.gpkg"
+        final_output = self._copy_gpkg(runtime_result.output_path, output_path, target_crs=target_crs)
+        tile_results = [
+            TileFusionArtifact(
+                tile_id=item.tile_id,
+                output_path=item.output_path,
+                feature_count=item.feature_count,
+                working_bbox=item.working_bbox,
+            )
+            for item in runtime_result.tile_outputs
+        ]
+        algorithm_id = "algo.fusion.road.conflation.v7"
+        stats = self._merge_runtime_stats(runtime_result.tile_outputs)
+        config_snapshot = self._first_runtime_config(runtime_result.tile_outputs)
+        self._write_fusion_stats(
+            output_root=output_root,
+            algorithm_id=algorithm_id,
+            stats=stats,
+            config_snapshot=config_snapshot,
+        )
+        fusion_summary = {
+            "algorithm_id": algorithm_id,
+            "config_snapshot": config_snapshot,
+            "lineage": {
+                "algorithm_id": algorithm_id,
+                "base_source_id": base_source_id,
+                "supplement_source_id": supplement_source_id,
+                "runtime": "shared_large_area_runtime",
+                "runtime_evidence_paths": {
+                    key: str(path) for key, path in runtime_result.evidence_paths.items()
+                },
+            },
+            "stats": stats,
+        }
+        return final_output, tile_results, fusion_summary
 
     def _building_vector_sources(
         self,
@@ -635,6 +726,38 @@ class TrackBNationalScaleService:
         return self._write_gpkg(combined, output_path, target_crs=target_crs)
 
     @staticmethod
+    def _merge_runtime_stats(tile_outputs: list[Any]) -> dict[str, Any]:
+        merged: dict[str, Any] = {}
+        for tile_output in tile_outputs:
+            raw_stats = dict(getattr(tile_output, "stats", {}) or {})
+            stats = raw_stats.get("stats")
+            if not isinstance(stats, dict):
+                continue
+            for key, value in stats.items():
+                if isinstance(value, bool):
+                    merged[key] = int(merged.get(key, 0)) + int(value)
+                elif isinstance(value, int):
+                    merged[key] = int(merged.get(key, 0)) + value
+                elif isinstance(value, float):
+                    merged[key] = float(merged.get(key, 0.0)) + value
+                elif key not in merged:
+                    merged[key] = value
+        return merged
+
+    @staticmethod
+    def _first_runtime_config(tile_outputs: list[Any]) -> dict[str, Any]:
+        for tile_output in tile_outputs:
+            raw_stats = dict(getattr(tile_output, "stats", {}) or {})
+            config = raw_stats.get("config")
+            if isinstance(config, dict):
+                return config
+        return {}
+
+    def _copy_gpkg(self, source_path: Path, output_path: Path, *, target_crs: str) -> Path:
+        frame = gpd.read_file(source_path)
+        return self._write_gpkg(frame, output_path, target_crs=target_crs)
+
+    @staticmethod
     def _write_fusion_stats(
         *,
         output_root: Path,
@@ -656,7 +779,12 @@ class TrackBNationalScaleService:
         )
 
     def _country_boundary_for_aoi(self, resolved_aoi: ResolvedAOI | None, *, target_crs: str) -> gpd.GeoDataFrame | None:
-        boundary = self.raw_source_service.source_asset_service.resolve_country_boundary(resolved_aoi)
+        if resolved_aoi is None:
+            return None
+        resolver = getattr(self.raw_source_service.source_asset_service, "resolve_country_boundary", None)
+        if not callable(resolver):
+            return None
+        boundary = resolver(resolved_aoi)
         if boundary is None or boundary.empty:
             return None
         if boundary.crs is None:

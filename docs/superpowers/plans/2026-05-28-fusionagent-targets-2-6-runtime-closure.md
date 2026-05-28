@@ -966,7 +966,7 @@ git commit -m "feat: promote building multisource raster runtime"
 - Test: `tests/test_track_b_national_scale_service.py`
 - Test: `tests/test_road_conflation_v7.py`
 
-- [ ] **Step 1: Add failing AgentRunService road routing test**
+- [x] **Step 1: Add failing AgentRunService road routing test**
 
 Create `tests/test_agent_run_service_large_area_runtime.py` with:
 
@@ -1076,7 +1076,7 @@ def test_road_task_driven_run_uses_shared_large_area_runtime(tmp_path: Path, mon
     assert (run_dir / "output" / "stitched_artifact.json").exists()
 ```
 
-- [ ] **Step 2: Run road routing test and verify failure**
+- [x] **Step 2: Run road routing test and verify failure**
 
 Run:
 
@@ -1086,7 +1086,7 @@ python -m pytest -q tests/test_agent_run_service_large_area_runtime.py::test_roa
 
 Expected: FAIL because `run_large_area_execution_stage()` is not implemented.
 
-- [ ] **Step 3: Implement source component path helper reuse**
+- [x] **Step 3: Implement source component path helper reuse**
 
 In `services/agent_run_service.py`, add:
 
@@ -1095,7 +1095,7 @@ In `services/agent_run_service.py`, add:
         return self._source_component_paths_from_resolved_inputs(run_id=run_id, resolved_inputs=resolved_inputs)
 ```
 
-- [ ] **Step 4: Implement `_should_use_large_area_runtime()`**
+- [x] **Step 4: Implement `_should_use_large_area_runtime()`**
 
 In `services/agent_run_service.py`, add:
 
@@ -1120,7 +1120,7 @@ In `services/agent_run_service.py`, add:
         return bool(selected_source_id)
 ```
 
-- [ ] **Step 5: Implement `run_large_area_execution_stage()` for road first**
+- [x] **Step 5: Implement `run_large_area_execution_stage()` for road first**
 
 Add to `services/agent_run_service.py`:
 
@@ -1178,7 +1178,7 @@ Add to `services/agent_run_service.py`:
         return result.output_path, repair_records
 ```
 
-- [ ] **Step 6: Wire the execution branch**
+- [x] **Step 6: Wire the execution branch**
 
 In `execute_run()`, after `should_tile = ...`, compute:
 
@@ -1207,11 +1207,11 @@ Then in the execution branch, before the generic `run_execution_stage()` fallbac
                         )
 ```
 
-- [ ] **Step 7: Reuse shared runtime in Track B road evidence**
+- [x] **Step 7: Reuse shared runtime in Track B road evidence**
 
 In `services/track_b_national_scale_service.py`, replace `_run_v7_national_line_fusion()` road-specific direct full-frame call with the same `run_road_tile` + `LargeAreaRuntimeService` path. Keep the existing `fusion_stats.json`, `selected_sources.json`, and `inspection_summary.json` names unchanged so existing evidence consumers still work.
 
-- [ ] **Step 8: Run road verification**
+- [x] **Step 8: Run road verification**
 
 Run:
 
@@ -1221,7 +1221,7 @@ python -m pytest -q tests/test_agent_run_service_large_area_runtime.py::test_roa
 
 Expected: PASS.
 
-- [ ] **Step 9: Commit**
+- [x] **Step 9: Commit**
 
 ```powershell
 git add services/agent_run_service.py services/domain_fusion_runners.py services/track_b_national_scale_service.py tests/test_agent_run_service_large_area_runtime.py tests/test_track_b_national_scale_service.py tests/test_road_conflation_v7.py
