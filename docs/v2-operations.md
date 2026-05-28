@@ -38,10 +38,12 @@ For the current large-AOI building scale-validation slice, keep the capability w
 | tile manifest, clipped tile bundles, stitch outputs, and tile audit events | supported evidence surfaces |
 | `inspection_summary.json`, `selected_sources.json`, and `stitched_artifact.json` emitted by the checked-in scale-validation scripts | operator-readable scale-validation summary and source-selection contract, not shared-runtime inspection API |
 | Google building-presence raster inspection and profiling | inspect-only |
-| tiled multi-source building fusion with optional raster enrichment | research utility, not part of the shared runtime contract |
-| raster-based building presence validation and height extraction inside the multi-source utility | research utility, not a shared runtime claim |
+| tiled multi-source building fusion with optional raster enrichment | supported in the shared large-area runtime when at least two vector sources are materialized |
+| raster-based building height extraction inside the multi-source runtime | supported when `SourceSemanticContract.height_policy.raster_height_sources` contains a readable raster |
 
-The checked-in implementation currently has two different claim levels. The shared runtime can automatically route large `task_driven_auto` building runs onto the tiled `OSM + single-reference` path and emit tile-manifest plus audit evidence. The richer multi-source building path remains an offline scale-validation utility. The repo examples use Benin as the validation dataset, but that does not make Benin a country-specific runtime capability.
+Default automated building bundles use `raw.osm.building + raw.microsoft.building`. Google/OpenBuildingMap/Google Open Buildings Vector/local Microsoft remain manual-preload supplements unless their source contract is explicitly promoted by tests and evidence.
+
+The checked-in implementation currently has two different claim levels. The shared runtime can automatically route large `task_driven_auto` building runs onto the tiled `OSM + remote-capable reference` path and emit tile-manifest plus audit evidence. The richer manual-preload source-set path remains bounded by source materialization evidence. The repo examples use Benin as the validation dataset, but that does not make Benin a country-specific runtime capability.
 
 Validation-dataset example commands:
 

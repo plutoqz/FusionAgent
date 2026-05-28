@@ -140,7 +140,7 @@ CATALOG_BUNDLE_SPECS: Tuple[CatalogBundleSpec, ...] = (
     CatalogBundleSpec(
         source_id="catalog.flood.building",
         osm_source_id="raw.osm.building",
-        ref_source_id="raw.google.building",
+        ref_source_id="raw.microsoft.building",
         bundle_strategy="osm_ref_pair",
     ),
     CatalogBundleSpec(
@@ -270,7 +270,7 @@ def build_data_sources() -> List[DataSourceNode]:
         ),
         DataSourceNode(
             source_id="catalog.flood.building",
-            source_name="Flood Building Bundle (OSM + Google)",
+            source_name="Flood Building Bundle (OSM + Microsoft)",
             supported_types=["dt.building.bundle"],
             disaster_types=["flood", "generic"],
             quality_score=0.86,

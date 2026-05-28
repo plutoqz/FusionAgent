@@ -1,6 +1,8 @@
 import json
 from pathlib import Path
 
+import pytest
+
 
 def test_national_source_matrix_locks_track_b_first_batch_sources() -> None:
     payload = json.loads(
@@ -66,3 +68,30 @@ def test_national_source_matrix_is_registered_in_live_specs_index() -> None:
 
     assert "2026-05-18-national-source-matrix.md" in readme
     assert "2026-05-18-national-source-matrix.json" in readme
+
+
+def test_geonames_alias_is_documented_as_gns_poi_alias() -> None:
+    from kg.track_b_source_contract import get_track_b_source_contract
+
+    canonical = get_track_b_source_contract("raw.gns.poi")
+    alias = get_track_b_source_contract("raw.geonames.poi")
+
+    assert canonical is not None
+    assert alias is not None
+    assert alias.theme == "poi"
+    assert alias.field_mapping_profile == canonical.field_mapping_profile
+    assert "GNS" in alias.notes
+    assert "GeoNames" in alias.notes
+
+
+def test_runtime_alias_paths_rejects_duplicate_runtime_aliases() -> None:
+    from services.runtime_source_aliases import POI_SOURCE_ALIASES, alias_paths
+
+    with pytest.raises(ValueError, match=r"GNS.*raw\.gns\.poi.*raw\.geonames\.poi"):
+        alias_paths(
+            {
+                "raw.gns.poi": Path("gns.gpkg"),
+                "raw.geonames.poi": Path("geonames.gpkg"),
+            },
+            POI_SOURCE_ALIASES,
+        )

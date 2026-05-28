@@ -297,6 +297,18 @@ TRACK_B_SOURCE_CONTRACTS: Dict[str, TrackBSourceContract] = {
         runtime_status="runtime_candidate",
         notes="Promoted B5 POI reference source with bounded country-zip discovery and AOI clip support.",
     ),
+    "raw.geonames.poi": TrackBSourceContract(
+        source_id="raw.geonames.poi",
+        theme="poi",
+        role="reference_remote_alias",
+        acquisition_class="official_remote_supported",
+        format_hint="country_zip_tabular_export",
+        clip_strategy="country_zip_then_aoi_clip",
+        field_mapping_profile="fields.poi.gns",
+        license_boundary="Alias for raw.gns.poi; preserve GNS / GeoNames gazetteer attribution.",
+        runtime_status="runtime_candidate",
+        notes="Canonical GNS alias for operators who request GeoNames POI; runtime materialization reuses raw.gns.poi.",
+    ),
     "raw.rh.poi": TrackBSourceContract(
         source_id="raw.rh.poi",
         theme="poi",

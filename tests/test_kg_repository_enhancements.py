@@ -216,7 +216,7 @@ def test_repository_exposes_bundle_and_raw_sources_for_catalog_expansion() -> No
     assert "raw.hydrolakes.water" in raw_ids
 
     flood_bundle = next(source for source in bundle_sources if source.source_id == "catalog.flood.building")
-    assert flood_bundle.metadata["component_source_ids"] == ["raw.osm.building", "raw.google.building"]
+    assert flood_bundle.metadata["component_source_ids"] == ["raw.osm.building", "raw.microsoft.building"]
     assert flood_bundle.metadata["bundle_strategy"] == "osm_ref_pair"
     road_bundle = next(source for source in road_bundle_sources if source.source_id == "catalog.flood.road")
     assert road_bundle.metadata["component_source_ids"] == ["raw.osm.road", "raw.overture.transportation"]

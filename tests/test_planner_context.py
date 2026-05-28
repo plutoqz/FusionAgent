@@ -591,7 +591,7 @@ def test_planner_context_exposes_component_source_metadata_for_catalog_sources()
     assert provider.last_context is not None
     data_sources = provider.last_context["retrieval"]["data_sources"]
     source = next(item for item in data_sources if item["source_id"] == "catalog.flood.building")
-    assert source["metadata"]["component_source_ids"] == ["raw.osm.building", "raw.google.building"]
+    assert source["metadata"]["component_source_ids"] == ["raw.osm.building", "raw.microsoft.building"]
     assert source["metadata"]["bundle_strategy"] == "osm_ref_pair"
     assert source["metadata"]["provider_family"] == "local_bundle_catalog"
 

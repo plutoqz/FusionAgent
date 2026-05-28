@@ -161,7 +161,7 @@ def test_local_bundle_catalog_materializes_flood_road_bundle_from_osm_and_overtu
     assert "id" in _read_columns(materialized.ref_zip_path)
 
 
-def test_local_bundle_catalog_uses_google_and_microsoft_reference_layers_for_building_pairs(tmp_path: Path) -> None:
+def test_local_bundle_catalog_uses_microsoft_reference_layer_for_default_building_pairs(tmp_path: Path) -> None:
     _seed_local_catalog_tree(tmp_path)
     provider = LocalBundleCatalogProvider(
         tmp_path,
@@ -172,10 +172,10 @@ def test_local_bundle_catalog_uses_google_and_microsoft_reference_layers_for_bui
         ),
     )
 
-    google_bundle = provider.materialize(
+    flood_bundle = provider.materialize(
         source_id="catalog.flood.building",
         request_bbox=None,
-        target_dir=tmp_path / "google_bundle",
+        target_dir=tmp_path / "flood_bundle",
         target_crs="EPSG:4326",
     )
     microsoft_bundle = provider.materialize(
@@ -185,7 +185,7 @@ def test_local_bundle_catalog_uses_google_and_microsoft_reference_layers_for_bui
         target_crs="EPSG:4326",
     )
 
-    assert "google_id" in _read_columns(google_bundle.ref_zip_path)
+    assert "msft_id" in _read_columns(flood_bundle.ref_zip_path)
     assert "msft_id" in _read_columns(microsoft_bundle.ref_zip_path)
 
 

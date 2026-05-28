@@ -140,6 +140,31 @@ def test_poi_seed_records_exist() -> None:
     assert poi_source.metadata["component_source_ids"] == ["raw.osm.poi", "raw.gns.poi"]
 
 
+def test_targets_2_6_default_sources_are_remote_capable() -> None:
+    from kg.source_catalog import get_catalog_bundle_spec
+
+    assert get_catalog_bundle_spec("catalog.flood.building").component_source_ids == (
+        "raw.osm.building",
+        "raw.microsoft.building",
+    )
+    assert get_catalog_bundle_spec("catalog.earthquake.building").component_source_ids == (
+        "raw.osm.building",
+        "raw.microsoft.building",
+    )
+    assert get_catalog_bundle_spec("catalog.flood.road").component_source_ids == (
+        "raw.osm.road",
+        "raw.overture.transportation",
+    )
+    assert get_catalog_bundle_spec("catalog.flood.water").component_source_ids == (
+        "raw.osm.water",
+        "raw.hydrolakes.water",
+    )
+    assert get_catalog_bundle_spec("catalog.generic.poi").component_source_ids == (
+        "raw.osm.poi",
+        "raw.gns.poi",
+    )
+
+
 def test_trajectory_to_road_seam_seed_records_exist() -> None:
     assert "dt.trajectory.raw" in DATA_TYPES
     assert "dt.road.candidate" in DATA_TYPES
