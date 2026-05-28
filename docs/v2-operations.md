@@ -411,6 +411,16 @@ For every large-area target 2-6 run, shared runtime evidence includes:
 - `documents/run_report.zh.md`
 - `documents/run_report.en.md`
 
+The Task 8 evidence freeze for this contract is recorded in
+`docs/superpowers/specs/2026-05-28-targets-2-6-runtime-evidence-freeze.json`
+and `docs/superpowers/specs/2026-05-28-targets-2-6-runtime-evidence-freeze.md`.
+On the current Windows host, use `py -3.13 -m pytest ...` for verification:
+the bare `python` command resolves to `C:\Program Files\QGIS 3.40.11\bin\python.exe`
+and fails during interpreter startup because `encodings` cannot be loaded. The
+optional `scripts/materialize_source_assets.py --prefer-remote` live-source smoke
+is provider-dependent and may be recorded as skipped without invalidating the
+no-network fixture closure.
+
 Current non-goals for this slice:
 
 - `raw.google.building` still requires locally restored data

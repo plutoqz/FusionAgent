@@ -1741,7 +1741,7 @@ git commit -m "feat: expose large area runtime evidence in reports"
 - Test: `tests/test_track_b_national_scale_service.py`
 - Test: `tests/test_agent_run_service_large_area_runtime.py`
 
-- [ ] **Step 1: Add smoke summary checks for targets 2-6 evidence**
+- [x] **Step 1: Add smoke summary checks for targets 2-6 evidence**
 
 In `tests/test_smoke_agentic_region.py`, add:
 
@@ -1760,7 +1760,7 @@ def test_smoke_summary_accepts_large_area_evidence_fields() -> None:
     assert summary["documents"]["summary"].endswith(".json")
 ```
 
-- [ ] **Step 2: Run final targeted regression set**
+- [x] **Step 2: Run final targeted regression set**
 
 Run:
 
@@ -1782,7 +1782,7 @@ python -m pytest -q `
 
 Expected: PASS.
 
-- [ ] **Step 3: Run no-network fixture-level shared runtime smoke**
+- [x] **Step 3: Run no-network fixture-level shared runtime smoke**
 
 Run:
 
@@ -1795,7 +1795,7 @@ python -m pytest -q tests/test_agent_run_service_large_area_runtime.py
 
 Expected: PASS and each job type writes `stitched_artifact.json`.
 
-- [ ] **Step 4: Run optional live-source smoke when network and source services are available**
+- [x] **Step 4: Run optional live-source smoke when network and source services are available**
 
 Use a small bounded AOI to avoid making the verification depend on national data volume:
 
@@ -1817,7 +1817,7 @@ python scripts/materialize_source_assets.py `
 
 Expected: command exits 0, or if a remote provider is unavailable, the failure is recorded as provider-specific evidence and does not invalidate fixture-level target 2-6 closure.
 
-- [ ] **Step 5: Freeze evidence JSON**
+- [x] **Step 5: Freeze evidence JSON**
 
 Create `docs/superpowers/specs/2026-05-28-targets-2-6-runtime-evidence-freeze.json` with this structure and real paths from the test/smoke outputs:
 
@@ -1852,7 +1852,7 @@ Create `docs/superpowers/specs/2026-05-28-targets-2-6-runtime-evidence-freeze.js
 }
 ```
 
-- [ ] **Step 6: Freeze evidence Markdown**
+- [x] **Step 6: Freeze evidence Markdown**
 
 Create `docs/superpowers/specs/2026-05-28-targets-2-6-runtime-evidence-freeze.md`:
 
@@ -1879,7 +1879,7 @@ Create `docs/superpowers/specs/2026-05-28-targets-2-6-runtime-evidence-freeze.md
 Record the exact pytest output and smoke evidence paths from the implementation branch before merging.
 ```
 
-- [ ] **Step 7: Run full relevant regression**
+- [x] **Step 7: Run full relevant regression**
 
 Run:
 
@@ -1889,7 +1889,7 @@ python -m pytest -q
 
 Expected: PASS. If repository-wide unrelated tests fail, record the failing tests and still require all target 2-6 tests from Step 2 to pass before claiming closure.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```powershell
 git add scripts/smoke_agentic_region.py docs/v2-operations.md docs/superpowers/specs/2026-05-28-targets-2-6-runtime-evidence-freeze.json docs/superpowers/specs/2026-05-28-targets-2-6-runtime-evidence-freeze.md tests/test_smoke_agentic_region.py tests/test_track_b_national_scale_service.py tests/test_agent_run_service_large_area_runtime.py

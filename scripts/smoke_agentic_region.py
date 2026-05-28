@@ -255,6 +255,9 @@ def _build_inspection_summary(inspection: dict[str, Any]) -> dict[str, Any]:
             "artifact_path": artifact.get("path"),
             "tile_count": tile_manifest.get("tile_count", 0),
         },
+        "large_area_runtime": inspection.get("large_area_runtime", {}),
+        "source_semantic_contract": inspection.get("source_semantic_contract", {}),
+        "documents": inspection.get("documents", {}),
     }
 
 

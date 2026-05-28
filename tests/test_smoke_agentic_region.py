@@ -133,6 +133,43 @@ def test_smoke_agentic_region_accepts_evidence_dir_argument(tmp_path: Path) -> N
     assert parsed.evidence_dir == str(tmp_path)
 
 
+def test_smoke_summary_accepts_large_area_evidence_fields() -> None:
+    summary = {
+        "job_type": "road",
+        "phase": "succeeded",
+        "large_area_runtime": {"tile_count": 2, "stitched_feature_count": 5},
+        "source_semantic_contract": {"component_source_ids": ["raw.osm.road", "raw.overture.transportation"]},
+        "documents": {"summary": "run_report_summary.json"},
+    }
+
+    assert summary["large_area_runtime"]["tile_count"] >= 1
+    assert summary["source_semantic_contract"]["component_source_ids"]
+    assert summary["documents"]["summary"].endswith(".json")
+
+
+def test_smoke_inspection_summary_carries_large_area_evidence_fields() -> None:
+    inspection = _sample_smoke_inspection(
+        job_type="road",
+        source_id="catalog.flood.road",
+        pattern_id="wp.road.fusioncode.segment_topology.v1",
+        component_source_ids=["raw.osm.road", "raw.overture.transportation"],
+    )
+    inspection["large_area_runtime"] = {"tile_count": 2, "stitched_feature_count": 5}
+    inspection["source_semantic_contract"] = {
+        "component_source_ids": ["raw.osm.road", "raw.overture.transportation"]
+    }
+    inspection["documents"] = {"summary": "documents/run_report_summary.json"}
+
+    summary = smoke_agentic_region._build_inspection_summary(inspection)
+
+    assert summary["large_area_runtime"]["tile_count"] == 2
+    assert summary["source_semantic_contract"]["component_source_ids"] == [
+        "raw.osm.road",
+        "raw.overture.transportation",
+    ]
+    assert summary["documents"]["summary"].endswith("run_report_summary.json")
+
+
 def test_smoke_agentic_region_includes_preferred_pattern_id_when_provided() -> None:
     parsed = parse_args(
         [
