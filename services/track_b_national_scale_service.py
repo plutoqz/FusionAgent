@@ -17,7 +17,7 @@ from fusion_algorithms.waterways_conflation_v7 import (
     WaterwaysConflationV7Config,
     run_waterways_conflation_v7,
 )
-from kg.source_catalog import build_data_sources
+from kg.source_catalog import build_data_sources, get_catalog_bundle_spec
 from kg.track_b_source_contract import TRACK_B_THEME_CONTRACTS
 from services.aoi_resolution_service import ResolvedAOI
 from services.artifact_evaluation_service import evaluate_vector_artifact
@@ -123,9 +123,10 @@ class TrackBNationalScaleService:
         )
         timings["bundle_materialize_sec"] = time.perf_counter() - bundle_started
 
-        component_source_ids = list(materialized.component_coverage.keys())
-        if not component_source_ids:
+        coverage_component_source_ids = list(materialized.component_coverage.keys())
+        if not coverage_component_source_ids:
             raise ValueError(f"No component sources were materialized for {selected_source_id}")
+        component_source_ids = self._primary_component_source_ids(selected_source_id, coverage_component_source_ids)
         osm_source_id = component_source_ids[0]
         ref_source_id = component_source_ids[1] if len(component_source_ids) > 1 else None
 
@@ -160,10 +161,16 @@ class TrackBNationalScaleService:
             if ref_source_id is not None
             else None
         )
-        supplemental_summary = (
-            {}
-            if theme in {"road", "waterways"}
-            else self._materialize_supplemental_normalized_sources(
+        if theme in {"road", "waterways"}:
+            supplemental_summary = {}
+        elif theme == "water":
+            supplemental_summary = self._materialize_water_line_supplemental_normalized_sources(
+                component_coverage=materialized.component_coverage,
+                target_crs=target_crs,
+                normalized_dir=normalized_dir / "supplemental",
+            )
+        else:
+            supplemental_summary = self._materialize_supplemental_normalized_sources(
                 theme=theme,
                 request_bbox=request_bbox,
                 target_crs=target_crs,
@@ -171,7 +178,6 @@ class TrackBNationalScaleService:
                 selected_component_ids=set(component_source_ids),
                 resolved_aoi=resolved_aoi,
             )
-        )
         timings["normalize_sec"] = time.perf_counter() - normalization_started
 
         tile_manifest = TilePartitionService(
@@ -224,6 +230,21 @@ class TrackBNationalScaleService:
             )
             timings["tile_fusion_sec"] = time.perf_counter() - tile_started
             timings["stitch_sec"] = 0.0
+        elif theme == "water":
+            tile_started = time.perf_counter()
+            final_output, tile_results, fusion_summary = self._run_water_national_large_area_fusion(
+                tile_manifest=tile_manifest,
+                target_crs=target_crs,
+                output_root=output_root,
+                base_source_id=osm_source_id,
+                base_path=osm_normalized_path,
+                supplement_source_id=ref_source_id,
+                supplement_path=ref_normalized_path,
+                supplemental_summary=supplemental_summary,
+                resolved_aoi=resolved_aoi,
+            )
+            timings["tile_fusion_sec"] = time.perf_counter() - tile_started
+            timings["stitch_sec"] = 0.0
         else:
             tile_started = time.perf_counter()
             tile_dir = output_root / "tiles"
@@ -251,6 +272,7 @@ class TrackBNationalScaleService:
             )
             timings["stitch_sec"] = time.perf_counter() - stitch_started
 
+        tile_count = self._evidence_tile_count(tile_results)
         selected_coverage = _jsonable_component_coverage(materialized.component_coverage)
         claim_state = self._claim_state(selected_coverage)
         artifact_metrics = evaluate_vector_artifact(final_output, required_fields=["geometry"])
@@ -258,7 +280,7 @@ class TrackBNationalScaleService:
         stitched_artifact_payload = {
             "job_type": theme,
             "artifact_path": str(final_output),
-            "tile_count": len(tile_results),
+            "tile_count": tile_count,
             "stitched_feature_count": int(artifact_metrics.get("feature_count") or 0),
             "artifact_metrics": artifact_metrics,
             "tile_outputs": [item.to_dict() for item in tile_results],
@@ -334,7 +356,7 @@ class TrackBNationalScaleService:
 
         timing_payload = {
             "timings_sec": timings,
-            "tile_count": len(tile_results),
+            "tile_count": tile_count,
             "stitched_feature_count": int(artifact_metrics.get("feature_count") or 0),
             "artifact_path": str(final_output),
             **({"fusion_summary": fusion_summary} if fusion_summary else {}),
@@ -354,7 +376,7 @@ class TrackBNationalScaleService:
             "fallback_from_source_id": materialized.fallback_from,
             "bbox": [float(value) for value in request_bbox],
             "target_crs": target_crs,
-            "tile_count": len(tile_results),
+            "tile_count": tile_count,
             "artifact_path": str(final_output),
             "selected_component_source_ids": component_source_ids,
             "evidence": {
@@ -386,7 +408,7 @@ class TrackBNationalScaleService:
             "claim_state": claim_state,
             "output_root": str(output_root),
             "artifact_path": str(final_output),
-            "tile_count": len(tile_results),
+            "tile_count": tile_count,
         }
 
     def _materialize_supplemental_normalized_sources(
@@ -427,6 +449,52 @@ class TrackBNationalScaleService:
                 )
                 summary[source_id] = self._normalization_entry(source_id, normalized, artifact_path)
                 summary[source_id]["source_mode"] = resolution.source_mode
+            except Exception as exc:  # noqa: BLE001
+                summary[source_id] = {
+                    "source_id": source_id,
+                    "artifact_path": None,
+                    "feature_count": 0,
+                    "columns": [],
+                    "error": f"{type(exc).__name__}: {exc}",
+                }
+        return summary
+
+    @staticmethod
+    def _primary_component_source_ids(
+        selected_source_id: str,
+        component_source_ids: list[str],
+    ) -> list[str]:
+        try:
+            primary_ids = list(get_catalog_bundle_spec(selected_source_id).component_source_ids)
+        except Exception:  # noqa: BLE001
+            return component_source_ids
+        return [source_id for source_id in primary_ids if source_id in component_source_ids] or component_source_ids
+
+    def _materialize_water_line_supplemental_normalized_sources(
+        self,
+        *,
+        component_coverage: dict[str, object],
+        target_crs: str,
+        normalized_dir: Path,
+    ) -> dict[str, dict[str, Any]]:
+        normalized_dir.mkdir(parents=True, exist_ok=True)
+        summary: dict[str, dict[str, Any]] = {}
+        for source_id in ("raw.osm.waterways", "raw.hydrorivers.water", "raw.local.pakistan.waterways"):
+            coverage = component_coverage.get(source_id)
+            path = self._coverage_path(coverage)
+            if path is None or not path.exists():
+                continue
+            try:
+                shp_path = validate_zip_has_shapefile(path, normalized_dir / f"extract_{source_id.replace('.', '_')}")
+                frame = gpd.read_file(shp_path)
+                normalized = normalize_track_b_source_frame(source_id, frame, target_crs=target_crs)
+                artifact_path = self._write_gpkg(
+                    normalized,
+                    normalized_dir / f"{source_id.replace('.', '_')}.gpkg",
+                    target_crs=target_crs,
+                )
+                summary[source_id] = self._normalization_entry(source_id, normalized, artifact_path)
+                summary[source_id]["source_mode"] = self._coverage_source_mode(coverage)
             except Exception as exc:  # noqa: BLE001
                 summary[source_id] = {
                     "source_id": source_id,
@@ -483,6 +551,111 @@ class TrackBNationalScaleService:
             "source_priority_order": list(source_priority_order),
         }
         return result.output_path, tile_results, fusion_summary
+
+    def _run_water_national_large_area_fusion(
+        self,
+        *,
+        tile_manifest,
+        target_crs: str,
+        output_root: Path,
+        base_source_id: str,
+        base_path: Path,
+        supplement_source_id: str | None,
+        supplement_path: Path | None,
+        supplemental_summary: dict[str, dict[str, Any]],
+        resolved_aoi: ResolvedAOI | None,
+    ) -> tuple[Path, list[TileFusionArtifact], dict[str, Any]]:
+        from services.domain_fusion_runners import run_water_polygon_tile, run_waterways_tile
+        from services.large_area_runtime_service import LargeAreaRuntimeService, LargeAreaSlice
+
+        water_sources: dict[str, Path] = {base_source_id: base_path}
+        if supplement_path is not None and supplement_source_id is not None:
+            water_sources[supplement_source_id] = supplement_path
+
+        slices = [
+            LargeAreaSlice(
+                name="water_polygon",
+                geometry_family="polygon",
+                sources=water_sources,
+                runner=run_water_polygon_tile,
+            )
+        ]
+        waterways_path = self._supplemental_artifact_path(supplemental_summary, "raw.osm.waterways")
+        line_supplement_source_id = (
+            "raw.hydrorivers.water"
+            if self._supplemental_artifact_path(supplemental_summary, "raw.hydrorivers.water") is not None
+            else "raw.local.pakistan.waterways"
+        )
+        line_supplement_path = self._supplemental_artifact_path(supplemental_summary, line_supplement_source_id)
+        if waterways_path is not None and line_supplement_path is not None:
+            slices.append(
+                LargeAreaSlice(
+                    name="waterways_line",
+                    geometry_family="line",
+                    sources={
+                        "raw.osm.waterways": waterways_path,
+                        line_supplement_source_id: line_supplement_path,
+                    },
+                    runner=run_waterways_tile,
+                    parameters={"profile": "balanced"},
+                )
+            )
+
+        runtime_result = LargeAreaRuntimeService(max_workers=1).run(
+            run_id="track-b-national-water",
+            job_type="water",
+            tile_manifest=tile_manifest,
+            slices=slices,
+            output_dir=output_root / "runtime_output" / "water_shared_runtime",
+            target_crs=target_crs,
+            parameters={},
+            clip_boundary=None,
+        )
+        output_path = output_root / "water_national_scale_fused.gpkg"
+        final_output = self._copy_and_clip_gpkg(
+            runtime_result.output_path,
+            output_path,
+            target_crs=target_crs,
+            clip_boundary=self._country_boundary_for_aoi(resolved_aoi, target_crs=target_crs),
+        )
+        tile_results = [
+            TileFusionArtifact(
+                tile_id=item.tile_id,
+                output_path=item.output_path,
+                feature_count=item.feature_count,
+                working_bbox=item.working_bbox,
+            )
+            for item in runtime_result.tile_outputs
+        ]
+        algorithm_id = "algo.fusion.water_polygon.priority_merge.v2"
+        stats = self._merge_runtime_stats(runtime_result.tile_outputs)
+        config_snapshot = self._first_runtime_config(runtime_result.tile_outputs)
+        self._write_fusion_stats(
+            output_root=output_root,
+            algorithm_id=algorithm_id,
+            stats=stats,
+            config_snapshot=config_snapshot,
+        )
+        fusion_summary = {
+            "algorithm_id": algorithm_id,
+            "config_snapshot": config_snapshot,
+            "lineage": {
+                "algorithm_id": algorithm_id,
+                "base_source_id": base_source_id,
+                "supplement_source_id": supplement_source_id,
+                "line_source_ids": [
+                    source_id
+                    for source_id in ("raw.osm.waterways", line_supplement_source_id)
+                    if self._supplemental_artifact_path(supplemental_summary, source_id) is not None
+                ],
+                "runtime": "shared_large_area_runtime",
+                "runtime_evidence_paths": {
+                    key: str(path) for key, path in runtime_result.evidence_paths.items()
+                },
+            },
+            "stats": stats,
+        }
+        return final_output, tile_results, fusion_summary
 
     def _run_v7_national_line_fusion(
         self,
@@ -614,6 +787,35 @@ class TrackBNationalScaleService:
             "stats": stats,
         }
         return final_output, tile_results, fusion_summary
+
+    @staticmethod
+    def _coverage_path(coverage: object) -> Path | None:
+        if isinstance(coverage, dict):
+            raw = coverage.get("path") or coverage.get("artifact_path") or coverage.get("zip_path")
+        else:
+            raw = (
+                getattr(coverage, "path", None)
+                or getattr(coverage, "artifact_path", None)
+                or getattr(coverage, "zip_path", None)
+            )
+        return Path(str(raw)) if raw else None
+
+    @staticmethod
+    def _coverage_source_mode(coverage: object) -> object:
+        if isinstance(coverage, dict):
+            return coverage.get("source_mode")
+        return getattr(coverage, "source_mode", None)
+
+    @staticmethod
+    def _supplemental_artifact_path(
+        supplemental_summary: dict[str, dict[str, Any]],
+        source_id: str,
+    ) -> Path | None:
+        raw = supplemental_summary.get(source_id, {}).get("artifact_path")
+        if not raw:
+            return None
+        path = Path(str(raw))
+        return path if path.exists() else None
 
     def _building_vector_sources(
         self,
@@ -753,8 +955,26 @@ class TrackBNationalScaleService:
                 return config
         return {}
 
+    @staticmethod
+    def _evidence_tile_count(tile_results: list[TileFusionArtifact]) -> int:
+        tile_ids = {item.tile_id for item in tile_results}
+        return len(tile_ids) if tile_ids else 0
+
     def _copy_gpkg(self, source_path: Path, output_path: Path, *, target_crs: str) -> Path:
         frame = gpd.read_file(source_path)
+        return self._write_gpkg(frame, output_path, target_crs=target_crs)
+
+    def _copy_and_clip_gpkg(
+        self,
+        source_path: Path,
+        output_path: Path,
+        *,
+        target_crs: str,
+        clip_boundary: gpd.GeoDataFrame | None,
+    ) -> Path:
+        frame = gpd.read_file(source_path)
+        if clip_boundary is not None and not clip_boundary.empty:
+            frame = self._clip_frame_to_boundary(frame, clip_boundary=clip_boundary, target_crs=target_crs)
         return self._write_gpkg(frame, output_path, target_crs=target_crs)
 
     @staticmethod

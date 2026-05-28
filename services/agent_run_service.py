@@ -1911,7 +1911,7 @@ class AgentRunService:
     ) -> bool:
         if request.input_strategy != RunInputStrategy.task_driven_auto:
             return False
-        if request.job_type != JobType.road:
+        if request.job_type not in {JobType.road, JobType.water}:
             return False
         if resolved_inputs is None:
             return False
@@ -1999,7 +1999,7 @@ class AgentRunService:
         resolved_aoi: ResolvedAOI | None,
         repair_records: Optional[List[RepairRecord]] = None,
     ) -> tuple[Path, List[RepairRecord]]:
-        from services.domain_fusion_runners import run_road_tile
+        from services.domain_fusion_runners import run_road_tile, run_water_polygon_tile, run_waterways_tile
         from services.large_area_runtime_service import LargeAreaRuntimeService, LargeAreaSlice
 
         del intermediate_dir
@@ -2036,6 +2036,40 @@ class AgentRunService:
                     runner=run_road_tile,
                 )
             ]
+        elif request.job_type == JobType.water:
+            water_sources = {
+                source_id: path
+                for source_id, path in {
+                    "raw.osm.water": component_paths.get("raw.osm.water"),
+                    "raw.hydrolakes.water": component_paths.get("raw.hydrolakes.water"),
+                }.items()
+                if path is not None
+            }
+            slices = [
+                LargeAreaSlice(
+                    name="water_polygon",
+                    geometry_family="polygon",
+                    sources=water_sources,
+                    runner=run_water_polygon_tile,
+                )
+            ]
+            line_supplement = component_paths.get("raw.hydrorivers.water") or component_paths.get(
+                "raw.local.pakistan.waterways"
+            )
+            if component_paths.get("raw.osm.waterways") is not None and line_supplement is not None:
+                line_sources = {"raw.osm.waterways": component_paths["raw.osm.waterways"]}
+                if component_paths.get("raw.hydrorivers.water") is not None:
+                    line_sources["raw.hydrorivers.water"] = component_paths["raw.hydrorivers.water"]
+                else:
+                    line_sources["raw.local.pakistan.waterways"] = component_paths["raw.local.pakistan.waterways"]
+                slices.append(
+                    LargeAreaSlice(
+                        name="waterways_line",
+                        geometry_family="line",
+                        sources=line_sources,
+                        runner=run_waterways_tile,
+                    )
+                )
         else:
             raise ValueError(f"Shared large-area runtime not wired for job_type={request.job_type.value}")
         try:

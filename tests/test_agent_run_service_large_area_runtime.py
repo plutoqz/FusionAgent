@@ -165,7 +165,88 @@ def test_road_task_driven_run_uses_shared_large_area_runtime(tmp_path: Path, mon
     assert (run_dir / "output" / "stitched_artifact.json").exists()
 
 
-def test_task4_large_area_runtime_only_claims_road_for_now(tmp_path: Path) -> None:
+def test_water_task_driven_run_outputs_polygon_and_line_slices(tmp_path: Path, monkeypatch) -> None:
+    service = AgentRunService(base_dir=tmp_path / "runs")
+    run_id = "water-run"
+    request = _request(JobType.water)
+    run_dir = service.base_dir / run_id
+    for name in ["intermediate", "output", "logs"]:
+        (run_dir / name).mkdir(parents=True, exist_ok=True)
+    service._persist_status(_status(run_id, request))
+    monkeypatch.setattr(service.tile_partition_service, "partition_bbox", lambda **_kwargs: _single_tile_manifest())
+
+    osm_water = _write(
+        tmp_path / "osm_water.gpkg",
+        gpd.GeoDataFrame(
+            {"osm_id": [1]},
+            geometry=[Polygon([(0, 0), (0, 1), (1, 1), (1, 0)])],
+            crs="EPSG:3857",
+        ),
+    )
+    hydrolakes = _write(
+        tmp_path / "hydrolakes.gpkg",
+        gpd.GeoDataFrame(
+            {"Hylak_id": [11]},
+            geometry=[Polygon([(0.2, 0.2), (0.2, 0.8), (0.8, 0.8), (0.8, 0.2)])],
+            crs="EPSG:3857",
+        ),
+    )
+    osm_waterways = _write(
+        tmp_path / "osm_waterways.gpkg",
+        gpd.GeoDataFrame(
+            {"osm_id": [2], "fclass": ["river"]},
+            geometry=[LineString([(0, 0.5), (2, 0.5)])],
+            crs="EPSG:3857",
+        ),
+    )
+    hydrorivers = _write(
+        tmp_path / "hydrorivers.gpkg",
+        gpd.GeoDataFrame(
+            {"HYRIV_ID": [22]},
+            geometry=[LineString([(0, 0.55), (2, 0.55)])],
+            crs="EPSG:3857",
+        ),
+    )
+    resolved = ResolvedRunInputs(
+        osm_zip_path=tmp_path / "osm.zip",
+        ref_zip_path=tmp_path / "ref.zip",
+        source_mode="downloaded",
+        source_id="catalog.flood.water",
+        cache_hit=False,
+        version_token="v1",
+        selected_source_id="catalog.flood.water",
+        component_coverage={
+            "raw.osm.water": {"path": str(osm_water), "feature_count": 1},
+            "raw.hydrolakes.water": {"path": str(hydrolakes), "feature_count": 1},
+            "raw.osm.waterways": {"path": str(osm_waterways), "feature_count": 1},
+            "raw.hydrorivers.water": {"path": str(hydrorivers), "feature_count": 1},
+        },
+    )
+
+    try:
+        path, repairs = service.run_large_area_execution_stage(
+            run_id=run_id,
+            request=request,
+            plan=_plan(
+                "catalog.flood.water",
+                "dt.water.bundle",
+                "dt.water.fused",
+                "algo.fusion.water_polygon.priority_merge.v2",
+            ),
+            intermediate_dir=run_dir / "intermediate",
+            output_dir=run_dir / "output",
+            resolved_inputs=resolved,
+            resolved_aoi=None,
+        )
+    finally:
+        service.shutdown()
+
+    fused = gpd.read_file(path)
+    assert repairs == []
+    assert {"polygon", "line"}.issubset(set(fused["feature_kind"]))
+
+
+def test_task5_large_area_runtime_claims_road_and_water_but_not_poi(tmp_path: Path) -> None:
     service = AgentRunService(base_dir=tmp_path / "runs")
     resolved = ResolvedRunInputs(
         osm_zip_path=tmp_path / "osm.zip",
@@ -175,7 +256,10 @@ def test_task4_large_area_runtime_only_claims_road_for_now(tmp_path: Path) -> No
         cache_hit=False,
         version_token="v1",
         selected_source_id="catalog.flood.water",
-        component_coverage={"raw.osm.water": {"path": str(tmp_path / "water.gpkg"), "feature_count": 1}},
+        component_coverage={
+            "raw.osm.water": {"path": str(tmp_path / "water.gpkg"), "feature_count": 1},
+            "raw.hydrolakes.water": {"path": str(tmp_path / "hydrolakes.gpkg"), "feature_count": 1},
+        },
     )
 
     try:
@@ -194,7 +278,7 @@ def test_task4_large_area_runtime_only_claims_road_for_now(tmp_path: Path) -> No
     finally:
         service.shutdown()
 
-    assert water is False
+    assert water is True
     assert poi is False
 
 

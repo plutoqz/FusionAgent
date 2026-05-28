@@ -91,6 +91,14 @@ def _seed_local_catalog_tree(root: Path) -> None:
             crs="EPSG:4326",
         ),
     )
+    _write_frame(
+        root / "Data" / "water" / "HydroRIVERS_v10.shp",
+        geopandas.GeoDataFrame(
+            {"HYRIV_ID": [601]},
+            geometry=[LineString([(0.1, 0.1), (1.9, 1.9)])],
+            crs="EPSG:4326",
+        ),
+    )
 
 
 def _read_columns(bundle_zip: Path) -> list[str]:
@@ -212,6 +220,14 @@ def test_local_bundle_catalog_materializes_flood_water_bundle_from_shared_provid
     assert materialized.ref_zip_path.name == "ref.zip"
     assert "osmw_id" in _read_columns(materialized.osm_zip_path)
     assert "Hylak_id" in _read_columns(materialized.ref_zip_path)
+    assert set(materialized.component_coverage) >= {
+        "raw.osm.water",
+        "raw.hydrolakes.water",
+        "raw.osm.waterways",
+        "raw.hydrorivers.water",
+    }
+    assert materialized.component_coverage["raw.osm.waterways"].feature_count == 1
+    assert materialized.component_coverage["raw.hydrorivers.water"].feature_count == 1
 
 
 def test_local_bundle_catalog_materializes_flood_road_bundle_with_overture_reference(tmp_path: Path) -> None:

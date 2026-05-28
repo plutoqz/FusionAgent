@@ -75,6 +75,23 @@ def _poi_source_paths(sources: dict[str, Path]) -> dict[str, Path]:
     return {**sources, **alias_paths(sources, POI_SOURCE_ALIASES)}
 
 
+def _fill_missing_source_id(frame: gpd.GeoDataFrame, source_id: str) -> gpd.GeoDataFrame:
+    result = frame.copy()
+    if "source_id" not in result.columns:
+        result["source_id"] = source_id
+        return result
+    missing = result["source_id"].isna() | result["source_id"].astype(str).str.len().eq(0)
+    result.loc[missing, "source_id"] = source_id
+    return result
+
+
+def _source_id_from_path(paths: dict[str, Path], candidates: tuple[str, ...]) -> str:
+    for candidate in candidates:
+        if paths.get(candidate) is not None:
+            return candidate
+    return candidates[0]
+
+
 def make_building_multisource_runner(
     *,
     raster_sources: dict[str, Path],
@@ -174,13 +191,18 @@ def run_water_polygon_tile(
             "algorithm_id": "algo.fusion.water_polygon.priority_merge.v2",
             "warning": "missing water polygon source",
         }
-    base = _read(base_path, target_crs)
-    supplement = _read(supplement_path, target_crs)
+    base_source_id = _source_id_from_path(paths, ("raw.osm.water",))
+    supplement_source_id = _source_id_from_path(paths, ("raw.hydrolakes.water", "raw.local.water"))
+    base = _fill_missing_source_id(_read(base_path, target_crs), base_source_id)
+    supplement = _fill_missing_source_id(_read(supplement_path, target_crs), supplement_source_id)
     params = params_from_mapping(WaterPolygonFusionParams, parameters)
     fused = fuse_water_polygons(base, supplement, params)
     if fused.empty:
         fused = gpd.GeoDataFrame(
-            {"feature_kind": pd.Series(dtype="object")},
+            {
+                "source_id": pd.Series(dtype="object"),
+                "feature_kind": pd.Series(dtype="object"),
+            },
             geometry=gpd.GeoSeries([], dtype="geometry", crs=target_crs),
             crs=target_crs,
         )
@@ -214,8 +236,10 @@ def run_waterways_tile(
             "algorithm_id": "algo.fusion.waterways.conflation.v7",
             "warning": "missing waterways source",
         }
-    base = _read(base_path, target_crs)
-    supplement = _read(supplement_path, target_crs)
+    base_source_id = _source_id_from_path(paths, ("raw.osm.waterways",))
+    supplement_source_id = _source_id_from_path(paths, ("raw.hydrorivers.water", "raw.local.pakistan.waterways"))
+    base = _fill_missing_source_id(_read(base_path, target_crs), base_source_id)
+    supplement = _fill_missing_source_id(_read(supplement_path, target_crs), supplement_source_id)
     if base.empty and supplement.empty:
         return _empty_output(output_dir, "waterways_fused", target_crs, {"source_id": "object", "feature_kind": "object"}), {
             "algorithm_id": "algo.fusion.waterways.conflation.v7",

@@ -343,10 +343,19 @@ def test_track_b_national_scale_service_includes_hydrorivers_lines_in_water_outp
     fused = gpd.read_file(summary["artifact_path"])
     feature_kinds = {str(value) for value in fused.get("feature_kind", []) if str(value)}
     geom_types = {str(value) for value in fused.geom_type.unique()}
+    tile_manifest = json.loads((output_root / "tile_manifest.json").read_text(encoding="utf-8"))
+    stitched_artifact = json.loads((output_root / "stitched_artifact.json").read_text(encoding="utf-8"))
+    timing = json.loads((output_root / "timing.json").read_text(encoding="utf-8"))
+    inspection_summary = json.loads((output_root / "inspection_summary.json").read_text(encoding="utf-8"))
 
     assert "line" in feature_kinds
     assert any("Line" in value for value in geom_types)
     assert any("Polygon" in value for value in geom_types)
+    assert summary["tile_count"] == tile_manifest["tile_count"]
+    assert stitched_artifact["tile_count"] == tile_manifest["tile_count"]
+    assert timing["tile_count"] == tile_manifest["tile_count"]
+    assert inspection_summary["tile_count"] == tile_manifest["tile_count"]
+    assert len(stitched_artifact["tile_outputs"]) > tile_manifest["tile_count"]
 
 
 def test_track_b_national_scale_service_includes_osm_waterways_lines_in_water_output(

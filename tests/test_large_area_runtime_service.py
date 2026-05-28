@@ -274,3 +274,98 @@ def test_domain_line_runners_force_v7_config_target_crs(tmp_path: Path, monkeypa
     )
 
     assert captured == {"road": "EPSG:4326", "waterways": "EPSG:4326"}
+
+
+def test_water_polygon_runner_assigns_source_id_before_fusion(tmp_path: Path) -> None:
+    osm_water = _write(
+        tmp_path / "osm_water.gpkg",
+        gpd.GeoDataFrame(
+            {"osm_id": [1]},
+            geometry=[Polygon([(0.0, 0.0), (0.0, 1.0), (1.0, 1.0), (1.0, 0.0)])],
+            crs="EPSG:3857",
+        ),
+    )
+    hydrolakes = _write(
+        tmp_path / "hydrolakes.gpkg",
+        gpd.GeoDataFrame(
+            {"Hylak_id": [11]},
+            geometry=[Polygon([(1.2, 0.0), (1.2, 1.0), (2.0, 1.0), (2.0, 0.0)])],
+            crs="EPSG:3857",
+        ),
+    )
+
+    output_path, _stats = domain_runners.run_water_polygon_tile(
+        _manifest().tiles[0],
+        {"raw.osm.water": osm_water, "raw.hydrolakes.water": hydrolakes},
+        tmp_path / "water-polygon-out",
+        "EPSG:3857",
+        {},
+    )
+
+    fused = gpd.read_file(output_path)
+
+    assert set(fused["feature_kind"]) == {"polygon"}
+    assert {"raw.osm.water", "raw.hydrolakes.water"}.issubset(set(fused["source_id"]))
+
+
+def test_waterways_runner_assigns_source_id_before_v7_canonicalization(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    osm_waterways = _write(
+        tmp_path / "osm_waterways.gpkg",
+        gpd.GeoDataFrame(
+            {"osm_id": ["osm-1"], "fclass": ["river"]},
+            geometry=[LineString([(0.0, 0.0), (1.0, 0.0)])],
+            crs="EPSG:3857",
+        ),
+    )
+    hydrorivers = _write(
+        tmp_path / "hydrorivers.gpkg",
+        gpd.GeoDataFrame(
+            {"HYRIV_ID": ["hydro-1"], "waterway": ["river"]},
+            geometry=[LineString([(0.0, 0.2), (1.0, 0.2)])],
+            crs="EPSG:3857",
+        ),
+    )
+
+    class _Result:
+        def __init__(self, frame: gpd.GeoDataFrame) -> None:
+            self.frame = frame
+            self.stats = {"final_count": len(frame)}
+            self.config = {"target_crs": "EPSG:3857"}
+            self.lineage = {"algorithm_id": "algo.fusion.waterways.conflation.v7"}
+            self.warnings = []
+
+    def fake_waterways(base, supplement, *, config):
+        del config
+        frame = gpd.GeoDataFrame(
+            {
+                "source_id": [
+                    base["source_id"].iloc[0],
+                    supplement["source_id"].iloc[0],
+                ],
+                "source_feature_id": [
+                    base["source_feature_id"].iloc[0] if "source_feature_id" in base.columns else "base-1",
+                    supplement["source_feature_id"].iloc[0] if "source_feature_id" in supplement.columns else "supplement-1",
+                ],
+            },
+            geometry=[base.geometry.iloc[0], supplement.geometry.iloc[0]],
+            crs=base.crs,
+        )
+        return _Result(frame)
+
+    monkeypatch.setattr(domain_runners, "run_waterways_conflation_v7", fake_waterways)
+
+    output_path, _stats = domain_runners.run_waterways_tile(
+        _manifest().tiles[0],
+        {"raw.osm.waterways": osm_waterways, "raw.hydrorivers.water": hydrorivers},
+        tmp_path / "waterways-out",
+        "EPSG:3857",
+        {},
+    )
+
+    fused = gpd.read_file(output_path)
+
+    assert set(fused["feature_kind"]) == {"line"}
+    assert set(fused["source_id"]) == {"raw.osm.waterways", "raw.hydrorivers.water"}

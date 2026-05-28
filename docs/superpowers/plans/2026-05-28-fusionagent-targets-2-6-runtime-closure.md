@@ -1242,7 +1242,7 @@ git commit -m "feat: route road fusion through large area runtime"
 - Test: `tests/test_track_b_national_v7_routes.py`
 - Test: `tests/test_waterways_conflation_v7.py`
 
-- [ ] **Step 1: Add failing water runtime test with polygon and line slices**
+- [x] **Step 1: Add failing water runtime test with polygon and line slices**
 
 Append to `tests/test_agent_run_service_large_area_runtime.py`:
 
@@ -1294,7 +1294,7 @@ def test_water_task_driven_run_outputs_polygon_and_line_slices(tmp_path: Path) -
     assert {"polygon", "line"}.issubset(set(fused["feature_kind"]))
 ```
 
-- [ ] **Step 2: Run the water test and verify failure**
+- [x] **Step 2: Run the water test and verify failure**
 
 Run:
 
@@ -1304,7 +1304,7 @@ python -m pytest -q tests/test_agent_run_service_large_area_runtime.py::test_wat
 
 Expected: FAIL because `run_large_area_execution_stage()` only wires road.
 
-- [ ] **Step 3: Add water slices to `run_large_area_execution_stage()`**
+- [x] **Step 3: Add water slices to `run_large_area_execution_stage()`**
 
 In `services/agent_run_service.py`, import `run_water_polygon_tile` and `run_waterways_tile` inside the method and add this branch:
 
@@ -1340,7 +1340,7 @@ In `services/agent_run_service.py`, import `run_water_polygon_tile` and `run_wat
                 )
 ```
 
-- [ ] **Step 4: Ensure water acquisition includes waterways supplements**
+- [x] **Step 4: Ensure water acquisition includes waterways supplements**
 
 In `services/local_bundle_catalog.py`, when selected source is `catalog.flood.water`, include supplemental component coverage for `raw.osm.waterways` and `raw.hydrorivers.water` if materialization succeeds. The returned `MaterializedInputBundle.component_coverage` should include all four ids:
 
@@ -1355,7 +1355,7 @@ In `services/local_bundle_catalog.py`, when selected source is `catalog.flood.wa
 
 The `osm_zip_path/ref_zip_path` pair remains polygon-compatible for legacy executor fallback; shared large-area runtime reads the component coverage paths.
 
-- [ ] **Step 5: Preserve explicit line/polygon semantics in output**
+- [x] **Step 5: Preserve explicit line/polygon semantics in output**
 
 In `services/domain_fusion_runners.py`, ensure:
 
@@ -1377,7 +1377,7 @@ frame["source_id"] = frame.get("source_id", "raw.hydrorivers.water")
 
 where source id is absent after V7 canonicalization.
 
-- [ ] **Step 6: Reuse shared runtime in Track B water evidence**
+- [x] **Step 6: Reuse shared runtime in Track B water evidence**
 
 In `services/track_b_national_scale_service.py`, route `theme == "water"` through `LargeAreaRuntimeService` with two slices when line sources are present. Preserve existing tests that assert:
 
@@ -1386,7 +1386,7 @@ assert "line" in feature_kinds
 assert any("Polygon" in value for value in geom_types)
 ```
 
-- [ ] **Step 7: Run water verification**
+- [x] **Step 7: Run water verification**
 
 Run:
 
@@ -1396,7 +1396,7 @@ python -m pytest -q tests/test_agent_run_service_large_area_runtime.py::test_wat
 
 Expected: PASS.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```powershell
 git add services/agent_run_service.py services/domain_fusion_runners.py services/local_bundle_catalog.py services/track_b_national_scale_service.py services/source_asset_service.py tests/test_agent_run_service_large_area_runtime.py tests/test_track_b_national_scale_service.py tests/test_track_b_national_v7_routes.py tests/test_waterways_conflation_v7.py

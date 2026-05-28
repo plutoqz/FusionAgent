@@ -188,6 +188,15 @@ class LocalBundleCatalogProvider:
             ref = self._create_empty_reference_bundle(osm=osm, output_zip=target_dir / "ref.zip")
 
         component_coverage = self._component_coverage(osm, ref, spec.component_source_ids)
+        component_coverage.update(
+            self._supplemental_component_coverage(
+                source_id=source_id,
+                request_bbox=request_bbox,
+                resolved_aoi=resolved_aoi,
+                target_dir=target_dir,
+                target_crs=target_crs,
+            )
+        )
         return MaterializedInputBundle(
             osm_zip_path=osm.zip_path,
             ref_zip_path=ref.zip_path,
@@ -220,6 +229,38 @@ class LocalBundleCatalogProvider:
             )
             for source_id, component in components
         }
+
+    def _supplemental_component_coverage(
+        self,
+        *,
+        source_id: str,
+        request_bbox: Optional[BBox],
+        resolved_aoi: ResolvedAOI | None,
+        target_dir: Path,
+        target_crs: str,
+    ) -> dict[str, SourceCoverageStatus]:
+        if source_id != "catalog.flood.water":
+            return {}
+        coverage: dict[str, SourceCoverageStatus] = {}
+        for component_source_id in ("raw.osm.waterways", "raw.hydrorivers.water"):
+            try:
+                resolved = self.raw_source_service.resolve(
+                    source_id=component_source_id,
+                    request_bbox=request_bbox,
+                    target_path=target_dir / f"{component_source_id.replace('.', '_')}.zip",
+                    target_crs=target_crs,
+                    resolved_aoi=resolved_aoi,
+                )
+            except (FileNotFoundError, RuntimeError, ValueError):
+                continue
+            coverage[component_source_id] = SourceCoverageStatus(
+                source_id=component_source_id,
+                source_mode=resolved.source_mode,
+                feature_count=resolved.feature_count,
+                coverage_status=coverage_status_for_count(resolved.feature_count),
+                path=resolved.zip_path,
+            )
+        return coverage
 
     def _has_empty_required_component(
         self,
