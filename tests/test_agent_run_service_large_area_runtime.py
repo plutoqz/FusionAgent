@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from zipfile import ZipFile
 
 import geopandas as gpd
 import pytest
@@ -99,6 +100,14 @@ def _plan(source_id: str, input_type: str, output_type: str, algorithm_id: str) 
 def _write(path: Path, frame: gpd.GeoDataFrame) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     frame.to_file(path, driver="GPKG")
+    return path
+
+
+def _write_dummy_zip(path: Path) -> Path:
+    with ZipFile(path, "w") as zf:
+        zf.writestr("dummy.shp", b"shp")
+        zf.writestr("dummy.shx", b"shx")
+        zf.writestr("dummy.dbf", b"dbf")
     return path
 
 
@@ -320,7 +329,28 @@ def test_poi_task_driven_run_uses_osm_and_gns_large_area_runtime(tmp_path: Path,
 
 def test_large_area_runtime_claims_road_water_and_poi(tmp_path: Path) -> None:
     service = AgentRunService(base_dir=tmp_path / "runs")
-    resolved = ResolvedRunInputs(
+    water_path = tmp_path / "water.gpkg"
+    hydrolakes_path = tmp_path / "hydrolakes.gpkg"
+    osm_poi_path = tmp_path / "osm_poi.gpkg"
+    gns_poi_path = tmp_path / "gns_poi.gpkg"
+    osm_road_path = tmp_path / "osm_road.gpkg"
+    overture_path = tmp_path / "overture.gpkg"
+    water_path.write_bytes(b"materialized-water")
+    hydrolakes_path.write_bytes(b"materialized-hydrolakes")
+    osm_poi_path.write_bytes(b"materialized-osm-poi")
+    gns_poi_path.write_bytes(b"materialized-gns-poi")
+    osm_road_path.write_bytes(b"materialized-osm-road")
+    overture_path.write_bytes(b"materialized-overture")
+    legacy_osm_zip = tmp_path / "legacy_osm.zip"
+    legacy_ref_zip = tmp_path / "legacy_ref.zip"
+    poi_water_osm_zip = tmp_path / "poi_water_osm.zip"
+    poi_water_ref_zip = tmp_path / "poi_water_ref.zip"
+    _write_dummy_zip(legacy_osm_zip)
+    _write_dummy_zip(legacy_ref_zip)
+    _write_dummy_zip(poi_water_osm_zip)
+    _write_dummy_zip(poi_water_ref_zip)
+
+    water_resolved = ResolvedRunInputs(
         osm_zip_path=tmp_path / "osm.zip",
         ref_zip_path=tmp_path / "ref.zip",
         source_mode="downloaded",
@@ -329,29 +359,96 @@ def test_large_area_runtime_claims_road_water_and_poi(tmp_path: Path) -> None:
         version_token="v1",
         selected_source_id="catalog.flood.water",
         component_coverage={
-            "raw.osm.water": {"path": str(tmp_path / "water.gpkg"), "feature_count": 1},
-            "raw.hydrolakes.water": {"path": str(tmp_path / "hydrolakes.gpkg"), "feature_count": 1},
+            "raw.osm.water": {"path": str(water_path), "feature_count": 1},
+            "raw.hydrolakes.water": {"path": str(hydrolakes_path), "feature_count": 1},
         },
+    )
+    poi_resolved_with_water_paths = ResolvedRunInputs(
+        osm_zip_path=poi_water_osm_zip,
+        ref_zip_path=poi_water_ref_zip,
+        source_mode="downloaded",
+        source_id="catalog.generic.poi",
+        cache_hit=False,
+        version_token="v1",
+        selected_source_id="catalog.generic.poi",
+        component_coverage=water_resolved.component_coverage,
+    )
+    poi_resolved = ResolvedRunInputs(
+        osm_zip_path=tmp_path / "poi_osm.zip",
+        ref_zip_path=tmp_path / "poi_ref.zip",
+        source_mode="downloaded",
+        source_id="catalog.generic.poi",
+        cache_hit=False,
+        version_token="v1",
+        selected_source_id="catalog.generic.poi",
+        component_coverage={
+            "raw.osm.poi": {"path": str(osm_poi_path), "feature_count": 1},
+            "raw.gns.poi": {"path": str(gns_poi_path), "feature_count": 1},
+        },
+    )
+    road_resolved = ResolvedRunInputs(
+        osm_zip_path=tmp_path / "road_osm.zip",
+        ref_zip_path=tmp_path / "road_ref.zip",
+        source_mode="downloaded",
+        source_id="catalog.flood.road",
+        cache_hit=False,
+        version_token="v1",
+        selected_source_id="catalog.flood.road",
+        component_coverage={
+            "raw.osm.road": {"path": str(osm_road_path), "feature_count": 1},
+            "raw.overture.transportation": {"path": str(overture_path), "feature_count": 1},
+        },
+    )
+    legacy_zip_resolved = ResolvedRunInputs(
+        osm_zip_path=legacy_osm_zip,
+        ref_zip_path=legacy_ref_zip,
+        source_mode="downloaded",
+        source_id="catalog.flood.water",
+        cache_hit=False,
+        version_token="v1",
+        selected_source_id="catalog.flood.water",
+        component_coverage={},
     )
 
     try:
         water = service._should_use_large_area_runtime(
             request=_request(JobType.water),
             plan=_plan("catalog.flood.water", "dt.water.bundle", "dt.water.fused", "algo.fusion.water.v1"),
-            resolved_inputs=resolved,
+            resolved_inputs=water_resolved,
+            resolved_aoi=None,
+        )
+        poi_with_water_paths = service._should_use_large_area_runtime(
+            request=_request(JobType.poi),
+            plan=_plan("catalog.generic.poi", "dt.poi.bundle", "dt.poi.fused", "algo.fusion.poi.geohash_neighbor_match.v1"),
+            resolved_inputs=poi_resolved_with_water_paths,
             resolved_aoi=None,
         )
         poi = service._should_use_large_area_runtime(
             request=_request(JobType.poi),
             plan=_plan("catalog.generic.poi", "dt.poi.bundle", "dt.poi.fused", "algo.fusion.poi.geohash_neighbor_match.v1"),
-            resolved_inputs=resolved,
+            resolved_inputs=poi_resolved,
+            resolved_aoi=None,
+        )
+        road = service._should_use_large_area_runtime(
+            request=_request(JobType.road),
+            plan=_plan("catalog.flood.road", "dt.road.bundle", "dt.road.fused", "algo.fusion.road.conflation.v7"),
+            resolved_inputs=road_resolved,
+            resolved_aoi=None,
+        )
+        legacy_zip_fallback = service._should_use_large_area_runtime(
+            request=_request(JobType.water),
+            plan=_plan("catalog.flood.water", "dt.water.bundle", "dt.water.fused", "algo.fusion.water.v1"),
+            resolved_inputs=legacy_zip_resolved,
             resolved_aoi=None,
         )
     finally:
         service.shutdown()
 
     assert water is True
+    assert poi_with_water_paths is False
     assert poi is True
+    assert road is True
+    assert legacy_zip_fallback is True
 
 
 def test_road_large_area_runtime_allows_partial_component_paths_without_keyerror(

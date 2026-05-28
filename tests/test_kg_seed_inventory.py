@@ -17,15 +17,15 @@ from kg.seed import (
 
 def test_seed_inventory_matches_expected_static_counts() -> None:
     assert len(DATA_TYPES) == 27
-    assert len(TASKS) == 10
+    assert len(TASKS) == 11
     assert len(TASK_BUNDLES) == 4
     assert len(ALGORITHMS) == 33
-    assert sum(len(items) for items in PARAMETER_SPECS.values()) == 44
-    assert len(DATA_SOURCES) == 26
+    assert sum(len(items) for items in PARAMETER_SPECS.values()) == 72
+    assert len(DATA_SOURCES) == 30
     assert len(SCENARIO_PROFILES) == 4
     assert len(QOS_POLICIES) == 4
-    assert len(OUTPUT_SCHEMA_POLICIES) == 4
-    assert len(OUTPUT_REQUIREMENTS) == 4
-    assert len(DATA_NEEDS) == 10
+    assert len(OUTPUT_SCHEMA_POLICIES) == 5
+    assert len(OUTPUT_REQUIREMENTS) == 5
+    assert len(DATA_NEEDS) == 12
     assert len(REPAIR_STRATEGIES) == 2
-    assert len(WORKFLOW_PATTERNS) == 14
+    assert len(WORKFLOW_PATTERNS) == 15

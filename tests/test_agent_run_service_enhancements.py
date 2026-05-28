@@ -6,7 +6,7 @@ from zipfile import ZipFile
 
 import geopandas as gpd
 import pytest
-from shapely.geometry import box
+from shapely.geometry import LineString, box
 
 from agent.executor import ExecutionContext, WorkflowExecutor
 from schemas.agent import (
@@ -267,6 +267,22 @@ def _seed_water_runtime_tree(root: Path) -> None:
         ),
     )
     _write_frame(
+        root / "Data" / "burundi-260127-free.shp" / "gis_osm_waterways_free_1.shp",
+        gpd.GeoDataFrame(
+            {"osmwl_id": [3], "fclass": ["river"]},
+            geometry=[LineString([(0.25, 0.25), (1.75, 1.75)])],
+            crs="EPSG:4326",
+        ),
+    )
+    _write_frame(
+        root / "Data" / "water" / "HydroRIVERS_v10.shp",
+        gpd.GeoDataFrame(
+            {"HYRIV_ID": [4]},
+            geometry=[LineString([(0.25, 1.75), (1.75, 0.25)])],
+            crs="EPSG:4326",
+        ),
+    )
+    _write_frame(
         root / "Data" / "water" / "HydroLAKES_polys_v10.shp",
         gpd.GeoDataFrame(
             {"Hylak_id": [2]},
@@ -351,6 +367,7 @@ def test_agent_run_service_allows_water_task_driven_auto_and_records_task_inputs
     monkeypatch.setattr(service.aoi_resolution_service, "resolve", lambda query: _resolved_nairobi_aoi())
     monkeypatch.setattr(service.planner, "create_plan", lambda **_kwargs: plan.model_copy(deep=True))
     monkeypatch.setattr(service.validator, "validate_and_repair", lambda input_plan: input_plan)
+    monkeypatch.setattr(service, "_should_use_large_area_runtime", lambda **_kwargs: False)
     monkeypatch.setattr(service.input_acquisition_service, "resolve_task_driven_inputs", lambda **_kwargs: resolved)
     monkeypatch.setattr(
         "services.agent_run_service.validate_zip_has_shapefile",
@@ -424,6 +441,7 @@ def test_agent_run_service_water_task_driven_auto_uses_real_shared_acquisition_c
 
     monkeypatch.setattr(service.planner, "create_plan", lambda **_kwargs: plan.model_copy(deep=True))
     monkeypatch.setattr(service.validator, "validate_and_repair", lambda input_plan: input_plan)
+    monkeypatch.setattr(service, "_should_use_large_area_runtime", lambda **_kwargs: False)
 
     def fake_execute_plan(*, context, **_kwargs):
         captured["osm_shp"] = context.osm_shp
@@ -502,6 +520,7 @@ def test_agent_run_service_poi_task_driven_auto_uses_real_shared_acquisition_cha
 
     monkeypatch.setattr(service.planner, "create_plan", lambda **_kwargs: plan.model_copy(deep=True))
     monkeypatch.setattr(service.validator, "validate_and_repair", lambda input_plan: input_plan)
+    monkeypatch.setattr(service, "_should_use_large_area_runtime", lambda **_kwargs: False)
 
     def fake_execute_plan(*, context, **_kwargs):
         captured["osm_shp"] = context.osm_shp
@@ -586,6 +605,7 @@ def test_agent_run_service_water_task_driven_auto_fails_at_materialization_time_
 
     monkeypatch.setattr(service.planner, "create_plan", lambda **_kwargs: plan.model_copy(deep=True))
     monkeypatch.setattr(service.validator, "validate_and_repair", lambda input_plan: input_plan)
+    monkeypatch.setattr(service, "_should_use_large_area_runtime", lambda **_kwargs: False)
     monkeypatch.setattr(
         service.executor,
         "execute_plan",
@@ -638,6 +658,7 @@ def test_agent_run_service_road_task_driven_auto_keeps_trajectory_seam_reserved(
 
     monkeypatch.setattr(service.planner, "create_plan", lambda **_kwargs: plan.model_copy(deep=True))
     monkeypatch.setattr(service.validator, "validate_and_repair", lambda input_plan: input_plan)
+    monkeypatch.setattr(service, "_should_use_large_area_runtime", lambda **_kwargs: False)
     monkeypatch.setattr(
         service.executor,
         "execute_plan",
@@ -747,6 +768,7 @@ def test_agent_run_service_road_task_driven_auto_uses_real_shared_acquisition_ch
 
     monkeypatch.setattr(service.planner, "create_plan", lambda **_kwargs: plan.model_copy(deep=True))
     monkeypatch.setattr(service.validator, "validate_and_repair", lambda input_plan: input_plan)
+    monkeypatch.setattr(service, "_should_use_large_area_runtime", lambda **_kwargs: False)
 
     def fake_execute_plan(*, context, **_kwargs):
         captured["osm_shp"] = context.osm_shp
@@ -1398,6 +1420,7 @@ def test_agent_run_service_direct_bbox_run_does_not_force_aoi_resolution(
     plan = _build_road_task_driven_plan()
     monkeypatch.setattr(service.planner, "create_plan", lambda **_kwargs: plan.model_copy(deep=True))
     monkeypatch.setattr(service.validator, "validate_and_repair", lambda input_plan: input_plan)
+    monkeypatch.setattr(service, "_should_use_large_area_runtime", lambda **_kwargs: False)
     monkeypatch.setattr(service.executor, "execute_plan", lambda **_kwargs: fused_shp)
     monkeypatch.setattr("services.agent_run_service.zip_shapefile_bundle", lambda *_args, **_kwargs: artifact_zip)
     monkeypatch.setattr(

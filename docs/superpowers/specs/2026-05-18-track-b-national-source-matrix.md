@@ -110,6 +110,7 @@ Locked source set:
 | --- | --- | --- | --- | --- | --- | --- |
 | `raw.osm.poi` | primary | `official_remote_supported` | `geofabrik_shapefile_bundle` | `country_bundle_then_clip` | `fields.poi.osm` | ODbL-derived source; preserve attribution in normalized and fused POI outputs. |
 | `raw.gns.poi` | national reference | `official_remote_supported` | `country_zip_tabular_export` | `country_zip_then_aoi_clip` | `fields.poi.gns` | Official GNS country export; keep identifier provenance visible in normalized and fused outputs. |
+| `raw.geonames.poi` | national reference alias | `official_remote_supported` | `country_zip_tabular_export` | `country_zip_then_aoi_clip` | `fields.poi.gns` | GeoNames/GNS alias for `raw.gns.poi`; reuse the same official remote support and clip strategy. |
 | `raw.rh.poi` | optional manual supplement | `manual_preload_required` | `shapefile_bundle` | `country_shapefile_then_aoi_clip` | `fields.poi.rh` | Local sample only; keep it out of promoted national claims unless explicit evidence is added. |
 | `raw.overture.poi` | deferred third source | `reservation_only` | `parquet_or_geoparquet_extract` | `deferred` | `fields.poi.overture_places` | Optional future third source only. |
 

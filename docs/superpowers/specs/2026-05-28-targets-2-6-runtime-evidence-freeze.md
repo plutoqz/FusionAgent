@@ -41,11 +41,16 @@ This Windows host has a broken bare `python` entrypoint for this repo: `python -
   - Result: `71 passed, 12 warnings in 52.03s`
 - `$env:GEOFUSION_KG_BACKEND='memory'; $env:GEOFUSION_LLM_PROVIDER='mock'; $env:GEOFUSION_CELERY_EAGER='1'; py -3.13 -m pytest -q tests/test_agent_run_service_large_area_runtime.py`
   - Result: `6 passed in 3.28s`
+- `py -3.13 -m pytest -q tests/test_agent_run_service_enhancements.py`
+  - Result: `36 passed in 4.00s`
+- `py -3.13 -m pytest -q tests/test_agent_run_service_large_area_runtime.py tests/test_agent_run_service_enhancements.py tests/test_check_kg_contract.py tests/test_kg_seed_inventory.py tests/test_fusioncode_parity_ledger.py tests/test_track_b_source_matrix.py tests/test_source_coverage_fallback.py`
+  - Result: `57 passed in 6.45s`
+- `py -3.13 -m pytest -q tests/test_neo4j_bootstrap.py::test_expected_seed_inventory_matches_static_bootstrap_contract tests/test_source_coverage_fallback.py tests/test_local_bundle_catalog.py`
+  - Result: `13 passed in 2.12s`
+- `py -3.13 -m pytest -q tests/test_ontology_closure.py tests/test_local_bundle_catalog.py tests/test_large_area_runtime_service.py tests/test_agent_run_service_large_area_runtime.py tests/test_agent_run_service_multisource_building_runtime.py tests/test_tiled_multisource_building_runtime_service.py tests/test_source_semantic_contract_service.py tests/test_source_asset_service.py tests/test_road_conflation_v7.py tests/test_waterways_conflation_v7.py tests/test_poi_adapter.py tests/test_fusioncode_poi.py tests/test_run_report_service.py tests/test_track_b_national_scale_service.py tests/test_track_b_national_v7_routes.py tests/test_run_preflight.py`
+  - Result: `93 passed, 12 warnings in 56.90s`
 - `py -3.13 -m pytest -q`
-  - Result: stopped after the repository-wide run emitted an early failure marker and continued for several minutes without a final summary.
-- `py -3.13 -m pytest -q --maxfail=1`
-  - Result: `1 failed in 2.94s`
-  - First failure: `tests/test_agent_run_service_enhancements.py::test_agent_run_service_allows_water_task_driven_auto_and_records_task_inputs_resolved`
-  - Note: this legacy enhancement test stubs resolved water `.shp` paths with dummy text files. The current shared large-area runtime reads real vector files and fails with `pyogrio.errors.DataSourceError` before the old mocked executor path can succeed. The Task 8 target suite remains passing.
-
+  - Result after archiving this plan: `1 failed, 704 passed, 1 skipped, 12 warnings in 145.83s`
+  - First failure: `tests/test_plan_handshake.py::test_completed_master_plan_is_archived_with_no_active_plan_left`
+  - Note: after this plan was moved to `docs/superpowers/plans/done/`, the only active plan left is the unrelated unfinished `2026-05-26-fusionagent-capability-gap-prioritized-plan.md`. The target 2-6 runtime gates above passed.
 Optional live-source smoke was skipped because it uses `--prefer-remote` against provider-dependent OSM, Microsoft, Overture, HydroLAKES, HydroRIVERS, and GNS downloads. Provider availability should not block the no-network fixture closure.

@@ -1922,7 +1922,40 @@ class AgentRunService:
             or resolved_inputs.source_id
             or self._resolve_task_driven_source_id(plan)
         )
-        return bool(selected_source_id)
+        if not selected_source_id:
+            return False
+        return self._has_large_area_runtime_material(resolved_inputs, job_type=request.job_type)
+
+    @classmethod
+    def _has_large_area_runtime_material(cls, resolved_inputs: ResolvedRunInputs, *, job_type: JobType) -> bool:
+        allowed_source_ids_by_job = {
+            JobType.road: {"raw.osm.road", "raw.overture.transportation", "raw.overture.road"},
+            JobType.water: {
+                "raw.osm.water",
+                "raw.hydrolakes.water",
+                "raw.osm.waterways",
+                "raw.hydrorivers.water",
+            },
+            JobType.poi: {"raw.osm.poi", "raw.gns.poi", "raw.geonames.poi"},
+        }
+        allowed_source_ids = allowed_source_ids_by_job.get(job_type, set())
+        coverage = dict(resolved_inputs.component_coverage or {})
+        for source_id, payload in coverage.items():
+            if source_id not in allowed_source_ids:
+                continue
+            path = cls._component_path_from_payload(payload)
+            if path is not None and path.exists():
+                return True
+        if coverage:
+            return False
+        return cls._has_legacy_input_bundle_path(resolved_inputs)
+
+    @staticmethod
+    def _has_legacy_input_bundle_path(resolved_inputs: ResolvedRunInputs) -> bool:
+        return any(
+            path is not None and Path(path).exists() and zipfile.is_zipfile(Path(path))
+            for path in (resolved_inputs.osm_zip_path, resolved_inputs.ref_zip_path)
+        )
 
     def _should_use_multisource_building_runtime(self, request: RunCreateRequest, plan: WorkflowPlan) -> bool:
         if request.job_type != JobType.building or request.input_strategy != RunInputStrategy.task_driven_auto:
