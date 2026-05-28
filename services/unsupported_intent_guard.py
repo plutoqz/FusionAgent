@@ -11,7 +11,7 @@ UNSUPPORTED_INTENT_RULES = [
         "job_types": ("road",),
     },
     {
-        "code": "UNBOUNDED_POI_ENTITY_ALIGNMENT",
+        "code": "unsupported_unbounded_poi_entity_alignment",
         "message": "POI fusion is bounded and does not support open-ended entity alignment.",
         "keywords": (
             "entity resolution",
@@ -22,6 +22,7 @@ UNSUPPORTED_INTENT_RULES = [
             "通用实体对齐",
         ),
         "job_types": ("poi",),
+        "supported_boundary": "bounded AOI POI fusion only",
     },
     {
         "code": "OFF_DOMAIN_REQUEST",
@@ -58,9 +59,28 @@ def _job_type_value(job_type: Any) -> str:
     return str(getattr(job_type, "value", job_type))
 
 
+def _looks_like_unbounded_entity_alignment(content: str) -> bool:
+    normalized = str(content or "").casefold()
+    return (
+        "poi" in normalized
+        and ("without bbox" in normalized or "without boundary" in normalized or "unbounded" in normalized)
+        and ("match" in normalized or "align" in normalized or "entity" in normalized)
+    )
+
+
 def classify_unsupported_intent(content: str, *, job_type: str) -> list[dict[str, str]]:
     normalized = str(content or "").casefold()
     normalized_job_type = _job_type_value(job_type).casefold()
+    if normalized_job_type == "poi" and _looks_like_unbounded_entity_alignment(content):
+        return [
+            {
+                "code": "unsupported_unbounded_poi_entity_alignment",
+                "message": "POI fusion is bounded and does not support open-ended entity alignment.",
+                "matched_keyword": "without bbox",
+                "job_type": normalized_job_type,
+                "supported_boundary": "bounded AOI POI fusion only",
+            }
+        ]
     for rule in UNSUPPORTED_INTENT_RULES:
         if normalized_job_type not in rule["job_types"]:
             continue
@@ -72,6 +92,11 @@ def classify_unsupported_intent(content: str, *, job_type: str) -> list[dict[str
                         "message": rule["message"],
                         "matched_keyword": keyword,
                         "job_type": normalized_job_type,
+                        **(
+                            {"supported_boundary": str(rule["supported_boundary"])}
+                            if "supported_boundary" in rule
+                            else {}
+                        ),
                     }
                 ]
     return []

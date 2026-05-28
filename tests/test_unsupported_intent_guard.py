@@ -85,9 +85,10 @@ def test_classify_unsupported_intent_flags_unbounded_poi_entity_alignment() -> N
 
     assert issues == [
         {
-            "code": "UNBOUNDED_POI_ENTITY_ALIGNMENT",
+            "code": "unsupported_unbounded_poi_entity_alignment",
             "message": "POI fusion is bounded and does not support open-ended entity alignment.",
             "matched_keyword": "entity resolution",
             "job_type": "poi",
+            "supported_boundary": "bounded AOI POI fusion only",
         }
     ]

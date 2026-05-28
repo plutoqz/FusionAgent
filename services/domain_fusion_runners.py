@@ -72,7 +72,17 @@ def _polygon_source_paths(sources: dict[str, Path]) -> dict[str, Path]:
 
 
 def _poi_source_paths(sources: dict[str, Path]) -> dict[str, Path]:
-    return {**sources, **alias_paths(sources, POI_SOURCE_ALIASES)}
+    canonical_sources = dict(sources)
+    if "raw.gns.poi" in canonical_sources and "raw.geonames.poi" in canonical_sources:
+        canonical_sources.pop("raw.geonames.poi")
+    return {**canonical_sources, **alias_paths(canonical_sources, POI_SOURCE_ALIASES)}
+
+
+def _poi_source_id_for_alias(alias: str, sources: dict[str, Path]) -> str:
+    for source_id, runtime_alias in POI_SOURCE_ALIASES.items():
+        if runtime_alias == alias and source_id in sources:
+            return "raw.gns.poi" if source_id == "raw.geonames.poi" else source_id
+    return alias
 
 
 def _fill_missing_source_id(frame: gpd.GeoDataFrame, source_id: str) -> gpd.GeoDataFrame:
@@ -82,6 +92,31 @@ def _fill_missing_source_id(frame: gpd.GeoDataFrame, source_id: str) -> gpd.GeoD
         return result
     missing = result["source_id"].isna() | result["source_id"].astype(str).str.len().eq(0)
     result.loc[missing, "source_id"] = source_id
+    return result
+
+
+def _first_present_column(frame: gpd.GeoDataFrame, candidates: tuple[str, ...]) -> pd.Series | None:
+    for column in candidates:
+        if column in frame.columns:
+            return frame[column]
+    return None
+
+
+def _fill_poi_provenance(frame: gpd.GeoDataFrame, *, source_id: str) -> gpd.GeoDataFrame:
+    result = _fill_missing_source_id(frame, source_id)
+    ids = _first_present_column(result, ("canonical_id", "source_feature_id", "osm_id", "ufi", "uni", "id", "poi_id"))
+    names = _first_present_column(result, ("canonical_name", "name", "full_name", "full_nm_nd", "NAME"))
+    categories = _first_present_column(result, ("canonical_category", "category", "desig_cd", "generic", "fclass", "type"))
+
+    if "canonical_id" not in result.columns:
+        if ids is None:
+            result["canonical_id"] = [f"{source_id}:{index}" for index in result.index]
+        else:
+            result["canonical_id"] = ids.map(lambda value: f"{source_id}:{value}" if pd.notna(value) else None)
+    if "canonical_name" not in result.columns:
+        result["canonical_name"] = names if names is not None else ""
+    if "canonical_category" not in result.columns:
+        result["canonical_category"] = categories if categories is not None else ""
     return result
 
 
@@ -271,7 +306,8 @@ def run_poi_tile(
         path = paths.get(alias)
         if path is None:
             continue
-        frame = _read(path, target_crs)
+        source_id = _poi_source_id_for_alias(alias, sources)
+        frame = _fill_poi_provenance(_read(path, target_crs), source_id=source_id)
         if not frame.empty:
             ordered_sources[alias] = frame
     if not ordered_sources:
@@ -298,10 +334,17 @@ def run_poi_tile(
         if len(params.source_priority_order) > 1:
             source_from_src = source_from_src.replace({"target": params.source_priority_order[-1]})
         fused["source_rank"] = source_from_src.map(rank_by_source).fillna(99).astype(int)
+        source_id_by_alias = {alias: _poi_source_id_for_alias(alias, sources) for alias in params.source_priority_order}
+        fused["source_id"] = source_from_src.map(source_id_by_alias).fillna(fused.get("source_id", ""))
     else:
         fused["source_rank"] = 99
+        if "source_id" not in fused.columns:
+            fused["source_id"] = ""
     if "MATCHED" not in fused.columns:
         fused["MATCHED"] = False
+    if "canonical_id" not in fused.columns or "canonical_name" not in fused.columns or "canonical_category" not in fused.columns:
+        source_id = str(fused["source_id"].iloc[0]) if "source_id" in fused.columns and not fused.empty else "poi"
+        fused = _fill_poi_provenance(fused, source_id=source_id)
     return _write(fused, output_dir, "poi_fused", target_crs), {
         "algorithm_id": "algo.fusion.poi.geohash_neighbor_match.v1",
         "stats": {"final_count": int(len(fused)), "source_count": len(ordered_sources)},

@@ -6,6 +6,8 @@ pytest.importorskip("fastapi")
 from fastapi.testclient import TestClient
 
 from api.app import create_app
+from schemas.fusion import JobType
+from services.unsupported_intent_guard import classify_unsupported_intent
 
 
 def test_preflight_rejects_trajectory_to_road_execution() -> None:
@@ -44,3 +46,8 @@ def test_preflight_allows_bounded_building_road_water_poi() -> None:
         )
         assert response.status_code == 200
         assert response.json()["allowed"] is True
+
+
+def test_preflight_rejects_unbounded_poi_entity_alignment() -> None:
+    issues = classify_unsupported_intent("match all global POI entities without bbox", job_type=JobType.poi)
+    assert any(item["code"] == "unsupported_unbounded_poi_entity_alignment" for item in issues)

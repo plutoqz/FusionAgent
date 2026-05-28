@@ -119,6 +119,14 @@ _REMOTELY_MATERIALIZABLE_SOURCE_IDS = {
 # raw.google.building is intentionally absent: it remains a local/manual-only
 # source until an official, tested remote materialization path exists.
 
+_SOURCE_ID_ALIASES = {
+    "raw.geonames.poi": "raw.gns.poi",
+}
+
+
+def _canonical_source_id(source_id: str) -> str:
+    return _SOURCE_ID_ALIASES.get(source_id, source_id)
+
 
 @dataclass(frozen=True)
 class SourceAssetResolution:
@@ -335,6 +343,7 @@ class SourceAssetService:
         self._gns_download_index_cache: list[_GNSCountryFile] | None = None
 
     def can_materialize(self, source_id: str) -> bool:
+        source_id = _canonical_source_id(source_id)
         if source_id in _REMOTELY_MATERIALIZABLE_SOURCE_IDS or source_id in _LOCAL_SOURCE_CANDIDATES:
             return True
         try:
@@ -362,6 +371,7 @@ class SourceAssetService:
         request_bbox: Optional[BBox] = None,
         aoi: ResolvedAOI | None = None,
     ) -> SourceAssetResolution:
+        source_id = _canonical_source_id(source_id)
         effective_bbox = request_bbox or (tuple(aoi.bbox) if aoi is not None else None)
 
         if self.prefer_local_data:

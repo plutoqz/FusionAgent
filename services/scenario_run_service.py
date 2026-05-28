@@ -97,7 +97,7 @@ def classify_scenario_request(
     ):
         return {
             "decision": "clarify",
-            "reason_code": "UNBOUNDED_POI_ENTITY_ALIGNMENT",
+            "reason_code": "unsupported_unbounded_poi_entity_alignment",
             "message": "POI fusion is bounded and does not support open-ended entity alignment.",
         }
 

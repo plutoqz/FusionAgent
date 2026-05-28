@@ -1911,7 +1911,7 @@ class AgentRunService:
     ) -> bool:
         if request.input_strategy != RunInputStrategy.task_driven_auto:
             return False
-        if request.job_type not in {JobType.road, JobType.water}:
+        if request.job_type not in {JobType.road, JobType.water, JobType.poi}:
             return False
         if resolved_inputs is None:
             return False
@@ -1999,7 +1999,7 @@ class AgentRunService:
         resolved_aoi: ResolvedAOI | None,
         repair_records: Optional[List[RepairRecord]] = None,
     ) -> tuple[Path, List[RepairRecord]]:
-        from services.domain_fusion_runners import run_road_tile, run_water_polygon_tile, run_waterways_tile
+        from services.domain_fusion_runners import run_poi_tile, run_road_tile, run_water_polygon_tile, run_waterways_tile
         from services.large_area_runtime_service import LargeAreaRuntimeService, LargeAreaSlice
 
         del intermediate_dir
@@ -2070,6 +2070,24 @@ class AgentRunService:
                         runner=run_waterways_tile,
                     )
                 )
+        elif request.job_type == JobType.poi:
+            if component_paths.get("raw.osm.poi") is None:
+                raise ValueError("POI large-area runtime requires raw.osm.poi")
+            poi_sources = {"raw.osm.poi": component_paths["raw.osm.poi"]}
+            if component_paths.get("raw.gns.poi") is not None:
+                poi_sources["raw.gns.poi"] = component_paths["raw.gns.poi"]
+            elif component_paths.get("raw.geonames.poi") is not None:
+                poi_sources["raw.geonames.poi"] = component_paths["raw.geonames.poi"]
+            else:
+                raise ValueError("POI large-area runtime requires raw.gns.poi or raw.geonames.poi")
+            slices = [
+                LargeAreaSlice(
+                    name="poi",
+                    geometry_family="point",
+                    sources=poi_sources,
+                    runner=run_poi_tile,
+                )
+            ]
         else:
             raise ValueError(f"Shared large-area runtime not wired for job_type={request.job_type.value}")
         try:

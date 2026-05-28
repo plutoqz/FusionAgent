@@ -1418,7 +1418,7 @@ git commit -m "feat: route water fusion through large area runtime"
 - Test: `tests/test_fusioncode_poi.py`
 - Test: `tests/test_run_preflight.py`
 
-- [ ] **Step 1: Add failing GeoNames alias materialization test**
+- [x] **Step 1: Add failing GeoNames alias materialization test**
 
 Append to `tests/test_source_asset_service.py`:
 
@@ -1442,7 +1442,7 @@ def test_source_asset_service_treats_geonames_poi_as_gns_alias(tmp_path: Path) -
     assert resolved.feature_count == 1
 ```
 
-- [ ] **Step 2: Run alias test and verify failure**
+- [x] **Step 2: Run alias test and verify failure**
 
 Run:
 
@@ -1452,7 +1452,7 @@ python -m pytest -q tests/test_source_asset_service.py::test_source_asset_servic
 
 Expected: FAIL because `raw.geonames.poi` is not canonicalized.
 
-- [ ] **Step 3: Canonicalize POI source alias**
+- [x] **Step 3: Canonicalize POI source alias**
 
 In `services/source_asset_service.py`, add:
 
@@ -1474,7 +1474,7 @@ source_id = _canonical_source_id(source_id)
 
 Ensure `SourceAssetResolution.source_id` uses the canonical id.
 
-- [ ] **Step 4: Add failing POI large-area runtime test**
+- [x] **Step 4: Add failing POI large-area runtime test**
 
 Append to `tests/test_agent_run_service_large_area_runtime.py`:
 
@@ -1523,7 +1523,7 @@ def test_poi_task_driven_run_uses_osm_and_gns_large_area_runtime(tmp_path: Path)
     assert "source_rank" in fused.columns
 ```
 
-- [ ] **Step 5: Add POI branch to `run_large_area_execution_stage()`**
+- [x] **Step 5: Add POI branch to `run_large_area_execution_stage()`**
 
 In `services/agent_run_service.py`, add:
 
@@ -1546,7 +1546,7 @@ In `services/agent_run_service.py`, add:
             ]
 ```
 
-- [ ] **Step 6: Keep unbounded POI entity alignment rejected**
+- [x] **Step 6: Keep unbounded POI entity alignment rejected**
 
 In `services/unsupported_intent_guard.py`, add or preserve this behavior under tests:
 
@@ -1563,7 +1563,7 @@ def test_preflight_rejects_unbounded_poi_entity_alignment() -> None:
     assert any(item["code"] == "unsupported_unbounded_poi_entity_alignment" for item in issues)
 ```
 
-- [ ] **Step 7: Run POI verification**
+- [x] **Step 7: Run POI verification**
 
 Run:
 
@@ -1573,7 +1573,7 @@ python -m pytest -q tests/test_source_asset_service.py::test_source_asset_servic
 
 Expected: PASS.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```powershell
 git add services/source_asset_service.py services/agent_run_service.py services/domain_fusion_runners.py services/unsupported_intent_guard.py tests/test_source_asset_service.py tests/test_agent_run_service_large_area_runtime.py tests/test_poi_adapter.py tests/test_fusioncode_poi.py tests/test_run_preflight.py

@@ -246,7 +246,79 @@ def test_water_task_driven_run_outputs_polygon_and_line_slices(tmp_path: Path, m
     assert {"polygon", "line"}.issubset(set(fused["feature_kind"]))
 
 
-def test_task5_large_area_runtime_claims_road_and_water_but_not_poi(tmp_path: Path) -> None:
+def test_poi_task_driven_run_uses_osm_and_gns_large_area_runtime(tmp_path: Path, monkeypatch) -> None:
+    service = AgentRunService(base_dir=tmp_path / "runs")
+    run_id = "poi-run"
+    request = _request(JobType.poi)
+    run_dir = service.base_dir / run_id
+    for name in ["intermediate", "output", "logs"]:
+        (run_dir / name).mkdir(parents=True, exist_ok=True)
+    service._persist_status(_status(run_id, request))
+    monkeypatch.setattr(service.tile_partition_service, "partition_bbox", lambda **_kwargs: _single_tile_manifest())
+
+    osm = _write(
+        tmp_path / "osm_poi.gpkg",
+        gpd.GeoDataFrame(
+            {"osm_id": [1], "name": ["Clinic A"], "category": ["clinic"], "GeoHash": ["abc"]},
+            geometry=[Point(0.5, 0.5)],
+            crs="EPSG:3857",
+        ),
+    )
+    gns = _write(
+        tmp_path / "gns_poi.gpkg",
+        gpd.GeoDataFrame(
+            {"ufi": [10], "name": ["Clinic A"], "category": ["hospital"], "GeoHash": ["abc"]},
+            geometry=[Point(0.51, 0.5)],
+            crs="EPSG:3857",
+        ),
+    )
+    resolved = ResolvedRunInputs(
+        osm_zip_path=tmp_path / "osm.zip",
+        ref_zip_path=tmp_path / "ref.zip",
+        source_mode="downloaded",
+        source_id="catalog.generic.poi",
+        cache_hit=False,
+        version_token="v1",
+        selected_source_id="catalog.generic.poi",
+        component_coverage={
+            "raw.osm.poi": {"path": str(osm), "feature_count": 1},
+            "raw.gns.poi": {"path": str(gns), "feature_count": 1},
+        },
+    )
+
+    try:
+        path, repairs = service.run_large_area_execution_stage(
+            run_id=run_id,
+            request=request,
+            plan=_plan(
+                "catalog.generic.poi",
+                "dt.poi.bundle",
+                "dt.poi.fused",
+                "algo.fusion.poi.geohash_neighbor_match.v1",
+            ),
+            intermediate_dir=run_dir / "intermediate",
+            output_dir=run_dir / "output",
+            resolved_inputs=resolved,
+            resolved_aoi=None,
+        )
+    finally:
+        service.shutdown()
+
+    fused = gpd.read_file(path)
+    assert repairs == []
+    assert path.exists()
+    assert {"source_id", "source_rank", "MATCHED", "canonical_id", "canonical_name", "canonical_category"}.issubset(
+        fused.columns
+    )
+    assert set(fused["source_id"]) == {"raw.osm.poi"}
+    assert fused.iloc[0]["source_rank"] == 1
+    assert bool(fused.iloc[0]["MATCHED"]) is True
+    assert fused.iloc[0]["canonical_id"] == "raw.osm.poi:1"
+    assert fused.iloc[0]["canonical_name"] == "Clinic A"
+    assert fused.iloc[0]["canonical_category"] == "clinic"
+
+
+def test_large_area_runtime_claims_road_water_and_poi(tmp_path: Path) -> None:
     service = AgentRunService(base_dir=tmp_path / "runs")
     resolved = ResolvedRunInputs(
         osm_zip_path=tmp_path / "osm.zip",
@@ -279,7 +351,7 @@ def test_task5_large_area_runtime_claims_road_and_water_but_not_poi(tmp_path: Pa
         service.shutdown()
 
     assert water is True
-    assert poi is False
+    assert poi is True
 
 
 def test_road_large_area_runtime_allows_partial_component_paths_without_keyerror(

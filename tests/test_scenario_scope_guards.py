@@ -53,4 +53,4 @@ def test_scenario_guard_clarifies_unbounded_poi_entity_alignment() -> None:
     )
 
     assert decision["decision"] == "clarify"
-    assert decision["reason_code"] == "UNBOUNDED_POI_ENTITY_ALIGNMENT"
+    assert decision["reason_code"] == "unsupported_unbounded_poi_entity_alignment"

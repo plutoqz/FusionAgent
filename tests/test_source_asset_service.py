@@ -884,6 +884,25 @@ def test_source_asset_service_resolves_recursive_track_b_poi_preloads_from_aoi_h
     assert rh.feature_count == 1
 
 
+def test_source_asset_service_treats_geonames_poi_as_gns_alias(tmp_path: Path) -> None:
+    from services.source_asset_service import SourceAssetService
+
+    gns_path = tmp_path / "Data" / "POI" / "Kenya" / "GNS.shp"
+    gns_path.parent.mkdir(parents=True, exist_ok=True)
+    geopandas.GeoDataFrame(
+        {"ufi": [1], "full_name": ["Clinic A"], "desig_cd": ["HSP"]},
+        geometry=[Point(36.8, -1.2)],
+        crs="EPSG:4326",
+    ).to_file(gns_path)
+    service = SourceAssetService(repo_root=tmp_path, cache_dir=tmp_path / "cache")
+
+    resolved = service.resolve_raw_source_path("raw.geonames.poi", request_bbox=(36.7, -1.3, 36.9, -1.1))
+
+    assert resolved.source_id == "raw.gns.poi"
+    assert resolved.path.exists()
+    assert resolved.feature_count == 1
+
+
 def test_source_asset_service_matches_repo_track_b_water_filenames_to_locked_source_ids(tmp_path: Path) -> None:
     lake_filename = "\u5e03\u9686\u8fea\u6e56\u6cca.shp"
     _write_frame(
