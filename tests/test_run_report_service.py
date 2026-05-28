@@ -52,6 +52,50 @@ def test_render_run_reports_writes_chinese_english_and_json_evidence(tmp_path: P
     assert evidence["evaluation"]["self_evolution"]["boundary"].startswith("bounded policy hints")
 
 
+def test_run_report_includes_large_area_runtime_evidence(tmp_path: Path) -> None:
+    artifact = tmp_path / "artifact.gpkg"
+    artifact.write_bytes(b"gpkg")
+    status = _run_status(artifact)
+    audit_events = _audit_events() + [
+        RunEvent(
+            timestamp="2026-05-28T00:00:07+00:00",
+            kind="large_area_runtime_completed",
+            phase=RunPhase.running,
+            message="large area complete",
+            details={
+                "tile_count": 4,
+                "stitched_feature_count": 12,
+                "evidence_paths": {
+                    "tile_manifest": str(tmp_path / "tile_manifest.json"),
+                    "selected_sources": str(tmp_path / "selected_sources.json"),
+                    "stitched_artifact": str(tmp_path / "stitched_artifact.json"),
+                    "fusion_stats": str(tmp_path / "fusion_stats.json"),
+                },
+            },
+        )
+    ]
+
+    summary = build_run_report_summary(
+        status=status,
+        plan=_plan(),
+        audit_events=audit_events,
+        artifact_path=artifact,
+        source_semantic_contract={
+            "height_policy": {
+                "raster_height_sources": {"raw.google.building_height.raster": "height.tif"}
+            }
+        },
+    )
+
+    assert summary["large_area_runtime"]["tile_count"] == 4
+    assert summary["large_area_runtime"]["stitched_feature_count"] == 12
+    assert summary["large_area_runtime"]["evidence_paths"]["selected_sources"].endswith("selected_sources.json")
+    assert (
+        "raw.google.building_height.raster"
+        in summary["source_semantic_contract"]["height_policy"]["raster_height_sources"]
+    )
+
+
 def _run_status(artifact: Path) -> RunStatus:
     return RunStatus(
         run_id="run-report",

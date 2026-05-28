@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import time
 import zipfile
 from pathlib import Path
@@ -129,6 +130,46 @@ def _write_minimal_point_shapefile(path: Path) -> Path:
         crs="EPSG:4326",
     )
     frame.to_file(path)
+    return path
+
+
+def _write_water_component(path: Path, source_id: str, offset: float = 0.0) -> Path:
+    from shapely.geometry import Polygon
+
+    frame = geopandas.GeoDataFrame(
+        {"source_id": [source_id], "name": [source_id.rsplit(".", 1)[-1]]},
+        geometry=[
+            Polygon(
+                [
+                    (36.80 + offset, -1.30 + offset),
+                    (36.80 + offset, -1.28 + offset),
+                    (36.82 + offset, -1.28 + offset),
+                    (36.82 + offset, -1.30 + offset),
+                ]
+            )
+        ],
+        crs="EPSG:4326",
+    )
+    frame.to_file(path, driver="GPKG")
+    return path
+
+
+def _write_poi_component(path: Path, source_id: str, *, x_offset: float = 0.0) -> Path:
+    from shapely.geometry import Point
+
+    frame = geopandas.GeoDataFrame(
+        {
+            "source_id": [source_id],
+            "osm_id": [1],
+            "ufi": [1],
+            "name": ["Clinic A"],
+            "category": ["clinic"],
+            "GeoHash": ["kzf0"],
+        },
+        geometry=[Point(36.80 + x_offset, -1.30)],
+        crs="EPSG:4326",
+    )
+    frame.to_file(path, driver="GPKG")
     return path
 
 
@@ -498,6 +539,8 @@ def test_v2_run_water_task_driven_auto_integration(
         path.write_text("dummy", encoding="utf-8")
     _write_minimal_polygon_shapefile(fused_shp)
     artifact_zip.write_bytes(b"zip")
+    osm_water = _write_water_component(tmp_path / "raw_osm_water.gpkg", "raw.osm.water")
+    hydrolakes = _write_water_component(tmp_path / "raw_hydrolakes_water.gpkg", "raw.hydrolakes.water", offset=0.005)
 
     prepared_dir = tmp_path / "prepared_water"
     prepared_dir.mkdir(parents=True, exist_ok=True)
@@ -508,6 +551,11 @@ def test_v2_run_water_task_driven_auto_integration(
         source_id="catalog.flood.water",
         cache_hit=False,
         version_token="water-v1",
+        selected_source_id="catalog.flood.water",
+        component_coverage={
+            "raw.osm.water": {"path": str(osm_water), "feature_count": 1},
+            "raw.hydrolakes.water": {"path": str(hydrolakes), "feature_count": 1},
+        },
     )
     resolved.osm_zip_path.write_bytes(b"osm")
     resolved.ref_zip_path.write_bytes(b"ref")
@@ -569,6 +617,8 @@ def test_v2_run_poi_task_driven_auto_integration(
         path.write_text("dummy", encoding="utf-8")
     _write_minimal_point_shapefile(fused_shp)
     artifact_zip.write_bytes(b"zip")
+    osm_poi = _write_poi_component(tmp_path / "raw_osm_poi.gpkg", "raw.osm.poi")
+    gns_poi = _write_poi_component(tmp_path / "raw_gns_poi.gpkg", "raw.gns.poi", x_offset=0.001)
 
     prepared_dir = tmp_path / "prepared_poi"
     prepared_dir.mkdir(parents=True, exist_ok=True)
@@ -579,6 +629,11 @@ def test_v2_run_poi_task_driven_auto_integration(
         source_id="catalog.generic.poi",
         cache_hit=False,
         version_token="poi-v1",
+        selected_source_id="catalog.generic.poi",
+        component_coverage={
+            "raw.osm.poi": {"path": str(osm_poi), "feature_count": 1},
+            "raw.gns.poi": {"path": str(gns_poi), "feature_count": 1},
+        },
     )
     resolved.osm_zip_path.write_bytes(b"osm")
     resolved.ref_zip_path.write_bytes(b"ref")
@@ -809,6 +864,77 @@ def test_v2_run_inspection_includes_decision_friendly_digest(
         "recoverability": "replan",
         "next_operator_action": "adjust bound and rerun",
     }
+
+
+def test_v2_run_inspection_merges_large_area_runtime_from_report_summary(
+    tmp_path: Path,
+    client: TestClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    run_id = "run-inspection-large-area"
+    stale_contract_path = tmp_path / "source_semantic_contract.json"
+    stale_contract_path.write_text(
+        json.dumps({"component_source_ids": ["raw.stale.source"]}, ensure_ascii=False),
+        encoding="utf-8",
+    )
+    status = RunStatus(
+        run_id=run_id,
+        job_type=JobType.road,
+        trigger=RunTrigger(type=RunTriggerType.user_query, content="need road data"),
+        phase=RunPhase.succeeded,
+        progress=100,
+        target_crs="EPSG:4326",
+        source_semantic_contract_path=str(stale_contract_path),
+        created_at="2026-05-28T00:00:00+00:00",
+        updated_at="2026-05-28T00:01:00+00:00",
+    )
+    summary_path = runs_v2_router.agent_run_service.base_dir / run_id / "documents" / "run_report_summary.json"
+    summary_path.parent.mkdir(parents=True, exist_ok=True)
+    summary_path.write_text(
+        json.dumps(
+            {
+                "large_area_runtime": {
+                    "tile_count": 4,
+                    "stitched_feature_count": 12,
+                    "evidence_paths": {
+                        "tile_manifest": "tile_manifest.json",
+                        "selected_sources": "selected_sources.json",
+                        "stitched_artifact": "stitched_artifact.json",
+                        "fusion_stats": "fusion_stats.json",
+                    },
+                },
+                "source_semantic_contract": {
+                    "component_source_ids": ["raw.osm.road", "raw.overture.transportation"]
+                },
+                "evaluation": {"should_not_be_merged": True},
+            },
+            ensure_ascii=False,
+        ),
+        encoding="utf-8",
+    )
+
+    monkeypatch.setattr(
+        runs_v2_router.agent_run_service,
+        "get_run",
+        lambda requested_run_id: status if requested_run_id == run_id else None,
+    )
+    monkeypatch.setattr(runs_v2_router.agent_run_service, "get_plan", lambda _run_id: None)
+    monkeypatch.setattr(runs_v2_router.agent_run_service, "get_audit_events", lambda _run_id: [])
+    monkeypatch.setattr(runs_v2_router.agent_run_service, "get_artifact_path", lambda _run_id: None)
+
+    resp = client.get(f"/api/v2/runs/{run_id}/inspection")
+
+    assert resp.status_code == 200
+    inspection = resp.json()
+    assert inspection["large_area_runtime"]["tile_count"] == 4
+    assert inspection["large_area_runtime"]["stitched_feature_count"] == 12
+    assert inspection["large_area_runtime"]["evidence_paths"]["tile_manifest"] == "tile_manifest.json"
+    assert inspection["large_area_runtime"]["evidence_paths"]["selected_sources"] == "selected_sources.json"
+    assert inspection["source_semantic_contract"]["component_source_ids"] == [
+        "raw.osm.road",
+        "raw.overture.transportation",
+    ]
+    assert "evaluation" not in inspection
 
 
 def test_v2_run_task_driven_auto_input_integration(

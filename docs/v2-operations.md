@@ -400,6 +400,17 @@ Water and bounded POI are mature as bounded task-driven runtime slices, but the 
 
 Each task-driven building / road / water / POI run writes `source_semantic_contract.json` when sources are materialized and actual source profiling succeeds. The contract records KG source metadata, actual field profiles, canonical field matches, height semantics, and parameter hints used by execution. If source profiling cannot read the materialized file, the run records `source_semantics_unavailable` audit evidence and continues through the normal execution path.
 
+For every large-area target 2-6 run, shared runtime evidence includes:
+
+- `tile_manifest.json`
+- `selected_sources.json`
+- `stitched_artifact.json`
+- `fusion_stats.json`
+- `source_semantic_contract.json` when profiling succeeds
+- `documents/run_report_summary.json`
+- `documents/run_report.zh.md`
+- `documents/run_report.en.md`
+
 Current non-goals for this slice:
 
 - `raw.google.building` still requires locally restored data

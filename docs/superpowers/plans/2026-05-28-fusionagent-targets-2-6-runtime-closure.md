@@ -1593,7 +1593,7 @@ git commit -m "feat: close bounded poi large area fusion"
 - Test: `tests/test_api_v2_integration.py`
 - Test: `tests/test_agent_run_service_large_area_runtime.py`
 
-- [ ] **Step 1: Add failing report evidence test**
+- [x] **Step 1: Add failing report evidence test**
 
 Append to `tests/test_run_report_service.py`:
 
@@ -1637,7 +1637,7 @@ def test_run_report_includes_large_area_runtime_evidence(tmp_path: Path) -> None
     assert "raw.google.building_height.raster" in summary["source_semantic_contract"]["height_policy"]["raster_height_sources"]
 ```
 
-- [ ] **Step 2: Run report test and verify failure**
+- [x] **Step 2: Run report test and verify failure**
 
 Run:
 
@@ -1647,7 +1647,7 @@ python -m pytest -q tests/test_run_report_service.py::test_run_report_includes_l
 
 Expected: FAIL because `large_area_runtime` is not in report summary.
 
-- [ ] **Step 3: Add report summary extraction**
+- [x] **Step 3: Add report summary extraction**
 
 In `services/run_report_service.py`, add:
 
@@ -1670,7 +1670,7 @@ In `build_run_report_summary()`, add top-level:
 "large_area_runtime": _large_area_runtime_from_events(audit_events),
 ```
 
-- [ ] **Step 4: Render report lines in Chinese and English reports**
+- [x] **Step 4: Render report lines in Chinese and English reports**
 
 In `_render_zh()`, after `## 结果评价`, add:
 
@@ -1684,7 +1684,7 @@ In `_render_en()`, after `## Result Evaluation`, add:
 f"- Large-area runtime: {_compact(summary.get('large_area_runtime', {}))}",
 ```
 
-- [ ] **Step 5: Include source semantic and evidence paths in inspection**
+- [x] **Step 5: Include source semantic and evidence paths in inspection**
 
 In `api/routers/runs_v2.py`, make sure `/api/v2/runs/{run_id}/inspection` returns:
 
@@ -1695,7 +1695,7 @@ In `api/routers/runs_v2.py`, make sure `/api/v2/runs/{run_id}/inspection` return
 
 If inspection builds from raw status rather than report summary, load `documents/run_report_summary.json` when it exists and merge only these keys.
 
-- [ ] **Step 6: Update docs with exact evidence contract**
+- [x] **Step 6: Update docs with exact evidence contract**
 
 In `docs/v2-operations.md`, add this evidence list under the stable runtime contract:
 
@@ -1711,7 +1711,7 @@ For every large-area target 2-6 run, shared runtime evidence includes:
 - `documents/run_report.en.md`
 ```
 
-- [ ] **Step 7: Run reporting and API tests**
+- [x] **Step 7: Run reporting and API tests**
 
 Run:
 
@@ -1721,7 +1721,7 @@ python -m pytest -q tests/test_run_report_service.py tests/test_api_v2_integrati
 
 Expected: PASS.
 
-- [ ] **Step 8: Commit**
+- [x] **Step 8: Commit**
 
 ```powershell
 git add services/run_report_service.py services/agent_run_service.py api/routers/runs_v2.py docs/v2-operations.md tests/test_run_report_service.py tests/test_api_v2_integration.py tests/test_agent_run_service_large_area_runtime.py

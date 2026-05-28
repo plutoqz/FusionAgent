@@ -79,6 +79,11 @@ def _build_run_inspection_response(run_id: str, status: RunStatus) -> RunInspect
     audit_events = agent_run_service.get_audit_events(run_id)
     artifact_path = agent_run_service.get_artifact_path(run_id)
     source_semantic_contract = _load_source_semantic_contract(status)
+    report_summary = _load_report_summary(run_id)
+    large_area_runtime = _dict_from_mapping(report_summary.get("large_area_runtime"))
+    report_source_semantic_contract = _dict_from_mapping(report_summary.get("source_semantic_contract"))
+    if report_source_semantic_contract:
+        source_semantic_contract = report_source_semantic_contract
     recovery_worker_evidence = _load_recovery_worker_evidence(run_id)
     artifact = RunInspectionArtifact(
         available=bool(artifact_path and artifact_path.exists()),
@@ -100,10 +105,24 @@ def _build_run_inspection_response(run_id: str, status: RunStatus) -> RunInspect
             plan=plan,
         ),
         recovery_hint=build_recovery_hint(status.model_dump(mode="json")),
+        large_area_runtime=large_area_runtime,
         source_semantic_contract=source_semantic_contract,
         recovery_worker_evidence=recovery_worker_evidence,
         digest=derive_run_inspection_digest(status, audit_events),
     )
+
+
+def _load_report_summary(run_id: str) -> dict[str, object]:
+    summary_path = Path(getattr(agent_run_service, "base_dir", Path("runs"))) / run_id / "documents" / "run_report_summary.json"
+    try:
+        payload = json.loads(summary_path.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
+def _dict_from_mapping(value: object) -> dict[str, object]:
+    return value if isinstance(value, dict) else {}
 
 
 def _load_source_semantic_contract(status: RunStatus) -> dict[str, object]:

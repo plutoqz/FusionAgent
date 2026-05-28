@@ -48,6 +48,7 @@ def build_run_report_summary(
         "workflow_trace": build_workflow_trace(audit_events),
         "source_coverage": _source_coverage_from_events(audit_events),
         "fallback_summary": _fallback_summary_from_events(audit_events),
+        "large_area_runtime": _large_area_runtime_from_events(audit_events),
         "evaluation": {
             "process": {
                 "agentic_metrics": agentic_metrics,
@@ -108,6 +109,7 @@ def _render_zh(summary: dict[str, Any]) -> str:
             f"- 恢复结果：{_compact(process.get('recovery', {}))}",
             "",
             "## 结果评价",
+            f"- 大范围运行时：{_compact(summary.get('large_area_runtime', {}))}",
             f"- 产物：{_compact(summary.get('artifact', {}))}",
             f"- 产物指标：{_compact(result.get('artifact_metrics', {}))}",
             f"- Schema 校验：{_compact(result.get('schema_validation', {}))}",
@@ -145,6 +147,7 @@ def _render_en(summary: dict[str, Any]) -> str:
             f"- Recovery outcome: {_compact(process.get('recovery', {}))}",
             "",
             "## Result Evaluation",
+            f"- Large-area runtime: {_compact(summary.get('large_area_runtime', {}))}",
             f"- Artifact: {_compact(summary.get('artifact', {}))}",
             f"- Artifact metrics: {_compact(result.get('artifact_metrics', {}))}",
             f"- Schema validation: {_compact(result.get('schema_validation', {}))}",
@@ -217,6 +220,18 @@ def _fallback_summary_from_events(audit_events: list[RunEvent]) -> list[dict[str
         for event in audit_events
         if event.kind in {"source_fallback_selected", "source_coverage_checked"}
     ]
+
+
+def _large_area_runtime_from_events(audit_events: list[RunEvent]) -> dict[str, Any]:
+    for event in reversed(audit_events):
+        if event.kind == "large_area_runtime_completed":
+            details = dict(event.details or {})
+            return {
+                "tile_count": details.get("tile_count"),
+                "stitched_feature_count": details.get("stitched_feature_count"),
+                "evidence_paths": details.get("evidence_paths", {}),
+            }
+    return {}
 
 
 def _latest_event_details(audit_events: list[RunEvent], kind: str) -> dict[str, Any]:
