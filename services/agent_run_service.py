@@ -6,6 +6,7 @@ import os
 import re
 import traceback
 import uuid
+import zipfile
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -1331,6 +1332,37 @@ class AgentRunService:
             event_details=details,
         )
 
+    def _record_large_area_runtime_completed(
+        self,
+        *,
+        run_id: str,
+        plan: WorkflowPlan,
+        repair_records: List[RepairRecord],
+        result: object,
+    ) -> None:
+        evidence_paths = {
+            key: str(value)
+            for key, value in dict(getattr(result, "evidence_paths", {}) or {}).items()
+        }
+        self._update_status(
+            run_id,
+            RunPhase.running,
+            progress=80,
+            repair_records=repair_records,
+            current_step=self._count_executable_steps(plan),
+            attempt_no=self._max_attempt_no(repair_records),
+            healing_summary=self._build_healing_summary(repair_records),
+            plan_revision=self._extract_plan_revision(plan),
+            checkpoint=self._checkpoint(stage="execution", plan_revision=self._extract_plan_revision(plan)),
+            event_kind="large_area_runtime_completed",
+            event_message="Shared large-area runtime completed and produced an output artifact.",
+            event_details={
+                "tile_count": int(getattr(result, "tile_count", 0) or 0),
+                "stitched_feature_count": int(getattr(result, "stitched_feature_count", 0) or 0),
+                "evidence_paths": evidence_paths,
+            },
+        )
+
     def _record_task_inputs_resolved(
         self,
         run_id: str,
@@ -1525,6 +1557,8 @@ class AgentRunService:
         paths: dict[str, Path] = {}
         coverage = dict(resolved_inputs.component_coverage or {})
         for source_id, payload in coverage.items():
+            if str(source_id).endswith(".raster"):
+                continue
             path = self._component_path_from_payload(payload)
             if path is not None and path.exists():
                 paths[source_id] = path
@@ -1582,8 +1616,14 @@ class AgentRunService:
 
     @staticmethod
     def _raster_paths_for_source_semantics(resolved_inputs: ResolvedRunInputs) -> dict[str, Path]:
-        del resolved_inputs
-        return {}
+        rasters: dict[str, Path] = {}
+        for source_id, payload in dict(resolved_inputs.component_coverage or {}).items():
+            if not str(source_id).endswith(".raster"):
+                continue
+            path = AgentRunService._component_path_from_payload(payload)
+            if path is not None and path.exists():
+                rasters[str(source_id)] = path
+        return rasters
 
     def run_writeback_stage(
         self,
@@ -1600,7 +1640,10 @@ class AgentRunService:
             plan=plan,
             fused_shp=fused_shp,
         )
-        artifact_zip = zip_shapefile_bundle(fused_shp, output_dir / f"{request.job_type.value}_fusion_result.zip")
+        artifact_zip = self._zip_output_artifact(
+            fused_shp,
+            output_dir / f"{request.job_type.value}_fusion_result.zip",
+        )
         artifact = RunArtifactMeta(
             filename=artifact_zip.name,
             path=str(artifact_zip),
@@ -1616,6 +1659,17 @@ class AgentRunService:
         )
         self._register_artifact(run_id=run_id, request=request, plan=plan, artifact=artifact, repair_records=repair_records)
         return artifact
+
+    @staticmethod
+    def _zip_output_artifact(artifact_path: Path, output_zip: Path) -> Path:
+        artifact_path = Path(artifact_path)
+        if artifact_path.suffix.lower() != ".gpkg":
+            return zip_shapefile_bundle(artifact_path, output_zip)
+
+        output_zip.parent.mkdir(parents=True, exist_ok=True)
+        with zipfile.ZipFile(output_zip, "w", compression=zipfile.ZIP_DEFLATED) as archive:
+            archive.write(artifact_path, arcname=artifact_path.name)
+        return output_zip
 
     def _validate_output_artifact_against_schema_policy(
         self,
@@ -1833,6 +1887,10 @@ class AgentRunService:
         resolved_aoi: ResolvedAOI | None,
         repair_records: Optional[List[RepairRecord]] = None,
     ) -> tuple[Path, List[RepairRecord]]:
+        from services.domain_fusion_runners import make_building_multisource_runner
+        from services.large_area_runtime_service import LargeAreaRuntimeService, LargeAreaSlice
+
+        del intermediate_dir
         repair_records = repair_records if repair_records is not None else []
         request_bbox = self._resolve_request_bbox(request, resolved_aoi=resolved_aoi)
         if request_bbox is None:
@@ -1843,57 +1901,42 @@ class AgentRunService:
             bbox_crs="EPSG:4326",
             working_crs=target_crs,
         )
-        manifest_path = intermediate_dir / "tile_manifest.json"
-        manifest_path.parent.mkdir(parents=True, exist_ok=True)
-        manifest_path.write_text(json.dumps(tile_manifest.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8")
         parameters = self._extract_step_parameters(plan)
         priority = tuple(parameters.get("source_priority_order") or vector_sources.keys())
-        self._update_status(
-            run_id,
-            RunPhase.running,
-            progress=58,
-            checkpoint=self._checkpoint(stage="execution", plan_revision=self._extract_plan_revision(plan)),
-            event_kind="multisource_building_runtime_started",
-            event_message="Multi-source tiled building runtime started.",
-            event_details={
-                "tile_count": len(tile_manifest.tiles),
-                "vector_source_aliases": sorted(vector_sources.keys()),
-                "raster_source_aliases": sorted((raster_sources or {}).keys()),
-            },
-        )
-        result = self.tiled_building_runtime_service.run_tiled_multisource_building_job(
+        result = LargeAreaRuntimeService(max_workers=1).run(
             run_id=run_id,
+            job_type="building",
             tile_manifest=tile_manifest,
-            vector_sources=vector_sources,
+            slices=[
+                LargeAreaSlice(
+                    name="building",
+                    geometry_family="building",
+                    sources=vector_sources,
+                    runner=make_building_multisource_runner(
+                        raster_sources=raster_sources or {},
+                        source_priority_order=priority,
+                    ),
+                )
+            ],
             output_dir=output_dir,
             target_crs=target_crs,
-            vector_source_crs=target_crs,
-            raster_sources=raster_sources or {},
-            source_priority_order=priority,
             parameters=parameters,
-            on_event=lambda kind, details: self._record_tiled_runtime_event(
-                run_id=run_id,
-                plan=plan,
-                repair_records=repair_records,
-                kind=kind,
-                details=details,
-            ),
+        )
+        self._record_large_area_runtime_completed(
+            run_id=run_id,
+            plan=plan,
+            repair_records=repair_records,
+            result=result,
         )
         return result.output_path, repair_records
 
     @staticmethod
     def _building_sources_from_semantic_contract(contract) -> tuple[dict[str, Path], dict[str, Path]]:
-        alias_by_source = {
-            "raw.microsoft.building": "MS",
-            "raw.local.microsoft.building": "MICROSOFT_LOCAL",
-            "raw.openbuildingmap.building": "OBM",
-            "raw.google.open_buildings.vector": "GOOGLE_OPEN_BUILDINGS",
-            "raw.google.building": "GOOGLE",
-            "raw.osm.building": "OSM",
-        }
+        from services.runtime_source_aliases import BUILDING_SOURCE_ALIASES
+
         vectors: dict[str, Path] = {}
         for source_id, entry in contract.sources.items():
-            alias = alias_by_source.get(source_id)
+            alias = BUILDING_SOURCE_ALIASES.get(source_id)
             if alias:
                 vectors[alias] = Path(entry.artifact_path)
         rasters = {

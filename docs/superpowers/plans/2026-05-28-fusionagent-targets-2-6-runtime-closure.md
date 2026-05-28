@@ -761,7 +761,7 @@ git commit -m "feat: add shared large area runtime service"
 - Test: `tests/test_tiled_multisource_building_runtime_service.py`
 - Test: `tests/test_source_semantic_contract_service.py`
 
-- [ ] **Step 1: Add failing test for raster semantic binding**
+- [x] **Step 1: Add failing test for raster semantic binding**
 
 Append to `tests/test_agent_run_service_multisource_building_runtime.py`:
 
@@ -798,7 +798,7 @@ def test_raster_paths_for_source_semantics_returns_existing_height_raster(tmp_pa
     assert rasters == {"raw.google.building_height.raster": height_path}
 ```
 
-- [ ] **Step 2: Run the focused test and verify failure**
+- [x] **Step 2: Run the focused test and verify failure**
 
 Run:
 
@@ -808,7 +808,7 @@ python -m pytest -q tests/test_agent_run_service_multisource_building_runtime.py
 
 Expected: FAIL because `_raster_paths_for_source_semantics()` returns `{}`.
 
-- [ ] **Step 3: Implement raster path extraction**
+- [x] **Step 3: Implement raster path extraction**
 
 In `services/agent_run_service.py`, replace `_raster_paths_for_source_semantics()` with:
 
@@ -825,7 +825,7 @@ In `services/agent_run_service.py`, replace `_raster_paths_for_source_semantics(
         return rasters
 ```
 
-- [ ] **Step 4: Add building domain runner that delegates to `TiledBuildingRuntimeService` per tile**
+- [x] **Step 4: Add building domain runner that delegates to `TiledBuildingRuntimeService` per tile**
 
 In `services/domain_fusion_runners.py`, add:
 
@@ -870,7 +870,7 @@ def make_building_multisource_runner(
     return _runner
 ```
 
-- [ ] **Step 5: Route multi-source building through shared large-area runtime**
+- [x] **Step 5: Route multi-source building through shared large-area runtime**
 
 In `services/agent_run_service.py`, keep `run_multisource_building_execution_stage()` as the public method but change its body to:
 
@@ -937,7 +937,7 @@ Also add `_record_large_area_runtime_completed()`:
         )
 ```
 
-- [ ] **Step 6: Run building tests**
+- [x] **Step 6: Run building tests**
 
 Run:
 
@@ -947,7 +947,7 @@ python -m pytest -q tests/test_agent_run_service_multisource_building_runtime.py
 
 Expected: PASS.
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```powershell
 git add services/agent_run_service.py services/domain_fusion_runners.py services/source_asset_service.py services/source_semantic_contract_service.py services/tiled_building_runtime_service.py tests/test_agent_run_service_multisource_building_runtime.py tests/test_tiled_multisource_building_runtime_service.py tests/test_source_semantic_contract_service.py

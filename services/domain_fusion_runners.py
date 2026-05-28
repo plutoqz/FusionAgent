@@ -12,6 +12,7 @@ from fusion_algorithms.poi_fusion import run_poi_geohash_priority_fusion
 from fusion_algorithms.road_conflation_v7 import RoadConflationV7Config, run_road_conflation_v7
 from fusion_algorithms.water_fusion import fuse_water_polygons
 from fusion_algorithms.waterways_conflation_v7 import WaterwaysConflationV7Config, run_waterways_conflation_v7
+from services.large_area_runtime_service import DomainRunner
 from services.runtime_source_aliases import (
     LINE_SOURCE_ALIASES,
     POI_SOURCE_ALIASES,
@@ -19,7 +20,8 @@ from services.runtime_source_aliases import (
     POLYGON_WATER_SOURCE_ALIASES,
     alias_paths,
 )
-from services.tile_partition_service import TileSpec
+from services.tiled_building_runtime_service import TiledBuildingRuntimeService
+from services.tile_partition_service import TileManifest, TileSpec
 
 
 def _read(path: Path, target_crs: str) -> gpd.GeoDataFrame:
@@ -71,6 +73,56 @@ def _polygon_source_paths(sources: dict[str, Path]) -> dict[str, Path]:
 
 def _poi_source_paths(sources: dict[str, Path]) -> dict[str, Path]:
     return {**sources, **alias_paths(sources, POI_SOURCE_ALIASES)}
+
+
+def make_building_multisource_runner(
+    *,
+    raster_sources: dict[str, Path],
+    source_priority_order: tuple[str, ...],
+) -> DomainRunner:
+    def _runner(
+        tile: TileSpec,
+        sources: dict[str, Path],
+        output_dir: Path,
+        target_crs: str,
+        parameters: dict[str, Any],
+    ) -> tuple[Path, dict[str, Any]]:
+        inner_tile = TileSpec(
+            tile_id=tile.tile_id,
+            bbox=tile.working_bbox,
+            buffered_bbox=tile.working_buffered_bbox,
+            working_bbox=tile.working_bbox,
+            working_buffered_bbox=tile.working_buffered_bbox,
+            row=tile.row,
+            col=tile.col,
+        )
+        manifest = TileManifest(
+            bbox=tile.working_bbox,
+            bbox_crs=target_crs,
+            working_crs=target_crs,
+            tile_width_m=max(tile.working_bbox[2] - tile.working_bbox[0], 1.0),
+            tile_height_m=max(tile.working_bbox[3] - tile.working_bbox[1], 1.0),
+            overlap_m=0.0,
+            tiles=[inner_tile],
+        )
+        result = TiledBuildingRuntimeService(max_workers=1).run_tiled_multisource_building_job(
+            run_id=f"large-area-building-{tile.tile_id}",
+            tile_manifest=manifest,
+            vector_sources=sources,
+            output_dir=output_dir,
+            target_crs=target_crs,
+            vector_source_crs=target_crs,
+            raster_sources=raster_sources,
+            source_priority_order=source_priority_order,
+            parameters=parameters,
+        )
+        return result.output_path, {
+            "algorithm_id": "algo.fusion.building.multi_source.decomposed.v1",
+            "tile_count": result.tile_count,
+            "stitched_feature_count": result.stitched_feature_count,
+        }
+
+    return _runner
 
 
 def run_road_tile(
