@@ -82,6 +82,8 @@ def _build_run_inspection_response(run_id: str, status: RunStatus) -> RunInspect
     report_summary = _load_report_summary(run_id)
     large_area_runtime = _dict_from_mapping(report_summary.get("large_area_runtime"))
     report_source_semantic_contract = _dict_from_mapping(report_summary.get("source_semantic_contract"))
+    report_quality_summary = _dict_from_mapping(report_summary.get("quality_summary"))
+    evidence_readiness = _dict_from_mapping(report_summary.get("evidence_readiness"))
     if report_source_semantic_contract:
         source_semantic_contract = report_source_semantic_contract
     recovery_worker_evidence = _load_recovery_worker_evidence(run_id)
@@ -107,6 +109,8 @@ def _build_run_inspection_response(run_id: str, status: RunStatus) -> RunInspect
         recovery_hint=build_recovery_hint(status.model_dump(mode="json")),
         large_area_runtime=large_area_runtime,
         source_semantic_contract=source_semantic_contract,
+        report_quality_summary=report_quality_summary,
+        evidence_readiness=evidence_readiness,
         recovery_worker_evidence=recovery_worker_evidence,
         digest=derive_run_inspection_digest(status, audit_events),
     )

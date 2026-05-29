@@ -6,7 +6,7 @@ import sys
 import zipfile
 from pathlib import Path
 
-from schemas.agent import RunArtifactMeta, RunCreateRequest, RunTrigger, RunTriggerType, WorkflowPlan
+from schemas.agent import RunArtifactMeta, RunCreateRequest, RunInputStrategy, RunTrigger, RunTriggerType, WorkflowPlan
 from schemas.fusion import JobType
 from schemas.settings import EffectiveLLMSettings
 
@@ -74,6 +74,53 @@ def test_scheduled_tick_creates_runs_from_config(tmp_path: Path, monkeypatch) ->
     assert result["run_ids"] == ["run-scheduled"]
     assert calls[0].trigger.type == RunTriggerType.scheduled
     assert calls[0].job_type == JobType.building
+
+
+def test_scheduled_tick_creates_task_driven_auto_run_without_uploaded_bundles(monkeypatch) -> None:
+    scheduled_runs = [
+        {
+            "job_type": "poi",
+            "trigger_content": "nightly bounded poi refresh",
+            "spatial_extent": "bbox(36.7,-1.3,36.9,-1.1)",
+            "target_crs": "EPSG:4326",
+            "input_strategy": "task_driven_auto",
+            "preferred_pattern_id": "wp.generic.poi.default",
+        }
+    ]
+    monkeypatch.setenv("GEOFUSION_SCHEDULED_RUNS", json.dumps(scheduled_runs))
+
+    worker_tasks = importlib.import_module("worker.tasks")
+    service_module = importlib.import_module("services.agent_run_service")
+
+    calls: list[RunCreateRequest] = []
+
+    class StubService:
+        def create_run(
+            self,
+            request: RunCreateRequest,
+            osm_zip_name: str | None,
+            osm_zip_bytes: bytes | None,
+            ref_zip_name: str | None,
+            ref_zip_bytes: bytes | None,
+        ):
+            calls.append(request)
+            assert osm_zip_name is None
+            assert osm_zip_bytes is None
+            assert ref_zip_name is None
+            assert ref_zip_bytes is None
+            return type("CreatedRun", (), {"run_id": "run-auto"})()
+
+    monkeypatch.setattr(service_module, "agent_run_service", StubService())
+
+    result = worker_tasks.scheduled_tick()
+
+    assert result["created"] == 1
+    assert result["run_ids"] == ["run-auto"]
+    assert result["spec_results"] == [
+        {"index": 1, "status": "created", "run_id": "run-auto", "input_strategy": "task_driven_auto"}
+    ]
+    assert calls[0].input_strategy == RunInputStrategy.task_driven_auto
+    assert calls[0].preferred_pattern_id == "wp.generic.poi.default"
 
 
 def test_scheduled_tick_control_state_reports_configured_specs(monkeypatch) -> None:

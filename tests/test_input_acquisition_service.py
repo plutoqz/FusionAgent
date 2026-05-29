@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import zipfile
 from pathlib import Path
 
@@ -62,6 +63,51 @@ class _StubBundleProvider:
         )
 
 
+class _AttemptRecordingBundleProvider(_StubBundleProvider):
+    def materialize(self, *, source_id: str, request_bbox, target_dir: Path, target_crs: str):
+        bundle = super().materialize(
+            source_id=source_id,
+            request_bbox=request_bbox,
+            target_dir=target_dir,
+            target_crs=target_crs,
+        )
+        from services.input_acquisition_service import MaterializedInputBundle
+
+        return MaterializedInputBundle(
+            osm_zip_path=bundle.osm_zip_path,
+            ref_zip_path=bundle.ref_zip_path,
+            bbox=bundle.bbox,
+            target_crs=bundle.target_crs,
+            source_id="catalog.flood.building",
+            fallback_from="catalog.earthquake.building",
+            attempted_sources=["catalog.earthquake.building", "catalog.flood.building"],
+            component_coverage={
+                "raw.osm.building": {
+                    "source_id": "raw.osm.building",
+                    "source_mode": "downloaded",
+                    "feature_count": 1,
+                    "coverage_status": "available",
+                }
+            },
+        )
+
+
+class _FaultingBundleProvider:
+    def __init__(self, exc: Exception) -> None:
+        self.exc = exc
+
+    def can_handle(self, source_id: str) -> bool:
+        return source_id == "catalog.flood.water"
+
+    def current_version(self, source_id: str) -> str:
+        assert source_id == "catalog.flood.water"
+        return "fault-v1"
+
+    def materialize(self, *, source_id: str, request_bbox, target_dir: Path, target_crs: str):
+        assert source_id == "catalog.flood.water"
+        raise self.exc
+
+
 def _build_request(
     *,
     spatial_extent: str = "bbox(0,0,10,10)",
@@ -121,17 +167,39 @@ def test_input_acquisition_reuses_cached_bundle_when_version_matches_and_clips_t
         required_output_type="dt.building.bundle",
         input_dir=tmp_path / "run1",
     )
-    reused = service.resolve_task_driven_inputs(
-        request=_build_request(spatial_extent="bbox(1,1,2,2)"),
+    same_bbox_reused = service.resolve_task_driven_inputs(
+        request=_build_request(),
         source_id="catalog.task.building.default",
         required_output_type="dt.building.bundle",
         input_dir=tmp_path / "run2",
     )
+    reused = service.resolve_task_driven_inputs(
+        request=_build_request(spatial_extent="bbox(1,1,2,2)"),
+        source_id="catalog.task.building.default",
+        required_output_type="dt.building.bundle",
+        input_dir=tmp_path / "run3",
+    )
 
     assert initial.source_mode == "downloaded"
+    assert same_bbox_reused.source_mode == "cache_reused"
+    assert same_bbox_reused.cache_hit is True
+    assert same_bbox_reused.manifest_path is not None
+    same_bbox_manifest = json.loads(same_bbox_reused.manifest_path.read_text(encoding="utf-8"))
+    assert same_bbox_manifest["source_mode"] == "cache_reused"
+    assert same_bbox_manifest["cache_hit"] is True
+    assert same_bbox_manifest["requested_bbox"] == [0.0, 0.0, 10.0, 10.0]
+    assert same_bbox_manifest["clipped_to_aoi"] is False
     assert reused.source_mode == "clip_reused"
     assert reused.cache_hit is True
     assert reused.version_token == "v1"
+    assert reused.manifest_path is not None
+    reused_manifest = json.loads(reused.manifest_path.read_text(encoding="utf-8"))
+    assert reused_manifest["source_mode"] == "clip_reused"
+    assert reused_manifest["cache_hit"] is True
+    assert reused_manifest["requested_bbox"] == [1.0, 1.0, 2.0, 2.0]
+    assert reused_manifest["materialized_bbox"] == [1.0, 1.0, 2.0, 2.0]
+    assert reused_manifest["clipped_to_aoi"] is True
+    assert reused_manifest["provider_attempts"] == [{"source_id": "catalog.task.building.default", "status": "cache_reused"}]
     assert provider.download_calls == 1
     assert _extract_bounds(reused.osm_zip_path) == [1.0, 1.0, 2.0, 2.0]
     assert _extract_bounds(reused.ref_zip_path) == [1.0, 1.0, 2.0, 2.0]
@@ -178,6 +246,19 @@ def test_input_acquisition_redownloads_bundle_when_cached_version_is_stale(tmp_p
     assert resolved.source_mode == "downloaded"
     assert resolved.cache_hit is False
     assert resolved.version_token == "v2"
+    assert resolved.manifest_path is not None
+    manifest = json.loads(resolved.manifest_path.read_text(encoding="utf-8"))
+    assert manifest["source_id"] == "catalog.task.building.default"
+    assert manifest["selected_source_id"] == "catalog.task.building.default"
+    assert manifest["source_mode"] == "downloaded"
+    assert manifest["cache_hit"] is False
+    assert manifest["version_token"] == "v2"
+    assert manifest["target_crs"] == "EPSG:4326"
+    assert manifest["requested_bbox"] == [0.0, 0.0, 10.0, 10.0]
+    assert manifest["materialized_bbox"] == [0.0, 0.0, 10.0, 10.0]
+    assert manifest["clipped_to_aoi"] is True
+    assert manifest["provider_attempts"] == [{"source_id": "catalog.task.building.default", "status": "materialized"}]
+    assert manifest["fault"] is None
     assert provider.download_calls == 1
 
 
@@ -314,3 +395,58 @@ def test_input_acquisition_uses_resolved_aoi_bbox_when_trigger_has_no_spatial_ex
     assert provider.download_calls == 1
     assert _extract_bounds(resolved.osm_zip_path) == pytest.approx([36.65, -1.45, 37.10, -1.10], abs=1e-3)
     assert _extract_bounds(resolved.ref_zip_path) == pytest.approx([36.65, -1.45, 37.10, -1.10], abs=1e-3)
+
+
+def test_input_acquisition_manifest_records_provider_attempts_and_component_coverage(tmp_path: Path) -> None:
+    from services.input_acquisition_service import InputAcquisitionService
+
+    registry = ArtifactRegistry(index_path=tmp_path / "artifact_registry.json")
+    provider = _AttemptRecordingBundleProvider(
+        version_token="fallback-v1",
+        supported_source_ids={"catalog.earthquake.building"},
+    )
+    service = InputAcquisitionService(registry=registry, providers=[provider], cache_dir=tmp_path / "cache")
+
+    resolved = service.resolve_task_driven_inputs(
+        request=_build_request(),
+        source_id="catalog.earthquake.building",
+        required_output_type="dt.building.bundle",
+        input_dir=tmp_path / "run",
+    )
+
+    assert resolved.manifest_path is not None
+    manifest = json.loads(resolved.manifest_path.read_text(encoding="utf-8"))
+    assert manifest["selected_source_id"] == "catalog.flood.building"
+    assert manifest["component_coverage"]["raw.osm.building"]["coverage_status"] == "available"
+    assert manifest["provider_attempts"] == [
+        {"source_id": "catalog.earthquake.building", "status": "attempted"},
+        {"source_id": "catalog.flood.building", "status": "materialized"},
+    ]
+
+
+def test_input_acquisition_writes_manifest_for_failed_provider(tmp_path: Path) -> None:
+    from services.input_acquisition_service import InputAcquisitionService
+
+    service = InputAcquisitionService(
+        registry=ArtifactRegistry(index_path=tmp_path / "artifact_registry.json"),
+        providers=[_FaultingBundleProvider(FileNotFoundError("missing source asset"))],
+        cache_dir=tmp_path / "cache",
+    )
+
+    with pytest.raises(ValueError, match="SOURCE_MISSING"):
+        service.resolve_task_driven_inputs(
+            request=_build_request(job_type=JobType.water, content="need water data"),
+            source_id="catalog.flood.water",
+            required_output_type="dt.water.bundle",
+            input_dir=tmp_path / "run",
+        )
+
+    manifest = json.loads((tmp_path / "run" / "source_materialization_manifest.json").read_text(encoding="utf-8"))
+    assert manifest["source_id"] == "catalog.flood.water"
+    assert manifest["source_mode"] == "failed"
+    assert manifest["cache_hit"] is False
+    assert manifest["fault"]["fault_class"] == "SOURCE_MISSING"
+    assert manifest["fault"]["recoverable"] is True
+    assert manifest["provider_attempts"] == [
+        {"source_id": "catalog.flood.water", "status": "failed", "fault_class": "SOURCE_MISSING"}
+    ]

@@ -866,7 +866,7 @@ def test_v2_run_inspection_includes_decision_friendly_digest(
     }
 
 
-def test_v2_run_inspection_merges_large_area_runtime_from_report_summary(
+def test_v2_run_inspection_merges_report_quality_fields_from_report_summary(
     tmp_path: Path,
     client: TestClient,
     monkeypatch: pytest.MonkeyPatch,
@@ -906,6 +906,16 @@ def test_v2_run_inspection_merges_large_area_runtime_from_report_summary(
                 "source_semantic_contract": {
                     "component_source_ids": ["raw.osm.road", "raw.overture.transportation"]
                 },
+                "quality_summary": {
+                    "status": "pass",
+                    "score": 0.92,
+                    "required_fields_present": True,
+                },
+                "evidence_readiness": {
+                    "ready": True,
+                    "missing": [],
+                    "evidence_paths": ["documents/run_report.md", "audit.jsonl"],
+                },
                 "evaluation": {"should_not_be_merged": True},
             },
             ensure_ascii=False,
@@ -934,6 +944,16 @@ def test_v2_run_inspection_merges_large_area_runtime_from_report_summary(
         "raw.osm.road",
         "raw.overture.transportation",
     ]
+    assert inspection["report_quality_summary"] == {
+        "status": "pass",
+        "score": 0.92,
+        "required_fields_present": True,
+    }
+    assert inspection["evidence_readiness"] == {
+        "ready": True,
+        "missing": [],
+        "evidence_paths": ["documents/run_report.md", "audit.jsonl"],
+    }
     assert "evaluation" not in inspection
 
 

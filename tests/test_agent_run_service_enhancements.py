@@ -360,9 +360,11 @@ def test_agent_run_service_allows_water_task_driven_auto_and_records_task_inputs
         source_id="catalog.flood.water",
         cache_hit=False,
         version_token="water-v1",
+        manifest_path=prepared_dir / "source_materialization_manifest.json",
     )
     resolved.osm_zip_path.write_bytes(b"osm")
     resolved.ref_zip_path.write_bytes(b"ref")
+    resolved.manifest_path.write_text("{}", encoding="utf-8")
 
     monkeypatch.setattr(service.aoi_resolution_service, "resolve", lambda query: _resolved_nairobi_aoi())
     monkeypatch.setattr(service.planner, "create_plan", lambda **_kwargs: plan.model_copy(deep=True))
@@ -391,7 +393,8 @@ def test_agent_run_service_allows_water_task_driven_auto_and_records_task_inputs
     latest = service.get_run(status.run_id)
     assert latest is not None
     assert latest.phase == RunPhase.succeeded
-    assert any(event.kind == "task_inputs_resolved" for event in service.get_audit_events(status.run_id))
+    resolved_event = next(event for event in service.get_audit_events(status.run_id) if event.kind == "task_inputs_resolved")
+    assert resolved_event.details["source_materialization_manifest_path"] == str(resolved.manifest_path)
 
 
 def test_agent_run_service_rejects_unsupported_intent_before_creating_run_dirs(tmp_path: Path) -> None:

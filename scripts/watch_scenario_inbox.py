@@ -22,12 +22,16 @@ def process_inbox_once(
     processed_dir: Path,
     output_root: Optional[str] = None,
     failed_dir: Optional[Path] = None,
+    evidence_json: Optional[Path] = None,
 ) -> list[str]:
     inbox_dir = Path(inbox_dir)
     processed_dir = Path(processed_dir)
     processed_dir.mkdir(parents=True, exist_ok=True)
     failed_path = Path(failed_dir) if failed_dir is not None else None
     scenario_ids: list[str] = []
+    processed_ids: list[str] = []
+    failed_records: list[dict[str, str]] = []
+    idempotent_ids: list[str] = []
     for event_path in sorted(inbox_dir.glob("*.json")):
         try:
             event = json.loads(event_path.read_text(encoding="utf-8"))
@@ -38,17 +42,42 @@ def process_inbox_once(
             registry = ScenarioRegistryService(output_root=resolve_scenario_output_root(request.output_root))
             existing = registry.find_by_idempotency_key(str(request.metadata.get("idempotency_key") or ""))
             if existing is not None:
-                scenario_ids.append(str(existing["scenario_id"]))
+                scenario_id = str(existing["scenario_id"])
+                idempotent_ids.append(scenario_id)
+                scenario_ids.append(scenario_id)
                 _move_event_file(event_path, processed_dir)
                 continue
 
             response = scenario_run_service.create_scenario_run(request)
             scenario_ids.append(response.scenario_id)
+            processed_ids.append(response.scenario_id)
             _move_event_file(event_path, processed_dir)
-        except Exception:
+        except Exception as exc:
             if failed_path is None:
                 raise
+            failed_records.append({"filename": event_path.name, "error_type": type(exc).__name__})
             _move_event_file(event_path, failed_path)
+    if evidence_json is not None:
+        evidence_path = Path(evidence_json)
+        evidence_path.parent.mkdir(parents=True, exist_ok=True)
+        evidence_path.write_text(
+            json.dumps(
+                {
+                    "processed": processed_ids,
+                    "failed": failed_records,
+                    "idempotent": idempotent_ids,
+                    "all_scenario_ids": scenario_ids,
+                    "counts": {
+                        "processed": len(processed_ids),
+                        "failed": len(failed_records),
+                        "idempotent": len(idempotent_ids),
+                    },
+                },
+                ensure_ascii=False,
+                indent=2,
+            ),
+            encoding="utf-8",
+        )
     return scenario_ids
 
 
@@ -79,6 +108,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--processed-dir", required=True, help="Directory where processed event files are moved.")
     parser.add_argument("--failed-dir", default=None, help="Optional directory where invalid or failed event files are moved.")
     parser.add_argument("--output-root", default=None, help="Optional scenario output root.")
+    parser.add_argument("--evidence-json", default=None, help="Optional JSON path for inbox processing evidence.")
     return parser
 
 
@@ -89,6 +119,7 @@ def main(argv: Optional[list[str]] = None) -> int:
         Path(args.processed_dir),
         output_root=args.output_root,
         failed_dir=Path(args.failed_dir) if args.failed_dir is not None else None,
+        evidence_json=Path(args.evidence_json) if args.evidence_json is not None else None,
     )
     print(json.dumps({"processed": processed}, ensure_ascii=False))
     return 0

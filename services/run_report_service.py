@@ -7,6 +7,7 @@ from typing import Any
 from schemas.agent import RunEvent, RunStatus, WorkflowPlan
 from services.artifact_evaluation_service import evaluate_agentic_run, evaluate_vector_artifact
 from services.kg_path_trace_service import build_kg_path_trace
+from services.report_quality_service import build_report_quality_summary
 from services.run_recovery_service import build_recovery_hint
 from services.run_telemetry_service import build_run_telemetry_summary
 from services.workflow_trace_service import build_workflow_trace
@@ -34,6 +35,15 @@ def build_run_report_summary(
         if plan is not None
         else {"manual_intervention_count": 0}
     )
+    artifact_metrics = _artifact_metrics(artifact_path)
+    recovery_hint = build_recovery_hint(status.model_dump(mode="json"))
+    quality_summary = build_report_quality_summary(
+        job_type=status.job_type.value,
+        audit_events=audit_events,
+        source_semantic_contract=source_semantic_contract or {},
+        artifact_metrics=artifact_metrics,
+        recovery_evidence=recovery_hint,
+    )
     return {
         "run_id": status.run_id,
         "job_type": status.job_type.value,
@@ -55,13 +65,13 @@ def build_run_report_summary(
                 "telemetry": telemetry_summary
                 or build_run_telemetry_summary(status=status, audit_events=audit_events, plan=plan),
                 "recovery": {
-                    "hint": build_recovery_hint(status.model_dump(mode="json")),
+                    "hint": recovery_hint,
                     "worker_evidence": recovery_worker_evidence or {},
                     "digest": digest or {},
                 },
             },
             "result": {
-                "artifact_metrics": _artifact_metrics(artifact_path),
+                "artifact_metrics": artifact_metrics,
                 "schema_validation": _latest_event_details(audit_events, "output_schema_validated"),
             },
             "self_evolution": {
@@ -76,6 +86,11 @@ def build_run_report_summary(
             },
         },
         "source_semantic_contract": source_semantic_contract or {},
+        "quality_summary": quality_summary,
+        "evidence_readiness": {
+            "score": quality_summary["evidence_readiness_score"],
+            "boundary": quality_summary["quality_boundary"],
+        },
     }
 
 
@@ -114,6 +129,9 @@ def _render_zh(summary: dict[str, Any]) -> str:
             f"- 产物指标：{_compact(result.get('artifact_metrics', {}))}",
             f"- Schema 校验：{_compact(result.get('schema_validation', {}))}",
             "",
+            "## 质量与证据边界",
+            f"- {_compact(summary.get('quality_summary', {}))}",
+            "",
             "## 数据源覆盖与退化",
             *_generic_lines(summary.get("source_coverage", []), empty="未记录数据源覆盖信息。"),
             *_generic_lines(summary.get("fallback_summary", []), empty="未记录退化或 fallback 事件。"),
@@ -151,6 +169,9 @@ def _render_en(summary: dict[str, Any]) -> str:
             f"- Artifact: {_compact(summary.get('artifact', {}))}",
             f"- Artifact metrics: {_compact(result.get('artifact_metrics', {}))}",
             f"- Schema validation: {_compact(result.get('schema_validation', {}))}",
+            "",
+            "## Quality And Evidence Boundary",
+            f"- {_compact(summary.get('quality_summary', {}))}",
             "",
             "## Source Coverage And Fallbacks",
             *_generic_lines(summary.get("source_coverage", []), empty="No source coverage evidence was recorded."),

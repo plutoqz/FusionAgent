@@ -1,0 +1,45 @@
+{
+  "date": "2026-05-29",
+  "scope": "targets_1_2_5_7_8_9_gap_closure",
+  "targets": {
+    "1": {
+      "claim": "unattended_local_operation_supported_with_scheduler_inbox_and_recovery_evidence",
+      "evidence": [
+        "scheduled_tick task_driven_auto spec_results",
+        "watch_scenario_inbox evidence_json",
+        "unattended_runtime_snapshot",
+        "recovery_tick worker evidence"
+      ],
+      "boundary": "process supervision and external scheduler uptime are environment responsibilities"
+    },
+    "2": {
+      "claim": "building_vector_fusion_with_optional_height_raster_is_auditable",
+      "height_raster_evidence": "explicit_in_report_quality_summary",
+      "boundary": "height raster must be present in source semantic contract or component coverage to claim participation"
+    },
+    "5": {
+      "claim": "bounded_osm_gns_geonames_poi_fusion_supported",
+      "boundary": "bounded_aoi_poi_only",
+      "unsupported": "unbounded POI entity alignment remains unsupported"
+    },
+    "7": {
+      "claim": "automatic_download_cache_clip_supported_for_registered_providers",
+      "manifest": "source_materialization_manifest.json",
+      "boundary": "provider availability is external and fault classes are recorded"
+    },
+    "8": {
+      "claim": "run_reports_include_process_result_quality_and_boundary_assessment",
+      "reports": ["run_report_summary.json", "run_report.zh.md", "run_report.en.md"]
+    },
+    "9": {
+      "claim": "recoverable_failures_are_classified_for_worker_redispatch",
+      "operator_action": "included_in_recovery_hint",
+      "boundary": "manual review remains required for unsupported or ambiguous failure categories"
+    }
+  },
+  "non_claims": {
+    "target_10": "bounded_policy_hints_only_no_self_mutating_model",
+    "poi": "no_unbounded_global_entity_alignment",
+    "download": "no_guarantee_of_provider_uptime"
+  }
+}

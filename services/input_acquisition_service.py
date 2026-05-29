@@ -13,6 +13,10 @@ from schemas.agent import RunCreateRequest
 from services.aoi_resolution_service import ResolvedAOI
 from services.artifact_registry import ArtifactLookupRequest, ArtifactRecord, ArtifactRegistry
 from services.source_asset_service import classify_source_fault
+from services.source_materialization_manifest_service import (
+    build_source_materialization_manifest,
+    write_source_materialization_manifest,
+)
 from utils.crs import normalize_target_crs
 from utils.vector_clip import BBox, bundle_bbox_from_zip, clip_zip_to_request_bbox
 
@@ -97,6 +101,7 @@ class MaterializedInputBundle:
     fallback_from: str | None = None
     attempted_sources: list[str] = field(default_factory=list)
     component_coverage: dict[str, object] = field(default_factory=dict)
+    provider_attempts: list[dict[str, object]] = field(default_factory=list)
 
 
 @dataclass(frozen=True)
@@ -110,6 +115,7 @@ class ResolvedRunInputs:
     selected_source_id: str | None = None
     fallback_from_source_id: str | None = None
     component_coverage: dict[str, object] = field(default_factory=dict)
+    manifest_path: Path | None = None
 
 
 class InputAcquisitionService:
@@ -134,6 +140,7 @@ class InputAcquisitionService:
         effective_request_bbox = request_bbox or _parse_bbox_text(request.trigger.spatial_extent)
         if effective_request_bbox is None and resolved_aoi is not None:
             effective_request_bbox = tuple(resolved_aoi.bbox)
+        manifest_path = input_dir / "source_materialization_manifest.json"
         version_token = self._provider_current_version(
             provider,
             source_id,
@@ -168,6 +175,20 @@ class InputAcquisitionService:
                     selected_source_id=str(candidate.meta.get("selected_source_id") or source_id),
                     fallback_from_source_id=candidate.meta.get("fallback_from_source_id"),
                     component_coverage=dict(candidate.meta.get("component_coverage") or {}),
+                    manifest_path=self._write_manifest(
+                        path=manifest_path,
+                        source_id=source_id,
+                        selected_source_id=str(candidate.meta.get("selected_source_id") or source_id),
+                        source_mode="clip_reused",
+                        cache_hit=True,
+                        version_token=version_token,
+                        target_crs=target_crs,
+                        requested_bbox=effective_request_bbox,
+                        materialized_bbox=clipped.bbox,
+                        clipped_to_aoi=True,
+                        component_coverage=dict(candidate.meta.get("component_coverage") or {}),
+                        provider_attempts=[{"source_id": source_id, "status": "cache_reused"}],
+                    ),
                 )
             copied = self._copy_cached_bundle(bundle_dir=bundle_dir, input_dir=input_dir)
             return ResolvedRunInputs(
@@ -180,6 +201,20 @@ class InputAcquisitionService:
                 selected_source_id=str(candidate.meta.get("selected_source_id") or source_id),
                 fallback_from_source_id=candidate.meta.get("fallback_from_source_id"),
                 component_coverage=dict(candidate.meta.get("component_coverage") or {}),
+                manifest_path=self._write_manifest(
+                    path=manifest_path,
+                    source_id=source_id,
+                    selected_source_id=str(candidate.meta.get("selected_source_id") or source_id),
+                    source_mode="cache_reused",
+                    cache_hit=True,
+                    version_token=version_token,
+                    target_crs=target_crs,
+                    requested_bbox=effective_request_bbox,
+                    materialized_bbox=copied.bbox or candidate.bbox,
+                    clipped_to_aoi=False,
+                    component_coverage=dict(candidate.meta.get("component_coverage") or {}),
+                    provider_attempts=[{"source_id": source_id, "status": "cache_reused"}],
+                ),
             )
 
         cache_bundle_dir = (
@@ -202,6 +237,21 @@ class InputAcquisitionService:
                 source={"source_id": source_id},
                 expected_crs=target_crs,
                 error=exc,
+            )
+            self._write_manifest(
+                path=manifest_path,
+                source_id=source_id,
+                selected_source_id=source_id,
+                source_mode="failed",
+                cache_hit=False,
+                version_token=version_token,
+                target_crs=target_crs,
+                requested_bbox=effective_request_bbox,
+                materialized_bbox=None,
+                clipped_to_aoi=False,
+                component_coverage={},
+                provider_attempts=[{"source_id": source_id, "status": "failed", "fault_class": fault}],
+                fault={"fault_class": fault, "fault_message": str(exc), "recoverable": True},
             )
             raise ValueError(
                 f"task-driven input materialization failed for {source_id}: fault={fault}; error={exc}"
@@ -248,6 +298,20 @@ class InputAcquisitionService:
             selected_source_id=materialized.source_id or source_id,
             fallback_from_source_id=materialized.fallback_from,
             component_coverage=_jsonable_component_coverage(materialized.component_coverage),
+            manifest_path=self._write_manifest(
+                path=manifest_path,
+                source_id=source_id,
+                selected_source_id=materialized.source_id or source_id,
+                source_mode="downloaded",
+                cache_hit=False,
+                version_token=version_token,
+                target_crs=target_crs,
+                requested_bbox=effective_request_bbox,
+                materialized_bbox=bundle_bbox,
+                clipped_to_aoi=effective_request_bbox is not None and bundle_bbox is not None and tuple(bundle_bbox) == tuple(effective_request_bbox),
+                component_coverage=_jsonable_component_coverage(materialized.component_coverage),
+                provider_attempts=_provider_attempts_for_materialized(source_id, materialized),
+            ),
         )
 
     def _provider_for(self, source_id: str) -> InputBundleProvider:
@@ -349,6 +413,41 @@ class InputAcquisitionService:
             target_crs=clipped.target_crs,
         )
 
+    @staticmethod
+    def _write_manifest(
+        *,
+        path: Path,
+        source_id: str,
+        selected_source_id: str | None,
+        source_mode: str,
+        cache_hit: bool,
+        version_token: str | None,
+        target_crs: str | None,
+        requested_bbox: Optional[BBox],
+        materialized_bbox: Optional[BBox],
+        clipped_to_aoi: bool,
+        component_coverage: dict[str, object],
+        provider_attempts: list[dict[str, object]],
+        fault: dict[str, object] | None = None,
+    ) -> Path:
+        return write_source_materialization_manifest(
+            path,
+            build_source_materialization_manifest(
+                source_id=source_id,
+                selected_source_id=selected_source_id,
+                source_mode=source_mode,
+                cache_hit=cache_hit,
+                version_token=version_token,
+                target_crs=target_crs,
+                requested_bbox=requested_bbox,
+                materialized_bbox=materialized_bbox,
+                clipped_to_aoi=clipped_to_aoi,
+                component_coverage=component_coverage,
+                provider_attempts=provider_attempts,
+                fault=fault,
+            ),
+        )
+
 
 def _jsonable_component_coverage(component_coverage: dict[str, object]) -> dict[str, dict[str, object]]:
     payload: dict[str, dict[str, object]] = {}
@@ -368,3 +467,17 @@ def _jsonable_component_coverage(component_coverage: dict[str, object]) -> dict[
             value = {"source_id": source_id, "value": raw}
         payload[source_id] = value
     return payload
+
+
+def _provider_attempts_for_materialized(source_id: str, materialized: MaterializedInputBundle) -> list[dict[str, object]]:
+    if materialized.provider_attempts:
+        return [dict(attempt) for attempt in materialized.provider_attempts]
+    attempted_sources = list(materialized.attempted_sources or [source_id])
+    selected_source_id = materialized.source_id or source_id
+    attempts: list[dict[str, object]] = []
+    for attempted_source_id in attempted_sources:
+        status = "materialized" if attempted_source_id == selected_source_id else "attempted"
+        attempts.append({"source_id": attempted_source_id, "status": status})
+    if selected_source_id not in attempted_sources:
+        attempts.append({"source_id": selected_source_id, "status": "materialized"})
+    return attempts

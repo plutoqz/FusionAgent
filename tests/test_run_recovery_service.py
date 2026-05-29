@@ -226,7 +226,15 @@ def test_build_recovery_hint_marks_terminal_runs_not_recoverable() -> None:
     assert hint == {
         "recoverable": False,
         "recovery_action": "none",
+        "operator_action": "no operator action available",
         "reason": "terminal_or_fresh_run",
+        "classification_evidence": {
+            "phase": "succeeded",
+            "checkpoint_stage": "execution",
+            "resume_stage": "",
+            "effective_stage": "execution",
+            "recovery_action": "mark_failed_requires_manual_review",
+        },
         "checkpoint": {"stage": "execution"},
     }
 
@@ -291,8 +299,64 @@ def test_build_recovery_hint_marks_failed_timeout_run_recoverable() -> None:
     assert hint == {
         "recoverable": True,
         "recovery_action": "redispatch_from_execution",
+        "operator_action": "no manual action required; recovery worker can redispatch from execution",
         "reason": "failure_category_recoverable",
         "failure_category": "ALGO_TIMEOUT",
+        "classification_evidence": {
+            "phase": "failed",
+            "checkpoint_stage": "execution",
+            "resume_stage": "",
+            "failure_category": "ALGO_TIMEOUT",
+            "effective_stage": "execution",
+            "recovery_action": "redispatch_from_execution",
+            "source": "failure_summary",
+        },
+        "checkpoint": {"stage": "execution", "plan_revision": 1, "current_step": 2},
+    }
+
+
+def test_build_recovery_hint_includes_operator_action_for_recoverable_download_failure() -> None:
+    hint = build_recovery_hint(
+        {
+            "phase": "failed",
+            "checkpoint": {"stage": "execution", "resume_stage": "execution"},
+            "failure_summary": "download timed out while materializing inputs | failure_category=SOURCE_DOWNLOAD_FAILED",
+        }
+    )
+
+    assert hint["recoverable"] is True
+    assert hint["recovery_action"] == "redispatch_from_execution"
+    assert hint["operator_action"] == "no manual action required; recovery worker can redispatch from execution"
+    assert hint["classification_evidence"]["failure_category"] == "SOURCE_DOWNLOAD_FAILED"
+    assert hint["classification_evidence"]["checkpoint_stage"] == "execution"
+    assert hint["classification_evidence"]["resume_stage"] == "execution"
+
+
+def test_build_recovery_hint_marks_manual_review_failures_with_operator_action() -> None:
+    hint = build_recovery_hint(
+        {
+            "phase": "failed",
+            "checkpoint": {"stage": "execution", "plan_revision": 1, "current_step": 2},
+            "error": "semantically empty suspect output",
+            "updated_at": "2026-05-20T00:00:00+00:00",
+        }
+    )
+
+    assert hint == {
+        "recoverable": False,
+        "recovery_action": "none",
+        "operator_action": "manual review required before rerun",
+        "reason": "manual_review_required",
+        "failure_category": "SUSPECT_OUTPUT",
+        "classification_evidence": {
+            "phase": "failed",
+            "checkpoint_stage": "execution",
+            "resume_stage": "",
+            "failure_category": "SUSPECT_OUTPUT",
+            "effective_stage": "execution",
+            "recovery_action": "mark_failed_requires_manual_review",
+            "source": "error",
+        },
         "checkpoint": {"stage": "execution", "plan_revision": 1, "current_step": 2},
     }
 

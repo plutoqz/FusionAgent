@@ -24,6 +24,7 @@
 - Google/OpenBuildingMap building sources remain manual-preload supplements.
 - `raw.rh.poi` remains a manual-preload supplement.
 - Unbounded POI entity alignment remains unsupported.
+- Target 5 POI support is AOI-bounded OSM + GNS/GeoNames vector fusion; unbounded POI entity alignment, name disambiguation across unrelated regions, and global gazetteer deduplication remain unsupported.
 - Trajectory-to-road remains reservation-only and is outside targets 2-6.
 - Live source materialization is provider-dependent and is not required for fixture-level closure.
 

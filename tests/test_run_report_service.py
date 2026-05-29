@@ -42,14 +42,18 @@ def test_render_run_reports_writes_chinese_english_and_json_evidence(tmp_path: P
     evidence = json.loads(Path(outputs["summary"]).read_text(encoding="utf-8"))
     assert "过程评价" in zh
     assert "结果评价" in zh
+    assert "质量与证据边界" in zh
     assert "自进化证据" in zh
     assert "Process Evaluation" in en
     assert "Result Evaluation" in en
+    assert "Quality And Evidence Boundary" in en
     assert "Self-Evolution Evidence" in en
     assert evidence["evaluation"]["process"]["telemetry"]["event_counts"]["run_succeeded"] == 1
     assert evidence["evaluation"]["result"]["artifact_metrics"]["artifact_validity"] is True
     assert evidence["source_coverage"][0]["selected_source_id"] == "catalog.flood.building"
     assert evidence["evaluation"]["self_evolution"]["boundary"].startswith("bounded policy hints")
+    assert "quality_summary" in evidence
+    assert "evidence_readiness" in evidence
 
 
 def test_run_report_includes_large_area_runtime_evidence(tmp_path: Path) -> None:
@@ -94,6 +98,104 @@ def test_run_report_includes_large_area_runtime_evidence(tmp_path: Path) -> None
         "raw.google.building_height.raster"
         in summary["source_semantic_contract"]["height_policy"]["raster_height_sources"]
     )
+
+
+def test_run_report_includes_quality_summary_for_height_raster(tmp_path: Path) -> None:
+    artifact = tmp_path / "artifact.gpkg"
+    artifact.write_bytes(b"gpkg")
+    status = _run_status(artifact)
+
+    summary = build_run_report_summary(
+        status=status,
+        plan=_plan(),
+        audit_events=_audit_events(),
+        artifact_path=artifact,
+        source_semantic_contract={
+            "height_policy": {
+                "raster_height_sources": {"raw.google.building_height.raster": "height.tif"},
+                "height_fields": ["height"],
+            }
+        },
+    )
+
+    assert summary["quality_summary"]["target_capability"]["target_2_building_height_raster"] == {
+        "supported": True,
+        "raster_participated": True,
+        "source_ids": ["raw.google.building_height.raster"],
+    }
+    assert summary["evidence_readiness"]["score"] == summary["quality_summary"]["evidence_readiness_score"]
+
+
+def test_run_report_includes_bounded_poi_quality_boundary(tmp_path: Path) -> None:
+    artifact = tmp_path / "poi.gpkg"
+    artifact.write_bytes(b"gpkg")
+    status = _run_status(artifact).model_copy(update={"job_type": JobType.poi})
+    plan = _plan().model_copy(
+        update={
+            "tasks": [
+                _plan().tasks[0].model_copy(
+                    update={
+                        "input": _plan().tasks[0].input.model_copy(
+                            update={"data_type_id": "dt.poi.bundle", "data_source_id": "catalog.generic.poi"}
+                        ),
+                        "output": _plan().tasks[0].output.model_copy(update={"data_type_id": "dt.poi.fused"}),
+                    }
+                )
+            ]
+        }
+    )
+    events = _audit_events() + [
+        RunEvent(
+            timestamp="2026-05-29T00:00:07+00:00",
+            kind="task_inputs_resolved",
+            phase=RunPhase.running,
+            message="poi inputs",
+            details={
+                "resolved_aoi": {"display_name": "Nairobi, Kenya", "bbox": [36.65, -1.45, 37.10, -1.10]},
+                "component_coverage": {
+                    "raw.osm.poi": {"feature_count": 5},
+                    "raw.gns.poi": {"feature_count": 2},
+                },
+            },
+        )
+    ]
+
+    summary = build_run_report_summary(
+        status=status,
+        plan=plan,
+        audit_events=events,
+        artifact_path=artifact,
+        source_semantic_contract={"component_source_ids": ["raw.osm.poi", "raw.gns.poi"]},
+    )
+
+    poi = summary["quality_summary"]["target_capability"]["target_5_bounded_poi"]
+    assert poi["bounded"] is True
+    assert poi["aoi_bound"] == [36.65, -1.45, 37.10, -1.10]
+    assert "unbounded POI entity alignment is unsupported" in summary["evidence_readiness"]["boundary"]["poi"]
+
+
+def test_run_report_quality_summary_includes_recovery_operator_action(tmp_path: Path) -> None:
+    artifact = tmp_path / "artifact.gpkg"
+    artifact.write_bytes(b"gpkg")
+    status = _run_status(artifact).model_copy(
+        update={
+            "phase": RunPhase.failed,
+            "failure_summary": "download timed out | failure_category=SOURCE_DOWNLOAD_FAILED",
+            "checkpoint": {"stage": "execution"},
+        }
+    )
+
+    summary = build_run_report_summary(
+        status=status,
+        plan=_plan(),
+        audit_events=_audit_events(),
+        artifact_path=artifact,
+    )
+
+    recovery = summary["quality_summary"]["target_capability"]["target_9_recovery"]
+    assert recovery["recoverable"] is True
+    assert recovery["recovery_action"] == "redispatch_from_execution"
+    assert recovery["operator_action"] == "no manual action required; recovery worker can redispatch from execution"
 
 
 def _run_status(artifact: Path) -> RunStatus:

@@ -6,7 +6,7 @@ import os
 from pathlib import Path
 from typing import Any, Dict, List
 
-from schemas.agent import RepairRecord, RunCreateRequest, RunTrigger, RunTriggerType, WorkflowPlan
+from schemas.agent import RepairRecord, RunCreateRequest, RunInputStrategy, RunTrigger, RunTriggerType, WorkflowPlan
 from schemas.fusion import JobType
 from schemas.settings import EffectiveLLMSettings
 from worker.celery_app import celery_app
@@ -162,13 +162,14 @@ def scheduled_tick() -> Dict[str, Any]:
 
     run_ids: List[str] = []
     errors: List[str] = []
+    spec_results: List[Dict[str, Any]] = []
     scheduled_specs = _load_scheduled_specs()
     for index, spec in enumerate(scheduled_specs, start=1):
         if spec.get("enabled", True) is False:
+            spec_results.append({"index": index, "status": "skipped_disabled"})
             continue
+        input_strategy = RunInputStrategy(str(spec.get("input_strategy", RunInputStrategy.uploaded.value)))
         try:
-            osm_zip_path = Path(str(spec["osm_zip_path"]))
-            ref_zip_path = Path(str(spec["ref_zip_path"]))
             request = RunCreateRequest(
                 job_type=JobType(spec["job_type"]),
                 trigger=RunTrigger(
@@ -182,25 +183,55 @@ def scheduled_tick() -> Dict[str, Any]:
                 target_crs=str(spec.get("target_crs", "EPSG:32643")),
                 field_mapping=dict(spec.get("field_mapping", {})),
                 debug=bool(spec.get("debug", False)),
+                input_strategy=input_strategy,
+                preferred_pattern_id=spec.get("preferred_pattern_id"),
             )
-            created = agent_run_service.create_run(
-                request=request,
-                osm_zip_name=osm_zip_path.name,
-                osm_zip_bytes=osm_zip_path.read_bytes(),
-                ref_zip_name=ref_zip_path.name,
-                ref_zip_bytes=ref_zip_path.read_bytes(),
-            )
+            if input_strategy == RunInputStrategy.uploaded:
+                osm_zip_path = Path(str(spec["osm_zip_path"]))
+                ref_zip_path = Path(str(spec["ref_zip_path"]))
+                created = agent_run_service.create_run(
+                    request=request,
+                    osm_zip_name=osm_zip_path.name,
+                    osm_zip_bytes=osm_zip_path.read_bytes(),
+                    ref_zip_name=ref_zip_path.name,
+                    ref_zip_bytes=ref_zip_path.read_bytes(),
+                )
+            else:
+                created = agent_run_service.create_run(
+                    request=request,
+                    osm_zip_name=None,
+                    osm_zip_bytes=None,
+                    ref_zip_name=None,
+                    ref_zip_bytes=None,
+                )
             run_ids.append(created.run_id)
+            spec_results.append(
+                {
+                    "index": index,
+                    "status": "created",
+                    "run_id": created.run_id,
+                    "input_strategy": input_strategy.value,
+                }
+            )
         except Exception as exc:  # noqa: BLE001
             message = f"scheduled_spec_{index}: {type(exc).__name__}: {exc}"
             LOGGER.warning(message)
             errors.append(message)
+            spec_results.append(
+                {
+                    "index": index,
+                    "status": "error",
+                    "input_strategy": str(spec.get("input_strategy", RunInputStrategy.uploaded.value)),
+                    "error": message,
+                }
+            )
 
     return {
         "configured": len(scheduled_specs),
         "created": len(run_ids),
         "run_ids": run_ids,
         "errors": errors,
+        "spec_results": spec_results,
     }
 
 

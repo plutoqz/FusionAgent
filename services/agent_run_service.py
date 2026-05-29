@@ -1410,6 +1410,9 @@ class AgentRunService:
             "osm_zip_name": resolved_inputs.osm_zip_path.name,
             "ref_zip_name": resolved_inputs.ref_zip_path.name,
             "target_crs": request.target_crs,
+            "source_materialization_manifest_path": (
+                str(resolved_inputs.manifest_path) if resolved_inputs.manifest_path is not None else None
+            ),
         }
         if resolved_aoi is not None:
             event_details["resolved_aoi"] = {

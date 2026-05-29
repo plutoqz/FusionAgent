@@ -116,15 +116,70 @@ def build_recovery_hint(run_payload: dict[str, Any]) -> dict[str, Any]:
         reason = "failure_category_recoverable"
     elif not recoverable and str(run_payload.get("phase") or "").strip().lower() == "failed":
         reason = "manual_review_required"
+    phase = str(run_payload.get("phase") or "").strip().lower()
+    operator_action = _operator_action(action, recoverable=recoverable, phase=phase)
     payload = {
         "recoverable": recoverable,
         "recovery_action": action if recoverable else "none",
+        "operator_action": operator_action,
         "reason": reason,
         "checkpoint": dict(checkpoint),
     }
     if failure_category is not None:
         payload["failure_category"] = failure_category
+    classification_evidence = _classification_evidence(
+        run_payload,
+        checkpoint=dict(checkpoint),
+        failure_category=failure_category,
+        recovery_action=action,
+    )
+    if classification_evidence:
+        payload["classification_evidence"] = classification_evidence
     return payload
+
+
+def _operator_action(action: str, *, recoverable: bool, phase: str) -> str:
+    if action == "redispatch_from_execution":
+        return "no manual action required; recovery worker can redispatch from execution"
+    if recoverable:
+        return "no manual action required; recovery worker can redispatch"
+    if action == "mark_failed_requires_manual_review" and phase == "failed":
+        return "manual review required before rerun"
+    return "no operator action available"
+
+
+def _classification_evidence(
+    run_payload: dict[str, Any],
+    *,
+    checkpoint: dict[str, Any],
+    failure_category: str | None,
+    recovery_action: str,
+) -> dict[str, Any]:
+    phase = str(run_payload.get("phase") or "").strip().lower()
+    checkpoint_stage = str(checkpoint.get("stage") or "").strip().lower()
+    resume_stage = str(checkpoint.get("resume_stage") or "").strip().lower()
+    effective_stage = resume_stage or checkpoint_stage
+    evidence: dict[str, Any] = {
+        "phase": phase,
+        "checkpoint_stage": checkpoint_stage,
+        "resume_stage": resume_stage,
+        "effective_stage": effective_stage,
+        "recovery_action": recovery_action,
+    }
+    if failure_category is not None:
+        evidence["failure_category"] = failure_category
+        evidence["source"] = _failure_category_source(run_payload)
+    return evidence
+
+
+def _failure_category_source(record: dict[str, Any]) -> str:
+    summary = str(record.get("failure_summary") or "").strip()
+    error = str(record.get("error") or "").strip()
+    if summary:
+        return "failure_summary"
+    if error:
+        return "error"
+    return "none"
 
 
 def _checkpoint_recovery_action(

@@ -317,6 +317,8 @@ class RunInspectionResponse(BaseModel):
     recovery_hint: Dict[str, Any] = Field(default_factory=dict)
     large_area_runtime: Dict[str, Any] = Field(default_factory=dict)
     source_semantic_contract: Dict[str, Any] = Field(default_factory=dict)
+    report_quality_summary: Dict[str, Any] = Field(default_factory=dict)
+    evidence_readiness: Dict[str, Any] = Field(default_factory=dict)
     recovery_worker_evidence: Dict[str, Any] = Field(default_factory=dict)
     digest: RunInspectionDigest = Field(default_factory=RunInspectionDigest)
 
