@@ -158,12 +158,20 @@ class PlanningContextBuilder:
             return None
         if trigger.type != RunTriggerType.user_query:
             return None
-        if not trigger.content.strip():
+        query = self._extract_location_query(trigger)
+        if not query:
             return None
-        return self.aoi_resolution_service.resolve(trigger.content)
+        return self.aoi_resolution_service.resolve(query)
 
     @staticmethod
     def _extract_location_query(trigger: RunTrigger) -> str | None:
+        spatial_extent = (trigger.spatial_extent or "").strip()
+        if spatial_extent:
+            if PlanningContextBuilder._parse_bbox(spatial_extent) is None:
+                return spatial_extent
+            content = (trigger.content or "").strip()
+            return AOIResolutionService.extract_location_query(content) if content else None
+
         content = (trigger.content or "").strip()
         if not content:
             return None

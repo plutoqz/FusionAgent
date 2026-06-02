@@ -889,9 +889,10 @@ class AgentRunService:
         runtime = runtime_dependencies or self._bound_default_runtime()
         planner = runtime.planner
         resolved_aoi: ResolvedAOI | None = None
-        if self._should_resolve_aoi(request):
+        aoi_query = self._aoi_resolution_query(request)
+        if aoi_query is not None:
             try:
-                resolved_aoi = self.aoi_resolution_service.resolve(request.trigger.content)
+                resolved_aoi = self.aoi_resolution_service.resolve(aoi_query)
                 self._update_status(
                     run_id,
                     RunPhase.planning,
@@ -900,7 +901,7 @@ class AgentRunService:
                     event_kind="aoi_resolved",
                     event_message=f"Resolved AOI for {resolved_aoi.display_name}.",
                     event_details={
-                        "query": resolved_aoi.query,
+                        "query": aoi_query,
                         "display_name": resolved_aoi.display_name,
                         "country_name": resolved_aoi.country_name,
                         "country_code": resolved_aoi.country_code,
@@ -918,7 +919,7 @@ class AgentRunService:
                     event_kind="aoi_resolution_failed",
                     event_message="AOI resolution failed before planning.",
                     event_details={
-                        "query": request.trigger.content,
+                        "query": aoi_query,
                         "error": f"{type(exc).__name__}: {exc}",
                     },
                 )
@@ -1304,22 +1305,51 @@ class AgentRunService:
         if request.input_strategy == RunInputStrategy.uploaded:
             raise ValueError("uploaded input strategy requires persisted input bundles before execution")
 
-        source_id = self._resolve_task_driven_source_id(plan)
-        if not source_id:
+        source_candidates = self._task_driven_source_candidates(plan)
+        if not source_candidates:
             raise ValueError("task-driven input strategy could not resolve a source_id from the plan")
         required_output_type = self._extract_required_input_data_type(plan)
         if not required_output_type:
             raise ValueError("task-driven input strategy could not resolve the required input data type")
 
-        resolved = self.input_acquisition_service.resolve_task_driven_inputs(
-            request=request,
-            source_id=source_id,
-            required_output_type=required_output_type,
-            input_dir=input_dir,
-            request_bbox=self._resolve_request_bbox(request, resolved_aoi=resolved_aoi),
-            resolved_aoi=resolved_aoi,
-        )
-        return resolved.osm_zip_path, resolved.ref_zip_path, resolved
+        request_bbox = self._resolve_request_bbox(request, resolved_aoi=resolved_aoi)
+        last_error: ValueError | None = None
+        source_id = source_candidates[0]
+        for candidate_source_id in source_candidates:
+            try:
+                resolved = self.input_acquisition_service.resolve_task_driven_inputs(
+                    request=request,
+                    source_id=candidate_source_id,
+                    required_output_type=required_output_type,
+                    input_dir=input_dir,
+                    request_bbox=request_bbox,
+                    resolved_aoi=resolved_aoi,
+                )
+                if candidate_source_id != source_id and not resolved.fallback_from_source_id:
+                    resolved = ResolvedRunInputs(
+                        osm_zip_path=resolved.osm_zip_path,
+                        ref_zip_path=resolved.ref_zip_path,
+                        source_mode=resolved.source_mode,
+                        source_id=resolved.source_id,
+                        cache_hit=resolved.cache_hit,
+                        version_token=resolved.version_token,
+                        selected_source_id=resolved.selected_source_id or candidate_source_id,
+                        fallback_from_source_id=source_id,
+                        component_coverage=resolved.component_coverage,
+                        manifest_path=resolved.manifest_path,
+                    )
+                return resolved.osm_zip_path, resolved.ref_zip_path, resolved
+            except ValueError as exc:
+                last_error = exc
+                message = str(exc)
+                if "SOURCE_MISSING" not in message and "empty source coverage" not in message:
+                    raise
+                if candidate_source_id == source_candidates[-1]:
+                    raise
+
+        if last_error is not None:
+            raise last_error
+        raise ValueError("task-driven input strategy could not materialize any candidate source")
 
     def _record_tiled_runtime_event(
         self,
@@ -2915,21 +2945,40 @@ class AgentRunService:
             return None
 
     @staticmethod
-    def _should_resolve_aoi(request: RunCreateRequest) -> bool:
+    def _aoi_resolution_query(request: RunCreateRequest) -> str | None:
         if request.input_strategy != RunInputStrategy.task_driven_auto:
-            return False
+            return None
         if request.trigger.type != RunTriggerType.user_query:
-            return False
-        if request.trigger.spatial_extent and not request.trigger.force_aoi_resolution:
-            return False
+            return None
+
+        spatial_extent = (request.trigger.spatial_extent or "").strip()
+        if spatial_extent:
+            if AgentRunService._parse_bbox(spatial_extent) is not None:
+                if request.trigger.force_aoi_resolution:
+                    content = (request.trigger.content or "").strip()
+                    return content or None
+                return None
+            return spatial_extent
+
         content = (request.trigger.content or "").strip()
         if not content:
-            return False
-        return bool(re.search(r"\b(for|in|around|within)\b", content, flags=re.IGNORECASE))
+            return None
+        if request.trigger.force_aoi_resolution:
+            return content
+        if re.search(r"\b(for|in|around|within)\b", content, flags=re.IGNORECASE):
+            return content
+        return None
+
+    @staticmethod
+    def _should_resolve_aoi(request: RunCreateRequest) -> bool:
+        return AgentRunService._aoi_resolution_query(request) is not None
 
     @staticmethod
     def _resolve_task_driven_source_id(plan: WorkflowPlan) -> Optional[str]:
-        compatible_sources = AgentRunService._extract_task_driven_compatible_sources(plan)
+        compatible_sources = AgentRunService._filter_disaster_compatible_sources(
+            AgentRunService._extract_task_driven_compatible_sources(plan),
+            plan,
+        )
         compatible_source_ids = [item["source_id"] for item in compatible_sources]
         selected = AgentRunService._extract_selected_data_source(plan)
         if selected and selected != "upload.bundle":
@@ -2940,6 +2989,17 @@ class AgentRunService:
             return compatible_source_ids[0]
         alternatives = AgentRunService._extract_alternative_sources(plan)
         return alternatives[0] if alternatives else None
+
+    @staticmethod
+    def _task_driven_source_candidates(plan: WorkflowPlan) -> list[str]:
+        ordered: list[str] = []
+        for source_id in [
+            AgentRunService._resolve_task_driven_source_id(plan),
+            *AgentRunService._extract_alternative_sources(plan),
+        ]:
+            if source_id and source_id != "upload.bundle" and source_id not in ordered:
+                ordered.append(source_id)
+        return ordered
 
     @staticmethod
     def _task_driven_input_signature(plan: WorkflowPlan) -> tuple[Optional[str], Optional[str]]:
@@ -3000,6 +3060,66 @@ class AgentRunService:
                 continue
             compatible.append(raw)
         return compatible
+
+    @staticmethod
+    def _filter_disaster_compatible_sources(
+        sources: list[Dict[str, Any]],
+        plan: WorkflowPlan,
+    ) -> list[Dict[str, Any]]:
+        disaster_type = str(getattr(plan.trigger, "disaster_type", None) or "").strip().casefold()
+        if not disaster_type or not sources:
+            return sources
+
+        exact = [
+            source
+            for source in sources
+            if disaster_type in AgentRunService._source_disaster_types(source)
+        ]
+        if exact:
+            return exact
+
+        generic = [
+            source
+            for source in sources
+            if "generic" in AgentRunService._source_disaster_types(source)
+        ]
+        pure_generic = [
+            source
+            for source in generic
+            if AgentRunService._source_disaster_types(source) == {"generic"}
+        ]
+        return pure_generic or generic or sources
+
+    @staticmethod
+    def _source_disaster_types(source: Dict[str, Any]) -> set[str]:
+        values: list[object] = []
+        values.append(source.get("disaster_types"))
+        metadata = source.get("metadata")
+        if isinstance(metadata, dict):
+            values.append(metadata.get("disaster_types"))
+            values.append(metadata.get("scenario_focus"))
+        source_id = str(source.get("source_id") or "").casefold()
+        for token in ("flood", "earthquake", "typhoon", "generic"):
+            if f".{token}." in source_id or source_id.startswith(f"{token}.") or source_id.endswith(f".{token}"):
+                values.append(token)
+
+        normalized: set[str] = set()
+        for value in values:
+            if isinstance(value, str):
+                parts = [value]
+            elif isinstance(value, list):
+                parts = value
+            elif isinstance(value, tuple):
+                parts = list(value)
+            elif isinstance(value, set):
+                parts = list(value)
+            else:
+                continue
+            for item in parts:
+                text = str(item or "").strip().casefold()
+                if text:
+                    normalized.add(text)
+        return normalized
 
     @staticmethod
     def _extract_named_paths(plan: WorkflowPlan, key: str) -> Dict[str, Path]:
@@ -3132,7 +3252,7 @@ class AgentRunService:
         raw_sources = retrieval.get("data_sources", []) if isinstance(retrieval, dict) else []
         compatible_task_driven_sources = self._extract_task_driven_compatible_sources(plan)
         if compatible_task_driven_sources:
-            raw_sources = compatible_task_driven_sources
+            raw_sources = self._filter_disaster_compatible_sources(compatible_task_driven_sources, plan)
         candidates: List[CandidateScoreInput] = []
         for raw in raw_sources:
             if not isinstance(raw, dict):
@@ -3166,8 +3286,11 @@ class AgentRunService:
                     meta={"selection_source": "task_input"},
                 )
             )
+        evidence_refs = ["context.retrieval.data_sources", "policy:deterministic_weighted_sum"]
+        if str(getattr(plan.trigger, "disaster_type", None) or "").strip():
+            evidence_refs.append("policy:disaster_source_compatibility")
         decision = self.policy_engine.select("data_source_selection", candidates).model_copy(
-            update={"evidence_refs": ["context.retrieval.data_sources", "policy:deterministic_weighted_sum"]}
+            update={"evidence_refs": evidence_refs}
         )
         for task in plan.tasks:
             if not task.is_transform:
