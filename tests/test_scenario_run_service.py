@@ -39,6 +39,22 @@ def test_build_child_run_specs_propagates_spatial_extent(tmp_path):
     assert specs[0].spatial_extent == "bbox(36.79,-1.31,36.81,-1.29)"
 
 
+def test_build_child_run_specs_expands_implicit_flood_bundle_for_chinese_scenario(tmp_path):
+    request = ScenarioRunRequest(
+        scenario_name="Karachi flood",
+        trigger_content="巴基斯坦卡拉奇市发生洪涝灾害，请作为灾害响应场景执行地理空间矢量数据融合。",
+        disaster_type="flood",
+        spatial_extent="Karachi, Pakistan",
+        output_root=str(tmp_path),
+    )
+
+    specs = build_child_run_specs(request)
+
+    assert [spec.job_type for spec in specs] == [JobType.building, JobType.road, JobType.water]
+    assert all(spec.disaster_type == "flood" for spec in specs)
+    assert all(spec.spatial_extent == "Karachi, Pakistan" for spec in specs)
+
+
 def test_scenario_run_service_writes_summary_and_reports(tmp_path):
     service = ScenarioRunService(agent_run_service=_FakeAgentRunService(tmp_path))
 
@@ -61,6 +77,99 @@ def test_scenario_run_service_writes_summary_and_reports(tmp_path):
     assert summary["evaluation"]["agentic_metrics"]["manual_intervention_count"] == 0
     assert (scenario_dir / "documents" / "scenario_report.zh.md").exists()
     assert (scenario_dir / "documents" / "scenario_report.en.md").exists()
+
+
+def test_scenario_run_service_refreshes_child_status_before_summary(tmp_path):
+    service = ScenarioRunService(agent_run_service=_QueuedThenSucceededAgentRunService(tmp_path))
+
+    response = service.create_scenario_run(
+        ScenarioRunRequest(
+            scenario_name="Karachi flood",
+            trigger_content="巴基斯坦卡拉奇市发生洪涝灾害，请作为灾害响应场景执行地理空间矢量数据融合。",
+            disaster_type="flood",
+            job_types=[JobType.building],
+            spatial_extent="Karachi, Pakistan",
+            output_root=str(tmp_path / "scenarios"),
+        )
+    )
+
+    scenario_dir = Path(response.output_dir)
+    summary = json.loads((scenario_dir / "scenario_summary.json").read_text(encoding="utf-8"))
+    assert response.phase == ScenarioPhase.succeeded
+    assert summary["child_runs"][0]["phase"] == RunPhase.succeeded.value
+    assert summary["workflow_traces"][0]["steps"]
+    assert summary["final_outputs"]
+
+
+def test_scenario_run_service_waits_for_async_child_terminal_state_before_summary(tmp_path, monkeypatch):
+    monkeypatch.setattr(ScenarioRunService, "CHILD_RUN_POLL_INTERVAL_SECONDS", 0)
+    monkeypatch.setattr(ScenarioRunService, "CHILD_RUN_TERMINAL_WAIT_SECONDS", 1)
+    service = ScenarioRunService(agent_run_service=_PollingQueuedThenSucceededAgentRunService(tmp_path))
+
+    response = service.create_scenario_run(
+        ScenarioRunRequest(
+            scenario_name="Karachi flood",
+            trigger_content="巴基斯坦卡拉奇市发生洪涝灾害，请作为灾害响应场景执行地理空间矢量数据融合。",
+            disaster_type="flood",
+            job_types=[JobType.building],
+            spatial_extent="Karachi, Pakistan",
+            output_root=str(tmp_path / "scenarios"),
+        )
+    )
+
+    scenario_dir = Path(response.output_dir)
+    summary = json.loads((scenario_dir / "scenario_summary.json").read_text(encoding="utf-8"))
+    assert response.phase == ScenarioPhase.succeeded
+    assert summary["child_runs"][0]["phase"] == RunPhase.succeeded.value
+    assert summary["workflow_traces"][0]["steps"]
+    assert summary["final_outputs"]
+
+
+def test_scenario_run_service_starts_all_children_before_waiting_for_terminal_state(tmp_path, monkeypatch):
+    monkeypatch.setattr(ScenarioRunService, "CHILD_RUN_POLL_INTERVAL_SECONDS", 0)
+    monkeypatch.setattr(ScenarioRunService, "CHILD_RUN_TERMINAL_WAIT_SECONDS", 1)
+    fake = _StartAllChildrenBeforeTerminalAgentRunService(tmp_path)
+    service = ScenarioRunService(agent_run_service=fake)
+
+    response = service.create_scenario_run(
+        ScenarioRunRequest(
+            scenario_name="Karachi flood",
+            trigger_content="巴基斯坦卡拉奇市发生洪涝灾害，请作为灾害响应场景执行地理空间矢量数据融合。",
+            disaster_type="flood",
+            spatial_extent="Karachi, Pakistan",
+            output_root=str(tmp_path / "scenarios"),
+        )
+    )
+
+    scenario_dir = Path(response.output_dir)
+    summary = json.loads((scenario_dir / "scenario_summary.json").read_text(encoding="utf-8"))
+    assert response.child_run_ids == ["run-building", "run-road", "run-water"]
+    assert response.phase == ScenarioPhase.succeeded
+    assert fake.created_job_types == [JobType.building, JobType.road, JobType.water]
+    assert [item["phase"] for item in summary["child_runs"]] == [RunPhase.succeeded.value] * 3
+    assert all(trace["steps"] for trace in summary["workflow_traces"])
+
+
+def test_scenario_run_service_uses_one_global_child_wait_deadline(tmp_path, monkeypatch):
+    monkeypatch.setattr(ScenarioRunService, "CHILD_RUN_POLL_INTERVAL_SECONDS", 0)
+    monkeypatch.setattr(ScenarioRunService, "CHILD_RUN_TERMINAL_WAIT_SECONDS", 0)
+    service = ScenarioRunService(agent_run_service=_NeverTerminalAgentRunService(tmp_path))
+
+    response = service.create_scenario_run(
+        ScenarioRunRequest(
+            scenario_name="Karachi flood",
+            trigger_content="巴基斯坦卡拉奇市发生洪涝灾害，请作为灾害响应场景执行地理空间矢量数据融合。",
+            disaster_type="flood",
+            spatial_extent="Karachi, Pakistan",
+            output_root=str(tmp_path / "scenarios"),
+        )
+    )
+
+    scenario_dir = Path(response.output_dir)
+    summary = json.loads((scenario_dir / "scenario_summary.json").read_text(encoding="utf-8"))
+    assert response.child_run_ids == ["run-building", "run-road", "run-water"]
+    assert response.phase == ScenarioPhase.running
+    assert [item["phase"] for item in summary["child_runs"]] == [RunPhase.queued.value] * 3
 
 
 class _FakeAgentRunService:
@@ -100,6 +209,140 @@ class _FakeAgentRunService:
 
     def get_artifact_path(self, run_id: str):
         return self.artifacts.get(run_id)
+
+
+class _QueuedThenSucceededAgentRunService(_FakeAgentRunService):
+    def create_run(self, *, request, osm_zip_name, osm_zip_bytes, ref_zip_name, ref_zip_bytes):
+        run_id = f"run-{request.job_type.value}"
+        queued = RunStatus(
+            run_id=run_id,
+            job_type=request.job_type,
+            trigger=request.trigger,
+            phase=RunPhase.queued,
+            progress=0,
+            target_crs=request.target_crs or "EPSG:32631",
+            debug=False,
+            created_at="2026-04-21T00:00:00+00:00",
+        )
+        succeeded = queued.model_copy(
+            update={
+                "phase": RunPhase.succeeded,
+                "progress": 100,
+                "finished_at": "2026-04-21T00:00:03+00:00",
+            }
+        )
+        self.statuses[run_id] = succeeded
+        self.plans[run_id] = _make_plan(request.job_type)
+        self.events[run_id] = _make_events(request.job_type)
+        artifact = self.tmp_path / f"{run_id}.zip"
+        artifact.write_bytes(b"zip")
+        self.artifacts[run_id] = artifact
+        return queued
+
+    def get_run(self, run_id: str):
+        return self.statuses.get(run_id)
+
+
+class _PollingQueuedThenSucceededAgentRunService(_FakeAgentRunService):
+    def __init__(self, tmp_path: Path) -> None:
+        super().__init__(tmp_path)
+        self.get_run_calls: dict[str, int] = {}
+
+    def create_run(self, *, request, osm_zip_name, osm_zip_bytes, ref_zip_name, ref_zip_bytes):
+        run_id = f"run-{request.job_type.value}"
+        queued = RunStatus(
+            run_id=run_id,
+            job_type=request.job_type,
+            trigger=request.trigger,
+            phase=RunPhase.queued,
+            progress=0,
+            target_crs=request.target_crs or "EPSG:32631",
+            debug=False,
+            created_at="2026-04-21T00:00:00+00:00",
+        )
+        succeeded = queued.model_copy(
+            update={
+                "phase": RunPhase.succeeded,
+                "progress": 100,
+                "finished_at": "2026-04-21T00:00:03+00:00",
+            }
+        )
+        self.statuses[run_id] = succeeded
+        self.plans[run_id] = _make_plan(request.job_type)
+        self.events[run_id] = _make_events(request.job_type)
+        artifact = self.tmp_path / f"{run_id}.zip"
+        artifact.write_bytes(b"zip")
+        self.artifacts[run_id] = artifact
+        return queued
+
+    def get_run(self, run_id: str):
+        count = self.get_run_calls.get(run_id, 0) + 1
+        self.get_run_calls[run_id] = count
+        if count == 1:
+            return self.statuses[run_id].model_copy(update={"phase": RunPhase.queued, "progress": 0})
+        return self.statuses.get(run_id)
+
+
+class _StartAllChildrenBeforeTerminalAgentRunService(_FakeAgentRunService):
+    def __init__(self, tmp_path: Path) -> None:
+        super().__init__(tmp_path)
+        self.created_job_types: list[JobType] = []
+
+    def create_run(self, *, request, osm_zip_name, osm_zip_bytes, ref_zip_name, ref_zip_bytes):
+        self.created_job_types.append(request.job_type)
+        run_id = f"run-{request.job_type.value}"
+        queued = RunStatus(
+            run_id=run_id,
+            job_type=request.job_type,
+            trigger=request.trigger,
+            phase=RunPhase.queued,
+            progress=0,
+            target_crs=request.target_crs or "EPSG:32631",
+            debug=False,
+            created_at="2026-04-21T00:00:00+00:00",
+        )
+        self.statuses[run_id] = queued
+        self.plans[run_id] = _make_plan(request.job_type)
+        self.events[run_id] = _make_events(request.job_type)
+        artifact = self.tmp_path / f"{run_id}.zip"
+        artifact.write_bytes(b"zip")
+        self.artifacts[run_id] = artifact
+        return queued
+
+    def get_run(self, run_id: str):
+        if len(self.created_job_types) < 3:
+            return self.statuses[run_id]
+        succeeded = self.statuses[run_id].model_copy(
+            update={
+                "phase": RunPhase.succeeded,
+                "progress": 100,
+                "finished_at": "2026-04-21T00:00:03+00:00",
+            }
+        )
+        self.statuses[run_id] = succeeded
+        return succeeded
+
+
+class _NeverTerminalAgentRunService(_FakeAgentRunService):
+    def create_run(self, *, request, osm_zip_name, osm_zip_bytes, ref_zip_name, ref_zip_bytes):
+        run_id = f"run-{request.job_type.value}"
+        queued = RunStatus(
+            run_id=run_id,
+            job_type=request.job_type,
+            trigger=request.trigger,
+            phase=RunPhase.queued,
+            progress=0,
+            target_crs=request.target_crs or "EPSG:32631",
+            debug=False,
+            created_at="2026-04-21T00:00:00+00:00",
+        )
+        self.statuses[run_id] = queued
+        self.plans[run_id] = _make_plan(request.job_type)
+        self.events[run_id] = []
+        return queued
+
+    def get_run(self, run_id: str):
+        return self.statuses.get(run_id)
 
 
 def _make_plan(job_type: JobType) -> WorkflowPlan:

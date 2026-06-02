@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import json
+import os
+import time
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
@@ -159,6 +161,10 @@ def classify_scenario_request(
 
 
 class ScenarioRunService:
+    TERMINAL_RUN_PHASES = {RunPhase.succeeded.value, RunPhase.failed.value}
+    CHILD_RUN_POLL_INTERVAL_SECONDS = 1.0
+    CHILD_RUN_TERMINAL_WAIT_SECONDS = 900.0
+
     def __init__(self, *, agent_run_service: AgentRunService) -> None:
         self.agent_run_service = agent_run_service
 
@@ -180,7 +186,8 @@ class ScenarioRunService:
             encoding="utf-8",
         )
 
-        child_results = [self._run_child(output_dir, spec) for spec in build_child_run_specs(request)]
+        started_child_results = [self._run_child(output_dir, spec) for spec in build_child_run_specs(request)]
+        child_results = self._wait_for_started_child_results(started_child_results)
         summary = self._build_summary(request, scenario_id, output_dir, child_results)
         document_paths = render_scenario_reports(summary=summary, documents_dir=output_dir / "documents")
         summary["document_paths"] = document_paths
@@ -231,16 +238,7 @@ class ScenarioRunService:
                 ref_zip_name=None,
                 ref_zip_bytes=None,
             )
-            run_id = status.run_id
-            return {
-                "run_id": run_id,
-                "job_type": spec.job_type.value,
-                "phase": status.phase.value,
-                "status": status,
-                "plan": self.agent_run_service.get_plan(run_id),
-                "audit_events": self.agent_run_service.get_audit_events(run_id),
-                "artifact_path": self.agent_run_service.get_artifact_path(run_id),
-            }
+            return self._inspect_child_result(run_id=status.run_id, job_type=spec.job_type, fallback_status=status)
         except Exception as exc:  # noqa: BLE001
             error_path = output_dir / "child_runs" / f"{spec.job_type.value}-failed.json"
             error_path.parent.mkdir(parents=True, exist_ok=True)
@@ -255,6 +253,58 @@ class ScenarioRunService:
                 "audit_events": [],
                 "artifact_path": None,
             }
+
+    def _inspect_child_result(self, *, run_id: str, job_type: JobType, fallback_status=None) -> dict[str, Any]:
+        get_run = getattr(self.agent_run_service, "get_run", None)
+        status = get_run(run_id) if callable(get_run) else fallback_status
+        if status is None:
+            status = fallback_status
+        phase = status.phase.value if status is not None else ScenarioPhase.failed.value
+        return {
+            "run_id": run_id,
+            "job_type": job_type.value,
+            "phase": phase,
+            "status": status,
+            "plan": self.agent_run_service.get_plan(run_id),
+            "audit_events": self.agent_run_service.get_audit_events(run_id),
+            "artifact_path": self.agent_run_service.get_artifact_path(run_id),
+            "error": getattr(status, "error", None) if status is not None else None,
+        }
+
+    def _wait_for_child_result(self, *, run_id: str, job_type: JobType, fallback_status=None) -> dict[str, Any]:
+        deadline = time.monotonic() + self._child_run_terminal_wait_seconds()
+        result = self._inspect_child_result(run_id=run_id, job_type=job_type, fallback_status=fallback_status)
+        while result.get("phase") not in self.TERMINAL_RUN_PHASES and time.monotonic() < deadline:
+            time.sleep(self._child_run_poll_interval_seconds())
+            result = self._inspect_child_result(run_id=run_id, job_type=job_type, fallback_status=result.get("status"))
+        return result
+
+    def _refresh_started_child_result(self, result: dict[str, Any]) -> dict[str, Any]:
+        run_id = result.get("run_id")
+        if not run_id:
+            return result
+        try:
+            job_type = JobType(str(result.get("job_type")))
+        except ValueError:
+            return result
+        return self._inspect_child_result(run_id=str(run_id), job_type=job_type, fallback_status=result.get("status"))
+
+    def _wait_for_started_child_results(self, child_results: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        deadline = time.monotonic() + self._child_run_terminal_wait_seconds()
+        current_results = [self._refresh_started_child_result(result) for result in child_results]
+        while (
+            any(result.get("phase") not in self.TERMINAL_RUN_PHASES for result in current_results)
+            and time.monotonic() < deadline
+        ):
+            time.sleep(self._child_run_poll_interval_seconds())
+            current_results = [self._refresh_started_child_result(result) for result in current_results]
+        return current_results
+
+    def _child_run_poll_interval_seconds(self) -> float:
+        return _float_env("GEOFUSION_SCENARIO_CHILD_POLL_INTERVAL_SECONDS", self.CHILD_RUN_POLL_INTERVAL_SECONDS)
+
+    def _child_run_terminal_wait_seconds(self) -> float:
+        return _float_env("GEOFUSION_SCENARIO_CHILD_TERMINAL_WAIT_SECONDS", self.CHILD_RUN_TERMINAL_WAIT_SECONDS)
 
     def _build_summary(
         self,
@@ -330,17 +380,45 @@ class ScenarioRunService:
 def _scenario_job_types(request: ScenarioRunRequest) -> list[JobType]:
     if request.job_types:
         return list(request.job_types)
-    content = request.trigger_content.casefold()
+    content = " ".join(
+        part.casefold()
+        for part in [request.scenario_name, request.trigger_content, request.disaster_type]
+        if str(part or "").strip()
+    )
     detected = [job_type for job_type in JobType if job_type.value in content]
-    return detected or [JobType.building]
+    if detected:
+        return detected
+
+    if _contains_any(content, ("flood", "洪涝", "洪水", "内涝", "淹没")):
+        return [JobType.building, JobType.road, JobType.water]
+    if _contains_any(content, ("earthquake", "地震")):
+        return [JobType.building, JobType.road]
+    if _contains_any(content, ("typhoon", "台风", "风暴")):
+        return [JobType.building, JobType.road, JobType.water]
+    return [JobType.building]
+
+
+def _contains_any(text: str, keywords: tuple[str, ...]) -> bool:
+    return any(keyword in text for keyword in keywords)
+
+
+def _float_env(name: str, default: float) -> float:
+    try:
+        return max(0.0, float(os.getenv(name, str(default))))
+    except ValueError:
+        return default
 
 
 def _phase_from_child_results(child_results: list[dict[str, Any]]) -> ScenarioPhase:
     if not child_results:
         return ScenarioPhase.failed
     phases = [str(result.get("phase")) for result in child_results]
+    if any(phase not in {RunPhase.succeeded.value, RunPhase.failed.value, ScenarioPhase.failed.value} for phase in phases):
+        return ScenarioPhase.running
     if all(phase == RunPhase.succeeded.value for phase in phases):
         return ScenarioPhase.succeeded
+    if all(phase == RunPhase.failed.value or phase == ScenarioPhase.failed.value for phase in phases):
+        return ScenarioPhase.failed
     return ScenarioPhase.partial
 
 

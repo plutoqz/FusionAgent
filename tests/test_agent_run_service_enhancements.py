@@ -641,6 +641,102 @@ def test_agent_run_service_water_task_driven_auto_fails_at_materialization_time_
     assert audit_events[-1].details["suggested_action"] == "replan"
 
 
+def test_agent_run_service_retries_task_driven_source_alternative_after_source_missing(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    service = AgentRunService(base_dir=tmp_path / "runs")
+    osm_shp = tmp_path / "fallback_osm.shp"
+    ref_shp = tmp_path / "fallback_ref.shp"
+    fused_shp = tmp_path / "fallback_fused.shp"
+    artifact_zip = tmp_path / "fallback_artifact.zip"
+    for path in [osm_shp, ref_shp]:
+        path.write_text("dummy", encoding="utf-8")
+    _write_minimal_polygon_shapefile(fused_shp)
+    artifact_zip.write_bytes(b"zip")
+
+    plan = _build_plan(workflow_id="wf_source_fallback", revision=1)
+    plan.trigger = RunTrigger(
+        type=RunTriggerType.user_query,
+        content="Karachi flood building fusion",
+        disaster_type="flood",
+    )
+    plan.context["intent"]["request_input_strategy"] = RunInputStrategy.task_driven_auto.value
+    plan.context["retrieval"]["data_sources"] = [
+        {
+            "source_id": "catalog.flood.building",
+            "supported_types": ["dt.building.bundle"],
+            "disaster_types": ["flood"],
+            "quality_score": 0.95,
+            "freshness_score": 0.9,
+            "metadata": {"selectable_now": True, "runtime_status": "runtime_candidate"},
+        },
+        {
+            "source_id": "catalog.generic.building",
+            "supported_types": ["dt.building.bundle"],
+            "disaster_types": ["generic"],
+            "quality_score": 0.75,
+            "freshness_score": 0.6,
+            "metadata": {"selectable_now": True, "runtime_status": "runtime_candidate"},
+        },
+    ]
+
+    prepared_dir = tmp_path / "prepared_fallback"
+    prepared_dir.mkdir(parents=True, exist_ok=True)
+    resolved_inputs = ResolvedRunInputs(
+        osm_zip_path=prepared_dir / "osm.zip",
+        ref_zip_path=prepared_dir / "ref.zip",
+        source_mode="downloaded",
+        source_id="catalog.generic.building",
+        cache_hit=False,
+        version_token="generic-v1",
+    )
+    resolved_inputs.osm_zip_path.write_bytes(b"osm")
+    resolved_inputs.ref_zip_path.write_bytes(b"ref")
+    attempted: list[str] = []
+
+    def fake_resolve_task_driven_inputs(**kwargs):
+        attempted.append(kwargs["source_id"])
+        if kwargs["source_id"] == "catalog.flood.building":
+            raise ValueError("SOURCE_MISSING: empty source coverage for catalog.flood.building")
+        return resolved_inputs
+
+    monkeypatch.setattr(service.planner, "create_plan", lambda **_kwargs: plan.model_copy(deep=True))
+    monkeypatch.setattr(service.validator, "validate_and_repair", lambda input_plan: input_plan)
+    monkeypatch.setattr(service.input_acquisition_service, "resolve_task_driven_inputs", fake_resolve_task_driven_inputs)
+    monkeypatch.setattr(
+        "services.agent_run_service.validate_zip_has_shapefile",
+        lambda zip_path, *_args, **_kwargs: osm_shp if Path(zip_path).name.startswith("osm") else ref_shp,
+    )
+    monkeypatch.setattr(service.executor, "execute_plan", lambda **_kwargs: fused_shp)
+    monkeypatch.setattr("services.agent_run_service.zip_shapefile_bundle", lambda *_args, **_kwargs: artifact_zip)
+
+    status = service.create_run(
+        request=_build_auto_request(
+            spatial_extent="bbox(66.2,24.4,67.6,25.7)",
+            job_type=JobType.building,
+            content="Karachi flood building fusion",
+        ),
+        osm_zip_name=None,
+        osm_zip_bytes=None,
+        ref_zip_name=None,
+        ref_zip_bytes=None,
+    )
+
+    latest = service.get_run(status.run_id)
+    assert latest is not None
+    assert latest.phase == RunPhase.succeeded
+    assert attempted == ["catalog.flood.building", "catalog.generic.building"]
+
+    audit_events = service.get_audit_events(status.run_id)
+    fallback_event = next(event for event in audit_events if event.kind == "source_fallback_selected")
+    assert fallback_event.details["fallback_from_source_id"] == "catalog.flood.building"
+    assert fallback_event.details["selected_source_id"] == "catalog.generic.building"
+    resolved_event = next(event for event in audit_events if event.kind == "task_inputs_resolved")
+    assert resolved_event.details["source_id"] == "catalog.generic.building"
+    assert resolved_event.details["fallback_from_source_id"] == "catalog.flood.building"
+
+
 def test_agent_run_service_road_task_driven_auto_keeps_trajectory_seam_reserved(
     tmp_path: Path,
     monkeypatch,
@@ -1167,6 +1263,11 @@ def test_agent_run_service_task_driven_auto_prepares_inputs_before_execution(tmp
 def test_task_driven_building_source_selection_prefers_bundle_compatible_catalog_source(tmp_path: Path) -> None:
     service = AgentRunService(base_dir=tmp_path / "runs")
     plan = _build_plan(workflow_id="wf_task_driven_catalog_only", revision=1)
+    plan.trigger = RunTrigger(
+        type=RunTriggerType.user_query,
+        content="Karachi flood building fusion",
+        disaster_type="flood",
+    )
     plan.context["intent"]["request_input_strategy"] = "task_driven_auto"
     plan.context["retrieval"]["data_sources"] = [
         {
@@ -1230,9 +1331,58 @@ def test_task_driven_building_source_selection_prefers_bundle_compatible_catalog
     decisions = service._build_planning_decisions(plan)
     selected = next(item for item in decisions if item.decision_type == "data_source_selection")
 
-    assert selected.selected_id == "catalog.earthquake.building"
-    assert service._resolve_task_driven_source_id(plan) == "catalog.earthquake.building"
-    assert service._extract_alternative_sources(plan) == ["catalog.flood.building"]
+    assert selected.selected_id == "catalog.flood.building"
+    assert service._resolve_task_driven_source_id(plan) == "catalog.flood.building"
+    assert service._extract_alternative_sources(plan) == ["catalog.earthquake.building"]
+    assert selected.evidence_refs == [
+        "context.retrieval.data_sources",
+        "policy:deterministic_weighted_sum",
+        "policy:disaster_source_compatibility",
+    ]
+
+
+def test_agent_run_service_allows_generic_source_when_disaster_specific_source_missing(tmp_path: Path) -> None:
+    service = AgentRunService(base_dir=tmp_path / "runs")
+    plan = _build_plan(workflow_id="wf_generic_source_for_flood", revision=1)
+    plan.trigger = RunTrigger(
+        type=RunTriggerType.user_query,
+        content="Karachi flood building fusion",
+        disaster_type="flood",
+    )
+    plan.context["intent"]["request_input_strategy"] = RunInputStrategy.task_driven_auto.value
+    plan.context["intent"]["expected_output_type"] = "dt.building.fused"
+    plan.context["retrieval"]["data_sources"] = [
+        {
+            "source_id": "catalog.generic.building",
+            "supported_types": ["dt.building.bundle"],
+            "disaster_types": ["generic"],
+            "quality_score": 0.80,
+            "freshness_score": 0.60,
+            "source_name": "Generic Building Bundle",
+            "source_kind": "catalog",
+            "quality_tier": "curated",
+            "freshness_category": "snapshot",
+            "metadata": {"selectable_now": True, "runtime_status": "runtime_candidate"},
+        },
+        {
+            "source_id": "catalog.earthquake.building",
+            "supported_types": ["dt.building.bundle"],
+            "disaster_types": ["earthquake", "generic"],
+            "quality_score": 0.95,
+            "freshness_score": 0.90,
+            "source_name": "Earthquake Building Bundle",
+            "source_kind": "catalog",
+            "quality_tier": "curated",
+            "freshness_category": "event_snapshot",
+            "metadata": {"selectable_now": True, "runtime_status": "runtime_candidate"},
+        },
+    ]
+
+    decisions = service._build_planning_decisions(plan)
+    selected = next(item for item in decisions if item.decision_type == "data_source_selection")
+
+    assert selected.selected_id == "catalog.generic.building"
+    assert service._resolve_task_driven_source_id(plan) == "catalog.generic.building"
 
 
 def test_agent_run_service_resolves_nairobi_before_input_materialization(tmp_path: Path, monkeypatch) -> None:
@@ -1320,6 +1470,109 @@ def test_agent_run_service_resolves_nairobi_before_input_materialization(tmp_pat
     resolved_event = next(event for event in audit_events if event.kind == "task_inputs_resolved")
     assert resolved_event.details["resolved_aoi"]["country_code"] == "ke"
     assert resolved_event.details["resolved_aoi"]["display_name"] == "Nairobi, Nairobi County, Kenya"
+
+
+def test_agent_run_service_resolves_named_spatial_extent_before_input_materialization(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    service = AgentRunService(base_dir=tmp_path / "runs")
+    osm_shp = tmp_path / "karachi_osm.shp"
+    ref_shp = tmp_path / "karachi_ref.shp"
+    fused_shp = tmp_path / "karachi_fused.shp"
+    artifact_zip = tmp_path / "karachi_artifact.zip"
+    for path in [osm_shp, ref_shp]:
+        path.write_text("dummy", encoding="utf-8")
+    _write_minimal_polygon_shapefile(fused_shp)
+    artifact_zip.write_bytes(b"zip")
+
+    plan = _build_plan(workflow_id="wf_karachi_named_spatial_extent", revision=1)
+    plan.trigger = RunTrigger(
+        type=RunTriggerType.user_query,
+        content="巴基斯坦卡拉奇市发生洪涝灾害，请执行地理空间矢量数据融合。",
+        disaster_type="flood",
+        spatial_extent="Karachi, Pakistan",
+    )
+    plan.context["intent"]["request_input_strategy"] = RunInputStrategy.task_driven_auto.value
+    plan.tasks[0].input.data_source_id = "catalog.flood.building"
+
+    prepared_dir = tmp_path / "prepared_karachi"
+    prepared_dir.mkdir(parents=True, exist_ok=True)
+    resolved_inputs = ResolvedRunInputs(
+        osm_zip_path=prepared_dir / "osm.zip",
+        ref_zip_path=prepared_dir / "ref.zip",
+        source_mode="downloaded",
+        source_id="catalog.flood.building",
+        cache_hit=False,
+        version_token="pk-karachi-v1",
+    )
+    resolved_inputs.osm_zip_path.write_bytes(b"osm")
+    resolved_inputs.ref_zip_path.write_bytes(b"ref")
+
+    karachi_aoi = ResolvedAOI(
+        query="Karachi, Pakistan",
+        display_name="Karachi Division, Sindh, Pakistan",
+        country_name="Pakistan",
+        country_code="pk",
+        bbox=(66.2862312, 24.4273517, 67.5827753, 25.676796),
+        confidence=0.657,
+        selection_reason="single_candidate",
+        candidates=tuple(),
+    )
+    resolve_queries: list[str] = []
+    captured: dict[str, object] = {}
+
+    def fake_resolve(query: str) -> ResolvedAOI:
+        resolve_queries.append(query)
+        return karachi_aoi
+
+    def fake_resolve_task_driven_inputs(**kwargs):
+        captured.update(kwargs)
+        return resolved_inputs
+
+    monkeypatch.setattr(service.aoi_resolution_service, "resolve", fake_resolve)
+    monkeypatch.setattr(service.planner, "create_plan", lambda **_kwargs: plan.model_copy(deep=True))
+    monkeypatch.setattr(service.validator, "validate_and_repair", lambda input_plan: input_plan)
+    monkeypatch.setattr(service.input_acquisition_service, "resolve_task_driven_inputs", fake_resolve_task_driven_inputs)
+    monkeypatch.setattr(
+        "services.agent_run_service.validate_zip_has_shapefile",
+        lambda zip_path, *_args, **_kwargs: osm_shp if Path(zip_path).name.startswith("osm") else ref_shp,
+    )
+    monkeypatch.setattr(service.executor, "execute_plan", lambda **_kwargs: fused_shp)
+    monkeypatch.setattr("services.agent_run_service.zip_shapefile_bundle", lambda *_args, **_kwargs: artifact_zip)
+
+    status = service.create_run(
+        request=RunCreateRequest(
+            job_type=JobType.building,
+            trigger=RunTrigger(
+                type=RunTriggerType.user_query,
+                content="巴基斯坦卡拉奇市发生洪涝灾害，请执行地理空间矢量数据融合。",
+                disaster_type="flood",
+                spatial_extent="Karachi, Pakistan",
+            ),
+            target_crs="EPSG:32643",
+            field_mapping={},
+            debug=False,
+            input_strategy=RunInputStrategy.task_driven_auto,
+        ),
+        osm_zip_name=None,
+        osm_zip_bytes=None,
+        ref_zip_name=None,
+        ref_zip_bytes=None,
+    )
+
+    latest = service.get_run(status.run_id)
+    assert latest is not None
+    assert latest.phase == RunPhase.succeeded
+    assert resolve_queries == ["Karachi, Pakistan"]
+    assert captured["resolved_aoi"] == karachi_aoi
+    assert captured["request_bbox"] == karachi_aoi.bbox
+
+    audit_events = service.get_audit_events(status.run_id)
+    aoi_event = next(event for event in audit_events if event.kind == "aoi_resolved")
+    assert aoi_event.details["query"] == "Karachi, Pakistan"
+    resolved_event = next(event for event in audit_events if event.kind == "task_inputs_resolved")
+    assert resolved_event.details["resolved_aoi"]["country_code"] == "pk"
 
 
 def test_agent_run_service_prefers_explicit_spatial_extent_but_still_records_aoi_resolution(
