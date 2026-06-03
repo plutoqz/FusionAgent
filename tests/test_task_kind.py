@@ -59,9 +59,22 @@ def test_task_kind_pattern_hints_are_only_needed_for_water_split() -> None:
     assert task_kind_preferred_pattern_id(TaskKind.poi, "flood") is None
 
 
+def test_water_pattern_hints_preserve_current_compatibility_bridge() -> None:
+    expected_hints = {
+        TaskKind.water_polygon: "wp.flood.water_polygon.default",
+        TaskKind.waterways: "wp.flood.waterways.default",
+    }
+
+    for disaster_type in (None, "flood", "earthquake"):
+        assert task_kind_preferred_pattern_id(TaskKind.water_polygon, disaster_type) == expected_hints[TaskKind.water_polygon]
+        assert task_kind_preferred_pattern_id(TaskKind.waterways, disaster_type) == expected_hints[TaskKind.waterways]
+
+
 def test_normalize_task_kind_accepts_aliases() -> None:
     assert normalize_task_kind("water") == [TaskKind.water_polygon, TaskKind.waterways]
     assert normalize_task_kind("water_polygon") == [TaskKind.water_polygon]
+    assert normalize_task_kind("water-polygons") == [TaskKind.water_polygon]
     assert normalize_task_kind("waterways") == [TaskKind.waterways]
     assert normalize_task_kind("river") == [TaskKind.waterways]
     assert normalize_task_kind("poi") == [TaskKind.poi]
+    assert normalize_task_kind("point of interest") == [TaskKind.poi]
