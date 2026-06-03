@@ -185,7 +185,38 @@ def test_scenario_run_service_starts_all_children_before_waiting_for_terminal_st
         "poi",
     ]
     assert [item["phase"] for item in summary["child_runs"]] == [RunPhase.succeeded.value] * 5
+    assert [item["task_kind"] for item in summary["source_coverage"]] == fake.created_task_kinds
+    assert [item["task_family"] for item in summary["source_coverage"]] == [
+        "building",
+        "road",
+        "water",
+        "water",
+        "poi",
+    ]
+    assert [item["task_kind"] for item in summary["evaluation"]["data_fusion_metrics"]] == fake.created_task_kinds
+    assert [item["task_family"] for item in summary["evaluation"]["data_fusion_metrics"]] == [
+        "building",
+        "road",
+        "water",
+        "water",
+        "poi",
+    ]
     assert all(trace["steps"] for trace in summary["workflow_traces"])
+
+
+def test_scenario_run_service_refresh_preserves_result_with_invalid_task_kind(tmp_path):
+    service = ScenarioRunService(agent_run_service=_FakeAgentRunService(tmp_path))
+    result = {
+        "run_id": "run-water",
+        "job_type": JobType.water.value,
+        "task_kind": "not_a_task_kind",
+        "task_family": "water",
+        "phase": RunPhase.queued.value,
+    }
+
+    refreshed = service._refresh_started_child_result(result)
+
+    assert refreshed == result
 
 
 def test_scenario_run_service_uses_one_global_child_wait_deadline(tmp_path, monkeypatch):

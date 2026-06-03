@@ -315,8 +315,11 @@ class ScenarioRunService:
             )
             return self._inspect_child_result(run_id=status.run_id, spec=spec, fallback_status=status)
         except Exception as exc:  # noqa: BLE001
-            task_key = spec.task_kind.value if spec.task_kind else spec.job_type.value
-            task_family = spec.task_family or (task_kind_family(spec.task_kind) if spec.task_kind else spec.job_type.value)
+            task_key, task_family = _task_identity(
+                job_type=spec.job_type,
+                task_kind=spec.task_kind,
+                task_family=spec.task_family,
+            )
             error_path = output_dir / "child_runs" / f"{task_key}-failed.json"
             error_path.parent.mkdir(parents=True, exist_ok=True)
             error_payload = {
@@ -344,12 +347,16 @@ class ScenarioRunService:
         if status is None:
             status = fallback_status
         phase = status.phase.value if status is not None else ScenarioPhase.failed.value
-        task_key = spec.task_kind.value if spec.task_kind else spec.job_type.value
+        task_key, task_family = _task_identity(
+            job_type=spec.job_type,
+            task_kind=spec.task_kind,
+            task_family=spec.task_family,
+        )
         return {
             "run_id": run_id,
             "job_type": spec.job_type.value,
             "task_kind": task_key,
-            "task_family": spec.task_family or task_key,
+            "task_family": task_family,
             "phase": phase,
             "status": status,
             "plan": self.agent_run_service.get_plan(run_id),
@@ -375,12 +382,15 @@ class ScenarioRunService:
         except ValueError:
             return result
         task_kind_value = result.get("task_kind")
-        task_kind = TaskKind(str(task_kind_value)) if task_kind_value else None
+        try:
+            task_kind = TaskKind(str(task_kind_value)) if task_kind_value else None
+        except ValueError:
+            return result
         spec = ScenarioChildRunSpec(
             job_type=job_type,
             trigger_content="",
             task_kind=task_kind,
-            task_family=str(result.get("task_family") or task_kind_value or job_type.value),
+            task_family=str(result.get("task_family") or (task_kind_family(task_kind) if task_kind else job_type.value)),
         )
         return self._inspect_child_result(run_id=str(run_id), spec=spec, fallback_status=result.get("status"))
 
@@ -472,31 +482,6 @@ class ScenarioRunService:
             (output_dir / filename).write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
 
 
-def _scenario_job_types(request: ScenarioRunRequest) -> list[JobType]:
-    if request.job_types:
-        return list(request.job_types)
-    content = " ".join(
-        part.casefold()
-        for part in [request.scenario_name, request.trigger_content, request.disaster_type]
-        if str(part or "").strip()
-    )
-    detected = [job_type for job_type in JobType if job_type.value in content]
-    if detected:
-        return detected
-
-    if _contains_any(content, ("flood", "洪涝", "洪水", "内涝", "淹没")):
-        return [JobType.building, JobType.road, JobType.water]
-    if _contains_any(content, ("earthquake", "地震")):
-        return [JobType.building, JobType.road]
-    if _contains_any(content, ("typhoon", "台风", "风暴")):
-        return [JobType.building, JobType.road, JobType.water]
-    return [JobType.building]
-
-
-def _contains_any(text: str, keywords: tuple[str, ...]) -> bool:
-    return any(keyword in text for keyword in keywords)
-
-
 def _float_env(name: str, default: float) -> float:
     try:
         return max(0.0, float(os.getenv(name, str(default))))
@@ -522,6 +507,8 @@ def _phase_from_child_results(child_results: list[dict[str, Any]]) -> ScenarioPh
 def _source_coverage_from_children(child_results: list[dict[str, Any]]) -> list[dict[str, Any]]:
     items = []
     for result in child_results:
+        task_kind = result.get("task_kind") or result.get("job_type")
+        task_family = result.get("task_family") or result.get("job_type")
         for event in result.get("audit_events") or []:
             if event.kind == "task_inputs_resolved":
                 component_coverage = event.details.get("component_coverage", {})
@@ -530,6 +517,8 @@ def _source_coverage_from_children(child_results: list[dict[str, Any]]) -> list[
                     {
                         "run_id": result.get("run_id"),
                         "job_type": result.get("job_type"),
+                        "task_kind": task_kind,
+                        "task_family": task_family,
                         "requested_source_id": event.details.get("requested_source_id") or event.details.get("source_id"),
                         "selected_source_id": event.details.get("selected_source_id") or event.details.get("source_id"),
                         "fallback_from_source_id": event.details.get("fallback_from_source_id"),
@@ -589,7 +578,13 @@ def _data_fusion_metrics_for_child(result: dict[str, Any]) -> dict[str, Any]:
             "artifact_validity": bool(artifact_path and Path(artifact_path).exists()),
             "artifact_path": str(artifact_path) if artifact_path else None,
         }
-    return {"run_id": result.get("run_id"), "job_type": result.get("job_type"), "metrics": metrics}
+    return {
+        "run_id": result.get("run_id"),
+        "job_type": result.get("job_type"),
+        "task_kind": result.get("task_kind") or result.get("job_type"),
+        "task_family": result.get("task_family") or result.get("job_type"),
+        "metrics": metrics,
+    }
 
 
 def _merge_agentic_metrics(metrics: list[dict[str, Any]]) -> dict[str, Any]:
@@ -628,6 +623,17 @@ def _child_summary(result: dict[str, Any]) -> dict[str, Any]:
         "error": result.get("error"),
         "degradation": _child_degradation(result),
     }
+
+
+def _task_identity(
+    *,
+    job_type: JobType,
+    task_kind: TaskKind | None,
+    task_family: str | None,
+) -> tuple[str, str]:
+    task_key = task_kind.value if task_kind else job_type.value
+    family = task_family or (task_kind_family(task_kind) if task_kind else job_type.value)
+    return task_key, family
 
 
 scenario_run_service = ScenarioRunService(agent_run_service=agent_run_service)
