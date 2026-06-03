@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import re
 from typing import Any, Iterable
 
 from schemas.mission import MissionSpec, MissionTaskSpec
@@ -15,12 +16,15 @@ from schemas.task_kind import (
     task_kind_to_job_type,
 )
 
-_DISASTER_KEYWORDS = (
+_ENGLISH_DISASTER_KEYWORDS = (
     "flood",
     "earthquake",
     "typhoon",
     "disaster",
     "emergency",
+)
+
+_CHINESE_DISASTER_KEYWORDS = (
     "洪涝",
     "洪水",
     "内涝",
@@ -49,14 +53,19 @@ def partition_requested_task_kinds(raw_layers: Any) -> tuple[list[TaskKind], lis
 
 
 def compile_scenario_mission(request: ScenarioRunRequest) -> MissionSpec:
-    task_kinds, scope_source = _resolve_task_kinds(request)
+    task_kinds, scope_source, unsupported_requested_layers = _resolve_task_kinds(request)
     child_tasks = [_build_task_spec(request, task_kind) for task_kind in task_kinds]
     task_families = _dedupe(task.task_family for task in child_tasks)
-    unsupported = [
-        str(item).strip().lower()
-        for item in (request.metadata.get("unsupported_requested_layers") or [])
-        if str(item).strip()
-    ]
+    unsupported = _dedupe(
+        [
+            *unsupported_requested_layers,
+            *[
+                str(item).strip().lower()
+                for item in (request.metadata.get("unsupported_requested_layers") or [])
+                if str(item).strip()
+            ],
+        ]
+    )
     return MissionSpec(
         scope_source=scope_source,
         child_tasks=child_tasks,
@@ -65,16 +74,11 @@ def compile_scenario_mission(request: ScenarioRunRequest) -> MissionSpec:
     )
 
 
-def _resolve_task_kinds(request: ScenarioRunRequest) -> tuple[list[TaskKind], str]:
+def _resolve_task_kinds(request: ScenarioRunRequest) -> tuple[list[TaskKind], str, list[str]]:
     requested_task_kinds = request.metadata.get("requested_task_kinds")
     if isinstance(requested_task_kinds, list) and requested_task_kinds:
-        task_kinds: list[TaskKind] = []
-        for raw in requested_task_kinds:
-            for task_kind in normalize_task_kind(raw):
-                if task_kind not in task_kinds:
-                    task_kinds.append(task_kind)
-        if task_kinds:
-            return task_kinds, "explicit_task_kinds"
+        task_kinds, unsupported_layers = partition_requested_task_kinds(requested_task_kinds)
+        return task_kinds, "explicit_task_kinds", unsupported_layers
 
     if request.job_types:
         task_kinds = []
@@ -82,35 +86,42 @@ def _resolve_task_kinds(request: ScenarioRunRequest) -> tuple[list[TaskKind], st
             for task_kind in expand_job_type_to_task_kinds(job_type):
                 if task_kind not in task_kinds:
                     task_kinds.append(task_kind)
-        return task_kinds, "explicit_job_types"
+        return task_kinds, "explicit_job_types", []
 
     if _is_disaster_scenario(request):
-        return list(FULL_DISASTER_TASK_KINDS), "default_disaster_bundle"
+        return list(FULL_DISASTER_TASK_KINDS), "default_disaster_bundle", []
 
     detected = _task_kinds_from_text(" ".join([request.scenario_name, request.trigger_content]))
     if detected:
-        return detected, "detected_direct_task"
+        return detected, "detected_direct_task", []
 
-    return [TaskKind.building], "default_building"
+    return [TaskKind.building], "default_building", []
 
 
 def _is_disaster_scenario(request: ScenarioRunRequest) -> bool:
     if str(request.disaster_type or "").strip():
         return True
     text = " ".join([request.scenario_name, request.trigger_content]).casefold()
-    return any(keyword in text for keyword in _DISASTER_KEYWORDS)
+    if any(keyword in text for keyword in _CHINESE_DISASTER_KEYWORDS):
+        return True
+    return any(_contains_english_token(text, keyword) for keyword in _ENGLISH_DISASTER_KEYWORDS)
 
 
 def _task_kinds_from_text(text: str) -> list[TaskKind]:
     found: list[TaskKind] = []
     lowered = text.casefold()
     for token in ("building", "road", "water", "waterways", "river", "poi"):
-        if token not in lowered:
+        if not _contains_english_token(lowered, token):
             continue
         for task_kind in normalize_task_kind(token):
             if task_kind not in found:
                 found.append(task_kind)
     return found
+
+
+def _contains_english_token(text: str, token: str) -> bool:
+    pattern = rf"(?<![0-9a-z_]){re.escape(token.casefold())}(?![0-9a-z_])"
+    return re.search(pattern, text) is not None
 
 
 def _build_task_spec(request: ScenarioRunRequest, task_kind: TaskKind) -> MissionTaskSpec:

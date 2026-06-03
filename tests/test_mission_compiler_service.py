@@ -77,6 +77,65 @@ def test_requested_task_kind_metadata_can_select_waterways_only() -> None:
     assert mission.child_tasks[0].output_data_type == "dt.waterways.fused"
 
 
+def test_requested_task_kind_metadata_records_mixed_invalid_layers() -> None:
+    request = ScenarioRunRequest(
+        scenario_name="Pakistan waterways",
+        trigger_content="fuse river data for Pakistan",
+        metadata={
+            "requested_task_kinds": ["waterways", "traffic", "waterways"],
+            "unsupported_requested_layers": ["parcel", "traffic", "parcel"],
+        },
+    )
+
+    mission = compile_scenario_mission(request)
+
+    assert [task.task_kind for task in mission.child_tasks] == [TaskKind.waterways]
+    assert mission.scope_source == "explicit_task_kinds"
+    assert mission.unsupported_layers == ["traffic", "parcel"]
+
+
+def test_all_invalid_requested_task_kinds_do_not_fall_back_to_defaults() -> None:
+    request = ScenarioRunRequest(
+        scenario_name="Karachi flood",
+        trigger_content="Karachi has flood impacts near a road.",
+        disaster_type="flood",
+        metadata={"requested_task_kinds": ["traffic", "parcel", "traffic"]},
+    )
+
+    mission = compile_scenario_mission(request)
+
+    assert mission.child_tasks == []
+    assert mission.task_families == []
+    assert mission.scope_source == "explicit_task_kinds"
+    assert mission.unsupported_layers == ["traffic", "parcel"]
+
+
+def test_explicit_job_types_take_priority_over_disaster_defaults() -> None:
+    request = ScenarioRunRequest(
+        scenario_name="Karachi flood buildings",
+        trigger_content="Karachi has a flood disaster, but only buildings are requested.",
+        disaster_type="flood",
+        job_types=[JobType.building],
+    )
+
+    mission = compile_scenario_mission(request)
+
+    assert [task.task_kind for task in mission.child_tasks] == [TaskKind.building]
+    assert mission.scope_source == "explicit_job_types"
+
+
+def test_english_keyword_detection_ignores_substring_false_positives() -> None:
+    request = ScenarioRunRequest(
+        scenario_name="Product roadmap",
+        trigger_content="The waterfall chart uses a floodlight label.",
+    )
+
+    mission = compile_scenario_mission(request)
+
+    assert [task.task_kind for task in mission.child_tasks] == [TaskKind.building]
+    assert mission.scope_source == "default_building"
+
+
 def test_partition_requested_task_kinds_deduplicates_and_records_unsupported_layers() -> None:
     task_kinds, unsupported = partition_requested_task_kinds(["water", "river", "traffic"])
 
