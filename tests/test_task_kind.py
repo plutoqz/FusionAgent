@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from schemas.fusion import JobType
 from schemas.task_kind import (
+    FULL_DISASTER_TASK_KINDS,
     TaskKind,
     expand_job_type_to_task_kinds,
     normalize_task_kind,
@@ -10,6 +11,16 @@ from schemas.task_kind import (
     task_kind_preferred_pattern_id,
     task_kind_to_job_type,
 )
+
+
+def test_full_disaster_task_kinds_records_internal_execution_order() -> None:
+    assert FULL_DISASTER_TASK_KINDS == (
+        TaskKind.building,
+        TaskKind.road,
+        TaskKind.water_polygon,
+        TaskKind.waterways,
+        TaskKind.poi,
+    )
 
 
 def test_task_kind_maps_to_public_job_type_without_extending_job_type() -> None:
@@ -34,10 +45,18 @@ def test_water_job_type_expands_to_two_execution_task_kinds() -> None:
     ]
 
 
+def test_non_water_job_types_expand_to_matching_single_task_kind() -> None:
+    assert expand_job_type_to_task_kinds(JobType.building) == [TaskKind.building]
+    assert expand_job_type_to_task_kinds(JobType.road) == [TaskKind.road]
+    assert expand_job_type_to_task_kinds(JobType.poi) == [TaskKind.poi]
+
+
 def test_task_kind_pattern_hints_are_only_needed_for_water_split() -> None:
     assert task_kind_preferred_pattern_id(TaskKind.water_polygon, "flood") == "wp.flood.water_polygon.default"
     assert task_kind_preferred_pattern_id(TaskKind.waterways, "flood") == "wp.flood.waterways.default"
     assert task_kind_preferred_pattern_id(TaskKind.building, "flood") is None
+    assert task_kind_preferred_pattern_id(TaskKind.road, "flood") is None
+    assert task_kind_preferred_pattern_id(TaskKind.poi, "flood") is None
 
 
 def test_normalize_task_kind_accepts_aliases() -> None:
