@@ -214,6 +214,48 @@ def test_large_area_runtime_keeps_boundary_intersecting_polygon_when_representat
     assert fused.geometry.iloc[0].within(clip_boundary.geometry.iloc[0])
 
 
+def test_large_area_runtime_repairs_invalid_tile_source_geometry_before_intersection(tmp_path: Path) -> None:
+    invalid_bowtie = Polygon([(0.0, 0.0), (2.0, 1.0), (0.0, 1.0), (2.0, 0.0), (0.0, 0.0)])
+    source = _write(
+        tmp_path / "invalid-msft.gpkg",
+        gpd.GeoDataFrame(
+            {"source_id": ["raw.microsoft.building"], "source_feature_id": ["b-1"]},
+            geometry=[invalid_bowtie],
+            crs="EPSG:3857",
+        ),
+    )
+
+    def runner(tile, sources, output_dir, target_crs, parameters):
+        del tile, parameters
+        frame = gpd.read_file(sources["raw.microsoft.building"])
+        frame = frame.set_crs(target_crs) if frame.crs is None else frame.to_crs(target_crs)
+        assert all(frame.geometry.is_valid)
+        path = output_dir / "fused.gpkg"
+        frame.to_file(path, driver="GPKG")
+        return path, {"algorithm_id": "algo.test.invalid-source"}
+
+    result = LargeAreaRuntimeService(max_workers=1).run(
+        run_id="run-invalid-source",
+        job_type="building",
+        tile_manifest=_manifest(),
+        slices=[
+            LargeAreaSlice(
+                name="building",
+                geometry_family="building",
+                sources={"raw.microsoft.building": source},
+                runner=runner,
+            )
+        ],
+        output_dir=tmp_path / "out-invalid-source",
+        target_crs="EPSG:3857",
+        parameters={},
+    )
+
+    fused = gpd.read_file(result.output_path)
+    assert len(fused) == 1
+    assert fused.geometry.iloc[0].is_valid
+
+
 def test_domain_line_runners_force_v7_config_target_crs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     road_base = _write(
         tmp_path / "osm_road.gpkg",

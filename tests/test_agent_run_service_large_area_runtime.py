@@ -174,6 +174,74 @@ def test_road_task_driven_run_uses_shared_large_area_runtime(tmp_path: Path, mon
     assert (run_dir / "output" / "stitched_artifact.json").exists()
 
 
+def test_large_area_runtime_records_per_tile_progress_events(tmp_path: Path, monkeypatch) -> None:
+    service = AgentRunService(base_dir=tmp_path / "runs")
+    run_id = "road-progress-run"
+    request = _request(JobType.road)
+    run_dir = service.base_dir / run_id
+    for name in ["intermediate", "output", "logs"]:
+        (run_dir / name).mkdir(parents=True, exist_ok=True)
+    service._persist_status(_status(run_id, request))
+    monkeypatch.setattr(service.tile_partition_service, "partition_bbox", lambda **_kwargs: _single_tile_manifest())
+
+    osm = _write(
+        tmp_path / "osm_road.gpkg",
+        gpd.GeoDataFrame(
+            {"osm_id": [1], "fclass": ["primary"]},
+            geometry=[LineString([(0, 0), (2, 0)])],
+            crs="EPSG:3857",
+        ),
+    )
+    overture = _write(
+        tmp_path / "overture_road.gpkg",
+        gpd.GeoDataFrame(
+            {"id": ["o1"], "class": ["primary"]},
+            geometry=[LineString([(0, 0.1), (2, 0.1)])],
+            crs="EPSG:3857",
+        ),
+    )
+    resolved = ResolvedRunInputs(
+        osm_zip_path=tmp_path / "osm.zip",
+        ref_zip_path=tmp_path / "ref.zip",
+        source_mode="downloaded",
+        source_id="catalog.flood.road",
+        cache_hit=False,
+        version_token="v1",
+        selected_source_id="catalog.flood.road",
+        component_coverage={
+            "raw.osm.road": {"path": str(osm), "feature_count": 1},
+            "raw.overture.transportation": {"path": str(overture), "feature_count": 1},
+        },
+    )
+
+    try:
+        service.run_large_area_execution_stage(
+            run_id=run_id,
+            request=request,
+            plan=_plan(
+                "catalog.flood.road",
+                "dt.road.bundle",
+                "dt.road.fused",
+                "algo.fusion.road.conflation.v7",
+            ),
+            intermediate_dir=run_dir / "intermediate",
+            output_dir=run_dir / "output",
+            resolved_inputs=resolved,
+            resolved_aoi=None,
+        )
+        events = service.get_audit_events(run_id)
+    finally:
+        service.shutdown()
+
+    started = [event for event in events if event.kind == "large_area_tile_started"]
+    completed = [event for event in events if event.kind == "large_area_tile_completed"]
+    assert started
+    assert completed
+    assert completed[0].details["tile_id"] == "tile_000_000"
+    assert completed[0].details["slice_name"] == "road"
+    assert completed[0].details["feature_count"] >= 0
+
+
 def test_water_task_driven_run_outputs_polygon_and_line_slices(tmp_path: Path, monkeypatch) -> None:
     service = AgentRunService(base_dir=tmp_path / "runs")
     run_id = "water-run"

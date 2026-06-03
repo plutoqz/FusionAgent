@@ -44,6 +44,8 @@ def build_run_report_summary(
         artifact_metrics=artifact_metrics,
         recovery_evidence=recovery_hint,
     )
+    source_coverage = _source_coverage_from_events(audit_events)
+    degradation = _degradation_summary_from_source_coverage(source_coverage)
     return {
         "run_id": status.run_id,
         "job_type": status.job_type.value,
@@ -56,9 +58,10 @@ def build_run_report_summary(
         "artifact": _artifact_summary(status=status, artifact_path=artifact_path),
         "kg_path_trace": build_kg_path_trace(plan) if plan is not None else {},
         "workflow_trace": build_workflow_trace(audit_events),
-        "source_coverage": _source_coverage_from_events(audit_events),
+        "source_coverage": source_coverage,
         "fallback_summary": _fallback_summary_from_events(audit_events),
         "large_area_runtime": _large_area_runtime_from_events(audit_events),
+        "degradation": degradation,
         "evaluation": {
             "process": {
                 "agentic_metrics": agentic_metrics,
@@ -217,6 +220,8 @@ def _source_coverage_from_events(audit_events: list[RunEvent]) -> list[dict[str,
     for event in audit_events:
         if event.kind != "task_inputs_resolved":
             continue
+        component_coverage = event.details.get("component_coverage", {})
+        coverage_state, degraded_component_source_ids = _component_coverage_state(component_coverage)
         items.append(
             {
                 "requested_source_id": event.details.get("requested_source_id") or event.details.get("source_id"),
@@ -224,10 +229,52 @@ def _source_coverage_from_events(audit_events: list[RunEvent]) -> list[dict[str,
                 "fallback_from_source_id": event.details.get("fallback_from_source_id"),
                 "source_mode": event.details.get("source_mode"),
                 "cache_hit": event.details.get("cache_hit"),
-                "component_coverage": event.details.get("component_coverage", {}),
+                "component_coverage": component_coverage,
+                "coverage_state": coverage_state,
+                "degraded_component_source_ids": degraded_component_source_ids,
             }
         )
     return items
+
+
+def _component_coverage_state(component_coverage: Any) -> tuple[str, list[str]]:
+    if not isinstance(component_coverage, dict) or not component_coverage:
+        return "unknown", []
+    degraded: list[str] = []
+    for source_id, payload in component_coverage.items():
+        feature_count = None
+        coverage_status = ""
+        if isinstance(payload, dict):
+            coverage_status = str(payload.get("coverage_status") or "").strip().lower()
+            raw_count = payload.get("feature_count")
+            try:
+                feature_count = int(raw_count) if raw_count is not None else None
+            except (TypeError, ValueError):
+                feature_count = None
+        if coverage_status in {"empty", "missing", "missing_optional_ref", "coverage_empty"} or feature_count == 0:
+            degraded.append(str(source_id))
+    return ("degraded" if degraded else "available", sorted(degraded))
+
+
+def _degradation_summary_from_source_coverage(source_coverage: list[dict[str, Any]]) -> dict[str, Any]:
+    degraded_components = sorted(
+        {
+            source_id
+            for item in source_coverage
+            for source_id in item.get("degraded_component_source_ids", [])
+        }
+    )
+    if not degraded_components:
+        return {
+            "state": "none",
+            "reason_code": None,
+            "degraded_component_source_ids": [],
+        }
+    return {
+        "state": "degraded",
+        "reason_code": "PARTIAL_SOURCE_COVERAGE",
+        "degraded_component_source_ids": degraded_components,
+    }
 
 
 def _fallback_summary_from_events(audit_events: list[RunEvent]) -> list[dict[str, Any]]:

@@ -4,6 +4,7 @@ import json
 import os
 import time
 import uuid
+from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -167,8 +168,14 @@ class ScenarioRunService:
 
     def __init__(self, *, agent_run_service: AgentRunService) -> None:
         self.agent_run_service = agent_run_service
+        self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="scenario-run")
 
     def create_scenario_run(self, request: ScenarioRunRequest) -> ScenarioRunResponse:
+        scenario_id = create_scenario_id()
+        output_dir = scenario_output_dir(request, scenario_id)
+        return self._execute_scenario_run(request=request, scenario_id=scenario_id, output_dir=output_dir)
+
+    def submit_scenario_run(self, request: ScenarioRunRequest) -> ScenarioRunResponse:
         decision = classify_scenario_request(
             scenario_name=request.scenario_name,
             trigger_content=request.trigger_content,
@@ -185,12 +192,72 @@ class ScenarioRunService:
             json.dumps(request.model_dump(mode="json"), ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
+        summary = {
+            "scenario_id": scenario_id,
+            "scenario_name": request.scenario_name,
+            "trigger_content": request.trigger_content,
+            "disaster_type": request.disaster_type,
+            "phase": ScenarioPhase.running.value,
+            "output_dir": str(output_dir),
+            "child_runs": [],
+            "kg_path_traces": [],
+            "workflow_traces": [],
+            "source_coverage": [],
+            "evaluation": {"agentic_metrics": {"manual_intervention_count": 0}, "data_fusion_metrics": []},
+            "manual_interventions": 0,
+            "final_outputs": [],
+            "document_paths": {},
+        }
+        self._write_summary_files(output_dir, summary)
+        ScenarioRegistryService(output_root=resolve_scenario_output_root(request.output_root)).record(
+            {
+                "scenario_id": scenario_id,
+                "scenario_name": request.scenario_name,
+                "phase": ScenarioPhase.running.value,
+                "output_dir": str(output_dir),
+                "child_run_ids": [],
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "case_id": request.metadata.get("case_id"),
+                "idempotency_key": request.metadata.get("idempotency_key"),
+                "trigger_event": request.metadata.get("trigger_event"),
+            }
+        )
+        self._executor.submit(self._execute_scenario_run, request=request, scenario_id=scenario_id, output_dir=output_dir)
+        return ScenarioRunResponse(
+            scenario_id=scenario_id,
+            phase=ScenarioPhase.running,
+            output_dir=str(output_dir),
+            child_run_ids=[],
+        )
+
+    def _execute_scenario_run(
+        self,
+        *,
+        request: ScenarioRunRequest,
+        scenario_id: str,
+        output_dir: Path,
+    ) -> ScenarioRunResponse:
+        decision = classify_scenario_request(
+            scenario_name=request.scenario_name,
+            trigger_content=request.trigger_content,
+            job_types=request.job_types,
+            metadata=request.metadata,
+        )
+        if decision["decision"] != "allow":
+            raise ValueError(f'{decision["reason_code"]}: {decision["message"]}')
+
+        output_dir.mkdir(parents=True, exist_ok=True)
+        (output_dir / "request.json").write_text(
+            json.dumps(request.model_dump(mode="json"), ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
 
         started_child_results = [self._run_child(output_dir, spec) for spec in build_child_run_specs(request)]
         child_results = self._wait_for_started_child_results(started_child_results)
         summary = self._build_summary(request, scenario_id, output_dir, child_results)
         document_paths = render_scenario_reports(summary=summary, documents_dir=output_dir / "documents")
         summary["document_paths"] = document_paths
+        summary["phase"] = _phase_from_child_results(child_results).value
         self._write_summary_files(output_dir, summary)
         phase = _phase_from_child_results(child_results)
         child_run_ids = [str(result["run_id"]) for result in child_results if result.get("run_id")]
@@ -416,6 +483,8 @@ def _phase_from_child_results(child_results: list[dict[str, Any]]) -> ScenarioPh
     if any(phase not in {RunPhase.succeeded.value, RunPhase.failed.value, ScenarioPhase.failed.value} for phase in phases):
         return ScenarioPhase.running
     if all(phase == RunPhase.succeeded.value for phase in phases):
+        if any(_child_degradation(result).get("state") == "degraded" for result in child_results):
+            return ScenarioPhase.partial
         return ScenarioPhase.succeeded
     if all(phase == RunPhase.failed.value or phase == ScenarioPhase.failed.value for phase in phases):
         return ScenarioPhase.failed
@@ -427,6 +496,8 @@ def _source_coverage_from_children(child_results: list[dict[str, Any]]) -> list[
     for result in child_results:
         for event in result.get("audit_events") or []:
             if event.kind == "task_inputs_resolved":
+                component_coverage = event.details.get("component_coverage", {})
+                coverage_state, degraded_component_source_ids = _component_coverage_state(component_coverage)
                 items.append(
                     {
                         "run_id": result.get("run_id"),
@@ -434,10 +505,47 @@ def _source_coverage_from_children(child_results: list[dict[str, Any]]) -> list[
                         "requested_source_id": event.details.get("requested_source_id") or event.details.get("source_id"),
                         "selected_source_id": event.details.get("selected_source_id") or event.details.get("source_id"),
                         "fallback_from_source_id": event.details.get("fallback_from_source_id"),
-                        "coverage": event.details.get("component_coverage", {}),
+                        "coverage": component_coverage,
+                        "coverage_state": coverage_state,
+                        "degraded_component_source_ids": degraded_component_source_ids,
                     }
                 )
     return items
+
+
+def _component_coverage_state(component_coverage: Any) -> tuple[str, list[str]]:
+    if not isinstance(component_coverage, dict) or not component_coverage:
+        return "unknown", []
+    degraded: list[str] = []
+    for source_id, payload in component_coverage.items():
+        feature_count = None
+        coverage_status = ""
+        if isinstance(payload, dict):
+            coverage_status = str(payload.get("coverage_status") or "").strip().lower()
+            raw_count = payload.get("feature_count")
+            try:
+                feature_count = int(raw_count) if raw_count is not None else None
+            except (TypeError, ValueError):
+                feature_count = None
+        if coverage_status in {"empty", "missing", "missing_optional_ref", "coverage_empty"} or feature_count == 0:
+            degraded.append(str(source_id))
+    return ("degraded" if degraded else "available", sorted(degraded))
+
+
+def _child_degradation(result: dict[str, Any]) -> dict[str, Any]:
+    degraded_components: set[str] = set()
+    for event in result.get("audit_events") or []:
+        if event.kind != "task_inputs_resolved":
+            continue
+        _state, components = _component_coverage_state(event.details.get("component_coverage", {}))
+        degraded_components.update(components)
+    if not degraded_components:
+        return {"state": "none", "reason_code": None, "degraded_component_source_ids": []}
+    return {
+        "state": "degraded",
+        "reason_code": "PARTIAL_SOURCE_COVERAGE",
+        "degraded_component_source_ids": sorted(degraded_components),
+    }
 
 
 def _data_fusion_metrics_for_child(result: dict[str, Any]) -> dict[str, Any]:
@@ -488,6 +596,7 @@ def _child_summary(result: dict[str, Any]) -> dict[str, Any]:
         "phase": result.get("phase"),
         "artifact_path": str(result.get("artifact_path")) if result.get("artifact_path") else None,
         "error": result.get("error"),
+        "degradation": _child_degradation(result),
     }
 
 

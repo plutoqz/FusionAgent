@@ -2044,6 +2044,13 @@ class AgentRunService:
             output_dir=output_dir,
             target_crs=target_crs,
             parameters=parameters,
+            on_event=lambda kind, details: self._record_large_area_runtime_event(
+                run_id=run_id,
+                plan=plan,
+                repair_records=repair_records,
+                kind=kind,
+                details=details,
+            ),
         )
         self._record_large_area_runtime_completed(
             run_id=run_id,
@@ -2165,6 +2172,13 @@ class AgentRunService:
                 output_dir=output_dir,
                 target_crs=target_crs,
                 parameters=self._extract_step_parameters(plan),
+                on_event=lambda kind, details: self._record_large_area_runtime_event(
+                    run_id=run_id,
+                    plan=plan,
+                    repair_records=repair_records,
+                    kind=kind,
+                    details=details,
+                ),
             )
         except Exception as exc:  # noqa: BLE001
             repair_records.append(
@@ -2194,6 +2208,38 @@ class AgentRunService:
             result=result,
         )
         return result.output_path, repair_records
+
+    def _record_large_area_runtime_event(
+        self,
+        *,
+        run_id: str,
+        plan: WorkflowPlan,
+        repair_records: List[RepairRecord],
+        kind: str,
+        details: Dict[str, object],
+    ) -> None:
+        progress_by_kind = {
+            "large_area_tile_started": 62,
+            "large_area_tile_completed": 74,
+        }
+        message_by_kind = {
+            "large_area_tile_started": "Large-area tile execution started.",
+            "large_area_tile_completed": "Large-area tile execution completed.",
+        }
+        self._update_status(
+            run_id,
+            RunPhase.running,
+            progress=progress_by_kind.get(kind, 65),
+            repair_records=repair_records,
+            current_step=self._count_executable_steps(plan),
+            attempt_no=self._max_attempt_no(repair_records),
+            healing_summary=self._build_healing_summary(repair_records),
+            plan_revision=self._extract_plan_revision(plan),
+            checkpoint=self._checkpoint(stage="execution", plan_revision=self._extract_plan_revision(plan)),
+            event_kind=kind,
+            event_message=message_by_kind.get(kind, kind),
+            event_details=details,
+        )
 
     @staticmethod
     def _building_sources_from_semantic_contract(contract) -> tuple[dict[str, Path], dict[str, Path]]:
@@ -3684,4 +3730,4 @@ class AgentRunService:
         return providers
 
 
-agent_run_service = AgentRunService(base_dir=Path("runs"))
+agent_run_service = AgentRunService(base_dir=Path(os.getenv("GEOFUSION_RUNS_ROOT", "runs")))

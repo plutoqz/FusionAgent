@@ -232,6 +232,11 @@ class RunCreateResponse(BaseModel):
 class RunPreflightResponse(BaseModel):
     allowed: bool
     unsupported_intent: List[Dict[str, str]] = Field(default_factory=list)
+    aoi: Dict[str, Any] = Field(default_factory=dict)
+    source_selection: Dict[str, Any] = Field(default_factory=dict)
+    component_coverage: Dict[str, Any] = Field(default_factory=dict)
+    crs: Dict[str, Any] = Field(default_factory=dict)
+    degradation: Dict[str, Any] = Field(default_factory=dict)
 
 
 class OperatorRecoveryExecuteRequest(BaseModel):

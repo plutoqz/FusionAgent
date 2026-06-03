@@ -4,10 +4,10 @@ import zipfile
 from pathlib import Path
 
 import geopandas as gpd
-from shapely.geometry import Polygon
+from shapely.geometry import LineString, Point, Polygon
 
 from utils.shp_zip import zip_shapefile_bundle
-from utils.vector_clip import clip_zip_to_request_bbox
+from utils.vector_clip import clip_frame_to_request_bbox, clip_zip_to_request_bbox
 
 
 def _write_bundle_zip(path: Path, frame: gpd.GeoDataFrame) -> Path:
@@ -45,3 +45,33 @@ def test_clip_zip_to_request_bbox_drops_boundary_lines_for_polygon_bundle(tmp_pa
 
     clipped = _read_bundle(clipped_zip)
     assert clipped.empty
+
+
+def test_clip_frame_to_request_bbox_repairs_invalid_polygon_and_keeps_polygon_family() -> None:
+    invalid_bowtie = Polygon([(0, 0), (2, 2), (0, 2), (2, 0), (0, 0)])
+    frame = gpd.GeoDataFrame(
+        {"source_id": ["raw.microsoft.building"]},
+        geometry=[invalid_bowtie],
+        crs="EPSG:4326",
+    )
+
+    clipped = clip_frame_to_request_bbox(frame, (0.0, 0.0, 1.0, 1.0))
+
+    assert len(clipped) == 1
+    assert clipped.geometry.iloc[0].is_valid
+    assert clipped.geometry.iloc[0].geom_type in {"Polygon", "MultiPolygon"}
+
+
+def test_clip_frame_to_request_bbox_repairs_mixed_source_families_without_geometry_collection_leaks() -> None:
+    frame = gpd.GeoDataFrame(
+        {"source_id": ["raw.osm.road", "raw.gns.poi"]},
+        geometry=[
+            LineString([(-1.0, 0.5), (2.0, 0.5)]),
+            Point(0.5, 0.5),
+        ],
+        crs="EPSG:4326",
+    )
+
+    clipped = clip_frame_to_request_bbox(frame, (0.0, 0.0, 1.0, 1.0))
+
+    assert set(clipped.geometry.geom_type) == {"LineString", "Point"}

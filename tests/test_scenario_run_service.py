@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from pathlib import Path
+from threading import Event
 
 from schemas.agent import RunEvent, RunPhase, RunStatus, RunTrigger, RunTriggerType, ValidationReport, WorkflowPlan, WorkflowTask, WorkflowTaskInput, WorkflowTaskOutput
 from schemas.fusion import JobType
@@ -170,6 +171,77 @@ def test_scenario_run_service_uses_one_global_child_wait_deadline(tmp_path, monk
     assert response.child_run_ids == ["run-building", "run-road", "run-water"]
     assert response.phase == ScenarioPhase.running
     assert [item["phase"] for item in summary["child_runs"]] == [RunPhase.queued.value] * 3
+
+
+def test_scenario_run_service_marks_succeeded_degraded_child_as_partial(tmp_path):
+    service = ScenarioRunService(agent_run_service=_DegradedSucceededAgentRunService(tmp_path))
+
+    response = service.create_scenario_run(
+        ScenarioRunRequest(
+            scenario_name="Karachi flood road",
+            trigger_content="run road fusion for Karachi flood",
+            disaster_type="flood",
+            job_types=[JobType.road],
+            spatial_extent="Karachi, Pakistan",
+            output_root=str(tmp_path / "scenarios"),
+        )
+    )
+
+    scenario_dir = Path(response.output_dir)
+    summary = json.loads((scenario_dir / "scenario_summary.json").read_text(encoding="utf-8"))
+    assert response.phase == ScenarioPhase.partial
+    assert summary["phase"] == ScenarioPhase.partial.value
+    assert summary["child_runs"][0]["phase"] == RunPhase.succeeded.value
+    assert summary["child_runs"][0]["degradation"]["state"] == "degraded"
+
+
+def test_scenario_run_service_keeps_all_failed_children_failed_even_with_degraded_evidence(tmp_path):
+    service = ScenarioRunService(agent_run_service=_FailedDegradedAgentRunService(tmp_path))
+
+    response = service.create_scenario_run(
+        ScenarioRunRequest(
+            scenario_name="Karachi flood road",
+            trigger_content="run road fusion for Karachi flood",
+            disaster_type="flood",
+            job_types=[JobType.road],
+            spatial_extent="Karachi, Pakistan",
+            output_root=str(tmp_path / "scenarios"),
+        )
+    )
+
+    assert response.phase == ScenarioPhase.failed
+
+
+def test_scenario_run_service_submit_returns_running_before_background_execution(tmp_path, monkeypatch):
+    service = ScenarioRunService(agent_run_service=_FakeAgentRunService(tmp_path))
+    submitted = Event()
+    captured: dict[str, object] = {}
+
+    def fake_execute(*, request, scenario_id, output_dir):
+        captured["scenario_id"] = scenario_id
+        captured["output_dir"] = output_dir
+        submitted.set()
+
+    monkeypatch.setattr(service, "_execute_scenario_run", fake_execute)
+
+    response = service.submit_scenario_run(
+        ScenarioRunRequest(
+            scenario_name="Karachi flood",
+            trigger_content="巴基斯坦卡拉奇市发生洪涝灾害，请作为灾害响应场景执行地理空间矢量数据融合。",
+            disaster_type="flood",
+            spatial_extent="Karachi, Pakistan",
+            output_root=str(tmp_path / "scenarios"),
+        )
+    )
+
+    assert response.phase == ScenarioPhase.running
+    assert response.child_run_ids == []
+    scenario_dir = Path(response.output_dir)
+    summary = json.loads((scenario_dir / "scenario_summary.json").read_text(encoding="utf-8"))
+    assert summary["phase"] == ScenarioPhase.running.value
+    assert summary["child_runs"] == []
+    assert submitted.wait(timeout=2)
+    assert captured["scenario_id"] == response.scenario_id
 
 
 class _FakeAgentRunService:
@@ -343,6 +415,55 @@ class _NeverTerminalAgentRunService(_FakeAgentRunService):
 
     def get_run(self, run_id: str):
         return self.statuses.get(run_id)
+
+
+class _DegradedSucceededAgentRunService(_FakeAgentRunService):
+    def get_run(self, run_id: str):
+        return self.statuses.get(run_id)
+
+    def get_audit_events(self, run_id: str):
+        return [
+            RunEvent(
+                timestamp="2026-06-03T00:00:01+00:00",
+                kind="task_inputs_resolved",
+                phase=RunPhase.running,
+                message="degraded road inputs",
+                details={
+                    "source_id": "catalog.flood.road",
+                    "selected_source_id": "catalog.flood.road",
+                    "component_coverage": {
+                        "raw.osm.road": {"feature_count": 3, "coverage_status": "available"},
+                        "raw.overture.transportation": {"feature_count": 0, "coverage_status": "empty"},
+                    },
+                },
+            ),
+            RunEvent(
+                timestamp="2026-06-03T00:00:02+00:00",
+                kind="run_succeeded",
+                phase=RunPhase.succeeded,
+                message="succeeded with degraded evidence",
+            ),
+        ]
+
+
+class _FailedDegradedAgentRunService(_DegradedSucceededAgentRunService):
+    def create_run(self, *, request, osm_zip_name, osm_zip_bytes, ref_zip_name, ref_zip_bytes):
+        status = super().create_run(
+            request=request,
+            osm_zip_name=osm_zip_name,
+            osm_zip_bytes=osm_zip_bytes,
+            ref_zip_name=ref_zip_name,
+            ref_zip_bytes=ref_zip_bytes,
+        )
+        failed = status.model_copy(
+            update={
+                "phase": RunPhase.failed,
+                "error": "SOURCE_MISSING: reference unavailable",
+                "finished_at": "2026-06-03T00:00:03+00:00",
+            }
+        )
+        self.statuses[status.run_id] = failed
+        return failed
 
 
 def _make_plan(job_type: JobType) -> WorkflowPlan:

@@ -6,6 +6,7 @@ import subprocess
 import sys
 import time
 from pathlib import Path
+from urllib.parse import urlsplit, urlunsplit
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -21,6 +22,15 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--port", type=int, default=8000, help="API port.")
     parser.add_argument("--install-deps", action="store_true", help="Install missing Python dependencies automatically.")
     parser.add_argument("--check-only", action="store_true", help="Only validate dependencies and bootstrap Neo4j.")
+    parser.add_argument("--runs-root", type=Path, default=None, help="Use a custom runs root for this runtime.")
+    parser.add_argument("--redis-db", type=int, default=None, help="Override the Redis DB number used by Celery.")
+    parser.add_argument(
+        "--isolated-run-id",
+        default=None,
+        help="Create an isolated runtime under tmp/isolated-runtime/<id> with a dedicated runs root.",
+    )
+    parser.add_argument("--disable-recovery", action="store_true", help="Disable recovery_tick for this runtime.")
+    parser.add_argument("--disable-scheduler", action="store_true", help="Do not start Celery beat for this runtime.")
     parser.add_argument(
         "--reset-managed-graph",
         action="store_true",
@@ -33,17 +43,48 @@ def _install_dependencies() -> None:
     subprocess.check_call([sys.executable, "-m", "pip", "install", "-r", str(REPO_ROOT / "requirements.txt")], cwd=REPO_ROOT)
 
 
-def _build_env(port: int) -> dict[str, str]:
+def _redis_url_with_db(url: str, redis_db: int) -> str:
+    parsed = urlsplit(url)
+    return urlunsplit((parsed.scheme, parsed.netloc, f"/{int(redis_db)}", parsed.query, parsed.fragment))
+
+
+def _build_env(
+    port: int,
+    *,
+    runs_root: Path | None = None,
+    redis_db: int | None = None,
+    disable_recovery: bool = False,
+    disable_scheduler: bool = False,
+) -> dict[str, str]:
     applied = apply_local_dependency_defaults(required=True)
     env = os.environ.copy()
+    for key, value in applied.items():
+        env.setdefault(key, value)
     env.setdefault("GEOFUSION_CELERY_EAGER", "0")
     env.setdefault("GEOFUSION_TIMEZONE", env.get("TZ", "Asia/Shanghai"))
     env.setdefault("GEOFUSION_KG_BACKEND", "neo4j")
     env.setdefault("GEOFUSION_LLM_PROVIDER", "openai")
     env.setdefault("GEOFUSION_LLM_MODEL", applied.get("GEOFUSION_LLM_MODEL", "qwen3.5-397b-a17b"))
+    if runs_root is not None:
+        env["GEOFUSION_RUNS_ROOT"] = str(Path(runs_root))
+    if redis_db is not None:
+        broker = env.get("GEOFUSION_CELERY_BROKER", "redis://localhost:6379/0")
+        backend = env.get("GEOFUSION_CELERY_BACKEND", broker)
+        env["GEOFUSION_CELERY_BROKER"] = _redis_url_with_db(broker, redis_db)
+        env["GEOFUSION_CELERY_BACKEND"] = _redis_url_with_db(backend, redis_db)
+    if disable_recovery:
+        env["GEOFUSION_RECOVERY_ENABLED"] = "0"
+    if disable_scheduler:
+        env["GEOFUSION_SCHEDULER_ENABLED"] = "0"
     env["GEOFUSION_API_PORT"] = str(port)
     env["PYTHONUNBUFFERED"] = "1"
     return env
+
+
+def _isolated_runs_root(run_id: str) -> Path:
+    safe = "".join(char if char.isalnum() or char in {"-", "_"} else "-" for char in run_id).strip("-_")
+    safe = safe or f"runtime-{int(time.time())}"
+    return REPO_ROOT / "tmp" / "isolated-runtime" / safe / "runs"
 
 
 def _prepare_neo4j(env: dict[str, str], *, reset_managed_graph: bool = False) -> dict[str, object]:
@@ -128,7 +169,23 @@ def main(argv: list[str] | None = None) -> int:
             return 1
         _install_dependencies()
 
-    env = _build_env(args.port)
+    runs_root = args.runs_root
+    disable_recovery = args.disable_recovery
+    disable_scheduler = args.disable_scheduler
+    redis_db = args.redis_db
+    if args.isolated_run_id:
+        runs_root = runs_root or _isolated_runs_root(args.isolated_run_id)
+        disable_recovery = True if not args.disable_recovery else args.disable_recovery
+        disable_scheduler = True if not args.disable_scheduler else args.disable_scheduler
+        redis_db = 7 if redis_db is None else redis_db
+
+    env = _build_env(
+        args.port,
+        runs_root=runs_root,
+        redis_db=redis_db,
+        disable_recovery=disable_recovery,
+        disable_scheduler=disable_scheduler,
+    )
     neo4j_summary = _prepare_neo4j(env, reset_managed_graph=args.reset_managed_graph)
     if neo4j_summary["isolation_mode"] != "memory":
         print(f"Neo4j edition: {neo4j_summary['edition']}")
@@ -158,7 +215,8 @@ def main(argv: list[str] | None = None) -> int:
         print("Local runtime check passed.")
         return 0
 
-    log_dir = REPO_ROOT / "runs" / "local-runtime"
+    runtime_runs_root = Path(env.get("GEOFUSION_RUNS_ROOT", REPO_ROOT / "runs"))
+    log_dir = runtime_runs_root / "local-runtime"
     processes = {
         "api": _start_process(
             "api",
@@ -172,16 +230,23 @@ def main(argv: list[str] | None = None) -> int:
             env,
             log_dir,
         ),
-        "scheduler": _start_process(
+    }
+    if env.get("GEOFUSION_SCHEDULER_ENABLED", "1").strip().lower() not in {"0", "false", "no", "off"}:
+        processes["scheduler"] = _start_process(
             "scheduler",
             [sys.executable, "-m", "celery", "-A", "worker.celery_app.celery_app", "beat", "-l", "info"],
             env,
             log_dir,
-        ),
-    }
+        )
     _assert_processes_started(processes, log_dir)
 
     print(f"API: http://127.0.0.1:{args.port}")
+    print(f"runs root: {runtime_runs_root}")
+    print(f"celery broker: {env.get('GEOFUSION_CELERY_BROKER')}")
+    if env.get("GEOFUSION_RECOVERY_ENABLED") == "0":
+        print("recovery: disabled")
+    if env.get("GEOFUSION_SCHEDULER_ENABLED") == "0":
+        print("scheduler: disabled")
     for name, process in processes.items():
         print(f"{name}: pid={process.pid} log={log_dir / f'{name}.log'}")
     return 0

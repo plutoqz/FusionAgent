@@ -4,12 +4,14 @@ from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query
 
+from schemas.agent import RunCreateRequest, RunInputStrategy, RunTrigger, RunTriggerType
 from schemas.scenario import ScenarioRunInspectionResponse, ScenarioRunListResponse, ScenarioRunRequest, ScenarioRunResponse
 from schemas.ui_assets import MarkdownDocumentResponse, ScenarioDocumentListResponse
+from api.routers.runs_v2 import _build_preflight_details
 from services.scenario_document_service import ScenarioDocumentService
 from services.scenario_output import resolve_scenario_output_root
 from services.scenario_registry_service import ScenarioRegistryService
-from services.scenario_run_service import scenario_run_service
+from services.scenario_run_service import build_child_run_specs, classify_scenario_request, scenario_run_service
 
 
 router = APIRouter(tags=["scenario-runs"])
@@ -27,9 +29,50 @@ async def list_scenario_runs(
 @router.post("/scenario-runs", response_model=ScenarioRunResponse)
 async def create_scenario_run(request: ScenarioRunRequest) -> ScenarioRunResponse:
     try:
+        submit = getattr(scenario_run_service, "submit_scenario_run", None)
+        if callable(submit):
+            return submit(request)
         return scenario_run_service.create_scenario_run(request)
     except ValueError as exc:
         raise HTTPException(status_code=422, detail=str(exc)) from exc
+
+
+@router.post("/scenario-runs/preflight")
+async def preflight_scenario_run(request: ScenarioRunRequest) -> dict[str, object]:
+    child_specs = build_child_run_specs(request)
+    decision = classify_scenario_request(
+        scenario_name=request.scenario_name,
+        trigger_content=request.trigger_content,
+        job_types=[spec.job_type for spec in child_specs],
+        metadata=request.metadata,
+    )
+    child_preflights = []
+    for spec in child_specs:
+        run_request = RunCreateRequest(
+            job_type=spec.job_type,
+            trigger=RunTrigger(
+                type=RunTriggerType.user_query,
+                content=spec.trigger_content,
+                disaster_type=spec.disaster_type,
+                spatial_extent=spec.spatial_extent,
+                force_aoi_resolution=spec.force_aoi_resolution,
+            ),
+            target_crs=spec.target_crs,
+            field_mapping={},
+            debug=spec.debug,
+            input_strategy=RunInputStrategy.task_driven_auto,
+        )
+        child_preflights.append(
+            {
+                "job_type": spec.job_type.value,
+                **_build_preflight_details(run_request),
+            }
+        )
+    return {
+        "allowed": decision["decision"] == "allow",
+        "decision": decision,
+        "child_preflights": child_preflights,
+    }
 
 
 @router.get("/scenario-runs/{scenario_id}", response_model=ScenarioRunInspectionResponse)

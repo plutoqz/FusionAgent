@@ -12,6 +12,7 @@ from shapely.ops import unary_union
 
 from services.artifact_evaluation_service import evaluate_vector_artifact
 from services.tile_partition_service import TileManifest, TileSpec
+from utils.vector_clip import filter_frame_to_intersecting_geometry, intersect_frame_with_geometry, repair_frame_geometries
 
 
 GeometryFamily = Literal["building", "polygon", "line", "point"]
@@ -95,6 +96,7 @@ class LargeAreaRuntimeService:
         target_crs: str,
         parameters: dict[str, Any],
         clip_boundary: gpd.GeoDataFrame | None = None,
+        on_event: Callable[[str, dict[str, Any]], None] | None = None,
     ) -> LargeAreaRunResult:
         if not slices:
             raise ValueError("LargeAreaRuntimeService requires at least one slice.")
@@ -133,6 +135,16 @@ class LargeAreaRuntimeService:
         tile_outputs: list[LargeAreaTileOutput] = []
         for tile in tile_manifest.tiles:
             for slice_spec in slices:
+                if on_event is not None:
+                    on_event(
+                        "large_area_tile_started",
+                        {
+                            "tile_id": tile.tile_id,
+                            "slice_name": slice_spec.name,
+                            "working_bbox": list(tile.working_bbox),
+                            "working_buffered_bbox": list(tile.working_buffered_bbox),
+                        },
+                    )
                 tile_dir = output_dir / "tiles" / tile.tile_id / slice_spec.name
                 tile_dir.mkdir(parents=True, exist_ok=True)
                 merged_parameters = {**parameters, **slice_spec.parameters}
@@ -150,6 +162,17 @@ class LargeAreaRuntimeService:
                     merged_parameters,
                 )
                 feature_count = self._feature_count(output_path)
+                if on_event is not None:
+                    on_event(
+                        "large_area_tile_completed",
+                        {
+                            "tile_id": tile.tile_id,
+                            "slice_name": slice_spec.name,
+                            "output_path": str(output_path),
+                            "feature_count": feature_count,
+                            "stats": dict(stats or {}),
+                        },
+                    )
                 tile_outputs.append(
                     LargeAreaTileOutput(
                         tile_id=tile.tile_id,
@@ -223,12 +246,11 @@ class LargeAreaRuntimeService:
             if frame.empty:
                 continue
             frame = frame.set_crs(target_crs) if frame.crs is None else frame.to_crs(target_crs)
-            frame = frame[frame.geometry.notna() & ~frame.geometry.is_empty].copy()
+            frame = repair_frame_geometries(frame)
             if frame.empty:
                 continue
             owner = box(*tile_output.working_bbox)
-            owner_mask = frame.geometry.apply(owner.intersects)
-            frame = frame[owner_mask].copy()
+            frame = filter_frame_to_intersecting_geometry(frame, owner)
             if frame.empty:
                 continue
             frame[_TILE_KEY] = tile_output.tile_id
@@ -280,17 +302,14 @@ class LargeAreaRuntimeService:
         if frame.empty:
             return frame
         boundary_frame = clip_boundary.set_crs(target_crs) if clip_boundary.crs is None else clip_boundary.to_crs(target_crs)
+        boundary_frame = repair_frame_geometries(boundary_frame)
         boundary_geometries = [
             geom for geom in boundary_frame.geometry.tolist() if geom is not None and not geom.is_empty
         ]
         if not boundary_geometries:
             return frame.iloc[0:0].copy()
         boundary = unary_union(boundary_geometries)
-        clipped = frame.copy()
-        clipped["geometry"] = clipped.geometry.apply(
-            lambda geom: geom.intersection(boundary) if geom is not None and not geom.is_empty else geom
-        )
-        return clipped[clipped.geometry.notna() & ~clipped.geometry.is_empty].copy()
+        return intersect_frame_with_geometry(frame, boundary)
 
     def _clip_sources_for_tile(
         self,
@@ -314,9 +333,9 @@ class LargeAreaRuntimeService:
                 frame = frame.set_crs(target_crs)
             else:
                 frame = frame.to_crs(target_crs)
-            frame = frame[frame.geometry.notna() & ~frame.geometry.is_empty].copy()
+            frame = repair_frame_geometries(frame)
             if not frame.empty:
-                frame = frame[frame.geometry.intersects(tile_box)].copy()
+                frame = filter_frame_to_intersecting_geometry(frame, tile_box)
             output_path = output_dir / f"{self._safe_source_name(source_id)}.gpkg"
             clipped[source_id] = self._write_frame(frame, output_path, target_crs=target_crs)
         return clipped

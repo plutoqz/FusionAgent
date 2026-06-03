@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import os
+import subprocess
+import sys
 from pathlib import Path
 
 import pytest
@@ -13,7 +15,7 @@ from utils.local_runtime import (
     find_missing_runtime_dependencies,
     read_local_dependency_config,
 )
-from scripts.start_local import _prepare_neo4j
+from scripts.start_local import _build_env, _prepare_neo4j
 
 
 MANAGED_ENV_KEYS = [
@@ -189,3 +191,52 @@ def test_prepare_neo4j_memory_summary_marks_contract_as_passed() -> None:
     assert summary["isolation_mode"] == "memory"
     assert summary["kg_contract_ok"] is True
     assert summary["missing_seed_labels"] == {}
+
+
+def test_build_env_supports_isolated_runtime_roots_and_redis_db(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "scripts.start_local.apply_local_dependency_defaults",
+        lambda required=True: {
+            "GEOFUSION_CELERY_BROKER": "redis://localhost:6380/0",
+            "GEOFUSION_CELERY_BACKEND": "redis://localhost:6380/0",
+            "GEOFUSION_LLM_MODEL": "qwen-test",
+        },
+    )
+
+    env = _build_env(
+        8012,
+        runs_root=tmp_path / "isolated-runs",
+        redis_db=7,
+        disable_recovery=True,
+        disable_scheduler=True,
+    )
+
+    assert env["GEOFUSION_RUNS_ROOT"] == str(tmp_path / "isolated-runs")
+    assert env["GEOFUSION_CELERY_BROKER"] == "redis://localhost:6380/7"
+    assert env["GEOFUSION_CELERY_BACKEND"] == "redis://localhost:6380/7"
+    assert env["GEOFUSION_RECOVERY_ENABLED"] == "0"
+    assert env["GEOFUSION_SCHEDULER_ENABLED"] == "0"
+
+
+def test_celery_beat_schedule_can_be_disabled_for_isolated_runtime(tmp_path: Path) -> None:
+    code = (
+        "from worker.celery_app import describe_beat_schedule; "
+        "print(describe_beat_schedule())"
+    )
+    env = os.environ.copy()
+    env["GEOFUSION_SCHEDULER_ENABLED"] = "0"
+    env["GEOFUSION_RUNS_ROOT"] = str(tmp_path / "runs")
+
+    completed = subprocess.run(
+        [sys.executable, "-c", code],
+        cwd=Path(__file__).resolve().parents[1],
+        env=env,
+        check=True,
+        capture_output=True,
+        text=True,
+    )
+
+    assert completed.stdout.strip() == "{}"

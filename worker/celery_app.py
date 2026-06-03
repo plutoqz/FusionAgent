@@ -48,6 +48,7 @@ class _LocalCelery:
 broker_url = os.getenv("GEOFUSION_CELERY_BROKER", "redis://localhost:6379/0")
 result_backend = os.getenv("GEOFUSION_CELERY_BACKEND", broker_url)
 always_eager = _as_bool(os.getenv("GEOFUSION_CELERY_EAGER", "1"))
+scheduler_enabled = _as_bool(os.getenv("GEOFUSION_SCHEDULER_ENABLED", "1"))
 
 try:
     from celery import Celery as _Celery  # type: ignore
@@ -66,15 +67,9 @@ else:
         include=["worker.tasks"],
     )
 
-celery_app.conf.update(
-    task_always_eager=always_eager,
-    task_eager_propagates=True,
-    task_serializer="json",
-    result_serializer="json",
-    accept_content=["json"],
-    timezone=os.getenv("GEOFUSION_TIMEZONE", "Asia/Shanghai"),
-    enable_utc=True,
-    beat_schedule={
+beat_schedule = {}
+if scheduler_enabled:
+    beat_schedule = {
         "scheduled-run-producer": {
             "task": "geofusion.scheduled_tick",
             "schedule": float(os.getenv("GEOFUSION_SCHEDULED_INTERVAL_SECONDS", "3600")),
@@ -84,8 +79,18 @@ celery_app.conf.update(
             "task": "geofusion.recovery_tick",
             "schedule": float(os.getenv("GEOFUSION_RECOVERY_INTERVAL_SECONDS", "60")),
             "args": (),
-        }
-    },
+        },
+    }
+
+celery_app.conf.update(
+    task_always_eager=always_eager,
+    task_eager_propagates=True,
+    task_serializer="json",
+    result_serializer="json",
+    accept_content=["json"],
+    timezone=os.getenv("GEOFUSION_TIMEZONE", "Asia/Shanghai"),
+    enable_utc=True,
+    beat_schedule=beat_schedule,
 )
 
 

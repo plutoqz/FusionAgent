@@ -174,6 +174,40 @@ def test_run_report_includes_bounded_poi_quality_boundary(tmp_path: Path) -> Non
     assert "unbounded POI entity alignment is unsupported" in summary["evidence_readiness"]["boundary"]["poi"]
 
 
+def test_run_report_marks_partial_reference_coverage_as_degraded(tmp_path: Path) -> None:
+    artifact = tmp_path / "road.gpkg"
+    artifact.write_bytes(b"gpkg")
+    status = _run_status(artifact).model_copy(update={"job_type": JobType.road})
+    events = _audit_events() + [
+        RunEvent(
+            timestamp="2026-06-03T00:00:07+00:00",
+            kind="task_inputs_resolved",
+            phase=RunPhase.running,
+            message="road inputs",
+            details={
+                "source_id": "catalog.flood.road",
+                "selected_source_id": "catalog.flood.road",
+                "component_coverage": {
+                    "raw.osm.road": {"feature_count": 12, "coverage_status": "available"},
+                    "raw.overture.transportation": {"feature_count": 0, "coverage_status": "empty"},
+                },
+            },
+        )
+    ]
+
+    summary = build_run_report_summary(
+        status=status,
+        plan=_plan(),
+        audit_events=events,
+        artifact_path=artifact,
+    )
+
+    assert summary["degradation"]["state"] == "degraded"
+    assert summary["degradation"]["reason_code"] == "PARTIAL_SOURCE_COVERAGE"
+    assert summary["source_coverage"][-1]["coverage_state"] == "degraded"
+    assert summary["source_coverage"][-1]["degraded_component_source_ids"] == ["raw.overture.transportation"]
+
+
 def test_run_report_quality_summary_includes_recovery_operator_action(tmp_path: Path) -> None:
     artifact = tmp_path / "artifact.gpkg"
     artifact.write_bytes(b"gpkg")

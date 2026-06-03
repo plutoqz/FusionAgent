@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import re
 from pathlib import Path, PurePosixPath
 from typing import Optional
 
@@ -35,6 +36,7 @@ from schemas.operator import (
 )
 from schemas.ui_assets import ArtifactPreviewResponse
 from schemas.ui_assets import RunDocumentListResponse, RunMarkdownDocumentResponse
+from kg.source_catalog import CATALOG_BUNDLE_SPECS_BY_ID, get_raw_vector_source_spec
 from services.agent_run_service import agent_run_service, derive_run_inspection_digest
 from services.artifact_preview_service import build_artifact_preview
 from services.kg_graph_service import build_run_path_graph
@@ -52,6 +54,30 @@ from utils.crs import normalize_explicit_target_crs
 
 
 router = APIRouter(tags=["runs-v2"])
+
+
+_AUTO_MATERIALIZABLE_RAW_SOURCE_IDS = {
+    "raw.osm.building",
+    "raw.osm.road",
+    "raw.osm.water",
+    "raw.osm.waterways",
+    "raw.osm.poi",
+    "raw.microsoft.building",
+    "raw.overture.transportation",
+    "raw.overture.road",
+    "raw.hydrorivers.water",
+    "raw.hydrolakes.water",
+    "raw.gns.poi",
+}
+
+_PARTIAL_COVERAGE_ALLOWED_SOURCES = {
+    "catalog.flood.road",
+    "catalog.earthquake.road",
+    "catalog.typhoon.road",
+    "catalog.flood.water",
+    "catalog.flood.waterways",
+    "catalog.generic.poi",
+}
 
 
 def _build_runtime_metadata_response() -> RuntimeMetadataResponse:
@@ -164,6 +190,107 @@ def _load_recovery_worker_evidence(run_id: str) -> dict[str, object]:
 
 def _selected_decisions(status: RunStatus) -> dict[str, str]:
     return {record.decision_type: record.selected_id for record in status.decision_records}
+
+
+def _parse_preflight_bbox(spatial_extent: str | None) -> list[float] | None:
+    text = str(spatial_extent or "").strip()
+    match = re.fullmatch(r"bbox\(([^)]+)\)", text, flags=re.IGNORECASE)
+    if not match:
+        return None
+    parts = [part.strip() for part in match.group(1).split(",")]
+    if len(parts) != 4:
+        return None
+    try:
+        return [float(part) for part in parts]
+    except ValueError:
+        return None
+
+
+def _preflight_source_id(request: RunCreateRequest) -> str | None:
+    disaster_type = str(request.trigger.disaster_type or "generic").strip().casefold() or "generic"
+    job_type = request.job_type.value
+    candidates = [
+        f"catalog.{disaster_type}.{job_type}",
+        f"catalog.generic.{job_type}",
+    ]
+    if request.job_type == JobType.poi:
+        candidates.insert(0, "catalog.generic.poi")
+    if request.job_type == JobType.water and disaster_type == "flood":
+        candidates.insert(0, "catalog.flood.water")
+    for source_id in candidates:
+        if source_id in CATALOG_BUNDLE_SPECS_BY_ID:
+            return source_id
+    return None
+
+
+def _raw_source_preflight(source_id: str) -> dict[str, object]:
+    try:
+        spec = get_raw_vector_source_spec(source_id)
+        local_path = Path.cwd().joinpath(*spec.relative_path)
+        if spec.glob_pattern:
+            cached = local_path.exists() and any(local_path.glob(spec.glob_pattern))
+        elif spec.locator_kind == "first_shp_in_dir":
+            cached = local_path.exists() and any(local_path.glob("*.shp"))
+        else:
+            cached = local_path.exists()
+        path_hint = spec.path_hint
+    except KeyError:
+        cached = False
+        path_hint = None
+    return {
+        "source_id": source_id,
+        "auto_materializable": source_id in _AUTO_MATERIALIZABLE_RAW_SOURCE_IDS,
+        "local_cache_available": bool(cached),
+        "path_hint": path_hint,
+        "feature_count": None,
+        "coverage_status": "unknown_until_materialization",
+    }
+
+
+def _build_preflight_details(request: RunCreateRequest) -> dict[str, object]:
+    bbox = _parse_preflight_bbox(request.trigger.spatial_extent)
+    selected_source_id = _preflight_source_id(request)
+    bundle_spec = CATALOG_BUNDLE_SPECS_BY_ID.get(selected_source_id or "")
+    component_source_ids = list(bundle_spec.component_source_ids) if bundle_spec is not None else []
+    partial_allowed = bool(selected_source_id in _PARTIAL_COVERAGE_ALLOWED_SOURCES)
+    component_statuses = [_raw_source_preflight(source_id) for source_id in component_source_ids]
+    if not selected_source_id:
+        degradation_state = "preflight_source_unresolved"
+    elif partial_allowed:
+        degradation_state = "preflight_partial_allowed"
+    else:
+        degradation_state = "preflight_complete_pair_required"
+    return {
+        "aoi": {
+            "spatial_extent": request.trigger.spatial_extent,
+            "bbox": bbox,
+            "bbox_required": request.input_strategy == RunInputStrategy.task_driven_auto,
+            "needs_resolution": bbox is None and bool(str(request.trigger.spatial_extent or request.trigger.content).strip()),
+        },
+        "source_selection": {
+            "selected_source_id": selected_source_id,
+            "selection_basis": "disaster_type_and_job_type",
+            "disaster_type": request.trigger.disaster_type,
+            "job_type": request.job_type.value,
+        },
+        "component_coverage": {
+            "required_source_ids": component_source_ids,
+            "partial_coverage_allowed": partial_allowed,
+            "components": component_statuses,
+        },
+        "crs": {
+            "target_crs": request.target_crs,
+            "request_bbox_crs": "EPSG:4326" if bbox is not None else None,
+        },
+        "degradation": {
+            "state": degradation_state,
+            "reason": (
+                "reference components may be empty or missing but must be reported"
+                if partial_allowed
+                else "all required components must materialize with non-empty coverage"
+            ),
+        },
+    }
 
 
 def _require_run_status(run_id: str) -> RunStatus:
@@ -382,7 +509,11 @@ async def preflight_run(request: RunCreateRequest) -> RunPreflightResponse:
         request.trigger.content,
         job_type=request.job_type,
     )
-    return RunPreflightResponse(allowed=not issues, unsupported_intent=issues)
+    return RunPreflightResponse(
+        allowed=not issues,
+        unsupported_intent=issues,
+        **_build_preflight_details(request),
+    )
 
 
 @router.get("/operator/recovery", response_model=OperatorRecoveryResponse)

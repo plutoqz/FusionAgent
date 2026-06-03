@@ -5,8 +5,10 @@ from pathlib import Path
 from typing import Optional, Tuple
 
 import geopandas as gpd
+from shapely.errors import GEOSException
 from shapely.geometry import LineString, MultiLineString, MultiPoint, MultiPolygon
 from shapely.geometry import box
+from shapely.validation import make_valid
 
 from utils.crs import normalize_target_crs
 from utils.shp_zip import validate_zip_has_shapefile, zip_shapefile_bundle
@@ -26,6 +28,40 @@ def ensure_frame_crs(gdf: gpd.GeoDataFrame, *, default_crs: str = REQUEST_BBOX_C
     if gdf.crs is not None:
         return gdf
     return gdf.set_crs(default_crs)
+
+
+def _repair_geometry(geometry):
+    if geometry is None or geometry.is_empty:
+        return None
+    try:
+        if geometry.is_valid:
+            return geometry
+    except (GEOSException, ValueError):
+        pass
+    try:
+        repaired = make_valid(geometry)
+    except (GEOSException, ValueError):
+        try:
+            repaired = geometry.buffer(0)
+        except (GEOSException, ValueError):
+            return None
+    if repaired is None or repaired.is_empty:
+        return None
+    return repaired
+
+
+def repair_frame_geometries(gdf: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
+    if gdf.empty:
+        return gdf
+    repaired = gdf.copy()
+    repaired = repaired.set_geometry(
+        gpd.GeoSeries(
+            [_repair_geometry(geometry) for geometry in gdf.geometry],
+            index=gdf.index,
+            crs=gdf.crs,
+        )
+    )
+    return repaired[repaired.geometry.notna() & ~repaired.geometry.is_empty].copy()
 
 
 def _geometry_family_for_type(geom_type: str) -> str | None:
@@ -109,13 +145,71 @@ def _coerce_frame_to_geometry_family(gdf: gpd.GeoDataFrame, family: str) -> gpd.
     return coerced
 
 
+def _safe_intersects(geometry, mask) -> bool:
+    if geometry is None or geometry.is_empty:
+        return False
+    try:
+        return bool(geometry.intersects(mask))
+    except (GEOSException, ValueError):
+        repaired = _repair_geometry(geometry)
+        return bool(repaired is not None and repaired.intersects(mask))
+
+
+def _safe_intersection(geometry, mask):
+    if geometry is None or geometry.is_empty:
+        return None
+    try:
+        return geometry.intersection(mask)
+    except (GEOSException, ValueError):
+        repaired = _repair_geometry(geometry)
+        if repaired is None:
+            return None
+        try:
+            return repaired.intersection(mask)
+        except (GEOSException, ValueError):
+            return None
+
+
+def filter_frame_to_intersecting_geometry(gdf: gpd.GeoDataFrame, mask_geometry) -> gpd.GeoDataFrame:
+    frame = repair_frame_geometries(gdf)
+    mask = _repair_geometry(mask_geometry)
+    if frame.empty or mask is None:
+        return frame.iloc[0:0].copy()
+    return frame[frame.geometry.apply(lambda geometry: _safe_intersects(geometry, mask))].copy()
+
+
+def intersect_frame_with_geometry(
+    gdf: gpd.GeoDataFrame,
+    mask_geometry,
+    *,
+    geometry_family: str | None = None,
+) -> gpd.GeoDataFrame:
+    frame = filter_frame_to_intersecting_geometry(gdf, mask_geometry)
+    mask = _repair_geometry(mask_geometry)
+    if frame.empty or mask is None:
+        return frame.iloc[0:0].copy()
+    intersected = frame.set_geometry(
+        gpd.GeoSeries(
+            [_safe_intersection(geometry, mask) for geometry in frame.geometry],
+            index=frame.index,
+            crs=frame.crs,
+        )
+    )
+    intersected = repair_frame_geometries(intersected)
+    if geometry_family is not None:
+        intersected = _coerce_frame_to_geometry_family(intersected, geometry_family)
+    if intersected.empty:
+        return frame.iloc[0:0].copy()
+    return intersected
+
+
 def clip_frame_to_request_bbox(
     gdf: gpd.GeoDataFrame,
     request_bbox: Optional[BBox],
     *,
     request_crs: str = REQUEST_BBOX_CRS,
 ) -> gpd.GeoDataFrame:
-    frame = ensure_frame_crs(gdf, default_crs=request_crs)
+    frame = repair_frame_geometries(ensure_frame_crs(gdf, default_crs=request_crs))
     if request_bbox is None:
         return frame
     source_geometry_family = _infer_single_geometry_family(frame)
@@ -125,7 +219,11 @@ def clip_frame_to_request_bbox(
     if normalize_target_crs(request_crs) != dataset_crs:
         mask = mask.to_crs(dataset_crs)
 
-    clipped = frame.clip(mask.geometry.iloc[0])
+    mask_geometry = _repair_geometry(mask.geometry.iloc[0])
+    if mask_geometry is None:
+        return frame.iloc[0:0].copy()
+
+    clipped = intersect_frame_with_geometry(frame, mask_geometry)
     if source_geometry_family is not None:
         clipped = _coerce_frame_to_geometry_family(clipped, source_geometry_family)
     clipped = clipped[~clipped.geometry.is_empty & clipped.geometry.notna()].copy()
