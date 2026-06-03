@@ -7,8 +7,10 @@ import pytest
 
 from schemas.fusion import JobType
 from schemas.scenario import ScenarioRunRequest
+from schemas.task_kind import TaskKind
 from scripts import watch_scenario_inbox
 from scripts.watch_scenario_inbox import process_inbox_once
+from services.mission_compiler_service import compile_scenario_mission
 from services.scenario_registry_service import ScenarioRegistryService
 from services.scenario_run_service import ScenarioRunService
 from services.scenario_trigger_service import normalize_trigger_event
@@ -83,6 +85,28 @@ def test_normalize_trigger_event_without_requested_layers_leaves_scope_to_missio
     assert request.metadata["requested_task_kinds"] == []
     assert request.metadata["requested_layers_present"] is False
     assert request.metadata["unsupported_requested_layers"] == []
+
+
+def test_trigger_event_without_requested_layers_compiles_default_disaster_bundle() -> None:
+    event = {
+        "event_id": "gdacs-2026-022",
+        "event_type": "flood",
+        "location": "Karachi, Pakistan",
+        "description": "Urban flooding",
+    }
+
+    request = normalize_trigger_event(event)
+    mission = compile_scenario_mission(request)
+
+    assert request.metadata["requested_layers_present"] is False
+    assert mission.scope_source == "default_disaster_bundle"
+    assert [task.task_kind for task in mission.child_tasks] == [
+        TaskKind.building,
+        TaskKind.road,
+        TaskKind.water_polygon,
+        TaskKind.waterways,
+        TaskKind.poi,
+    ]
 
 
 def test_normalize_trigger_event_records_water_family_as_two_task_kinds() -> None:
