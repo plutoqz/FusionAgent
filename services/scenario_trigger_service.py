@@ -14,7 +14,9 @@ def normalize_trigger_event(event: dict[str, Any]) -> ScenarioRunRequest:
     event_type = _clean_text(event.get("event_type"))
     location = _clean_text(event.get("location"))
     description = _clean_text(event.get("description"))
-    task_kinds, unsupported_layers = partition_requested_task_kinds(event.get("requested_layers"))
+    requested_layers = event.get("requested_layers")
+    requested_layers_present = isinstance(requested_layers, list) and bool(requested_layers)
+    task_kinds, unsupported_layers = partition_requested_task_kinds(requested_layers)
     job_types = _job_types_from_task_kinds(task_kinds)
     idempotency_key = _idempotency_key(event)
     layer_text = " and ".join(task_kind.value for task_kind in task_kinds) or "bounded geospatial"
@@ -34,6 +36,7 @@ def normalize_trigger_event(event: dict[str, Any]) -> ScenarioRunRequest:
             "event_id": event.get("event_id"),
             "trigger_event": dict(event),
             "requested_task_kinds": [task_kind.value for task_kind in task_kinds],
+            "requested_layers_present": requested_layers_present,
             "unsupported_requested_layers": unsupported_layers,
         },
     )

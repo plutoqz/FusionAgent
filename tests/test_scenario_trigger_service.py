@@ -51,7 +51,7 @@ def test_normalize_trigger_event_preserves_metadata_and_location_text():
     assert "Nairobi, Kenya" in request.trigger_content
 
 
-def test_normalize_trigger_event_defaults_layers_and_hashes_missing_event_id():
+def test_normalize_trigger_event_unsupported_layers_hashes_missing_event_id():
     event = {
         "event_type": "flood",
         "location": "Nairobi, Kenya",
@@ -63,6 +63,7 @@ def test_normalize_trigger_event_defaults_layers_and_hashes_missing_event_id():
 
     assert request_a.job_types == []
     assert request_a.metadata["requested_task_kinds"] == []
+    assert request_a.metadata["requested_layers_present"] is True
     assert request_a.metadata["unsupported_requested_layers"] == ["unknown"]
     assert request_a.metadata["idempotency_key"] == request_b.metadata["idempotency_key"]
 
@@ -80,6 +81,7 @@ def test_normalize_trigger_event_without_requested_layers_leaves_scope_to_missio
     assert request.disaster_type == "flood"
     assert request.job_types == []
     assert request.metadata["requested_task_kinds"] == []
+    assert request.metadata["requested_layers_present"] is False
     assert request.metadata["unsupported_requested_layers"] == []
 
 

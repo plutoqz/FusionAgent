@@ -4,6 +4,7 @@ from schemas.fusion import JobType
 from schemas.scenario import ScenarioRunRequest
 from schemas.task_kind import TaskKind
 from services.mission_compiler_service import compile_scenario_mission, partition_requested_task_kinds
+from services.scenario_trigger_service import normalize_trigger_event
 
 
 def test_disaster_scenario_without_explicit_layers_expands_to_full_bundle() -> None:
@@ -108,6 +109,24 @@ def test_all_invalid_requested_task_kinds_do_not_fall_back_to_defaults() -> None
     assert mission.task_families == []
     assert mission.scope_source == "explicit_task_kinds"
     assert mission.unsupported_layers == ["traffic", "parcel"]
+
+
+def test_trigger_normalized_unsupported_only_layers_do_not_fall_back_to_disaster_bundle() -> None:
+    request = normalize_trigger_event(
+        {
+            "event_id": "gdacs-2026-021",
+            "event_type": "flood",
+            "location": "Karachi, Pakistan",
+            "requested_layers": ["traffic"],
+        }
+    )
+
+    mission = compile_scenario_mission(request)
+
+    assert mission.child_tasks == []
+    assert mission.task_families == []
+    assert mission.scope_source == "explicit_task_kinds"
+    assert mission.unsupported_layers == ["traffic"]
 
 
 def test_explicit_job_types_take_priority_over_disaster_defaults() -> None:

@@ -76,7 +76,9 @@ def compile_scenario_mission(request: ScenarioRunRequest) -> MissionSpec:
 
 def _resolve_task_kinds(request: ScenarioRunRequest) -> tuple[list[TaskKind], str, list[str]]:
     requested_task_kinds = request.metadata.get("requested_task_kinds")
-    if isinstance(requested_task_kinds, list) and requested_task_kinds:
+    if isinstance(requested_task_kinds, list) and (
+        requested_task_kinds or request.metadata.get("requested_layers_present") is True
+    ):
         task_kinds, unsupported_layers = partition_requested_task_kinds(requested_task_kinds)
         return task_kinds, "explicit_task_kinds", unsupported_layers
 
