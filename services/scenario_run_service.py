@@ -12,9 +12,11 @@ from typing import Any
 from schemas.agent import RunCreateRequest, RunInputStrategy, RunPhase, RunTrigger, RunTriggerType
 from schemas.fusion import JobType
 from schemas.scenario import ScenarioChildRunSpec, ScenarioPhase, ScenarioRunRequest, ScenarioRunResponse
+from schemas.task_kind import TaskKind, task_kind_family
 from services.agent_run_service import AgentRunService, agent_run_service
 from services.artifact_evaluation_service import evaluate_agentic_run, evaluate_vector_artifact
 from services.kg_path_trace_service import build_kg_path_trace
+from services.mission_compiler_service import compile_scenario_mission
 from services.scenario_output import resolve_scenario_output_root
 from services.scenario_registry_service import ScenarioRegistryService
 from services.scenario_report_service import render_scenario_reports
@@ -30,17 +32,22 @@ def scenario_output_dir(request: ScenarioRunRequest, scenario_id: str) -> Path:
 
 
 def build_child_run_specs(request: ScenarioRunRequest) -> list[ScenarioChildRunSpec]:
+    mission = compile_scenario_mission(request)
     return [
         ScenarioChildRunSpec(
-            job_type=job_type,
-            trigger_content=request.trigger_content,
-            disaster_type=request.disaster_type,
-            spatial_extent=request.spatial_extent,
-            force_aoi_resolution=request.force_aoi_resolution,
-            target_crs=request.target_crs,
-            debug=request.debug,
+            job_type=task.job_type,
+            trigger_content=task.trigger_content,
+            disaster_type=task.disaster_type,
+            spatial_extent=task.spatial_extent,
+            force_aoi_resolution=task.force_aoi_resolution,
+            target_crs=task.target_crs,
+            debug=task.debug,
+            task_kind=task.task_kind,
+            task_family=task.task_family,
+            preferred_pattern_id=task.preferred_pattern_id,
+            output_data_type=task.output_data_type,
         )
-        for job_type in _scenario_job_types(request)
+        for task in mission.child_tasks
     ]
 
 
@@ -296,6 +303,7 @@ class ScenarioRunService:
             field_mapping={},
             debug=spec.debug,
             input_strategy=RunInputStrategy.task_driven_auto,
+            preferred_pattern_id=spec.preferred_pattern_id,
         )
         try:
             status = self.agent_run_service.create_run(
@@ -305,15 +313,24 @@ class ScenarioRunService:
                 ref_zip_name=None,
                 ref_zip_bytes=None,
             )
-            return self._inspect_child_result(run_id=status.run_id, job_type=spec.job_type, fallback_status=status)
+            return self._inspect_child_result(run_id=status.run_id, spec=spec, fallback_status=status)
         except Exception as exc:  # noqa: BLE001
-            error_path = output_dir / "child_runs" / f"{spec.job_type.value}-failed.json"
+            task_key = spec.task_kind.value if spec.task_kind else spec.job_type.value
+            task_family = spec.task_family or (task_kind_family(spec.task_kind) if spec.task_kind else spec.job_type.value)
+            error_path = output_dir / "child_runs" / f"{task_key}-failed.json"
             error_path.parent.mkdir(parents=True, exist_ok=True)
-            error_payload = {"job_type": spec.job_type.value, "error": f"{type(exc).__name__}: {exc}"}
+            error_payload = {
+                "job_type": spec.job_type.value,
+                "task_kind": task_key,
+                "task_family": task_family,
+                "error": f"{type(exc).__name__}: {exc}",
+            }
             error_path.write_text(json.dumps(error_payload, ensure_ascii=False, indent=2), encoding="utf-8")
             return {
                 "run_id": None,
                 "job_type": spec.job_type.value,
+                "task_kind": task_key,
+                "task_family": task_family,
                 "phase": ScenarioPhase.failed.value,
                 "error": error_payload["error"],
                 "plan": None,
@@ -321,15 +338,18 @@ class ScenarioRunService:
                 "artifact_path": None,
             }
 
-    def _inspect_child_result(self, *, run_id: str, job_type: JobType, fallback_status=None) -> dict[str, Any]:
+    def _inspect_child_result(self, *, run_id: str, spec: ScenarioChildRunSpec, fallback_status=None) -> dict[str, Any]:
         get_run = getattr(self.agent_run_service, "get_run", None)
         status = get_run(run_id) if callable(get_run) else fallback_status
         if status is None:
             status = fallback_status
         phase = status.phase.value if status is not None else ScenarioPhase.failed.value
+        task_key = spec.task_kind.value if spec.task_kind else spec.job_type.value
         return {
             "run_id": run_id,
-            "job_type": job_type.value,
+            "job_type": spec.job_type.value,
+            "task_kind": task_key,
+            "task_family": spec.task_family or task_key,
             "phase": phase,
             "status": status,
             "plan": self.agent_run_service.get_plan(run_id),
@@ -338,12 +358,12 @@ class ScenarioRunService:
             "error": getattr(status, "error", None) if status is not None else None,
         }
 
-    def _wait_for_child_result(self, *, run_id: str, job_type: JobType, fallback_status=None) -> dict[str, Any]:
+    def _wait_for_child_result(self, *, run_id: str, spec: ScenarioChildRunSpec, fallback_status=None) -> dict[str, Any]:
         deadline = time.monotonic() + self._child_run_terminal_wait_seconds()
-        result = self._inspect_child_result(run_id=run_id, job_type=job_type, fallback_status=fallback_status)
+        result = self._inspect_child_result(run_id=run_id, spec=spec, fallback_status=fallback_status)
         while result.get("phase") not in self.TERMINAL_RUN_PHASES and time.monotonic() < deadline:
             time.sleep(self._child_run_poll_interval_seconds())
-            result = self._inspect_child_result(run_id=run_id, job_type=job_type, fallback_status=result.get("status"))
+            result = self._inspect_child_result(run_id=run_id, spec=spec, fallback_status=result.get("status"))
         return result
 
     def _refresh_started_child_result(self, result: dict[str, Any]) -> dict[str, Any]:
@@ -354,7 +374,15 @@ class ScenarioRunService:
             job_type = JobType(str(result.get("job_type")))
         except ValueError:
             return result
-        return self._inspect_child_result(run_id=str(run_id), job_type=job_type, fallback_status=result.get("status"))
+        task_kind_value = result.get("task_kind")
+        task_kind = TaskKind(str(task_kind_value)) if task_kind_value else None
+        spec = ScenarioChildRunSpec(
+            job_type=job_type,
+            trigger_content="",
+            task_kind=task_kind,
+            task_family=str(result.get("task_family") or task_kind_value or job_type.value),
+        )
+        return self._inspect_child_result(run_id=str(run_id), spec=spec, fallback_status=result.get("status"))
 
     def _wait_for_started_child_results(self, child_results: list[dict[str, Any]]) -> list[dict[str, Any]]:
         deadline = time.monotonic() + self._child_run_terminal_wait_seconds()
@@ -593,6 +621,8 @@ def _child_summary(result: dict[str, Any]) -> dict[str, Any]:
     return {
         "run_id": result.get("run_id"),
         "job_type": result.get("job_type"),
+        "task_kind": result.get("task_kind") or result.get("job_type"),
+        "task_family": result.get("task_family") or result.get("job_type"),
         "phase": result.get("phase"),
         "artifact_path": str(result.get("artifact_path")) if result.get("artifact_path") else None,
         "error": result.get("error"),

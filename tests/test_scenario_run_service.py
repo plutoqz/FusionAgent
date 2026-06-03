@@ -7,6 +7,7 @@ from threading import Event
 from schemas.agent import RunEvent, RunPhase, RunStatus, RunTrigger, RunTriggerType, ValidationReport, WorkflowPlan, WorkflowTask, WorkflowTaskInput, WorkflowTaskOutput
 from schemas.fusion import JobType
 from schemas.scenario import ScenarioPhase, ScenarioRunRequest
+from schemas.task_kind import TaskKind
 from services.scenario_run_service import ScenarioRunService, build_child_run_specs
 
 
@@ -51,7 +52,22 @@ def test_build_child_run_specs_expands_implicit_flood_bundle_for_chinese_scenari
 
     specs = build_child_run_specs(request)
 
-    assert [spec.job_type for spec in specs] == [JobType.building, JobType.road, JobType.water]
+    assert [spec.task_kind for spec in specs] == [
+        TaskKind.building,
+        TaskKind.road,
+        TaskKind.water_polygon,
+        TaskKind.waterways,
+        TaskKind.poi,
+    ]
+    assert [spec.job_type for spec in specs] == [
+        JobType.building,
+        JobType.road,
+        JobType.water,
+        JobType.water,
+        JobType.poi,
+    ]
+    assert specs[2].preferred_pattern_id == "wp.flood.water_polygon.default"
+    assert specs[3].preferred_pattern_id == "wp.flood.waterways.default"
     assert all(spec.disaster_type == "flood" for spec in specs)
     assert all(spec.spatial_extent == "Karachi, Pakistan" for spec in specs)
 
@@ -144,10 +160,31 @@ def test_scenario_run_service_starts_all_children_before_waiting_for_terminal_st
 
     scenario_dir = Path(response.output_dir)
     summary = json.loads((scenario_dir / "scenario_summary.json").read_text(encoding="utf-8"))
-    assert response.child_run_ids == ["run-building", "run-road", "run-water"]
+    assert response.child_run_ids == [
+        "run-building",
+        "run-road",
+        "run-water-polygon",
+        "run-waterways",
+        "run-poi",
+    ]
     assert response.phase == ScenarioPhase.succeeded
-    assert fake.created_job_types == [JobType.building, JobType.road, JobType.water]
-    assert [item["phase"] for item in summary["child_runs"]] == [RunPhase.succeeded.value] * 3
+    assert fake.created_job_types == [JobType.building, JobType.road, JobType.water, JobType.water, JobType.poi]
+    assert fake.created_task_kinds == [
+        "building",
+        "road",
+        "water_polygon",
+        "waterways",
+        "poi",
+    ]
+    assert [item["task_kind"] for item in summary["child_runs"]] == fake.created_task_kinds
+    assert [item["task_family"] for item in summary["child_runs"]] == [
+        "building",
+        "road",
+        "water",
+        "water",
+        "poi",
+    ]
+    assert [item["phase"] for item in summary["child_runs"]] == [RunPhase.succeeded.value] * 5
     assert all(trace["steps"] for trace in summary["workflow_traces"])
 
 
@@ -168,9 +205,15 @@ def test_scenario_run_service_uses_one_global_child_wait_deadline(tmp_path, monk
 
     scenario_dir = Path(response.output_dir)
     summary = json.loads((scenario_dir / "scenario_summary.json").read_text(encoding="utf-8"))
-    assert response.child_run_ids == ["run-building", "run-road", "run-water"]
+    assert response.child_run_ids == [
+        "run-building",
+        "run-road",
+        "run-water-polygon",
+        "run-waterways",
+        "run-poi",
+    ]
     assert response.phase == ScenarioPhase.running
-    assert [item["phase"] for item in summary["child_runs"]] == [RunPhase.queued.value] * 3
+    assert [item["phase"] for item in summary["child_runs"]] == [RunPhase.queued.value] * 5
 
 
 def test_scenario_run_service_marks_succeeded_degraded_child_as_partial(tmp_path):
@@ -253,7 +296,8 @@ class _FakeAgentRunService:
         self.artifacts: dict[str, Path] = {}
 
     def create_run(self, *, request, osm_zip_name, osm_zip_bytes, ref_zip_name, ref_zip_bytes):
-        run_id = f"run-{request.job_type.value}"
+        task_key = _task_key_from_request(request)
+        run_id = f"run-{task_key}"
         status = RunStatus(
             run_id=run_id,
             job_type=request.job_type,
@@ -285,7 +329,8 @@ class _FakeAgentRunService:
 
 class _QueuedThenSucceededAgentRunService(_FakeAgentRunService):
     def create_run(self, *, request, osm_zip_name, osm_zip_bytes, ref_zip_name, ref_zip_bytes):
-        run_id = f"run-{request.job_type.value}"
+        task_key = _task_key_from_request(request)
+        run_id = f"run-{task_key}"
         queued = RunStatus(
             run_id=run_id,
             job_type=request.job_type,
@@ -321,7 +366,8 @@ class _PollingQueuedThenSucceededAgentRunService(_FakeAgentRunService):
         self.get_run_calls: dict[str, int] = {}
 
     def create_run(self, *, request, osm_zip_name, osm_zip_bytes, ref_zip_name, ref_zip_bytes):
-        run_id = f"run-{request.job_type.value}"
+        task_key = _task_key_from_request(request)
+        run_id = f"run-{task_key}"
         queued = RunStatus(
             run_id=run_id,
             job_type=request.job_type,
@@ -359,10 +405,13 @@ class _StartAllChildrenBeforeTerminalAgentRunService(_FakeAgentRunService):
     def __init__(self, tmp_path: Path) -> None:
         super().__init__(tmp_path)
         self.created_job_types: list[JobType] = []
+        self.created_task_kinds: list[str] = []
 
     def create_run(self, *, request, osm_zip_name, osm_zip_bytes, ref_zip_name, ref_zip_bytes):
         self.created_job_types.append(request.job_type)
-        run_id = f"run-{request.job_type.value}"
+        task_key = _task_key_from_request(request)
+        self.created_task_kinds.append(task_key.replace("-", "_"))
+        run_id = f"run-{task_key}"
         queued = RunStatus(
             run_id=run_id,
             job_type=request.job_type,
@@ -382,7 +431,7 @@ class _StartAllChildrenBeforeTerminalAgentRunService(_FakeAgentRunService):
         return queued
 
     def get_run(self, run_id: str):
-        if len(self.created_job_types) < 3:
+        if len(self.created_job_types) < 5:
             return self.statuses[run_id]
         succeeded = self.statuses[run_id].model_copy(
             update={
@@ -397,7 +446,8 @@ class _StartAllChildrenBeforeTerminalAgentRunService(_FakeAgentRunService):
 
 class _NeverTerminalAgentRunService(_FakeAgentRunService):
     def create_run(self, *, request, osm_zip_name, osm_zip_bytes, ref_zip_name, ref_zip_bytes):
-        run_id = f"run-{request.job_type.value}"
+        task_key = _task_key_from_request(request)
+        run_id = f"run-{task_key}"
         queued = RunStatus(
             run_id=run_id,
             job_type=request.job_type,
@@ -464,6 +514,15 @@ class _FailedDegradedAgentRunService(_DegradedSucceededAgentRunService):
         )
         self.statuses[status.run_id] = failed
         return failed
+
+
+def _task_key_from_request(request) -> str:
+    preferred = str(getattr(request, "preferred_pattern_id", "") or "")
+    if preferred == "wp.flood.water_polygon.default":
+        return "water-polygon"
+    if preferred == "wp.flood.waterways.default":
+        return "waterways"
+    return request.job_type.value
 
 
 def _make_plan(job_type: JobType) -> WorkflowPlan:

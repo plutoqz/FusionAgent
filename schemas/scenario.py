@@ -6,6 +6,7 @@ from typing import Any, Dict, List, Optional
 from pydantic import BaseModel, Field
 
 from schemas.fusion import JobType
+from schemas.task_kind import TaskKind
 
 
 class ScenarioPhase(str, Enum):
@@ -37,6 +38,10 @@ class ScenarioChildRunSpec(BaseModel):
     force_aoi_resolution: bool = False
     target_crs: Optional[str] = None
     debug: bool = False
+    task_kind: Optional[TaskKind] = None
+    task_family: Optional[str] = None
+    preferred_pattern_id: Optional[str] = None
+    output_data_type: Optional[str] = None
 
 
 class ScenarioRunResponse(BaseModel):
