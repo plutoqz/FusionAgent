@@ -418,6 +418,7 @@ class ScenarioRunService:
         output_dir: Path,
         child_results: list[dict[str, Any]],
     ) -> dict[str, Any]:
+        mission = compile_scenario_mission(request)
         kg_path_traces = [
             build_kg_path_trace(result["plan"])
             for result in child_results
@@ -449,6 +450,12 @@ class ScenarioRunService:
             "trigger_content": request.trigger_content,
             "disaster_type": request.disaster_type,
             "output_dir": str(output_dir),
+            "mission": {
+                "scope_source": mission.scope_source,
+                "task_kinds": [task.task_kind.value for task in mission.child_tasks],
+                "task_families": mission.task_families,
+                "unsupported_layers": mission.unsupported_layers,
+            },
             "child_runs": [_child_summary(result) for result in child_results],
             "kg_path_traces": kg_path_traces,
             "workflow_traces": workflow_traces,

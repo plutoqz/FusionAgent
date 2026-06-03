@@ -113,6 +113,9 @@ def test_scenario_run_service_refreshes_child_status_before_summary(tmp_path):
     scenario_dir = Path(response.output_dir)
     summary = json.loads((scenario_dir / "scenario_summary.json").read_text(encoding="utf-8"))
     assert response.phase == ScenarioPhase.succeeded
+    assert summary["mission"]["scope_source"] == "explicit_job_types"
+    assert summary["mission"]["task_kinds"] == ["building"]
+    assert summary["mission"]["task_families"] == ["building"]
     assert summary["child_runs"][0]["phase"] == RunPhase.succeeded.value
     assert summary["workflow_traces"][0]["steps"]
     assert summary["final_outputs"]
@@ -184,6 +187,15 @@ def test_scenario_run_service_starts_all_children_before_waiting_for_terminal_st
         "water",
         "poi",
     ]
+    assert summary["mission"]["scope_source"] == "default_disaster_bundle"
+    assert summary["mission"]["task_kinds"] == [
+        "building",
+        "road",
+        "water_polygon",
+        "waterways",
+        "poi",
+    ]
+    assert summary["mission"]["task_families"] == ["building", "road", "water", "poi"]
     assert [item["phase"] for item in summary["child_runs"]] == [RunPhase.succeeded.value] * 5
     assert [item["task_kind"] for item in summary["source_coverage"]] == fake.created_task_kinds
     assert [item["task_family"] for item in summary["source_coverage"]] == [
