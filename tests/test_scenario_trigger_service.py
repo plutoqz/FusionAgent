@@ -61,8 +61,54 @@ def test_normalize_trigger_event_defaults_layers_and_hashes_missing_event_id():
     request_a = normalize_trigger_event(event)
     request_b = normalize_trigger_event(dict(reversed(list(event.items()))))
 
-    assert request_a.job_types == [JobType.building, JobType.road]
+    assert request_a.job_types == []
+    assert request_a.metadata["requested_task_kinds"] == []
+    assert request_a.metadata["unsupported_requested_layers"] == ["unknown"]
     assert request_a.metadata["idempotency_key"] == request_b.metadata["idempotency_key"]
+
+
+def test_normalize_trigger_event_without_requested_layers_leaves_scope_to_mission_compiler() -> None:
+    event = {
+        "event_id": "gdacs-2026-018",
+        "event_type": "flood",
+        "location": "Karachi, Pakistan",
+        "description": "Urban flooding",
+    }
+
+    request = normalize_trigger_event(event)
+
+    assert request.disaster_type == "flood"
+    assert request.job_types == []
+    assert request.metadata["requested_task_kinds"] == []
+    assert request.metadata["unsupported_requested_layers"] == []
+
+
+def test_normalize_trigger_event_records_water_family_as_two_task_kinds() -> None:
+    event = {
+        "event_id": "gdacs-2026-019",
+        "event_type": "flood",
+        "location": "Nairobi, Kenya",
+        "requested_layers": ["water"],
+    }
+
+    request = normalize_trigger_event(event)
+
+    assert request.job_types == [JobType.water]
+    assert request.metadata["requested_task_kinds"] == ["water_polygon", "waterways"]
+
+
+def test_normalize_trigger_event_can_request_waterways_only() -> None:
+    event = {
+        "event_id": "gdacs-2026-020",
+        "event_type": "flood",
+        "location": "Sindh, Pakistan",
+        "requested_layers": ["waterways"],
+    }
+
+    request = normalize_trigger_event(event)
+
+    assert request.job_types == [JobType.water]
+    assert request.metadata["requested_task_kinds"] == ["waterways"]
 
 
 def test_normalize_trigger_event_records_unsupported_requested_layers() -> None:

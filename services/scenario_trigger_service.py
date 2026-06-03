@@ -6,15 +6,18 @@ from typing import Any, Dict, List
 
 from schemas.fusion import JobType
 from schemas.scenario import ScenarioRunRequest
+from schemas.task_kind import task_kind_to_job_type
+from services.mission_compiler_service import partition_requested_task_kinds
 
 
 def normalize_trigger_event(event: dict[str, Any]) -> ScenarioRunRequest:
     event_type = _clean_text(event.get("event_type"))
     location = _clean_text(event.get("location"))
     description = _clean_text(event.get("description"))
-    job_types, unsupported_layers = _partition_requested_job_types(event.get("requested_layers"))
+    task_kinds, unsupported_layers = partition_requested_task_kinds(event.get("requested_layers"))
+    job_types = _job_types_from_task_kinds(task_kinds)
     idempotency_key = _idempotency_key(event)
-    layer_text = " and ".join(job_type.value for job_type in job_types)
+    layer_text = " and ".join(task_kind.value for task_kind in task_kinds) or "bounded geospatial"
     trigger_content = f"fuse {layer_text} data for {location or 'the affected area'}"
     if event_type:
         trigger_content = f"{trigger_content} after a {event_type}"
@@ -30,6 +33,7 @@ def normalize_trigger_event(event: dict[str, Any]) -> ScenarioRunRequest:
             "idempotency_key": idempotency_key,
             "event_id": event.get("event_id"),
             "trigger_event": dict(event),
+            "requested_task_kinds": [task_kind.value for task_kind in task_kinds],
             "unsupported_requested_layers": unsupported_layers,
         },
     )
@@ -49,21 +53,13 @@ def _scenario_name(*, event_type: str, location: str) -> str:
     return "triggered scenario"
 
 
-def _partition_requested_job_types(raw_layers: Any) -> tuple[List[JobType], List[str]]:
+def _job_types_from_task_kinds(task_kinds) -> List[JobType]:
     job_types: List[JobType] = []
-    unsupported_layers: List[str] = []
-    layers = raw_layers if isinstance(raw_layers, list) else []
-    for layer in layers:
-        layer_text = str(layer).strip().lower()
-        try:
-            job_type = JobType(layer_text)
-        except ValueError:
-            if layer_text and layer_text not in unsupported_layers:
-                unsupported_layers.append(layer_text)
-            continue
+    for task_kind in task_kinds:
+        job_type = task_kind_to_job_type(task_kind)
         if job_type not in job_types:
             job_types.append(job_type)
-    return (job_types or [JobType.building, JobType.road], unsupported_layers)
+    return job_types
 
 
 def _idempotency_key(event: Dict[str, Any]) -> str:
