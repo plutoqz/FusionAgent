@@ -1,0 +1,148 @@
+from __future__ import annotations
+
+from typing import Any, Iterable
+
+from schemas.mission import MissionSpec, MissionTaskSpec
+from schemas.scenario import ScenarioRunRequest
+from schemas.task_kind import (
+    FULL_DISASTER_TASK_KINDS,
+    TaskKind,
+    expand_job_type_to_task_kinds,
+    normalize_task_kind,
+    task_kind_family,
+    task_kind_output_type,
+    task_kind_preferred_pattern_id,
+    task_kind_to_job_type,
+)
+
+_DISASTER_KEYWORDS = (
+    "flood",
+    "earthquake",
+    "typhoon",
+    "disaster",
+    "emergency",
+    "洪涝",
+    "洪水",
+    "内涝",
+    "地震",
+    "台风",
+    "灾害",
+    "应急",
+)
+
+
+def partition_requested_task_kinds(raw_layers: Any) -> tuple[list[TaskKind], list[str]]:
+    task_kinds: list[TaskKind] = []
+    unsupported_layers: list[str] = []
+    layers = raw_layers if isinstance(raw_layers, list) else []
+    for layer in layers:
+        normalized = normalize_task_kind(layer)
+        if not normalized:
+            layer_text = str(layer).strip().lower()
+            if layer_text and layer_text not in unsupported_layers:
+                unsupported_layers.append(layer_text)
+            continue
+        for task_kind in normalized:
+            if task_kind not in task_kinds:
+                task_kinds.append(task_kind)
+    return task_kinds, unsupported_layers
+
+
+def compile_scenario_mission(request: ScenarioRunRequest) -> MissionSpec:
+    task_kinds, scope_source = _resolve_task_kinds(request)
+    child_tasks = [_build_task_spec(request, task_kind) for task_kind in task_kinds]
+    task_families = _dedupe(task.task_family for task in child_tasks)
+    unsupported = [
+        str(item).strip().lower()
+        for item in (request.metadata.get("unsupported_requested_layers") or [])
+        if str(item).strip()
+    ]
+    return MissionSpec(
+        scope_source=scope_source,
+        child_tasks=child_tasks,
+        task_families=task_families,
+        unsupported_layers=unsupported,
+    )
+
+
+def _resolve_task_kinds(request: ScenarioRunRequest) -> tuple[list[TaskKind], str]:
+    requested_task_kinds = request.metadata.get("requested_task_kinds")
+    if isinstance(requested_task_kinds, list) and requested_task_kinds:
+        task_kinds: list[TaskKind] = []
+        for raw in requested_task_kinds:
+            for task_kind in normalize_task_kind(raw):
+                if task_kind not in task_kinds:
+                    task_kinds.append(task_kind)
+        if task_kinds:
+            return task_kinds, "explicit_task_kinds"
+
+    if request.job_types:
+        task_kinds = []
+        for job_type in request.job_types:
+            for task_kind in expand_job_type_to_task_kinds(job_type):
+                if task_kind not in task_kinds:
+                    task_kinds.append(task_kind)
+        return task_kinds, "explicit_job_types"
+
+    if _is_disaster_scenario(request):
+        return list(FULL_DISASTER_TASK_KINDS), "default_disaster_bundle"
+
+    detected = _task_kinds_from_text(" ".join([request.scenario_name, request.trigger_content]))
+    if detected:
+        return detected, "detected_direct_task"
+
+    return [TaskKind.building], "default_building"
+
+
+def _is_disaster_scenario(request: ScenarioRunRequest) -> bool:
+    if str(request.disaster_type or "").strip():
+        return True
+    text = " ".join([request.scenario_name, request.trigger_content]).casefold()
+    return any(keyword in text for keyword in _DISASTER_KEYWORDS)
+
+
+def _task_kinds_from_text(text: str) -> list[TaskKind]:
+    found: list[TaskKind] = []
+    lowered = text.casefold()
+    for token in ("building", "road", "water", "waterways", "river", "poi"):
+        if token not in lowered:
+            continue
+        for task_kind in normalize_task_kind(token):
+            if task_kind not in found:
+                found.append(task_kind)
+    return found
+
+
+def _build_task_spec(request: ScenarioRunRequest, task_kind: TaskKind) -> MissionTaskSpec:
+    return MissionTaskSpec(
+        task_kind=task_kind,
+        task_family=task_kind_family(task_kind),
+        job_type=task_kind_to_job_type(task_kind),
+        trigger_content=_task_trigger_content(request.trigger_content, task_kind),
+        disaster_type=request.disaster_type,
+        spatial_extent=request.spatial_extent,
+        force_aoi_resolution=request.force_aoi_resolution,
+        target_crs=request.target_crs,
+        debug=request.debug,
+        preferred_pattern_id=task_kind_preferred_pattern_id(task_kind, request.disaster_type),
+        output_data_type=task_kind_output_type(task_kind),
+    )
+
+
+def _task_trigger_content(base: str, task_kind: TaskKind) -> str:
+    clean = str(base or "").strip()
+    if task_kind == TaskKind.water_polygon:
+        return f"{clean}; execute water polygon fusion only"
+    if task_kind == TaskKind.waterways:
+        return f"{clean}; execute waterways and river line fusion only"
+    if task_kind == TaskKind.poi:
+        return f"{clean}; execute bounded POI fusion"
+    return clean
+
+
+def _dedupe(values: Iterable[str]) -> list[str]:
+    result: list[str] = []
+    for value in values:
+        if value not in result:
+            result.append(value)
+    return result
