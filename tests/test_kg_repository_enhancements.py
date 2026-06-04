@@ -1,5 +1,9 @@
+import json
+from pathlib import Path
+
 from kg.inmemory_repository import InMemoryKGRepository
 from kg.models import DurableLearningRecord, DurableLearningSummary, ExecutionFeedback
+from kg.seed_manifest import build_seed_manifest_payload
 from schemas.fusion import JobType
 
 
@@ -487,3 +491,16 @@ def test_durable_learning_summary_aggregates_quality_and_latency_metadata() -> N
 
     assert summary.quality_gate_pass_rate == 0.5
     assert summary.avg_latency_seconds == 15.0
+
+
+def test_inmemory_repository_can_load_seed_manifest(tmp_path: Path) -> None:
+    manifest_path = tmp_path / "seed.json"
+    manifest_path.write_text(
+        json.dumps(build_seed_manifest_payload(), ensure_ascii=False, indent=2, sort_keys=True),
+        encoding="utf-8",
+    )
+
+    repo = InMemoryKGRepository(seed_manifest_path=manifest_path)
+
+    assert repo.get_algorithm("algo.fusion.building.v1") is not None
+    assert repo.get_candidate_patterns(job_type=JobType.building, disaster_type="flood")
