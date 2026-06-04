@@ -38,6 +38,29 @@ def test_evaluate_vector_artifact_marks_missing_required_fields_invalid(tmp_path
     assert metrics["missing_fields"] == ["confidence"]
 
 
+def test_evaluate_vector_artifact_reads_gpkg_layer(tmp_path):
+    gpkg_path = _write_polygon_fixture(tmp_path / "buildings.gpkg", count=2, crs="EPSG:4326")
+
+    metrics = evaluate_vector_artifact(gpkg_path, required_fields=["geometry", "fid"])
+
+    assert metrics["artifact_validity"] is True
+    assert metrics["feature_count"] == 2
+    assert metrics["bbox"]
+
+
+def test_evaluate_vector_artifact_reports_aoi_containment(tmp_path):
+    gpkg_path = _write_polygon_fixture(tmp_path / "buildings.gpkg", count=1, crs="EPSG:4326")
+
+    metrics = evaluate_vector_artifact(
+        gpkg_path,
+        required_fields=["geometry"],
+        requested_bbox=(-1.0, -1.0, 20.0, 20.0),
+    )
+
+    assert metrics["aoi_consistency"]["requested_bbox"] == [-1.0, -1.0, 20.0, 20.0]
+    assert metrics["aoi_consistency"]["artifact_intersects_aoi"] is True
+
+
 def test_evaluate_agentic_run_reports_trace_and_self_evolution_metrics() -> None:
     result = evaluate_agentic_run(
         plan=_make_plan_with_kg_path(),

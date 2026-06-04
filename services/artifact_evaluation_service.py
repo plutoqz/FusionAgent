@@ -8,10 +8,19 @@ import geopandas as gpd
 from services.kg_path_trace_service import build_kg_path_trace
 
 
-def evaluate_vector_artifact(shp_path: Path, *, required_fields: list[str]) -> dict[str, Any]:
+def evaluate_vector_artifact(
+    shp_path: Path,
+    *,
+    required_fields: list[str],
+    requested_bbox: list[float] | tuple[float, float, float, float] | None = None,
+) -> dict[str, Any]:
     shp_path = Path(shp_path)
     frame = gpd.read_file(shp_path)
-    missing_fields = [field for field in required_fields if field != "geometry" and field not in frame.columns]
+    missing_fields = [
+        field
+        for field in required_fields
+        if not _has_required_field(field=field, frame=frame, artifact_path=shp_path)
+    ]
     metrics = {
         "artifact_validity": shp_path.exists() and not frame.empty and not missing_fields,
         "feature_count": int(len(frame)),
@@ -20,8 +29,36 @@ def evaluate_vector_artifact(shp_path: Path, *, required_fields: list[str]) -> d
         "missing_fields": missing_fields,
         "bbox": [float(value) for value in frame.to_crs("EPSG:4326").total_bounds] if len(frame) else None,
     }
+    if requested_bbox is not None:
+        metrics["aoi_consistency"] = _aoi_consistency(metrics.get("bbox"), requested_bbox)
     metrics.update(_geometry_measurements(frame))
     return metrics
+
+
+def _has_required_field(*, field: str, frame: gpd.GeoDataFrame, artifact_path: Path) -> bool:
+    if field == "geometry":
+        return True
+    if field in frame.columns:
+        return True
+    return field == "fid" and artifact_path.suffix.lower() == ".gpkg"
+
+
+def _aoi_consistency(artifact_bbox: list[float] | None, requested_bbox) -> dict[str, Any]:
+    requested = [float(value) for value in requested_bbox]
+    if artifact_bbox is None:
+        return {
+            "requested_bbox": requested,
+            "artifact_intersects_aoi": False,
+            "artifact_bbox": None,
+        }
+    aminx, aminy, amaxx, amaxy = artifact_bbox
+    rminx, rminy, rmaxx, rmaxy = requested
+    intersects = not (amaxx < rminx or aminx > rmaxx or amaxy < rminy or aminy > rmaxy)
+    return {
+        "requested_bbox": requested,
+        "artifact_intersects_aoi": intersects,
+        "artifact_bbox": artifact_bbox,
+    }
 
 
 def evaluate_agentic_run(
