@@ -61,6 +61,24 @@ def test_evaluate_vector_artifact_reports_aoi_containment(tmp_path):
     assert metrics["aoi_consistency"]["artifact_intersects_aoi"] is True
 
 
+def test_evaluate_vector_artifact_reports_duplicate_and_invalid_geometry_rates(tmp_path):
+    path = tmp_path / "quality.gpkg"
+    polygon = Polygon([(0, 0), (0, 1), (1, 1), (1, 0)])
+    invalid = Polygon([(0, 0), (1, 1), (1, 0), (0, 1)])
+    frame = gpd.GeoDataFrame(
+        {"source_id": ["a", "a", "b"]},
+        geometry=[polygon, polygon, invalid],
+        crs="EPSG:4326",
+    )
+    frame.to_file(path, driver="GPKG")
+
+    metrics = evaluate_vector_artifact(path, required_fields=["geometry", "source_id"])
+
+    assert metrics["duplicate_geometry_rate"] > 0
+    assert metrics["invalid_geometry_rate"] > 0
+    assert metrics["source_feature_counts"] == {"a": 2, "b": 1}
+
+
 def test_evaluate_agentic_run_reports_trace_and_self_evolution_metrics() -> None:
     result = evaluate_agentic_run(
         plan=_make_plan_with_kg_path(),
