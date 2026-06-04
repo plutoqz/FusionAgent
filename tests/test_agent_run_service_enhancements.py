@@ -1332,6 +1332,51 @@ def test_agent_run_service_passes_plan_quality_policy_id_to_quality_gate(tmp_pat
     assert captured["quality_policy_id"] == "quality.default.building.v1"
 
 
+def test_record_feedback_includes_quality_and_latency_metadata(tmp_path: Path) -> None:
+    service = AgentRunService(base_dir=tmp_path / "runs")
+    request = RunCreateRequest(
+        job_type=JobType.building,
+        trigger=RunTrigger(type=RunTriggerType.user_query, content="building", spatial_extent="bbox(0,0,1,1)"),
+        target_crs="EPSG:4326",
+        field_mapping={},
+        debug=False,
+    )
+    run_id = "run-quality-learning-metadata"
+    _seed_run_status(service, run_id, request)
+    status = service.get_run(run_id)
+    assert status is not None
+    status.started_at = "2026-06-01T00:00:00+00:00"
+    status.finished_at = "2026-06-01T00:00:15+00:00"
+    service._runs[run_id] = status
+    service._persist_status(status)
+    service._update_status(
+        run_id,
+        RunPhase.running,
+        event_kind="quality_gate_evaluated",
+        event_message="quality gate",
+        event_details={"accepted": True, "failure_reasons": ["soft_warning"]},
+    )
+    plan = _build_plan(workflow_id="wf_quality_learning_metadata", revision=1)
+    plan.context["intent"]["aoi_class"] = "small_city"
+    plan.context["intent"]["region_group"] = "africa"
+
+    service._record_feedback(
+        run_id=run_id,
+        request=request,
+        plan=plan,
+        repair_records=[],
+        success=True,
+        failure_reason=None,
+    )
+
+    metadata = service.kg_repo.durable_learning_records[-1].metadata
+    assert metadata["quality_gate_accepted"] is True
+    assert metadata["quality_gate_failure_reasons"] == ["soft_warning"]
+    assert metadata["latency_seconds"] == 15.0
+    assert metadata["aoi_class"] == "small_city"
+    assert metadata["region_group"] == "africa"
+
+
 def test_agent_run_service_task_driven_auto_prepares_inputs_before_execution(tmp_path: Path, monkeypatch) -> None:
     service = AgentRunService(base_dir=tmp_path / "runs")
     osm_shp = tmp_path / "resolved_osm.shp"
@@ -3271,6 +3316,28 @@ def test_pattern_selection_uses_durable_learning_summaries_as_policy_hints(tmp_p
     assert selected.evidence["metrics"]["learning_adjustment"] == 0.10
     assert weak.evidence["metrics"]["learning_adjustment"] < 0
     assert "context.retrieval.durable_learning_summaries.patterns" in decision.evidence_refs
+
+
+def test_pattern_selection_uses_summary_adjustment_before_count_fallback(tmp_path: Path) -> None:
+    service = AgentRunService(base_dir=tmp_path / "runs")
+    plan = _build_plan(workflow_id="wf_learning_adjustment", revision=1)
+    plan.context["retrieval"]["candidate_patterns"] = [{"pattern_id": "wp.preferred", "success_rate": 0.80}]
+    plan.context["retrieval"]["durable_learning_summaries"] = {
+        "patterns": [
+            {
+                "entity_id": "wp.preferred",
+                "total_runs": 10,
+                "success_count": 1,
+                "adjustment": 0.08,
+            }
+        ]
+    }
+
+    decision = service._build_pattern_selection_decision(plan)
+
+    assert decision is not None
+    selected = next(candidate for candidate in decision.candidates if candidate.candidate_id == "wp.preferred")
+    assert selected.evidence["metrics"]["learning_adjustment"] == 0.08
 
 
 def test_agent_run_service_fails_when_replan_limit_is_reached(tmp_path: Path, monkeypatch) -> None:

@@ -29,3 +29,16 @@ def test_no_ui_runbook_documents_quality_policy_outputs() -> None:
     assert "duplicate_geometry_rate" in text
     assert "invalid_geometry_rate" in text
     assert "source_contribution_balance" in text
+
+
+def test_no_ui_runbook_documents_durable_learning_v2_policy_hints() -> None:
+    text = Path("docs/no-ui-agent-operations.md").read_text(encoding="utf-8")
+
+    assert "bounded policy hint" in text
+    assert "condition_key" in text
+    assert "time_decayed_score" in text
+    assert "quality_gate_pass_rate" in text
+    assert "avg_latency_seconds" in text
+    assert "trend" in text
+    assert "adjustment" in text
+    assert "not autonomous self-optimization" in text

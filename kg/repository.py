@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections import defaultdict
+from datetime import datetime, timezone
 from typing import Dict, List, Optional
 
 from schemas.fusion import JobType
@@ -175,6 +176,7 @@ class KGRepository(ABC):
         limit: int,
     ) -> List[DurableLearningSummary]:
         grouped: Dict[str, DurableLearningSummary] = {}
+        grouped_records: Dict[str, List[DurableLearningRecord]] = defaultdict(list)
         last_failure_at: Dict[str, str] = defaultdict(str)
 
         for record in records:
@@ -190,6 +192,7 @@ class KGRepository(ABC):
                     disaster_type=record.disaster_type,
                 )
                 grouped[entity_id] = summary
+            grouped_records[str(entity_id)].append(record)
 
             summary.total_runs += 1
             if record.success:
@@ -205,6 +208,17 @@ class KGRepository(ABC):
                 summary.last_failure_reason = record.failure_reason
 
         summaries = list(grouped.values())
+        for summary in summaries:
+            records_for_summary = grouped_records.get(summary.entity_id, [])
+            summary.condition_key = _learning_condition_key(records_for_summary[0], summary.entity_id) if records_for_summary else ""
+            summary.time_decayed_score = _time_decayed_success_score(records_for_summary)
+            summary.recent_success_rate = _success_rate(records_for_summary)
+            summary.quality_gate_pass_rate = _quality_gate_pass_rate(records_for_summary)
+            summary.avg_latency_seconds = _avg_latency_seconds(records_for_summary)
+            summary.trend = _learning_trend(records_for_summary, summary.recent_success_rate)
+            if summary.total_runs >= 2:
+                summary.adjustment = _clamp((summary.time_decayed_score - 0.5) * 0.2, -0.10, 0.10)
+
         summaries.sort(
             key=lambda item: (item.total_runs, item.last_run_at or "", item.entity_id),
             reverse=True,
@@ -214,3 +228,95 @@ class KGRepository(ABC):
     @abstractmethod
     def build_context(self, job_type: JobType, disaster_type: Optional[str]) -> KGContext:
         raise NotImplementedError
+
+
+def _learning_condition_key(record: DurableLearningRecord, entity_id: str) -> str:
+    metadata = record.metadata if isinstance(record.metadata, dict) else {}
+    region = str(metadata.get("region_group") or "global")
+    aoi_class = str(metadata.get("aoi_class") or "unknown_aoi")
+    disaster = record.disaster_type or "none"
+    return f"{record.job_type.value}|{disaster}|{region}|{aoi_class}|{entity_id}"
+
+
+def _parse_learning_timestamp(value: str | None) -> Optional[datetime]:
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        return parsed.replace(tzinfo=timezone.utc)
+    return parsed
+
+
+def _time_decay_weight(created_at: str | None, newest_at: str | None, *, half_life_days: float = 30.0) -> float:
+    created = _parse_learning_timestamp(created_at)
+    newest = _parse_learning_timestamp(newest_at)
+    if created is None or newest is None or half_life_days <= 0:
+        return 1.0
+    age_days = max(0.0, (newest - created).total_seconds() / 86_400.0)
+    return 0.5 ** (age_days / half_life_days)
+
+
+def _time_decayed_success_score(records: List[DurableLearningRecord]) -> float:
+    if not records:
+        return 0.0
+    newest_at = max((record.created_at or "" for record in records), default=None)
+    weighted_total = 0.0
+    weighted_success = 0.0
+    for record in records:
+        weight = _time_decay_weight(record.created_at, newest_at)
+        weighted_total += weight
+        if record.success:
+            weighted_success += weight
+    if weighted_total <= 0:
+        return 0.0
+    return weighted_success / weighted_total
+
+
+def _success_rate(records: List[DurableLearningRecord]) -> float:
+    if not records:
+        return 0.0
+    return sum(1 for record in records if record.success) / len(records)
+
+
+def _learning_trend(records: List[DurableLearningRecord], recent_success_rate: float) -> str:
+    if len(records) < 2:
+        return "stable"
+    total_success_rate = _success_rate(records)
+    delta = recent_success_rate - total_success_rate
+    if delta >= 0.15:
+        return "improving"
+    if delta <= -0.15:
+        return "degrading"
+    return "stable"
+
+
+def _quality_gate_pass_rate(records: List[DurableLearningRecord]) -> float:
+    values = [
+        record.metadata.get("quality_gate_accepted")
+        for record in records
+        if isinstance(record.metadata, dict) and "quality_gate_accepted" in record.metadata
+    ]
+    if not values:
+        return 0.0
+    return sum(1 for value in values if bool(value)) / len(values)
+
+
+def _avg_latency_seconds(records: List[DurableLearningRecord]) -> float:
+    values = []
+    for record in records:
+        if not isinstance(record.metadata, dict) or "latency_seconds" not in record.metadata:
+            continue
+        try:
+            values.append(float(record.metadata["latency_seconds"]))
+        except (TypeError, ValueError):
+            continue
+    if not values:
+        return 0.0
+    return sum(values) / len(values)
+
+
+def _clamp(value: float, minimum: float, maximum: float) -> float:
+    return max(minimum, min(maximum, value))
