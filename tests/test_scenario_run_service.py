@@ -301,6 +301,29 @@ def test_scenario_run_service_keeps_all_failed_children_failed_even_with_degrade
     assert response.phase == ScenarioPhase.failed
 
 
+def test_partial_scenario_records_failed_child_recovery_state(tmp_path, monkeypatch):
+    monkeypatch.setattr(ScenarioRunService, "CHILD_RUN_POLL_INTERVAL_SECONDS", 0)
+    service = ScenarioRunService(agent_run_service=_OneSucceededOneFailedAgentRunService(tmp_path))
+
+    response = service.create_scenario_run(
+        ScenarioRunRequest(
+            scenario_name="Karachi flood",
+            trigger_content="巴基斯坦卡拉奇市发生洪涝灾害，请执行地理空间矢量数据融合。",
+            disaster_type="flood",
+            spatial_extent="Karachi, Pakistan",
+            output_root=str(tmp_path / "scenarios"),
+        )
+    )
+
+    summary = json.loads((Path(response.output_dir) / "scenario_summary.json").read_text(encoding="utf-8"))
+
+    assert response.phase == ScenarioPhase.partial
+    assert summary["failed_children"]
+    assert summary["failed_children"][0]["recovery_state"] in {"retry_scheduled", "blocked", "exhausted"}
+    assert (Path(response.output_dir) / "failed_children.json").exists()
+    assert summary["final_outputs"]
+
+
 def test_scenario_run_service_submit_returns_running_before_background_execution(tmp_path, monkeypatch):
     service = ScenarioRunService(agent_run_service=_FakeAgentRunService(tmp_path))
     submitted = Event()
@@ -575,6 +598,32 @@ class _FailedDegradedAgentRunService(_DegradedSucceededAgentRunService):
             }
         )
         self.statuses[status.run_id] = failed
+        return failed
+
+
+class _OneSucceededOneFailedAgentRunService(_FakeAgentRunService):
+    def create_run(self, *, request, osm_zip_name, osm_zip_bytes, ref_zip_name, ref_zip_bytes):
+        status = super().create_run(
+            request=request,
+            osm_zip_name=osm_zip_name,
+            osm_zip_bytes=osm_zip_bytes,
+            ref_zip_name=ref_zip_name,
+            ref_zip_bytes=ref_zip_bytes,
+        )
+        task_key = _task_key_from_request(request)
+        if task_key != "poi":
+            return status
+        failed = status.model_copy(
+            update={
+                "phase": RunPhase.failed,
+                "progress": 80,
+                "error": "SOURCE_DOWNLOAD_FAILED: timeout",
+                "failure_summary": "SOURCE_DOWNLOAD_FAILED: timeout",
+                "finished_at": "2026-06-03T00:00:03+00:00",
+            }
+        )
+        self.statuses[status.run_id] = failed
+        self.artifacts.pop(status.run_id, None)
         return failed
 
 

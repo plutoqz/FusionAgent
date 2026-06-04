@@ -17,6 +17,8 @@ from services.agent_run_service import AgentRunService, agent_run_service
 from services.artifact_evaluation_service import evaluate_agentic_run, evaluate_vector_artifact
 from services.kg_path_trace_service import build_kg_path_trace
 from services.mission_compiler_service import compile_scenario_mission
+from services.run_recovery_service import build_recovery_hint
+from services.scenario_failure_handler_service import ScenarioFailureHandlerService
 from services.scenario_output import resolve_scenario_output_root
 from services.scenario_registry_service import ScenarioRegistryService
 from services.scenario_report_service import render_scenario_reports
@@ -175,6 +177,7 @@ class ScenarioRunService:
 
     def __init__(self, *, agent_run_service: AgentRunService) -> None:
         self.agent_run_service = agent_run_service
+        self.failure_handler = ScenarioFailureHandlerService()
         self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="scenario-run")
 
     def create_scenario_run(self, request: ScenarioRunRequest) -> ScenarioRunResponse:
@@ -431,6 +434,15 @@ class ScenarioRunService:
         source_coverage = _source_coverage_from_children(child_results)
         data_fusion_metrics = [_data_fusion_metrics_for_child(result) for result in child_results]
         quality = _quality_summary_from_children(child_results)
+        failed_children = [
+            self.failure_handler.build_child_failure_record(
+                scenario_id=scenario_id,
+                child_result=result,
+                recovery_hint=build_recovery_hint(_run_payload_for_recovery(result)),
+            ).model_dump(mode="json")
+            for result in child_results
+            if str(result.get("phase")) in {RunPhase.failed.value, ScenarioPhase.failed.value}
+        ]
         agentic_metrics = _merge_agentic_metrics(
             [
                 evaluate_agentic_run(
@@ -462,6 +474,7 @@ class ScenarioRunService:
             "workflow_traces": workflow_traces,
             "source_coverage": source_coverage,
             "quality": quality,
+            "failed_children": failed_children,
             "evaluation": {
                 "data_fusion_metrics": data_fusion_metrics,
                 "agentic_metrics": agentic_metrics,
@@ -486,6 +499,7 @@ class ScenarioRunService:
             "kg_path_trace.json": summary["kg_path_traces"],
             "workflow_trace.json": summary["workflow_traces"],
             "source_coverage.json": summary["source_coverage"],
+            "failed_children.json": summary.get("failed_children", []),
         }
         for filename, payload in files.items():
             (output_dir / filename).write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -634,6 +648,23 @@ def _quality_summary_from_children(child_results: list[dict[str, Any]]) -> dict[
         "rejected_child_count": sum(1 for report in reports if report.get("accepted") is False),
         "child_reports": reports,
     }
+
+
+def _run_payload_for_recovery(result: dict[str, Any]) -> dict[str, Any]:
+    status = result.get("status")
+    if hasattr(status, "model_dump"):
+        payload = status.model_dump(mode="json")
+    else:
+        payload = {}
+    payload.setdefault("run_id", result.get("run_id"))
+    payload["phase"] = str(result.get("phase") or payload.get("phase") or "")
+    payload["error"] = payload.get("error") or result.get("error")
+    checkpoint = payload.get("checkpoint")
+    if not isinstance(checkpoint, dict):
+        payload["checkpoint"] = {}
+    if not payload.get("failure_summary") and status is not None:
+        payload["failure_summary"] = getattr(status, "failure_summary", None)
+    return payload
 
 
 def _merge_agentic_metrics(metrics: list[dict[str, Any]]) -> dict[str, Any]:
