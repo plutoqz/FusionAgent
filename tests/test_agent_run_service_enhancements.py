@@ -24,7 +24,7 @@ from schemas.agent import (
     WorkflowTaskOutput,
 )
 from schemas.fusion import JobType
-from services.artifact_registry import ArtifactRecord
+from services.artifact_registry import ArtifactLookupRequest, ArtifactRecord
 from services.agent_run_service import AgentRunService
 from services.aoi_resolution_service import ResolvedAOI
 from services.input_acquisition_service import InputAcquisitionService
@@ -1078,6 +1078,11 @@ def test_agent_run_service_updates_status_and_records_feedback(tmp_path: Path, m
     payload = json.loads(registry_path.read_text(encoding="utf-8"))
     records = payload.get("records", [])
     assert any(record.get("artifact_id") == status.run_id for record in records)
+    record = service.artifact_registry.find_reusable(
+        ArtifactLookupRequest(job_type="building", required_artifact_role="fusion_result")
+    )
+    assert record is not None
+    assert record.meta["artifact_role"] == "fusion_result"
 
 
 def test_run_status_records_planning_mode_and_profile_source(tmp_path: Path, monkeypatch) -> None:

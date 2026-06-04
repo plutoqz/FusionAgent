@@ -225,9 +225,11 @@ def test_raw_vector_source_service_reuses_cached_sources_when_version_matches_an
     raw_records = [
         record
         for record in payload.get("records", [])
-        if record.get("meta", {}).get("artifact_role") == "raw_vector"
+        if record.get("meta", {}).get("artifact_role") == "raw_source"
     ]
     assert len(raw_records) == 1
+    assert raw_records[0].get("artifact_role") == "raw_source"
+    assert raw_records[0]["meta"]["legacy_artifact_role"] == "raw_vector"
 
 
 def test_raw_vector_source_service_falls_back_to_source_asset_service_when_local_data_is_missing(tmp_path: Path) -> None:
@@ -329,8 +331,10 @@ def test_raw_vector_source_service_preserves_tile_cache_metadata(tmp_path: Path)
     raw_record = next(
         record
         for record in payload.get("records", [])
-        if record.get("meta", {}).get("artifact_role") == "raw_vector"
+        if record.get("meta", {}).get("artifact_role") == "raw_source"
     )
+    assert raw_record["artifact_role"] == "raw_source"
+    assert raw_record["meta"]["legacy_artifact_role"] == "raw_vector"
     assert raw_record["meta"]["tile_scope"] == "request_bbox"
     assert raw_record["meta"]["tile_bbox"] == [1.0, 1.0, 2.0, 2.0]
     assert raw_record["meta"]["tile_key"]

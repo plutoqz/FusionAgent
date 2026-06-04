@@ -11,7 +11,7 @@ from shapely.geometry import Polygon
 from schemas.agent import RunCreateRequest, RunInputStrategy, RunTrigger, RunTriggerType
 from schemas.fusion import JobType
 from services.aoi_resolution_service import ResolvedAOI
-from services.artifact_registry import ArtifactRecord, ArtifactRegistry
+from services.artifact_registry import ArtifactLookupRequest, ArtifactRecord, ArtifactRegistry
 from utils.shp_zip import zip_shapefile_bundle
 
 
@@ -203,6 +203,13 @@ def test_input_acquisition_reuses_cached_bundle_when_version_matches_and_clips_t
     assert provider.download_calls == 1
     assert _extract_bounds(reused.osm_zip_path) == [1.0, 1.0, 2.0, 2.0]
     assert _extract_bounds(reused.ref_zip_path) == [1.0, 1.0, 2.0, 2.0]
+
+    records = registry.list_reusable(
+        ArtifactLookupRequest(required_artifact_role="input_bundle"),
+        limit=10,
+    )
+    assert records
+    assert records[0].artifact_role == "input_bundle"
 
 
 def test_input_acquisition_redownloads_bundle_when_cached_version_is_stale(tmp_path: Path) -> None:

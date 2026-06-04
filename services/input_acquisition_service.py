@@ -269,6 +269,7 @@ class InputAcquisitionService:
             ArtifactRecord(
                 artifact_id=f"input_bundle.{uuid.uuid4().hex}",
                 artifact_path=str(cache_bundle_dir),
+                artifact_role="input_bundle",
                 job_type=request.job_type.value,
                 disaster_type=request.trigger.disaster_type,
                 created_at=datetime.now(timezone.utc).isoformat(),

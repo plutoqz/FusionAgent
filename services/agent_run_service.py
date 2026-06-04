@@ -1811,6 +1811,7 @@ class AgentRunService:
             schema_policy = self.kg_repo.get_output_schema_policy(output_data_type) if output_data_type else None
 
             meta: Dict[str, object] = {
+                "artifact_role": "fusion_result",
                 "run_id": run_id,
                 "workflow_id": plan.workflow_id,
                 "plan_revision": plan.context.get("plan_revision"),
@@ -1830,6 +1831,7 @@ class AgentRunService:
             record = ArtifactRecord(
                 artifact_id=run_id,
                 artifact_path=artifact.path,
+                artifact_role="fusion_result",
                 job_type=request.job_type.value,
                 disaster_type=request.trigger.disaster_type,
                 created_at=created_at,

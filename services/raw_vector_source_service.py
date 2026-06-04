@@ -136,7 +136,8 @@ class RawVectorSourceService:
                 required_output_type="dt.raw.vector",
                 required_target_crs=normalized_target_crs,
                 bbox=request_bbox,
-                required_meta={"artifact_role": "raw_vector", "source_id": source_id},
+                required_artifact_role="raw_source",
+                required_meta={"source_id": source_id},
             )
         )
         if candidate is not None and candidate.meta.get("source_version") == version_token:
@@ -182,13 +183,15 @@ class RawVectorSourceService:
             ArtifactRecord(
                 artifact_id=f"raw_vector.{uuid.uuid4().hex}",
                 artifact_path=str(cache_zip),
+                artifact_role="raw_source",
                 job_type="raw_vector",
                 created_at=_utc_now(),
                 output_data_type="dt.raw.vector",
                 target_crs=normalized_target_crs,
                 bbox=materialized.bbox,
                 meta={
-                    "artifact_role": "raw_vector",
+                    "artifact_role": "raw_source",
+                    "legacy_artifact_role": "raw_vector",
                     "source_id": source_id,
                     "source_version": version_token,
                     "source_mode": source_resolution.source_mode,
