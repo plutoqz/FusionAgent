@@ -117,6 +117,18 @@ python scripts/scenario_eval_harness.py `
 
 The current checked-in scenario set validates capability evidence as well as top-level phase. Building, road, and mixed cases require execution-level evidence; water and bounded POI may remain planner-level capability checks when local raw source materialization is unavailable in fast mode.
 
+Use the real engineering validation runner when you need unattended scenario execution across the matrix:
+
+```powershell
+python scripts/run_engineering_validation.py `
+  --matrix docs/superpowers/validation/engineering_validation_matrix.yaml `
+  --base-url http://127.0.0.1:8010 `
+  --output-root runs/engineering-validation/manual-20260604 `
+  --timeout 1200
+```
+
+Expected validation outputs are `validation_session.json`, `matrix_snapshot.json`, `case_results.jsonl`, `validation_summary.json`, and `validation_summary.md`.
+
 ## Real-Data Benchmark
 
 Use real-data benchmarks only when durable research evidence is needed.

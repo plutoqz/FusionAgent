@@ -21,6 +21,9 @@ def test_engineering_validation_matrix_has_required_aoi_classes_and_regions() ->
         assert case["default_task_bundle"] == ["building", "road", "water_polygon", "waterways", "poi"]
         assert case["output_format"] == "GPKG"
         assert "bbox" in case or "spatial_extent" in case
+        assert "expected_min_succeeded_children" in case
+        assert "expected_required_tasks" in case
+        assert "quality_policy_id" in case
 
 
 def test_engineering_validation_runner_dry_run_lists_cases(capsys) -> None:

@@ -10,6 +10,9 @@
       "spatial_extent": "bbox(66.95,24.78,67.20,25.02)",
       "default_task_bundle": ["building", "road", "water_polygon", "waterways", "poi"],
       "output_format": "GPKG",
+      "expected_min_succeeded_children": 1,
+      "expected_required_tasks": ["building", "road"],
+      "quality_policy_id": "quality.default.building.v1",
       "purpose": "Validate unattended small-city full mission expansion and source materialization."
     },
     {
@@ -21,6 +24,9 @@
       "spatial_extent": "bbox(36.65,-1.45,37.10,-1.10)",
       "default_task_bundle": ["building", "road", "water_polygon", "waterways", "poi"],
       "output_format": "GPKG",
+      "expected_min_succeeded_children": 1,
+      "expected_required_tasks": ["building", "road"],
+      "quality_policy_id": "quality.default.building.v1",
       "purpose": "Validate Africa AOI source materialization and quality reports."
     },
     {
@@ -32,6 +38,9 @@
       "spatial_extent": "bbox(67.0,24.0,68.0,25.5)",
       "default_task_bundle": ["building", "road", "water_polygon", "waterways", "poi"],
       "output_format": "GPKG",
+      "expected_min_succeeded_children": 1,
+      "expected_required_tasks": ["building", "road"],
+      "quality_policy_id": "quality.default.building.v1",
       "purpose": "Validate larger downloads, clipping, and retry evidence."
     },
     {
@@ -43,6 +52,9 @@
       "spatial_extent": "bbox(36.0,-2.0,38.0,0.0)",
       "default_task_bundle": ["building", "road", "water_polygon", "waterways", "poi"],
       "output_format": "GPKG",
+      "expected_min_succeeded_children": 1,
+      "expected_required_tasks": ["building", "road"],
+      "quality_policy_id": "quality.default.building.v1",
       "purpose": "Validate split, parallel tile processing, merge, and quality aggregation."
     }
   ]
