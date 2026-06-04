@@ -16,11 +16,14 @@ def build_source_materialization_manifest(
     requested_bbox: Sequence[float] | None = None,
     materialized_bbox: Sequence[float] | None = None,
     clipped_to_aoi: bool = False,
+    artifact_role: str = "input_bundle",
     component_coverage: dict[str, object] | None = None,
     provider_attempts: list[dict[str, object]] | None = None,
     fault: dict[str, object] | None = None,
 ) -> dict[str, object]:
     return {
+        "manifest_version": 2,
+        "artifact_role": artifact_role,
         "source_id": source_id,
         "selected_source_id": selected_source_id or source_id,
         "source_mode": source_mode,
@@ -31,7 +34,7 @@ def build_source_materialization_manifest(
         "materialized_bbox": _bbox_payload(materialized_bbox),
         "clipped_to_aoi": bool(clipped_to_aoi),
         "component_coverage": dict(component_coverage or {}),
-        "provider_attempts": list(provider_attempts or []),
+        "provider_attempts": [_attempt_payload(attempt) for attempt in (provider_attempts or [])],
         "fault": _fault_payload(fault),
     }
 
@@ -57,3 +60,11 @@ def _fault_payload(value: dict[str, object] | None) -> dict[str, object] | None:
         "fault_message": str(value.get("fault_message") or ""),
         "recoverable": bool(value.get("recoverable")),
     }
+
+
+def _attempt_payload(value: dict[str, object]) -> dict[str, object]:
+    status = str(value.get("status") or "")
+    payload = dict(value)
+    payload.setdefault("attempt_type", "provider")
+    payload.setdefault("recoverable", status == "failed")
+    return payload

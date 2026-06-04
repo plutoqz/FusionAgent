@@ -199,7 +199,14 @@ def test_input_acquisition_reuses_cached_bundle_when_version_matches_and_clips_t
     assert reused_manifest["requested_bbox"] == [1.0, 1.0, 2.0, 2.0]
     assert reused_manifest["materialized_bbox"] == [1.0, 1.0, 2.0, 2.0]
     assert reused_manifest["clipped_to_aoi"] is True
-    assert reused_manifest["provider_attempts"] == [{"source_id": "catalog.task.building.default", "status": "cache_reused"}]
+    assert reused_manifest["provider_attempts"] == [
+        {
+            "source_id": "catalog.task.building.default",
+            "status": "cache_reused",
+            "attempt_type": "provider",
+            "recoverable": False,
+        }
+    ]
     assert provider.download_calls == 1
     assert _extract_bounds(reused.osm_zip_path) == [1.0, 1.0, 2.0, 2.0]
     assert _extract_bounds(reused.ref_zip_path) == [1.0, 1.0, 2.0, 2.0]
@@ -264,7 +271,14 @@ def test_input_acquisition_redownloads_bundle_when_cached_version_is_stale(tmp_p
     assert manifest["requested_bbox"] == [0.0, 0.0, 10.0, 10.0]
     assert manifest["materialized_bbox"] == [0.0, 0.0, 10.0, 10.0]
     assert manifest["clipped_to_aoi"] is True
-    assert manifest["provider_attempts"] == [{"source_id": "catalog.task.building.default", "status": "materialized"}]
+    assert manifest["provider_attempts"] == [
+        {
+            "source_id": "catalog.task.building.default",
+            "status": "materialized",
+            "attempt_type": "provider",
+            "recoverable": False,
+        }
+    ]
     assert manifest["fault"] is None
     assert provider.download_calls == 1
 
@@ -423,11 +437,24 @@ def test_input_acquisition_manifest_records_provider_attempts_and_component_cove
 
     assert resolved.manifest_path is not None
     manifest = json.loads(resolved.manifest_path.read_text(encoding="utf-8"))
+    assert manifest["manifest_version"] == 2
+    assert manifest["artifact_role"] == "input_bundle"
     assert manifest["selected_source_id"] == "catalog.flood.building"
     assert manifest["component_coverage"]["raw.osm.building"]["coverage_status"] == "available"
+    assert manifest["provider_attempts"][0]["attempt_type"] == "provider"
     assert manifest["provider_attempts"] == [
-        {"source_id": "catalog.earthquake.building", "status": "attempted"},
-        {"source_id": "catalog.flood.building", "status": "materialized"},
+        {
+            "source_id": "catalog.earthquake.building",
+            "status": "attempted",
+            "attempt_type": "provider",
+            "recoverable": False,
+        },
+        {
+            "source_id": "catalog.flood.building",
+            "status": "materialized",
+            "attempt_type": "provider",
+            "recoverable": False,
+        },
     ]
 
 
@@ -449,11 +476,20 @@ def test_input_acquisition_writes_manifest_for_failed_provider(tmp_path: Path) -
         )
 
     manifest = json.loads((tmp_path / "run" / "source_materialization_manifest.json").read_text(encoding="utf-8"))
+    assert manifest["manifest_version"] == 2
+    assert manifest["artifact_role"] == "input_bundle"
     assert manifest["source_id"] == "catalog.flood.water"
     assert manifest["source_mode"] == "failed"
     assert manifest["cache_hit"] is False
     assert manifest["fault"]["fault_class"] == "SOURCE_MISSING"
     assert manifest["fault"]["recoverable"] is True
+    assert manifest["provider_attempts"][0]["recoverable"] is True
     assert manifest["provider_attempts"] == [
-        {"source_id": "catalog.flood.water", "status": "failed", "fault_class": "SOURCE_MISSING"}
+        {
+            "source_id": "catalog.flood.water",
+            "status": "failed",
+            "fault_class": "SOURCE_MISSING",
+            "attempt_type": "provider",
+            "recoverable": True,
+        }
     ]
