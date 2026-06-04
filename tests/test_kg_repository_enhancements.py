@@ -376,20 +376,18 @@ def test_repository_aggregates_durable_learning_records_for_retrieval() -> None:
 
     summary = repo.summarize_durable_learning_records(job_type=JobType.building, disaster_type="flood", limit=5)
 
-    assert summary["patterns"] == [
-        DurableLearningSummary(
-            entity_kind="pattern",
-            entity_id="wp.flood.building.default",
-            job_type=JobType.building,
-            disaster_type="flood",
-            total_runs=2,
-            success_count=1,
-            failure_count=1,
-            repaired_count=1,
-            last_run_at="2026-04-09T02:00:00+00:00",
-            last_failure_reason="RuntimeError: failed",
-        )
-    ]
+    pattern_summary = summary["patterns"][0]
+    assert len(summary["patterns"]) == 1
+    assert pattern_summary.entity_kind == "pattern"
+    assert pattern_summary.entity_id == "wp.flood.building.default"
+    assert pattern_summary.job_type == JobType.building
+    assert pattern_summary.disaster_type == "flood"
+    assert pattern_summary.total_runs == 2
+    assert pattern_summary.success_count == 1
+    assert pattern_summary.failure_count == 1
+    assert pattern_summary.repaired_count == 1
+    assert pattern_summary.last_run_at == "2026-04-09T02:00:00+00:00"
+    assert pattern_summary.last_failure_reason == "RuntimeError: failed"
     assert summary["algorithms"][0].entity_id == "algo.fusion.building.v1"
     assert summary["data_sources"][0].entity_id == "upload.bundle"
 
@@ -412,3 +410,45 @@ def test_durable_learning_summary_exposes_policy_feedback_fields() -> None:
     assert summary.condition_key == "building|flood|small_city"
     assert summary.adjustment == 0.06
     assert summary.trend == "stable"
+
+
+def test_durable_learning_summary_uses_condition_key_and_time_decay() -> None:
+    repo = InMemoryKGRepository()
+    repo.record_durable_learning_record(
+        DurableLearningRecord(
+            record_id="old-failure",
+            run_id="old",
+            job_type=JobType.building,
+            trigger_type="user_query",
+            success=False,
+            disaster_type="flood",
+            pattern_id="wp.building",
+            selected_data_source="raw.osm.building",
+            metadata={"aoi_class": "small_city", "region_group": "africa"},
+            created_at="2026-05-01T00:00:00+00:00",
+        )
+    )
+    repo.record_durable_learning_record(
+        DurableLearningRecord(
+            record_id="new-success",
+            run_id="new",
+            job_type=JobType.building,
+            trigger_type="user_query",
+            success=True,
+            disaster_type="flood",
+            pattern_id="wp.building",
+            selected_data_source="raw.osm.building",
+            metadata={"aoi_class": "small_city", "region_group": "africa"},
+            created_at="2026-06-01T00:00:00+00:00",
+        )
+    )
+
+    summary = repo.summarize_durable_learning_records(
+        job_type=JobType.building,
+        disaster_type="flood",
+        limit=5,
+    )["patterns"][0]
+
+    assert summary.condition_key == "building|flood|africa|small_city|wp.building"
+    assert 0.0 < summary.time_decayed_score <= 1.0
+    assert summary.recent_success_rate == 0.5
