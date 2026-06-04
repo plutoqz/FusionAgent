@@ -1,0 +1,5487 @@
+{
+  "algorithms": [
+    {
+      "accuracy_score": 0.86,
+      "algo_id": "algo.assess.building.quality_metrics.v1",
+      "algo_name": "FusionCode Building Quality Metrics",
+      "alternatives": [],
+      "input_types": [
+        "dt.building.height_enriched",
+        "dt.building.conflict_optimized"
+      ],
+      "metadata": {
+        "algorithm_family": "fusioncode_decomposed",
+        "handler_name": "_handle_building_quality_metrics",
+        "runtime_status": "runtime_candidate",
+        "source_file": "algorithm_core/models/spatial_optimizer.py:calculate_metrics"
+      },
+      "output_type": "dt.building.quality_report",
+      "stability_score": 0.82,
+      "success_rate": 0.82,
+      "task_type": "assessment",
+      "tool_ref": "fusion_algorithms:_handle_building_quality_metrics",
+      "usage_mode": "balanced"
+    },
+    {
+      "accuracy_score": null,
+      "algo_id": "algo.clip.raster.tile.v1",
+      "algo_name": "Raster Tile Clip Reserved",
+      "alternatives": [],
+      "input_types": [
+        "dt.raster.building_presence"
+      ],
+      "metadata": {
+        "runtime_status": "reservation_only"
+      },
+      "output_type": "dt.raster.building_presence",
+      "stability_score": null,
+      "success_rate": 0.0,
+      "task_type": "raster_clip",
+      "tool_ref": "reserved:raster_tile_clip",
+      "usage_mode": "reserved"
+    },
+    {
+      "accuracy_score": 0.86,
+      "algo_id": "algo.detect.spatial_conflicts.v1",
+      "algo_name": "FusionCode Spatial Conflict Detection",
+      "alternatives": [],
+      "input_types": [
+        "dt.building.fused",
+        "dt.water.fused",
+        "dt.road.fused"
+      ],
+      "metadata": {
+        "algorithm_family": "fusioncode_decomposed",
+        "handler_name": "_handle_spatial_conflicts",
+        "runtime_status": "runtime_candidate",
+        "source_file": "MapTileTool/FusionTool/conflict.py"
+      },
+      "output_type": "dt.building.quality_report",
+      "stability_score": 0.82,
+      "success_rate": 0.82,
+      "task_type": "assessment",
+      "tool_ref": "fusion_algorithms:_handle_spatial_conflicts",
+      "usage_mode": "balanced"
+    },
+    {
+      "accuracy_score": null,
+      "algo_id": "algo.enrich.building.height_from_raster.reserved",
+      "algo_name": "Building Height Enrichment From Raster Reserved",
+      "alternatives": [],
+      "input_types": [
+        "dt.raster.building_presence"
+      ],
+      "metadata": {
+        "runtime_status": "reservation_only"
+      },
+      "output_type": "dt.building.fused",
+      "stability_score": null,
+      "success_rate": 0.0,
+      "task_type": "enrichment",
+      "tool_ref": "reserved:building_height_from_raster",
+      "usage_mode": "reserved"
+    },
+    {
+      "accuracy_score": 0.86,
+      "algo_id": "algo.enrich.building.height_from_raster.v1",
+      "algo_name": "FusionCode Building Height From Raster",
+      "alternatives": [],
+      "input_types": [
+        "dt.building.conflict_optimized",
+        "dt.raster.building_height"
+      ],
+      "metadata": {
+        "algorithm_family": "fusioncode_decomposed",
+        "handler_name": "_handle_building_height_from_raster",
+        "runtime_status": "runtime_candidate",
+        "source_file": "algorithm_core/models/temporal_validator.py:extract_height_parallel"
+      },
+      "output_type": "dt.building.height_enriched",
+      "stability_score": 0.82,
+      "success_rate": 0.82,
+      "task_type": "enrichment",
+      "tool_ref": "fusion_algorithms:_handle_building_height_from_raster",
+      "usage_mode": "balanced"
+    },
+    {
+      "accuracy_score": 0.86,
+      "algo_id": "algo.enrich.building.obm_attributes.v1",
+      "algo_name": "FusionCode OBM Attribute Enrichment",
+      "alternatives": [],
+      "input_types": [
+        "dt.building.normalized_set"
+      ],
+      "metadata": {
+        "algorithm_family": "fusioncode_decomposed",
+        "handler_name": "_handle_building_obm_attributes",
+        "runtime_status": "runtime_candidate",
+        "source_file": "algorithm_core/models/obm_enricher.py"
+      },
+      "output_type": "dt.building.normalized_set",
+      "stability_score": 0.82,
+      "success_rate": 0.82,
+      "task_type": "enrichment",
+      "tool_ref": "fusion_algorithms:_handle_building_obm_attributes",
+      "usage_mode": "balanced"
+    },
+    {
+      "accuracy_score": 0.86,
+      "algo_id": "algo.fusion.building.cascade_geometry_priority.v1",
+      "algo_name": "FusionCode Cascaded Geometry Priority Building Fusion",
+      "alternatives": [],
+      "input_types": [
+        "dt.building.match_components",
+        "dt.building.normalized_set"
+      ],
+      "metadata": {
+        "algorithm_family": "fusioncode_decomposed",
+        "handler_name": "_handle_building_cascade_fusion",
+        "runtime_status": "runtime_candidate",
+        "source_file": "algorithm_core/models/matching_engine.py:build_fusion_rows"
+      },
+      "output_type": "dt.building.fused_raw",
+      "stability_score": 0.82,
+      "success_rate": 0.82,
+      "task_type": "building_fusion",
+      "tool_ref": "fusion_algorithms:_handle_building_cascade_fusion",
+      "usage_mode": "balanced"
+    },
+    {
+      "accuracy_score": 0.86,
+      "algo_id": "algo.fusion.building.multi_source.decomposed.v1",
+      "algo_name": "FusionCode Decomposed Multi-Source Building Fusion",
+      "alternatives": [
+        "algo.fusion.building.safe"
+      ],
+      "input_types": [
+        "dt.building.source_set",
+        "dt.building.bundle"
+      ],
+      "metadata": {
+        "algorithm_family": "fusioncode_decomposed",
+        "handler_name": "_handle_building_multi_source_decomposed",
+        "runtime_status": "runtime_candidate",
+        "source_file": "algorithm_core/main.py decomposed sequence"
+      },
+      "output_type": "dt.building.fused",
+      "stability_score": 0.82,
+      "success_rate": 0.82,
+      "task_type": "building_fusion",
+      "tool_ref": "fusion_algorithms:_handle_building_multi_source_decomposed",
+      "usage_mode": "throughput"
+    },
+    {
+      "accuracy_score": null,
+      "algo_id": "algo.fusion.building.multi_source.reserved",
+      "algo_name": "Multi-Source Building Fusion Reserved",
+      "alternatives": [],
+      "input_types": [
+        "dt.building.source_set"
+      ],
+      "metadata": {
+        "runtime_status": "reservation_only"
+      },
+      "output_type": "dt.building.fused",
+      "stability_score": null,
+      "success_rate": 0.0,
+      "task_type": "building_fusion",
+      "tool_ref": "reserved:multi_source_building_fusion",
+      "usage_mode": "reserved"
+    },
+    {
+      "accuracy_score": 0.79,
+      "algo_id": "algo.fusion.building.safe",
+      "algo_name": "Building Fusion Safe Fallback",
+      "alternatives": [
+        "algo.fusion.building.v1"
+      ],
+      "input_types": [
+        "dt.building.bundle"
+      ],
+      "metadata": {
+        "evidence_basis": "conservative_thresholds",
+        "selection_profile": "fallback"
+      },
+      "output_type": "dt.building.fused",
+      "stability_score": 0.91,
+      "success_rate": 0.75,
+      "task_type": "building_fusion",
+      "tool_ref": "adapters.building_adapter:run_building_fusion",
+      "usage_mode": "conservative"
+    },
+    {
+      "accuracy_score": 0.89,
+      "algo_id": "algo.fusion.building.v1",
+      "algo_name": "Building Fusion Legacy",
+      "alternatives": [
+        "algo.fusion.building.safe"
+      ],
+      "input_types": [
+        "dt.building.bundle"
+      ],
+      "metadata": {
+        "evidence_basis": "legacy_default_runtime",
+        "selection_profile": "primary"
+      },
+      "output_type": "dt.building.fused",
+      "stability_score": 0.74,
+      "success_rate": 0.92,
+      "task_type": "building_fusion",
+      "tool_ref": "adapters.building_adapter:run_building_fusion",
+      "usage_mode": "throughput"
+    },
+    {
+      "accuracy_score": 0.86,
+      "algo_id": "algo.fusion.poi.geohash_neighbor_match.v1",
+      "algo_name": "FusionCode POI Geohash Neighbor Match",
+      "alternatives": [],
+      "input_types": [
+        "dt.poi.bundle"
+      ],
+      "metadata": {
+        "algorithm_family": "fusioncode_decomposed",
+        "handler_name": "_handle_poi_geohash_neighbor_match",
+        "runtime_status": "runtime_candidate",
+        "source_file": "MapTileTool/FusionPOI.py"
+      },
+      "output_type": "dt.poi.fused",
+      "stability_score": 0.82,
+      "success_rate": 0.82,
+      "task_type": "poi_fusion",
+      "tool_ref": "fusion_algorithms:_handle_poi_geohash_neighbor_match",
+      "usage_mode": "balanced"
+    },
+    {
+      "accuracy_score": 0.78,
+      "algo_id": "algo.fusion.poi.v1",
+      "algo_name": "POI Fusion",
+      "alternatives": [],
+      "input_types": [
+        "dt.poi.bundle"
+      ],
+      "metadata": {
+        "evidence_basis": "shared_bundle_runtime",
+        "runtime_scope": "uploaded_or_task_driven_auto",
+        "selection_profile": "primary"
+      },
+      "output_type": "dt.poi.fused",
+      "stability_score": 0.86,
+      "success_rate": 0.8,
+      "task_type": "poi_fusion",
+      "tool_ref": "adapters.poi_adapter:run_poi_fusion",
+      "usage_mode": "conservative"
+    },
+    {
+      "accuracy_score": 0.86,
+      "algo_id": "algo.fusion.road.conflation.v7",
+      "algo_name": "FusionCode V7 Road Conflation",
+      "alternatives": [],
+      "input_types": [
+        "dt.road.bundle"
+      ],
+      "metadata": {
+        "algorithm_family": "fusioncode_decomposed",
+        "handler_name": "_handle_road_conflation_v7",
+        "runtime_status": "runtime_candidate",
+        "source_file": "Algorithm/road_fusion_optimized_v7.py"
+      },
+      "output_type": "dt.road.fused",
+      "stability_score": 0.82,
+      "success_rate": 0.82,
+      "task_type": "road_fusion",
+      "tool_ref": "fusion_algorithms:_handle_road_conflation_v7",
+      "usage_mode": "balanced"
+    },
+    {
+      "accuracy_score": 0.77,
+      "algo_id": "algo.fusion.road.safe",
+      "algo_name": "Road Fusion Safe Fallback (Deprecated)",
+      "alternatives": [],
+      "input_types": [
+        "dt.road.bundle"
+      ],
+      "metadata": {
+        "deprecated_by": "algo.fusion.road.conflation.v7",
+        "evidence_basis": "superseded_by_v7_profile_conservative",
+        "runtime_status": "deprecated",
+        "selectable_now": false,
+        "selection_profile": "deprecated"
+      },
+      "output_type": "dt.road.fused",
+      "stability_score": 0.9,
+      "success_rate": 0.72,
+      "task_type": "road_fusion",
+      "tool_ref": "adapters.road_adapter:run_road_fusion",
+      "usage_mode": "deprecated"
+    },
+    {
+      "accuracy_score": 0.86,
+      "algo_id": "algo.fusion.road.v1",
+      "algo_name": "Road Fusion Legacy (Deprecated)",
+      "alternatives": [],
+      "input_types": [
+        "dt.road.bundle"
+      ],
+      "metadata": {
+        "deprecated_by": "algo.fusion.road.conflation.v7",
+        "evidence_basis": "superseded_by_v7_conflation",
+        "runtime_status": "deprecated",
+        "selectable_now": false,
+        "selection_profile": "deprecated"
+      },
+      "output_type": "dt.road.fused",
+      "stability_score": 0.72,
+      "success_rate": 0.9,
+      "task_type": "road_fusion",
+      "tool_ref": "adapters.road_adapter:run_road_fusion",
+      "usage_mode": "deprecated"
+    },
+    {
+      "accuracy_score": 0.82,
+      "algo_id": "algo.fusion.water.v1",
+      "algo_name": "Water Polygon Fusion (Deprecated)",
+      "alternatives": [],
+      "input_types": [
+        "dt.water.bundle"
+      ],
+      "metadata": {
+        "deprecated_by": "algo.fusion.water_polygon.priority_merge.v2",
+        "evidence_basis": "superseded_by_polygon_priority_merge_v2",
+        "runtime_scope": "uploaded_or_task_driven_auto",
+        "runtime_status": "deprecated",
+        "selectable_now": false,
+        "selection_profile": "deprecated"
+      },
+      "output_type": "dt.water.fused",
+      "stability_score": 0.88,
+      "success_rate": 0.84,
+      "task_type": "water_fusion",
+      "tool_ref": "adapters.water_adapter:run_water_fusion",
+      "usage_mode": "deprecated"
+    },
+    {
+      "accuracy_score": 0.86,
+      "algo_id": "algo.fusion.water_polygon.priority_merge.v2",
+      "algo_name": "FusionCode Water Polygon Priority Merge",
+      "alternatives": [],
+      "input_types": [
+        "dt.water.bundle"
+      ],
+      "metadata": {
+        "algorithm_family": "fusioncode_decomposed",
+        "handler_name": "_handle_water_polygon_priority_merge",
+        "runtime_status": "runtime_candidate",
+        "source_file": "MapTileTool/FusionTool/lake.py"
+      },
+      "output_type": "dt.water.fused",
+      "stability_score": 0.82,
+      "success_rate": 0.82,
+      "task_type": "water_fusion",
+      "tool_ref": "fusion_algorithms:_handle_water_polygon_priority_merge",
+      "usage_mode": "balanced"
+    },
+    {
+      "accuracy_score": 0.86,
+      "algo_id": "algo.fusion.waterways.conflation.v7",
+      "algo_name": "FusionCode V7 Waterways Conflation",
+      "alternatives": [],
+      "input_types": [
+        "dt.waterways.bundle"
+      ],
+      "metadata": {
+        "algorithm_family": "fusioncode_decomposed",
+        "handler_name": "_handle_waterways_conflation_v7",
+        "runtime_status": "runtime_candidate",
+        "source_file": "Algorithm/waterways_fusion_v7.py"
+      },
+      "output_type": "dt.waterways.fused",
+      "stability_score": 0.82,
+      "success_rate": 0.82,
+      "task_type": "water_fusion",
+      "tool_ref": "fusion_algorithms:_handle_waterways_conflation_v7",
+      "usage_mode": "balanced"
+    },
+    {
+      "accuracy_score": 0.86,
+      "algo_id": "algo.match.building.v8_candidate_graph.v1",
+      "algo_name": "FusionCode V8 Building Candidate Graph",
+      "alternatives": [],
+      "input_types": [
+        "dt.building.presence_validated_set",
+        "dt.building.normalized_set"
+      ],
+      "metadata": {
+        "algorithm_family": "fusioncode_decomposed",
+        "handler_name": "_handle_building_v8_candidate_graph",
+        "runtime_status": "runtime_candidate",
+        "source_file": "algorithm_core/models/matching_engine.py:generate_candidate_edges_v8"
+      },
+      "output_type": "dt.building.match_candidate_graph",
+      "stability_score": 0.82,
+      "success_rate": 0.82,
+      "task_type": "building_matching",
+      "tool_ref": "fusion_algorithms:_handle_building_v8_candidate_graph",
+      "usage_mode": "balanced"
+    },
+    {
+      "accuracy_score": 0.86,
+      "algo_id": "algo.match.building.v8_component_solver.v1",
+      "algo_name": "FusionCode V8 Building Component Solver",
+      "alternatives": [],
+      "input_types": [
+        "dt.building.match_candidate_graph"
+      ],
+      "metadata": {
+        "algorithm_family": "fusioncode_decomposed",
+        "handler_name": "_handle_building_v8_component_solver",
+        "runtime_status": "runtime_candidate",
+        "source_file": "algorithm_core/models/matching_engine.py:process_worker_v8"
+      },
+      "output_type": "dt.building.match_components",
+      "stability_score": 0.82,
+      "success_rate": 0.82,
+      "task_type": "building_matching",
+      "tool_ref": "fusion_algorithms:_handle_building_v8_component_solver",
+      "usage_mode": "balanced"
+    },
+    {
+      "accuracy_score": null,
+      "algo_id": "algo.merge.building.tiles.reserved",
+      "algo_name": "Building Tile Merge Reserved",
+      "alternatives": [],
+      "input_types": [
+        "dt.partition.tile_manifest"
+      ],
+      "metadata": {
+        "runtime_status": "reservation_only"
+      },
+      "output_type": "dt.building.fused",
+      "stability_score": null,
+      "success_rate": 0.0,
+      "task_type": "runtime_merge",
+      "tool_ref": "reserved:building_tile_merge",
+      "usage_mode": "reserved"
+    },
+    {
+      "accuracy_score": 0.86,
+      "algo_id": "algo.optimize.building.conflict_graph.v1",
+      "algo_name": "FusionCode Building Conflict Graph Optimization",
+      "alternatives": [],
+      "input_types": [
+        "dt.building.road_topology_adjusted",
+        "dt.building.fused_raw"
+      ],
+      "metadata": {
+        "algorithm_family": "fusioncode_decomposed",
+        "handler_name": "_handle_building_conflict_graph",
+        "runtime_status": "runtime_candidate",
+        "source_file": "algorithm_core/models/spatial_optimizer.py:run_graph_optimization_v5"
+      },
+      "output_type": "dt.building.conflict_optimized",
+      "stability_score": 0.82,
+      "success_rate": 0.82,
+      "task_type": "building_optimization",
+      "tool_ref": "fusion_algorithms:_handle_building_conflict_graph",
+      "usage_mode": "balanced"
+    },
+    {
+      "accuracy_score": 0.86,
+      "algo_id": "algo.optimize.road.topology_for_buildings.v1",
+      "algo_name": "FusionCode Road Topology For Buildings",
+      "alternatives": [],
+      "input_types": [
+        "dt.building.fused_raw",
+        "dt.road.network"
+      ],
+      "metadata": {
+        "algorithm_family": "fusioncode_decomposed",
+        "handler_name": "_handle_building_road_topology",
+        "runtime_status": "runtime_candidate",
+        "source_file": "algorithm_core/models/spatial_optimizer.py:optimize_road_topology"
+      },
+      "output_type": "dt.building.road_topology_adjusted",
+      "stability_score": 0.82,
+      "success_rate": 0.82,
+      "task_type": "building_optimization",
+      "tool_ref": "fusion_algorithms:_handle_building_road_topology",
+      "usage_mode": "balanced"
+    },
+    {
+      "accuracy_score": null,
+      "algo_id": "algo.partition.aoi.grid.v1",
+      "algo_name": "AOI Grid Partition Reserved",
+      "alternatives": [],
+      "input_types": [
+        "dt.raw.vector"
+      ],
+      "metadata": {
+        "runtime_status": "reservation_only"
+      },
+      "output_type": "dt.partition.tile_manifest",
+      "stability_score": null,
+      "success_rate": 0.0,
+      "task_type": "runtime_partition",
+      "tool_ref": "reserved:aoi_grid_partition",
+      "usage_mode": "reserved"
+    },
+    {
+      "accuracy_score": 0.86,
+      "algo_id": "algo.preprocess.building.source_normalize.v1",
+      "algo_name": "FusionCode Building Source Normalize",
+      "alternatives": [],
+      "input_types": [
+        "dt.building.source_set",
+        "dt.building.bundle"
+      ],
+      "metadata": {
+        "algorithm_family": "fusioncode_decomposed",
+        "handler_name": "_handle_building_source_normalize",
+        "runtime_status": "runtime_candidate",
+        "source_file": "algorithm_adapter.py:_parse_geometry_source_paths"
+      },
+      "output_type": "dt.building.normalized_set",
+      "stability_score": 0.82,
+      "success_rate": 0.82,
+      "task_type": "building_fusion",
+      "tool_ref": "fusion_algorithms:_handle_building_source_normalize",
+      "usage_mode": "balanced"
+    },
+    {
+      "accuracy_score": 0.86,
+      "algo_id": "algo.refine.building.post_conflict_shrink.v1",
+      "algo_name": "FusionCode Building Post Conflict Shrink",
+      "alternatives": [],
+      "input_types": [
+        "dt.building.conflict_optimized"
+      ],
+      "metadata": {
+        "algorithm_family": "fusioncode_decomposed",
+        "handler_name": "_handle_building_post_conflict_shrink",
+        "runtime_status": "runtime_candidate",
+        "source_file": "algorithm_core/models/post_conflict_shrink_refiner.py"
+      },
+      "output_type": "dt.building.conflict_optimized",
+      "stability_score": 0.82,
+      "success_rate": 0.82,
+      "task_type": "building_optimization",
+      "tool_ref": "fusion_algorithms:_handle_building_post_conflict_shrink",
+      "usage_mode": "balanced"
+    },
+    {
+      "accuracy_score": 0.86,
+      "algo_id": "algo.refine.building.road_tail.v1",
+      "algo_name": "FusionCode Road Tail Building Refinement",
+      "alternatives": [],
+      "input_types": [
+        "dt.building.conflict_optimized",
+        "dt.road.network"
+      ],
+      "metadata": {
+        "algorithm_family": "fusioncode_decomposed",
+        "handler_name": "_handle_building_road_tail",
+        "runtime_status": "runtime_candidate",
+        "source_file": "algorithm_core/models/z1r3_conflict.py:road_tail_refinement"
+      },
+      "output_type": "dt.building.conflict_optimized",
+      "stability_score": 0.82,
+      "success_rate": 0.82,
+      "task_type": "building_optimization",
+      "tool_ref": "fusion_algorithms:_handle_building_road_tail",
+      "usage_mode": "balanced"
+    },
+    {
+      "accuracy_score": 0.86,
+      "algo_id": "algo.resolve.building.residual_priority.v1",
+      "algo_name": "FusionCode Residual Priority Conflict Resolution",
+      "alternatives": [],
+      "input_types": [
+        "dt.building.fused_raw"
+      ],
+      "metadata": {
+        "algorithm_family": "fusioncode_decomposed",
+        "handler_name": "_handle_building_residual_priority",
+        "runtime_status": "runtime_candidate",
+        "source_file": "algorithm_core/models/matching_engine.py:resolve_residual_conflicts_by_priority"
+      },
+      "output_type": "dt.building.fused_raw",
+      "stability_score": 0.82,
+      "success_rate": 0.82,
+      "task_type": "building_fusion",
+      "tool_ref": "fusion_algorithms:_handle_building_residual_priority",
+      "usage_mode": "balanced"
+    },
+    {
+      "accuracy_score": 0.97,
+      "algo_id": "algo.transform.raw_to_building_bundle",
+      "algo_name": "Raw Vector to Building Bundle",
+      "alternatives": [],
+      "input_types": [
+        "dt.raw.vector"
+      ],
+      "metadata": {
+        "evidence_basis": "deterministic_transform",
+        "selection_profile": "preparation"
+      },
+      "output_type": "dt.building.bundle",
+      "stability_score": 0.96,
+      "success_rate": 0.98,
+      "task_type": "transform",
+      "tool_ref": "builtin:transform",
+      "usage_mode": "normalization"
+    },
+    {
+      "accuracy_score": 0.97,
+      "algo_id": "algo.transform.raw_to_road_bundle",
+      "algo_name": "Raw Vector to Road Bundle",
+      "alternatives": [],
+      "input_types": [
+        "dt.raw.vector"
+      ],
+      "metadata": {
+        "evidence_basis": "deterministic_transform",
+        "selection_profile": "preparation"
+      },
+      "output_type": "dt.road.bundle",
+      "stability_score": 0.96,
+      "success_rate": 0.98,
+      "task_type": "transform",
+      "tool_ref": "builtin:transform",
+      "usage_mode": "normalization"
+    },
+    {
+      "accuracy_score": 0.0,
+      "algo_id": "algo.transform.trajectory_to_road_candidate",
+      "algo_name": "Trajectory To Road Candidate Reserved Seam",
+      "alternatives": [],
+      "input_types": [
+        "dt.trajectory.raw"
+      ],
+      "metadata": {
+        "activation": "non_default",
+        "evidence_basis": "phase4_transform_reservation",
+        "runtime_scope": "metadata_only",
+        "selection_profile": "reserved_seam"
+      },
+      "output_type": "dt.road.candidate",
+      "stability_score": 1.0,
+      "success_rate": 0.0,
+      "task_type": "transform",
+      "tool_ref": "builtin:trajectory_pretransform_reserved",
+      "usage_mode": "reserved"
+    },
+    {
+      "accuracy_score": 0.86,
+      "algo_id": "algo.validate.building.presence_raster.v1",
+      "algo_name": "FusionCode Building Presence Raster Validation",
+      "alternatives": [],
+      "input_types": [
+        "dt.building.normalized_set",
+        "dt.raster.building_presence"
+      ],
+      "metadata": {
+        "algorithm_family": "fusioncode_decomposed",
+        "handler_name": "_handle_building_presence_raster",
+        "runtime_status": "runtime_candidate",
+        "source_file": "algorithm_core/models/temporal_validator.py:validate_existence_parallel"
+      },
+      "output_type": "dt.building.presence_validated_set",
+      "stability_score": 0.82,
+      "success_rate": 0.82,
+      "task_type": "validation",
+      "tool_ref": "fusion_algorithms:_handle_building_presence_raster",
+      "usage_mode": "balanced"
+    }
+  ],
+  "data_needs": [
+    {
+      "data_type_id": "dt.building.bundle",
+      "description": "Building fusion consumes prepared building bundles in the shared runtime path.",
+      "direction": "consumes",
+      "metadata": {
+        "claim_state": "runtime_supported",
+        "runtime_role": "data_need",
+        "runtime_status": "runtime_candidate"
+      },
+      "need_id": "dn.task.building.fusion.input",
+      "required": true,
+      "task_id": "task.building.fusion"
+    },
+    {
+      "data_type_id": "dt.building.fused",
+      "description": "Building fusion produces fused building output.",
+      "direction": "produces",
+      "metadata": {
+        "claim_state": "runtime_supported",
+        "runtime_role": "data_need",
+        "runtime_status": "runtime_candidate"
+      },
+      "need_id": "dn.task.building.fusion.output",
+      "required": true,
+      "task_id": "task.building.fusion"
+    },
+    {
+      "data_type_id": "dt.poi.bundle",
+      "description": "POI fusion consumes prepared POI bundles.",
+      "direction": "consumes",
+      "metadata": {
+        "claim_state": "bounded_supported",
+        "runtime_role": "data_need",
+        "runtime_status": "runtime_candidate"
+      },
+      "need_id": "dn.task.poi.fusion.input",
+      "required": true,
+      "task_id": "task.poi.fusion"
+    },
+    {
+      "data_type_id": "dt.poi.fused",
+      "description": "POI fusion produces fused POI output.",
+      "direction": "produces",
+      "metadata": {
+        "claim_state": "bounded_supported",
+        "runtime_role": "data_need",
+        "runtime_status": "runtime_candidate"
+      },
+      "need_id": "dn.task.poi.fusion.output",
+      "required": true,
+      "task_id": "task.poi.fusion"
+    },
+    {
+      "data_type_id": "dt.road.bundle",
+      "description": "Road fusion consumes prepared road bundles.",
+      "direction": "consumes",
+      "metadata": {
+        "claim_state": "runtime_supported",
+        "runtime_role": "data_need",
+        "runtime_status": "runtime_candidate"
+      },
+      "need_id": "dn.task.road.fusion.input",
+      "required": true,
+      "task_id": "task.road.fusion"
+    },
+    {
+      "data_type_id": "dt.road.fused",
+      "description": "Road fusion produces fused road output.",
+      "direction": "produces",
+      "metadata": {
+        "claim_state": "runtime_supported",
+        "runtime_role": "data_need",
+        "runtime_status": "runtime_candidate"
+      },
+      "need_id": "dn.task.road.fusion.output",
+      "required": true,
+      "task_id": "task.road.fusion"
+    },
+    {
+      "data_type_id": "dt.trajectory.raw",
+      "description": "Reserved trajectory seam consumes raw trajectories.",
+      "direction": "consumes",
+      "metadata": {
+        "claim_state": "reservation_only",
+        "runtime_role": "data_need",
+        "runtime_status": "reservation_only"
+      },
+      "need_id": "dn.task.trajectory_to_road.input",
+      "required": true,
+      "task_id": "task.trajectory_to_road"
+    },
+    {
+      "data_type_id": "dt.road.candidate",
+      "description": "Reserved trajectory seam produces road candidates.",
+      "direction": "produces",
+      "metadata": {
+        "claim_state": "reservation_only",
+        "runtime_role": "data_need",
+        "runtime_status": "reservation_only"
+      },
+      "need_id": "dn.task.trajectory_to_road.output",
+      "required": true,
+      "task_id": "task.trajectory_to_road"
+    },
+    {
+      "data_type_id": "dt.water.bundle",
+      "description": "Water fusion consumes prepared water bundles.",
+      "direction": "consumes",
+      "metadata": {
+        "claim_state": "runtime_supported",
+        "runtime_role": "data_need",
+        "runtime_status": "runtime_candidate"
+      },
+      "need_id": "dn.task.water.fusion.input",
+      "required": true,
+      "task_id": "task.water.fusion"
+    },
+    {
+      "data_type_id": "dt.water.fused",
+      "description": "Water fusion produces fused water polygons.",
+      "direction": "produces",
+      "metadata": {
+        "claim_state": "runtime_supported",
+        "runtime_role": "data_need",
+        "runtime_status": "runtime_candidate"
+      },
+      "need_id": "dn.task.water.fusion.output",
+      "required": true,
+      "task_id": "task.water.fusion"
+    },
+    {
+      "data_type_id": "dt.waterways.bundle",
+      "description": "Waterways fusion consumes prepared waterways bundles.",
+      "direction": "consumes",
+      "metadata": {
+        "claim_state": "runtime_supported",
+        "runtime_role": "data_need",
+        "runtime_status": "runtime_candidate"
+      },
+      "need_id": "dn.task.waterways.fusion.input",
+      "required": true,
+      "task_id": "task.waterways.fusion"
+    },
+    {
+      "data_type_id": "dt.waterways.fused",
+      "description": "Waterways fusion produces fused waterways output.",
+      "direction": "produces",
+      "metadata": {
+        "claim_state": "runtime_supported",
+        "runtime_role": "data_need",
+        "runtime_status": "runtime_candidate"
+      },
+      "need_id": "dn.task.waterways.fusion.output",
+      "required": true,
+      "task_id": "task.waterways.fusion"
+    }
+  ],
+  "data_sources": [
+    {
+      "disaster_types": [
+        "earthquake",
+        "generic"
+      ],
+      "freshness_category": "event_snapshot",
+      "freshness_hours": 96,
+      "freshness_score": 0.71,
+      "metadata": {
+        "bundle_strategy": "osm_ref_pair",
+        "component_source_ids": [
+          "raw.osm.building",
+          "raw.microsoft.building"
+        ],
+        "height_semantics": "confidence_only",
+        "kind": "catalog",
+        "materialization_scope": "resolved_aoi_clip",
+        "path_hints": [
+          "Data/buildings/OSM",
+          "Data/buildings/Microsoft"
+        ],
+        "priority": 2,
+        "provider_family": "local_bundle_catalog",
+        "runtime_status": "runtime_candidate",
+        "selectable_now": true,
+        "source_contract_ref": "docs/superpowers/specs/2026-05-18-track-b-national-source-matrix.md",
+        "source_form": "bundle",
+        "source_matrix_stage": "track_b_b1_locked",
+        "supports_aoi": true,
+        "supports_tiling": true,
+        "track_b_current_catalog_source_ids": [
+          "catalog.flood.building",
+          "catalog.earthquake.building"
+        ],
+        "track_b_implementation_goal": "Expand the current building path from OSM plus one reference into a locked multi-source national workflow.",
+        "track_b_manual_preload_source_ids": [
+          "raw.google.building",
+          "raw.openbuildingmap.building",
+          "raw.google.open_buildings.vector",
+          "raw.local.microsoft.building"
+        ],
+        "track_b_official_remote_source_ids": [
+          "raw.osm.building",
+          "raw.microsoft.building"
+        ],
+        "track_b_reservation_only_source_ids": [],
+        "track_b_theme": "building"
+      },
+      "quality_score": 0.88,
+      "quality_tier": "curated",
+      "source_id": "catalog.earthquake.building",
+      "source_kind": "catalog",
+      "source_name": "Earthquake Building Bundle (OSM + Microsoft)",
+      "supported_geometry_types": [
+        "polygon"
+      ],
+      "supported_job_types": [
+        "building"
+      ],
+      "supported_types": [
+        "dt.building.bundle"
+      ]
+    },
+    {
+      "disaster_types": [
+        "earthquake",
+        "generic"
+      ],
+      "freshness_category": "event_snapshot",
+      "freshness_hours": 96,
+      "freshness_score": 0.7,
+      "metadata": {
+        "bundle_strategy": "osm_ref_pair",
+        "component_source_ids": [
+          "raw.osm.road",
+          "raw.overture.transportation"
+        ],
+        "kind": "catalog",
+        "materialization_scope": "resolved_aoi_clip",
+        "path_hints": [
+          "Data/roads/OSM",
+          "Data/roads/Overture"
+        ],
+        "priority": 2,
+        "provider_family": "local_bundle_catalog",
+        "reference_boundary": "secondary_reference_now",
+        "runtime_status": "runtime_candidate",
+        "selectable_now": true,
+        "source_contract_ref": "docs/superpowers/specs/2026-05-18-track-b-national-source-matrix.md",
+        "source_form": "bundle",
+        "source_matrix_stage": "track_b_b1_locked",
+        "supports_aoi": true,
+        "track_b_current_catalog_source_ids": [
+          "catalog.flood.road",
+          "catalog.earthquake.road",
+          "catalog.typhoon.road"
+        ],
+        "track_b_implementation_goal": "Upgrade the current OSM-only road baseline to a dual-source national fusion path with Overture Transportation as the locked second-source target.",
+        "track_b_manual_preload_source_ids": [
+          "raw.overture.road"
+        ],
+        "track_b_official_remote_source_ids": [
+          "raw.osm.road",
+          "raw.overture.transportation"
+        ],
+        "track_b_reservation_only_source_ids": [],
+        "track_b_theme": "road"
+      },
+      "quality_score": 0.85,
+      "quality_tier": "curated",
+      "source_id": "catalog.earthquake.road",
+      "source_kind": "catalog",
+      "source_name": "Earthquake Road Bundle (OSM + Overture)",
+      "supported_geometry_types": [
+        "line"
+      ],
+      "supported_job_types": [
+        "road"
+      ],
+      "supported_types": [
+        "dt.road.bundle"
+      ]
+    },
+    {
+      "disaster_types": [
+        "flood",
+        "generic"
+      ],
+      "freshness_category": "event_snapshot",
+      "freshness_hours": 72,
+      "freshness_score": 0.74,
+      "metadata": {
+        "bundle_strategy": "osm_ref_pair",
+        "component_source_ids": [
+          "raw.osm.building",
+          "raw.microsoft.building"
+        ],
+        "height_semantics": "confidence_only",
+        "kind": "catalog",
+        "materialization_scope": "resolved_aoi_clip",
+        "path_hints": [
+          "Data/buildings/OSM",
+          "Data/buildings/Microsoft"
+        ],
+        "priority": 2,
+        "provider_family": "local_bundle_catalog",
+        "runtime_status": "runtime_candidate",
+        "selectable_now": true,
+        "source_contract_ref": "docs/superpowers/specs/2026-05-18-track-b-national-source-matrix.md",
+        "source_form": "bundle",
+        "source_matrix_stage": "track_b_b1_locked",
+        "supports_aoi": true,
+        "supports_tiling": true,
+        "track_b_current_catalog_source_ids": [
+          "catalog.flood.building",
+          "catalog.earthquake.building"
+        ],
+        "track_b_implementation_goal": "Expand the current building path from OSM plus one reference into a locked multi-source national workflow.",
+        "track_b_manual_preload_source_ids": [
+          "raw.google.building",
+          "raw.openbuildingmap.building",
+          "raw.google.open_buildings.vector",
+          "raw.local.microsoft.building"
+        ],
+        "track_b_official_remote_source_ids": [
+          "raw.osm.building",
+          "raw.microsoft.building"
+        ],
+        "track_b_reservation_only_source_ids": [],
+        "track_b_theme": "building"
+      },
+      "quality_score": 0.86,
+      "quality_tier": "curated",
+      "source_id": "catalog.flood.building",
+      "source_kind": "catalog",
+      "source_name": "Flood Building Bundle (OSM + Microsoft)",
+      "supported_geometry_types": [
+        "polygon"
+      ],
+      "supported_job_types": [
+        "building"
+      ],
+      "supported_types": [
+        "dt.building.bundle"
+      ]
+    },
+    {
+      "disaster_types": [
+        "flood",
+        "generic"
+      ],
+      "freshness_category": "event_snapshot",
+      "freshness_hours": 72,
+      "freshness_score": 0.74,
+      "metadata": {
+        "bundle_strategy": "osm_ref_pair",
+        "component_source_ids": [
+          "raw.osm.road",
+          "raw.overture.transportation"
+        ],
+        "kind": "catalog",
+        "materialization_scope": "resolved_aoi_clip",
+        "path_hints": [
+          "Data/roads/OSM",
+          "Data/roads/Overture"
+        ],
+        "priority": 2,
+        "provider_family": "local_bundle_catalog",
+        "reference_boundary": "secondary_reference_now",
+        "runtime_status": "runtime_candidate",
+        "selectable_now": true,
+        "source_contract_ref": "docs/superpowers/specs/2026-05-18-track-b-national-source-matrix.md",
+        "source_form": "bundle",
+        "source_matrix_stage": "track_b_b1_locked",
+        "supports_aoi": true,
+        "track_b_current_catalog_source_ids": [
+          "catalog.flood.road",
+          "catalog.earthquake.road",
+          "catalog.typhoon.road"
+        ],
+        "track_b_implementation_goal": "Upgrade the current OSM-only road baseline to a dual-source national fusion path with Overture Transportation as the locked second-source target.",
+        "track_b_manual_preload_source_ids": [
+          "raw.overture.road"
+        ],
+        "track_b_official_remote_source_ids": [
+          "raw.osm.road",
+          "raw.overture.transportation"
+        ],
+        "track_b_reservation_only_source_ids": [],
+        "track_b_theme": "road"
+      },
+      "quality_score": 0.86,
+      "quality_tier": "curated",
+      "source_id": "catalog.flood.road",
+      "source_kind": "catalog",
+      "source_name": "Flood Road Bundle (OSM + Overture)",
+      "supported_geometry_types": [
+        "line"
+      ],
+      "supported_job_types": [
+        "road"
+      ],
+      "supported_types": [
+        "dt.road.bundle"
+      ]
+    },
+    {
+      "disaster_types": [
+        "flood",
+        "generic"
+      ],
+      "freshness_category": "event_snapshot",
+      "freshness_hours": 72,
+      "freshness_score": 0.71,
+      "metadata": {
+        "bundle_strategy": "osm_ref_pair",
+        "component_source_ids": [
+          "raw.osm.water",
+          "raw.hydrolakes.water"
+        ],
+        "kind": "catalog",
+        "materialization_scope": "resolved_aoi_clip",
+        "path_hints": [
+          "Data/burundi-260127-free.shp/gis_osm_water_a_free_1.shp",
+          "Data/water/HydroLAKES_polys_v10.shp"
+        ],
+        "priority": 2,
+        "provider_family": "local_bundle_catalog",
+        "reference_boundary": "polygon_only",
+        "runtime_status": "runtime_candidate",
+        "selectable_now": true,
+        "source_contract_ref": "docs/superpowers/specs/2026-05-18-track-b-national-source-matrix.md",
+        "source_form": "bundle",
+        "source_matrix_stage": "track_b_b1_locked",
+        "supports_aoi": true,
+        "track_b_current_catalog_source_ids": [
+          "catalog.flood.water",
+          "catalog.flood.water_polygon"
+        ],
+        "track_b_implementation_goal": "Keep polygon water fusion explicit, with OSM water polygons plus HydroLAKES as the active national polygon route.",
+        "track_b_manual_preload_source_ids": [
+          "raw.local.water"
+        ],
+        "track_b_official_remote_source_ids": [
+          "raw.osm.water",
+          "raw.hydrolakes.water"
+        ],
+        "track_b_reservation_only_source_ids": [
+          "raw.overture.water"
+        ],
+        "track_b_theme": "water"
+      },
+      "quality_score": 0.84,
+      "quality_tier": "curated",
+      "source_id": "catalog.flood.water",
+      "source_kind": "catalog",
+      "source_name": "Flood Water Bundle (OSM + HydroLAKES)",
+      "supported_geometry_types": [
+        "polygon"
+      ],
+      "supported_job_types": [
+        "water"
+      ],
+      "supported_types": [
+        "dt.water.bundle"
+      ]
+    },
+    {
+      "disaster_types": [
+        "flood",
+        "generic"
+      ],
+      "freshness_category": "event_snapshot",
+      "freshness_hours": 72,
+      "freshness_score": 0.71,
+      "metadata": {
+        "bundle_strategy": "osm_ref_pair",
+        "component_source_ids": [
+          "raw.osm.water",
+          "raw.hydrolakes.water"
+        ],
+        "kind": "catalog",
+        "materialization_scope": "resolved_aoi_clip",
+        "path_hints": [
+          "Data/burundi-260127-free.shp/gis_osm_water_a_free_1.shp",
+          "Data/water/HydroLAKES_polys_v10.shp"
+        ],
+        "priority": 2,
+        "provider_family": "local_bundle_catalog",
+        "reference_boundary": "polygon_only",
+        "runtime_status": "runtime_candidate",
+        "selectable_now": true,
+        "source_contract_ref": "docs/superpowers/specs/2026-05-18-track-b-national-source-matrix.md",
+        "source_form": "bundle",
+        "source_matrix_stage": "track_b_b1_locked",
+        "supports_aoi": true,
+        "track_b_current_catalog_source_ids": [
+          "catalog.flood.water",
+          "catalog.flood.water_polygon"
+        ],
+        "track_b_implementation_goal": "Keep polygon water fusion explicit, with OSM water polygons plus HydroLAKES as the active national polygon route.",
+        "track_b_manual_preload_source_ids": [
+          "raw.local.water"
+        ],
+        "track_b_official_remote_source_ids": [
+          "raw.osm.water",
+          "raw.hydrolakes.water"
+        ],
+        "track_b_reservation_only_source_ids": [
+          "raw.overture.water"
+        ],
+        "track_b_theme": "water"
+      },
+      "quality_score": 0.84,
+      "quality_tier": "curated",
+      "source_id": "catalog.flood.water_polygon",
+      "source_kind": "catalog",
+      "source_name": "Flood Water Polygon Bundle (OSM + HydroLAKES)",
+      "supported_geometry_types": [
+        "polygon"
+      ],
+      "supported_job_types": [
+        "water"
+      ],
+      "supported_types": [
+        "dt.water.bundle"
+      ]
+    },
+    {
+      "disaster_types": [
+        "flood",
+        "generic"
+      ],
+      "freshness_category": "event_snapshot",
+      "freshness_hours": 72,
+      "freshness_score": 0.68,
+      "metadata": {
+        "bundle_strategy": "osm_ref_pair",
+        "component_source_ids": [
+          "raw.osm.waterways",
+          "raw.local.pakistan.waterways"
+        ],
+        "kind": "catalog",
+        "materialization_scope": "resolved_aoi_clip",
+        "path_hints": [
+          "Data/burundi-260127-free.shp/gis_osm_waterways_free_1.shp",
+          "Data/water/Pakistan_Waterways_Data.shp"
+        ],
+        "priority": 2,
+        "provider_family": "local_bundle_catalog",
+        "runtime_status": "runtime_candidate",
+        "selectable_now": true,
+        "source_contract_ref": "docs/superpowers/specs/2026-05-18-track-b-national-source-matrix.md",
+        "source_form": "bundle",
+        "source_matrix_stage": "track_b_b1_locked",
+        "supports_aoi": true,
+        "track_b_current_catalog_source_ids": [
+          "catalog.flood.waterways"
+        ],
+        "track_b_implementation_goal": "Keep line waterways separate from polygon water, with OSM waterways as the base and Pakistan local waterways as the first manual supplement contract.",
+        "track_b_manual_preload_source_ids": [
+          "raw.local.pakistan.waterways"
+        ],
+        "track_b_official_remote_source_ids": [
+          "raw.osm.waterways",
+          "raw.hydrorivers.water"
+        ],
+        "track_b_reservation_only_source_ids": [],
+        "track_b_theme": "waterways",
+        "water_semantics": "waterways_line"
+      },
+      "quality_score": 0.8,
+      "quality_tier": "curated",
+      "source_id": "catalog.flood.waterways",
+      "source_kind": "catalog",
+      "source_name": "Flood Waterways Bundle (OSM + Pakistan Local Waterways)",
+      "supported_geometry_types": [
+        "line"
+      ],
+      "supported_job_types": [
+        "water"
+      ],
+      "supported_types": [
+        "dt.waterways.bundle"
+      ]
+    },
+    {
+      "disaster_types": [
+        "generic"
+      ],
+      "freshness_category": "sample_snapshot",
+      "freshness_hours": 168,
+      "freshness_score": 0.61,
+      "metadata": {
+        "bundle_strategy": "osm_ref_pair",
+        "component_source_ids": [
+          "raw.osm.poi",
+          "raw.gns.poi"
+        ],
+        "kind": "catalog",
+        "materialization_scope": "resolved_aoi_clip",
+        "path_hints": [
+          "Data/burundi-260127-free.shp/gis_osm_pois_free_1.shp",
+          "Data/POI/**/GNS.shp"
+        ],
+        "priority": 2,
+        "provider_family": "local_bundle_catalog",
+        "runtime_status": "runtime_candidate",
+        "selectable_now": true,
+        "source_contract_ref": "docs/superpowers/specs/2026-05-18-track-b-national-source-matrix.md",
+        "source_form": "bundle",
+        "source_matrix_stage": "track_b_b1_locked",
+        "supports_aoi": true,
+        "track_b_current_catalog_source_ids": [
+          "catalog.generic.poi"
+        ],
+        "track_b_implementation_goal": "Keep OSM plus GNS as the first national POI pair, with RH as a manual local supplement and Overture Places deferred until field alignment work is complete.",
+        "track_b_manual_preload_source_ids": [
+          "raw.rh.poi"
+        ],
+        "track_b_official_remote_source_ids": [
+          "raw.osm.poi",
+          "raw.gns.poi"
+        ],
+        "track_b_reservation_only_source_ids": [
+          "raw.overture.poi"
+        ],
+        "track_b_theme": "poi"
+      },
+      "quality_score": 0.82,
+      "quality_tier": "curated",
+      "source_id": "catalog.generic.poi",
+      "source_kind": "catalog",
+      "source_name": "Generic POI Bundle (OSM + GNS)",
+      "supported_geometry_types": [
+        "point"
+      ],
+      "supported_job_types": [
+        "poi"
+      ],
+      "supported_types": [
+        "dt.poi.bundle"
+      ]
+    },
+    {
+      "disaster_types": [
+        "typhoon",
+        "generic"
+      ],
+      "freshness_category": "event_snapshot",
+      "freshness_hours": 48,
+      "freshness_score": 0.79,
+      "metadata": {
+        "bundle_strategy": "osm_ref_pair",
+        "component_source_ids": [
+          "raw.osm.road",
+          "raw.overture.transportation"
+        ],
+        "kind": "catalog",
+        "materialization_scope": "resolved_aoi_clip",
+        "path_hints": [
+          "Data/roads/OSM",
+          "Data/roads/Overture"
+        ],
+        "priority": 2,
+        "provider_family": "local_bundle_catalog",
+        "reference_boundary": "secondary_reference_now",
+        "runtime_status": "runtime_candidate",
+        "selectable_now": true,
+        "source_contract_ref": "docs/superpowers/specs/2026-05-18-track-b-national-source-matrix.md",
+        "source_form": "bundle",
+        "source_matrix_stage": "track_b_b1_locked",
+        "supports_aoi": true,
+        "track_b_current_catalog_source_ids": [
+          "catalog.flood.road",
+          "catalog.earthquake.road",
+          "catalog.typhoon.road"
+        ],
+        "track_b_implementation_goal": "Upgrade the current OSM-only road baseline to a dual-source national fusion path with Overture Transportation as the locked second-source target.",
+        "track_b_manual_preload_source_ids": [
+          "raw.overture.road"
+        ],
+        "track_b_official_remote_source_ids": [
+          "raw.osm.road",
+          "raw.overture.transportation"
+        ],
+        "track_b_reservation_only_source_ids": [],
+        "track_b_theme": "road"
+      },
+      "quality_score": 0.88,
+      "quality_tier": "curated",
+      "source_id": "catalog.typhoon.road",
+      "source_kind": "catalog",
+      "source_name": "Typhoon Road Bundle (OSM + Overture)",
+      "supported_geometry_types": [
+        "line"
+      ],
+      "supported_job_types": [
+        "road"
+      ],
+      "supported_types": [
+        "dt.road.bundle"
+      ]
+    },
+    {
+      "disaster_types": [
+        "generic",
+        "flood",
+        "earthquake",
+        "typhoon"
+      ],
+      "freshness_category": "sample_snapshot",
+      "freshness_hours": 720,
+      "freshness_score": 0.42,
+      "metadata": {
+        "acquisition_class": "official_remote_supported",
+        "clip_strategy": "country_zip_then_aoi_clip",
+        "field_mapping_profile": "fields.poi.gns",
+        "format_hint": "country_zip_tabular_export",
+        "kind": "raw_vector",
+        "license_boundary": "Official GNS gazetteer export; keep name and identifier provenance visible in normalized POI outputs and evidence bundles.",
+        "materialization_scope": "local_only",
+        "path_hint": "Data/POI/**/GNS.shp",
+        "provider_family": "gns",
+        "runtime_status": "runtime_candidate",
+        "selectable_now": true,
+        "source_contract_ref": "docs/superpowers/specs/2026-05-18-track-b-national-source-matrix.md",
+        "source_form": "vector",
+        "source_matrix_stage": "track_b_b1_locked",
+        "source_role": "reference_candidate",
+        "supports_aoi": false,
+        "theme": "poi",
+        "track_b_notes": "Promoted B5 POI reference source with bounded country-zip discovery and AOI clip support.",
+        "track_b_role": "reference_remote",
+        "track_b_theme": "poi"
+      },
+      "quality_score": 0.81,
+      "quality_tier": "gazetteer",
+      "source_id": "raw.gns.poi",
+      "source_kind": "open_data",
+      "source_name": "GNS Place Names",
+      "supported_geometry_types": [
+        "point"
+      ],
+      "supported_job_types": [
+        "building",
+        "road",
+        "poi"
+      ],
+      "supported_types": [
+        "dt.raw.vector"
+      ]
+    },
+    {
+      "disaster_types": [
+        "generic",
+        "flood",
+        "earthquake",
+        "typhoon"
+      ],
+      "freshness_category": "sample_snapshot",
+      "freshness_hours": 240,
+      "freshness_score": 0.58,
+      "metadata": {
+        "acquisition_class": "manual_preload_required",
+        "clip_strategy": "local_national_clip_then_aoi_clip",
+        "coverage_scope": "local_only",
+        "field_mapping_profile": "fields.building.google",
+        "format_hint": "shapefile_bundle",
+        "height_semantics": "unknown",
+        "kind": "raw_vector",
+        "license_boundary": "Manual reference preload only; keep provider attribution and do not promote as automated remote support.",
+        "materialization_scope": "local_only",
+        "path_hint": "Data/buildings/Google",
+        "provider_family": "google",
+        "runtime_status": "runtime_candidate",
+        "selectable_now": true,
+        "source_contract_ref": "docs/superpowers/specs/2026-05-18-track-b-national-source-matrix.md",
+        "source_form": "vector",
+        "source_matrix_stage": "track_b_b1_locked",
+        "source_role": "reference_candidate",
+        "supports_aoi": false,
+        "supports_tiling": true,
+        "theme": "building",
+        "track_b_notes": "Included in the first-phase building matrix but still depends on local preload discipline.",
+        "track_b_role": "reference_manual",
+        "track_b_theme": "building"
+      },
+      "quality_score": 0.87,
+      "quality_tier": "foundation_model_extracted",
+      "source_id": "raw.google.building",
+      "source_kind": "open_data",
+      "source_name": "Google Open Buildings",
+      "supported_geometry_types": [
+        "polygon"
+      ],
+      "supported_job_types": [
+        "building"
+      ],
+      "supported_types": [
+        "dt.raw.vector"
+      ]
+    },
+    {
+      "disaster_types": [
+        "generic",
+        "flood",
+        "earthquake",
+        "typhoon"
+      ],
+      "freshness_category": "sample_snapshot",
+      "freshness_hours": 240,
+      "freshness_score": 0.5,
+      "metadata": {
+        "coverage_scope": "national_clip",
+        "height_semantics": "estimated_height",
+        "kind": "raw_raster",
+        "materialization_scope": "reservation_only",
+        "path_hint": "Benin/_processing/google_open_buildings_temporal_2023/building_height_2023_benin_4m.tif",
+        "provider_family": "google_temporal",
+        "runtime_status": "reservation_only",
+        "selectable_now": false,
+        "source_form": "raster",
+        "source_role": "height_enrichment_candidate",
+        "supports_aoi": false,
+        "supports_tiling": true,
+        "theme": "building"
+      },
+      "quality_score": 0.76,
+      "quality_tier": "foundation_model_extracted",
+      "source_id": "raw.google.building_height.raster",
+      "source_kind": "open_data",
+      "source_name": "Google Building Height Raster",
+      "supported_geometry_types": [
+        "raster"
+      ],
+      "supported_job_types": [
+        "building"
+      ],
+      "supported_types": [
+        "dt.raster.building_height"
+      ]
+    },
+    {
+      "disaster_types": [
+        "generic",
+        "flood",
+        "earthquake",
+        "typhoon"
+      ],
+      "freshness_category": "sample_snapshot",
+      "freshness_hours": 240,
+      "freshness_score": 0.5,
+      "metadata": {
+        "coverage_scope": "national_clip",
+        "height_semantics": "presence_only",
+        "kind": "raw_raster",
+        "materialization_scope": "reservation_only",
+        "path_hint": "Benin/_processing/google_open_buildings_temporal_2023/building_presence_2023_benin_4m.tif",
+        "provider_family": "google_temporal",
+        "runtime_status": "reservation_only",
+        "selectable_now": false,
+        "source_form": "raster",
+        "source_role": "height_signal_candidate",
+        "supports_aoi": false,
+        "supports_tiling": true,
+        "theme": "building"
+      },
+      "quality_score": 0.78,
+      "quality_tier": "foundation_model_extracted",
+      "source_id": "raw.google.building_presence.raster",
+      "source_kind": "open_data",
+      "source_name": "Google Building Presence Raster",
+      "supported_geometry_types": [
+        "raster"
+      ],
+      "supported_job_types": [
+        "building"
+      ],
+      "supported_types": [
+        "dt.raster.building_presence"
+      ]
+    },
+    {
+      "disaster_types": [
+        "generic",
+        "flood",
+        "earthquake",
+        "typhoon"
+      ],
+      "freshness_category": "sample_snapshot",
+      "freshness_hours": 240,
+      "freshness_score": 0.57,
+      "metadata": {
+        "acquisition_class": "manual_preload_required",
+        "clip_strategy": "local_national_clip_then_aoi_clip",
+        "coverage_scope": "national_clip",
+        "field_mapping_profile": "fields.building.google_open_buildings_vector",
+        "format_hint": "shapefile_bundle",
+        "height_semantics": "unknown",
+        "kind": "raw_vector",
+        "license_boundary": "Manual reference preload only; keep provider attribution and do not market it as remote automation support.",
+        "materialization_scope": "reservation_only",
+        "path_hint": "Benin/final_shp/google_open_buildings_v3/google_open_buildings_v3_benin.shp",
+        "provider_family": "google_open_buildings",
+        "runtime_status": "reservation_only",
+        "selectable_now": false,
+        "source_contract_ref": "docs/superpowers/specs/2026-05-18-track-b-national-source-matrix.md",
+        "source_form": "vector",
+        "source_matrix_stage": "track_b_b1_locked",
+        "source_role": "reference_candidate",
+        "supports_aoi": false,
+        "supports_tiling": true,
+        "theme": "building",
+        "track_b_notes": "Acts as a reserved national clip input until later building source-set work promotes it.",
+        "track_b_role": "reference_manual",
+        "track_b_theme": "building"
+      },
+      "quality_score": 0.87,
+      "quality_tier": "foundation_model_extracted",
+      "source_id": "raw.google.open_buildings.vector",
+      "source_kind": "open_data",
+      "source_name": "Google Open Buildings Vector",
+      "supported_geometry_types": [
+        "polygon"
+      ],
+      "supported_job_types": [
+        "building"
+      ],
+      "supported_types": [
+        "dt.raw.vector"
+      ]
+    },
+    {
+      "disaster_types": [
+        "generic",
+        "flood",
+        "earthquake",
+        "typhoon"
+      ],
+      "freshness_category": "sample_snapshot",
+      "freshness_hours": 720,
+      "freshness_score": 0.49,
+      "metadata": {
+        "acquisition_class": "official_remote_supported",
+        "clip_strategy": "national_polygon_clip_then_bundle_normalization",
+        "coverage_scope": "global_bundle",
+        "field_mapping_profile": "fields.water.hydrolakes_polygon",
+        "format_hint": "shapefile_bundle",
+        "kind": "raw_vector",
+        "license_boundary": "Provider-published hydro polygon source; preserve upstream attribution and keep runtime claims tied to checked polygon-style evidence.",
+        "materialization_provider": "hydrolakes",
+        "materialization_scope": "global_bundle_then_clip",
+        "path_hint": "Data/water/HydroLAKES_polys_v10.shp",
+        "provider_family": "hydrosheds",
+        "runtime_status": "runtime_candidate",
+        "selectable_now": true,
+        "source_contract_ref": "docs/superpowers/specs/2026-05-18-track-b-national-source-matrix.md",
+        "source_form": "vector",
+        "source_matrix_stage": "track_b_b1_locked",
+        "source_role": "reference_candidate",
+        "supports_aoi": true,
+        "theme": "water",
+        "track_b_notes": "Promoted B2 polygon-style water reference with bounded remote download plus clip support.",
+        "track_b_role": "reference_remote",
+        "track_b_theme": "water"
+      },
+      "quality_score": 0.82,
+      "quality_tier": "provider_curated",
+      "source_id": "raw.hydrolakes.water",
+      "source_kind": "open_data",
+      "source_name": "HydroLAKES",
+      "supported_geometry_types": [
+        "polygon"
+      ],
+      "supported_job_types": [
+        "water"
+      ],
+      "supported_types": [
+        "dt.raw.vector"
+      ]
+    },
+    {
+      "disaster_types": [
+        "generic",
+        "flood",
+        "earthquake",
+        "typhoon"
+      ],
+      "freshness_category": "sample_snapshot",
+      "freshness_hours": 720,
+      "freshness_score": 0.5,
+      "metadata": {
+        "acquisition_class": "official_remote_supported",
+        "clip_strategy": "national_line_clip_then_bundle_normalization",
+        "coverage_scope": "global_bundle",
+        "field_mapping_profile": "fields.waterways.hydrorivers",
+        "format_hint": "shapefile_bundle",
+        "kind": "raw_vector",
+        "license_boundary": "Provider-published hydro line source; preserve upstream attribution and keep runtime claims tied to checked line-style evidence.",
+        "materialization_provider": "hydrorivers",
+        "materialization_scope": "global_bundle_then_clip",
+        "path_hint": "Data/water/HydroRIVERS_v10.shp",
+        "provider_family": "hydrosheds",
+        "runtime_status": "runtime_candidate",
+        "selectable_now": true,
+        "source_contract_ref": "docs/superpowers/specs/2026-05-18-track-b-national-source-matrix.md",
+        "source_form": "vector",
+        "source_matrix_stage": "track_b_b1_locked",
+        "source_role": "reference_candidate",
+        "supports_aoi": true,
+        "theme": "waterways",
+        "track_b_notes": "HydroRIVERS remains a remote waterways line reference, separate from local Pakistan waterways supplements.",
+        "track_b_role": "reference_remote",
+        "track_b_theme": "waterways"
+      },
+      "quality_score": 0.83,
+      "quality_tier": "provider_curated",
+      "source_id": "raw.hydrorivers.water",
+      "source_kind": "open_data",
+      "source_name": "HydroRIVERS",
+      "supported_geometry_types": [
+        "line"
+      ],
+      "supported_job_types": [
+        "water"
+      ],
+      "supported_types": [
+        "dt.raw.vector"
+      ]
+    },
+    {
+      "disaster_types": [
+        "generic",
+        "flood",
+        "earthquake",
+        "typhoon"
+      ],
+      "freshness_category": "sample_snapshot",
+      "freshness_hours": 240,
+      "freshness_score": 0.58,
+      "metadata": {
+        "acquisition_class": "manual_preload_required",
+        "clip_strategy": "local_cached_national_clip_then_aoi_clip",
+        "coverage_scope": "national_clip",
+        "field_mapping_profile": "fields.building.microsoft",
+        "format_hint": "shapefile_bundle",
+        "height_fields": [
+          "height"
+        ],
+        "height_semantics": "estimated_height",
+        "kind": "raw_vector",
+        "license_boundary": "Local cache of a provider source; keep attribution and treat it as an operational cache rather than a new public source.",
+        "materialization_scope": "reservation_only",
+        "path_hint": "Benin/final_shp/microsoft_global_ml_building_footprints/Microsoft_benin.shp",
+        "provider_family": "microsoft_local",
+        "runtime_status": "reservation_only",
+        "selectable_now": false,
+        "source_contract_ref": "docs/superpowers/specs/2026-05-18-track-b-national-source-matrix.md",
+        "source_form": "vector",
+        "source_matrix_stage": "track_b_b1_locked",
+        "source_role": "reference_candidate",
+        "supports_aoi": false,
+        "supports_tiling": true,
+        "theme": "building",
+        "track_b_notes": "Preferred fallback when repeated Microsoft country-tile downloads are too expensive for national runs.",
+        "track_b_role": "national_cache",
+        "track_b_theme": "building"
+      },
+      "quality_score": 0.89,
+      "quality_tier": "local_curated",
+      "source_id": "raw.local.microsoft.building",
+      "source_kind": "open_data",
+      "source_name": "Local Microsoft Building Footprints",
+      "supported_geometry_types": [
+        "polygon"
+      ],
+      "supported_job_types": [
+        "building"
+      ],
+      "supported_types": [
+        "dt.raw.vector"
+      ]
+    },
+    {
+      "disaster_types": [
+        "generic",
+        "flood",
+        "earthquake",
+        "typhoon"
+      ],
+      "freshness_category": "sample_snapshot",
+      "freshness_hours": 240,
+      "freshness_score": 0.54,
+      "metadata": {
+        "acquisition_class": "manual_preload_required",
+        "clip_strategy": "local_national_clip_then_aoi_clip",
+        "field_mapping_profile": "fields.waterways.local_osm_like",
+        "format_hint": "shapefile_bundle",
+        "kind": "raw_vector",
+        "license_boundary": "Manual local waterways preload only; keep it clearly separated from HydroRIVERS claims and preserve local source attribution in evidence.",
+        "materialization_scope": "local_only",
+        "path_hint": "Data/water/Pakistan_Waterways_Data.shp",
+        "provider_family": "local_open_data",
+        "runtime_status": "runtime_candidate",
+        "selectable_now": true,
+        "source_contract_ref": "docs/superpowers/specs/2026-05-18-track-b-national-source-matrix.md",
+        "source_form": "vector",
+        "source_matrix_stage": "track_b_b1_locked",
+        "source_role": "supplement_line",
+        "supports_aoi": false,
+        "theme": "waterways",
+        "track_b_notes": "Pakistan-local waterways supplement contract for preloaded OSM-like line data.",
+        "track_b_role": "supplement_line",
+        "track_b_theme": "waterways"
+      },
+      "quality_score": 0.77,
+      "quality_tier": "local_sample",
+      "source_id": "raw.local.pakistan.waterways",
+      "source_kind": "open_data",
+      "source_name": "Pakistan Local Waterways",
+      "supported_geometry_types": [
+        "line"
+      ],
+      "supported_job_types": [
+        "water"
+      ],
+      "supported_types": [
+        "dt.raw.vector"
+      ]
+    },
+    {
+      "disaster_types": [
+        "generic",
+        "flood",
+        "earthquake",
+        "typhoon"
+      ],
+      "freshness_category": "sample_snapshot",
+      "freshness_hours": 240,
+      "freshness_score": 0.55,
+      "metadata": {
+        "acquisition_class": "manual_preload_required",
+        "clip_strategy": "local_national_clip_then_aoi_clip",
+        "field_mapping_profile": "fields.water.local_reference",
+        "format_hint": "shapefile_bundle",
+        "kind": "raw_vector",
+        "license_boundary": "Manual local hydro cache; keep it clearly marked as preload-only evidence rather than remote automation.",
+        "materialization_scope": "local_only",
+        "path_hint": "Data/water/布隆迪湖泊.shp",
+        "provider_family": "local_open_data",
+        "runtime_status": "runtime_candidate",
+        "selectable_now": true,
+        "source_contract_ref": "docs/superpowers/specs/2026-05-18-track-b-national-source-matrix.md",
+        "source_form": "vector",
+        "source_matrix_stage": "track_b_b1_locked",
+        "source_role": "reference_candidate",
+        "supports_aoi": false,
+        "theme": "water",
+        "track_b_notes": "Retained as an operator cache fallback after the HydroRIVERS plus HydroLAKES remote pair was promoted.",
+        "track_b_role": "reference_manual",
+        "track_b_theme": "water"
+      },
+      "quality_score": 0.79,
+      "quality_tier": "local_sample",
+      "source_id": "raw.local.water",
+      "source_kind": "open_data",
+      "source_name": "Local Open Water Sample",
+      "supported_geometry_types": [
+        "polygon"
+      ],
+      "supported_job_types": [
+        "building",
+        "road",
+        "water"
+      ],
+      "supported_types": [
+        "dt.raw.vector"
+      ]
+    },
+    {
+      "disaster_types": [
+        "generic",
+        "flood",
+        "earthquake",
+        "typhoon"
+      ],
+      "freshness_category": "sample_snapshot",
+      "freshness_hours": 240,
+      "freshness_score": 0.59,
+      "metadata": {
+        "acquisition_class": "official_remote_supported",
+        "clip_strategy": "country_tiles_then_clip",
+        "coverage_scope": "country_tiles",
+        "field_mapping_profile": "fields.building.microsoft",
+        "format_hint": "microsoft_global_buildings_tiles",
+        "height_fields": [
+          "height"
+        ],
+        "height_semantics": "estimated_height",
+        "kind": "raw_vector",
+        "license_boundary": "Provider-published building footprints; preserve provider attribution and keep runtime claims bounded to checked evidence.",
+        "materialization_provider": "microsoft_global_buildings",
+        "materialization_scope": "country_tiles_then_clip",
+        "path_hint": "Data/buildings/Microsoft",
+        "provider_family": "microsoft",
+        "runtime_status": "runtime_candidate",
+        "selectable_now": true,
+        "source_contract_ref": "docs/superpowers/specs/2026-05-18-track-b-national-source-matrix.md",
+        "source_form": "vector",
+        "source_matrix_stage": "track_b_b1_locked",
+        "source_role": "reference_candidate",
+        "supports_aoi": true,
+        "supports_tiling": true,
+        "theme": "building",
+        "track_b_notes": "Official remote building reference already used by the shared runtime.",
+        "track_b_role": "reference_primary",
+        "track_b_theme": "building"
+      },
+      "quality_score": 0.88,
+      "quality_tier": "provider_curated",
+      "source_id": "raw.microsoft.building",
+      "source_kind": "open_data",
+      "source_name": "Microsoft Building Footprints",
+      "supported_geometry_types": [
+        "polygon"
+      ],
+      "supported_job_types": [
+        "building"
+      ],
+      "supported_types": [
+        "dt.raw.vector"
+      ]
+    },
+    {
+      "disaster_types": [
+        "generic",
+        "flood",
+        "earthquake",
+        "typhoon"
+      ],
+      "freshness_category": "sample_snapshot",
+      "freshness_hours": 240,
+      "freshness_score": 0.6,
+      "metadata": {
+        "acquisition_class": "manual_preload_required",
+        "clip_strategy": "local_national_clip_then_aoi_clip",
+        "coverage_scope": "national_clip",
+        "field_mapping_profile": "fields.building.openbuildingmap",
+        "format_hint": "shapefile_bundle",
+        "height_fields": [
+          "height"
+        ],
+        "height_semantics": "estimated_height",
+        "kind": "raw_vector",
+        "license_boundary": "Manual reference preload only; preserve source attribution and keep capability claims bounded until runtime evidence exists.",
+        "materialization_scope": "reservation_only",
+        "path_hint": "Benin/final_shp/openbuildingmap/openbuildingmap_benin.shp",
+        "provider_family": "openbuildingmap",
+        "runtime_status": "reservation_only",
+        "selectable_now": false,
+        "source_contract_ref": "docs/superpowers/specs/2026-05-18-track-b-national-source-matrix.md",
+        "source_form": "vector",
+        "source_matrix_stage": "track_b_b1_locked",
+        "source_role": "reference_candidate",
+        "supports_aoi": false,
+        "supports_tiling": true,
+        "theme": "building",
+        "track_b_notes": "Locked into the national matrix as a preload-only reference, not as a promoted runtime source.",
+        "track_b_role": "reference_manual",
+        "track_b_theme": "building"
+      },
+      "quality_score": 0.9,
+      "quality_tier": "provider_curated",
+      "source_id": "raw.openbuildingmap.building",
+      "source_kind": "open_data",
+      "source_name": "OpenBuildingMap Building Footprints",
+      "supported_geometry_types": [
+        "polygon"
+      ],
+      "supported_job_types": [
+        "building"
+      ],
+      "supported_types": [
+        "dt.raw.vector"
+      ]
+    },
+    {
+      "disaster_types": [
+        "generic",
+        "flood",
+        "earthquake",
+        "typhoon"
+      ],
+      "freshness_category": "sample_snapshot",
+      "freshness_hours": 168,
+      "freshness_score": 0.62,
+      "metadata": {
+        "acquisition_class": "official_remote_supported",
+        "clip_strategy": "country_bundle_then_clip",
+        "coverage_scope": "country_bundle",
+        "field_mapping_profile": "fields.building.osm",
+        "format_hint": "geofabrik_shapefile_bundle",
+        "height_semantics": "unknown",
+        "kind": "raw_vector",
+        "license_boundary": "ODbL-derived community vector source; preserve attribution in evidence and outputs.",
+        "materialization_provider": "geofabrik",
+        "materialization_scope": "country_bundle_then_clip",
+        "path_hint": "Data/buildings/OSM",
+        "provider_family": "osm",
+        "runtime_status": "runtime_candidate",
+        "selectable_now": true,
+        "source_contract_ref": "docs/superpowers/specs/2026-05-18-track-b-national-source-matrix.md",
+        "source_form": "vector",
+        "source_matrix_stage": "track_b_b1_locked",
+        "source_role": "osm_primary",
+        "supports_aoi": true,
+        "supports_tiling": true,
+        "theme": "building",
+        "track_b_notes": "Primary automated building source for both direct AOI and large-area tiling runs.",
+        "track_b_role": "primary",
+        "track_b_theme": "building"
+      },
+      "quality_score": 0.84,
+      "quality_tier": "community_curated",
+      "source_id": "raw.osm.building",
+      "source_kind": "open_data",
+      "source_name": "OSM Building Footprints",
+      "supported_geometry_types": [
+        "polygon"
+      ],
+      "supported_job_types": [
+        "building"
+      ],
+      "supported_types": [
+        "dt.raw.vector"
+      ]
+    },
+    {
+      "disaster_types": [
+        "generic",
+        "flood",
+        "earthquake",
+        "typhoon"
+      ],
+      "freshness_category": "sample_snapshot",
+      "freshness_hours": 168,
+      "freshness_score": 0.6,
+      "metadata": {
+        "acquisition_class": "official_remote_supported",
+        "clip_strategy": "country_bundle_then_clip",
+        "field_mapping_profile": "fields.poi.osm",
+        "format_hint": "geofabrik_shapefile_bundle",
+        "kind": "raw_vector",
+        "license_boundary": "ODbL-derived community POI source; preserve attribution in fused outputs and evidence packages.",
+        "materialization_provider": "geofabrik",
+        "materialization_scope": "country_bundle_then_clip",
+        "path_hint": "Data/burundi-260127-free.shp/gis_osm_pois_free_1.shp",
+        "provider_family": "osm",
+        "runtime_status": "runtime_candidate",
+        "selectable_now": true,
+        "source_contract_ref": "docs/superpowers/specs/2026-05-18-track-b-national-source-matrix.md",
+        "source_form": "vector",
+        "source_matrix_stage": "track_b_b1_locked",
+        "source_role": "osm_primary",
+        "supports_aoi": true,
+        "theme": "poi",
+        "track_b_notes": "Current automated POI source.",
+        "track_b_role": "primary",
+        "track_b_theme": "poi"
+      },
+      "quality_score": 0.78,
+      "quality_tier": "community_curated",
+      "source_id": "raw.osm.poi",
+      "source_kind": "open_data",
+      "source_name": "OSM Points Of Interest",
+      "supported_geometry_types": [
+        "point"
+      ],
+      "supported_job_types": [
+        "building",
+        "road",
+        "poi"
+      ],
+      "supported_types": [
+        "dt.raw.vector"
+      ]
+    },
+    {
+      "disaster_types": [
+        "generic",
+        "flood",
+        "earthquake",
+        "typhoon"
+      ],
+      "freshness_category": "sample_snapshot",
+      "freshness_hours": 168,
+      "freshness_score": 0.63,
+      "metadata": {
+        "acquisition_class": "official_remote_supported",
+        "clip_strategy": "country_bundle_then_clip",
+        "field_mapping_profile": "fields.road.osm",
+        "format_hint": "geofabrik_shapefile_bundle",
+        "kind": "raw_vector",
+        "license_boundary": "ODbL-derived community road source; preserve attribution in evidence and operator outputs.",
+        "materialization_provider": "geofabrik",
+        "materialization_scope": "country_bundle_then_clip",
+        "path_hint": "Data/roads/OSM",
+        "provider_family": "osm",
+        "runtime_status": "runtime_candidate",
+        "selectable_now": true,
+        "source_contract_ref": "docs/superpowers/specs/2026-05-18-track-b-national-source-matrix.md",
+        "source_form": "vector",
+        "source_matrix_stage": "track_b_b1_locked",
+        "source_role": "osm_primary",
+        "supports_aoi": true,
+        "theme": "road",
+        "track_b_notes": "Current automated road baseline.",
+        "track_b_role": "primary",
+        "track_b_theme": "road"
+      },
+      "quality_score": 0.82,
+      "quality_tier": "community_curated",
+      "source_id": "raw.osm.road",
+      "source_kind": "open_data",
+      "source_name": "OSM Road Network",
+      "supported_geometry_types": [
+        "line"
+      ],
+      "supported_job_types": [
+        "road"
+      ],
+      "supported_types": [
+        "dt.raw.vector"
+      ]
+    },
+    {
+      "disaster_types": [
+        "generic",
+        "flood",
+        "earthquake",
+        "typhoon"
+      ],
+      "freshness_category": "sample_snapshot",
+      "freshness_hours": 168,
+      "freshness_score": 0.61,
+      "metadata": {
+        "acquisition_class": "official_remote_supported",
+        "clip_strategy": "country_bundle_then_clip",
+        "field_mapping_profile": "fields.water.osm_polygon",
+        "format_hint": "geofabrik_shapefile_bundle",
+        "kind": "raw_vector",
+        "license_boundary": "ODbL-derived community water source; preserve attribution and separate line/polygon semantics in downstream claims.",
+        "materialization_provider": "geofabrik",
+        "materialization_scope": "country_bundle_then_clip",
+        "path_hint": "Data/burundi-260127-free.shp/gis_osm_water_a_free_1.shp",
+        "provider_family": "osm",
+        "runtime_status": "runtime_candidate",
+        "selectable_now": true,
+        "source_contract_ref": "docs/superpowers/specs/2026-05-18-track-b-national-source-matrix.md",
+        "source_form": "vector",
+        "source_matrix_stage": "track_b_b1_locked",
+        "source_role": "environmental_context",
+        "supports_aoi": true,
+        "theme": "water",
+        "track_b_notes": "Current automated water source.",
+        "track_b_role": "primary",
+        "track_b_theme": "water"
+      },
+      "quality_score": 0.8,
+      "quality_tier": "community_curated",
+      "source_id": "raw.osm.water",
+      "source_kind": "open_data",
+      "source_name": "OSM Water Features",
+      "supported_geometry_types": [
+        "polygon",
+        "line"
+      ],
+      "supported_job_types": [
+        "building",
+        "road",
+        "water"
+      ],
+      "supported_types": [
+        "dt.raw.vector"
+      ]
+    },
+    {
+      "disaster_types": [
+        "generic",
+        "flood",
+        "earthquake",
+        "typhoon"
+      ],
+      "freshness_category": "sample_snapshot",
+      "freshness_hours": 168,
+      "freshness_score": 0.61,
+      "metadata": {
+        "acquisition_class": "official_remote_supported",
+        "clip_strategy": "country_bundle_then_clip",
+        "field_mapping_profile": "fields.waterways.osm",
+        "format_hint": "geofabrik_shapefile_bundle",
+        "kind": "raw_vector",
+        "license_boundary": "ODbL-derived community waterways line source; preserve attribution and keep line semantics explicit in downstream claims.",
+        "materialization_provider": "geofabrik",
+        "materialization_scope": "country_bundle_then_clip",
+        "path_hint": "Data/burundi-260127-free.shp/gis_osm_waterways_free_1.shp",
+        "provider_family": "osm",
+        "runtime_status": "runtime_candidate",
+        "selectable_now": true,
+        "source_contract_ref": "docs/superpowers/specs/2026-05-18-track-b-national-source-matrix.md",
+        "source_form": "vector",
+        "source_matrix_stage": "track_b_b1_locked",
+        "source_role": "environmental_context",
+        "supports_aoi": true,
+        "theme": "waterways",
+        "track_b_notes": "OSM waterways line layer materialized from the Geofabrik bundle for national waterways fusion.",
+        "track_b_role": "primary",
+        "track_b_theme": "waterways"
+      },
+      "quality_score": 0.8,
+      "quality_tier": "community_curated",
+      "source_id": "raw.osm.waterways",
+      "source_kind": "open_data",
+      "source_name": "OSM Waterways",
+      "supported_geometry_types": [
+        "line"
+      ],
+      "supported_job_types": [
+        "water"
+      ],
+      "supported_types": [
+        "dt.raw.vector"
+      ]
+    },
+    {
+      "disaster_types": [
+        "generic",
+        "flood",
+        "earthquake",
+        "typhoon"
+      ],
+      "freshness_category": "sample_snapshot",
+      "freshness_hours": 240,
+      "freshness_score": 0.57,
+      "metadata": {
+        "acquisition_class": "manual_preload_required",
+        "clip_strategy": "national_extract_then_aoi_clip",
+        "coverage_scope": "national_clip",
+        "field_mapping_profile": "fields.road.overture_transportation",
+        "format_hint": "parquet_or_geoparquet_extract",
+        "kind": "raw_vector",
+        "license_boundary": "Optional local preload alias for the promoted Overture transportation source; keep attribution and treat it as an operator cache rather than a separate public source claim.",
+        "materialization_scope": "local_only",
+        "path_hint": "Data/roads/Overture",
+        "provider_family": "overture",
+        "runtime_status": "reservation_only",
+        "selectable_now": false,
+        "source_contract_ref": "docs/superpowers/specs/2026-05-18-track-b-national-source-matrix.md",
+        "source_form": "vector",
+        "source_matrix_stage": "track_b_b1_locked",
+        "source_role": "reference_candidate",
+        "supports_aoi": false,
+        "theme": "road",
+        "track_b_notes": "Kept as a manual cache alias for operators who want to avoid repeated Overture downloads during national validation runs.",
+        "track_b_role": "reference_manual",
+        "track_b_theme": "road"
+      },
+      "quality_score": 0.86,
+      "quality_tier": "provider_curated",
+      "source_id": "raw.overture.road",
+      "source_kind": "open_data",
+      "source_name": "Overture Transportation Extract",
+      "supported_geometry_types": [
+        "line"
+      ],
+      "supported_job_types": [
+        "road"
+      ],
+      "supported_types": [
+        "dt.raw.vector"
+      ]
+    },
+    {
+      "disaster_types": [
+        "generic",
+        "flood",
+        "earthquake",
+        "typhoon"
+      ],
+      "freshness_category": "sample_snapshot",
+      "freshness_hours": 168,
+      "freshness_score": 0.62,
+      "metadata": {
+        "acquisition_class": "official_remote_supported",
+        "clip_strategy": "theme_partition_then_clip",
+        "coverage_scope": "latest_release_bbox",
+        "field_mapping_profile": "fields.road.overture_transportation",
+        "format_hint": "geojson_extract",
+        "kind": "raw_vector",
+        "license_boundary": "Bounded Overture transportation materialization path for the promoted B2 road second source; keep attribution and runtime claims tied to checked evidence.",
+        "materialization_provider": "overturemaps",
+        "materialization_scope": "theme_partition_then_clip",
+        "path_hint": "Data/roads/Overture",
+        "provider_family": "overturemaps",
+        "runtime_status": "runtime_candidate",
+        "selectable_now": true,
+        "source_contract_ref": "docs/superpowers/specs/2026-05-18-track-b-national-source-matrix.md",
+        "source_form": "vector",
+        "source_matrix_stage": "track_b_b1_locked",
+        "source_role": "reference_candidate",
+        "supports_aoi": true,
+        "theme": "road",
+        "track_b_notes": "Promoted B2 road second-source id that resolves from local preload first and can fall back to the Overture download path.",
+        "track_b_role": "reference_remote",
+        "track_b_theme": "road"
+      },
+      "quality_score": 0.81,
+      "quality_tier": "provider_curated",
+      "source_id": "raw.overture.transportation",
+      "source_kind": "open_data",
+      "source_name": "Overture Transportation Segments",
+      "supported_geometry_types": [
+        "line"
+      ],
+      "supported_job_types": [
+        "road"
+      ],
+      "supported_types": [
+        "dt.raw.vector"
+      ]
+    },
+    {
+      "disaster_types": [
+        "generic",
+        "flood",
+        "earthquake",
+        "typhoon"
+      ],
+      "freshness_category": "sample_snapshot",
+      "freshness_hours": 720,
+      "freshness_score": 0.4,
+      "metadata": {
+        "acquisition_class": "manual_preload_required",
+        "clip_strategy": "country_shapefile_then_aoi_clip",
+        "field_mapping_profile": "fields.poi.rh",
+        "format_hint": "shapefile_bundle",
+        "kind": "raw_vector",
+        "license_boundary": "Manual local sample source; keep it out of promoted national claims unless explicit evidence is added.",
+        "materialization_scope": "local_only",
+        "path_hint": "Data/POI/**/RH.shp",
+        "provider_family": "rh",
+        "runtime_status": "runtime_candidate",
+        "selectable_now": true,
+        "source_contract_ref": "docs/superpowers/specs/2026-05-18-track-b-national-source-matrix.md",
+        "source_form": "vector",
+        "source_matrix_stage": "track_b_b1_locked",
+        "source_role": "reference_candidate",
+        "supports_aoi": false,
+        "theme": "poi",
+        "track_b_notes": "Optional local supplement that can support field-alignment work.",
+        "track_b_role": "reference_manual_optional",
+        "track_b_theme": "poi"
+      },
+      "quality_score": 0.76,
+      "quality_tier": "local_sample",
+      "source_id": "raw.rh.poi",
+      "source_kind": "open_data",
+      "source_name": "RH Points Of Interest",
+      "supported_geometry_types": [
+        "point"
+      ],
+      "supported_job_types": [
+        "building",
+        "road",
+        "poi"
+      ],
+      "supported_types": [
+        "dt.raw.vector"
+      ]
+    },
+    {
+      "disaster_types": [
+        "generic",
+        "flood",
+        "earthquake",
+        "typhoon"
+      ],
+      "freshness_category": "request_bound",
+      "freshness_hours": 0,
+      "freshness_score": 1.0,
+      "metadata": {
+        "bundle_strategy": "operator_supplied",
+        "kind": "local",
+        "provider_family": "manual_upload",
+        "reserved_transform_inputs": [
+          "dt.trajectory.raw",
+          "dt.road.candidate"
+        ],
+        "runtime_status": "runtime_candidate",
+        "selectable_now": true,
+        "source_form": "mixed"
+      },
+      "quality_score": 1.0,
+      "quality_tier": "operator_provided",
+      "source_id": "upload.bundle",
+      "source_kind": "local_upload",
+      "source_name": "Uploaded Bundle",
+      "supported_geometry_types": [
+        "mixed",
+        "polygon",
+        "line",
+        "point"
+      ],
+      "supported_job_types": [
+        "building",
+        "road",
+        "water",
+        "poi"
+      ],
+      "supported_types": [
+        "dt.building.bundle",
+        "dt.building.source_set",
+        "dt.building.normalized_set",
+        "dt.building.presence_validated_set",
+        "dt.building.fused_raw",
+        "dt.building.conflict_optimized",
+        "dt.raster.building_presence",
+        "dt.raster.building_height",
+        "dt.road.network",
+        "dt.road.bundle",
+        "dt.waterways.bundle",
+        "dt.trajectory.raw",
+        "dt.road.candidate",
+        "dt.water.bundle",
+        "dt.poi.bundle",
+        "dt.raw.vector"
+      ]
+    }
+  ],
+  "data_types": [
+    {
+      "description": "Prepared building fusion input bundle.",
+      "geometry_type": "polygon",
+      "theme": "building",
+      "type_id": "dt.building.bundle"
+    },
+    {
+      "description": "Fused buildings after spatial conflict graph optimization.",
+      "geometry_type": "polygon",
+      "theme": "building",
+      "type_id": "dt.building.conflict_optimized"
+    },
+    {
+      "description": "Fused building output.",
+      "geometry_type": "polygon",
+      "theme": "building",
+      "type_id": "dt.building.fused"
+    },
+    {
+      "description": "Raw cascaded building fusion rows before conflict optimization.",
+      "geometry_type": "polygon",
+      "theme": "building",
+      "type_id": "dt.building.fused_raw"
+    },
+    {
+      "description": "Fused buildings enriched with height raster values.",
+      "geometry_type": "polygon",
+      "theme": "building",
+      "type_id": "dt.building.height_enriched"
+    },
+    {
+      "description": "FusionCode V8 candidate edge graph for a pair of building sources.",
+      "geometry_type": "graph",
+      "theme": "building",
+      "type_id": "dt.building.match_candidate_graph"
+    },
+    {
+      "description": "Accepted V8 building match components and relationship groups.",
+      "geometry_type": "graph",
+      "theme": "building",
+      "type_id": "dt.building.match_components"
+    },
+    {
+      "description": "Normalized named building sources after CRS, geometry and source-label preparation.",
+      "geometry_type": "polygon",
+      "theme": "building",
+      "type_id": "dt.building.normalized_set"
+    },
+    {
+      "description": "Building sources enriched with presence-raster support and existence status.",
+      "geometry_type": "polygon",
+      "theme": "building",
+      "type_id": "dt.building.presence_validated_set"
+    },
+    {
+      "description": "Quality and conflict metrics for the building fusion run.",
+      "geometry_type": "none",
+      "theme": "building",
+      "type_id": "dt.building.quality_report"
+    },
+    {
+      "description": "Fused buildings after road-aware topology adjustment.",
+      "geometry_type": "polygon",
+      "theme": "building",
+      "type_id": "dt.building.road_topology_adjusted"
+    },
+    {
+      "description": "Reserved multi-source building input set for future fusion algorithms.",
+      "geometry_type": "mixed",
+      "theme": "building",
+      "type_id": "dt.building.source_set"
+    },
+    {
+      "description": "Reserved deterministic AOI tile partition manifest.",
+      "geometry_type": "none",
+      "theme": "runtime",
+      "type_id": "dt.partition.tile_manifest"
+    },
+    {
+      "description": "Prepared point-of-interest fusion input bundle.",
+      "geometry_type": "point",
+      "theme": "poi",
+      "type_id": "dt.poi.bundle"
+    },
+    {
+      "description": "Fused point-of-interest output.",
+      "geometry_type": "point",
+      "theme": "poi",
+      "type_id": "dt.poi.fused"
+    },
+    {
+      "description": "Building height raster input.",
+      "geometry_type": "raster",
+      "theme": "building",
+      "type_id": "dt.raster.building_height"
+    },
+    {
+      "description": "Reserved building-presence raster input.",
+      "geometry_type": "raster",
+      "theme": "building",
+      "type_id": "dt.raster.building_presence"
+    },
+    {
+      "description": "Uploaded raw vector bundle.",
+      "geometry_type": "mixed",
+      "theme": "generic",
+      "type_id": "dt.raw.vector"
+    },
+    {
+      "description": "Prepared road fusion input bundle.",
+      "geometry_type": "line",
+      "theme": "transportation",
+      "type_id": "dt.road.bundle"
+    },
+    {
+      "description": "Reserved intermediate road candidates derived from trajectory pretransform.",
+      "geometry_type": "line",
+      "theme": "transportation",
+      "type_id": "dt.road.candidate"
+    },
+    {
+      "description": "Fused road output.",
+      "geometry_type": "line",
+      "theme": "transportation",
+      "type_id": "dt.road.fused"
+    },
+    {
+      "description": "Road network used as contextual constraint for building fusion.",
+      "geometry_type": "line",
+      "theme": "transportation",
+      "type_id": "dt.road.network"
+    },
+    {
+      "description": "Reserved pretransform trajectory observations for future road candidate generation.",
+      "geometry_type": "line",
+      "theme": "transportation",
+      "type_id": "dt.trajectory.raw"
+    },
+    {
+      "description": "Prepared water polygon fusion input bundle.",
+      "geometry_type": "polygon",
+      "theme": "water",
+      "type_id": "dt.water.bundle"
+    },
+    {
+      "description": "Fused water polygon output.",
+      "geometry_type": "polygon",
+      "theme": "water",
+      "type_id": "dt.water.fused"
+    },
+    {
+      "description": "Prepared waterways line fusion input bundle.",
+      "geometry_type": "line",
+      "theme": "waterways",
+      "type_id": "dt.waterways.bundle"
+    },
+    {
+      "description": "Fused waterways line output.",
+      "geometry_type": "line",
+      "theme": "waterways",
+      "type_id": "dt.waterways.fused"
+    }
+  ],
+  "metadata": {
+    "content_hash": "sha256:b64692206ca461ef2ec7880fbb4a94a9767855d48a01835ba65d709fd3a90d9d",
+    "generated_at": "2026-06-04T14:45:02.363256+00:00",
+    "generated_from": "kg.seed",
+    "schema_version": "1.0.0"
+  },
+  "output_requirements": [
+    {
+      "job_type": "building",
+      "metadata": {
+        "claim_state": "runtime_supported",
+        "output_requirement_scope": "shared_runtime",
+        "runtime_role": "output_requirement",
+        "runtime_status": "runtime_candidate"
+      },
+      "optional_fields": [
+        "osm_id",
+        "name",
+        "type",
+        "longitude",
+        "latitude",
+        "area_in_me"
+      ],
+      "output_type": "dt.building.fused",
+      "preferred_fields": [
+        "confidence",
+        "timestamp"
+      ],
+      "required_fields": [
+        "geometry"
+      ],
+      "requirement_id": "or.building.fused.v1",
+      "schema_policy_id": "osp.building.fused.v1"
+    },
+    {
+      "job_type": "poi",
+      "metadata": {
+        "claim_state": "bounded_supported",
+        "output_requirement_scope": "shared_runtime",
+        "runtime_role": "output_requirement",
+        "runtime_status": "runtime_candidate"
+      },
+      "optional_fields": [
+        "POI_ID",
+        "OSM_ID",
+        "REF_ID",
+        "MATCH_REF",
+        "DIST_M",
+        "SRC",
+        "NAME",
+        "CATEGORY"
+      ],
+      "output_type": "dt.poi.fused",
+      "preferred_fields": [
+        "timestamp"
+      ],
+      "required_fields": [
+        "geometry"
+      ],
+      "requirement_id": "or.poi.fused.v1",
+      "schema_policy_id": "osp.poi.fused.v1"
+    },
+    {
+      "job_type": "road",
+      "metadata": {
+        "claim_state": "runtime_supported",
+        "output_requirement_scope": "shared_runtime",
+        "runtime_role": "output_requirement",
+        "runtime_status": "runtime_candidate"
+      },
+      "optional_fields": [
+        "fusion_source",
+        "match_role",
+        "matched_supplement_segment_id",
+        "supplement_segment_id",
+        "road_class",
+        "source_layer",
+        "residual_from_matched",
+        "residual_part",
+        "osm_id",
+        "FID_1",
+        "fclass"
+      ],
+      "output_type": "dt.road.fused",
+      "preferred_fields": [
+        "confidence",
+        "timestamp"
+      ],
+      "required_fields": [
+        "geometry"
+      ],
+      "requirement_id": "or.road.fused.v1",
+      "schema_policy_id": "osp.road.fused.v1"
+    },
+    {
+      "job_type": "water",
+      "metadata": {
+        "claim_state": "runtime_supported",
+        "output_requirement_scope": "shared_runtime",
+        "runtime_role": "output_requirement",
+        "runtime_status": "runtime_candidate"
+      },
+      "optional_fields": [
+        "OSM_ID",
+        "REF_ID",
+        "MATCH_REF",
+        "OV_RATIO",
+        "MATCH_CNT",
+        "SRC",
+        "NAME",
+        "FCLASS",
+        "WATER_TY"
+      ],
+      "output_type": "dt.water.fused",
+      "preferred_fields": [
+        "timestamp"
+      ],
+      "required_fields": [
+        "geometry"
+      ],
+      "requirement_id": "or.water.fused.v1",
+      "schema_policy_id": "osp.water.fused.v1"
+    },
+    {
+      "job_type": "water",
+      "metadata": {
+        "claim_state": "runtime_supported",
+        "output_requirement_scope": "shared_runtime",
+        "runtime_role": "output_requirement",
+        "runtime_status": "runtime_candidate",
+        "water_semantics": "waterways_line"
+      },
+      "optional_fields": [
+        "matched_supplement_high",
+        "matched_supplement_loose",
+        "supplement_segment_id",
+        "matched_base_segment_id",
+        "supplement_source",
+        "residual_from_matched",
+        "residual_part",
+        "residual_parent_FID_1"
+      ],
+      "output_type": "dt.waterways.fused",
+      "preferred_fields": [
+        "timestamp",
+        "name",
+        "name_en"
+      ],
+      "required_fields": [
+        "geometry",
+        "fusion_source",
+        "match_role",
+        "waterway_class",
+        "source_layer"
+      ],
+      "requirement_id": "or.waterways.fused.v1",
+      "schema_policy_id": "osp.waterways.fused.v1"
+    }
+  ],
+  "output_schema_policies": [
+    {
+      "compatibility_basis": "field_names",
+      "job_type": "building",
+      "metadata": {
+        "claim_state": "runtime_supported",
+        "notes": "Expose stable fused building columns without changing adapter behavior.",
+        "policy_scope": "current_runtime",
+        "runtime_role": "output_schema_policy",
+        "runtime_status": "runtime_candidate"
+      },
+      "optional_fields": [
+        "osm_id",
+        "fclass",
+        "name",
+        "type",
+        "longitude",
+        "latitude",
+        "area_in_me",
+        "confidence"
+      ],
+      "output_type": "dt.building.fused",
+      "policy_id": "osp.building.fused.v1",
+      "rename_hints": {
+        "geometry_x": "geometry",
+        "geometry_y": "geometry"
+      },
+      "required_fields": [
+        "geometry"
+      ],
+      "retention_mode": "preserve_listed"
+    },
+    {
+      "compatibility_basis": "field_names",
+      "job_type": "poi",
+      "metadata": {
+        "claim_state": "bounded_supported",
+        "enforcement": "metadata_only",
+        "notes": "POI output schema documents current shared bundle runtime columns for uploaded and task-driven auto runs without enforcing adapter output.",
+        "policy_scope": "current_runtime",
+        "runtime_role": "output_schema_policy",
+        "runtime_status": "runtime_candidate"
+      },
+      "optional_fields": [
+        "POI_ID",
+        "OSM_ID",
+        "REF_ID",
+        "MATCH_REF",
+        "DIST_M",
+        "SRC",
+        "NAME",
+        "CATEGORY"
+      ],
+      "output_type": "dt.poi.fused",
+      "policy_id": "osp.poi.fused.v1",
+      "rename_hints": {},
+      "required_fields": [
+        "geometry"
+      ],
+      "retention_mode": "preserve_listed"
+    },
+    {
+      "compatibility_basis": "field_names",
+      "job_type": "road",
+      "metadata": {
+        "claim_state": "runtime_supported",
+        "notes": "Road output schema documents the canonical V7 conflation fields exposed by the active runtime path.",
+        "policy_scope": "current_runtime",
+        "runtime_role": "output_schema_policy",
+        "runtime_status": "runtime_candidate"
+      },
+      "optional_fields": [
+        "fusion_source",
+        "match_role",
+        "matched_supplement_segment_id",
+        "supplement_segment_id",
+        "road_class",
+        "source_layer",
+        "residual_from_matched",
+        "residual_part",
+        "osm_id",
+        "FID_1",
+        "fclass"
+      ],
+      "output_type": "dt.road.fused",
+      "policy_id": "osp.road.fused.v1",
+      "rename_hints": {},
+      "required_fields": [
+        "geometry"
+      ],
+      "retention_mode": "preserve_listed"
+    },
+    {
+      "compatibility_basis": "field_names",
+      "job_type": "water",
+      "metadata": {
+        "claim_state": "runtime_supported",
+        "enforcement": "metadata_only",
+        "notes": "Water output schema documents current shared bundle runtime columns for uploaded and task-driven auto runs without enforcing adapter output.",
+        "policy_scope": "current_runtime",
+        "runtime_role": "output_schema_policy",
+        "runtime_status": "runtime_candidate"
+      },
+      "optional_fields": [
+        "OSM_ID",
+        "REF_ID",
+        "MATCH_REF",
+        "OV_RATIO",
+        "MATCH_CNT",
+        "SRC",
+        "NAME",
+        "FCLASS",
+        "WATER_TY"
+      ],
+      "output_type": "dt.water.fused",
+      "policy_id": "osp.water.fused.v1",
+      "rename_hints": {},
+      "required_fields": [
+        "geometry"
+      ],
+      "retention_mode": "preserve_listed"
+    },
+    {
+      "compatibility_basis": "field_names",
+      "job_type": "water",
+      "metadata": {
+        "claim_state": "runtime_supported",
+        "enforcement": "metadata_only",
+        "notes": "Waterways output schema documents the canonical V7 line conflation fields and keeps line semantics explicit.",
+        "policy_scope": "current_runtime",
+        "runtime_role": "output_schema_policy",
+        "runtime_status": "runtime_candidate",
+        "water_semantics": "waterways_line"
+      },
+      "optional_fields": [
+        "matched_supplement_high",
+        "matched_supplement_loose",
+        "supplement_segment_id",
+        "matched_base_segment_id",
+        "name",
+        "name_en",
+        "name_ur",
+        "width",
+        "depth",
+        "covered",
+        "layer",
+        "blockage",
+        "tunnel",
+        "natural",
+        "water",
+        "supplement_source",
+        "residual_from_matched",
+        "residual_part",
+        "residual_parent_FID_1"
+      ],
+      "output_type": "dt.waterways.fused",
+      "policy_id": "osp.waterways.fused.v1",
+      "rename_hints": {},
+      "required_fields": [
+        "geometry",
+        "fusion_source",
+        "match_role",
+        "waterway_class",
+        "source_layer"
+      ],
+      "retention_mode": "preserve_listed"
+    }
+  ],
+  "parameter_specs": [
+    {
+      "algo_id": "algo.enrich.building.height_from_raster.v1",
+      "choices": null,
+      "default": -1,
+      "description": "FusionCode parameter `n_jobs` for algo.enrich.building.height_from_raster.v1.",
+      "key": "n_jobs",
+      "label": "N Jobs",
+      "max_value": null,
+      "min_value": null,
+      "optimization_tags": [
+        "performance"
+      ],
+      "order": 10,
+      "param_type": "int",
+      "required": false,
+      "spec_id": "ps.algo.enrich.building.height_from_raster.v1.n_jobs",
+      "tunable": true,
+      "unit": null
+    },
+    {
+      "algo_id": "algo.enrich.building.height_from_raster.v1",
+      "choices": null,
+      "default": "H_Raster",
+      "description": "FusionCode parameter `height_output_field` for algo.enrich.building.height_from_raster.v1.",
+      "key": "height_output_field",
+      "label": "Height Output Field",
+      "max_value": null,
+      "min_value": null,
+      "optimization_tags": [
+        "schema"
+      ],
+      "order": 20,
+      "param_type": "string",
+      "required": false,
+      "spec_id": "ps.algo.enrich.building.height_from_raster.v1.height_output_field",
+      "tunable": true,
+      "unit": null
+    },
+    {
+      "algo_id": "algo.enrich.building.height_from_raster.v1",
+      "choices": null,
+      "default": true,
+      "description": "FusionCode parameter `positive_only` for algo.enrich.building.height_from_raster.v1.",
+      "key": "positive_only",
+      "label": "Positive Only",
+      "max_value": null,
+      "min_value": null,
+      "optimization_tags": [
+        "quality"
+      ],
+      "order": 30,
+      "param_type": "bool",
+      "required": false,
+      "spec_id": "ps.algo.enrich.building.height_from_raster.v1.positive_only",
+      "tunable": true,
+      "unit": null
+    },
+    {
+      "algo_id": "algo.fusion.building.safe",
+      "choices": null,
+      "default": 0.4,
+      "description": "Conservative match threshold for safe mode.",
+      "key": "match_similarity_threshold",
+      "label": "Match Similarity Threshold",
+      "max_value": 1.0,
+      "min_value": 0.0,
+      "optimization_tags": [
+        "precision",
+        "stability",
+        "matching"
+      ],
+      "order": 10,
+      "param_type": "float",
+      "required": false,
+      "spec_id": "ps.algo.fusion.building.safe.match_similarity_threshold",
+      "tunable": true,
+      "unit": "ratio"
+    },
+    {
+      "algo_id": "algo.fusion.building.safe",
+      "choices": null,
+      "default": 0.45,
+      "description": "Conservative area similarity threshold for safe mode.",
+      "key": "one_to_one_min_area_similarity",
+      "label": "One-to-One Min Area Similarity",
+      "max_value": 1.0,
+      "min_value": 0.0,
+      "optimization_tags": [
+        "precision",
+        "stability",
+        "shape_consistency"
+      ],
+      "order": 20,
+      "param_type": "float",
+      "required": false,
+      "spec_id": "ps.algo.fusion.building.safe.one_to_one_min_area_similarity",
+      "tunable": true,
+      "unit": "ratio"
+    },
+    {
+      "algo_id": "algo.fusion.building.safe",
+      "choices": null,
+      "default": 0.45,
+      "description": "Conservative shape similarity threshold for safe mode.",
+      "key": "one_to_one_min_shape_similarity",
+      "label": "One-to-One Min Shape Similarity",
+      "max_value": 1.0,
+      "min_value": 0.0,
+      "optimization_tags": [
+        "precision",
+        "stability",
+        "shape_consistency"
+      ],
+      "order": 30,
+      "param_type": "float",
+      "required": false,
+      "spec_id": "ps.algo.fusion.building.safe.one_to_one_min_shape_similarity",
+      "tunable": true,
+      "unit": "ratio"
+    },
+    {
+      "algo_id": "algo.fusion.building.safe",
+      "choices": null,
+      "default": 0.4,
+      "description": "Conservative one-to-one overlap threshold for safe mode.",
+      "key": "one_to_one_min_overlap_similarity",
+      "label": "One-to-One Min Overlap Similarity",
+      "max_value": 1.0,
+      "min_value": 0.0,
+      "optimization_tags": [
+        "precision",
+        "stability",
+        "overlap_consistency"
+      ],
+      "order": 40,
+      "param_type": "float",
+      "required": false,
+      "spec_id": "ps.algo.fusion.building.safe.one_to_one_min_overlap_similarity",
+      "tunable": true,
+      "unit": "ratio"
+    },
+    {
+      "algo_id": "algo.fusion.building.v1",
+      "choices": null,
+      "default": 0.3,
+      "description": "Pairs with similarity > this value are treated as matched (legacy label=1).",
+      "key": "match_similarity_threshold",
+      "label": "Match Similarity Threshold",
+      "max_value": 1.0,
+      "min_value": 0.0,
+      "optimization_tags": [
+        "precision",
+        "recall",
+        "matching"
+      ],
+      "order": 10,
+      "param_type": "float",
+      "required": false,
+      "spec_id": "ps.algo.fusion.building.v1.match_similarity_threshold",
+      "tunable": true,
+      "unit": "ratio"
+    },
+    {
+      "algo_id": "algo.fusion.building.v1",
+      "choices": null,
+      "default": 0.3,
+      "description": "For 1:1 matches, sim_area must be >= this value to fuse as one-to-one.",
+      "key": "one_to_one_min_area_similarity",
+      "label": "One-to-One Min Area Similarity",
+      "max_value": 1.0,
+      "min_value": 0.0,
+      "optimization_tags": [
+        "precision",
+        "stability",
+        "shape_consistency"
+      ],
+      "order": 20,
+      "param_type": "float",
+      "required": false,
+      "spec_id": "ps.algo.fusion.building.v1.one_to_one_min_area_similarity",
+      "tunable": true,
+      "unit": "ratio"
+    },
+    {
+      "algo_id": "algo.fusion.building.v1",
+      "choices": null,
+      "default": 0.3,
+      "description": "For 1:1 matches, sim_shape must be >= this value to fuse as one-to-one.",
+      "key": "one_to_one_min_shape_similarity",
+      "label": "One-to-One Min Shape Similarity",
+      "max_value": 1.0,
+      "min_value": 0.0,
+      "optimization_tags": [
+        "precision",
+        "stability",
+        "shape_consistency"
+      ],
+      "order": 30,
+      "param_type": "float",
+      "required": false,
+      "spec_id": "ps.algo.fusion.building.v1.one_to_one_min_shape_similarity",
+      "tunable": true,
+      "unit": "ratio"
+    },
+    {
+      "algo_id": "algo.fusion.building.v1",
+      "choices": null,
+      "default": 0.3,
+      "description": "For 1:1 matches, sim_overlap must be >= this value to fuse as one-to-one.",
+      "key": "one_to_one_min_overlap_similarity",
+      "label": "One-to-One Min Overlap Similarity",
+      "max_value": 1.0,
+      "min_value": 0.0,
+      "optimization_tags": [
+        "precision",
+        "recall",
+        "overlap_consistency"
+      ],
+      "order": 40,
+      "param_type": "float",
+      "required": false,
+      "spec_id": "ps.algo.fusion.building.v1.one_to_one_min_overlap_similarity",
+      "tunable": true,
+      "unit": "ratio"
+    },
+    {
+      "algo_id": "algo.fusion.poi.geohash_neighbor_match.v1",
+      "choices": null,
+      "default": 1,
+      "description": "FusionCode parameter `neighbor_rings` for algo.fusion.poi.geohash_neighbor_match.v1.",
+      "key": "neighbor_rings",
+      "label": "Neighbor Rings",
+      "max_value": null,
+      "min_value": 0.0,
+      "optimization_tags": [
+        "geohash"
+      ],
+      "order": 10,
+      "param_type": "int",
+      "required": false,
+      "spec_id": "ps.algo.fusion.poi.geohash_neighbor_match.v1.neighbor_rings",
+      "tunable": true,
+      "unit": null
+    },
+    {
+      "algo_id": "algo.fusion.poi.geohash_neighbor_match.v1",
+      "choices": null,
+      "default": 0.75,
+      "description": "FusionCode parameter `name_similarity_threshold` for algo.fusion.poi.geohash_neighbor_match.v1.",
+      "key": "name_similarity_threshold",
+      "label": "Name Similarity Threshold",
+      "max_value": 1.0,
+      "min_value": 0.0,
+      "optimization_tags": [
+        "name"
+      ],
+      "order": 20,
+      "param_type": "float",
+      "required": false,
+      "spec_id": "ps.algo.fusion.poi.geohash_neighbor_match.v1.name_similarity_threshold",
+      "tunable": true,
+      "unit": "ratio"
+    },
+    {
+      "algo_id": "algo.fusion.road.conflation.v7",
+      "choices": null,
+      "default": "balanced",
+      "description": "FusionCode parameter `profile` for algo.fusion.road.conflation.v7.",
+      "key": "profile",
+      "label": "Profile",
+      "max_value": null,
+      "min_value": null,
+      "optimization_tags": [
+        "profile"
+      ],
+      "order": 5,
+      "param_type": "string",
+      "required": false,
+      "spec_id": "ps.algo.fusion.road.conflation.v7.profile",
+      "tunable": true,
+      "unit": null
+    },
+    {
+      "algo_id": "algo.fusion.road.conflation.v7",
+      "choices": null,
+      "default": "EPSG:32643",
+      "description": "FusionCode parameter `target_crs` for algo.fusion.road.conflation.v7.",
+      "key": "target_crs",
+      "label": "Target Crs",
+      "max_value": null,
+      "min_value": null,
+      "optimization_tags": [
+        "crs"
+      ],
+      "order": 10,
+      "param_type": "string",
+      "required": false,
+      "spec_id": "ps.algo.fusion.road.conflation.v7.target_crs",
+      "tunable": true,
+      "unit": null
+    },
+    {
+      "algo_id": "algo.fusion.road.conflation.v7",
+      "choices": null,
+      "default": 135,
+      "description": "FusionCode parameter `angle_threshold` for algo.fusion.road.conflation.v7.",
+      "key": "angle_threshold",
+      "label": "Angle Threshold",
+      "max_value": 180.0,
+      "min_value": 0.0,
+      "optimization_tags": [
+        "line"
+      ],
+      "order": 20,
+      "param_type": "int",
+      "required": false,
+      "spec_id": "ps.algo.fusion.road.conflation.v7.angle_threshold",
+      "tunable": true,
+      "unit": "degree"
+    },
+    {
+      "algo_id": "algo.fusion.road.conflation.v7",
+      "choices": null,
+      "default": 800.0,
+      "description": "FusionCode parameter `max_segment_length` for algo.fusion.road.conflation.v7.",
+      "key": "max_segment_length",
+      "label": "Max Segment Length",
+      "max_value": null,
+      "min_value": 0.0,
+      "optimization_tags": [
+        "segmentation"
+      ],
+      "order": 30,
+      "param_type": "float",
+      "required": false,
+      "spec_id": "ps.algo.fusion.road.conflation.v7.max_segment_length",
+      "tunable": true,
+      "unit": "meter"
+    },
+    {
+      "algo_id": "algo.fusion.road.conflation.v7",
+      "choices": null,
+      "default": 20.0,
+      "description": "FusionCode parameter `match_buffer_dist` for algo.fusion.road.conflation.v7.",
+      "key": "match_buffer_dist",
+      "label": "Match Buffer Dist",
+      "max_value": null,
+      "min_value": 0.0,
+      "optimization_tags": [
+        "matching"
+      ],
+      "order": 40,
+      "param_type": "float",
+      "required": false,
+      "spec_id": "ps.algo.fusion.road.conflation.v7.match_buffer_dist",
+      "tunable": true,
+      "unit": "meter"
+    },
+    {
+      "algo_id": "algo.fusion.road.conflation.v7",
+      "choices": null,
+      "default": 15.0,
+      "description": "FusionCode parameter `max_hausdorff` for algo.fusion.road.conflation.v7.",
+      "key": "max_hausdorff",
+      "label": "Max Hausdorff",
+      "max_value": null,
+      "min_value": 0.0,
+      "optimization_tags": [
+        "matching"
+      ],
+      "order": 50,
+      "param_type": "float",
+      "required": false,
+      "spec_id": "ps.algo.fusion.road.conflation.v7.max_hausdorff",
+      "tunable": true,
+      "unit": "meter"
+    },
+    {
+      "algo_id": "algo.fusion.road.conflation.v7",
+      "choices": null,
+      "default": 45.0,
+      "description": "FusionCode parameter `loose_angle_threshold` for algo.fusion.road.conflation.v7.",
+      "key": "loose_angle_threshold",
+      "label": "Loose Angle Threshold",
+      "max_value": 180.0,
+      "min_value": 0.0,
+      "optimization_tags": [
+        "matching"
+      ],
+      "order": 60,
+      "param_type": "float",
+      "required": false,
+      "spec_id": "ps.algo.fusion.road.conflation.v7.loose_angle_threshold",
+      "tunable": true,
+      "unit": "degree"
+    },
+    {
+      "algo_id": "algo.fusion.road.conflation.v7",
+      "choices": null,
+      "default": 0.05,
+      "description": "FusionCode parameter `min_len_similarity` for algo.fusion.road.conflation.v7.",
+      "key": "min_len_similarity",
+      "label": "Min Len Similarity",
+      "max_value": 1.0,
+      "min_value": 0.0,
+      "optimization_tags": [
+        "matching"
+      ],
+      "order": 70,
+      "param_type": "float",
+      "required": false,
+      "spec_id": "ps.algo.fusion.road.conflation.v7.min_len_similarity",
+      "tunable": true,
+      "unit": "ratio"
+    },
+    {
+      "algo_id": "algo.fusion.road.conflation.v7",
+      "choices": null,
+      "default": 0.8,
+      "description": "FusionCode parameter `min_supplement_coverage_for_matched` for algo.fusion.road.conflation.v7.",
+      "key": "min_supplement_coverage_for_matched",
+      "label": "Min Supplement Coverage For Matched",
+      "max_value": 1.0,
+      "min_value": 0.0,
+      "optimization_tags": [
+        "matching"
+      ],
+      "order": 80,
+      "param_type": "float",
+      "required": false,
+      "spec_id": "ps.algo.fusion.road.conflation.v7.min_supplement_coverage_for_matched",
+      "tunable": true,
+      "unit": "ratio"
+    },
+    {
+      "algo_id": "algo.fusion.road.conflation.v7",
+      "choices": null,
+      "default": true,
+      "description": "FusionCode parameter `preserve_matched_supplement_residuals` for algo.fusion.road.conflation.v7.",
+      "key": "preserve_matched_supplement_residuals",
+      "label": "Preserve Matched Supplement Residuals",
+      "max_value": null,
+      "min_value": null,
+      "optimization_tags": [
+        "residual"
+      ],
+      "order": 90,
+      "param_type": "bool",
+      "required": false,
+      "spec_id": "ps.algo.fusion.road.conflation.v7.preserve_matched_supplement_residuals",
+      "tunable": true,
+      "unit": null
+    },
+    {
+      "algo_id": "algo.fusion.road.conflation.v7",
+      "choices": null,
+      "default": 10.0,
+      "description": "FusionCode parameter `min_residual_length` for algo.fusion.road.conflation.v7.",
+      "key": "min_residual_length",
+      "label": "Min Residual Length",
+      "max_value": null,
+      "min_value": 0.0,
+      "optimization_tags": [
+        "residual"
+      ],
+      "order": 100,
+      "param_type": "float",
+      "required": false,
+      "spec_id": "ps.algo.fusion.road.conflation.v7.min_residual_length",
+      "tunable": true,
+      "unit": "meter"
+    },
+    {
+      "algo_id": "algo.fusion.road.conflation.v7",
+      "choices": null,
+      "default": 10.0,
+      "description": "FusionCode parameter `duplicate_buffer_dist` for algo.fusion.road.conflation.v7.",
+      "key": "duplicate_buffer_dist",
+      "label": "Duplicate Buffer Dist",
+      "max_value": null,
+      "min_value": 0.0,
+      "optimization_tags": [
+        "dedupe"
+      ],
+      "order": 110,
+      "param_type": "float",
+      "required": false,
+      "spec_id": "ps.algo.fusion.road.conflation.v7.duplicate_buffer_dist",
+      "tunable": true,
+      "unit": "meter"
+    },
+    {
+      "algo_id": "algo.fusion.road.conflation.v7",
+      "choices": null,
+      "default": 0.92,
+      "description": "FusionCode parameter `duplicate_coverage_threshold` for algo.fusion.road.conflation.v7.",
+      "key": "duplicate_coverage_threshold",
+      "label": "Duplicate Coverage Threshold",
+      "max_value": 1.0,
+      "min_value": 0.0,
+      "optimization_tags": [
+        "dedupe"
+      ],
+      "order": 120,
+      "param_type": "float",
+      "required": false,
+      "spec_id": "ps.algo.fusion.road.conflation.v7.duplicate_coverage_threshold",
+      "tunable": true,
+      "unit": "ratio"
+    },
+    {
+      "algo_id": "algo.fusion.road.conflation.v7",
+      "choices": null,
+      "default": 0.85,
+      "description": "FusionCode parameter `near_base_return_coverage_threshold` for algo.fusion.road.conflation.v7.",
+      "key": "near_base_return_coverage_threshold",
+      "label": "Near Base Return Coverage Threshold",
+      "max_value": 1.0,
+      "min_value": 0.0,
+      "optimization_tags": [
+        "pruning"
+      ],
+      "order": 130,
+      "param_type": "float",
+      "required": false,
+      "spec_id": "ps.algo.fusion.road.conflation.v7.near_base_return_coverage_threshold",
+      "tunable": true,
+      "unit": "ratio"
+    },
+    {
+      "algo_id": "algo.fusion.road.conflation.v7",
+      "choices": null,
+      "default": 0.82,
+      "description": "FusionCode parameter `crossing_coverage_threshold` for algo.fusion.road.conflation.v7.",
+      "key": "crossing_coverage_threshold",
+      "label": "Crossing Coverage Threshold",
+      "max_value": 1.0,
+      "min_value": 0.0,
+      "optimization_tags": [
+        "pruning"
+      ],
+      "order": 140,
+      "param_type": "float",
+      "required": false,
+      "spec_id": "ps.algo.fusion.road.conflation.v7.crossing_coverage_threshold",
+      "tunable": true,
+      "unit": "ratio"
+    },
+    {
+      "algo_id": "algo.fusion.road.conflation.v7",
+      "choices": null,
+      "default": "quality",
+      "description": "FusionCode parameter `cleanup_mode` for algo.fusion.road.conflation.v7.",
+      "key": "cleanup_mode",
+      "label": "Cleanup Mode",
+      "max_value": null,
+      "min_value": null,
+      "optimization_tags": [
+        "cleanup"
+      ],
+      "order": 150,
+      "param_type": "string",
+      "required": false,
+      "spec_id": "ps.algo.fusion.road.conflation.v7.cleanup_mode",
+      "tunable": true,
+      "unit": null
+    },
+    {
+      "algo_id": "algo.fusion.road.conflation.v7",
+      "choices": null,
+      "default": null,
+      "description": "FusionCode parameter `output_crs` for algo.fusion.road.conflation.v7.",
+      "key": "output_crs",
+      "label": "Output Crs",
+      "max_value": null,
+      "min_value": null,
+      "optimization_tags": [
+        "crs"
+      ],
+      "order": 160,
+      "param_type": "string",
+      "required": false,
+      "spec_id": "ps.algo.fusion.road.conflation.v7.output_crs",
+      "tunable": true,
+      "unit": null
+    },
+    {
+      "algo_id": "algo.fusion.road.safe",
+      "choices": null,
+      "default": 120,
+      "description": "Conservative split angle threshold for safe mode.",
+      "key": "angle_threshold_deg",
+      "label": "Split Angle Threshold",
+      "max_value": 180.0,
+      "min_value": 0.0,
+      "optimization_tags": [
+        "stability",
+        "segmentation"
+      ],
+      "order": 10,
+      "param_type": "int",
+      "required": false,
+      "spec_id": "ps.algo.fusion.road.safe.angle_threshold_deg",
+      "tunable": true,
+      "unit": "deg"
+    },
+    {
+      "algo_id": "algo.fusion.road.safe",
+      "choices": null,
+      "default": 0.75,
+      "description": "Conservative endpoint snap tolerance for safe mode.",
+      "key": "snap_tolerance_m",
+      "label": "Snap Tolerance",
+      "max_value": 10.0,
+      "min_value": 0.0,
+      "optimization_tags": [
+        "stability",
+        "topology"
+      ],
+      "order": 20,
+      "param_type": "float",
+      "required": false,
+      "spec_id": "ps.algo.fusion.road.safe.snap_tolerance_m",
+      "tunable": true,
+      "unit": "m"
+    },
+    {
+      "algo_id": "algo.fusion.road.safe",
+      "choices": null,
+      "default": 15.0,
+      "description": "Conservative match buffer for safe mode.",
+      "key": "match_buffer_m",
+      "label": "Match Buffer Distance",
+      "max_value": 100.0,
+      "min_value": 0.0,
+      "optimization_tags": [
+        "precision",
+        "matching"
+      ],
+      "order": 30,
+      "param_type": "float",
+      "required": false,
+      "spec_id": "ps.algo.fusion.road.safe.match_buffer_m",
+      "tunable": true,
+      "unit": "m"
+    },
+    {
+      "algo_id": "algo.fusion.road.safe",
+      "choices": null,
+      "default": 10.0,
+      "description": "Conservative Hausdorff threshold for safe mode.",
+      "key": "max_hausdorff_m",
+      "label": "Max Hausdorff Distance",
+      "max_value": 100.0,
+      "min_value": 0.0,
+      "optimization_tags": [
+        "precision",
+        "stability",
+        "matching"
+      ],
+      "order": 40,
+      "param_type": "float",
+      "required": false,
+      "spec_id": "ps.algo.fusion.road.safe.max_hausdorff_m",
+      "tunable": true,
+      "unit": "m"
+    },
+    {
+      "algo_id": "algo.fusion.road.safe",
+      "choices": null,
+      "default": 12.0,
+      "description": "Conservative dedupe buffer for safe mode.",
+      "key": "dedupe_buffer_m",
+      "label": "Dedupe Buffer Distance",
+      "max_value": 100.0,
+      "min_value": 0.0,
+      "optimization_tags": [
+        "stability",
+        "deduplication"
+      ],
+      "order": 50,
+      "param_type": "float",
+      "required": false,
+      "spec_id": "ps.algo.fusion.road.safe.dedupe_buffer_m",
+      "tunable": true,
+      "unit": "m"
+    },
+    {
+      "algo_id": "algo.fusion.road.v1",
+      "choices": null,
+      "default": 135,
+      "description": "Split lines at sharp turns: angles below this threshold trigger a split.",
+      "key": "angle_threshold_deg",
+      "label": "Split Angle Threshold",
+      "max_value": 180.0,
+      "min_value": 0.0,
+      "optimization_tags": [
+        "stability",
+        "segmentation"
+      ],
+      "order": 10,
+      "param_type": "int",
+      "required": false,
+      "spec_id": "ps.algo.fusion.road.v1.angle_threshold_deg",
+      "tunable": true,
+      "unit": "deg"
+    },
+    {
+      "algo_id": "algo.fusion.road.v1",
+      "choices": null,
+      "default": 1.0,
+      "description": "Endpoint snap tolerance used when normalizing line endpoints.",
+      "key": "snap_tolerance_m",
+      "label": "Snap Tolerance",
+      "max_value": 10.0,
+      "min_value": 0.0,
+      "optimization_tags": [
+        "stability",
+        "topology"
+      ],
+      "order": 20,
+      "param_type": "float",
+      "required": false,
+      "spec_id": "ps.algo.fusion.road.v1.snap_tolerance_m",
+      "tunable": true,
+      "unit": "m"
+    },
+    {
+      "algo_id": "algo.fusion.road.v1",
+      "choices": null,
+      "default": 20.0,
+      "description": "Buffer radius for candidate matching between OSM and reference lines.",
+      "key": "match_buffer_m",
+      "label": "Match Buffer Distance",
+      "max_value": 100.0,
+      "min_value": 0.0,
+      "optimization_tags": [
+        "recall",
+        "matching"
+      ],
+      "order": 30,
+      "param_type": "float",
+      "required": false,
+      "spec_id": "ps.algo.fusion.road.v1.match_buffer_m",
+      "tunable": true,
+      "unit": "m"
+    },
+    {
+      "algo_id": "algo.fusion.road.v1",
+      "choices": null,
+      "default": 15.0,
+      "description": "Maximum Hausdorff distance allowed to consider two lines as a match.",
+      "key": "max_hausdorff_m",
+      "label": "Max Hausdorff Distance",
+      "max_value": 100.0,
+      "min_value": 0.0,
+      "optimization_tags": [
+        "precision",
+        "stability",
+        "matching"
+      ],
+      "order": 40,
+      "param_type": "float",
+      "required": false,
+      "spec_id": "ps.algo.fusion.road.v1.max_hausdorff_m",
+      "tunable": true,
+      "unit": "m"
+    },
+    {
+      "algo_id": "algo.fusion.road.v1",
+      "choices": null,
+      "default": 15.0,
+      "description": "Buffer distance used during post-fusion deduplication.",
+      "key": "dedupe_buffer_m",
+      "label": "Dedupe Buffer Distance",
+      "max_value": 100.0,
+      "min_value": 0.0,
+      "optimization_tags": [
+        "stability",
+        "deduplication"
+      ],
+      "order": 50,
+      "param_type": "float",
+      "required": false,
+      "spec_id": "ps.algo.fusion.road.v1.dedupe_buffer_m",
+      "tunable": true,
+      "unit": "m"
+    },
+    {
+      "algo_id": "algo.fusion.water_polygon.priority_merge.v2",
+      "choices": null,
+      "default": 0.1,
+      "description": "FusionCode parameter `overlap_threshold` for algo.fusion.water_polygon.priority_merge.v2.",
+      "key": "overlap_threshold",
+      "label": "Overlap Threshold",
+      "max_value": 1.0,
+      "min_value": 0.0,
+      "optimization_tags": [
+        "polygon"
+      ],
+      "order": 10,
+      "param_type": "float",
+      "required": false,
+      "spec_id": "ps.algo.fusion.water_polygon.priority_merge.v2.overlap_threshold",
+      "tunable": true,
+      "unit": "ratio"
+    },
+    {
+      "algo_id": "algo.fusion.waterways.conflation.v7",
+      "choices": null,
+      "default": "EPSG:32643",
+      "description": "FusionCode parameter `target_crs` for algo.fusion.waterways.conflation.v7.",
+      "key": "target_crs",
+      "label": "Target Crs",
+      "max_value": null,
+      "min_value": null,
+      "optimization_tags": [
+        "crs"
+      ],
+      "order": 10,
+      "param_type": "string",
+      "required": false,
+      "spec_id": "ps.algo.fusion.waterways.conflation.v7.target_crs",
+      "tunable": true,
+      "unit": null
+    },
+    {
+      "algo_id": "algo.fusion.waterways.conflation.v7",
+      "choices": null,
+      "default": 135,
+      "description": "FusionCode parameter `angle_threshold` for algo.fusion.waterways.conflation.v7.",
+      "key": "angle_threshold",
+      "label": "Angle Threshold",
+      "max_value": 180.0,
+      "min_value": 0.0,
+      "optimization_tags": [
+        "line"
+      ],
+      "order": 20,
+      "param_type": "int",
+      "required": false,
+      "spec_id": "ps.algo.fusion.waterways.conflation.v7.angle_threshold",
+      "tunable": true,
+      "unit": "degree"
+    },
+    {
+      "algo_id": "algo.fusion.waterways.conflation.v7",
+      "choices": null,
+      "default": 1000.0,
+      "description": "FusionCode parameter `max_segment_length` for algo.fusion.waterways.conflation.v7.",
+      "key": "max_segment_length",
+      "label": "Max Segment Length",
+      "max_value": null,
+      "min_value": 0.0,
+      "optimization_tags": [
+        "segmentation"
+      ],
+      "order": 30,
+      "param_type": "float",
+      "required": false,
+      "spec_id": "ps.algo.fusion.waterways.conflation.v7.max_segment_length",
+      "tunable": true,
+      "unit": "meter"
+    },
+    {
+      "algo_id": "algo.fusion.waterways.conflation.v7",
+      "choices": null,
+      "default": 25.0,
+      "description": "FusionCode parameter `match_buffer_dist` for algo.fusion.waterways.conflation.v7.",
+      "key": "match_buffer_dist",
+      "label": "Match Buffer Dist",
+      "max_value": null,
+      "min_value": 0.0,
+      "optimization_tags": [
+        "matching"
+      ],
+      "order": 40,
+      "param_type": "float",
+      "required": false,
+      "spec_id": "ps.algo.fusion.waterways.conflation.v7.match_buffer_dist",
+      "tunable": true,
+      "unit": "meter"
+    },
+    {
+      "algo_id": "algo.fusion.waterways.conflation.v7",
+      "choices": null,
+      "default": 20.0,
+      "description": "FusionCode parameter `max_hausdorff` for algo.fusion.waterways.conflation.v7.",
+      "key": "max_hausdorff",
+      "label": "Max Hausdorff",
+      "max_value": null,
+      "min_value": 0.0,
+      "optimization_tags": [
+        "matching"
+      ],
+      "order": 50,
+      "param_type": "float",
+      "required": false,
+      "spec_id": "ps.algo.fusion.waterways.conflation.v7.max_hausdorff",
+      "tunable": true,
+      "unit": "meter"
+    },
+    {
+      "algo_id": "algo.fusion.waterways.conflation.v7",
+      "choices": null,
+      "default": 50.0,
+      "description": "FusionCode parameter `loose_angle_threshold` for algo.fusion.waterways.conflation.v7.",
+      "key": "loose_angle_threshold",
+      "label": "Loose Angle Threshold",
+      "max_value": 180.0,
+      "min_value": 0.0,
+      "optimization_tags": [
+        "matching"
+      ],
+      "order": 60,
+      "param_type": "float",
+      "required": false,
+      "spec_id": "ps.algo.fusion.waterways.conflation.v7.loose_angle_threshold",
+      "tunable": true,
+      "unit": "degree"
+    },
+    {
+      "algo_id": "algo.fusion.waterways.conflation.v7",
+      "choices": null,
+      "default": 0.03,
+      "description": "FusionCode parameter `min_len_similarity` for algo.fusion.waterways.conflation.v7.",
+      "key": "min_len_similarity",
+      "label": "Min Len Similarity",
+      "max_value": 1.0,
+      "min_value": 0.0,
+      "optimization_tags": [
+        "matching"
+      ],
+      "order": 70,
+      "param_type": "float",
+      "required": false,
+      "spec_id": "ps.algo.fusion.waterways.conflation.v7.min_len_similarity",
+      "tunable": true,
+      "unit": "ratio"
+    },
+    {
+      "algo_id": "algo.fusion.waterways.conflation.v7",
+      "choices": null,
+      "default": 0.8,
+      "description": "FusionCode parameter `min_supplement_coverage_for_matched` for algo.fusion.waterways.conflation.v7.",
+      "key": "min_supplement_coverage_for_matched",
+      "label": "Min Supplement Coverage For Matched",
+      "max_value": 1.0,
+      "min_value": 0.0,
+      "optimization_tags": [
+        "matching"
+      ],
+      "order": 80,
+      "param_type": "float",
+      "required": false,
+      "spec_id": "ps.algo.fusion.waterways.conflation.v7.min_supplement_coverage_for_matched",
+      "tunable": true,
+      "unit": "ratio"
+    },
+    {
+      "algo_id": "algo.fusion.waterways.conflation.v7",
+      "choices": null,
+      "default": 20.0,
+      "description": "FusionCode parameter `min_residual_length` for algo.fusion.waterways.conflation.v7.",
+      "key": "min_residual_length",
+      "label": "Min Residual Length",
+      "max_value": null,
+      "min_value": 0.0,
+      "optimization_tags": [
+        "residual"
+      ],
+      "order": 90,
+      "param_type": "float",
+      "required": false,
+      "spec_id": "ps.algo.fusion.waterways.conflation.v7.min_residual_length",
+      "tunable": true,
+      "unit": "meter"
+    },
+    {
+      "algo_id": "algo.fusion.waterways.conflation.v7",
+      "choices": null,
+      "default": 12.0,
+      "description": "FusionCode parameter `duplicate_buffer_dist` for algo.fusion.waterways.conflation.v7.",
+      "key": "duplicate_buffer_dist",
+      "label": "Duplicate Buffer Dist",
+      "max_value": null,
+      "min_value": 0.0,
+      "optimization_tags": [
+        "dedupe"
+      ],
+      "order": 100,
+      "param_type": "float",
+      "required": false,
+      "spec_id": "ps.algo.fusion.waterways.conflation.v7.duplicate_buffer_dist",
+      "tunable": true,
+      "unit": "meter"
+    },
+    {
+      "algo_id": "algo.fusion.waterways.conflation.v7",
+      "choices": null,
+      "default": 15.0,
+      "description": "FusionCode parameter `near_base_return_corridor_dist` for algo.fusion.waterways.conflation.v7.",
+      "key": "near_base_return_corridor_dist",
+      "label": "Near Base Return Corridor Dist",
+      "max_value": null,
+      "min_value": 0.0,
+      "optimization_tags": [
+        "pruning"
+      ],
+      "order": 110,
+      "param_type": "float",
+      "required": false,
+      "spec_id": "ps.algo.fusion.waterways.conflation.v7.near_base_return_corridor_dist",
+      "tunable": true,
+      "unit": "meter"
+    },
+    {
+      "algo_id": "algo.fusion.waterways.conflation.v7",
+      "choices": null,
+      "default": 15.0,
+      "description": "FusionCode parameter `crossing_corridor_dist` for algo.fusion.waterways.conflation.v7.",
+      "key": "crossing_corridor_dist",
+      "label": "Crossing Corridor Dist",
+      "max_value": null,
+      "min_value": 0.0,
+      "optimization_tags": [
+        "pruning"
+      ],
+      "order": 120,
+      "param_type": "float",
+      "required": false,
+      "spec_id": "ps.algo.fusion.waterways.conflation.v7.crossing_corridor_dist",
+      "tunable": true,
+      "unit": "meter"
+    },
+    {
+      "algo_id": "algo.fusion.waterways.conflation.v7",
+      "choices": null,
+      "default": "fast",
+      "description": "FusionCode parameter `cleanup_mode` for algo.fusion.waterways.conflation.v7.",
+      "key": "cleanup_mode",
+      "label": "Cleanup Mode",
+      "max_value": null,
+      "min_value": null,
+      "optimization_tags": [
+        "cleanup"
+      ],
+      "order": 130,
+      "param_type": "string",
+      "required": false,
+      "spec_id": "ps.algo.fusion.waterways.conflation.v7.cleanup_mode",
+      "tunable": true,
+      "unit": null
+    },
+    {
+      "algo_id": "algo.fusion.waterways.conflation.v7",
+      "choices": null,
+      "default": null,
+      "description": "FusionCode parameter `output_crs` for algo.fusion.waterways.conflation.v7.",
+      "key": "output_crs",
+      "label": "Output Crs",
+      "max_value": null,
+      "min_value": null,
+      "optimization_tags": [
+        "crs"
+      ],
+      "order": 140,
+      "param_type": "string",
+      "required": false,
+      "spec_id": "ps.algo.fusion.waterways.conflation.v7.output_crs",
+      "tunable": true,
+      "unit": null
+    },
+    {
+      "algo_id": "algo.match.building.v8_component_solver.v1",
+      "choices": null,
+      "default": 0.05,
+      "description": "FusionCode parameter `weak_min_cover` for algo.match.building.v8_component_solver.v1.",
+      "key": "weak_min_cover",
+      "label": "Weak Min Cover",
+      "max_value": 1.0,
+      "min_value": 0.0,
+      "optimization_tags": [
+        "matching",
+        "recall"
+      ],
+      "order": 10,
+      "param_type": "float",
+      "required": false,
+      "spec_id": "ps.algo.match.building.v8_component_solver.v1.weak_min_cover",
+      "tunable": true,
+      "unit": "ratio"
+    },
+    {
+      "algo_id": "algo.match.building.v8_component_solver.v1",
+      "choices": null,
+      "default": 0.05,
+      "description": "FusionCode parameter `weak_min_iou` for algo.match.building.v8_component_solver.v1.",
+      "key": "weak_min_iou",
+      "label": "Weak Min Iou",
+      "max_value": 1.0,
+      "min_value": 0.0,
+      "optimization_tags": [
+        "matching",
+        "recall"
+      ],
+      "order": 20,
+      "param_type": "float",
+      "required": false,
+      "spec_id": "ps.algo.match.building.v8_component_solver.v1.weak_min_iou",
+      "tunable": true,
+      "unit": "ratio"
+    },
+    {
+      "algo_id": "algo.match.building.v8_component_solver.v1",
+      "choices": null,
+      "default": 0.4,
+      "description": "FusionCode parameter `thresh_1_to_1` for algo.match.building.v8_component_solver.v1.",
+      "key": "thresh_1_to_1",
+      "label": "Thresh 1 To 1",
+      "max_value": 1.0,
+      "min_value": 0.0,
+      "optimization_tags": [
+        "matching"
+      ],
+      "order": 30,
+      "param_type": "float",
+      "required": false,
+      "spec_id": "ps.algo.match.building.v8_component_solver.v1.thresh_1_to_1",
+      "tunable": true,
+      "unit": "ratio"
+    },
+    {
+      "algo_id": "algo.match.building.v8_component_solver.v1",
+      "choices": null,
+      "default": 0.44,
+      "description": "FusionCode parameter `thresh_1_to_N` for algo.match.building.v8_component_solver.v1.",
+      "key": "thresh_1_to_N",
+      "label": "Thresh 1 To N",
+      "max_value": 1.0,
+      "min_value": 0.0,
+      "optimization_tags": [
+        "matching"
+      ],
+      "order": 40,
+      "param_type": "float",
+      "required": false,
+      "spec_id": "ps.algo.match.building.v8_component_solver.v1.thresh_1_to_N",
+      "tunable": true,
+      "unit": "ratio"
+    },
+    {
+      "algo_id": "algo.match.building.v8_component_solver.v1",
+      "choices": null,
+      "default": 0.47,
+      "description": "FusionCode parameter `thresh_M_to_N` for algo.match.building.v8_component_solver.v1.",
+      "key": "thresh_M_to_N",
+      "label": "Thresh M To N",
+      "max_value": 1.0,
+      "min_value": 0.0,
+      "optimization_tags": [
+        "matching"
+      ],
+      "order": 50,
+      "param_type": "float",
+      "required": false,
+      "spec_id": "ps.algo.match.building.v8_component_solver.v1.thresh_M_to_N",
+      "tunable": true,
+      "unit": "ratio"
+    },
+    {
+      "algo_id": "algo.match.building.v8_component_solver.v1",
+      "choices": null,
+      "default": [
+        "MS",
+        "GG",
+        "OSM"
+      ],
+      "description": "FusionCode parameter `source_priority_order` for algo.match.building.v8_component_solver.v1.",
+      "key": "source_priority_order",
+      "label": "Source Priority Order",
+      "max_value": null,
+      "min_value": null,
+      "optimization_tags": [
+        "lineage",
+        "priority"
+      ],
+      "order": 60,
+      "param_type": "list",
+      "required": false,
+      "spec_id": "ps.algo.match.building.v8_component_solver.v1.source_priority_order",
+      "tunable": true,
+      "unit": null
+    },
+    {
+      "algo_id": "algo.optimize.building.conflict_graph.v1",
+      "choices": null,
+      "default": 4.0,
+      "description": "FusionCode parameter `global_max_shift` for algo.optimize.building.conflict_graph.v1.",
+      "key": "global_max_shift",
+      "label": "Global Max Shift",
+      "max_value": null,
+      "min_value": 0.0,
+      "optimization_tags": [
+        "optimization"
+      ],
+      "order": 10,
+      "param_type": "float",
+      "required": false,
+      "spec_id": "ps.algo.optimize.building.conflict_graph.v1.global_max_shift",
+      "tunable": true,
+      "unit": "meter"
+    },
+    {
+      "algo_id": "algo.optimize.building.conflict_graph.v1",
+      "choices": null,
+      "default": 0.75,
+      "description": "FusionCode parameter `overlap_delete_threshold` for algo.optimize.building.conflict_graph.v1.",
+      "key": "overlap_delete_threshold",
+      "label": "Overlap Delete Threshold",
+      "max_value": 1.0,
+      "min_value": 0.0,
+      "optimization_tags": [
+        "conflict"
+      ],
+      "order": 20,
+      "param_type": "float",
+      "required": false,
+      "spec_id": "ps.algo.optimize.building.conflict_graph.v1.overlap_delete_threshold",
+      "tunable": true,
+      "unit": "ratio"
+    },
+    {
+      "algo_id": "algo.optimize.building.conflict_graph.v1",
+      "choices": null,
+      "default": 0.1,
+      "description": "FusionCode parameter `road_buffer_width` for algo.optimize.building.conflict_graph.v1.",
+      "key": "road_buffer_width",
+      "label": "Road Buffer Width",
+      "max_value": null,
+      "min_value": 0.0,
+      "optimization_tags": [
+        "road"
+      ],
+      "order": 30,
+      "param_type": "float",
+      "required": false,
+      "spec_id": "ps.algo.optimize.building.conflict_graph.v1.road_buffer_width",
+      "tunable": true,
+      "unit": "meter"
+    },
+    {
+      "algo_id": "algo.optimize.building.conflict_graph.v1",
+      "choices": null,
+      "default": 4267.96,
+      "description": "FusionCode parameter `w_road_expulsion` for algo.optimize.building.conflict_graph.v1.",
+      "key": "w_road_expulsion",
+      "label": "W Road Expulsion",
+      "max_value": null,
+      "min_value": 0.0,
+      "optimization_tags": [
+        "road",
+        "weight"
+      ],
+      "order": 40,
+      "param_type": "float",
+      "required": false,
+      "spec_id": "ps.algo.optimize.building.conflict_graph.v1.w_road_expulsion",
+      "tunable": true,
+      "unit": null
+    },
+    {
+      "algo_id": "algo.optimize.building.conflict_graph.v1",
+      "choices": null,
+      "default": 3,
+      "description": "FusionCode parameter `max_outer_iterations` for algo.optimize.building.conflict_graph.v1.",
+      "key": "max_outer_iterations",
+      "label": "Max Outer Iterations",
+      "max_value": null,
+      "min_value": 1.0,
+      "optimization_tags": [
+        "performance"
+      ],
+      "order": 50,
+      "param_type": "int",
+      "required": false,
+      "spec_id": "ps.algo.optimize.building.conflict_graph.v1.max_outer_iterations",
+      "tunable": true,
+      "unit": null
+    },
+    {
+      "algo_id": "algo.refine.building.post_conflict_shrink.v1",
+      "choices": null,
+      "default": 5.0,
+      "description": "FusionCode parameter `post_shrink_threshold_m2` for algo.refine.building.post_conflict_shrink.v1.",
+      "key": "post_shrink_threshold_m2",
+      "label": "Post Shrink Threshold M2",
+      "max_value": null,
+      "min_value": 0.0,
+      "optimization_tags": [
+        "conflict"
+      ],
+      "order": 10,
+      "param_type": "float",
+      "required": false,
+      "spec_id": "ps.algo.refine.building.post_conflict_shrink.v1.post_shrink_threshold_m2",
+      "tunable": true,
+      "unit": "square_meter"
+    },
+    {
+      "algo_id": "algo.refine.building.post_conflict_shrink.v1",
+      "choices": null,
+      "default": 0.05,
+      "description": "FusionCode parameter `post_shrink_scale_cap_pct` for algo.refine.building.post_conflict_shrink.v1.",
+      "key": "post_shrink_scale_cap_pct",
+      "label": "Post Shrink Scale Cap Pct",
+      "max_value": 1.0,
+      "min_value": 0.0,
+      "optimization_tags": [
+        "geometry"
+      ],
+      "order": 20,
+      "param_type": "float",
+      "required": false,
+      "spec_id": "ps.algo.refine.building.post_conflict_shrink.v1.post_shrink_scale_cap_pct",
+      "tunable": true,
+      "unit": "ratio"
+    },
+    {
+      "algo_id": "algo.validate.building.presence_raster.v1",
+      "choices": null,
+      "default": 0.2,
+      "description": "FusionCode parameter `prob_threshold` for algo.validate.building.presence_raster.v1.",
+      "key": "prob_threshold",
+      "label": "Prob Threshold",
+      "max_value": 1.0,
+      "min_value": 0.0,
+      "optimization_tags": [
+        "raster",
+        "presence"
+      ],
+      "order": 10,
+      "param_type": "float",
+      "required": false,
+      "spec_id": "ps.algo.validate.building.presence_raster.v1.prob_threshold",
+      "tunable": true,
+      "unit": "ratio"
+    },
+    {
+      "algo_id": "algo.validate.building.presence_raster.v1",
+      "choices": null,
+      "default": 4.0,
+      "description": "FusionCode parameter `search_dist_m` for algo.validate.building.presence_raster.v1.",
+      "key": "search_dist_m",
+      "label": "Search Dist M",
+      "max_value": null,
+      "min_value": 0.0,
+      "optimization_tags": [
+        "raster",
+        "recall"
+      ],
+      "order": 20,
+      "param_type": "float",
+      "required": false,
+      "spec_id": "ps.algo.validate.building.presence_raster.v1.search_dist_m",
+      "tunable": true,
+      "unit": "meter"
+    },
+    {
+      "algo_id": "algo.validate.building.presence_raster.v1",
+      "choices": null,
+      "default": 0.55,
+      "description": "FusionCode parameter `confirmed_score_threshold` for algo.validate.building.presence_raster.v1.",
+      "key": "confirmed_score_threshold",
+      "label": "Confirmed Score Threshold",
+      "max_value": 1.0,
+      "min_value": 0.0,
+      "optimization_tags": [
+        "precision"
+      ],
+      "order": 30,
+      "param_type": "float",
+      "required": false,
+      "spec_id": "ps.algo.validate.building.presence_raster.v1.confirmed_score_threshold",
+      "tunable": true,
+      "unit": "ratio"
+    },
+    {
+      "algo_id": "algo.validate.building.presence_raster.v1",
+      "choices": null,
+      "default": 0.3,
+      "description": "FusionCode parameter `uncertain_score_threshold` for algo.validate.building.presence_raster.v1.",
+      "key": "uncertain_score_threshold",
+      "label": "Uncertain Score Threshold",
+      "max_value": 1.0,
+      "min_value": 0.0,
+      "optimization_tags": [
+        "recall"
+      ],
+      "order": 40,
+      "param_type": "float",
+      "required": false,
+      "spec_id": "ps.algo.validate.building.presence_raster.v1.uncertain_score_threshold",
+      "tunable": true,
+      "unit": "ratio"
+    }
+  ],
+  "qos_policies": [
+    {
+      "max_latency_seconds": 900,
+      "metadata": {
+        "claim_state": "runtime_supported",
+        "profile_scope": "scenario.earthquake.default",
+        "runtime_role": "qos_policy",
+        "runtime_status": "runtime_candidate"
+      },
+      "min_success_rate": 0.78,
+      "policy_id": "qos.scenario.earthquake.v1",
+      "policy_name": "Earthquake Default QoS",
+      "priority": {
+        "accuracy": 0.4,
+        "freshness": 0.15,
+        "speed": 0.15,
+        "stability": 0.3
+      }
+    },
+    {
+      "max_latency_seconds": 900,
+      "metadata": {
+        "claim_state": "runtime_supported",
+        "profile_scope": "scenario.flood.default",
+        "runtime_role": "qos_policy",
+        "runtime_status": "runtime_candidate"
+      },
+      "min_success_rate": 0.75,
+      "policy_id": "qos.scenario.flood.v1",
+      "policy_name": "Flood Default QoS",
+      "priority": {
+        "accuracy": 0.35,
+        "freshness": 0.25,
+        "speed": 0.15,
+        "stability": 0.25
+      }
+    },
+    {
+      "max_latency_seconds": 900,
+      "metadata": {
+        "claim_state": "runtime_supported",
+        "profile_scope": "scenario.typhoon.default",
+        "runtime_role": "qos_policy",
+        "runtime_status": "runtime_candidate"
+      },
+      "min_success_rate": 0.74,
+      "policy_id": "qos.scenario.typhoon.v1",
+      "policy_name": "Typhoon Default QoS",
+      "priority": {
+        "accuracy": 0.3,
+        "freshness": 0.3,
+        "speed": 0.15,
+        "stability": 0.25
+      }
+    },
+    {
+      "max_latency_seconds": 900,
+      "metadata": {
+        "claim_state": "runtime_supported",
+        "profile_scope": "scenario.default.task",
+        "runtime_role": "qos_policy",
+        "runtime_status": "runtime_candidate"
+      },
+      "min_success_rate": 0.72,
+      "policy_id": "qos.task.default.v1",
+      "policy_name": "Direct Task Default QoS",
+      "priority": {
+        "accuracy": 0.35,
+        "freshness": 0.2,
+        "speed": 0.2,
+        "stability": 0.25
+      }
+    }
+  ],
+  "repair_strategies": [
+    {
+      "applies_to_task_ids": [
+        "task.building.fusion",
+        "task.road.fusion",
+        "task.waterways.fusion"
+      ],
+      "from_algorithm_id": null,
+      "metadata": {
+        "claim_state": "runtime_supported",
+        "runtime_role": "repair_strategy",
+        "runtime_status": "runtime_candidate",
+        "strategy": "alternative_algorithm"
+      },
+      "reason_codes": [
+        "primary_execution_failed",
+        "alternative_algorithm_succeeded"
+      ],
+      "strategy_id": "repair.alternative_algorithm.v1",
+      "strategy_name": "Alternative Algorithm Fallback",
+      "to_algorithm_id": null
+    },
+    {
+      "applies_to_task_ids": [
+        "task.building.fusion",
+        "task.road.fusion",
+        "task.water.fusion",
+        "task.waterways.fusion",
+        "task.poi.fusion"
+      ],
+      "from_algorithm_id": null,
+      "metadata": {
+        "claim_state": "runtime_supported",
+        "runtime_role": "repair_strategy",
+        "runtime_status": "runtime_candidate",
+        "strategy": "alternative_source"
+      },
+      "reason_codes": [
+        "source_fallback_selected",
+        "fallback_when_no_safe_reuse_candidate"
+      ],
+      "strategy_id": "repair.source_fallback.v1",
+      "strategy_name": "Alternative Source Fallback",
+      "to_algorithm_id": null
+    }
+  ],
+  "scenario_profiles": [
+    {
+      "activated_tasks": [
+        "task.building.fusion",
+        "task.road.fusion",
+        "task.water.fusion",
+        "task.waterways.fusion",
+        "task.poi.fusion",
+        "task.vector.download"
+      ],
+      "disaster_types": [
+        "generic"
+      ],
+      "metadata": {
+        "claim_state": "runtime_supported",
+        "default_task_bundle_id": "task_bundle.direct_request",
+        "entry_mode": "task_driven",
+        "output_requirement_ids": [
+          "or.building.fused.v1",
+          "or.road.fused.v1",
+          "or.water.fused.v1",
+          "or.waterways.fused.v1",
+          "or.poi.fused.v1"
+        ],
+        "runtime_role": "scenario_constraint",
+        "runtime_status": "runtime_candidate"
+      },
+      "preferred_output_fields": [
+        "geometry"
+      ],
+      "profile_id": "scenario.default.task",
+      "profile_name": "Default Direct Task Profile",
+      "qos_policy_id": "qos.task.default.v1",
+      "qos_priority": {
+        "accuracy": 0.35,
+        "freshness": 0.2,
+        "speed": 0.2,
+        "stability": 0.25
+      }
+    },
+    {
+      "activated_tasks": [
+        "task.building.fusion",
+        "task.road.fusion"
+      ],
+      "disaster_types": [
+        "earthquake"
+      ],
+      "metadata": {
+        "claim_state": "runtime_supported",
+        "default_task_bundle_id": "task_bundle.earthquake.building_road",
+        "entry_mode": "scenario_driven",
+        "output_requirement_ids": [
+          "or.building.fused.v1",
+          "or.road.fused.v1"
+        ],
+        "runtime_role": "scenario_constraint",
+        "runtime_status": "runtime_candidate"
+      },
+      "preferred_output_fields": [
+        "geometry",
+        "confidence",
+        "timestamp"
+      ],
+      "profile_id": "scenario.earthquake.default",
+      "profile_name": "Earthquake Default Scenario",
+      "qos_policy_id": "qos.scenario.earthquake.v1",
+      "qos_priority": {
+        "accuracy": 0.4,
+        "freshness": 0.15,
+        "speed": 0.15,
+        "stability": 0.3
+      }
+    },
+    {
+      "activated_tasks": [
+        "task.building.fusion",
+        "task.road.fusion"
+      ],
+      "disaster_types": [
+        "flood"
+      ],
+      "metadata": {
+        "claim_state": "runtime_supported",
+        "default_task_bundle_id": "task_bundle.flood.building_road",
+        "entry_mode": "scenario_driven",
+        "output_requirement_ids": [
+          "or.building.fused.v1",
+          "or.road.fused.v1"
+        ],
+        "runtime_role": "scenario_constraint",
+        "runtime_status": "runtime_candidate"
+      },
+      "preferred_output_fields": [
+        "geometry",
+        "confidence",
+        "timestamp"
+      ],
+      "profile_id": "scenario.flood.default",
+      "profile_name": "Flood Default Scenario",
+      "qos_policy_id": "qos.scenario.flood.v1",
+      "qos_priority": {
+        "accuracy": 0.35,
+        "freshness": 0.25,
+        "speed": 0.15,
+        "stability": 0.25
+      }
+    },
+    {
+      "activated_tasks": [
+        "task.building.fusion",
+        "task.road.fusion"
+      ],
+      "disaster_types": [
+        "typhoon"
+      ],
+      "metadata": {
+        "claim_state": "runtime_supported",
+        "default_task_bundle_id": "task_bundle.typhoon.building_road",
+        "entry_mode": "scenario_driven",
+        "output_requirement_ids": [
+          "or.building.fused.v1",
+          "or.road.fused.v1"
+        ],
+        "runtime_role": "scenario_constraint",
+        "runtime_status": "runtime_candidate"
+      },
+      "preferred_output_fields": [
+        "geometry",
+        "confidence",
+        "timestamp"
+      ],
+      "profile_id": "scenario.typhoon.default",
+      "profile_name": "Typhoon Default Scenario",
+      "qos_policy_id": "qos.scenario.typhoon.v1",
+      "qos_priority": {
+        "accuracy": 0.3,
+        "freshness": 0.3,
+        "speed": 0.15,
+        "stability": 0.25
+      }
+    }
+  ],
+  "task_bundles": [
+    {
+      "bundle_id": "task_bundle.direct_request",
+      "bundle_name": "Direct Task Request Bundle",
+      "data_need_ids": [
+        "dn.task.building.fusion.input",
+        "dn.task.road.fusion.input",
+        "dn.task.water.fusion.input",
+        "dn.task.waterways.fusion.input",
+        "dn.task.poi.fusion.input"
+      ],
+      "metadata": {
+        "claim_state": "runtime_supported",
+        "entry_mode": "task_driven",
+        "runtime_role": "task_bundle",
+        "runtime_status": "runtime_candidate"
+      },
+      "output_requirement_id": null,
+      "qos_policy_id": "qos.task.default.v1",
+      "repair_strategy_ids": [
+        "repair.source_fallback.v1",
+        "repair.alternative_algorithm.v1"
+      ],
+      "requested_tasks": [
+        "task.building.fusion",
+        "task.road.fusion",
+        "task.water.fusion",
+        "task.waterways.fusion",
+        "task.poi.fusion"
+      ],
+      "requires_disaster_profile": false
+    },
+    {
+      "bundle_id": "task_bundle.earthquake.building_road",
+      "bundle_name": "Earthquake Building And Road Bundle",
+      "data_need_ids": [
+        "dn.task.building.fusion.input",
+        "dn.task.road.fusion.input"
+      ],
+      "metadata": {
+        "claim_state": "runtime_supported",
+        "entry_mode": "scenario_driven",
+        "runtime_role": "task_bundle",
+        "runtime_status": "runtime_candidate",
+        "scenario_profile_id": "scenario.earthquake.default"
+      },
+      "output_requirement_id": "or.building.fused.v1",
+      "qos_policy_id": "qos.scenario.earthquake.v1",
+      "repair_strategy_ids": [
+        "repair.source_fallback.v1",
+        "repair.alternative_algorithm.v1"
+      ],
+      "requested_tasks": [
+        "task.building.fusion",
+        "task.road.fusion"
+      ],
+      "requires_disaster_profile": true
+    },
+    {
+      "bundle_id": "task_bundle.flood.building_road",
+      "bundle_name": "Flood Building And Road Bundle",
+      "data_need_ids": [
+        "dn.task.building.fusion.input",
+        "dn.task.road.fusion.input"
+      ],
+      "metadata": {
+        "claim_state": "runtime_supported",
+        "entry_mode": "scenario_driven",
+        "runtime_role": "task_bundle",
+        "runtime_status": "runtime_candidate",
+        "scenario_profile_id": "scenario.flood.default"
+      },
+      "output_requirement_id": "or.building.fused.v1",
+      "qos_policy_id": "qos.scenario.flood.v1",
+      "repair_strategy_ids": [
+        "repair.source_fallback.v1",
+        "repair.alternative_algorithm.v1"
+      ],
+      "requested_tasks": [
+        "task.building.fusion",
+        "task.road.fusion"
+      ],
+      "requires_disaster_profile": true
+    },
+    {
+      "bundle_id": "task_bundle.typhoon.building_road",
+      "bundle_name": "Typhoon Building And Road Bundle",
+      "data_need_ids": [
+        "dn.task.building.fusion.input",
+        "dn.task.road.fusion.input"
+      ],
+      "metadata": {
+        "claim_state": "runtime_supported",
+        "entry_mode": "scenario_driven",
+        "runtime_role": "task_bundle",
+        "runtime_status": "runtime_candidate",
+        "scenario_profile_id": "scenario.typhoon.default"
+      },
+      "output_requirement_id": "or.building.fused.v1",
+      "qos_policy_id": "qos.scenario.typhoon.v1",
+      "repair_strategy_ids": [
+        "repair.source_fallback.v1",
+        "repair.alternative_algorithm.v1"
+      ],
+      "requested_tasks": [
+        "task.building.fusion",
+        "task.road.fusion"
+      ],
+      "requires_disaster_profile": true
+    }
+  ],
+  "tasks": [
+    {
+      "category": "fusion",
+      "description": "Fuse multiple building vector sources into one output.",
+      "metadata": {
+        "claim_state": "runtime_supported",
+        "input_data_types": [
+          "dt.building.bundle",
+          "dt.building.source_set"
+        ],
+        "output_data_type": "dt.building.fused",
+        "runtime_role": "core_task",
+        "runtime_status": "runtime_candidate"
+      },
+      "task_id": "task.building.fusion",
+      "task_name": "Building Fusion"
+    },
+    {
+      "category": "runtime",
+      "description": "Reserved tiled raster clipping task for future building enrichment workflows.",
+      "metadata": {
+        "claim_state": "reservation_only",
+        "input_data_types": [
+          "dt.raster.building_presence"
+        ],
+        "output_data_type": "dt.raster.building_presence",
+        "runtime_role": "reserved_seam",
+        "runtime_status": "reservation_only"
+      },
+      "task_id": "task.clip.raster.by_tile",
+      "task_name": "Raster Clip By Tile"
+    },
+    {
+      "category": "enrichment",
+      "description": "Reserved seam for future raster-backed building height enrichment.",
+      "metadata": {
+        "claim_state": "research_utility",
+        "input_data_types": [
+          "dt.raster.building_height",
+          "dt.building.conflict_optimized"
+        ],
+        "output_data_type": "dt.building.height_enriched",
+        "runtime_role": "support_task",
+        "runtime_status": "runtime_candidate"
+      },
+      "task_id": "task.enrich.building.height.reserved",
+      "task_name": "Enrich Building Height"
+    },
+    {
+      "category": "runtime",
+      "description": "Reserved seam for future tile-level building artifact stitching.",
+      "metadata": {
+        "claim_state": "reservation_only",
+        "input_data_types": [
+          "dt.partition.tile_manifest"
+        ],
+        "output_data_type": "dt.building.fused",
+        "runtime_role": "reserved_seam",
+        "runtime_status": "reservation_only"
+      },
+      "task_id": "task.merge.building.tiles.reserved",
+      "task_name": "Merge Building Tiles"
+    },
+    {
+      "category": "runtime",
+      "description": "Reserved AOI partition task for future tiled execution workflows.",
+      "metadata": {
+        "claim_state": "research_utility",
+        "input_data_types": [
+          "dt.raw.vector"
+        ],
+        "output_data_type": "dt.partition.tile_manifest",
+        "runtime_role": "support_task",
+        "runtime_status": "runtime_candidate"
+      },
+      "task_id": "task.partition.aoi",
+      "task_name": "AOI Partition"
+    },
+    {
+      "category": "fusion",
+      "description": "Fuse multiple point-of-interest sources into one output.",
+      "metadata": {
+        "claim_state": "bounded_supported",
+        "input_data_types": [
+          "dt.poi.bundle"
+        ],
+        "output_data_type": "dt.poi.fused",
+        "runtime_role": "core_task",
+        "runtime_status": "runtime_candidate"
+      },
+      "task_id": "task.poi.fusion",
+      "task_name": "POI Fusion"
+    },
+    {
+      "category": "fusion",
+      "description": "Fuse multiple road vector sources into one output.",
+      "metadata": {
+        "claim_state": "runtime_supported",
+        "input_data_types": [
+          "dt.road.bundle",
+          "dt.road.candidate"
+        ],
+        "output_data_type": "dt.road.fused",
+        "runtime_role": "core_task",
+        "runtime_status": "runtime_candidate"
+      },
+      "task_id": "task.road.fusion",
+      "task_name": "Road Fusion"
+    },
+    {
+      "category": "transform",
+      "description": "Reserved seam for future trajectory-to-road candidate pretransform before road fusion.",
+      "metadata": {
+        "claim_state": "reservation_only",
+        "input_data_types": [
+          "dt.trajectory.raw"
+        ],
+        "output_data_type": "dt.road.candidate",
+        "runtime_role": "reserved_seam",
+        "runtime_status": "reservation_only"
+      },
+      "task_id": "task.trajectory_to_road",
+      "task_name": "Trajectory To Road Candidate"
+    },
+    {
+      "category": "acquisition",
+      "description": "Acquire vector data required by downstream fusion or enrichment tasks.",
+      "metadata": {
+        "claim_state": "runtime_supported",
+        "output_data_type": "dt.raw.vector",
+        "runtime_role": "support_task",
+        "runtime_status": "runtime_candidate"
+      },
+      "task_id": "task.vector.download",
+      "task_name": "Vector Data Download"
+    },
+    {
+      "category": "fusion",
+      "description": "Fuse multiple water polygon sources into one output.",
+      "metadata": {
+        "claim_state": "runtime_supported",
+        "input_data_types": [
+          "dt.water.bundle"
+        ],
+        "output_data_type": "dt.water.fused",
+        "runtime_role": "core_task",
+        "runtime_status": "runtime_candidate"
+      },
+      "task_id": "task.water.fusion",
+      "task_name": "Water Fusion"
+    },
+    {
+      "category": "fusion",
+      "description": "Fuse multiple waterways line sources into one output.",
+      "metadata": {
+        "claim_state": "runtime_supported",
+        "input_data_types": [
+          "dt.waterways.bundle"
+        ],
+        "output_data_type": "dt.waterways.fused",
+        "runtime_role": "core_task",
+        "runtime_status": "runtime_candidate"
+      },
+      "task_id": "task.waterways.fusion",
+      "task_name": "Waterways Fusion"
+    }
+  ],
+  "workflow_patterns": [
+    {
+      "disaster_types": [
+        "flood",
+        "earthquake",
+        "typhoon",
+        "generic"
+      ],
+      "job_type": "building",
+      "metadata": {
+        "algorithm_family": "fusioncode_decomposed",
+        "expands_to_primitives": "true",
+        "runtime_status": "runtime_candidate",
+        "version": "1.0.0"
+      },
+      "pattern_id": "wp.building.drs4br.decomposed.v1",
+      "pattern_name": "FusionCode DRS4BR Decomposed Building Fusion",
+      "steps": [
+        {
+          "algorithm_id": "algo.preprocess.building.source_normalize.v1",
+          "data_source_id": "upload.bundle",
+          "depends_on": [],
+          "input_data_type": "dt.building.source_set",
+          "is_optional": false,
+          "name": "source_normalize",
+          "order": 1,
+          "output_data_type": "dt.building.normalized_set",
+          "parameters": {}
+        },
+        {
+          "algorithm_id": "algo.enrich.building.obm_attributes.v1",
+          "data_source_id": "upload.bundle",
+          "depends_on": [
+            1
+          ],
+          "input_data_type": "dt.building.normalized_set",
+          "is_optional": true,
+          "name": "obm_attributes",
+          "order": 2,
+          "output_data_type": "dt.building.normalized_set",
+          "parameters": {}
+        },
+        {
+          "algorithm_id": "algo.validate.building.presence_raster.v1",
+          "data_source_id": "upload.bundle",
+          "depends_on": [
+            1
+          ],
+          "input_data_type": "dt.building.normalized_set",
+          "is_optional": true,
+          "name": "presence_raster",
+          "order": 3,
+          "output_data_type": "dt.building.presence_validated_set",
+          "parameters": {}
+        },
+        {
+          "algorithm_id": "algo.match.building.v8_candidate_graph.v1",
+          "data_source_id": "upload.bundle",
+          "depends_on": [
+            3
+          ],
+          "input_data_type": "dt.building.presence_validated_set",
+          "is_optional": false,
+          "name": "v8_candidate_graph",
+          "order": 4,
+          "output_data_type": "dt.building.match_candidate_graph",
+          "parameters": {}
+        },
+        {
+          "algorithm_id": "algo.match.building.v8_component_solver.v1",
+          "data_source_id": "upload.bundle",
+          "depends_on": [
+            4
+          ],
+          "input_data_type": "dt.building.match_candidate_graph",
+          "is_optional": false,
+          "name": "v8_component_solver",
+          "order": 5,
+          "output_data_type": "dt.building.match_components",
+          "parameters": {}
+        },
+        {
+          "algorithm_id": "algo.fusion.building.cascade_geometry_priority.v1",
+          "data_source_id": "upload.bundle",
+          "depends_on": [
+            5
+          ],
+          "input_data_type": "dt.building.match_components",
+          "is_optional": false,
+          "name": "cascade_geometry_priority",
+          "order": 6,
+          "output_data_type": "dt.building.fused_raw",
+          "parameters": {}
+        },
+        {
+          "algorithm_id": "algo.resolve.building.residual_priority.v1",
+          "data_source_id": "upload.bundle",
+          "depends_on": [
+            6
+          ],
+          "input_data_type": "dt.building.fused_raw",
+          "is_optional": false,
+          "name": "residual_priority",
+          "order": 7,
+          "output_data_type": "dt.building.fused_raw",
+          "parameters": {}
+        },
+        {
+          "algorithm_id": "algo.optimize.road.topology_for_buildings.v1",
+          "data_source_id": "upload.bundle",
+          "depends_on": [
+            7
+          ],
+          "input_data_type": "dt.building.fused_raw",
+          "is_optional": true,
+          "name": "road_topology",
+          "order": 8,
+          "output_data_type": "dt.building.road_topology_adjusted",
+          "parameters": {}
+        },
+        {
+          "algorithm_id": "algo.optimize.building.conflict_graph.v1",
+          "data_source_id": "upload.bundle",
+          "depends_on": [
+            8
+          ],
+          "input_data_type": "dt.building.road_topology_adjusted",
+          "is_optional": false,
+          "name": "conflict_graph",
+          "order": 9,
+          "output_data_type": "dt.building.conflict_optimized",
+          "parameters": {}
+        },
+        {
+          "algorithm_id": "algo.refine.building.post_conflict_shrink.v1",
+          "data_source_id": "upload.bundle",
+          "depends_on": [
+            9
+          ],
+          "input_data_type": "dt.building.conflict_optimized",
+          "is_optional": true,
+          "name": "post_conflict_shrink",
+          "order": 10,
+          "output_data_type": "dt.building.conflict_optimized",
+          "parameters": {}
+        },
+        {
+          "algorithm_id": "algo.refine.building.road_tail.v1",
+          "data_source_id": "upload.bundle",
+          "depends_on": [
+            10
+          ],
+          "input_data_type": "dt.building.conflict_optimized",
+          "is_optional": true,
+          "name": "road_tail",
+          "order": 11,
+          "output_data_type": "dt.building.conflict_optimized",
+          "parameters": {}
+        },
+        {
+          "algorithm_id": "algo.enrich.building.height_from_raster.v1",
+          "data_source_id": "upload.bundle",
+          "depends_on": [
+            11
+          ],
+          "input_data_type": "dt.building.conflict_optimized",
+          "is_optional": true,
+          "name": "height_from_raster",
+          "order": 12,
+          "output_data_type": "dt.building.height_enriched",
+          "parameters": {}
+        },
+        {
+          "algorithm_id": "algo.assess.building.quality_metrics.v1",
+          "data_source_id": "upload.bundle",
+          "depends_on": [
+            12
+          ],
+          "input_data_type": "dt.building.height_enriched",
+          "is_optional": false,
+          "name": "quality_metrics",
+          "order": 13,
+          "output_data_type": "dt.building.quality_report",
+          "parameters": {}
+        }
+      ],
+      "success_rate": 0.84
+    },
+    {
+      "disaster_types": [
+        "earthquake"
+      ],
+      "job_type": "building",
+      "metadata": {
+        "runtime_status": "runtime_candidate",
+        "scenario_focus": "earthquake",
+        "strategy": "throughput",
+        "version": "1.0.0"
+      },
+      "pattern_id": "wp.earthquake.building.default",
+      "pattern_name": "Earthquake Building Fusion",
+      "steps": [
+        {
+          "algorithm_id": "algo.fusion.building.v1",
+          "data_source_id": "upload.bundle",
+          "depends_on": [],
+          "input_data_type": "dt.building.bundle",
+          "is_optional": false,
+          "name": "building_fusion_earthquake",
+          "order": 1,
+          "output_data_type": "dt.building.fused",
+          "parameters": {}
+        }
+      ],
+      "success_rate": 0.91
+    },
+    {
+      "disaster_types": [
+        "earthquake"
+      ],
+      "job_type": "building",
+      "metadata": {
+        "mode": "safe",
+        "runtime_status": "runtime_candidate",
+        "scenario_focus": "earthquake",
+        "strategy": "conservative",
+        "version": "1.0.0"
+      },
+      "pattern_id": "wp.earthquake.building.safe",
+      "pattern_name": "Earthquake Building Fusion Safe Route",
+      "steps": [
+        {
+          "algorithm_id": "algo.fusion.building.safe",
+          "data_source_id": "upload.bundle",
+          "depends_on": [],
+          "input_data_type": "dt.building.bundle",
+          "is_optional": false,
+          "name": "building_fusion_safe",
+          "order": 1,
+          "output_data_type": "dt.building.fused",
+          "parameters": {}
+        }
+      ],
+      "success_rate": 0.85
+    },
+    {
+      "disaster_types": [
+        "flood",
+        "typhoon",
+        "generic"
+      ],
+      "job_type": "building",
+      "metadata": {
+        "runtime_status": "runtime_candidate",
+        "scenario_focus": "flood",
+        "strategy": "throughput",
+        "version": "1.0.0"
+      },
+      "pattern_id": "wp.flood.building.default",
+      "pattern_name": "Flood Building Fusion",
+      "steps": [
+        {
+          "algorithm_id": "algo.fusion.building.v1",
+          "data_source_id": "upload.bundle",
+          "depends_on": [],
+          "input_data_type": "dt.building.bundle",
+          "is_optional": false,
+          "name": "building_fusion",
+          "order": 1,
+          "output_data_type": "dt.building.fused",
+          "parameters": {}
+        }
+      ],
+      "success_rate": 0.88
+    },
+    {
+      "disaster_types": [
+        "flood",
+        "generic"
+      ],
+      "job_type": "building",
+      "metadata": {
+        "mode": "safe",
+        "runtime_status": "runtime_candidate",
+        "scenario_focus": "flood",
+        "strategy": "conservative",
+        "version": "1.0.0"
+      },
+      "pattern_id": "wp.flood.building.safe",
+      "pattern_name": "Flood Building Fusion Safe Route",
+      "steps": [
+        {
+          "algorithm_id": "algo.fusion.building.safe",
+          "data_source_id": "upload.bundle",
+          "depends_on": [],
+          "input_data_type": "dt.building.bundle",
+          "is_optional": false,
+          "name": "building_fusion_safe",
+          "order": 1,
+          "output_data_type": "dt.building.fused",
+          "parameters": {}
+        }
+      ],
+      "success_rate": 0.82
+    },
+    {
+      "disaster_types": [
+        "flood",
+        "earthquake",
+        "generic"
+      ],
+      "job_type": "road",
+      "metadata": {
+        "input_strategy": "task_driven_auto_supported",
+        "runtime_status": "runtime_candidate",
+        "scenario_focus": "flood",
+        "source_family": "catalog_road_bundle",
+        "strategy": "balanced",
+        "version": "7.0.0"
+      },
+      "pattern_id": "wp.flood.road.default",
+      "pattern_name": "Flood Road Conflation V7",
+      "steps": [
+        {
+          "algorithm_id": "algo.fusion.road.conflation.v7",
+          "data_source_id": "catalog.flood.road",
+          "depends_on": [],
+          "input_data_type": "dt.road.bundle",
+          "is_optional": false,
+          "name": "road_conflation_v7",
+          "order": 1,
+          "output_data_type": "dt.road.fused",
+          "parameters": {}
+        }
+      ],
+      "success_rate": 0.86
+    },
+    {
+      "disaster_types": [
+        "flood",
+        "generic"
+      ],
+      "job_type": "water",
+      "metadata": {
+        "input_strategy": "task_driven_auto_supported",
+        "runtime_status": "runtime_candidate",
+        "scenario_focus": "flood",
+        "source_family": "catalog_water_bundle",
+        "strategy": "conservative",
+        "version": "1.0.0",
+        "water_semantics": "polygon"
+      },
+      "pattern_id": "wp.flood.water.default",
+      "pattern_name": "Flood Water Polygon Fusion",
+      "steps": [
+        {
+          "algorithm_id": "algo.fusion.water_polygon.priority_merge.v2",
+          "data_source_id": "catalog.flood.water",
+          "depends_on": [],
+          "input_data_type": "dt.water.bundle",
+          "is_optional": false,
+          "name": "water_polygon_priority_merge",
+          "order": 1,
+          "output_data_type": "dt.water.fused",
+          "parameters": {}
+        }
+      ],
+      "success_rate": 0.84
+    },
+    {
+      "disaster_types": [
+        "flood",
+        "generic"
+      ],
+      "job_type": "water",
+      "metadata": {
+        "input_strategy": "task_driven_auto_supported",
+        "runtime_status": "runtime_candidate",
+        "scenario_focus": "flood",
+        "source_family": "catalog_water_bundle",
+        "strategy": "conservative",
+        "version": "2.0.0",
+        "water_semantics": "polygon"
+      },
+      "pattern_id": "wp.flood.water_polygon.default",
+      "pattern_name": "Flood Water Polygon Priority Merge",
+      "steps": [
+        {
+          "algorithm_id": "algo.fusion.water_polygon.priority_merge.v2",
+          "data_source_id": "catalog.flood.water_polygon",
+          "depends_on": [],
+          "input_data_type": "dt.water.bundle",
+          "is_optional": false,
+          "name": "water_polygon_priority_merge",
+          "order": 1,
+          "output_data_type": "dt.water.fused",
+          "parameters": {}
+        }
+      ],
+      "success_rate": 0.79
+    },
+    {
+      "disaster_types": [
+        "flood",
+        "generic"
+      ],
+      "job_type": "water",
+      "metadata": {
+        "input_strategy": "task_driven_auto_supported",
+        "runtime_status": "runtime_candidate",
+        "scenario_focus": "flood",
+        "source_family": "catalog_waterways_bundle",
+        "strategy": "balanced",
+        "version": "7.0.0",
+        "water_semantics": "waterways_line"
+      },
+      "pattern_id": "wp.flood.waterways.default",
+      "pattern_name": "Flood Waterways Conflation V7",
+      "steps": [
+        {
+          "algorithm_id": "algo.fusion.waterways.conflation.v7",
+          "data_source_id": "catalog.flood.waterways",
+          "depends_on": [],
+          "input_data_type": "dt.waterways.bundle",
+          "is_optional": false,
+          "name": "waterways_conflation_v7",
+          "order": 1,
+          "output_data_type": "dt.waterways.fused",
+          "parameters": {}
+        }
+      ],
+      "success_rate": 0.8
+    },
+    {
+      "disaster_types": [
+        "generic"
+      ],
+      "job_type": "poi",
+      "metadata": {
+        "input_strategy": "task_driven_auto_supported",
+        "runtime_status": "runtime_candidate",
+        "scenario_focus": "generic",
+        "source_family": "catalog_poi_bundle",
+        "strategy": "conservative",
+        "version": "1.0.0"
+      },
+      "pattern_id": "wp.generic.poi.default",
+      "pattern_name": "Generic POI Fusion",
+      "steps": [
+        {
+          "algorithm_id": "algo.fusion.poi.v1",
+          "data_source_id": "catalog.generic.poi",
+          "depends_on": [],
+          "input_data_type": "dt.poi.bundle",
+          "is_optional": false,
+          "name": "poi_fusion",
+          "order": 1,
+          "output_data_type": "dt.poi.fused",
+          "parameters": {}
+        }
+      ],
+      "success_rate": 0.8
+    },
+    {
+      "disaster_types": [
+        "generic"
+      ],
+      "job_type": "poi",
+      "metadata": {
+        "algorithm_family": "fusioncode_decomposed",
+        "runtime_status": "runtime_candidate",
+        "version": "1.0.0"
+      },
+      "pattern_id": "wp.poi.fusioncode.geohash_priority.v1",
+      "pattern_name": "FusionCode POI Geohash Priority Fusion",
+      "steps": [
+        {
+          "algorithm_id": "algo.fusion.poi.geohash_neighbor_match.v1",
+          "data_source_id": "upload.bundle",
+          "depends_on": [],
+          "input_data_type": "dt.poi.bundle",
+          "is_optional": false,
+          "name": "poi_geohash_neighbor_match",
+          "order": 1,
+          "output_data_type": "dt.poi.fused",
+          "parameters": {}
+        }
+      ],
+      "success_rate": 0.8
+    },
+    {
+      "disaster_types": [
+        "flood",
+        "earthquake",
+        "typhoon",
+        "generic"
+      ],
+      "job_type": "road",
+      "metadata": {
+        "algorithm_family": "fusioncode_decomposed",
+        "runtime_status": "runtime_candidate",
+        "version": "1.0.0"
+      },
+      "pattern_id": "wp.road.fusioncode.conflation.v7",
+      "pattern_name": "FusionCode V7 Road Conflation",
+      "steps": [
+        {
+          "algorithm_id": "algo.fusion.road.conflation.v7",
+          "data_source_id": "upload.bundle",
+          "depends_on": [],
+          "input_data_type": "dt.road.bundle",
+          "is_optional": false,
+          "name": "road_conflation_v7",
+          "order": 1,
+          "output_data_type": "dt.road.fused",
+          "parameters": {}
+        }
+      ],
+      "success_rate": 0.86
+    },
+    {
+      "disaster_types": [
+        "typhoon"
+      ],
+      "job_type": "road",
+      "metadata": {
+        "input_strategy": "task_driven_auto_supported",
+        "runtime_status": "runtime_candidate",
+        "scenario_focus": "typhoon",
+        "source_family": "catalog_road_bundle",
+        "strategy": "balanced",
+        "version": "7.0.0"
+      },
+      "pattern_id": "wp.typhoon.road.default",
+      "pattern_name": "Typhoon Road Conflation V7",
+      "steps": [
+        {
+          "algorithm_id": "algo.fusion.road.conflation.v7",
+          "data_source_id": "catalog.typhoon.road",
+          "depends_on": [],
+          "input_data_type": "dt.road.bundle",
+          "is_optional": false,
+          "name": "road_conflation_v7_typhoon",
+          "order": 1,
+          "output_data_type": "dt.road.fused",
+          "parameters": {}
+        }
+      ],
+      "success_rate": 0.9
+    },
+    {
+      "disaster_types": [
+        "flood",
+        "generic"
+      ],
+      "job_type": "water",
+      "metadata": {
+        "algorithm_family": "fusioncode_decomposed",
+        "input_strategy": "task_driven_auto_supported",
+        "runtime_status": "runtime_candidate",
+        "source_family": "catalog_water_bundle",
+        "version": "2.0.0",
+        "water_semantics": "polygon"
+      },
+      "pattern_id": "wp.water_polygon.fusioncode.priority_merge.v2",
+      "pattern_name": "FusionCode Water Polygon Priority Merge",
+      "steps": [
+        {
+          "algorithm_id": "algo.fusion.water_polygon.priority_merge.v2",
+          "data_source_id": "catalog.flood.water",
+          "depends_on": [],
+          "input_data_type": "dt.water.bundle",
+          "is_optional": false,
+          "name": "water_polygon_priority_merge",
+          "order": 1,
+          "output_data_type": "dt.water.fused",
+          "parameters": {}
+        }
+      ],
+      "success_rate": 0.83
+    },
+    {
+      "disaster_types": [
+        "flood",
+        "generic"
+      ],
+      "job_type": "water",
+      "metadata": {
+        "algorithm_family": "fusioncode_decomposed",
+        "input_strategy": "task_driven_auto_supported",
+        "runtime_status": "runtime_candidate",
+        "source_family": "catalog_waterways_bundle",
+        "version": "1.0.0",
+        "water_semantics": "waterways_line"
+      },
+      "pattern_id": "wp.waterways.fusioncode.conflation.v7",
+      "pattern_name": "FusionCode V7 Waterways Conflation",
+      "steps": [
+        {
+          "algorithm_id": "algo.fusion.waterways.conflation.v7",
+          "data_source_id": "catalog.flood.waterways",
+          "depends_on": [],
+          "input_data_type": "dt.waterways.bundle",
+          "is_optional": false,
+          "name": "waterways_conflation_v7",
+          "order": 1,
+          "output_data_type": "dt.waterways.fused",
+          "parameters": {}
+        }
+      ],
+      "success_rate": 0.82
+    }
+  ]
+}

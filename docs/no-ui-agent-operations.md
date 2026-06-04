@@ -97,6 +97,19 @@ Durable learning summary output is a bounded policy hint for future candidate se
 
 The `adjustment` value is clamped to a small range and is only policy evidence attached to candidate scoring. It is not autonomous self-optimization, does not rewrite KG seed data, and does not replace operator review, quality gates, or scenario validation evidence.
 
+## KG Seed Manifest Governance
+
+`kg/seed.py` remains the compatibility source for KG seed content in this slice. `kg/seed_manifest.generated.json` is generated, versioned, and hash-checked seed evidence with `schema_version` and `content_hash` metadata for diffable review.
+
+When adding or removing KG ids, update the Python seed source and rerun:
+
+```powershell
+python scripts/export_kg_seed_manifest.py --output kg/seed_manifest.generated.json
+python scripts/export_kg_seed_manifest.py --check --output kg/seed_manifest.generated.json
+```
+
+The runtime default has not been flipped to manifest loading. Manifest-backed in-memory loading is an explicit parity path for tests and later migration decisions.
+
 ## Scenario Trigger Inbox
 
 The local file inbox is the supported no-UI trigger demo path. It proves normalized event records can create scenario runs, persist registry evidence, and move processed or failed event files without claiming an external event-feed integration. External event-feed replay is not supported in this phase.

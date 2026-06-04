@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+import json
 from collections import deque
+from pathlib import Path
 from typing import Dict, List, Optional, Set
 
 from schemas.fusion import JobType
@@ -24,6 +26,7 @@ from kg.models import (
     WorkflowPatternNode,
 )
 from kg.repository import KGRepository
+from kg.seed_manifest import load_seed_manifest_payload
 from kg.seed import (
     ALGORITHMS,
     CAN_TRANSFORM_TO,
@@ -59,7 +62,9 @@ class InMemoryKGRepository(KGRepository):
         qos_policies: Optional[Dict[str, QoSPolicyNode]] = None,
         data_needs: Optional[List[DataNeedNode]] = None,
         repair_strategies: Optional[Dict[str, RepairStrategyNode]] = None,
+        seed_manifest_path: Optional[Path] = None,
     ) -> None:
+        manifest_seed = self._load_seed_manifest(seed_manifest_path) if seed_manifest_path is not None else None
         self.algorithms = ALGORITHMS if algorithms is None else algorithms
         self.patterns = WORKFLOW_PATTERNS if patterns is None else patterns
         self.can_transform_to = CAN_TRANSFORM_TO if can_transform_to is None else can_transform_to
@@ -74,11 +79,40 @@ class InMemoryKGRepository(KGRepository):
         self.qos_policies = QOS_POLICIES if qos_policies is None else qos_policies
         self.data_needs = DATA_NEEDS if data_needs is None else data_needs
         self.repair_strategies = REPAIR_STRATEGIES if repair_strategies is None else repair_strategies
+        if manifest_seed is not None:
+            self.algorithms = manifest_seed["algorithms"] if algorithms is None else algorithms
+            self.patterns = manifest_seed["workflow_patterns"] if patterns is None else patterns
+            self.data_sources = manifest_seed["data_sources"] if data_sources is None else data_sources
+            self.data_types = manifest_seed["data_types"] if data_types is None else data_types
+            self.parameter_specs = manifest_seed["parameter_specs"] if parameter_specs is None else parameter_specs
+            self.output_schema_policies = (
+                manifest_seed["output_schema_policies"]
+                if output_schema_policies is None
+                else output_schema_policies
+            )
+            self.task_nodes = manifest_seed["tasks"] if task_nodes is None else task_nodes
+            self.scenario_profiles = (
+                manifest_seed["scenario_profiles"] if scenario_profiles is None else scenario_profiles
+            )
+            self.task_bundles = manifest_seed["task_bundles"] if task_bundles is None else task_bundles
+            self.output_requirements = (
+                manifest_seed["output_requirements"] if output_requirements is None else output_requirements
+            )
+            self.qos_policies = manifest_seed["qos_policies"] if qos_policies is None else qos_policies
+            self.data_needs = manifest_seed["data_needs"] if data_needs is None else data_needs
+            self.repair_strategies = (
+                manifest_seed["repair_strategies"] if repair_strategies is None else repair_strategies
+            )
         self.feedback_history: List[ExecutionFeedback] = []
         self.durable_learning_records: List[DurableLearningRecord] = []
         self._pattern_scores: Dict[str, float] = {}
         self._algorithm_scores: Dict[str, float] = {}
         self._data_source_scores: Dict[str, float] = {}
+
+    @staticmethod
+    def _load_seed_manifest(seed_manifest_path: Path) -> Dict[str, object]:
+        payload = json.loads(Path(seed_manifest_path).read_text(encoding="utf-8"))
+        return load_seed_manifest_payload(payload)
 
     def list_algorithms(self) -> List[AlgorithmNode]:
         return [self.algorithms[algo_id] for algo_id in sorted(self.algorithms)]
