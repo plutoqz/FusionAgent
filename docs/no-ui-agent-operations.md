@@ -175,6 +175,16 @@ python scripts/freeze_no_ui_maturity_evidence.py `
 
 Do not track raw `runs/<run_id>/` directories or source caches as final evidence. Track frozen JSON/Markdown pointers instead.
 
+## Evidence Lifecycle Contract
+
+Single-run evidence is rooted at `runs/<run_id>/`. The source of truth is `run.json`, `plan.json`, `validation.json`, `audit.jsonl`, `output/quality_report.json`, and the canonical artifact bundle.
+
+Scenario evidence is rooted at `<scenario_output_root>/<scenario_id>/`. The source of truth is `scenario_summary.json`, `evaluation.json`, `kg_path_trace.json`, `workflow_trace.json`, `source_coverage.json`, `failed_children.json`, and `scenario_artifact_manifest.json`.
+
+Validation evidence is rooted at the validation session output directory. The source of truth is `validation_session.json`, `matrix_snapshot.json`, `case_results.jsonl`, `validation_summary.json`, and `validation_summary.md`.
+
+Raw source caches are disposable unless a frozen evidence file explicitly references them. Frozen JSON and Markdown records are the tracked evidence surface; raw run and cache directories stay untracked. In operational notes, write this plainly as: raw source caches are disposable.
+
 ## Operator APIs
 
 The no-UI operator surface is read-oriented and intended for CLI/API inspection before any final frontend exists.
