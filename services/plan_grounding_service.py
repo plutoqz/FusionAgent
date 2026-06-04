@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Any
 
 from schemas.agent import WorkflowPlan, WorkflowTask
+from schemas.plan_grounding import PlanGroundingGateDecision
 
 
 ALGORITHM_NOT_IN_CANDIDATE_PATTERNS = "ALGORITHM_NOT_IN_CANDIDATE_PATTERNS"
@@ -61,6 +62,29 @@ def ensure_plan_grounding_report(plan: WorkflowPlan) -> dict[str, Any]:
     report = build_plan_grounding_report(plan)
     _context_dict(plan)["grounding_report"] = report
     return report
+
+
+def evaluate_plan_grounding_gate(report: dict[str, Any], *, mode: str = "report") -> PlanGroundingGateDecision:
+    normalized_mode = str(mode or "report").strip().lower()
+    if normalized_mode not in {"report", "warn", "enforce"}:
+        normalized_mode = "report"
+    grounded = bool(report.get("grounded"))
+    issue_codes = _report_issue_codes(report)
+    allowed = grounded or normalized_mode in {"report", "warn"}
+    return PlanGroundingGateDecision(
+        mode=normalized_mode,
+        allowed=allowed,
+        reason_code=None if allowed else "PLAN_GROUNDING_FAILED",
+        message=(
+            "Plan grounding passed."
+            if grounded
+            else "Plan grounding failed; enforcement rejected execution."
+            if not allowed
+            else "Plan grounding failed but current mode does not enforce rejection."
+        ),
+        grounding_score=float(report.get("grounding_score") or 0.0),
+        issue_codes=issue_codes,
+    )
 
 
 def grounding_report_matches_plan(plan: WorkflowPlan, report: object) -> bool:
@@ -285,6 +309,18 @@ def _context_dict(plan: WorkflowPlan) -> dict[str, Any]:
 
 def _as_list(value: Any) -> list[Any]:
     return value if isinstance(value, list) else []
+
+
+def _report_issue_codes(report: dict[str, Any]) -> list[str]:
+    ordered: list[str] = []
+    for step in _as_list(report.get("steps")):
+        if not isinstance(step, dict):
+            continue
+        for code in _as_list(step.get("issue_codes")):
+            text = str(code).strip()
+            if text and text not in ordered:
+                ordered.append(text)
+    return ordered
 
 
 def _clean_str(value: Any) -> str | None:

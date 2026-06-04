@@ -1,7 +1,8 @@
 from __future__ import annotations
 
 from schemas.agent import RunTrigger, RunTriggerType, WorkflowPlan, WorkflowTask, WorkflowTaskInput, WorkflowTaskOutput
-from services.plan_grounding_service import build_plan_grounding_report
+from schemas.plan_grounding import PlanGroundingGateDecision
+from services.plan_grounding_service import build_plan_grounding_report, evaluate_plan_grounding_gate
 
 
 def _plan(
@@ -178,3 +179,38 @@ def test_missing_expected_output_type_is_compatible() -> None:
     assert report["grounded"] is True
     assert report["steps"][0]["output_type_matches_intent"] is True
     assert "OUTPUT_TYPE_MISMATCH" not in report["steps"][0]["issue_codes"]
+
+
+def test_plan_grounding_gate_decision_serializes_rejection() -> None:
+    decision = PlanGroundingGateDecision(
+        mode="enforce",
+        allowed=False,
+        reason_code="PLAN_GROUNDING_FAILED",
+        issue_codes=["DATA_SOURCE_NOT_IN_RETRIEVAL"],
+    )
+
+    payload = decision.model_dump(mode="json")
+
+    assert payload["allowed"] is False
+    assert payload["reason_code"] == "PLAN_GROUNDING_FAILED"
+
+
+def test_grounding_gate_allows_report_mode_when_ungrounded() -> None:
+    decision = evaluate_plan_grounding_gate(
+        {"grounded": False, "grounding_score": 0.0, "steps": [{"issue_codes": ["DATA_SOURCE_NOT_IN_RETRIEVAL"]}]},
+        mode="report",
+    )
+
+    assert decision.allowed is True
+    assert decision.reason_code is None
+
+
+def test_grounding_gate_rejects_enforce_mode_when_ungrounded() -> None:
+    decision = evaluate_plan_grounding_gate(
+        {"grounded": False, "grounding_score": 0.0, "steps": [{"issue_codes": ["DATA_SOURCE_NOT_IN_RETRIEVAL"]}]},
+        mode="enforce",
+    )
+
+    assert decision.allowed is False
+    assert decision.reason_code == "PLAN_GROUNDING_FAILED"
+    assert decision.issue_codes == ["DATA_SOURCE_NOT_IN_RETRIEVAL"]

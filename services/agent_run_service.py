@@ -49,7 +49,7 @@ from services.aoi_resolution_service import AOIResolutionService, NominatimGeoco
 from services.data_requirement_resolver_service import DataRequirementResolverService
 from services.input_acquisition_service import InputAcquisitionService, ResolvedRunInputs
 from services.local_bundle_catalog import LocalBundleCatalogProvider
-from services.plan_grounding_service import ensure_plan_grounding_report
+from services.plan_grounding_service import ensure_plan_grounding_report, evaluate_plan_grounding_gate
 from services.quality_gate_service import QualityGateService
 from services.raw_vector_source_service import RawVectorSourceService
 from services.runtime_settings_service import RuntimeSettingsService
@@ -754,7 +754,16 @@ class AgentRunService:
                     previous_input_signature = self._task_driven_input_signature(plan)
                     plan = replanned
                     plan_path = self._plan_path(run_id)
+                    _grounding_report, grounding_gate = self._apply_plan_grounding_gate(run_id, plan, stage="replan")
                     self._persist_plan(plan_path, plan)
+                    if not grounding_gate.allowed:
+                        self._reject_ungrounded_plan(
+                            run_id=run_id,
+                            plan=plan,
+                            decision=grounding_gate,
+                            stage="replan",
+                            plan_path=plan_path,
+                        )
                     self._update_status(
                         run_id,
                         RunPhase.healing,
@@ -1001,14 +1010,23 @@ class AgentRunService:
                 plan.context = {**plan.context, "intent": intent}
         planning_decisions = self._build_planning_decisions(plan)
         artifact_reuse = self._build_artifact_reuse_decision(plan)
-        grounding_report = ensure_plan_grounding_report(plan)
+        grounding_report, grounding_gate = self._apply_plan_grounding_gate(run_id, plan, stage="planning")
         planning_telemetry = dict(plan.context.get("planning_telemetry") or {})
         plan_path = self._plan_path(run_id)
         self._persist_plan(plan_path, plan)
+        if not grounding_gate.allowed:
+            self._reject_ungrounded_plan(
+                run_id=run_id,
+                plan=plan,
+                decision=grounding_gate,
+                stage="planning",
+                plan_path=plan_path,
+            )
         event_details = {
             "workflow_id": plan.workflow_id,
             "grounded": grounding_report["grounded"],
             "grounding_score": grounding_report["grounding_score"],
+            "grounding_gate": grounding_gate.model_dump(mode="json"),
             "planning_telemetry": planning_telemetry,
             "effective_parameters": self._extract_effective_parameters(plan),
             "selected_decisions": {
@@ -1046,6 +1064,47 @@ class AgentRunService:
             event_details=event_details,
         )
         return plan
+
+    def _apply_plan_grounding_gate(self, run_id: str, plan: WorkflowPlan, *, stage: str):
+        grounding_report = ensure_plan_grounding_report(plan)
+        decision = evaluate_plan_grounding_gate(
+            grounding_report,
+            mode=os.getenv("GEOFUSION_PLAN_GROUNDING_MODE", "report"),
+        )
+        plan.context = {**plan.context, "grounding_gate": decision.model_dump(mode="json")}
+        return grounding_report, decision
+
+    def _reject_ungrounded_plan(
+        self,
+        *,
+        run_id: str,
+        plan: WorkflowPlan,
+        decision,
+        stage: str,
+        plan_path: Path,
+    ) -> None:
+        issue_text = ", ".join(decision.issue_codes) if decision.issue_codes else "unknown"
+        error = f"{decision.reason_code}: {issue_text}"
+        self._update_status(
+            run_id,
+            RunPhase.failed,
+            progress=25,
+            error=error,
+            failure_summary=error,
+            finished_at=_utc_now(),
+            plan_path=str(plan_path),
+            plan_revision=self._extract_plan_revision(plan),
+            checkpoint=self._checkpoint(stage=stage, plan_revision=self._extract_plan_revision(plan)),
+            event_kind="plan_grounding_rejected",
+            event_message=decision.message,
+            event_details={
+                "stage": stage,
+                "decision": decision.model_dump(mode="json"),
+                "issue_codes": list(decision.issue_codes),
+                "reason_code": decision.reason_code,
+            },
+        )
+        raise RuntimeError(error)
 
     def run_validation_stage(self, run_id: str, plan: WorkflowPlan) -> WorkflowPlan:
         validated = self.validator.validate_and_repair(plan)

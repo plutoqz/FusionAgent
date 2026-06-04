@@ -2561,6 +2561,126 @@ def test_agent_run_service_replans_after_execution_failure(tmp_path: Path, monke
     assert audit_events[-1].plan_revision == 2
 
 
+def test_replan_result_is_rejected_when_grounding_enforcement_fails(tmp_path: Path, monkeypatch) -> None:
+    service = AgentRunService(base_dir=tmp_path / "runs")
+    service.max_plan_revisions = 2
+    monkeypatch.setenv("GEOFUSION_PLAN_GROUNDING_MODE", "enforce")
+
+    osm_shp = tmp_path / "osm.shp"
+    ref_shp = tmp_path / "ref.shp"
+    for path in [osm_shp, ref_shp]:
+        path.write_text("dummy", encoding="utf-8")
+
+    initial_plan = _build_plan(workflow_id="wf_initial", revision=1, include_reusable_artifacts=True)
+    initial_plan.context["retrieval"] = {
+        "candidate_patterns": [
+            {
+                "pattern_id": "wp.flood.building.default",
+                "steps": [
+                    {
+                        "algorithm_id": "algo.fusion.building.v1",
+                        "input_data_type": "dt.building.bundle",
+                        "data_source_id": "upload.bundle",
+                        "output_data_type": "dt.building.fused",
+                    }
+                ],
+            }
+        ],
+        "data_sources": [{"source_id": "upload.bundle"}],
+        "algorithms": {"algo.fusion.building.v1": {"tool_ref": "builtin:building"}},
+        "output_schema_policies": {"dt.building.fused": {"policy_id": "schema.building.fused"}},
+        "reusable_artifacts": [
+            {
+                "artifact_id": "artifact-prior-1",
+                "artifact_path": "/tmp/artifact-prior-1.zip",
+                "created_at": "2026-04-06T00:00:00+00:00",
+            }
+        ],
+    }
+    replanned_plan = _build_plan(workflow_id="wf_replanned_ungrounded", revision=2)
+    replanned_plan.context["retrieval"] = {
+        "candidate_patterns": [],
+        "data_sources": [],
+        "algorithms": {},
+        "output_schema_policies": {},
+    }
+
+    monkeypatch.setattr("services.agent_run_service.validate_zip_has_shapefile", lambda *_args, **_kwargs: osm_shp)
+    monkeypatch.setattr(service.planner, "create_plan", lambda **_kwargs: initial_plan.model_copy(deep=True))
+    monkeypatch.setattr(service.validator, "validate_and_repair", lambda input_plan: input_plan)
+    monkeypatch.setattr(service.planner, "replan_from_error", lambda **_kwargs: replanned_plan.model_copy(deep=True))
+
+    def fake_execute_plan(*, repair_records, **_kwargs):
+        repair_records.extend(
+            [
+                RepairRecord(
+                    attempt_no=1,
+                    strategy="alternative_source",
+                    step=1,
+                    message="Primary execution failed",
+                    success=False,
+                    timestamp="2026-04-02T00:00:00+00:00",
+                    reason_code="primary_execution_failed",
+                    from_algorithm="algo.fusion.building.v1",
+                ),
+                RepairRecord(
+                    attempt_no=2,
+                    strategy="alternative_algorithm",
+                    step=1,
+                    message="Alternative algorithm failed",
+                    success=False,
+                    timestamp="2026-04-02T00:00:01+00:00",
+                    reason_code="alternative_algorithm_failed",
+                    from_algorithm="algo.fusion.building.v1",
+                    to_algorithm="algo.fusion.building.safe",
+                ),
+                RepairRecord(
+                    attempt_no=3,
+                    strategy="transform_insert",
+                    step=1,
+                    message="No transform path found.",
+                    success=False,
+                    timestamp="2026-04-02T00:00:02+00:00",
+                    reason_code="transform_path_missing",
+                    from_algorithm="algo.fusion.building.v1",
+                ),
+            ]
+        )
+        raise RuntimeError("exhausted repairs")
+
+    monkeypatch.setattr(service.executor, "execute_plan", fake_execute_plan)
+    request = RunCreateRequest(
+        job_type=JobType.building,
+        trigger=RunTrigger(type=RunTriggerType.user_query, content="building"),
+        target_crs="EPSG:32643",
+        field_mapping={},
+        debug=False,
+    )
+
+    status = service.create_run(
+        request=request,
+        osm_zip_name="osm.zip",
+        osm_zip_bytes=_write_dummy_zip(tmp_path / "osm.zip"),
+        ref_zip_name="ref.zip",
+        ref_zip_bytes=_write_dummy_zip(tmp_path / "ref.zip"),
+    )
+
+    latest = service.get_run(status.run_id)
+    assert latest is not None
+    assert latest.phase == RunPhase.failed
+    assert "PLAN_GROUNDING_FAILED" in (latest.error or "")
+    saved_plan = service.get_plan(status.run_id)
+    assert saved_plan is not None
+    assert saved_plan.workflow_id == "wf_replanned_ungrounded"
+    assert saved_plan.context["grounding_gate"]["allowed"] is False
+    audit_events = service.get_audit_events(status.run_id)
+    assert any(event.kind == "replan_requested" for event in audit_events)
+    assert any(
+        event.kind == "plan_grounding_rejected" and event.details.get("stage") == "replan"
+        for event in audit_events
+    )
+
+
 def test_agent_run_service_copies_planning_telemetry_to_status_and_audit(tmp_path: Path, monkeypatch) -> None:
     service = AgentRunService(base_dir=tmp_path / "runs")
 
@@ -3285,3 +3405,64 @@ def test_get_run_refreshes_stale_cached_status_from_disk(tmp_path: Path) -> None
     assert refreshed.phase == RunPhase.failed
     assert refreshed.error == "RuntimeError: boom"
     assert refreshed.finished_at == "2026-04-02T00:00:02+00:00"
+
+
+def test_agent_run_service_enforces_plan_grounding_before_validation(tmp_path: Path, monkeypatch) -> None:
+    service = AgentRunService(base_dir=tmp_path / "runs")
+    monkeypatch.setenv("GEOFUSION_PLAN_GROUNDING_MODE", "enforce")
+    ungrounded_plan = _build_plan(workflow_id="wf_ungrounded", revision=1)
+    ungrounded_plan.context["retrieval"] = {
+        "candidate_patterns": [],
+        "data_sources": [],
+        "algorithms": {},
+        "output_schema_policies": {},
+    }
+    monkeypatch.setattr(service.planner, "create_plan", lambda **_kwargs: ungrounded_plan.model_copy(deep=True))
+
+    status = service.create_run(
+        request=_build_auto_request(),
+        osm_zip_name=None,
+        osm_zip_bytes=None,
+        ref_zip_name=None,
+        ref_zip_bytes=None,
+    )
+
+    latest = service.get_run(status.run_id)
+    assert latest is not None
+    assert latest.phase == RunPhase.failed
+    assert "PLAN_GROUNDING_FAILED" in (latest.error or "")
+    saved_plan = service.get_plan(status.run_id)
+    assert saved_plan is not None
+    assert saved_plan.context["grounding_gate"]["mode"] == "enforce"
+    assert saved_plan.context["grounding_gate"]["allowed"] is False
+    events = service.get_audit_events(status.run_id)
+    assert any(event.kind == "plan_grounding_rejected" for event in events)
+    assert not any(event.kind == "plan_validated" for event in events)
+
+
+def test_agent_run_service_records_grounding_gate_in_report_mode(tmp_path: Path, monkeypatch) -> None:
+    service = AgentRunService(base_dir=tmp_path / "runs")
+    plan = _build_plan(workflow_id="wf_report_mode", revision=1)
+    plan.context["retrieval"] = {
+        "candidate_patterns": [],
+        "data_sources": [],
+        "algorithms": {},
+        "output_schema_policies": {},
+    }
+    monkeypatch.setattr(service.planner, "create_plan", lambda **_kwargs: plan.model_copy(deep=True))
+    monkeypatch.setattr(service, "run_validation_stage", lambda run_id, plan: plan)
+    monkeypatch.setattr(service, "_attempt_artifact_reuse", lambda **_kwargs: None)
+    monkeypatch.setattr(service, "_resolve_execution_inputs", lambda **_kwargs: (_ for _ in ()).throw(RuntimeError("stop")))
+
+    status = service.create_run(
+        request=_build_auto_request(),
+        osm_zip_name=None,
+        osm_zip_bytes=None,
+        ref_zip_name=None,
+        ref_zip_bytes=None,
+    )
+
+    saved_plan = service.get_plan(status.run_id)
+    assert saved_plan is not None
+    assert saved_plan.context["grounding_gate"]["mode"] == "report"
+    assert saved_plan.context["grounding_gate"]["allowed"] is True
