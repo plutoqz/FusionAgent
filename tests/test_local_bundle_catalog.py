@@ -115,6 +115,50 @@ class _NoRemoteSourceAssetService:
         return False
 
 
+class _RawServiceWithEmptyThenAvailableWater:
+    def resolve(
+        self,
+        *,
+        source_id: str,
+        request_bbox,
+        target_path: Path,
+        target_crs: str,
+        resolved_aoi=None,
+    ):
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        work_dir = target_path.parent / f"raw_{source_id.replace('.', '_')}"
+        work_dir.mkdir(parents=True, exist_ok=True)
+        shp_path = work_dir / "source.shp"
+        if source_id in {"raw.osm.waterways", "raw.local.pakistan.waterways"}:
+            frame = geopandas.GeoDataFrame({"source": []}, geometry=[], crs="EPSG:4326")
+            feature_count = 0
+        else:
+            frame = geopandas.GeoDataFrame(
+                {"source": [source_id]},
+                geometry=[
+                    Polygon([(66.95, 24.85), (66.95, 24.95), (67.05, 24.95), (67.05, 24.85)])
+                ],
+                crs="EPSG:4326",
+            )
+            feature_count = 1
+        frame.to_file(shp_path)
+        with zipfile.ZipFile(target_path, "w") as archive:
+            for file in work_dir.glob("*"):
+                archive.write(file, arcname=file.name)
+        from services.raw_vector_source_service import MaterializedRawVectorSource
+
+        return MaterializedRawVectorSource(
+            zip_path=target_path,
+            bbox=request_bbox,
+            target_crs=target_crs,
+            source_id=source_id,
+            source_mode="test_fixture",
+            cache_hit=False,
+            version_token=f"{source_id}:test",
+            feature_count=feature_count,
+        )
+
+
 def test_local_bundle_catalog_supports_expanded_building_and_flood_road_sources(tmp_path: Path) -> None:
     _seed_local_catalog_tree(tmp_path)
     provider = LocalBundleCatalogProvider(
@@ -280,6 +324,24 @@ def test_local_bundle_catalog_road_bundle_tolerates_missing_manual_overture_refe
     assert materialized.source_id == "catalog.flood.road"
     assert materialized.component_coverage["raw.overture.transportation"].feature_count == 0
     assert materialized.component_coverage["raw.overture.transportation"].source_mode == "missing_optional_ref"
+
+
+def test_local_bundle_catalog_uses_policy_fallback_for_waterways(tmp_path: Path) -> None:
+    provider = LocalBundleCatalogProvider(
+        root_dir=tmp_path,
+        raw_source_service=_RawServiceWithEmptyThenAvailableWater(),
+    )
+
+    bundle = provider.materialize_with_fallback(
+        source_id="catalog.flood.waterways",
+        request_bbox=(66.9, 24.8, 67.1, 25.0),
+        target_dir=tmp_path / "bundle",
+        target_crs="EPSG:4326",
+    )
+
+    assert bundle.fallback_from == "catalog.flood.waterways"
+    assert bundle.source_id == "catalog.flood.water"
+    assert bundle.attempted_sources == ["catalog.flood.waterways", "catalog.flood.water"]
 
 
 def test_local_bundle_catalog_current_version_tolerates_missing_manual_overture_reference(tmp_path: Path) -> None:

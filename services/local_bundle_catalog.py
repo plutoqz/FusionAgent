@@ -11,13 +11,14 @@ from kg.source_catalog import CATALOG_BUNDLE_SPECS, CatalogBundleSpec
 from services.aoi_resolution_service import ResolvedAOI
 from services.input_acquisition_service import BBox, MaterializedInputBundle
 from services.raw_vector_source_service import MaterializedRawVectorSource, RawVectorSourceService
+from services.source_acquisition_policy import requires_complete_pair_coverage, source_fallback_candidates
 from services.source_asset_service import SourceCoverageStatus, coverage_status_for_count
 from utils.crs import normalize_target_crs
 from utils.shp_zip import validate_zip_has_shapefile, zip_shapefile_bundle
 
 
 BUILDING_SOURCE_FALLBACKS = {
-    "catalog.earthquake.building": ["catalog.flood.building"],
+    "catalog.earthquake.building": source_fallback_candidates("catalog.earthquake.building"),
 }
 
 PARTIAL_COVERAGE_ALLOWED_SOURCES = {
@@ -25,7 +26,6 @@ PARTIAL_COVERAGE_ALLOWED_SOURCES = {
     "catalog.earthquake.road",
     "catalog.typhoon.road",
     "catalog.flood.water",
-    "catalog.flood.waterways",
     "catalog.generic.poi",
 }
 
@@ -98,19 +98,25 @@ class LocalBundleCatalogProvider:
     ) -> MaterializedInputBundle:
         attempted_sources = [source_id]
         combined_coverage: dict[str, SourceCoverageStatus] = {}
-        requested = self._materialize_bundle(
-            source_id=source_id,
-            request_bbox=request_bbox,
-            resolved_aoi=resolved_aoi,
-            target_dir=target_dir,
-            target_crs=target_crs,
-            require_non_empty_pair=False,
-        )
-        combined_coverage.update(requested.component_coverage)
-        if not self._has_empty_required_component(source_id, requested.component_coverage):
-            return requested
+        requested: MaterializedInputBundle | None = None
+        try:
+            requested = self._materialize_bundle(
+                source_id=source_id,
+                request_bbox=request_bbox,
+                resolved_aoi=resolved_aoi,
+                target_dir=target_dir,
+                target_crs=target_crs,
+                require_non_empty_pair=False,
+            )
+        except ValueError as exc:
+            if "empty source coverage" not in str(exc):
+                raise
+        if requested is not None:
+            combined_coverage.update(requested.component_coverage)
+            if not self._has_empty_required_component(source_id, requested.component_coverage):
+                return requested
 
-        for fallback_source_id in BUILDING_SOURCE_FALLBACKS.get(source_id, []):
+        for fallback_source_id in source_fallback_candidates(source_id):
             attempted_sources.append(fallback_source_id)
             if target_dir.exists():
                 shutil.rmtree(target_dir)
@@ -280,7 +286,7 @@ class LocalBundleCatalogProvider:
 
     @staticmethod
     def _requires_complete_pair_coverage(source_id: str) -> bool:
-        return source_id not in PARTIAL_COVERAGE_ALLOWED_SOURCES
+        return requires_complete_pair_coverage(source_id)
 
     @staticmethod
     def _create_empty_reference_bundle(
