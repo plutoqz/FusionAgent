@@ -52,3 +52,30 @@ def test_quality_gate_rejects_wrong_geometry_for_waterways(tmp_path: Path) -> No
 
     assert report.accepted is False
     assert report.checks["geometry_type"]["passed"] is False
+
+
+def test_quality_gate_rejects_duplicate_geometry_above_policy_threshold(tmp_path: Path) -> None:
+    path = tmp_path / "duplicate.gpkg"
+    polygon = Polygon([(0, 0), (0, 1), (1, 1), (1, 0)])
+    frame = gpd.GeoDataFrame(
+        {"source_id": ["raw.osm.building", "raw.microsoft.building"]},
+        geometry=[polygon, polygon],
+        crs="EPSG:4326",
+    )
+    frame.to_file(path, driver="GPKG")
+
+    report = QualityGateService().evaluate(
+        artifact_path=path,
+        task_kind=TaskKind.building,
+        required_fields=["geometry", "source_id"],
+        requested_bbox=(-1, -1, 2, 2),
+        component_coverage={
+            "raw.osm.building": {"feature_count": 1, "coverage_status": "available"},
+            "raw.microsoft.building": {"feature_count": 1, "coverage_status": "available"},
+        },
+        quality_policy_id="quality.default.building.v1",
+    )
+
+    assert report.accepted is False
+    assert report.policy_id == "quality.default.building.v1"
+    assert "duplicate_geometry_rate" in report.failure_reasons
