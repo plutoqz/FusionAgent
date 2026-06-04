@@ -71,6 +71,20 @@ python scripts/start_local.py --port 8010
 
 The default day-to-day API port remains `8000`; reserve `8010` for isolated real-data benchmark runs and `8011` for an isolated fast-confidence runtime when needed. See `docs/v2-operations.md` for Redis, Neo4j, worker, and port-alignment details.
 
+## Plan Grounding Gate
+
+Use `GEOFUSION_PLAN_GROUNDING_MODE` to control whether plan grounding is evidence-only or an execution gate:
+
+- `report`: write `grounding_report` and `grounding_gate` evidence only.
+- `warn`: write the same evidence and allow execution even when the plan is ungrounded.
+- `enforce`: reject ungrounded initial plans or replans before validation; rejected runs emit `plan_grounding_rejected`.
+
+For enforced validation runs:
+
+```powershell
+$env:GEOFUSION_PLAN_GROUNDING_MODE='enforce'
+```
+
 ## Scenario Trigger Inbox
 
 The local file inbox is the supported no-UI trigger demo path. It proves normalized event records can create scenario runs, persist registry evidence, and move processed or failed event files without claiming an external event-feed integration. External event-feed replay is not supported in this phase.

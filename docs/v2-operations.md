@@ -466,6 +466,7 @@ Operators should be able to answer these four questions directly from `inspectio
 The run inspection payload includes these hardening views:
 
 - `kg_path_trace.grounding_report`: shows whether executable steps are grounded in retrieved workflow patterns, data sources, and output schema policies.
+- `grounding_gate`: records the runtime admission decision derived from the grounding report; `kg_path_trace.grounding_report` remains evidence, while `grounding_gate` decides whether `GEOFUSION_PLAN_GROUNDING_MODE=enforce` may proceed.
 - `tool_contract_report`: shows whether each planned algorithm is registered in `ToolRegistry`, which handler it maps to, which input/output types are expected, and whether the tool is reservation-only.
 - `telemetry_summary`: summarizes planning telemetry and audit event counts for the run.
 - `recovery_hint`: summarizes whether the current checkpoint can be redispatched or requires manual review.
