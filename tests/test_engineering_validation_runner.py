@@ -5,7 +5,7 @@ from pathlib import Path
 
 from schemas.engineering_validation import EngineeringValidationCase, EngineeringValidationCaseResult
 from schemas.scenario import ScenarioPhase, ScenarioRunResponse
-from scripts.run_engineering_validation import load_matrix_cases, run_validation_cases, write_validation_outputs
+from scripts.run_engineering_validation import load_matrix_cases, main, run_validation_cases, write_validation_outputs
 
 
 def test_engineering_validation_case_requires_core_fields() -> None:
@@ -131,3 +131,42 @@ def test_write_validation_outputs_creates_session_files(tmp_path: Path) -> None:
     assert (tmp_path / "case_results.jsonl").exists()
     assert (tmp_path / "validation_summary.json").exists()
     assert (tmp_path / "validation_summary.md").exists()
+
+
+def test_main_dry_run_filters_selected_case(tmp_path: Path, capsys) -> None:
+    matrix = tmp_path / "matrix.json"
+    matrix.write_text(
+        json.dumps(
+            {
+                "version": "test",
+                "cases": [
+                    {
+                        "case_id": "case-a",
+                        "region_group": "africa",
+                        "aoi_class": "small_city",
+                        "scenario_name": "A",
+                        "disaster_type": "flood",
+                        "spatial_extent": "bbox(0,0,1,1)",
+                        "default_task_bundle": ["building"],
+                    },
+                    {
+                        "case_id": "case-b",
+                        "region_group": "pakistan",
+                        "aoi_class": "medium_region",
+                        "scenario_name": "B",
+                        "disaster_type": "flood",
+                        "spatial_extent": "bbox(1,1,2,2)",
+                        "default_task_bundle": ["road"],
+                    },
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    exit_code = main(["--matrix", str(matrix), "--dry-run", "--case", "case-b"])
+
+    captured = capsys.readouterr()
+    assert exit_code == 0
+    assert "case-b" in captured.out
+    assert "case-a" not in captured.out
