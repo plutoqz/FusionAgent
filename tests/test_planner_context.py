@@ -163,6 +163,28 @@ def test_planner_builds_stable_context_fields() -> None:
     assert plan.context["planning_telemetry"]["elapsed_ms"] >= 0
 
 
+def test_planner_context_can_include_data_requirement_hint() -> None:
+    provider = CapturingProvider()
+    planner = WorkflowPlanner(InMemoryKGRepository(), provider)
+    planner.context_builder.data_requirements_override = {
+        "task_kind": "building",
+        "roles": [{"role_id": "primary_footprint"}, {"role_id": "reference_footprint"}],
+    }
+    trigger = RunTrigger(
+        type=RunTriggerType.user_query,
+        content="need building data",
+    )
+
+    _plan = planner.create_plan(run_id="run-data-requirements", job_type=JobType.building, trigger=trigger)
+
+    assert provider.last_context is not None
+    assert provider.last_context["data_requirements"]["task_kind"] == "building"
+    assert [role["role_id"] for role in provider.last_context["data_requirements"]["roles"]] == [
+        "primary_footprint",
+        "reference_footprint",
+    ]
+
+
 def test_planner_serializes_shared_provider_usage_capture() -> None:
     provider = SlowObservableProvider()
     planner = WorkflowPlanner(InMemoryKGRepository(), provider)

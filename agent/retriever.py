@@ -82,6 +82,7 @@ class PlanningContextBuilder:
         self.aoi_resolution_service: AOIResolutionService | None = None
         self.resolved_aoi_override: ResolvedAOI | None = None
         self.preferred_pattern_id_override: str | None = None
+        self.data_requirements_override: Dict[str, Any] | None = None
 
     def build(self, job_type: JobType, trigger: RunTrigger) -> Tuple[Dict[str, Any], str]:
         kg_context = self.kg_repo.build_context(job_type=job_type, disaster_type=trigger.disaster_type)
@@ -125,31 +126,31 @@ class PlanningContextBuilder:
             job_type=job_type,
             relevant_sources=relevant_sources,
         )
-        return (
-            {
-                "intent": self._extract_intent(
-                    job_type,
-                    trigger,
-                    location_query,
-                    resolved_aoi,
-                    effective_profile=effective_profile,
-                    resolved_mode=resolved_mode,
-                    task_bundle=task_bundle,
-                    output_requirement=output_requirement,
-                    qos_policy=qos_policy,
-                ),
-                "retrieval": retrieval_payload,
-                "constraints": self._build_constraints(job_type),
-                "execution_hints": self._build_execution_hints(
-                    kg_context,
-                    resolved_aoi,
-                    relevant_sources=relevant_sources,
-                    reserved_capability_hints=reserved_capability_hints,
-                    preferred_pattern_id=self.preferred_pattern_id_override,
-                ),
-            },
-            selection_reason,
-        )
+        context = {
+            "intent": self._extract_intent(
+                job_type,
+                trigger,
+                location_query,
+                resolved_aoi,
+                effective_profile=effective_profile,
+                resolved_mode=resolved_mode,
+                task_bundle=task_bundle,
+                output_requirement=output_requirement,
+                qos_policy=qos_policy,
+            ),
+            "retrieval": retrieval_payload,
+            "constraints": self._build_constraints(job_type),
+            "execution_hints": self._build_execution_hints(
+                kg_context,
+                resolved_aoi,
+                relevant_sources=relevant_sources,
+                reserved_capability_hints=reserved_capability_hints,
+                preferred_pattern_id=self.preferred_pattern_id_override,
+            ),
+        }
+        if self.data_requirements_override is not None:
+            context["data_requirements"] = dict(self.data_requirements_override)
+        return context, selection_reason
 
     def _resolve_aoi(self, trigger: RunTrigger) -> ResolvedAOI | None:
         if self.resolved_aoi_override is not None:
