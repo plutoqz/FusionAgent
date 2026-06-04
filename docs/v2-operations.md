@@ -21,7 +21,7 @@ Freeze the runtime wording to the following contract:
 - `road: task_driven_auto supported`
 - `water: task_driven_auto supported after Phase 1`
 - `poi: bounded task_driven_auto supported after Phase 3`
-- all four share the same evidence contract: `run.json`, `plan.json`, `validation.json`, `audit.jsonl`, and the artifact bundle
+- all four share the same evidence contract: `run.json`, `plan.json`, `validation.json`, `audit.jsonl`, `output/quality_report.json`, and the artifact bundle
 - `trajectory-to-road` remains reservation-only in Phase 4 and is not part of the stable runtime contract
 
 In plain language: trajectory-to-road remains reservation-only and is not a live runtime ingestion path.
@@ -200,7 +200,7 @@ python scripts/freeze_paper_evidence.py `
 ```
 
 Track the matrix spec and frozen outputs under `docs/superpowers/specs/`.
-Do not track raw `runs/<run_id>/` directories or source caches; record their storage location inside the frozen JSON instead.
+Do not track raw `runs/<run_id>/` directories or source caches; record their storage location inside the frozen JSON instead. Validation-session evidence uses `validation_session.json`, `matrix_snapshot.json`, `case_results.jsonl`, `validation_summary.json`, and `validation_summary.md` under the selected session output directory.
 Keep the water and bounded POI extensibility notes explicit even though both now share the stable task-driven contract.
 Do not describe the trajectory-to-road seam reservation as a live runtime ingestion path.
 
@@ -438,8 +438,9 @@ The v2 API now has a narrow but practical operator layer.
 - `GET /api/v2/scenario-runs/{scenario_id}`: loads the canonical `scenario_summary.json` for a scenario
 - request fields include `scenario_name`, `trigger_content`, `disaster_type`, `job_types`, optional `target_crs`, and optional `output_root`
 - output-root order is `request.output_root`, then `GEOFUSION_SCENARIO_OUTPUT_ROOT`, then `E:\fyx\data\fusionagentTEST`
-- scenario output includes `scenario_summary.json`, `kg_path_trace.json`, `workflow_trace.json`, `source_coverage.json`, `evaluation.json`, and bilingual reports under `documents/scenario_report.zh.md` and `documents/scenario_report.en.md`
+- scenario output includes `scenario_summary.json`, `kg_path_trace.json`, `workflow_trace.json`, `source_coverage.json`, `evaluation.json`, `failed_children.json`, `scenario_artifact_manifest.json`, and bilingual reports under `documents/scenario_report.zh.md` and `documents/scenario_report.en.md`
 - scenario evidence is additive; single-run `run.json`, `plan.json`, `validation.json`, `audit.jsonl`, and artifact bundles remain stable
+- `scenario_artifact_manifest.json` indexes scenario source-of-truth files and child output references; it does not move current run or scenario outputs
 - scenario reports expose KG relationship chains, final workflow trace, source coverage and fallback evidence, data-fusion metrics, agentic metrics, and durable learning summary or policy-hint evidence
 
 The file inbox runner is an operations demo path, not a production event-feed integration. The local file inbox remains the supported no-UI trigger path, and external event-feed replay is not supported in this phase. It proves that scenario requests can be triggered automatically from normalized event records while keeping external feed reliability out of this phase.
