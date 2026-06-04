@@ -4,7 +4,8 @@ import json
 from pathlib import Path
 
 from schemas.engineering_validation import EngineeringValidationCase, EngineeringValidationCaseResult
-from scripts.run_engineering_validation import load_matrix_cases
+from schemas.scenario import ScenarioPhase, ScenarioRunResponse
+from scripts.run_engineering_validation import load_matrix_cases, run_validation_cases
 
 
 def test_engineering_validation_case_requires_core_fields() -> None:
@@ -68,3 +69,47 @@ def test_load_matrix_cases_filters_by_case_id(tmp_path: Path) -> None:
     cases = load_matrix_cases(matrix, selected_case_ids=["case-b"])
 
     assert [case.case_id for case in cases] == ["case-b"]
+
+
+class FakeScenarioClient:
+    def create_scenario_run(self, request):
+        return ScenarioRunResponse(
+            scenario_id="scenario-1",
+            phase=ScenarioPhase.succeeded,
+            output_dir=str(self.output_dir),
+            child_run_ids=["run-a"],
+        )
+
+
+def test_run_validation_cases_reads_summary_and_marks_passed(tmp_path: Path) -> None:
+    output_dir = tmp_path / "scenario-1"
+    output_dir.mkdir()
+    (output_dir / "scenario_summary.json").write_text(
+        json.dumps(
+            {
+                "scenario_id": "scenario-1",
+                "phase": "succeeded",
+                "child_runs": [{"run_id": "run-a", "task_kind": "building", "phase": "succeeded"}],
+                "quality": {"accepted": True, "failed_children_count": 0},
+                "failed_children": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+    client = FakeScenarioClient()
+    client.output_dir = output_dir
+    case = EngineeringValidationCase(
+        case_id="case-a",
+        region_group="africa",
+        aoi_class="small_city",
+        scenario_name="A",
+        disaster_type="flood",
+        spatial_extent="bbox(0,0,1,1)",
+        default_task_bundle=["building"],
+        expected_required_tasks=["building"],
+    )
+
+    results = run_validation_cases([case], output_root=str(tmp_path), client=client)
+
+    assert results[0].passed is True
+    assert results[0].scenario_id == "scenario-1"
