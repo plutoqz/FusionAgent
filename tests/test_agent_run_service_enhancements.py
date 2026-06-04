@@ -24,6 +24,8 @@ from schemas.agent import (
     WorkflowTaskOutput,
 )
 from schemas.fusion import JobType
+from schemas.quality_gate import QualityGateReport
+from schemas.task_kind import TaskKind
 from services.artifact_registry import ArtifactLookupRequest, ArtifactRecord
 from services.agent_run_service import AgentRunService
 from services.aoi_resolution_service import ResolvedAOI
@@ -1238,6 +1240,7 @@ def test_agent_run_service_writes_quality_report_for_gpkg_output(tmp_path: Path)
         debug=False,
     )
     plan = _build_plan(workflow_id="wf_quality_gate", revision=1)
+    plan.context["quality_policy_id"] = "quality.default.building.v1"
     run_id = "run-quality-gate"
     _seed_run_status(service, run_id, request)
     status = service.get_run(run_id)
@@ -1279,6 +1282,54 @@ def test_agent_run_service_writes_quality_report_for_gpkg_output(tmp_path: Path)
     payload = json.loads(quality_report_path.read_text(encoding="utf-8"))
     assert payload["accepted"] is True
     assert payload["task_kind"] == "building"
+    assert payload["policy_id"] == "quality.default.building.v1"
+
+
+def test_agent_run_service_passes_plan_quality_policy_id_to_quality_gate(tmp_path: Path, monkeypatch) -> None:
+    service = AgentRunService(base_dir=tmp_path / "runs")
+    request = RunCreateRequest(
+        job_type=JobType.building,
+        trigger=RunTrigger(type=RunTriggerType.user_query, content="building", spatial_extent="bbox(0,0,1,1)"),
+        target_crs="EPSG:4326",
+        field_mapping={},
+        debug=False,
+    )
+    plan = _build_plan(workflow_id="wf_quality_policy_capture", revision=1)
+    plan.context["quality_policy_id"] = "quality.default.building.v1"
+    run_id = "run-quality-policy-capture"
+    _seed_run_status(service, run_id, request)
+    output_dir = tmp_path / "output-capture"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    fused_gpkg = output_dir / "building_fusion_result.gpkg"
+    gpd.GeoDataFrame(
+        {"fid": [1], "source_id": ["raw.osm.building"]},
+        geometry=[box(0.1, 0.1, 0.9, 0.9)],
+        crs="EPSG:4326",
+    ).to_file(fused_gpkg, driver="GPKG")
+    captured: dict[str, object] = {}
+
+    class FakeQualityGate:
+        def evaluate(self, *, quality_policy_id, **kwargs):
+            captured["quality_policy_id"] = quality_policy_id
+            return QualityGateReport(
+                accepted=True,
+                task_kind=TaskKind.building,
+                artifact_path=str(kwargs["artifact_path"]),
+                policy_id=quality_policy_id,
+            )
+
+    service.quality_gate_service = FakeQualityGate()
+
+    service.run_writeback_stage(
+        run_id=run_id,
+        request=request,
+        plan=plan,
+        fused_shp=fused_gpkg,
+        repair_records=[],
+        output_dir=output_dir,
+    )
+
+    assert captured["quality_policy_id"] == "quality.default.building.v1"
 
 
 def test_agent_run_service_task_driven_auto_prepares_inputs_before_execution(tmp_path: Path, monkeypatch) -> None:

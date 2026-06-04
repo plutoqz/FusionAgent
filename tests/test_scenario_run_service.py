@@ -217,6 +217,7 @@ def test_scenario_run_service_starts_all_children_before_waiting_for_terminal_st
     assert summary["quality"]["accepted_child_count"] == 5
     assert summary["quality"]["rejected_child_count"] == 0
     assert [item["task_kind"] for item in summary["quality"]["child_reports"]] == fake.created_task_kinds
+    assert all(item.get("policy_id") for item in summary["quality"]["child_reports"])
     assert all(trace["steps"] for trace in summary["workflow_traces"])
 
 
@@ -362,6 +363,7 @@ def _write_quality_report(artifact: Path, *, run_id: str, task_key: str) -> None
         "task_kind": task_key.replace("-", "_"),
         "accepted": True,
         "failure_reasons": [],
+        "policy_id": f"quality.default.{task_key.replace('-', '_')}.v1",
     }
     (artifact.parent / f"{run_id}_quality_report.json").write_text(
         json.dumps(quality_report, ensure_ascii=False, indent=2),
