@@ -32,6 +32,7 @@ def evaluate_vector_artifact(
     if requested_bbox is not None:
         metrics["aoi_consistency"] = _aoi_consistency(metrics.get("bbox"), requested_bbox)
     metrics.update(_geometry_measurements(frame))
+    metrics.update(_geometry_quality_metrics(frame))
     return metrics
 
 
@@ -109,6 +110,49 @@ def _geometry_measurements(frame: gpd.GeoDataFrame) -> dict[str, float]:
     if geom_types & {"LineString", "MultiLineString"}:
         metrics["total_length_km"] = float(measured.geometry.length.sum() / 1000.0)
     return metrics
+
+
+def _geometry_quality_metrics(frame: gpd.GeoDataFrame) -> dict[str, Any]:
+    if frame.empty:
+        return {
+            "duplicate_geometry_rate": 0.0,
+            "invalid_geometry_rate": 0.0,
+            "source_feature_counts": {},
+            "source_contribution_balance": 0.0,
+        }
+    geometries = [geom for geom in frame.geometry if geom is not None]
+    total = len(geometries)
+    duplicate_count = total - len({geom.wkb_hex for geom in geometries})
+    invalid_count = sum(1 for geom in geometries if not geom.is_valid)
+    source_counts = _source_feature_counts(frame)
+    return {
+        "duplicate_geometry_rate": duplicate_count / total if total else 0.0,
+        "invalid_geometry_rate": invalid_count / total if total else 0.0,
+        "source_feature_counts": source_counts,
+        "source_contribution_balance": _gini(list(source_counts.values())),
+    }
+
+
+def _source_feature_counts(frame: gpd.GeoDataFrame) -> dict[str, int]:
+    if "source_id" not in frame.columns:
+        return {}
+    counts: dict[str, int] = {}
+    for value in frame["source_id"].dropna():
+        source_id = str(value)
+        counts[source_id] = counts.get(source_id, 0) + 1
+    return counts
+
+
+def _gini(values: list[int]) -> float:
+    if not values:
+        return 0.0
+    ordered = sorted(float(value) for value in values)
+    total = sum(ordered)
+    if total <= 0:
+        return 0.0
+    n = len(ordered)
+    weighted = sum((index + 1) * value for index, value in enumerate(ordered))
+    return float((2 * weighted) / (n * total) - (n + 1) / n)
 
 
 def _candidate_evidence(candidate) -> dict[str, Any]:

@@ -1846,6 +1846,7 @@ class AgentRunService:
                 required_fields=self._quality_gate_required_fields_for_plan(plan),
                 requested_bbox=self._parse_bbox(request.trigger.spatial_extent),
                 component_coverage=component_coverage,
+                quality_policy_id=self._quality_policy_id_for_plan(plan),
             )
             quality_report_path = output_dir / "quality_report.json"
             quality_report_path.write_text(
@@ -1862,6 +1863,7 @@ class AgentRunService:
                 event_message="Fusion output evaluated by quality gate.",
                 event_details={
                     "accepted": quality_report.accepted,
+                    "policy_id": quality_report.policy_id,
                     "path": str(quality_report_path),
                     "failure_reasons": quality_report.failure_reasons,
                 },
@@ -1953,6 +1955,17 @@ class AgentRunService:
         if "source_id" not in required_fields:
             required_fields.append("source_id")
         return required_fields
+
+    @staticmethod
+    def _quality_policy_id_for_plan(plan: WorkflowPlan) -> str | None:
+        context = plan.context if isinstance(plan.context, dict) else {}
+        direct = context.get("quality_policy_id")
+        if direct:
+            return str(direct)
+        intent = context.get("intent")
+        if isinstance(intent, dict) and intent.get("quality_policy_id"):
+            return str(intent["quality_policy_id"])
+        return None
 
     def _output_schema_policy_id_for_plan(self, plan: WorkflowPlan) -> str | None:
         output_data_type = self._extract_output_data_type(plan)
