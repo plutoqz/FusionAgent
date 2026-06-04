@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
-from schemas.evidence_lifecycle import EvidenceArtifactRef, EvidenceBundleManifest
+from schemas.evidence_lifecycle import EvidenceArtifactRef, EvidenceBundleManifest, ValidationSessionManifest
 from services.evidence_lifecycle_service import build_run_evidence_manifest, build_scenario_evidence_manifest
 
 
@@ -67,3 +67,18 @@ def test_build_scenario_evidence_manifest_links_child_runs(tmp_path: Path) -> No
     assert manifest.related_run_ids == ["run-a", "run-b"]
     assert any(item.role == "scenario_summary" for item in manifest.artifacts)
     assert any(item.role == "child_output" for item in manifest.artifacts)
+
+
+def test_validation_session_manifest_tracks_matrix_and_outputs() -> None:
+    manifest = ValidationSessionManifest(
+        session_id="validation-20260604-120000",
+        matrix_path="docs/superpowers/validation/engineering_validation_matrix.yaml",
+        output_root="runs/engineering-validation/validation-20260604-120000",
+        case_result_paths=["case_results.jsonl"],
+        summary_path="validation_summary.json",
+    )
+
+    payload = manifest.model_dump(mode="json")
+
+    assert payload["session_id"].startswith("validation-")
+    assert payload["case_result_paths"] == ["case_results.jsonl"]

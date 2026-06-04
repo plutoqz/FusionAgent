@@ -4,7 +4,7 @@ import hashlib
 import json
 from pathlib import Path
 
-from schemas.evidence_lifecycle import EvidenceArtifactRef, EvidenceBundleManifest
+from schemas.evidence_lifecycle import EvidenceArtifactRef, EvidenceBundleManifest, ValidationSessionManifest
 
 
 RUN_SOURCE_OF_TRUTH = ["request.json", "run.json", "plan.json", "validation.json", "audit.jsonl"]
@@ -85,6 +85,12 @@ def build_scenario_evidence_manifest(scenario_dir: Path) -> EvidenceBundleManife
         related_run_ids=related_run_ids,
         related_scenario_ids=[scenario_id],
     )
+
+
+def write_validation_session_manifest(path: Path, manifest: ValidationSessionManifest) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(json.dumps(manifest.model_dump(mode="json"), ensure_ascii=False, indent=2), encoding="utf-8")
+    return path
 
 
 def _canonical_outputs(run_dir: Path) -> list[EvidenceArtifactRef]:

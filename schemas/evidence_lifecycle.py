@@ -23,3 +23,16 @@ class EvidenceBundleManifest(BaseModel):
     related_run_ids: list[str] = Field(default_factory=list)
     related_scenario_ids: list[str] = Field(default_factory=list)
     metadata: dict[str, Any] = Field(default_factory=dict)
+
+
+class ValidationSessionManifest(BaseModel):
+    session_id: str
+    matrix_path: str
+    output_root: str
+    case_result_paths: list[str] = Field(default_factory=list)
+    summary_path: str | None = None
+    markdown_summary_path: str | None = None
+    created_at: str | None = None
+    git_commit: str | None = None
+    runtime: dict[str, Any] = Field(default_factory=dict)
+    metadata: dict[str, Any] = Field(default_factory=dict)
