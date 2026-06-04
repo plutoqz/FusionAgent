@@ -3285,3 +3285,64 @@ def test_get_run_refreshes_stale_cached_status_from_disk(tmp_path: Path) -> None
     assert refreshed.phase == RunPhase.failed
     assert refreshed.error == "RuntimeError: boom"
     assert refreshed.finished_at == "2026-04-02T00:00:02+00:00"
+
+
+def test_agent_run_service_enforces_plan_grounding_before_validation(tmp_path: Path, monkeypatch) -> None:
+    service = AgentRunService(base_dir=tmp_path / "runs")
+    monkeypatch.setenv("GEOFUSION_PLAN_GROUNDING_MODE", "enforce")
+    ungrounded_plan = _build_plan(workflow_id="wf_ungrounded", revision=1)
+    ungrounded_plan.context["retrieval"] = {
+        "candidate_patterns": [],
+        "data_sources": [],
+        "algorithms": {},
+        "output_schema_policies": {},
+    }
+    monkeypatch.setattr(service.planner, "create_plan", lambda **_kwargs: ungrounded_plan.model_copy(deep=True))
+
+    status = service.create_run(
+        request=_build_auto_request(),
+        osm_zip_name=None,
+        osm_zip_bytes=None,
+        ref_zip_name=None,
+        ref_zip_bytes=None,
+    )
+
+    latest = service.get_run(status.run_id)
+    assert latest is not None
+    assert latest.phase == RunPhase.failed
+    assert "PLAN_GROUNDING_FAILED" in (latest.error or "")
+    saved_plan = service.get_plan(status.run_id)
+    assert saved_plan is not None
+    assert saved_plan.context["grounding_gate"]["mode"] == "enforce"
+    assert saved_plan.context["grounding_gate"]["allowed"] is False
+    events = service.get_audit_events(status.run_id)
+    assert any(event.kind == "plan_grounding_rejected" for event in events)
+    assert not any(event.kind == "plan_validated" for event in events)
+
+
+def test_agent_run_service_records_grounding_gate_in_report_mode(tmp_path: Path, monkeypatch) -> None:
+    service = AgentRunService(base_dir=tmp_path / "runs")
+    plan = _build_plan(workflow_id="wf_report_mode", revision=1)
+    plan.context["retrieval"] = {
+        "candidate_patterns": [],
+        "data_sources": [],
+        "algorithms": {},
+        "output_schema_policies": {},
+    }
+    monkeypatch.setattr(service.planner, "create_plan", lambda **_kwargs: plan.model_copy(deep=True))
+    monkeypatch.setattr(service, "run_validation_stage", lambda run_id, plan: plan)
+    monkeypatch.setattr(service, "_attempt_artifact_reuse", lambda **_kwargs: None)
+    monkeypatch.setattr(service, "_resolve_execution_inputs", lambda **_kwargs: (_ for _ in ()).throw(RuntimeError("stop")))
+
+    status = service.create_run(
+        request=_build_auto_request(),
+        osm_zip_name=None,
+        osm_zip_bytes=None,
+        ref_zip_name=None,
+        ref_zip_bytes=None,
+    )
+
+    saved_plan = service.get_plan(status.run_id)
+    assert saved_plan is not None
+    assert saved_plan.context["grounding_gate"]["mode"] == "report"
+    assert saved_plan.context["grounding_gate"]["allowed"] is True
