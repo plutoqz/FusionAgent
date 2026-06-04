@@ -430,6 +430,7 @@ class ScenarioRunService:
         ]
         source_coverage = _source_coverage_from_children(child_results)
         data_fusion_metrics = [_data_fusion_metrics_for_child(result) for result in child_results]
+        quality = _quality_summary_from_children(child_results)
         agentic_metrics = _merge_agentic_metrics(
             [
                 evaluate_agentic_run(
@@ -460,6 +461,7 @@ class ScenarioRunService:
             "kg_path_traces": kg_path_traces,
             "workflow_traces": workflow_traces,
             "source_coverage": source_coverage,
+            "quality": quality,
             "evaluation": {
                 "data_fusion_metrics": data_fusion_metrics,
                 "agentic_metrics": agentic_metrics,
@@ -591,6 +593,46 @@ def _data_fusion_metrics_for_child(result: dict[str, Any]) -> dict[str, Any]:
         "task_kind": result.get("task_kind") or result.get("job_type"),
         "task_family": result.get("task_family") or result.get("job_type"),
         "metrics": metrics,
+    }
+
+
+def _load_child_quality_report(result: dict[str, Any]) -> dict[str, Any] | None:
+    artifact_path = result.get("artifact_path")
+    if not artifact_path:
+        return None
+    artifact = Path(artifact_path)
+    candidates = [
+        artifact.parent / "quality_report.json",
+        artifact.parent / f"{artifact.stem}_quality_report.json",
+    ]
+    run_id = result.get("run_id")
+    if run_id:
+        candidates.append(artifact.parent / f"{run_id}_quality_report.json")
+    for candidate in candidates:
+        if not candidate.exists():
+            continue
+        try:
+            payload = json.loads(candidate.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+            continue
+        if isinstance(payload, dict):
+            payload.setdefault("run_id", result.get("run_id"))
+            payload.setdefault("job_type", result.get("job_type"))
+            payload.setdefault("task_kind", result.get("task_kind") or result.get("job_type"))
+            return payload
+    return None
+
+
+def _quality_summary_from_children(child_results: list[dict[str, Any]]) -> dict[str, Any]:
+    reports = []
+    for result in child_results:
+        report = _load_child_quality_report(result)
+        if report is not None:
+            reports.append(report)
+    return {
+        "accepted_child_count": sum(1 for report in reports if report.get("accepted") is True),
+        "rejected_child_count": sum(1 for report in reports if report.get("accepted") is False),
+        "child_reports": reports,
     }
 
 

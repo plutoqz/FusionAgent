@@ -213,6 +213,9 @@ def test_scenario_run_service_starts_all_children_before_waiting_for_terminal_st
         "water",
         "poi",
     ]
+    assert summary["quality"]["accepted_child_count"] == 5
+    assert summary["quality"]["rejected_child_count"] == 0
+    assert [item["task_kind"] for item in summary["quality"]["child_reports"]] == fake.created_task_kinds
     assert all(trace["steps"] for trace in summary["workflow_traces"])
 
 
@@ -330,6 +333,18 @@ def test_scenario_run_service_submit_returns_running_before_background_execution
     assert captured["scenario_id"] == response.scenario_id
 
 
+def _write_quality_report(artifact: Path, *, run_id: str, task_key: str) -> None:
+    quality_report = {
+        "task_kind": task_key.replace("-", "_"),
+        "accepted": True,
+        "failure_reasons": [],
+    }
+    (artifact.parent / f"{run_id}_quality_report.json").write_text(
+        json.dumps(quality_report, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+
+
 class _FakeAgentRunService:
     def __init__(self, tmp_path: Path) -> None:
         self.tmp_path = tmp_path
@@ -357,6 +372,7 @@ class _FakeAgentRunService:
         self.events[run_id] = _make_events(request.job_type)
         artifact = self.tmp_path / f"{run_id}.zip"
         artifact.write_bytes(b"zip")
+        _write_quality_report(artifact, run_id=run_id, task_key=task_key)
         self.artifacts[run_id] = artifact
         return status
 
@@ -396,6 +412,7 @@ class _QueuedThenSucceededAgentRunService(_FakeAgentRunService):
         self.events[run_id] = _make_events(request.job_type)
         artifact = self.tmp_path / f"{run_id}.zip"
         artifact.write_bytes(b"zip")
+        _write_quality_report(artifact, run_id=run_id, task_key=task_key)
         self.artifacts[run_id] = artifact
         return queued
 
@@ -433,6 +450,7 @@ class _PollingQueuedThenSucceededAgentRunService(_FakeAgentRunService):
         self.events[run_id] = _make_events(request.job_type)
         artifact = self.tmp_path / f"{run_id}.zip"
         artifact.write_bytes(b"zip")
+        _write_quality_report(artifact, run_id=run_id, task_key=task_key)
         self.artifacts[run_id] = artifact
         return queued
 
@@ -470,6 +488,7 @@ class _StartAllChildrenBeforeTerminalAgentRunService(_FakeAgentRunService):
         self.events[run_id] = _make_events(request.job_type)
         artifact = self.tmp_path / f"{run_id}.zip"
         artifact.write_bytes(b"zip")
+        _write_quality_report(artifact, run_id=run_id, task_key=task_key)
         self.artifacts[run_id] = artifact
         return queued
 
