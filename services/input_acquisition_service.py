@@ -17,6 +17,7 @@ from services.source_materialization_manifest_service import (
     build_source_materialization_manifest,
     write_source_materialization_manifest,
 )
+from services.source_acquisition_policy import build_failed_attempt
 from utils.crs import normalize_target_crs
 from utils.vector_clip import BBox, bundle_bbox_from_zip, clip_zip_to_request_bbox
 
@@ -250,7 +251,15 @@ class InputAcquisitionService:
                 materialized_bbox=None,
                 clipped_to_aoi=False,
                 component_coverage={},
-                provider_attempts=[{"source_id": source_id, "status": "failed", "fault_class": fault}],
+                provider_attempts=[
+                    build_failed_attempt(
+                        source_id=source_id,
+                        fault_class=fault,
+                        fault_message=str(exc),
+                        attempt_no=1,
+                        channel="provider",
+                    )
+                ],
                 fault={"fault_class": fault, "fault_message": str(exc), "recoverable": True},
             )
             raise ValueError(

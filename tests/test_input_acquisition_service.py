@@ -483,13 +483,10 @@ def test_input_acquisition_writes_manifest_for_failed_provider(tmp_path: Path) -
     assert manifest["cache_hit"] is False
     assert manifest["fault"]["fault_class"] == "SOURCE_MISSING"
     assert manifest["fault"]["recoverable"] is True
-    assert manifest["provider_attempts"][0]["recoverable"] is True
-    assert manifest["provider_attempts"] == [
-        {
-            "source_id": "catalog.flood.water",
-            "status": "failed",
-            "fault_class": "SOURCE_MISSING",
-            "attempt_type": "provider",
-            "recoverable": True,
-        }
-    ]
+    attempt = manifest["provider_attempts"][0]
+    assert attempt["source_id"] == "catalog.flood.water"
+    assert attempt["status"] == "failed"
+    assert attempt["fault_class"] == "SOURCE_MISSING"
+    assert attempt["recoverable"] is True
+    assert attempt["next_retry_after_seconds"] == 30
+    assert attempt["channel"] == "provider"
