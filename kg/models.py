@@ -229,6 +229,13 @@ class DurableLearningSummary:
     repaired_count: int = 0
     last_run_at: Optional[str] = None
     last_failure_reason: Optional[str] = None
+    condition_key: str = ""
+    time_decayed_score: float = 0.0
+    quality_gate_pass_rate: float = 0.0
+    avg_latency_seconds: float = 0.0
+    recent_success_rate: float = 0.0
+    trend: str = "stable"
+    adjustment: float = 0.0
 
 
 @dataclass

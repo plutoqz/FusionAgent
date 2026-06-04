@@ -392,3 +392,23 @@ def test_repository_aggregates_durable_learning_records_for_retrieval() -> None:
     ]
     assert summary["algorithms"][0].entity_id == "algo.fusion.building.v1"
     assert summary["data_sources"][0].entity_id == "upload.bundle"
+
+
+def test_durable_learning_summary_exposes_policy_feedback_fields() -> None:
+    summary = DurableLearningSummary(
+        entity_kind="pattern",
+        entity_id="wp.building",
+        job_type=JobType.building,
+        disaster_type="flood",
+        condition_key="building|flood|small_city",
+        time_decayed_score=0.75,
+        quality_gate_pass_rate=1.0,
+        avg_latency_seconds=12.5,
+        recent_success_rate=0.8,
+        trend="stable",
+        adjustment=0.06,
+    )
+
+    assert summary.condition_key == "building|flood|small_city"
+    assert summary.adjustment == 0.06
+    assert summary.trend == "stable"
