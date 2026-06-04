@@ -754,7 +754,16 @@ class AgentRunService:
                     previous_input_signature = self._task_driven_input_signature(plan)
                     plan = replanned
                     plan_path = self._plan_path(run_id)
+                    _grounding_report, grounding_gate = self._apply_plan_grounding_gate(run_id, plan, stage="replan")
                     self._persist_plan(plan_path, plan)
+                    if not grounding_gate.allowed:
+                        self._reject_ungrounded_plan(
+                            run_id=run_id,
+                            plan=plan,
+                            decision=grounding_gate,
+                            stage="replan",
+                            plan_path=plan_path,
+                        )
                     self._update_status(
                         run_id,
                         RunPhase.healing,
