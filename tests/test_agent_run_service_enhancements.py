@@ -397,6 +397,40 @@ def test_agent_run_service_allows_water_task_driven_auto_and_records_task_inputs
     assert resolved_event.details["source_materialization_manifest_path"] == str(resolved.manifest_path)
 
 
+def test_agent_run_service_writes_data_requirements_before_materialization(tmp_path: Path, monkeypatch) -> None:
+    service = AgentRunService(base_dir=tmp_path / "runs")
+    captured: dict[str, object] = {}
+    plan = _build_plan(workflow_id="wf_data_requirements", revision=1)
+    plan.tasks[0].input.data_source_id = "catalog.flood.building"
+
+    def fake_resolve_task_driven_inputs(**kwargs):
+        data_requirements_path = Path(kwargs["input_dir"]) / "data_requirements.json"
+        captured["exists_before_materialization"] = data_requirements_path.exists()
+        raise ValueError("stop after requirement evidence")
+
+    monkeypatch.setattr(service.planner, "create_plan", lambda **_kwargs: plan.model_copy(deep=True))
+    monkeypatch.setattr(service.validator, "validate_and_repair", lambda input_plan: input_plan)
+    monkeypatch.setattr(service, "_attempt_artifact_reuse", lambda **_kwargs: None)
+    monkeypatch.setattr(service.input_acquisition_service, "resolve_task_driven_inputs", fake_resolve_task_driven_inputs)
+
+    status = service.create_run(
+        request=_build_auto_request(
+            spatial_extent="bbox(0,0,1,1)",
+            job_type=JobType.building,
+            content="need building data for Nairobi",
+        ),
+        osm_zip_name=None,
+        osm_zip_bytes=None,
+        ref_zip_name=None,
+        ref_zip_bytes=None,
+    )
+
+    latest = service.get_run(status.run_id)
+    assert latest is not None
+    assert latest.phase == RunPhase.failed
+    assert captured["exists_before_materialization"] is True
+
+
 def test_agent_run_service_rejects_unsupported_intent_before_creating_run_dirs(tmp_path: Path) -> None:
     service = AgentRunService(base_dir=tmp_path / "runs")
     existing_children = sorted(path.name for path in service.base_dir.iterdir())

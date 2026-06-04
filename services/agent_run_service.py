@@ -40,11 +40,13 @@ from schemas.agent import (
 from schemas.failure_taxonomy import classify_failure_details
 from schemas.fusion import JobType
 from schemas.settings import EffectiveLLMSettings
+from schemas.task_kind import TaskKind, expand_job_type_to_task_kinds
 from services.artifact_registry import ArtifactRecord, ArtifactRegistry
 from services.artifact_reuse_policy import get_artifact_reuse_max_age_seconds
 from services.artifact_reuse_service import ArtifactReuseService, ReuseResult
 from services.artifact_evaluation_service import evaluate_vector_artifact
 from services.aoi_resolution_service import AOIResolutionService, NominatimGeocoder, ResolvedAOI
+from services.data_requirement_resolver_service import DataRequirementResolverService
 from services.input_acquisition_service import InputAcquisitionService, ResolvedRunInputs
 from services.local_bundle_catalog import LocalBundleCatalogProvider
 from services.plan_grounding_service import ensure_plan_grounding_report
@@ -78,6 +80,16 @@ def _as_int(value: str | None, default: int) -> int:
         return int(value.strip())
     except Exception:  # noqa: BLE001
         return default
+
+
+def _task_kind_for_request(request: RunCreateRequest) -> TaskKind:
+    preferred = str(request.preferred_pattern_id or "")
+    if "waterways" in preferred:
+        return TaskKind.waterways
+    if "water_polygon" in preferred:
+        return TaskKind.water_polygon
+    expanded = expand_job_type_to_task_kinds(request.job_type)
+    return expanded[0]
 
 
 def build_run_inspection_digest(
@@ -270,6 +282,7 @@ class AgentRunService:
         self.tile_partition_service = TilePartitionService()
         self.tiled_building_runtime_service = TiledBuildingRuntimeService(max_workers=max_workers)
         self.source_semantic_contract_service = SourceSemanticContractService(kg_repo=self.kg_repo)
+        self.data_requirement_resolver = DataRequirementResolverService()
         self.artifact_reuse_service = ArtifactReuseService(self.artifact_registry)
         self.validator = WorkflowValidator(self.kg_repo)
         self._apply_default_runtime(
@@ -528,6 +541,7 @@ class AgentRunService:
             input_dir = intermediate_dir.parent / "input"
             resolved_aoi = self._extract_resolved_aoi(plan)
             osm_zip_path, ref_zip_path, resolved_inputs = self._resolve_execution_inputs(
+                run_id=run_id,
                 request=runtime_request,
                 plan=plan,
                 input_dir=input_dir,
@@ -752,6 +766,7 @@ class AgentRunService:
                     ):
                         resolved_aoi = self._extract_resolved_aoi(plan) or resolved_aoi
                         osm_zip_path, ref_zip_path, resolved_inputs = self._resolve_execution_inputs(
+                            run_id=run_id,
                             request=runtime_request,
                             plan=plan,
                             input_dir=input_dir,
@@ -1293,6 +1308,7 @@ class AgentRunService:
     def _resolve_execution_inputs(
         self,
         *,
+        run_id: str,
         request: RunCreateRequest,
         plan: WorkflowPlan,
         input_dir: Path,
@@ -1313,6 +1329,12 @@ class AgentRunService:
             raise ValueError("task-driven input strategy could not resolve the required input data type")
 
         request_bbox = self._resolve_request_bbox(request, resolved_aoi=resolved_aoi)
+        self._write_data_requirement_evidence(
+            run_id=run_id,
+            request=request,
+            plan=plan,
+            input_dir=input_dir,
+        )
         last_error: ValueError | None = None
         source_id = source_candidates[0]
         for candidate_source_id in source_candidates:
@@ -1350,6 +1372,38 @@ class AgentRunService:
         if last_error is not None:
             raise last_error
         raise ValueError("task-driven input strategy could not materialize any candidate source")
+
+    def _write_data_requirement_evidence(
+        self,
+        *,
+        run_id: str,
+        request: RunCreateRequest,
+        plan: WorkflowPlan,
+        input_dir: Path,
+    ) -> Path:
+        task_kind = _task_kind_for_request(request)
+        requirements = self.data_requirement_resolver.resolve(task_kind=task_kind, plan=plan)
+        requirements_path = input_dir / "data_requirements.json"
+        requirements_path.parent.mkdir(parents=True, exist_ok=True)
+        requirements_path.write_text(
+            json.dumps(requirements.model_dump(mode="json"), ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+        self._update_status(
+            run_id,
+            RunPhase.running,
+            progress=35,
+            plan_revision=self._extract_plan_revision(plan),
+            checkpoint=self._checkpoint(stage="input_resolution", plan_revision=self._extract_plan_revision(plan)),
+            event_kind="data_requirements_resolved",
+            event_message="Data source role requirements resolved.",
+            event_details={
+                "path": str(requirements_path),
+                "task_kind": requirements.task_kind.value,
+                "role_ids": [role.role_id for role in requirements.roles],
+            },
+        )
+        return requirements_path
 
     def _record_tiled_runtime_event(
         self,
