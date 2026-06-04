@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from kg.seed_manifest import build_seed_manifest_payload
 from schemas.kg_seed_manifest import KgSeedManifest, KgSeedManifestMetadata
 
 
@@ -24,3 +25,15 @@ def test_kg_seed_manifest_requires_versioned_metadata() -> None:
 
     assert payload["metadata"]["schema_version"] == "1.0.0"
     assert payload["metadata"]["content_hash"] == "sha256:test"
+
+
+def test_build_seed_manifest_payload_contains_current_seed_ids() -> None:
+    payload = build_seed_manifest_payload()
+
+    algorithm_ids = {item["algo_id"] for item in payload["algorithms"]}
+    data_source_ids = {item["source_id"] for item in payload["data_sources"]}
+
+    assert "algo.fusion.building.v1" in algorithm_ids
+    assert "raw.osm.building" in data_source_ids
+    assert payload["metadata"]["schema_version"] == "1.0.0"
+    assert payload["metadata"]["content_hash"].startswith("sha256:")
