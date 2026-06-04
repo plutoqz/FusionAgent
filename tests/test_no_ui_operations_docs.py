@@ -42,3 +42,14 @@ def test_no_ui_runbook_documents_durable_learning_v2_policy_hints() -> None:
     assert "trend" in text
     assert "adjustment" in text
     assert "not autonomous self-optimization" in text
+
+
+def test_no_ui_runbook_documents_kg_seed_manifest_governance() -> None:
+    text = Path("docs/no-ui-agent-operations.md").read_text(encoding="utf-8")
+
+    assert "kg/seed.py" in text
+    assert "kg/seed_manifest.generated.json" in text
+    assert "schema_version" in text
+    assert "content_hash" in text
+    assert "scripts/export_kg_seed_manifest.py --check" in text
+    assert "runtime default has not been flipped" in text
