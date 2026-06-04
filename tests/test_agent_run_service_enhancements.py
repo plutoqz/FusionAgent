@@ -1224,6 +1224,63 @@ def test_agent_run_service_rejects_artifact_when_output_schema_required_fields_a
     assert any(event.kind == "run_failed" for event in audit_events)
 
 
+def test_agent_run_service_writes_quality_report_for_gpkg_output(tmp_path: Path) -> None:
+    service = AgentRunService(base_dir=tmp_path / "runs")
+    request = RunCreateRequest(
+        job_type=JobType.building,
+        trigger=RunTrigger(
+            type=RunTriggerType.user_query,
+            content="building",
+            spatial_extent="bbox(0,0,1,1)",
+        ),
+        target_crs="EPSG:4326",
+        field_mapping={},
+        debug=False,
+    )
+    plan = _build_plan(workflow_id="wf_quality_gate", revision=1)
+    run_id = "run-quality-gate"
+    _seed_run_status(service, run_id, request)
+    status = service.get_run(run_id)
+    assert status is not None
+    status.checkpoint = {
+        "stage": "execution",
+        "component_coverage": {
+            "raw.osm.building": {"feature_count": 1, "coverage_status": "available"},
+            "raw.microsoft.building": {"feature_count": 1, "coverage_status": "available"},
+        },
+    }
+    service._runs[run_id] = status
+    service._persist_status(status)
+
+    output_dir = tmp_path / "output"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    fused_gpkg = output_dir / "building_fusion_result.gpkg"
+    gpd.GeoDataFrame(
+        {
+            "fid": [1],
+            "source_id": ["raw.osm.building"],
+            "source_count": [2],
+        },
+        geometry=[box(0.1, 0.1, 0.9, 0.9)],
+        crs="EPSG:4326",
+    ).to_file(fused_gpkg, driver="GPKG")
+
+    service.run_writeback_stage(
+        run_id=run_id,
+        request=request,
+        plan=plan,
+        fused_shp=fused_gpkg,
+        repair_records=[],
+        output_dir=output_dir,
+    )
+
+    quality_report_path = output_dir / "quality_report.json"
+    assert quality_report_path.exists()
+    payload = json.loads(quality_report_path.read_text(encoding="utf-8"))
+    assert payload["accepted"] is True
+    assert payload["task_kind"] == "building"
+
+
 def test_agent_run_service_task_driven_auto_prepares_inputs_before_execution(tmp_path: Path, monkeypatch) -> None:
     service = AgentRunService(base_dir=tmp_path / "runs")
     osm_shp = tmp_path / "resolved_osm.shp"

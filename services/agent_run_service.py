@@ -50,6 +50,7 @@ from services.data_requirement_resolver_service import DataRequirementResolverSe
 from services.input_acquisition_service import InputAcquisitionService, ResolvedRunInputs
 from services.local_bundle_catalog import LocalBundleCatalogProvider
 from services.plan_grounding_service import ensure_plan_grounding_report
+from services.quality_gate_service import QualityGateService
 from services.raw_vector_source_service import RawVectorSourceService
 from services.runtime_settings_service import RuntimeSettingsService
 from services.run_recovery_service import collect_recoverable_runs
@@ -90,6 +91,22 @@ def _task_kind_for_request(request: RunCreateRequest) -> TaskKind:
         return TaskKind.water_polygon
     expanded = expand_job_type_to_task_kinds(request.job_type)
     return expanded[0]
+
+
+def _component_coverage_from_status(status: RunStatus | None) -> dict[str, object]:
+    if status is None:
+        return {}
+    checkpoint = getattr(status, "checkpoint", None) or {}
+    if isinstance(checkpoint, dict):
+        coverage = checkpoint.get("component_coverage")
+        if isinstance(coverage, dict):
+            return coverage
+    telemetry = getattr(status, "planning_telemetry", None) or {}
+    if isinstance(telemetry, dict):
+        coverage = telemetry.get("component_coverage")
+        if isinstance(coverage, dict):
+            return coverage
+    return {}
 
 
 def build_run_inspection_digest(
@@ -284,6 +301,7 @@ class AgentRunService:
         self.source_semantic_contract_service = SourceSemanticContractService(kg_repo=self.kg_repo)
         self.data_requirement_resolver = DataRequirementResolverService()
         self.artifact_reuse_service = ArtifactReuseService(self.artifact_registry)
+        self.quality_gate_service = QualityGateService()
         self.validator = WorkflowValidator(self.kg_repo)
         self._apply_default_runtime(
             self._build_runtime_dependencies(
@@ -1755,12 +1773,42 @@ class AgentRunService:
         repair_records: List[RepairRecord],
         output_dir: Path,
     ) -> RunArtifactMeta:
+        component_coverage = _component_coverage_from_status(self.get_run(run_id))
         self._validate_output_artifact_against_schema_policy(
             run_id=run_id,
             request=request,
             plan=plan,
             fused_shp=fused_shp,
         )
+        if Path(fused_shp).suffix.lower() == ".gpkg":
+            quality_report = self.quality_gate_service.evaluate(
+                artifact_path=fused_shp,
+                task_kind=_task_kind_for_request(request),
+                required_fields=self._quality_gate_required_fields_for_plan(plan),
+                requested_bbox=self._parse_bbox(request.trigger.spatial_extent),
+                component_coverage=component_coverage,
+            )
+            quality_report_path = output_dir / "quality_report.json"
+            quality_report_path.write_text(
+                json.dumps(quality_report.model_dump(mode="json"), ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+            self._update_status(
+                run_id,
+                RunPhase.running,
+                progress=92,
+                plan_revision=self._extract_plan_revision(plan),
+                checkpoint=self._checkpoint(stage="quality_gate", plan_revision=self._extract_plan_revision(plan)),
+                event_kind="quality_gate_evaluated",
+                event_message="Fusion output evaluated by quality gate.",
+                event_details={
+                    "accepted": quality_report.accepted,
+                    "path": str(quality_report_path),
+                    "failure_reasons": quality_report.failure_reasons,
+                },
+            )
+            if not quality_report.accepted:
+                raise RuntimeError("Quality gate rejected fusion output")
         artifact_zip = self._zip_output_artifact(
             fused_shp,
             output_dir / f"{request.job_type.value}_fusion_result.zip",
@@ -1800,15 +1848,9 @@ class AgentRunService:
         plan: WorkflowPlan,
         fused_shp: Path,
     ) -> None:
+        required_fields = self._required_fields_for_plan(plan)
         output_data_type = self._extract_output_data_type(plan)
-        raw_policy = ArtifactReuseService._output_schema_policy(plan, required_output_type=output_data_type)
-        schema_policy = self.kg_repo.get_output_schema_policy(output_data_type) if output_data_type else None
-        if raw_policy is not None:
-            required_fields = raw_policy.get("required_fields", []) or ["geometry"]
-            policy_id = raw_policy.get("policy_id")
-        else:
-            required_fields = schema_policy.required_fields if schema_policy is not None else ["geometry"]
-            policy_id = schema_policy.policy_id if schema_policy is not None else None
+        policy_id = self._output_schema_policy_id_for_plan(plan)
         metrics = evaluate_vector_artifact(fused_shp, required_fields=required_fields)
         event_details = {
             "output_data_type": output_data_type,
@@ -1836,6 +1878,31 @@ class AgentRunService:
                 "Artifact schema validation failed: "
                 f"missing_fields={metrics.get('missing_fields', [])}"
             )
+
+    def _required_fields_for_plan(self, plan: WorkflowPlan) -> list[str]:
+        output_data_type = self._extract_output_data_type(plan)
+        raw_policy = ArtifactReuseService._output_schema_policy(plan, required_output_type=output_data_type)
+        schema_policy = self.kg_repo.get_output_schema_policy(output_data_type) if output_data_type else None
+        if raw_policy is not None:
+            return list(raw_policy.get("required_fields", []) or ["geometry"])
+        if schema_policy is not None:
+            return list(schema_policy.required_fields)
+        return ["geometry"]
+
+    def _quality_gate_required_fields_for_plan(self, plan: WorkflowPlan) -> list[str]:
+        required_fields = list(self._required_fields_for_plan(plan))
+        if "source_id" not in required_fields:
+            required_fields.append("source_id")
+        return required_fields
+
+    def _output_schema_policy_id_for_plan(self, plan: WorkflowPlan) -> str | None:
+        output_data_type = self._extract_output_data_type(plan)
+        raw_policy = ArtifactReuseService._output_schema_policy(plan, required_output_type=output_data_type)
+        schema_policy = self.kg_repo.get_output_schema_policy(output_data_type) if output_data_type else None
+        if raw_policy is not None:
+            policy_id = raw_policy.get("policy_id")
+            return str(policy_id) if policy_id is not None else None
+        return schema_policy.policy_id if schema_policy is not None else None
 
     def _register_artifact(
         self,
