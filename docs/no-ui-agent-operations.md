@@ -85,6 +85,12 @@ For enforced validation runs:
 $env:GEOFUSION_PLAN_GROUNDING_MODE='enforce'
 ```
 
+## Quality Policy Metrics
+
+GPKG writeback uses a default quality policy by task kind unless the plan supplies `quality_policy_id`. The quality report records the selected policy, hard failures that reject output, and soft failures that remain evidence-only.
+
+Current spatial metrics include `duplicate_geometry_rate`, `invalid_geometry_rate`, `source_contribution_balance`, source feature counts, feature retention evidence, and coverage retention evidence. Golden precision, recall, and IoU remain future policy checks rather than required gates in this slice.
+
 ## Scenario Trigger Inbox
 
 The local file inbox is the supported no-UI trigger demo path. It proves normalized event records can create scenario runs, persist registry evidence, and move processed or failed event files without claiming an external event-feed integration. External event-feed replay is not supported in this phase.

@@ -20,3 +20,12 @@ def test_no_ui_runbook_documents_grounding_gate_modes() -> None:
     assert "`warn`" in text
     assert "`enforce`" in text
     assert "plan_grounding_rejected" in text
+
+
+def test_no_ui_runbook_documents_quality_policy_outputs() -> None:
+    text = Path("docs/no-ui-agent-operations.md").read_text(encoding="utf-8")
+
+    assert "quality_policy_id" in text
+    assert "duplicate_geometry_rate" in text
+    assert "invalid_geometry_rate" in text
+    assert "source_contribution_balance" in text
