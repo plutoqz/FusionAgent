@@ -92,6 +92,7 @@ def test_scenario_run_service_writes_summary_and_reports(tmp_path):
     assert summary["kg_path_traces"]
     assert summary["workflow_traces"]
     assert summary["evaluation"]["agentic_metrics"]["manual_intervention_count"] == 0
+    assert (scenario_dir / "scenario_artifact_manifest.json").exists()
     assert (scenario_dir / "documents" / "scenario_report.zh.md").exists()
     assert (scenario_dir / "documents" / "scenario_report.en.md").exists()
 

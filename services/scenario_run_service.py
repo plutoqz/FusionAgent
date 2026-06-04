@@ -15,6 +15,7 @@ from schemas.scenario import ScenarioChildRunSpec, ScenarioPhase, ScenarioRunReq
 from schemas.task_kind import TaskKind, task_kind_family
 from services.agent_run_service import AgentRunService, agent_run_service
 from services.artifact_evaluation_service import evaluate_agentic_run, evaluate_vector_artifact
+from services.evidence_lifecycle_service import build_scenario_evidence_manifest
 from services.kg_path_trace_service import build_kg_path_trace
 from services.mission_compiler_service import compile_scenario_mission
 from services.run_recovery_service import build_recovery_hint
@@ -503,6 +504,11 @@ class ScenarioRunService:
         }
         for filename, payload in files.items():
             (output_dir / filename).write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        manifest = build_scenario_evidence_manifest(output_dir)
+        (output_dir / "scenario_artifact_manifest.json").write_text(
+            json.dumps(manifest.model_dump(mode="json"), ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
 
 
 def _float_env(name: str, default: float) -> float:

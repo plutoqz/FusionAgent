@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 
 from schemas.evidence_lifecycle import EvidenceArtifactRef, EvidenceBundleManifest
-from services.evidence_lifecycle_service import build_run_evidence_manifest
+from services.evidence_lifecycle_service import build_run_evidence_manifest, build_scenario_evidence_manifest
 
 
 def test_evidence_bundle_manifest_serializes_roles() -> None:
@@ -44,3 +45,25 @@ def test_build_run_evidence_manifest_marks_existing_core_files(tmp_path: Path) -
     assert "run.json" in manifest.source_of_truth
     assert any(item.role == "quality_report" and item.exists for item in manifest.artifacts)
     assert any(item.role == "canonical_output" and item.exists for item in manifest.artifacts)
+
+
+def test_build_scenario_evidence_manifest_links_child_runs(tmp_path: Path) -> None:
+    scenario_dir = tmp_path / "scenario_1"
+    scenario_dir.mkdir()
+    (scenario_dir / "scenario_summary.json").write_text(
+        json.dumps(
+            {
+                "scenario_id": "scenario_1",
+                "child_runs": [{"run_id": "run-a"}, {"run_id": "run-b"}],
+                "final_outputs": ["runs/run-a/output/building_fusion_result.zip"],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    manifest = build_scenario_evidence_manifest(scenario_dir)
+
+    assert manifest.bundle_id == "scenario_1"
+    assert manifest.related_run_ids == ["run-a", "run-b"]
+    assert any(item.role == "scenario_summary" for item in manifest.artifacts)
+    assert any(item.role == "child_output" for item in manifest.artifacts)
