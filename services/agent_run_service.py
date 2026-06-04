@@ -2793,6 +2793,17 @@ class AgentRunService:
                 "profile_source": intent_context.get("profile_source"),
                 "task_bundle": intent_context.get("task_bundle"),
             }
+            quality_metadata = self._durable_quality_gate_metadata(run_id)
+            durable_metadata.update(quality_metadata)
+            latency_seconds = self._durable_latency_seconds(run_id)
+            if latency_seconds is not None:
+                durable_metadata["latency_seconds"] = latency_seconds
+            aoi_class = self._durable_context_label(plan, "aoi_class")
+            if aoi_class is not None:
+                durable_metadata["aoi_class"] = aoi_class
+            region_group = self._durable_context_label(plan, "region_group")
+            if region_group is not None:
+                durable_metadata["region_group"] = region_group
             durable_metadata = {key: value for key, value in durable_metadata.items() if value is not None}
             feedback = ExecutionFeedback(
                 run_id=run_id,
@@ -2847,6 +2858,59 @@ class AgentRunService:
                     )
         except Exception as exc:  # noqa: BLE001
             logging.getLogger("geofusion.run").warning("Failed to record execution feedback: %s", exc)
+
+    def _durable_quality_gate_metadata(self, run_id: str) -> Dict[str, object]:
+        events = self.get_audit_events(run_id)
+        for event in reversed(events):
+            if event.kind != "quality_gate_evaluated":
+                continue
+            details = event.details if isinstance(event.details, dict) else {}
+            metadata: Dict[str, object] = {}
+            if "accepted" in details:
+                metadata["quality_gate_accepted"] = bool(details["accepted"])
+            if "failure_reasons" in details:
+                reasons = details["failure_reasons"]
+                if isinstance(reasons, list):
+                    metadata["quality_gate_failure_reasons"] = [str(reason) for reason in reasons]
+                elif reasons is not None:
+                    metadata["quality_gate_failure_reasons"] = [str(reasons)]
+            return metadata
+        return {}
+
+    def _durable_latency_seconds(self, run_id: str) -> Optional[float]:
+        status = self.get_run(run_id)
+        if status is None or not status.started_at:
+            return None
+        finished_at = status.finished_at or _utc_now()
+        started = self._parse_run_timestamp(status.started_at)
+        finished = self._parse_run_timestamp(finished_at)
+        if started is None or finished is None:
+            return None
+        return max(0.0, (finished - started).total_seconds())
+
+    @staticmethod
+    def _parse_run_timestamp(value: str | None) -> Optional[datetime]:
+        if not value:
+            return None
+        try:
+            parsed = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        except ValueError:
+            return None
+        if parsed.tzinfo is None:
+            return parsed.replace(tzinfo=timezone.utc)
+        return parsed
+
+    @staticmethod
+    def _durable_context_label(plan: WorkflowPlan, key: str) -> Optional[str]:
+        intent_context = plan.context.get("intent", {})
+        if isinstance(intent_context, dict):
+            value = intent_context.get(key)
+            if value:
+                return str(value)
+        value = plan.context.get(key)
+        if value:
+            return str(value)
+        return None
 
     def _update_status(
         self,

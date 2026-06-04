@@ -452,3 +452,38 @@ def test_durable_learning_summary_uses_condition_key_and_time_decay() -> None:
     assert summary.condition_key == "building|flood|africa|small_city|wp.building"
     assert 0.0 < summary.time_decayed_score <= 1.0
     assert summary.recent_success_rate == 0.5
+
+
+def test_durable_learning_summary_aggregates_quality_and_latency_metadata() -> None:
+    repo = InMemoryKGRepository()
+    for record_id, accepted, latency in [
+        ("dlr-quality-pass", True, 10.0),
+        ("dlr-quality-fail", False, 20.0),
+    ]:
+        repo.record_durable_learning_record(
+            DurableLearningRecord(
+                record_id=record_id,
+                run_id=record_id.replace("dlr", "run"),
+                job_type=JobType.building,
+                trigger_type="user_query",
+                success=accepted,
+                disaster_type="flood",
+                pattern_id="wp.quality",
+                metadata={
+                    "quality_gate_accepted": accepted,
+                    "latency_seconds": latency,
+                    "aoi_class": "small_city",
+                    "region_group": "africa",
+                },
+                created_at=f"2026-06-01T00:00:{int(latency):02d}+00:00",
+            )
+        )
+
+    summary = repo.summarize_durable_learning_records(
+        job_type=JobType.building,
+        disaster_type="flood",
+        limit=5,
+    )["patterns"][0]
+
+    assert summary.quality_gate_pass_rate == 0.5
+    assert summary.avg_latency_seconds == 15.0
