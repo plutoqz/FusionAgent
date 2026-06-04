@@ -352,7 +352,15 @@ def test_record_durable_learning_record_emits_managed_summary_node() -> None:
             repaired=False,
             repair_count=0,
             plan_revision=1,
-            metadata={"planning_mode": "task_driven", "profile_source": "default_task"},
+            metadata={
+                "planning_mode": "task_driven",
+                "profile_source": "default_task",
+                "quality_gate_accepted": True,
+                "quality_gate_failure_reasons": [],
+                "latency_seconds": 12.5,
+                "aoi_class": "small_city",
+                "region_group": "africa",
+            },
             created_at="2026-04-09T00:00:00+00:00",
         )
     )
@@ -365,6 +373,8 @@ def test_record_durable_learning_record_emits_managed_summary_node() -> None:
     assert captured[0][1]["output_data_type"] == "dt.building.fused"
     assert captured[0][1]["graph_namespace"] == GRAPH_NAMESPACE
     assert '"planning_mode": "task_driven"' in captured[0][1]["metadata_json"]
+    assert '"quality_gate_accepted": true' in captured[0][1]["metadata_json"]
+    assert '"latency_seconds": 12.5' in captured[0][1]["metadata_json"]
 
 
 def test_list_durable_learning_records_maps_rows_from_fake_driver() -> None:
@@ -397,7 +407,11 @@ def test_list_durable_learning_records_maps_rows_from_fake_driver() -> None:
                         "repairCount": 2,
                         "failureReason": "RuntimeError: still failing",
                         "planRevision": 2,
-                        "metadataJson": "{\"planning_mode\": \"scenario_driven\", \"profile_source\": \"disaster_type\"}",
+                        "metadataJson": (
+                            "{\"planning_mode\": \"scenario_driven\", \"profile_source\": \"disaster_type\", "
+                            "\"quality_gate_accepted\": true, \"quality_gate_failure_reasons\": [\"soft_warning\"], "
+                            "\"latency_seconds\": 12.5, \"aoi_class\": \"small_city\", \"region_group\": \"africa\"}"
+                        ),
                         "createdAt": "2026-04-09T02:00:00+00:00",
                     }
                 }
@@ -431,7 +445,15 @@ def test_list_durable_learning_records_maps_rows_from_fake_driver() -> None:
             repair_count=2,
             failure_reason="RuntimeError: still failing",
             plan_revision=2,
-            metadata={"planning_mode": "scenario_driven", "profile_source": "disaster_type"},
+            metadata={
+                "planning_mode": "scenario_driven",
+                "profile_source": "disaster_type",
+                "quality_gate_accepted": True,
+                "quality_gate_failure_reasons": ["soft_warning"],
+                "latency_seconds": 12.5,
+                "aoi_class": "small_city",
+                "region_group": "africa",
+            },
             created_at="2026-04-09T02:00:00+00:00",
         )
     ]

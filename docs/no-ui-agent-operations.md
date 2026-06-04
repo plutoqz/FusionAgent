@@ -91,6 +91,12 @@ GPKG writeback uses a default quality policy by task kind unless the plan suppli
 
 Current spatial metrics include `duplicate_geometry_rate`, `invalid_geometry_rate`, `source_contribution_balance`, source feature counts, feature retention evidence, and coverage retention evidence. Golden precision, recall, and IoU remain future policy checks rather than required gates in this slice.
 
+## Durable Learning V2 Policy Hints
+
+Durable learning summary output is a bounded policy hint for future candidate selection. It keeps historical count fields and adds condition-aware feedback fields: `condition_key`, `time_decayed_score`, `quality_gate_pass_rate`, `avg_latency_seconds`, `recent_success_rate`, `trend`, and `adjustment`.
+
+The `adjustment` value is clamped to a small range and is only policy evidence attached to candidate scoring. It is not autonomous self-optimization, does not rewrite KG seed data, and does not replace operator review, quality gates, or scenario validation evidence.
+
 ## Scenario Trigger Inbox
 
 The local file inbox is the supported no-UI trigger demo path. It proves normalized event records can create scenario runs, persist registry evidence, and move processed or failed event files without claiming an external event-feed integration. External event-feed replay is not supported in this phase.
