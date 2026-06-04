@@ -510,6 +510,103 @@ def test_source_asset_service_materializes_osm_waterways_from_geofabrik_bundle(t
     assert frame.iloc[0]["waterway_i"] == 1
 
 
+@pytest.mark.parametrize(
+    ("country_name", "country_code", "source_id"),
+    [
+        ("Kenya", "KE", "raw.osm.road"),
+        ("Kenya", "KE", "raw.osm.waterways"),
+        ("Pakistan", "PK", "raw.osm.road"),
+        ("Pakistan", "PK", "raw.osm.poi"),
+    ],
+)
+def test_source_asset_service_materializes_africa_and_pakistan_geofabrik_matrix(
+    tmp_path: Path,
+    country_name: str,
+    country_code: str,
+    source_id: str,
+) -> None:
+    kenya_archive = tmp_path / "fixtures" / "kenya-latest-free.shp.zip"
+    pakistan_archive = tmp_path / "fixtures" / "pakistan-latest-free.shp.zip"
+    kenya_roads = geopandas.GeoDataFrame(
+        {"road_id": [1, 2]},
+        geometry=[
+            LineString([(36.80, -1.35), (36.90, -1.25)]),
+            LineString([(39.60, -4.10), (39.70, -4.00)]),
+        ],
+        crs="EPSG:4326",
+    )
+    kenya_waterways = geopandas.GeoDataFrame(
+        {"waterway_id": [1]},
+        geometry=[LineString([(36.78, -1.32), (36.88, -1.22)])],
+        crs="EPSG:4326",
+    )
+    pakistan_roads = geopandas.GeoDataFrame(
+        {"road_id": [3]},
+        geometry=[LineString([(66.95, 24.85), (67.05, 24.95)])],
+        crs="EPSG:4326",
+    )
+    pakistan_pois = geopandas.GeoDataFrame(
+        {"poi_id": [4]},
+        geometry=[Point(67.01, 24.90)],
+        crs="EPSG:4326",
+    )
+    _write_geofabrik_zip_with_layers(kenya_archive, roads=kenya_roads, waterways=kenya_waterways)
+    _write_geofabrik_zip_with_layers(pakistan_archive, roads=pakistan_roads, pois=pakistan_pois)
+    index_path = tmp_path / "fixtures" / "geofabrik-index.json"
+    index_path.write_text(
+        json.dumps(
+            {
+                "type": "FeatureCollection",
+                "features": [
+                    {
+                        "type": "Feature",
+                        "properties": {
+                            "id": "africa/kenya",
+                            "parent": "africa",
+                            "name": "Kenya",
+                            "iso3166-1:alpha2": ["KE"],
+                            "urls": {"shp": kenya_archive.resolve().as_uri()},
+                        },
+                    },
+                    {
+                        "type": "Feature",
+                        "properties": {
+                            "id": "asia/pakistan",
+                            "parent": "asia",
+                            "name": "Pakistan",
+                            "iso3166-1:alpha2": ["PK"],
+                            "urls": {"shp": pakistan_archive.resolve().as_uri()},
+                        },
+                    },
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+    bbox = (36.65, -1.45, 37.10, -1.10) if country_code == "KE" else (66.90, 24.80, 67.10, 25.00)
+    aoi = ResolvedAOI(
+        query=country_name,
+        display_name=country_name,
+        country_name=country_name,
+        country_code=country_code.lower(),
+        bbox=bbox,
+        confidence=0.95,
+        selection_reason="fixture",
+        candidates=(),
+    )
+    service = SourceAssetService(
+        repo_root=tmp_path,
+        cache_dir=tmp_path / "cache",
+        geofabrik_index_url=index_path.resolve().as_uri(),
+        prefer_local_data=False,
+    )
+
+    resolved = service.resolve_raw_source_path(source_id, aoi=aoi)
+
+    assert resolved.source_mode == "asset_downloaded"
+    assert resolved.feature_count == 1
+
+
 def test_source_asset_service_skips_incomplete_local_shapefile_and_uses_remote_asset(
     tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> None:
