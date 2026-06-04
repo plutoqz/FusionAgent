@@ -195,3 +195,65 @@ def test_artifact_registry_filters_candidates_by_required_meta(tmp_path: Path) -
 
     assert selected is not None
     assert selected.artifact_id == "bundle-a"
+
+
+def test_artifact_registry_filters_by_top_level_artifact_role(tmp_path: Path) -> None:
+    registry = ArtifactRegistry(index_path=tmp_path / "artifact_index.json")
+    now = datetime(2026, 6, 4, 0, 0, 0, tzinfo=timezone.utc)
+    registry.register(
+        ArtifactRecord(
+            artifact_id="raw-osm",
+            artifact_path=str(tmp_path / "raw.zip"),
+            job_type="building",
+            created_at=now.isoformat(),
+            artifact_role="raw_source",
+        )
+    )
+    registry.register(
+        ArtifactRecord(
+            artifact_id="fused-building",
+            artifact_path=str(tmp_path / "fused.zip"),
+            job_type="building",
+            created_at=now.isoformat(),
+            artifact_role="fusion_result",
+        )
+    )
+
+    selected = registry.find_reusable(
+        ArtifactLookupRequest(job_type="building", required_artifact_role="fusion_result"),
+        now=now,
+    )
+
+    assert selected is not None
+    assert selected.artifact_id == "fused-building"
+
+
+def test_artifact_registry_role_filter_accepts_legacy_meta_role(tmp_path: Path) -> None:
+    registry = ArtifactRegistry(index_path=tmp_path / "artifact_index.json")
+    now = datetime(2026, 6, 4, 0, 0, 0, tzinfo=timezone.utc)
+    registry.register(
+        ArtifactRecord(
+            artifact_id="legacy-raw",
+            artifact_path=str(tmp_path / "legacy.zip"),
+            job_type="road",
+            created_at=now.isoformat(),
+            meta={"artifact_role": "raw_vector"},
+        )
+    )
+    registry.register(
+        ArtifactRecord(
+            artifact_id="newer-fusion",
+            artifact_path=str(tmp_path / "newer.zip"),
+            job_type="road",
+            created_at=(now + timedelta(minutes=1)).isoformat(),
+            meta={"artifact_role": "fusion_result"},
+        )
+    )
+
+    selected = registry.find_reusable(
+        ArtifactLookupRequest(job_type="road", required_artifact_role="raw_source"),
+        now=now,
+    )
+
+    assert selected is not None
+    assert selected.artifact_id == "legacy-raw"

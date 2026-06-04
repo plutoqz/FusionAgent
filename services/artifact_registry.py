@@ -8,6 +8,7 @@ from threading import Lock
 from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
 
 from pydantic import BaseModel, Field
+from schemas.artifact_role import normalize_artifact_role
 from utils.crs import normalize_target_crs
 
 
@@ -104,6 +105,7 @@ class ArtifactRecord(BaseModel):
     target_crs: Optional[str] = None
     schema_policy_id: Optional[str] = None
     compatibility_basis: Optional[str] = None
+    artifact_role: Optional[str] = None
 
     bbox: Optional[Tuple[float, float, float, float]] = None
     meta: Dict[str, Any] = Field(default_factory=dict)
@@ -117,6 +119,7 @@ class ArtifactLookupRequest(BaseModel):
     required_fields: List[str] = Field(default_factory=list)
     required_output_type: Optional[str] = None
     required_target_crs: Optional[str] = None
+    required_artifact_role: Optional[str] = None
     required_meta: Dict[str, Any] = Field(default_factory=dict)
 
     bbox: Optional[Tuple[float, float, float, float]] = None
@@ -127,6 +130,10 @@ def _meta_contains(actual: Dict[str, Any], required: Dict[str, Any]) -> bool:
         if actual.get(key) != value:
             return False
     return True
+
+
+def _record_artifact_role(record: ArtifactRecord) -> Optional[str]:
+    return normalize_artifact_role(record.artifact_role) or normalize_artifact_role(record.meta.get("artifact_role"))
 
 
 @dataclass(frozen=True)
@@ -177,6 +184,7 @@ class ArtifactRegistry:
         want_output_type = _norm_token(request.required_output_type)
         want_target_crs = _norm_crs(request.required_target_crs)
         want_meta = dict(request.required_meta or {})
+        want_role = normalize_artifact_role(request.required_artifact_role)
         want_bbox = _as_bbox(request.bbox)
 
         max_age_seconds = request.max_age_seconds
@@ -194,6 +202,8 @@ class ArtifactRegistry:
             if want_target_crs is not None and _norm_crs(record.target_crs) != want_target_crs:
                 continue
             if want_meta and not _meta_contains(record.meta, want_meta):
+                continue
+            if want_role is not None and _record_artifact_role(record) != want_role:
                 continue
 
             created_dt = _parse_iso_dt(record.created_at)
@@ -250,6 +260,7 @@ class ArtifactRegistry:
         want_output_type = _norm_token(request.required_output_type)
         want_target_crs = _norm_crs(request.required_target_crs)
         want_meta = dict(request.required_meta or {})
+        want_role = normalize_artifact_role(request.required_artifact_role)
         want_bbox = _as_bbox(request.bbox)
 
         max_age_seconds = request.max_age_seconds
@@ -267,6 +278,8 @@ class ArtifactRegistry:
             if want_target_crs is not None and _norm_crs(record.target_crs) != want_target_crs:
                 continue
             if want_meta and not _meta_contains(record.meta, want_meta):
+                continue
+            if want_role is not None and _record_artifact_role(record) != want_role:
                 continue
 
             created_dt = _parse_iso_dt(record.created_at)
