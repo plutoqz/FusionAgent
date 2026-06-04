@@ -5,7 +5,7 @@ from pathlib import Path
 
 from schemas.engineering_validation import EngineeringValidationCase, EngineeringValidationCaseResult
 from schemas.scenario import ScenarioPhase, ScenarioRunResponse
-from scripts.run_engineering_validation import load_matrix_cases, run_validation_cases
+from scripts.run_engineering_validation import load_matrix_cases, run_validation_cases, write_validation_outputs
 
 
 def test_engineering_validation_case_requires_core_fields() -> None:
@@ -113,3 +113,21 @@ def test_run_validation_cases_reads_summary_and_marks_passed(tmp_path: Path) -> 
 
     assert results[0].passed is True
     assert results[0].scenario_id == "scenario-1"
+
+
+def test_write_validation_outputs_creates_session_files(tmp_path: Path) -> None:
+    result = EngineeringValidationCaseResult(case_id="case-a", passed=True, phase="succeeded")
+    summary = write_validation_outputs(
+        session_id="validation-test",
+        matrix_path=Path("matrix.json"),
+        output_root=tmp_path,
+        cases=[],
+        results=[result],
+        metadata={"base_url": "http://127.0.0.1:8000"},
+    )
+
+    assert summary.passed_cases == 1
+    assert (tmp_path / "validation_session.json").exists()
+    assert (tmp_path / "case_results.jsonl").exists()
+    assert (tmp_path / "validation_summary.json").exists()
+    assert (tmp_path / "validation_summary.md").exists()

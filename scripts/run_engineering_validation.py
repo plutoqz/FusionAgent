@@ -3,6 +3,8 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import subprocess
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Sequence
 
@@ -12,8 +14,10 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
-from schemas.engineering_validation import EngineeringValidationCase, EngineeringValidationCaseResult
+from schemas.engineering_validation import EngineeringValidationCase, EngineeringValidationCaseResult, EngineeringValidationSummary
+from schemas.evidence_lifecycle import ValidationSessionManifest
 from schemas.scenario import ScenarioRunRequest, ScenarioRunResponse
+from services.evidence_lifecycle_service import write_validation_session_manifest
 
 
 class HttpScenarioClient:
@@ -135,19 +139,139 @@ def evaluate_case_summary(
     return not failures, failures, observed
 
 
+def write_validation_outputs(
+    *,
+    session_id: str,
+    matrix_path: Path,
+    output_root: Path,
+    cases: list[EngineeringValidationCase],
+    results: list[EngineeringValidationCaseResult],
+    metadata: dict[str, Any] | None = None,
+) -> EngineeringValidationSummary:
+    output_root = Path(output_root)
+    output_root.mkdir(parents=True, exist_ok=True)
+    metadata = dict(metadata or {})
+    matrix_payload = json.loads(Path(matrix_path).read_text(encoding="utf-8")) if Path(matrix_path).exists() else {}
+    (output_root / "matrix_snapshot.json").write_text(
+        json.dumps(matrix_payload, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    (output_root / "case_results.jsonl").write_text(
+        "".join(json.dumps(result.model_dump(mode="json"), ensure_ascii=False) + "\n" for result in results),
+        encoding="utf-8",
+    )
+    passed_cases = sum(1 for result in results if result.passed)
+    summary = EngineeringValidationSummary(
+        session_id=session_id,
+        matrix_path=str(matrix_path),
+        total_cases=len(results),
+        passed_cases=passed_cases,
+        failed_cases=len(results) - passed_cases,
+        results=results,
+        output_root=str(output_root),
+        metadata={**metadata, "case_count": len(cases)},
+    )
+    (output_root / "validation_summary.json").write_text(
+        json.dumps(summary.model_dump(mode="json"), ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    (output_root / "validation_summary.md").write_text(
+        _render_validation_markdown(results),
+        encoding="utf-8",
+    )
+    manifest = ValidationSessionManifest(
+        session_id=session_id,
+        matrix_path=str(matrix_path),
+        output_root=str(output_root),
+        case_result_paths=["case_results.jsonl"],
+        summary_path="validation_summary.json",
+        markdown_summary_path="validation_summary.md",
+        created_at=datetime.now(timezone.utc).isoformat(),
+        git_commit=_git_commit(),
+        runtime=metadata,
+    )
+    write_validation_session_manifest(output_root / "validation_session.json", manifest)
+    return summary
+
+
+def _render_validation_markdown(results: list[EngineeringValidationCaseResult]) -> str:
+    lines = [
+        "# Engineering Validation Summary",
+        "",
+        "| Case | Region | AOI | Phase | Passed | Failures |",
+        "| --- | --- | --- | --- | --- | --- |",
+    ]
+    for result in results:
+        observed = result.observed if isinstance(result.observed, dict) else {}
+        failures = "; ".join(result.failure_reasons)
+        lines.append(
+            "| "
+            + " | ".join(
+                [
+                    result.case_id,
+                    str(observed.get("region_group") or ""),
+                    str(observed.get("aoi_class") or ""),
+                    result.phase,
+                    "yes" if result.passed else "no",
+                    failures,
+                ]
+            )
+            + " |"
+        )
+    return "\n".join(lines) + "\n"
+
+
+def _git_commit() -> str | None:
+    try:
+        completed = subprocess.run(
+            ["git", "-C", str(REPO_ROOT), "rev-parse", "HEAD"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except Exception:  # noqa: BLE001
+        return None
+    return completed.stdout.strip()
+
+
 def main(argv: Sequence[str] | None = None) -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--matrix", default="docs/superpowers/validation/engineering_validation_matrix.yaml")
     parser.add_argument("--case", action="append", default=[], help="Case id to run. Can be passed multiple times.")
+    parser.add_argument("--base-url", default="http://127.0.0.1:8000")
+    parser.add_argument("--output-root", default="")
+    parser.add_argument("--timeout", type=float, default=1200.0)
+    parser.add_argument("--session-id", default="")
     parser.add_argument("--dry-run", action="store_true")
     args = parser.parse_args(list(argv) if argv is not None else None)
 
-    cases = load_matrix_cases(Path(args.matrix), selected_case_ids=args.case)
+    matrix_path = Path(args.matrix)
+    try:
+        cases = load_matrix_cases(matrix_path, selected_case_ids=args.case)
+    except Exception as exc:  # noqa: BLE001
+        print(f"Failed to load matrix: {type(exc).__name__}: {exc}", file=sys.stderr)
+        return 2
+    if args.case and not cases:
+        print(f"No selected cases found: {', '.join(args.case)}", file=sys.stderr)
+        return 2
     for case in cases:
         print(f"{case.case_id}: {case.scenario_name} [{case.aoi_class}]")
     if args.dry_run:
         return 0
-    raise SystemExit("Non-dry-run execution is implemented in the next validation runner slice.")
+    session_id = args.session_id or datetime.now().strftime("validation-%Y%m%d-%H%M%S")
+    output_root = Path(args.output_root) if args.output_root else REPO_ROOT / "runs" / "engineering-validation" / session_id
+    client = HttpScenarioClient(base_url=args.base_url, timeout=args.timeout)
+    results = run_validation_cases(cases, output_root=str(output_root), client=client)
+    summary = write_validation_outputs(
+        session_id=session_id,
+        matrix_path=matrix_path,
+        output_root=output_root,
+        cases=cases,
+        results=results,
+        metadata={"base_url": args.base_url, "timeout": args.timeout},
+    )
+    print(f"Validation summary: {output_root / 'validation_summary.json'}")
+    return 0 if summary.failed_cases == 0 else 1
 
 
 if __name__ == "__main__":
