@@ -78,6 +78,21 @@ def evaluate_agentic_run(
     ]
     numeric_adjustments = [_safe_float(value) for value in learning_adjustments]
     numeric_adjustments = [value for value in numeric_adjustments if value is not None]
+    durable_candidate_summaries = [
+        _candidate_evidence(candidate).get("meta", {}).get("durable_learning_summary")
+        for record in decision_records
+        for candidate in getattr(record, "candidates", [])
+        if isinstance(_candidate_evidence(candidate).get("meta", {}).get("durable_learning_summary"), dict)
+    ]
+    summary_patterns = (durable_learning_summary or {}).get("patterns") if isinstance(durable_learning_summary, dict) else None
+    if isinstance(summary_patterns, list):
+        durable_candidate_summaries.extend(item for item in summary_patterns if isinstance(item, dict))
+    quality_pass_rates = [
+        _safe_float(summary.get("quality_gate_pass_rate"))
+        for summary in durable_candidate_summaries
+        if summary.get("quality_gate_pass_rate") is not None
+    ]
+    quality_pass_rates = [value for value in quality_pass_rates if value is not None]
     return {
         "planning_validity_rate": _planning_validity_rate(plan, audit_events),
         "kg_path_trace_completeness": _kg_path_trace_completeness(plan),
@@ -93,6 +108,8 @@ def evaluate_agentic_run(
         "self_evolution_hint_available": bool((durable_learning_summary or {}).get("patterns")),
         "self_evolution_hint_used": any(value not in (None, 0, 0.0) for value in numeric_adjustments),
         "self_evolution_policy_adjustment": max(numeric_adjustments, default=0.0),
+        "self_evolution_trend": _first_summary_value(durable_candidate_summaries, "trend", default="stable"),
+        "self_evolution_quality_gate_pass_rate": max(quality_pass_rates, default=0.0),
         "self_evolution_learning_opportunity_recorded": any(event.kind in {"run_succeeded", "run_failed"} for event in audit_events),
     }
 
@@ -165,6 +182,14 @@ def _safe_float(value: Any) -> float | None:
         return float(value)
     except Exception:  # noqa: BLE001
         return None
+
+
+def _first_summary_value(summaries: list[dict[str, Any]], key: str, *, default: Any = None) -> Any:
+    for summary in summaries:
+        value = summary.get(key)
+        if value not in (None, ""):
+            return value
+    return default
 
 
 def _planning_validity_rate(plan, audit_events) -> float:

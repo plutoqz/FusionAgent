@@ -3318,6 +3318,28 @@ def test_pattern_selection_uses_durable_learning_summaries_as_policy_hints(tmp_p
     assert "context.retrieval.durable_learning_summaries.patterns" in decision.evidence_refs
 
 
+def test_pattern_selection_uses_summary_adjustment_before_count_fallback(tmp_path: Path) -> None:
+    service = AgentRunService(base_dir=tmp_path / "runs")
+    plan = _build_plan(workflow_id="wf_learning_adjustment", revision=1)
+    plan.context["retrieval"]["candidate_patterns"] = [{"pattern_id": "wp.preferred", "success_rate": 0.80}]
+    plan.context["retrieval"]["durable_learning_summaries"] = {
+        "patterns": [
+            {
+                "entity_id": "wp.preferred",
+                "total_runs": 10,
+                "success_count": 1,
+                "adjustment": 0.08,
+            }
+        ]
+    }
+
+    decision = service._build_pattern_selection_decision(plan)
+
+    assert decision is not None
+    selected = next(candidate for candidate in decision.candidates if candidate.candidate_id == "wp.preferred")
+    assert selected.evidence["metrics"]["learning_adjustment"] == 0.08
+
+
 def test_agent_run_service_fails_when_replan_limit_is_reached(tmp_path: Path, monkeypatch) -> None:
     service = AgentRunService(base_dir=tmp_path / "runs")
     service.max_plan_revisions = 2

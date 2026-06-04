@@ -94,6 +94,8 @@ def test_evaluate_agentic_run_reports_trace_and_self_evolution_metrics() -> None
     assert result["self_evolution_hint_available"] is True
     assert result["self_evolution_hint_used"] is True
     assert result["self_evolution_policy_adjustment"] != 0
+    assert result["self_evolution_trend"] == "improving"
+    assert result["self_evolution_quality_gate_pass_rate"] == 0.75
 
 
 def _write_polygon_fixture(path: Path, *, count: int, crs: str) -> Path:
@@ -151,7 +153,15 @@ def _make_decisions_with_learning_adjustment() -> list[DecisionRecord]:
                     candidate_id="wp.a",
                     score=0.9,
                     reason="test",
-                    evidence={"metrics": {"learning_adjustment": 0.1}},
+                    evidence={
+                        "metrics": {"learning_adjustment": 0.1},
+                        "meta": {
+                            "durable_learning_summary": {
+                                "trend": "improving",
+                                "quality_gate_pass_rate": 0.75,
+                            }
+                        },
+                    },
                 )
             ],
         )

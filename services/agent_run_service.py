@@ -3541,6 +3541,12 @@ class AgentRunService:
         summary = summaries.get(pattern_id)
         if not summary:
             return None
+        explicit_adjustment = summary.get("adjustment")
+        if explicit_adjustment is not None:
+            try:
+                return round(max(-0.10, min(0.10, float(explicit_adjustment))), 6)
+            except (TypeError, ValueError):
+                pass
         try:
             total_runs = int(summary.get("total_runs") or 0)
             success_count = int(summary.get("success_count") or 0)
