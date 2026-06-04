@@ -85,9 +85,29 @@ def test_scenario_preflight_expands_flood_children_and_reports_sources() -> None
     payload = response.json()
     assert response.status_code == 200
     assert payload["allowed"] is True
-    assert [item["job_type"] for item in payload["child_preflights"]] == ["building", "road", "water"]
+    assert payload["decision"]["job_types"] == ["building", "road", "water", "poi"]
+    assert [item["job_type"] for item in payload["child_preflights"]] == [
+        "building",
+        "road",
+        "water",
+        "water",
+        "poi",
+    ]
+    assert [item["task_kind"] for item in payload["child_preflights"]] == [
+        "building",
+        "road",
+        "water_polygon",
+        "waterways",
+        "poi",
+    ]
     assert payload["child_preflights"][0]["source_selection"]["selected_source_id"] == "catalog.flood.building"
     assert payload["child_preflights"][1]["degradation"]["state"] == "preflight_partial_allowed"
+    assert payload["child_preflights"][2]["source_selection"]["selected_source_id"] == "catalog.flood.water_polygon"
+    assert payload["child_preflights"][3]["source_selection"]["selected_source_id"] == "catalog.flood.waterways"
+    assert payload["child_preflights"][3]["component_coverage"]["required_source_ids"] == [
+        "raw.osm.waterways",
+        "raw.local.pakistan.waterways",
+    ]
 
 
 def test_create_scenario_run_returns_422_for_out_of_scope_request(monkeypatch):

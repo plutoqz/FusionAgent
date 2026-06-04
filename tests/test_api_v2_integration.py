@@ -796,17 +796,18 @@ def test_v2_run_preflight_reports_unsupported_intent_without_creating_run(
     )
 
     assert response.status_code == 200
-    assert response.json() == {
-        "allowed": False,
-        "unsupported_intent": [
-            {
-                "code": "trajectory_to_road_deferred",
-                "message": "trajectory-to-road is reservation-only in this phase",
-                "matched_keyword": "trajectory",
-                "job_type": "road",
-            }
-        ],
-    }
+    payload = response.json()
+    assert payload["allowed"] is False
+    assert payload["unsupported_intent"] == [
+        {
+            "code": "trajectory_to_road_deferred",
+            "message": "trajectory-to-road is reservation-only in this phase",
+            "matched_keyword": "trajectory",
+            "job_type": "road",
+        }
+    ]
+    assert payload["aoi"]["needs_resolution"] is True
+    assert payload["degradation"]["state"] == "preflight_source_unresolved"
 
 
 def test_v2_run_inspection_includes_decision_friendly_digest(

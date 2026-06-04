@@ -75,6 +75,7 @@ _PARTIAL_COVERAGE_ALLOWED_SOURCES = {
     "catalog.earthquake.road",
     "catalog.typhoon.road",
     "catalog.flood.water",
+    "catalog.flood.water_polygon",
     "catalog.flood.waterways",
     "catalog.generic.poi",
 }
@@ -216,7 +217,13 @@ def _preflight_source_id(request: RunCreateRequest) -> str | None:
     if request.job_type == JobType.poi:
         candidates.insert(0, "catalog.generic.poi")
     if request.job_type == JobType.water and disaster_type == "flood":
-        candidates.insert(0, "catalog.flood.water")
+        preferred_pattern_id = str(request.preferred_pattern_id or "")
+        if "waterways" in preferred_pattern_id:
+            candidates.insert(0, "catalog.flood.waterways")
+        elif "water_polygon" in preferred_pattern_id:
+            candidates.insert(0, "catalog.flood.water_polygon")
+        else:
+            candidates.insert(0, "catalog.flood.water")
     for source_id in candidates:
         if source_id in CATALOG_BUNDLE_SPECS_BY_ID:
             return source_id
@@ -272,6 +279,7 @@ def _build_preflight_details(request: RunCreateRequest) -> dict[str, object]:
             "selection_basis": "disaster_type_and_job_type",
             "disaster_type": request.trigger.disaster_type,
             "job_type": request.job_type.value,
+            "preferred_pattern_id": request.preferred_pattern_id,
         },
         "component_coverage": {
             "required_source_ids": component_source_ids,

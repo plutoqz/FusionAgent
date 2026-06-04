@@ -164,7 +164,7 @@ def classify_scenario_request(
         "decision": "allow",
         "reason_code": "SUPPORTED_BOUNDED_SCENARIO",
         "message": "Scenario request stays within the bounded orchestration scope.",
-        "job_types": [job_type.value for job_type in job_types],
+        "job_types": list(dict.fromkeys(job_type.value for job_type in job_types)),
     }
 
 

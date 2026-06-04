@@ -61,10 +61,15 @@ async def preflight_scenario_run(request: ScenarioRunRequest) -> dict[str, objec
             field_mapping={},
             debug=spec.debug,
             input_strategy=RunInputStrategy.task_driven_auto,
+            preferred_pattern_id=spec.preferred_pattern_id,
         )
         child_preflights.append(
             {
                 "job_type": spec.job_type.value,
+                "task_kind": spec.task_kind.value if spec.task_kind else spec.job_type.value,
+                "task_family": spec.task_family or spec.job_type.value,
+                "preferred_pattern_id": spec.preferred_pattern_id,
+                "output_data_type": spec.output_data_type,
                 **_build_preflight_details(run_request),
             }
         )

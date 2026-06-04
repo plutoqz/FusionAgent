@@ -33,13 +33,21 @@ def test_karachi_chinese_flood_scenario_expands_and_records_finished_children(tm
     )
 
     assert response.phase.value == "succeeded"
-    assert response.child_run_ids == ["run-building", "run-road", "run-water"]
+    assert response.child_run_ids == [
+        "run-building",
+        "run-road",
+        "run-water-polygon",
+        "run-waterways",
+        "run-poi",
+    ]
     summary_path = Path(response.output_dir) / "scenario_summary.json"
     assert summary_path.exists()
     summary_text = summary_path.read_text(encoding="utf-8")
     assert "run-building" in summary_text
     assert "run-road" in summary_text
-    assert "run-water" in summary_text
+    assert "run-water-polygon" in summary_text
+    assert "run-waterways" in summary_text
+    assert "run-poi" in summary_text
 
 
 class _KarachiFakeAgentRunService:
@@ -51,7 +59,8 @@ class _KarachiFakeAgentRunService:
         self.artifacts: dict[str, Path] = {}
 
     def create_run(self, *, request, osm_zip_name, osm_zip_bytes, ref_zip_name, ref_zip_bytes):
-        run_id = f"run-{request.job_type.value}"
+        task_key = _task_key(request)
+        run_id = f"run-{task_key}"
         status = RunStatus(
             run_id=run_id,
             job_type=request.job_type,
@@ -64,8 +73,8 @@ class _KarachiFakeAgentRunService:
             finished_at="2026-06-01T00:00:03+00:00",
         )
         self.statuses[run_id] = status
-        self.plans[run_id] = _make_plan(request.job_type)
-        self.events[run_id] = _make_events(request.job_type)
+        self.plans[run_id] = _make_plan(request)
+        self.events[run_id] = _make_events(request)
         artifact = self.tmp_path / f"{run_id}.zip"
         artifact.write_bytes(b"zip")
         self.artifacts[run_id] = artifact
@@ -84,7 +93,27 @@ class _KarachiFakeAgentRunService:
         return self.artifacts.get(run_id)
 
 
-def _make_plan(job_type: JobType) -> WorkflowPlan:
+def _task_key(request) -> str:
+    preferred = str(getattr(request, "preferred_pattern_id", "") or "")
+    if preferred == "wp.flood.water_polygon.default":
+        return "water-polygon"
+    if preferred == "wp.flood.waterways.default":
+        return "waterways"
+    return request.job_type.value
+
+
+def _source_id(request) -> str:
+    preferred = str(getattr(request, "preferred_pattern_id", "") or "")
+    if preferred == "wp.flood.water_polygon.default":
+        return "catalog.flood.water_polygon"
+    if preferred == "wp.flood.waterways.default":
+        return "catalog.flood.waterways"
+    return f"catalog.flood.{request.job_type.value}"
+
+
+def _make_plan(request) -> WorkflowPlan:
+    job_type = request.job_type
+    source_id = _source_id(request)
     return WorkflowPlan(
         workflow_id=f"wf-karachi-{job_type.value}",
         trigger=RunTrigger(
@@ -103,7 +132,7 @@ def _make_plan(job_type: JobType) -> WorkflowPlan:
             },
             "retrieval": {
                 "candidate_patterns": [{"pattern_id": f"wp.flood.{job_type.value}", "success_rate": 0.9}],
-                "data_sources": [{"source_id": f"catalog.flood.{job_type.value}"}],
+                "data_sources": [{"source_id": source_id}],
             },
             "plan_revision": 1,
         },
@@ -115,7 +144,7 @@ def _make_plan(job_type: JobType) -> WorkflowPlan:
                 algorithm_id=f"algo.fusion.{job_type.value}.v1",
                 input=WorkflowTaskInput(
                     data_type_id=f"dt.{job_type.value}.bundle",
-                    data_source_id=f"catalog.flood.{job_type.value}",
+                    data_source_id=source_id,
                 ),
                 output=WorkflowTaskOutput(data_type_id=f"dt.{job_type.value}.fused"),
                 kg_validated=True,
@@ -126,7 +155,8 @@ def _make_plan(job_type: JobType) -> WorkflowPlan:
     )
 
 
-def _make_events(job_type: JobType) -> list[RunEvent]:
+def _make_events(request) -> list[RunEvent]:
+    source_id = _source_id(request)
     return [
         RunEvent(
             timestamp="2026-06-01T00:00:00+00:00",
@@ -145,8 +175,8 @@ def _make_events(job_type: JobType) -> list[RunEvent]:
             phase=RunPhase.running,
             message="inputs",
             details={
-                "source_id": f"catalog.flood.{job_type.value}",
-                "selected_source_id": f"catalog.flood.{job_type.value}",
+                "source_id": source_id,
+                "selected_source_id": source_id,
                 "component_coverage": {},
             },
         ),
