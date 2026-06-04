@@ -1,0 +1,49 @@
+{
+  "version": "2026-06-04.v1",
+  "cases": [
+    {
+      "case_id": "pakistan_karachi_small_city",
+      "region_group": "pakistan",
+      "aoi_class": "small_city",
+      "scenario_name": "Karachi flood",
+      "disaster_type": "flood",
+      "spatial_extent": "bbox(66.95,24.78,67.20,25.02)",
+      "default_task_bundle": ["building", "road", "water_polygon", "waterways", "poi"],
+      "output_format": "GPKG",
+      "purpose": "Validate unattended small-city full mission expansion and source materialization."
+    },
+    {
+      "case_id": "africa_nairobi_small_city",
+      "region_group": "africa",
+      "aoi_class": "small_city",
+      "scenario_name": "Nairobi flood",
+      "disaster_type": "flood",
+      "spatial_extent": "bbox(36.65,-1.45,37.10,-1.10)",
+      "default_task_bundle": ["building", "road", "water_polygon", "waterways", "poi"],
+      "output_format": "GPKG",
+      "purpose": "Validate Africa AOI source materialization and quality reports."
+    },
+    {
+      "case_id": "pakistan_sindh_medium_region",
+      "region_group": "pakistan",
+      "aoi_class": "medium_region",
+      "scenario_name": "Sindh flood bounded region",
+      "disaster_type": "flood",
+      "spatial_extent": "bbox(67.0,24.0,68.0,25.5)",
+      "default_task_bundle": ["building", "road", "water_polygon", "waterways", "poi"],
+      "output_format": "GPKG",
+      "purpose": "Validate larger downloads, clipping, and retry evidence."
+    },
+    {
+      "case_id": "africa_kenya_bounded_large",
+      "region_group": "africa",
+      "aoi_class": "bounded_large",
+      "scenario_name": "Kenya bounded flood validation",
+      "disaster_type": "flood",
+      "spatial_extent": "bbox(36.0,-2.0,38.0,0.0)",
+      "default_task_bundle": ["building", "road", "water_polygon", "waterways", "poi"],
+      "output_format": "GPKG",
+      "purpose": "Validate split, parallel tile processing, merge, and quality aggregation."
+    }
+  ]
+}
