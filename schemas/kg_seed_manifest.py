@@ -8,6 +8,7 @@ from pydantic import BaseModel, Field
 class KgSeedManifestMetadata(BaseModel):
     schema_version: str
     generated_from: str = "kg.seed"
+    source_modules: list[str] = Field(default_factory=list)
     content_hash: str
     generated_at: str | None = None
     notes: list[str] = Field(default_factory=list)

@@ -333,6 +333,7 @@ class AgentRunService:
         osm_zip_bytes: bytes | None,
         ref_zip_name: str | None,
         ref_zip_bytes: bytes | None,
+        runtime_dependencies: RuntimeDependencies | None = None,
     ) -> RunStatus:
         issues = classify_unsupported_intent(request.trigger.content, job_type=request.job_type)
         if issues:
@@ -396,7 +397,11 @@ class AgentRunService:
             finished_at=None,
         )
         with self._lock:
-            runtime_settings = self._snapshot_default_runtime_settings()
+            runtime_settings = (
+                runtime_dependencies.settings.model_copy(deep=True)
+                if runtime_dependencies is not None
+                else self._snapshot_default_runtime_settings()
+            )
             runtime_snapshot_id = self.runtime_settings_service.store_runtime_snapshot(runtime_settings)
             self._persist_run_runtime_snapshot_id(run_id, runtime_snapshot_id)
             self._append_audit_event(
@@ -431,8 +436,11 @@ class AgentRunService:
                 output_dir=output_dir,
                 log_dir=log_dir,
                 runtime_snapshot_id=runtime_snapshot_id,
+                runtime_dependencies=runtime_dependencies,
             )
         else:
+            # RuntimeDependencies contains process-local provider/planner/executor objects.
+            # Worker execution receives only the persisted settings snapshot and rebuilds its own runtime.
             self._dispatch_run(
                 run_id=run_id,
                 request=request,
@@ -456,6 +464,7 @@ class AgentRunService:
         log_dir: Path,
         runtime_snapshot_id: str | None = None,
         runtime_settings: EffectiveLLMSettings | Dict[str, Any] | None = None,
+        runtime_dependencies: RuntimeDependencies | None = None,
     ) -> None:
         logger = self._build_logger(run_id, log_dir / "run.log")
         plan: Optional[WorkflowPlan] = None
@@ -465,7 +474,7 @@ class AgentRunService:
         multisource_building_sources: tuple[dict[str, Path], dict[str, Path]] | None = None
 
         try:
-            runtime_dependencies = self._build_runtime_dependencies(
+            runtime_dependencies = runtime_dependencies or self._build_runtime_dependencies(
                 settings=self._resolve_run_runtime_settings(
                     run_id=run_id,
                     runtime_snapshot_id=runtime_snapshot_id,
@@ -2547,9 +2556,10 @@ class AgentRunService:
         *,
         settings: EffectiveLLMSettings,
         llm_provider: Any | None = None,
+        force_isolated: bool = False,
     ) -> RuntimeDependencies:
         current_default = getattr(self, "_default_runtime", None)
-        if llm_provider is None and current_default is not None and settings == current_default.settings:
+        if not force_isolated and llm_provider is None and current_default is not None and settings == current_default.settings:
             return self._bound_default_runtime()
         provider = llm_provider if llm_provider is not None else create_llm_provider(settings)
         planner = WorkflowPlanner(self.kg_repo, provider, artifact_registry=self.artifact_registry)
@@ -2559,6 +2569,12 @@ class AgentRunService:
             llm_provider=provider,
             planner=planner,
             executor=executor,
+        )
+
+    def build_isolated_runtime_dependencies(self) -> RuntimeDependencies:
+        return self._build_runtime_dependencies(
+            settings=self._snapshot_default_runtime_settings(),
+            force_isolated=True,
         )
 
     def _resolve_default_llm_settings(self) -> EffectiveLLMSettings:

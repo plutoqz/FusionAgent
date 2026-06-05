@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+from agent.tooling import build_default_tool_registry
+from fusion_algorithms.registry_metadata import FUSIONCODE_ALGORITHMS
 from kg.inmemory_repository import InMemoryKGRepository
+from kg.seed_manifest import build_seed_manifest_payload
 from schemas.fusion import JobType
 
 
@@ -43,3 +46,49 @@ def test_decomposed_building_workflow_has_ordered_steps() -> None:
     assert [step.order for step in pattern.steps] == list(range(1, len(pattern.steps) + 1))
     assert pattern.steps[0].algorithm_id == "algo.preprocess.building.source_normalize.v1"
     assert pattern.steps[-1].algorithm_id == "algo.assess.building.quality_metrics.v1"
+
+
+def test_generated_manifest_fusioncode_algorithms_are_auditable_against_tool_registry() -> None:
+    payload = build_seed_manifest_payload()
+    tool_registry = build_default_tool_registry()
+    manifest_algorithms = {
+        item["algo_id"]: item
+        for item in payload["algorithms"]
+        if item["algo_id"] in FUSIONCODE_ALGORITHMS
+    }
+
+    assert set(manifest_algorithms) == set(FUSIONCODE_ALGORITHMS)
+
+    missing_provenance: list[str] = []
+    contract_mismatches: dict[str, dict[str, object]] = {}
+    for algo_id, algorithm in manifest_algorithms.items():
+        metadata = algorithm.get("metadata") or {}
+        if (
+            not metadata.get("algorithm_family")
+            or not metadata.get("handler_name")
+            or not algorithm.get("tool_ref")
+        ):
+            missing_provenance.append(algo_id)
+
+        tool_spec = tool_registry.require(algo_id)
+        expected_tool_ref = f"fusion_algorithms:{tool_spec.handler_name}"
+        actual_contract = {
+            "input_types": tuple(algorithm["input_types"]),
+            "output_type": algorithm["output_type"],
+            "handler_name": metadata.get("handler_name"),
+            "tool_ref": algorithm["tool_ref"],
+        }
+        expected_contract = {
+            "input_types": tool_spec.input_types,
+            "output_type": tool_spec.output_type,
+            "handler_name": tool_spec.handler_name,
+            "tool_ref": expected_tool_ref,
+        }
+        if actual_contract != expected_contract:
+            contract_mismatches[algo_id] = {
+                "actual": actual_contract,
+                "expected": expected_contract,
+            }
+
+    assert missing_provenance == []
+    assert contract_mismatches == {}

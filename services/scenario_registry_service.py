@@ -46,6 +46,18 @@ class ScenarioRegistryService:
                 return record
         return None
 
+    def find_by_scenario_id(self, scenario_id: str) -> Optional[Dict[str, Any]]:
+        if not self.index_path.exists():
+            return None
+
+        for line in reversed(self.index_path.read_text(encoding="utf-8").splitlines()):
+            if not line.strip():
+                continue
+            record = json.loads(line)
+            if record.get("scenario_id") == scenario_id:
+                return record
+        return None
+
     def get_summary(self, scenario_id: str) -> Dict[str, Any]:
         summary_path = self.output_root / scenario_id / "scenario_summary.json"
         return json.loads(summary_path.read_text(encoding="utf-8"))

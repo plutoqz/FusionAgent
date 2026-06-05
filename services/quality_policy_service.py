@@ -44,36 +44,36 @@ def _policy(
     duplicate_threshold: float,
     balance_threshold: float,
 ) -> QualityPolicy:
-    return QualityPolicy(
-        policy_id=policy_id,
-        task_kind=task_kind,
-        description=f"Default {task_kind.value} quality policy.",
-        checks=[
-            QualityPolicyCheck(check_id="readable", metric_name="readable", operator="eq", threshold=True),
-            QualityPolicyCheck(check_id="non_empty", metric_name="non_empty", operator="eq", threshold=True),
-            QualityPolicyCheck(check_id="required_fields", metric_name="required_fields", operator="eq", threshold=True),
-            QualityPolicyCheck(check_id="geometry_type", metric_name="geometry_type", operator="eq", threshold=True),
-            QualityPolicyCheck(check_id="aoi_intersection", metric_name="aoi_intersection", operator="eq", threshold=True),
-            QualityPolicyCheck(check_id="source_lineage", metric_name="source_lineage", operator="eq", threshold=True),
-            QualityPolicyCheck(check_id="multi_source_lineage", metric_name="multi_source_lineage", operator="eq", threshold=True),
-            QualityPolicyCheck(
-                check_id="duplicate_geometry_rate",
-                metric_name="duplicate_geometry_rate",
-                operator="lte",
-                threshold=duplicate_threshold,
-            ),
-            QualityPolicyCheck(
-                check_id="invalid_geometry_rate",
-                metric_name="invalid_geometry_rate",
-                operator="lte",
-                threshold=0.0,
-            ),
-            QualityPolicyCheck(
-                check_id="source_contribution_balance",
-                metric_name="source_contribution_balance",
-                operator="lte",
-                threshold=balance_threshold,
-            ),
+    checks = [
+        QualityPolicyCheck(check_id="readable", metric_name="readable", operator="eq", threshold=True),
+        QualityPolicyCheck(check_id="non_empty", metric_name="non_empty", operator="eq", threshold=True),
+        QualityPolicyCheck(check_id="required_fields", metric_name="required_fields", operator="eq", threshold=True),
+        QualityPolicyCheck(check_id="geometry_type", metric_name="geometry_type", operator="eq", threshold=True),
+        QualityPolicyCheck(check_id="aoi_intersection", metric_name="aoi_intersection", operator="eq", threshold=True),
+        QualityPolicyCheck(check_id="source_lineage", metric_name="source_lineage", operator="eq", threshold=True),
+        QualityPolicyCheck(check_id="multi_source_lineage", metric_name="multi_source_lineage", operator="eq", threshold=True),
+        QualityPolicyCheck(
+            check_id="duplicate_geometry_rate",
+            metric_name="duplicate_geometry_rate",
+            operator="lte",
+            threshold=duplicate_threshold,
+        ),
+        QualityPolicyCheck(
+            check_id="invalid_geometry_rate",
+            metric_name="invalid_geometry_rate",
+            operator="lte",
+            threshold=0.0,
+        ),
+        QualityPolicyCheck(
+            check_id="source_contribution_balance",
+            metric_name="source_contribution_balance",
+            operator="lte",
+            threshold=balance_threshold,
+        ),
+    ]
+    checks.extend(_topology_policy_checks(task_kind))
+    checks.extend(
+        [
             QualityPolicyCheck(
                 check_id="feature_retention_rate",
                 metric_name="feature_retention_rate",
@@ -88,5 +88,45 @@ def _policy(
                 operator="gte",
                 threshold=0.5,
             ),
-        ],
+        ]
     )
+    return QualityPolicy(
+        policy_id=policy_id,
+        task_kind=task_kind,
+        description=f"Default {task_kind.value} quality policy.",
+        checks=checks,
+    )
+
+
+def _topology_policy_checks(task_kind: TaskKind) -> list[QualityPolicyCheck]:
+    if task_kind in {TaskKind.road, TaskKind.waterways}:
+        return [
+            QualityPolicyCheck(
+                check_id="zero_length_geometry_count",
+                metric_name="zero_length_geometry_count",
+                operator="eq",
+                threshold=0,
+            ),
+            QualityPolicyCheck(
+                check_id="dangle_endpoint_count",
+                metric_name="dangle_endpoint_count",
+                operator="lte",
+                threshold=2,
+            ),
+        ]
+    if task_kind in {TaskKind.building, TaskKind.water_polygon}:
+        return [
+            QualityPolicyCheck(
+                check_id="self_intersection_count",
+                metric_name="self_intersection_count",
+                operator="eq",
+                threshold=0,
+            ),
+            QualityPolicyCheck(
+                check_id="sliver_polygon_count",
+                metric_name="sliver_polygon_count",
+                operator="lte",
+                threshold=0,
+            ),
+        ]
+    return []

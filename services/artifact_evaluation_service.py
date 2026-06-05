@@ -4,8 +4,12 @@ from pathlib import Path
 from typing import Any
 
 import geopandas as gpd
+from shapely.validation import explain_validity
 
 from services.kg_path_trace_service import build_kg_path_trace
+
+
+_DEFAULT_SLIVER_AREA_THRESHOLD_SQ_M = 1.0
 
 
 def evaluate_vector_artifact(
@@ -13,6 +17,7 @@ def evaluate_vector_artifact(
     *,
     required_fields: list[str],
     requested_bbox: list[float] | tuple[float, float, float, float] | None = None,
+    sliver_area_threshold_sq_m: float = _DEFAULT_SLIVER_AREA_THRESHOLD_SQ_M,
 ) -> dict[str, Any]:
     shp_path = Path(shp_path)
     frame = gpd.read_file(shp_path)
@@ -32,7 +37,7 @@ def evaluate_vector_artifact(
     if requested_bbox is not None:
         metrics["aoi_consistency"] = _aoi_consistency(metrics.get("bbox"), requested_bbox)
     metrics.update(_geometry_measurements(frame))
-    metrics.update(_geometry_quality_metrics(frame))
+    metrics.update(_geometry_quality_metrics(frame, sliver_area_threshold_sq_m=sliver_area_threshold_sq_m))
     return metrics
 
 
@@ -129,13 +134,21 @@ def _geometry_measurements(frame: gpd.GeoDataFrame) -> dict[str, float]:
     return metrics
 
 
-def _geometry_quality_metrics(frame: gpd.GeoDataFrame) -> dict[str, Any]:
+def _geometry_quality_metrics(
+    frame: gpd.GeoDataFrame,
+    *,
+    sliver_area_threshold_sq_m: float = _DEFAULT_SLIVER_AREA_THRESHOLD_SQ_M,
+) -> dict[str, Any]:
     if frame.empty:
         return {
             "duplicate_geometry_rate": 0.0,
             "invalid_geometry_rate": 0.0,
             "source_feature_counts": {},
             "source_contribution_balance": 0.0,
+            "zero_length_geometry_count": 0,
+            "self_intersection_count": 0,
+            "sliver_polygon_count": 0,
+            "dangle_endpoint_count": 0,
         }
     geometries = [geom for geom in frame.geometry if geom is not None]
     total = len(geometries)
@@ -147,7 +160,98 @@ def _geometry_quality_metrics(frame: gpd.GeoDataFrame) -> dict[str, Any]:
         "invalid_geometry_rate": invalid_count / total if total else 0.0,
         "source_feature_counts": source_counts,
         "source_contribution_balance": _gini(list(source_counts.values())),
+        **_topology_quality_metrics(frame, sliver_area_threshold_sq_m=sliver_area_threshold_sq_m),
     }
+
+
+def _topology_quality_metrics(
+    frame: gpd.GeoDataFrame,
+    *,
+    sliver_area_threshold_sq_m: float = _DEFAULT_SLIVER_AREA_THRESHOLD_SQ_M,
+) -> dict[str, int]:
+    measured = frame
+    if measured.crs is not None and measured.crs.is_geographic:
+        measured = measured.to_crs("EPSG:3857")
+
+    zero_length_geometry_count = 0
+    sliver_polygon_count = 0
+    dangle_endpoints: dict[tuple[float, float], int] = {}
+
+    for geom in measured.geometry:
+        for line in _line_parts(geom):
+            if line.length == 0:
+                zero_length_geometry_count += 1
+                continue
+            for endpoint in _line_endpoints(line):
+                dangle_endpoints[endpoint] = dangle_endpoints.get(endpoint, 0) + 1
+        for polygon in _polygon_parts(geom):
+            if polygon.is_valid and polygon.area < sliver_area_threshold_sq_m:
+                sliver_polygon_count += 1
+
+    return {
+        "zero_length_geometry_count": zero_length_geometry_count,
+        "self_intersection_count": _self_intersection_count(frame),
+        "sliver_polygon_count": sliver_polygon_count,
+        "dangle_endpoint_count": sum(1 for count in dangle_endpoints.values() if count == 1),
+    }
+
+
+def _self_intersection_count(frame: gpd.GeoDataFrame) -> int:
+    count = 0
+    for geom in frame.geometry:
+        for polygon in _polygon_parts(geom):
+            if polygon.is_valid:
+                continue
+            if _is_self_intersection_reason(explain_validity(polygon)):
+                count += 1
+    return count
+
+
+def _is_self_intersection_reason(reason: str) -> bool:
+    return "self-intersection" in reason.lower()
+
+
+def _polygon_parts(geom) -> list[Any]:
+    if geom is None or geom.is_empty:
+        return []
+    geom_type = getattr(geom, "geom_type", "")
+    if geom_type == "Polygon":
+        return [geom]
+    if geom_type == "MultiPolygon":
+        return list(geom.geoms)
+    if geom_type == "GeometryCollection":
+        parts: list[Any] = []
+        for part in geom.geoms:
+            parts.extend(_polygon_parts(part))
+        return parts
+    return []
+
+
+def _line_parts(geom) -> list[Any]:
+    if geom is None or geom.is_empty:
+        return []
+    geom_type = getattr(geom, "geom_type", "")
+    if geom_type == "LineString":
+        return [geom]
+    if geom_type == "MultiLineString":
+        return list(geom.geoms)
+    if geom_type == "GeometryCollection":
+        parts: list[Any] = []
+        for part in geom.geoms:
+            parts.extend(_line_parts(part))
+        return parts
+    return []
+
+
+def _line_endpoints(line) -> list[tuple[float, float]]:
+    coords = list(line.coords)
+    if not coords:
+        return []
+    return [_endpoint_key(coords[0]), _endpoint_key(coords[-1])]
+
+
+def _endpoint_key(coord) -> tuple[float, float]:
+    return (float(coord[0]), float(coord[1]))
 
 
 def _source_feature_counts(frame: gpd.GeoDataFrame) -> dict[str, int]:
