@@ -1,0 +1,160 @@
+{
+  "version": 1,
+  "records": [
+    {
+      "artifact_id": "raw_vector.83f2ca471478432ab9a1b840f4209543",
+      "artifact_path": "runs\\raw_source_cache\\raw_microsoft_building\\72f8f1901c14a01c8613488bb9134628bf99c8d6\\f7257b7232154ff0ae7b12b463e489e8\\source.zip",
+      "job_type": "raw_vector",
+      "disaster_type": null,
+      "created_at": "2026-06-01T02:12:31.100823+00:00",
+      "output_fields": [],
+      "output_data_type": "dt.raw.vector",
+      "target_crs": "EPSG:32643",
+      "schema_policy_id": null,
+      "compatibility_basis": null,
+      "bbox": null,
+      "meta": {
+        "artifact_role": "raw_vector",
+        "source_id": "raw.microsoft.building",
+        "source_version": "72f8f1901c14a01c8613488bb9134628bf99c8d6",
+        "source_mode": "coverage_empty",
+        "tile_scope": "request_bbox",
+        "tile_bbox": [
+          66.2862312,
+          24.4273517,
+          67.5827753,
+          25.676796
+        ],
+        "tile_key": "a9f519de55cc"
+      }
+    },
+    {
+      "artifact_id": "raw_vector.297483f85427490b935de64153597ef9",
+      "artifact_path": "runs\\raw_source_cache\\raw_osm_building\\9aeb379b6f64b051b8e0406dcfc8329e9ab8f1fe\\6c1a6a89f750496caa0433280c252983\\source.zip",
+      "job_type": "raw_vector",
+      "disaster_type": null,
+      "created_at": "2026-06-01T02:12:31.054792+00:00",
+      "output_fields": [],
+      "output_data_type": "dt.raw.vector",
+      "target_crs": "EPSG:32643",
+      "schema_policy_id": null,
+      "compatibility_basis": null,
+      "bbox": null,
+      "meta": {
+        "artifact_role": "raw_vector",
+        "source_id": "raw.osm.building",
+        "source_version": "9aeb379b6f64b051b8e0406dcfc8329e9ab8f1fe",
+        "source_mode": "coverage_empty",
+        "tile_scope": "request_bbox",
+        "tile_bbox": [
+          66.2862312,
+          24.4273517,
+          67.5827753,
+          25.676796
+        ],
+        "tile_key": "a9f519de55cc"
+      }
+    },
+    {
+      "artifact_id": "input_bundle.1a4b9aae102a43c4a18ef2bae85deed2",
+      "artifact_path": "runs\\input_bundle_cache\\catalog_earthquake_building\\9aeb379b6f64b051b8e0406dcfc8329e9ab8f1fe_dd9eea7_fdb6f5455a26\\0ecce9ee00b44bae96c508348b15a992",
+      "job_type": "building",
+      "disaster_type": "flood",
+      "created_at": "2026-06-01T02:05:40.437758+00:00",
+      "output_fields": [],
+      "output_data_type": "dt.building.bundle",
+      "target_crs": "EPSG:32643",
+      "schema_policy_id": null,
+      "compatibility_basis": null,
+      "bbox": [
+        29.0002312,
+        -4.4686852,
+        30.8448953,
+        -2.3391069
+      ],
+      "meta": {
+        "artifact_role": "input_bundle",
+        "source_id": "catalog.earthquake.building",
+        "selected_source_id": "catalog.earthquake.building",
+        "fallback_from_source_id": null,
+        "component_coverage": {
+          "raw.osm.building": {
+            "source_id": "raw.osm.building",
+            "source_mode": "downloaded",
+            "feature_count": 763191,
+            "coverage_status": "available",
+            "path": "runs\\input_bundle_cache\\catalog_earthquake_building\\9aeb379b6f64b051b8e0406dcfc8329e9ab8f1fe_dd9eea7_fdb6f5455a26\\0ecce9ee00b44bae96c508348b15a992\\osm.zip",
+            "error": null
+          },
+          "raw.microsoft.building": {
+            "source_id": "raw.microsoft.building",
+            "source_mode": "downloaded",
+            "feature_count": 1952384,
+            "coverage_status": "available",
+            "path": "runs\\input_bundle_cache\\catalog_earthquake_building\\9aeb379b6f64b051b8e0406dcfc8329e9ab8f1fe_dd9eea7_fdb6f5455a26\\0ecce9ee00b44bae96c508348b15a992\\ref.zip",
+            "error": null
+          }
+        },
+        "source_version": "9aeb379b6f64b051b8e0406dcfc8329e9ab8f1fe|dd9eea7a86f0808e227099f14d20586d78882062",
+        "planning_mode": "task_driven",
+        "tile_scope": "full",
+        "tile_bbox": null,
+        "tile_key": "full"
+      }
+    },
+    {
+      "artifact_id": "raw_vector.29ed0ca3ddc34f13ab6f5c7c3464d93b",
+      "artifact_path": "runs\\raw_source_cache\\raw_microsoft_building\\dd9eea7a86f0808e227099f14d20586d78882062\\47b21386da82467dbeea47af6bb96c73\\source.zip",
+      "job_type": "raw_vector",
+      "disaster_type": null,
+      "created_at": "2026-06-01T02:05:40.354090+00:00",
+      "output_fields": [],
+      "output_data_type": "dt.raw.vector",
+      "target_crs": "EPSG:32643",
+      "schema_policy_id": null,
+      "compatibility_basis": null,
+      "bbox": [
+        28.99496577488792,
+        -4.46478049800767,
+        30.84434290513759,
+        -2.3195611830574734
+      ],
+      "meta": {
+        "artifact_role": "raw_vector",
+        "source_id": "raw.microsoft.building",
+        "source_version": "dd9eea7a86f0808e227099f14d20586d78882062",
+        "source_mode": "asset_cached",
+        "tile_scope": "full",
+        "tile_bbox": null,
+        "tile_key": "full"
+      }
+    },
+    {
+      "artifact_id": "raw_vector.977a14d80cd44211aa962d0911845327",
+      "artifact_path": "runs\\raw_source_cache\\raw_osm_building\\9aeb379b6f64b051b8e0406dcfc8329e9ab8f1fe\\731f555e70ff4ce7b4694937d0b2f591\\source.zip",
+      "job_type": "raw_vector",
+      "disaster_type": null,
+      "created_at": "2026-06-01T02:03:57.761955+00:00",
+      "output_fields": [],
+      "output_data_type": "dt.raw.vector",
+      "target_crs": "EPSG:32643",
+      "schema_policy_id": null,
+      "compatibility_basis": null,
+      "bbox": [
+        29.0002312,
+        -4.4686852,
+        30.8448953,
+        -2.3391069
+      ],
+      "meta": {
+        "artifact_role": "raw_vector",
+        "source_id": "raw.osm.building",
+        "source_version": "9aeb379b6f64b051b8e0406dcfc8329e9ab8f1fe",
+        "source_mode": "asset_cached",
+        "tile_scope": "full",
+        "tile_bbox": null,
+        "tile_key": "full"
+      }
+    }
+  ]
+}
