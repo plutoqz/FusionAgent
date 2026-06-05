@@ -4,14 +4,20 @@ import json
 import os
 import time
 import uuid
-from concurrent.futures import ThreadPoolExecutor
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
 from pathlib import Path
+from threading import Lock
 from typing import Any
 
 from schemas.agent import RunCreateRequest, RunInputStrategy, RunPhase, RunTrigger, RunTriggerType
 from schemas.fusion import JobType
 from schemas.scenario import ScenarioChildRunSpec, ScenarioPhase, ScenarioRunRequest, ScenarioRunResponse
+from schemas.scenario_checkpoint import (
+    ScenarioCheckpoint,
+    ScenarioCheckpointChildRun,
+    ScenarioCheckpointChildSpec,
+)
 from schemas.task_kind import TaskKind, task_kind_family
 from services.agent_run_service import AgentRunService, agent_run_service
 from services.artifact_evaluation_service import evaluate_agentic_run, evaluate_vector_artifact
@@ -19,6 +25,7 @@ from services.evidence_lifecycle_service import build_scenario_evidence_manifest
 from services.kg_path_trace_service import build_kg_path_trace
 from services.mission_compiler_service import compile_scenario_mission
 from services.run_recovery_service import build_recovery_hint
+from services.scenario_checkpoint_service import checkpoint_path, load_scenario_checkpoint, write_scenario_checkpoint
 from services.scenario_failure_handler_service import ScenarioFailureHandlerService
 from services.scenario_output import resolve_scenario_output_root
 from services.scenario_registry_service import ScenarioRegistryService
@@ -203,6 +210,14 @@ class ScenarioRunService:
             json.dumps(request.model_dump(mode="json"), ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
+        _write_checkpoint(
+            output_dir,
+            _initial_checkpoint(
+                request=request,
+                scenario_id=scenario_id,
+                phase=ScenarioPhase.running,
+            ),
+        )
         summary = {
             "scenario_id": scenario_id,
             "scenario_name": request.scenario_name,
@@ -241,6 +256,90 @@ class ScenarioRunService:
             child_run_ids=[],
         )
 
+    def resume_scenario_run(self, scenario_id: str, *, retry_failed: bool = False) -> ScenarioRunResponse:
+        request, output_dir, checkpoint = _load_resume_checkpoint(scenario_id)
+        if checkpoint.scenario_id != scenario_id:
+            raise ValueError(f"Checkpoint scenario_id mismatch for {scenario_id}")
+
+        child_specs = _child_specs_from_checkpoint(checkpoint)
+        if not child_specs:
+            child_specs = build_child_run_specs(request)
+
+        child_results = _child_results_from_checkpoint(checkpoint, child_specs)
+        while len(child_results) < len(child_specs):
+            child_results.append(_queued_child_run_for_spec(child_specs[len(child_results)]))
+
+        checkpoint = checkpoint.model_copy(
+            update={
+                "phase": ScenarioPhase.running,
+                "children_phase": _phase_from_child_results(child_results),
+                "request": request.model_dump(mode="json"),
+                "child_specs": [_checkpoint_child_spec(spec) for spec in child_specs],
+                "child_runs": [_checkpoint_child_run(result) for result in child_results],
+                "resume_count": checkpoint.resume_count + 1,
+            }
+        )
+        _write_checkpoint(output_dir, checkpoint)
+
+        launch_indexes: list[int] = []
+        launch_specs: list[ScenarioChildRunSpec] = []
+        for index, (spec, result) in enumerate(zip(child_specs, child_results)):
+            if _resume_result_is_completed_with_artifact(result):
+                continue
+            if _resume_result_is_failed(result) and not retry_failed:
+                continue
+            if _resume_result_should_launch(result, retry_failed=retry_failed):
+                launch_indexes.append(index)
+                launch_specs.append(spec)
+                child_results[index] = _queued_child_run_for_spec(spec)
+                continue
+            if result.get("run_id"):
+                child_results[index] = self._wait_for_child_result(run_id=str(result["run_id"]), spec=spec)
+
+        checkpoint = _checkpoint_with_child_runs(
+            checkpoint,
+            child_results,
+            phase=ScenarioPhase.running,
+            children_phase=_phase_from_child_results(child_results),
+        )
+        _write_checkpoint(output_dir, checkpoint)
+
+        def record_launched_child_result(launch_position: int, result: dict[str, Any]) -> None:
+            nonlocal checkpoint
+            child_results[launch_indexes[launch_position]] = result
+            checkpoint = _checkpoint_with_child_runs(
+                checkpoint,
+                child_results,
+                phase=ScenarioPhase.running,
+                children_phase=_phase_from_child_results(child_results),
+            )
+            _write_checkpoint(output_dir, checkpoint)
+
+        if launch_specs:
+            launched_results = self._start_child_runs(
+                output_dir,
+                launch_specs,
+                on_child_result=record_launched_child_result,
+            )
+            launched_results = self._wait_for_started_child_results(launched_results)
+            for index, result in zip(launch_indexes, launched_results):
+                child_results[index] = result
+
+        checkpoint = _checkpoint_with_child_runs(
+            checkpoint,
+            child_results,
+            phase=ScenarioPhase.running,
+            children_phase=_phase_from_child_results(child_results),
+        )
+        _write_checkpoint(output_dir, checkpoint)
+        return self._finalize_scenario_run(
+            request=request,
+            scenario_id=scenario_id,
+            output_dir=output_dir,
+            child_results=child_results,
+            checkpoint=checkpoint,
+        )
+
     def _execute_scenario_run(
         self,
         *,
@@ -262,38 +361,96 @@ class ScenarioRunService:
             json.dumps(request.model_dump(mode="json"), ensure_ascii=False, indent=2),
             encoding="utf-8",
         )
-
-        started_child_results = [self._run_child(output_dir, spec) for spec in build_child_run_specs(request)]
-        child_results = self._wait_for_started_child_results(started_child_results)
-        summary = self._build_summary(request, scenario_id, output_dir, child_results)
-        document_paths = render_scenario_reports(summary=summary, documents_dir=output_dir / "documents")
-        summary["document_paths"] = document_paths
-        summary["phase"] = _phase_from_child_results(child_results).value
-        self._write_summary_files(output_dir, summary)
-        phase = _phase_from_child_results(child_results)
-        child_run_ids = [str(result["run_id"]) for result in child_results if result.get("run_id")]
-        ScenarioRegistryService(output_root=resolve_scenario_output_root(request.output_root)).record(
-            {
-                "scenario_id": scenario_id,
-                "scenario_name": request.scenario_name,
-                "phase": phase.value,
-                "output_dir": str(output_dir),
-                "child_run_ids": child_run_ids,
-                "created_at": datetime.now(timezone.utc).isoformat(),
-                "case_id": request.metadata.get("case_id"),
-                "idempotency_key": request.metadata.get("idempotency_key"),
-                "trigger_event": request.metadata.get("trigger_event"),
-            }
-        )
-
-        return ScenarioRunResponse(
+        checkpoint = _initial_checkpoint(
+            request=request,
             scenario_id=scenario_id,
-            phase=phase,
-            output_dir=str(output_dir),
-            child_run_ids=child_run_ids,
+            phase=ScenarioPhase.running,
+        )
+        _write_checkpoint(output_dir, checkpoint)
+
+        child_specs = build_child_run_specs(request)
+        checkpoint = _checkpoint_with_specs(checkpoint, child_specs)
+        _write_checkpoint(output_dir, checkpoint)
+        child_run_slots = [_queued_child_run_for_spec(spec) for spec in child_specs]
+        checkpoint = _checkpoint_with_child_runs(checkpoint, child_run_slots, phase=ScenarioPhase.running)
+        _write_checkpoint(output_dir, checkpoint)
+        checkpoint_lock = Lock()
+
+        def record_child_result(index: int, result: dict[str, Any]) -> None:
+            nonlocal checkpoint
+            with checkpoint_lock:
+                child_run_slots[index] = result
+                checkpoint = _checkpoint_with_child_runs(
+                    checkpoint,
+                    child_run_slots,
+                    phase=ScenarioPhase.running,
+                    children_phase=_phase_from_child_results(child_run_slots),
+                )
+                _write_checkpoint(output_dir, checkpoint)
+
+        started_child_results = self._start_child_runs(output_dir, child_specs, on_child_result=record_child_result)
+        child_results = self._wait_for_started_child_results(started_child_results)
+        checkpoint = _checkpoint_with_child_runs(
+            checkpoint,
+            child_results,
+            phase=ScenarioPhase.running,
+            children_phase=_phase_from_child_results(child_results),
+        )
+        _write_checkpoint(output_dir, checkpoint)
+        return self._finalize_scenario_run(
+            request=request,
+            scenario_id=scenario_id,
+            output_dir=output_dir,
+            child_results=child_results,
+            checkpoint=checkpoint,
         )
 
-    def _run_child(self, output_dir: Path, spec: ScenarioChildRunSpec) -> dict[str, Any]:
+    def _start_child_runs(
+        self,
+        output_dir: Path,
+        child_specs: list[ScenarioChildRunSpec],
+        *,
+        on_child_result=None,
+    ) -> list[dict[str, Any]]:
+        max_workers = _scenario_child_max_workers()
+        if max_workers == 1:
+            child_results = []
+            for index, spec in enumerate(child_specs):
+                result = self._run_child(output_dir, spec)
+                child_results.append(result)
+                if on_child_result is not None:
+                    on_child_result(index, result)
+            return child_results
+        with ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="scenario-child-run") as child_executor:
+            runtimes = self._build_isolated_child_runtimes(len(child_specs))
+            future_indexes = {
+                child_executor.submit(self._run_child, output_dir, spec, runtime_dependencies=runtime): index
+                for index, (spec, runtime) in enumerate(zip(child_specs, runtimes))
+            }
+            child_results: list[dict[str, Any] | None] = [None] * len(child_specs)
+            for future in as_completed(future_indexes):
+                index = future_indexes[future]
+                result = future.result()
+                child_results[index] = result
+                if on_child_result is not None:
+                    on_child_result(index, result)
+            return [result for result in child_results if result is not None]
+
+    def _build_isolated_child_runtimes(self, child_count: int) -> list[Any | None]:
+        if getattr(self.agent_run_service, "dispatch_eager", True) is False:
+            return [None] * child_count
+        build_runtime = getattr(self.agent_run_service, "build_isolated_runtime_dependencies", None)
+        if not callable(build_runtime):
+            return [None] * child_count
+        return [build_runtime() for _ in range(child_count)]
+
+    def _run_child(
+        self,
+        output_dir: Path,
+        spec: ScenarioChildRunSpec,
+        *,
+        runtime_dependencies: Any | None = None,
+    ) -> dict[str, Any]:
         request = RunCreateRequest(
             job_type=spec.job_type,
             trigger=RunTrigger(
@@ -310,13 +467,16 @@ class ScenarioRunService:
             preferred_pattern_id=spec.preferred_pattern_id,
         )
         try:
-            status = self.agent_run_service.create_run(
-                request=request,
-                osm_zip_name=None,
-                osm_zip_bytes=None,
-                ref_zip_name=None,
-                ref_zip_bytes=None,
-            )
+            create_run_kwargs = {
+                "request": request,
+                "osm_zip_name": None,
+                "osm_zip_bytes": None,
+                "ref_zip_name": None,
+                "ref_zip_bytes": None,
+            }
+            if runtime_dependencies is not None:
+                create_run_kwargs["runtime_dependencies"] = runtime_dependencies
+            status = self.agent_run_service.create_run(**create_run_kwargs)
             return self._inspect_child_result(run_id=status.run_id, spec=spec, fallback_status=status)
         except Exception as exc:  # noqa: BLE001
             task_key, task_family = _task_identity(
@@ -414,6 +574,45 @@ class ScenarioRunService:
 
     def _child_run_terminal_wait_seconds(self) -> float:
         return _float_env("GEOFUSION_SCENARIO_CHILD_TERMINAL_WAIT_SECONDS", self.CHILD_RUN_TERMINAL_WAIT_SECONDS)
+
+    def _finalize_scenario_run(
+        self,
+        *,
+        request: ScenarioRunRequest,
+        scenario_id: str,
+        output_dir: Path,
+        child_results: list[dict[str, Any]],
+        checkpoint: ScenarioCheckpoint,
+    ) -> ScenarioRunResponse:
+        summary = self._build_summary(request, scenario_id, output_dir, child_results)
+        document_paths = render_scenario_reports(summary=summary, documents_dir=output_dir / "documents")
+        summary["document_paths"] = document_paths
+        summary["phase"] = _phase_from_child_results(child_results).value
+        self._write_summary_files(output_dir, summary)
+        phase = _phase_from_child_results(child_results)
+        child_run_ids = [str(result["run_id"]) for result in child_results if result.get("run_id")]
+        ScenarioRegistryService(output_root=resolve_scenario_output_root(request.output_root)).record(
+            {
+                "scenario_id": scenario_id,
+                "scenario_name": request.scenario_name,
+                "phase": phase.value,
+                "output_dir": str(output_dir),
+                "child_run_ids": child_run_ids,
+                "created_at": datetime.now(timezone.utc).isoformat(),
+                "case_id": request.metadata.get("case_id"),
+                "idempotency_key": request.metadata.get("idempotency_key"),
+                "trigger_event": request.metadata.get("trigger_event"),
+            }
+        )
+        checkpoint = _checkpoint_with_child_runs(checkpoint, child_results, phase=phase, children_phase=phase)
+        _write_checkpoint(output_dir, checkpoint)
+
+        return ScenarioRunResponse(
+            scenario_id=scenario_id,
+            phase=phase,
+            output_dir=str(output_dir),
+            child_run_ids=child_run_ids,
+        )
 
     def _build_summary(
         self,
@@ -516,6 +715,210 @@ def _float_env(name: str, default: float) -> float:
         return max(0.0, float(os.getenv(name, str(default))))
     except ValueError:
         return default
+
+
+def _utc_now_iso() -> str:
+    return datetime.now(timezone.utc).isoformat()
+
+
+def _initial_checkpoint(
+    *,
+    request: ScenarioRunRequest,
+    scenario_id: str,
+    phase: ScenarioPhase,
+) -> ScenarioCheckpoint:
+    now = _utc_now_iso()
+    return ScenarioCheckpoint(
+        scenario_id=scenario_id,
+        phase=phase,
+        request=request.model_dump(mode="json"),
+        child_specs=[],
+        child_runs=[],
+        started_at=now,
+        updated_at=now,
+        resume_count=0,
+    )
+
+
+def _load_resume_checkpoint(scenario_id: str) -> tuple[ScenarioRunRequest, Path, ScenarioCheckpoint]:
+    registry = ScenarioRegistryService(output_root=resolve_scenario_output_root(None))
+    record = registry.find_by_scenario_id(scenario_id)
+    if record is None:
+        output_dir = registry.output_root / scenario_id
+        if not checkpoint_path(output_dir).exists():
+            summary = registry.get_summary(scenario_id)
+            output_dir = Path(str(summary.get("output_dir") or registry.output_root / scenario_id))
+    else:
+        output_dir = Path(str(record.get("output_dir") or registry.output_root / scenario_id))
+    checkpoint = load_scenario_checkpoint(checkpoint_path(output_dir))
+    return ScenarioRunRequest(**checkpoint.request), output_dir, checkpoint
+
+
+def _child_specs_from_checkpoint(checkpoint: ScenarioCheckpoint) -> list[ScenarioChildRunSpec]:
+    specs: list[ScenarioChildRunSpec] = []
+    for item in checkpoint.child_specs:
+        try:
+            task_kind = TaskKind(item.task_kind) if item.task_kind else None
+            specs.append(
+                ScenarioChildRunSpec(
+                    job_type=JobType(item.job_type),
+                    trigger_content=item.trigger_content,
+                    disaster_type=item.disaster_type,
+                    spatial_extent=item.spatial_extent,
+                    force_aoi_resolution=item.force_aoi_resolution,
+                    target_crs=item.target_crs,
+                    debug=item.debug,
+                    task_kind=task_kind,
+                    task_family=item.task_family,
+                    preferred_pattern_id=item.preferred_pattern_id,
+                    output_data_type=item.output_data_type,
+                )
+            )
+        except ValueError as exc:
+            raise ValueError(f"Invalid checkpoint child spec for scenario {checkpoint.scenario_id}: {exc}") from exc
+    return specs
+
+
+def _child_results_from_checkpoint(
+    checkpoint: ScenarioCheckpoint,
+    child_specs: list[ScenarioChildRunSpec],
+) -> list[dict[str, Any]]:
+    results: list[dict[str, Any]] = []
+    for index, item in enumerate(checkpoint.child_runs):
+        spec = child_specs[index] if index < len(child_specs) else None
+        results.append(_checkpoint_run_to_child_result(item, spec))
+    return results
+
+
+def _checkpoint_run_to_child_result(
+    item: ScenarioCheckpointChildRun,
+    spec: ScenarioChildRunSpec | None,
+) -> dict[str, Any]:
+    if spec is not None:
+        task_key, task_family = _task_identity(
+            job_type=spec.job_type,
+            task_kind=spec.task_kind,
+            task_family=spec.task_family,
+        )
+        job_type = spec.job_type.value
+    else:
+        job_type = item.job_type
+        task_key = item.task_kind or item.job_type
+        task_family = item.task_family or task_key
+    return {
+        "run_id": item.run_id,
+        "job_type": job_type,
+        "task_kind": task_key,
+        "task_family": task_family,
+        "phase": item.phase,
+        "artifact_path": item.artifact_path,
+        "error": item.error,
+        "plan": None,
+        "audit_events": [],
+        "status": None,
+    }
+
+
+def _resume_result_is_completed_with_artifact(result: dict[str, Any]) -> bool:
+    return str(result.get("phase")) == RunPhase.succeeded.value and bool(result.get("artifact_path"))
+
+
+def _resume_result_is_failed(result: dict[str, Any]) -> bool:
+    return str(result.get("phase")) in {RunPhase.failed.value, ScenarioPhase.failed.value}
+
+
+def _resume_result_should_launch(result: dict[str, Any], *, retry_failed: bool) -> bool:
+    if _resume_result_is_failed(result):
+        return retry_failed
+    if not result.get("run_id"):
+        return True
+    return False
+
+
+def _write_checkpoint(output_dir: Path, checkpoint: ScenarioCheckpoint) -> None:
+    write_scenario_checkpoint(
+        checkpoint_path(output_dir),
+        checkpoint.model_copy(update={"updated_at": _utc_now_iso()}),
+    )
+
+
+def _checkpoint_with_specs(
+    checkpoint: ScenarioCheckpoint,
+    child_specs: list[ScenarioChildRunSpec],
+) -> ScenarioCheckpoint:
+    return checkpoint.model_copy(
+        update={
+            "child_specs": [_checkpoint_child_spec(spec) for spec in child_specs],
+        }
+    )
+
+
+def _checkpoint_with_child_runs(
+    checkpoint: ScenarioCheckpoint,
+    child_results: list[dict[str, Any]],
+    *,
+    phase: ScenarioPhase,
+    children_phase: ScenarioPhase | None = None,
+) -> ScenarioCheckpoint:
+    return checkpoint.model_copy(
+        update={
+            "phase": phase,
+            "children_phase": children_phase,
+            "child_runs": [_checkpoint_child_run(result) for result in child_results],
+        }
+    )
+
+
+def _checkpoint_child_spec(spec: ScenarioChildRunSpec) -> ScenarioCheckpointChildSpec:
+    return ScenarioCheckpointChildSpec(
+        job_type=spec.job_type.value,
+        trigger_content=spec.trigger_content,
+        disaster_type=spec.disaster_type,
+        spatial_extent=spec.spatial_extent,
+        force_aoi_resolution=spec.force_aoi_resolution,
+        target_crs=spec.target_crs,
+        debug=spec.debug,
+        task_kind=spec.task_kind.value if spec.task_kind else None,
+        task_family=spec.task_family,
+        preferred_pattern_id=spec.preferred_pattern_id,
+        output_data_type=spec.output_data_type,
+    )
+
+
+def _checkpoint_child_run(result: dict[str, Any]) -> ScenarioCheckpointChildRun:
+    return ScenarioCheckpointChildRun(
+        run_id=str(result["run_id"]) if result.get("run_id") else None,
+        job_type=str(result.get("job_type") or ""),
+        task_kind=str(result.get("task_kind")) if result.get("task_kind") else None,
+        task_family=str(result.get("task_family")) if result.get("task_family") else None,
+        phase=str(result.get("phase") or ""),
+        artifact_path=str(result.get("artifact_path")) if result.get("artifact_path") else None,
+        error=str(result.get("error")) if result.get("error") else None,
+    )
+
+
+def _queued_child_run_for_spec(spec: ScenarioChildRunSpec) -> dict[str, Any]:
+    task_key, task_family = _task_identity(
+        job_type=spec.job_type,
+        task_kind=spec.task_kind,
+        task_family=spec.task_family,
+    )
+    return {
+        "run_id": None,
+        "job_type": spec.job_type.value,
+        "task_kind": task_key,
+        "task_family": task_family,
+        "phase": RunPhase.queued.value,
+        "artifact_path": None,
+        "error": None,
+    }
+
+
+def _scenario_child_max_workers() -> int:
+    try:
+        return max(1, int(os.getenv("GEOFUSION_SCENARIO_CHILD_MAX_WORKERS", "1")))
+    except ValueError:
+        return 1
 
 
 def _phase_from_child_results(child_results: list[dict[str, Any]]) -> ScenarioPhase:

@@ -28,6 +28,7 @@ from schemas.fusion import JobType
 
 
 SCHEMA_VERSION = "1.0.0"
+SOURCE_MODULES = ["kg.seed", "fusion_algorithms.registry_metadata"]
 
 
 def build_seed_manifest_payload() -> dict[str, Any]:
@@ -35,6 +36,7 @@ def build_seed_manifest_payload() -> dict[str, Any]:
         "metadata": {
             "schema_version": SCHEMA_VERSION,
             "generated_from": "kg.seed",
+            "source_modules": SOURCE_MODULES,
             "generated_at": datetime.now(timezone.utc).isoformat(),
             "content_hash": "",
         },

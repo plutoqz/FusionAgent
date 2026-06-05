@@ -13,6 +13,7 @@ from kg.seed import (
     TASKS,
     WORKFLOW_PATTERNS,
 )
+from kg.seed_provider import load_seed_data
 
 
 def test_seed_inventory_matches_expected_static_counts() -> None:
@@ -29,3 +30,27 @@ def test_seed_inventory_matches_expected_static_counts() -> None:
     assert len(DATA_NEEDS) == 12
     assert len(REPAIR_STRATEGIES) == 2
     assert len(WORKFLOW_PATTERNS) == 15
+
+
+def test_default_seed_provider_matches_current_seed_inventory() -> None:
+    payload = load_seed_data()
+
+    assert len(payload["data_types"]) == len(DATA_TYPES)
+    assert len(payload["algorithms"]) == len(ALGORITHMS)
+    assert sum(len(items) for items in payload["parameter_specs"].values()) == sum(
+        len(items) for items in PARAMETER_SPECS.values()
+    )
+    assert len(payload["patterns"]) == len(WORKFLOW_PATTERNS)
+    assert len(payload["data_sources"]) == len(DATA_SOURCES)
+    assert len(payload["output_schema_policies"]) == len(OUTPUT_SCHEMA_POLICIES)
+
+    assert set(payload["data_types"]) == set(DATA_TYPES)
+    assert set(payload["algorithms"]) == set(ALGORITHMS)
+    assert set(payload["parameter_specs"]) == set(PARAMETER_SPECS)
+    assert {item.pattern_id for item in payload["patterns"]} == {
+        item.pattern_id for item in WORKFLOW_PATTERNS
+    }
+    assert {item.source_id for item in payload["data_sources"]} == {
+        item.source_id for item in DATA_SOURCES
+    }
+    assert set(payload["output_schema_policies"]) == set(OUTPUT_SCHEMA_POLICIES)

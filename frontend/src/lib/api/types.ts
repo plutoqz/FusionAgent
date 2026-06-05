@@ -138,11 +138,64 @@ export interface ScenarioRunRecord {
   scenario_id: string;
   scenario_name?: string;
   phase: string;
+  output_dir?: string;
   child_run_ids?: string[];
+  checkpoint?: ScenarioCheckpointMetadata | null;
+  checkpoint_metadata?: ScenarioCheckpointMetadata | null;
+}
+
+export interface ScenarioCheckpointMetadata {
+  recoverable?: boolean | null;
+  stale?: boolean | null;
+  failed_child_run_ids?: string[] | null;
+  failed_children?: string[] | null;
+  updated_at?: string | null;
+  checkpoint_path?: string | null;
 }
 
 export interface ScenarioRunListResponse {
   records: ScenarioRunRecord[];
+}
+
+export interface ValidationCaseResult {
+  case_id: string;
+  passed: boolean;
+  phase: string;
+  scenario_id?: string | null;
+  output_dir?: string | null;
+  summary_path?: string | null;
+  failure_reasons?: string[] | null;
+  observed?: Record<string, unknown> | null;
+  error?: string | null;
+}
+
+export interface EngineeringValidationSummary {
+  session_id: string;
+  matrix_path: string;
+  total_cases: number;
+  passed_cases: number;
+  failed_cases: number;
+  results: ValidationCaseResult[];
+  output_root: string;
+  metadata: Record<string, unknown>;
+}
+
+export interface ValidationSessionRecord {
+  session_id: string;
+  created_at?: string | null;
+  git_commit?: string | null;
+  matrix_path: string;
+  output_dir: string;
+  manifest_path?: string;
+  summary_path?: string;
+  markdown_summary_path?: string | null;
+  runtime?: Record<string, unknown>;
+  metadata?: Record<string, unknown>;
+  summary: EngineeringValidationSummary;
+}
+
+export interface ValidationSessionListResponse {
+  records: ValidationSessionRecord[];
 }
 
 export interface ScenarioRunCreateRequest {

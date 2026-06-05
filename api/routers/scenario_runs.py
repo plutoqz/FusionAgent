@@ -3,6 +3,7 @@ from __future__ import annotations
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query
+from fastapi.concurrency import run_in_threadpool
 
 from schemas.agent import RunCreateRequest, RunInputStrategy, RunTrigger, RunTriggerType
 from schemas.scenario import ScenarioRunInspectionResponse, ScenarioRunListResponse, ScenarioRunRequest, ScenarioRunResponse
@@ -78,6 +79,18 @@ async def preflight_scenario_run(request: ScenarioRunRequest) -> dict[str, objec
         "decision": decision,
         "child_preflights": child_preflights,
     }
+
+
+@router.post("/scenario-runs/{scenario_id}/resume", response_model=ScenarioRunResponse)
+async def resume_scenario_run(scenario_id: str, retry_failed: bool = False) -> ScenarioRunResponse:
+    try:
+        return await run_in_threadpool(
+            lambda: scenario_run_service.resume_scenario_run(scenario_id, retry_failed=retry_failed)
+        )
+    except FileNotFoundError as exc:
+        raise HTTPException(status_code=404, detail=f"Scenario run not found: {scenario_id}") from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc)) from exc
 
 
 @router.get("/scenario-runs/{scenario_id}", response_model=ScenarioRunInspectionResponse)

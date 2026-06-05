@@ -10,6 +10,7 @@ export function AppShell() {
     { to: "/runs/new", ...copy.shell.nav.newRun },
     { to: "/runs", ...copy.shell.nav.runs },
     { to: "/scenarios", ...copy.shell.nav.scenarios },
+    { to: "/validation", ...copy.shell.nav.validation },
     { to: "/kg", ...copy.shell.nav.kg },
     { to: "/guide", ...copy.shell.nav.guide },
     { to: "/settings/llm", ...copy.shell.nav.settings },
