@@ -1,11 +1,17 @@
 import { FormEvent, useEffect, useMemo, useState } from "react";
-import { useMutation, useQuery } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import ReactMarkdown from "react-markdown";
 import { Link } from "react-router-dom";
 
 import { useI18n } from "../../app/i18n";
-import { createScenarioRun, getScenarioDocument, listScenarioDocuments, listScenarioRuns } from "../../lib/api/client";
-import { JobType, ScenarioDocumentEntry } from "../../lib/api/types";
+import {
+  createScenarioRun,
+  getScenarioDocument,
+  listScenarioDocuments,
+  listScenarioRuns,
+  resumeScenarioRun,
+} from "../../lib/api/client";
+import { JobType, ScenarioDocumentEntry, ScenarioRunRecord } from "../../lib/api/types";
 import { PhaseBadge } from "../../components/status/PhaseBadge";
 
 const jobTypes: JobType[] = ["building", "road", "water", "poi"];
@@ -20,8 +26,38 @@ function reportTabLabel(copy: ReturnType<typeof useI18n>["copy"], document: Scen
   return document.filename;
 }
 
+function canResumeScenario(scenario: ScenarioRunRecord) {
+  const checkpoint = scenario.checkpoint_metadata ?? scenario.checkpoint;
+  const hasCheckpointMetadata = checkpoint !== undefined && checkpoint !== null;
+  const failedChildren = [
+    ...(checkpoint?.failed_child_run_ids ?? []),
+    ...(checkpoint?.failed_children ?? []),
+  ];
+
+  if (checkpoint?.recoverable === true || checkpoint?.stale === true || failedChildren.length > 0) {
+    return true;
+  }
+
+  if (scenario.phase === "partial" && hasCheckpointMetadata) {
+    return checkpoint?.recoverable !== false;
+  }
+
+  return (
+    scenario.phase === "running" ||
+    scenario.phase === "partial"
+  );
+}
+
+function scenarioRecoveryErrorMessage(error: unknown, fallback: string) {
+  if (error instanceof Error && error.message.trim()) {
+    return error.message;
+  }
+  return fallback;
+}
+
 export function ScenarioPage() {
   const { copy } = useI18n();
+  const queryClient = useQueryClient();
   const [scenarioName, setScenarioName] = useState(copy.scenarioPage.defaults.scenarioName);
   const [triggerContent, setTriggerContent] = useState(copy.scenarioPage.defaults.triggerContent);
   const [disasterType, setDisasterType] = useState("");
@@ -30,6 +66,7 @@ export function ScenarioPage() {
   const [selectedJobTypes, setSelectedJobTypes] = useState<JobType[]>(["building", "road"]);
   const [selectedScenarioId, setSelectedScenarioId] = useState("");
   const [selectedDocument, setSelectedDocument] = useState("");
+  const [pendingRecoveryAction, setPendingRecoveryAction] = useState<"resume" | "retry" | null>(null);
 
   const scenarioQuery = useQuery({
     queryKey: ["scenario-runs"],
@@ -75,6 +112,26 @@ export function ScenarioPage() {
     },
   });
 
+  const resumeScenarioMutation = useMutation({
+    mutationFn: ({ scenarioId, retryFailed }: { scenarioId: string; retryFailed: boolean }) =>
+      resumeScenarioRun(scenarioId, retryFailed),
+    onMutate: ({ retryFailed }) => {
+      setPendingRecoveryAction(retryFailed ? "retry" : "resume");
+    },
+    onSuccess: async (result) => {
+      setSelectedScenarioId(result.scenario_id);
+      setSelectedDocument("");
+      await Promise.all([
+        queryClient.invalidateQueries({ queryKey: ["scenario-runs"] }),
+        queryClient.invalidateQueries({ queryKey: ["scenario-documents"] }),
+        queryClient.invalidateQueries({ queryKey: ["scenario-document"] }),
+      ]);
+    },
+    onSettled: () => {
+      setPendingRecoveryAction(null);
+    },
+  });
+
   const selectedScenario = useMemo(
     () => scenarioQuery.data?.records.find((item) => item.scenario_id === selectedScenarioId) ?? null,
     [scenarioQuery.data, selectedScenarioId],
@@ -96,6 +153,16 @@ export function ScenarioPage() {
     setSelectedJobTypes((current) =>
       current.includes(jobType) ? current.filter((item) => item !== jobType) : [...current, jobType],
     );
+  }
+
+  function handleResume(retryFailed: boolean) {
+    if (!selectedScenario) {
+      return;
+    }
+    resumeScenarioMutation.mutate({
+      scenarioId: selectedScenario.scenario_id,
+      retryFailed,
+    });
   }
 
   return (
@@ -179,6 +246,40 @@ export function ScenarioPage() {
                   <span className="muted-text">{copy.scenarioPage.overview.noChildRuns}</span>
                 )}
               </div>
+              {canResumeScenario(selectedScenario) ? (
+                <>
+                  <div className="inline-actions">
+                    <button
+                      className="inline-action inline-action--primary"
+                      type="button"
+                      disabled={resumeScenarioMutation.isPending}
+                      onClick={() => handleResume(false)}
+                    >
+                      {resumeScenarioMutation.isPending && pendingRecoveryAction === "resume"
+                        ? copy.scenarioPage.overview.recovery.actions.submitting
+                        : copy.scenarioPage.overview.recovery.actions.resume}
+                    </button>
+                    <button
+                      className="inline-action"
+                      type="button"
+                      disabled={resumeScenarioMutation.isPending}
+                      onClick={() => handleResume(true)}
+                    >
+                      {resumeScenarioMutation.isPending && pendingRecoveryAction === "retry"
+                        ? copy.scenarioPage.overview.recovery.actions.submitting
+                        : copy.scenarioPage.overview.recovery.actions.retryFailed}
+                    </button>
+                  </div>
+                  {resumeScenarioMutation.isError ? (
+                    <p className="status-error">
+                      {scenarioRecoveryErrorMessage(
+                        resumeScenarioMutation.error,
+                        copy.scenarioPage.overview.recovery.error,
+                      )}
+                    </p>
+                  ) : null}
+                </>
+              ) : null}
             </>
           ) : (
             <p className="muted-text">{copy.scenarioPage.overview.empty}</p>

@@ -57,6 +57,12 @@ def case_to_scenario_request(case: EngineeringValidationCase, *, output_root: st
             "region_group": case.region_group,
             "aoi_class": case.aoi_class,
             "default_task_bundle": list(case.default_task_bundle),
+            "engineering_validation": {
+                "expected_task_kinds": list(case.expected_task_kinds),
+                "expected_failed_children_max": case.expected_failed_children_max,
+                "expected_quality_checks": list(case.expected_quality_checks),
+                "degradation_mode": case.degradation_mode,
+            },
             "quality_policy_id": case.quality_policy_id,
             "validation_runner": "engineering_validation",
         },
@@ -109,7 +115,21 @@ def evaluate_case_summary(
 ) -> tuple[bool, list[str], dict[str, object]]:
     child_runs = summary.get("child_runs") if isinstance(summary.get("child_runs"), list) else []
     succeeded_children = [item for item in child_runs if isinstance(item, dict) and item.get("phase") == "succeeded"]
-    observed_tasks = sorted(
+    observed_job_types = sorted(
+        {
+            str(item.get("job_type") or "")
+            for item in child_runs
+            if isinstance(item, dict) and str(item.get("job_type") or "").strip()
+        }
+    )
+    observed_task_kinds = sorted(
+        {
+            str(item.get("task_kind") or "")
+            for item in child_runs
+            if isinstance(item, dict) and str(item.get("task_kind") or "").strip()
+        }
+    )
+    observed_task_identifiers = sorted(
         {
             str(item.get("task_kind") or item.get("job_type") or "")
             for item in child_runs
@@ -124,19 +144,107 @@ def evaluate_case_summary(
         failures.append(
             f"succeeded children expected at least {case.expected_min_succeeded_children}, got {len(succeeded_children)}"
         )
-    missing_tasks = [task for task in case.expected_required_tasks if task not in observed_tasks]
+    missing_tasks = [task for task in case.expected_required_tasks if task not in observed_job_types]
     if missing_tasks:
-        failures.append(f"missing required tasks: {missing_tasks}")
+        failures.append(f"missing required job types: {missing_tasks}")
     quality = summary.get("quality") if isinstance(summary.get("quality"), dict) else {}
     failed_children = summary.get("failed_children") if isinstance(summary.get("failed_children"), list) else []
+    missing_task_kinds = [task_kind for task_kind in case.expected_task_kinds if task_kind not in observed_task_kinds]
+    if missing_task_kinds:
+        failures.append(f"missing expected task kinds: {missing_task_kinds}")
+    if case.expected_failed_children_max is not None and len(failed_children) > case.expected_failed_children_max:
+        failures.append(
+            f"failed children expected at most {case.expected_failed_children_max}, got {len(failed_children)}"
+        )
+    quality_check_details = {
+        check_name: _quality_check_detail(quality, check_name) for check_name in case.expected_quality_checks
+    }
+    quality_checks = {check_name: detail["passed"] for check_name, detail in quality_check_details.items()}
+    missing_quality_checks = [
+        f"{check_name}@{child_ref}"
+        for check_name, detail in quality_check_details.items()
+        for child_ref in detail["missing"]
+    ]
+    failing_quality_checks = [
+        f"{check_name}@{child_ref}"
+        for check_name, detail in quality_check_details.items()
+        for child_ref in detail["failed"]
+    ]
+    if missing_quality_checks:
+        failures.append(f"missing quality checks: {missing_quality_checks}")
+    if failing_quality_checks:
+        failures.append(f"quality checks not passing: {failing_quality_checks}")
     observed = {
         "phase": phase,
-        "observed_tasks": observed_tasks,
+        "region_group": case.region_group,
+        "aoi_class": case.aoi_class,
+        "observed_tasks": observed_task_kinds,
+        "observed_job_types": observed_job_types,
+        "observed_task_kinds": observed_task_kinds,
+        "observed_task_identifiers": observed_task_identifiers,
         "succeeded_child_count": len(succeeded_children),
         "failed_child_count": len(failed_children),
+        "degradation_mode": case.degradation_mode,
+        "quality_checks": quality_checks,
+        "quality_check_details": quality_check_details,
         "quality": quality,
     }
     return not failures, failures, observed
+
+
+def _quality_check_detail(quality: dict[str, object], check_name: str) -> dict[str, object]:
+    child_reports = quality.get("child_reports") if isinstance(quality.get("child_reports"), list) else []
+    if child_reports:
+        missing: list[str] = []
+        failed: list[str] = []
+        seen = False
+        for index, report in enumerate(child_reports):
+            if not isinstance(report, dict):
+                continue
+            child_ref = _quality_child_ref(report, index)
+            report_checks = report.get("checks") if isinstance(report.get("checks"), dict) else {}
+            if check_name not in report_checks:
+                missing.append(child_ref)
+                continue
+            seen = True
+            if not _quality_check_value_passed(report_checks[check_name]):
+                failed.append(child_ref)
+        return {"passed": bool(seen) and not missing and not failed, "missing": missing, "failed": failed}
+
+    checks = quality.get("checks") if isinstance(quality.get("checks"), dict) else {}
+    if check_name in checks:
+        passed = _quality_check_value_passed(checks[check_name])
+        return {"passed": passed, "missing": [], "failed": [] if passed else ["summary"]}
+    if check_name in quality:
+        passed = _quality_check_value_passed(quality[check_name])
+        return {"passed": passed, "missing": [], "failed": [] if passed else ["summary"]}
+    return {"passed": None, "missing": ["summary"], "failed": []}
+
+
+def _quality_child_ref(report: dict[str, object], index: int) -> str:
+    run_id = str(report.get("run_id") or "").strip()
+    if run_id:
+        return run_id
+    for key in ("task_kind", "policy_id"):
+        value = str(report.get(key) or "").strip()
+        if value:
+            return f"{value}#{index + 1}"
+    return f"child-{index + 1}"
+
+
+def _quality_check_value_passed(value: object) -> bool:
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, dict):
+        if isinstance(value.get("passed"), bool):
+            return bool(value["passed"])
+        if isinstance(value.get("accepted"), bool):
+            return bool(value["accepted"])
+        status = str(value.get("status") or "").strip().lower()
+        return status in {"passed", "pass", "ok", "accepted", "succeeded", "success"}
+    if isinstance(value, str):
+        return value.strip().lower() in {"passed", "pass", "ok", "accepted", "succeeded", "success"}
+    return False
 
 
 def write_validation_outputs(

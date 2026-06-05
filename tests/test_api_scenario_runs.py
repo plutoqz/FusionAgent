@@ -134,6 +134,37 @@ def test_create_scenario_run_returns_422_for_out_of_scope_request(monkeypatch):
     assert "UNSUPPORTED_EVENT_FEED_EXPECTATION" in response.json()["detail"]
 
 
+def test_resume_scenario_run_passes_retry_failed_query(tmp_path, monkeypatch):
+    fake_service = _FakeResumeScenarioService(str(tmp_path))
+    monkeypatch.setattr(scenario_runs_router, "scenario_run_service", fake_service)
+
+    client = TestClient(create_app())
+    response = client.post("/api/v2/scenario-runs/scenario-test/resume?retry_failed=true")
+
+    assert response.status_code == 200
+    assert response.json()["child_run_ids"] == ["run-retry-road"]
+    assert fake_service.resumed == [("scenario-test", True)]
+
+
+def test_resume_scenario_run_uses_threadpool_for_sync_service(tmp_path, monkeypatch):
+    fake_service = _FakeResumeScenarioService(str(tmp_path))
+    threadpool_calls = []
+
+    async def fake_run_in_threadpool(func, *args, **kwargs):
+        threadpool_calls.append((func, args, kwargs))
+        return func(*args, **kwargs)
+
+    monkeypatch.setattr(scenario_runs_router, "scenario_run_service", fake_service)
+    monkeypatch.setattr(scenario_runs_router, "run_in_threadpool", fake_run_in_threadpool)
+
+    client = TestClient(create_app())
+    response = client.post("/api/v2/scenario-runs/scenario-threaded/resume")
+
+    assert response.status_code == 200
+    assert len(threadpool_calls) == 1
+    assert fake_service.resumed == [("scenario-threaded", False)]
+
+
 class _FakeScenarioService:
     def __init__(self, output_dir: str) -> None:
         self.output_dir = output_dir
@@ -162,4 +193,19 @@ class _FakeAsyncScenarioService(_FakeScenarioService):
             phase=ScenarioPhase.running,
             output_dir=self.output_dir,
             child_run_ids=[],
+        )
+
+
+class _FakeResumeScenarioService(_FakeScenarioService):
+    def __init__(self, output_dir: str) -> None:
+        super().__init__(output_dir)
+        self.resumed: list[tuple[str, bool]] = []
+
+    def resume_scenario_run(self, scenario_id: str, *, retry_failed: bool = False):
+        self.resumed.append((scenario_id, retry_failed))
+        return ScenarioRunResponse(
+            scenario_id=scenario_id,
+            phase=ScenarioPhase.succeeded,
+            output_dir=self.output_dir,
+            child_run_ids=["run-retry-road"],
         )

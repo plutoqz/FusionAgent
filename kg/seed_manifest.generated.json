@@ -2596,10 +2596,14 @@
     }
   ],
   "metadata": {
-    "content_hash": "sha256:b64692206ca461ef2ec7880fbb4a94a9767855d48a01835ba65d709fd3a90d9d",
-    "generated_at": "2026-06-04T14:45:02.363256+00:00",
+    "content_hash": "sha256:d624c6d0549116072adb36eb4115f95cf79f003569c17f83293c141369ff26c8",
+    "generated_at": "2026-06-05T06:39:45.977146+00:00",
     "generated_from": "kg.seed",
-    "schema_version": "1.0.0"
+    "schema_version": "1.0.0",
+    "source_modules": [
+      "kg.seed",
+      "fusion_algorithms.registry_metadata"
+    ]
   },
   "output_requirements": [
     {

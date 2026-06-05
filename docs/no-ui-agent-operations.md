@@ -16,6 +16,8 @@ $env:GEOFUSION_LLM_PROVIDER='mock'
 $env:GEOFUSION_CELERY_EAGER='1'
 ```
 
+`GEOFUSION_SCENARIO_CHILD_MAX_WORKERS` controls how many child Agent runs the Scenario service may start concurrently inside a single Scenario run. `GEOFUSION_CELERY_EAGER` controls whether each child Agent run executes in-process or is dispatched for worker execution. Unset, invalid, zero, and negative child-worker values keep the compatible default of `1`.
+
 Terminal A:
 
 ```powershell

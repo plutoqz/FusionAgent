@@ -14,6 +14,7 @@ from api.routers.kg import router as kg_router
 from api.routers.runs_v2 import router as runs_v2_router
 from api.routers.scenario_runs import router as scenario_runs_router
 from api.routers.settings import router as settings_router
+from api.routers.validation_sessions import router as validation_sessions_router
 
 DEFAULT_CORS_ORIGINS = (
     "http://127.0.0.1:5173",
@@ -92,6 +93,7 @@ def create_app(frontend_dist_dir: Path | None = None, cors_origins: Sequence[str
     app.include_router(kg_router, prefix="/api/v2")
     app.include_router(scenario_runs_router, prefix="/api/v2")
     app.include_router(settings_router, prefix="/api/v2")
+    app.include_router(validation_sessions_router, prefix="/api/v2")
 
     resolved_frontend_dist_dir = (frontend_dist_dir or _default_frontend_dist_dir()).resolve()
     if resolved_frontend_dist_dir.is_dir():

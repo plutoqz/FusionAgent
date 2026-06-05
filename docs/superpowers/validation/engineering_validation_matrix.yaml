@@ -1,5 +1,5 @@
 {
-  "version": "2026-06-04.v1",
+  "version": "2026-06-05.v1",
   "cases": [
     {
       "case_id": "pakistan_karachi_small_city",
@@ -8,10 +8,27 @@
       "scenario_name": "Karachi flood",
       "disaster_type": "flood",
       "spatial_extent": "bbox(66.95,24.78,67.20,25.02)",
-      "default_task_bundle": ["building", "road", "water_polygon", "waterways", "poi"],
+      "default_task_bundle": [
+        "building",
+        "road",
+        "water_polygon",
+        "waterways",
+        "poi"
+      ],
       "output_format": "GPKG",
       "expected_min_succeeded_children": 1,
-      "expected_required_tasks": ["building", "road"],
+      "expected_required_tasks": [
+        "building",
+        "road"
+      ],
+      "expected_task_kinds": [],
+      "expected_failed_children_max": 1,
+      "expected_quality_checks": [
+        "readable",
+        "non_empty",
+        "required_fields",
+        "geometry_type"
+      ],
       "quality_policy_id": "quality.default.building.v1",
       "purpose": "Validate unattended small-city full mission expansion and source materialization."
     },
@@ -22,10 +39,27 @@
       "scenario_name": "Nairobi flood",
       "disaster_type": "flood",
       "spatial_extent": "bbox(36.65,-1.45,37.10,-1.10)",
-      "default_task_bundle": ["building", "road", "water_polygon", "waterways", "poi"],
+      "default_task_bundle": [
+        "building",
+        "road",
+        "water_polygon",
+        "waterways",
+        "poi"
+      ],
       "output_format": "GPKG",
       "expected_min_succeeded_children": 1,
-      "expected_required_tasks": ["building", "road"],
+      "expected_required_tasks": [
+        "building",
+        "road"
+      ],
+      "expected_task_kinds": [],
+      "expected_failed_children_max": 1,
+      "expected_quality_checks": [
+        "readable",
+        "non_empty",
+        "required_fields",
+        "source_lineage"
+      ],
       "quality_policy_id": "quality.default.building.v1",
       "purpose": "Validate Africa AOI source materialization and quality reports."
     },
@@ -36,10 +70,28 @@
       "scenario_name": "Sindh flood bounded region",
       "disaster_type": "flood",
       "spatial_extent": "bbox(67.0,24.0,68.0,25.5)",
-      "default_task_bundle": ["building", "road", "water_polygon", "waterways", "poi"],
+      "default_task_bundle": [
+        "building",
+        "road",
+        "water_polygon",
+        "waterways",
+        "poi"
+      ],
       "output_format": "GPKG",
       "expected_min_succeeded_children": 1,
-      "expected_required_tasks": ["building", "road"],
+      "expected_required_tasks": [
+        "building",
+        "road"
+      ],
+      "expected_task_kinds": [
+        "water_polygon"
+      ],
+      "expected_failed_children_max": 1,
+      "expected_quality_checks": [
+        "readable",
+        "non_empty",
+        "geometry_type"
+      ],
       "quality_policy_id": "quality.default.building.v1",
       "purpose": "Validate larger downloads, clipping, and retry evidence."
     },
@@ -50,12 +102,285 @@
       "scenario_name": "Kenya bounded flood validation",
       "disaster_type": "flood",
       "spatial_extent": "bbox(36.0,-2.0,38.0,0.0)",
-      "default_task_bundle": ["building", "road", "water_polygon", "waterways", "poi"],
+      "default_task_bundle": [
+        "building",
+        "road",
+        "water_polygon",
+        "waterways",
+        "poi"
+      ],
       "output_format": "GPKG",
       "expected_min_succeeded_children": 1,
-      "expected_required_tasks": ["building", "road"],
+      "expected_required_tasks": [
+        "building",
+        "road"
+      ],
+      "expected_task_kinds": [
+        "water_polygon"
+      ],
+      "expected_failed_children_max": 2,
+      "expected_quality_checks": [
+        "readable",
+        "non_empty",
+        "geometry_type"
+      ],
       "quality_policy_id": "quality.default.building.v1",
       "purpose": "Validate split, parallel tile processing, merge, and quality aggregation."
+    },
+    {
+      "case_id": "turkey_gaziantep_earthquake_small_city",
+      "region_group": "middle_east",
+      "aoi_class": "small_city",
+      "scenario_name": "Gaziantep earthquake response",
+      "disaster_type": "earthquake",
+      "spatial_extent": "bbox(37.25,36.95,37.55,37.20)",
+      "default_task_bundle": [
+        "building",
+        "road",
+        "water_polygon",
+        "waterways",
+        "poi"
+      ],
+      "output_format": "GPKG",
+      "expected_min_succeeded_children": 1,
+      "expected_required_tasks": [
+        "building",
+        "road"
+      ],
+      "expected_task_kinds": [],
+      "expected_failed_children_max": 1,
+      "expected_quality_checks": [
+        "readable",
+        "non_empty",
+        "required_fields",
+        "source_lineage"
+      ],
+      "quality_policy_id": "quality.default.building.v1",
+      "purpose": "Validate earthquake response planning can focus on buildings, roads, and critical POIs."
+    },
+    {
+      "case_id": "nepal_kathmandu_earthquake_medium_region",
+      "region_group": "south_asia",
+      "aoi_class": "medium_region",
+      "scenario_name": "Kathmandu earthquake access validation",
+      "disaster_type": "earthquake",
+      "spatial_extent": "bbox(85.20,27.55,85.55,27.85)",
+      "default_task_bundle": [
+        "building",
+        "road",
+        "water_polygon",
+        "waterways",
+        "poi"
+      ],
+      "output_format": "GPKG",
+      "expected_min_succeeded_children": 1,
+      "expected_required_tasks": [
+        "building",
+        "road"
+      ],
+      "expected_task_kinds": [],
+      "expected_failed_children_max": 1,
+      "expected_quality_checks": [
+        "readable",
+        "non_empty",
+        "geometry_type"
+      ],
+      "quality_policy_id": "quality.default.building.v1",
+      "purpose": "Validate medium earthquake AOI expansion and road access extraction."
+    },
+    {
+      "case_id": "philippines_luzon_typhoon_small_city",
+      "region_group": "southeast_asia",
+      "aoi_class": "small_city",
+      "scenario_name": "Luzon typhoon response",
+      "disaster_type": "typhoon",
+      "spatial_extent": "bbox(120.45,15.05,120.85,15.45)",
+      "default_task_bundle": [
+        "building",
+        "road",
+        "water_polygon",
+        "waterways",
+        "poi"
+      ],
+      "output_format": "GPKG",
+      "expected_min_succeeded_children": 1,
+      "expected_required_tasks": [
+        "building",
+        "road",
+        "waterways"
+      ],
+      "expected_task_kinds": [
+        "waterways"
+      ],
+      "expected_failed_children_max": 1,
+      "expected_quality_checks": [
+        "readable",
+        "non_empty",
+        "source_lineage"
+      ],
+      "quality_policy_id": "quality.default.building.v1",
+      "purpose": "Validate typhoon response keeps transport and waterways visible in the task plan."
+    },
+    {
+      "case_id": "bangladesh_dhaka_building_road_focus",
+      "region_group": "south_asia",
+      "aoi_class": "small_city",
+      "scenario_name": "Dhaka task-kind focus",
+      "disaster_type": "flood",
+      "spatial_extent": "bbox(90.30,23.65,90.50,23.85)",
+      "default_task_bundle": [
+        "building",
+        "road",
+        "water_polygon",
+        "waterways",
+        "poi"
+      ],
+      "output_format": "GPKG",
+      "expected_min_succeeded_children": 2,
+      "expected_required_tasks": [
+        "building",
+        "road"
+      ],
+      "expected_task_kinds": [
+        "building",
+        "road"
+      ],
+      "expected_failed_children_max": 0,
+      "expected_quality_checks": [
+        "readable",
+        "non_empty",
+        "required_fields",
+        "geometry_type"
+      ],
+      "quality_policy_id": "quality.default.building.v1",
+      "purpose": "Validate task-kind focused assertions for core exposure and routing layers."
+    },
+    {
+      "case_id": "mozambique_beira_waterway_focus",
+      "region_group": "africa",
+      "aoi_class": "small_city",
+      "scenario_name": "Beira waterway task focus",
+      "disaster_type": "flood",
+      "spatial_extent": "bbox(34.75,-19.95,35.05,-19.75)",
+      "default_task_bundle": [
+        "building",
+        "road",
+        "water_polygon",
+        "waterways",
+        "poi"
+      ],
+      "output_format": "GPKG",
+      "expected_min_succeeded_children": 2,
+      "expected_required_tasks": [
+        "water_polygon",
+        "waterways"
+      ],
+      "expected_task_kinds": [
+        "water_polygon",
+        "waterways"
+      ],
+      "expected_failed_children_max": 1,
+      "expected_quality_checks": [
+        "readable",
+        "non_empty",
+        "geometry_type",
+        "source_lineage"
+      ],
+      "quality_policy_id": "quality.default.building.v1",
+      "purpose": "Validate task-kind focused assertions for hydrology-heavy flood response layers."
+    },
+    {
+      "case_id": "pakistan_missing_reference_source_degradation",
+      "region_group": "pakistan",
+      "aoi_class": "small_city",
+      "scenario_name": "Pakistan missing reference source degradation",
+      "disaster_type": "flood",
+      "spatial_extent": "bbox(67.00,24.80,67.12,24.92)",
+      "default_task_bundle": [
+        "building",
+        "road",
+        "water_polygon",
+        "waterways",
+        "poi"
+      ],
+      "output_format": "GPKG",
+      "expected_min_succeeded_children": 1,
+      "expected_required_tasks": [
+        "building"
+      ],
+      "expected_task_kinds": [],
+      "expected_failed_children_max": 1,
+      "expected_quality_checks": [
+        "readable",
+        "non_empty"
+      ],
+      "degradation_mode": "missing_reference_source",
+      "quality_policy_id": "quality.default.building.v1",
+      "purpose": "Validate missing reference material is recorded as degradation rather than silent success."
+    },
+    {
+      "case_id": "africa_single_source_fallback_degradation",
+      "region_group": "africa",
+      "aoi_class": "medium_region",
+      "scenario_name": "Africa single-source fallback degradation",
+      "disaster_type": "flood",
+      "spatial_extent": "bbox(36.20,-1.70,36.90,-1.00)",
+      "default_task_bundle": [
+        "building",
+        "road",
+        "water_polygon",
+        "waterways",
+        "poi"
+      ],
+      "output_format": "GPKG",
+      "expected_min_succeeded_children": 1,
+      "expected_required_tasks": [
+        "building",
+        "road"
+      ],
+      "expected_task_kinds": [],
+      "expected_failed_children_max": 1,
+      "expected_quality_checks": [
+        "readable",
+        "non_empty"
+      ],
+      "degradation_mode": "single_source_fallback",
+      "quality_policy_id": "quality.default.building.v1",
+      "purpose": "Validate single-source fallback evidence is surfaced in quality metadata."
+    },
+    {
+      "case_id": "kenya_bounded_large_timeout_retry_degradation",
+      "region_group": "africa",
+      "aoi_class": "bounded_large",
+      "scenario_name": "Kenya bounded large timeout retry degradation",
+      "disaster_type": "flood",
+      "spatial_extent": "bbox(35.90,-2.10,38.10,0.10)",
+      "default_task_bundle": [
+        "building",
+        "road",
+        "water_polygon",
+        "waterways",
+        "poi"
+      ],
+      "output_format": "GPKG",
+      "expected_min_succeeded_children": 1,
+      "expected_required_tasks": [
+        "building",
+        "road"
+      ],
+      "expected_task_kinds": [
+        "building",
+        "road"
+      ],
+      "expected_failed_children_max": 2,
+      "expected_quality_checks": [
+        "readable",
+        "non_empty"
+      ],
+      "degradation_mode": "bounded_large_timeout_retry_evidence",
+      "quality_policy_id": "quality.default.building.v1",
+      "timeout_sec": 1200.0,
+      "purpose": "Validate bounded large AOI timeout and retry evidence are represented without running live scenarios."
     }
   ]
 }

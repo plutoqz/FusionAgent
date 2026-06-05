@@ -25,6 +25,7 @@ from schemas.agent import (
 )
 from schemas.fusion import JobType
 from schemas.quality_gate import QualityGateReport
+from schemas.settings import EffectiveLLMSettings
 from schemas.task_kind import TaskKind
 from services.artifact_registry import ArtifactLookupRequest, ArtifactRecord
 from services.agent_run_service import AgentRunService
@@ -3584,3 +3585,92 @@ def test_agent_run_service_records_grounding_gate_in_report_mode(tmp_path: Path,
     assert saved_plan is not None
     assert saved_plan.context["grounding_gate"]["mode"] == "report"
     assert saved_plan.context["grounding_gate"]["allowed"] is True
+
+
+def test_agent_run_service_builds_isolated_runtime_dependencies_with_distinct_planners(tmp_path: Path) -> None:
+    service = AgentRunService(base_dir=tmp_path / "runs")
+
+    first = service.build_isolated_runtime_dependencies()
+    second = service.build_isolated_runtime_dependencies()
+
+    assert first.llm_provider is not service.llm_provider
+    assert second.llm_provider is not service.llm_provider
+    assert first.llm_provider is not second.llm_provider
+    assert first.planner is not service.planner
+    assert second.planner is not service.planner
+    assert first.planner is not second.planner
+    assert first.planner.context_builder is not second.planner.context_builder
+
+    first.planner.context_builder.preferred_pattern_id_override = "wp.first"
+    second.planner.context_builder.preferred_pattern_id_override = "wp.second"
+
+    assert first.planner.context_builder.preferred_pattern_id_override == "wp.first"
+    assert second.planner.context_builder.preferred_pattern_id_override == "wp.second"
+
+
+def test_agent_run_service_persists_injected_runtime_settings_snapshot(tmp_path: Path, monkeypatch) -> None:
+    service = AgentRunService(base_dir=tmp_path / "runs")
+    injected_runtime = service._build_runtime_dependencies(
+        settings=EffectiveLLMSettings(provider="mock", model="scenario-child-model", timeout_sec=77),
+        force_isolated=True,
+    )
+    captured: dict[str, object] = {}
+
+    def fake_execute_run(**kwargs):
+        captured["run_id"] = kwargs["run_id"]
+        captured["runtime_snapshot_id"] = kwargs["runtime_snapshot_id"]
+        captured["runtime_dependencies"] = kwargs["runtime_dependencies"]
+
+    monkeypatch.setattr(service, "execute_run", fake_execute_run)
+
+    status = service.create_run(
+        request=_build_auto_request(),
+        osm_zip_name=None,
+        osm_zip_bytes=None,
+        ref_zip_name=None,
+        ref_zip_bytes=None,
+        runtime_dependencies=injected_runtime,
+    )
+
+    assert captured["run_id"] == status.run_id
+    assert captured["runtime_dependencies"] is injected_runtime
+    snapshot_id = service._load_run_runtime_snapshot_id(status.run_id)
+    assert captured["runtime_snapshot_id"] == snapshot_id
+    assert snapshot_id is not None
+    persisted = service.runtime_settings_service.load_runtime_snapshot(snapshot_id)
+    assert persisted == injected_runtime.settings
+
+
+def test_agent_run_service_non_eager_dispatch_uses_injected_runtime_snapshot_without_object(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    service = AgentRunService(base_dir=tmp_path / "runs")
+    service.dispatch_eager = False
+    injected_runtime = service._build_runtime_dependencies(
+        settings=EffectiveLLMSettings(provider="mock", model="worker-rebuilt-model", timeout_sec=88),
+        force_isolated=True,
+    )
+    captured: dict[str, object] = {}
+
+    def fake_dispatch_run(**kwargs):
+        captured.update(kwargs)
+
+    monkeypatch.setattr(service, "_dispatch_run", fake_dispatch_run)
+
+    status = service.create_run(
+        request=_build_auto_request(),
+        osm_zip_name=None,
+        osm_zip_bytes=None,
+        ref_zip_name=None,
+        ref_zip_bytes=None,
+        runtime_dependencies=injected_runtime,
+    )
+
+    assert captured["run_id"] == status.run_id
+    assert "runtime_dependencies" not in captured
+    snapshot_id = service._load_run_runtime_snapshot_id(status.run_id)
+    assert captured["runtime_snapshot_id"] == snapshot_id
+    assert snapshot_id is not None
+    persisted = service.runtime_settings_service.load_runtime_snapshot(snapshot_id)
+    assert persisted == injected_runtime.settings

@@ -10,6 +10,7 @@ import { RunDetailPage } from "../features/runs/RunDetailPage";
 import { RunsPage } from "../features/runs/RunsPage";
 import { ScenarioPage } from "../features/scenarios/ScenarioPage";
 import { LlmSettingsPage } from "../features/settings/LlmSettingsPage";
+import { ValidationSessionsPage } from "../features/validation/ValidationSessionsPage";
 
 export const router = createBrowserRouter(
   [
@@ -40,6 +41,10 @@ export const router = createBrowserRouter(
         {
           path: "scenarios",
           element: <ScenarioPage />,
+        },
+        {
+          path: "validation",
+          element: <ValidationSessionsPage />,
         },
         {
           path: "kg",

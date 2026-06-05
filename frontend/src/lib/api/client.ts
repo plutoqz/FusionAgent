@@ -17,6 +17,7 @@ import {
   ScenarioRunListResponse,
   ScenarioRunResponse,
   RuntimeMetadataResponse,
+  ValidationSessionListResponse,
 } from "./types";
 
 type RequestInitWithBody = RequestInit & {
@@ -152,10 +153,26 @@ export function listScenarioRuns() {
   return request<ScenarioRunListResponse>("/api/v2/scenario-runs");
 }
 
+export function listValidationSessions() {
+  return request<ValidationSessionListResponse>("/api/v2/validation/sessions");
+}
+
 export function createScenarioRun(payload: ScenarioRunCreateRequest) {
   return request<ScenarioRunResponse>("/api/v2/scenario-runs", {
     method: "POST",
     body: JSON.stringify(payload),
+  });
+}
+
+export function resumeScenarioRun(scenarioId: string, retryFailed = false) {
+  const params = new URLSearchParams();
+  if (retryFailed) {
+    params.set("retry_failed", "true");
+  }
+  const query = params.toString();
+  const encodedScenarioId = encodeURIComponent(scenarioId);
+  return request<ScenarioRunResponse>(`/api/v2/scenario-runs/${encodedScenarioId}/resume${query ? `?${query}` : ""}`, {
+    method: "POST",
   });
 }
 
