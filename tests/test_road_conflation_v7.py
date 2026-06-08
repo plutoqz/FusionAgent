@@ -10,7 +10,7 @@ from fusion_algorithms.road_conflation_v7 import RoadConflationV7Config, run_roa
 
 def test_run_road_conflation_v7_returns_frame_and_stats() -> None:
     base = gpd.GeoDataFrame(
-        {"osm_id": [1], "fclass": ["primary"]},
+        {"osm_id": [1], "fclass": ["primary"], "name": ["Main Road"]},
         geometry=[LineString([(0, 0), (10, 0)])],
         crs="EPSG:3857",
     )
@@ -37,6 +37,13 @@ def test_run_road_conflation_v7_returns_frame_and_stats() -> None:
     assert result.stats["unmatched_supplement_segments"] == 1
     assert result.frame.crs.to_epsg() == 3857
     assert {"fusion_source", "match_role", "road_class", "supplement_segment_id"} <= set(result.frame.columns)
+    base_rows = result.frame[result.frame["source_layer"] == "base"]
+    assert base_rows.iloc[0]["name"] == "Main Road"
+    assert base_rows.iloc[0]["osm_name"] == "Main Road"
+    assert base_rows.iloc[0]["road_name"] == "Main Road"
+    supplement_rows = result.frame[result.frame["source_layer"] == "supplement"]
+    assert supplement_rows.iloc[0]["osm_name"] == ""
+    assert supplement_rows.iloc[0]["road_name"] == ""
 
 
 def test_run_road_conflation_v7_keeps_uncovered_residual_from_matched_supplement() -> None:
@@ -109,6 +116,62 @@ def test_run_road_conflation_v7_prunes_duplicate_supplements() -> None:
     supplement_rows = result.frame[result.frame["source_layer"] == "supplement"]
     assert len(supplement_rows) == 1
     assert result.stats["duplicate_removed_before_snap"] == 1
+
+
+def test_run_road_conflation_v7_preserves_uppercase_fid_supplement_id() -> None:
+    base = gpd.GeoDataFrame(
+        {"osm_id": [1], "fclass": ["primary"]},
+        geometry=[LineString([(0, 0), (10, 0)])],
+        crs="EPSG:3857",
+    )
+    supplement = gpd.GeoDataFrame(
+        {"FID": [12345]},
+        geometry=[LineString([(0, 30), (10, 30)])],
+        crs="EPSG:3857",
+    )
+
+    result = run_road_conflation_v7(
+        base,
+        supplement,
+        config=RoadConflationV7Config(
+            target_crs="EPSG:3857",
+            do_split_by_angle=False,
+            max_segment_length=None,
+            enable_dangle_cleanup=False,
+        ),
+    )
+
+    supplement_rows = result.frame[result.frame["source_layer"] == "supplement"]
+    assert supplement_rows.iloc[0]["supplement_segment_id"] == "12345"
+
+
+def test_run_road_conflation_v7_cleans_pseudo_empty_name_values() -> None:
+    base = gpd.GeoDataFrame(
+        {"osm_id": [1], "fclass": ["primary"], "name": ["<NA>"]},
+        geometry=[LineString([(0, 0), (10, 0)])],
+        crs="EPSG:3857",
+    )
+    supplement = gpd.GeoDataFrame(
+        {"id": [2]},
+        geometry=[LineString([(0, 30), (10, 30)])],
+        crs="EPSG:3857",
+    )
+
+    result = run_road_conflation_v7(
+        base,
+        supplement,
+        config=RoadConflationV7Config(
+            target_crs="EPSG:3857",
+            do_split_by_angle=False,
+            max_segment_length=None,
+            enable_dangle_cleanup=False,
+        ),
+    )
+
+    base_rows = result.frame[result.frame["source_layer"] == "base"]
+    assert base_rows.iloc[0]["name"] == ""
+    assert base_rows.iloc[0]["osm_name"] == ""
+    assert base_rows.iloc[0]["road_name"] == ""
 
 
 def test_run_road_conflation_v7_accepts_paths_and_multiline_inputs(tmp_path: Path) -> None:
