@@ -49,12 +49,14 @@ from services.aoi_resolution_service import AOIResolutionService, NominatimGeoco
 from services.data_requirement_resolver_service import DataRequirementResolverService
 from services.input_acquisition_service import InputAcquisitionService, ResolvedRunInputs
 from services.local_bundle_catalog import LocalBundleCatalogProvider
+from services.output_contract_service import get_domain_output_contract
 from services.plan_grounding_service import ensure_plan_grounding_report, evaluate_plan_grounding_gate
 from services.quality_gate_service import QualityGateService
 from services.raw_vector_source_service import RawVectorSourceService
 from services.runtime_settings_service import RuntimeSettingsService
 from services.run_recovery_service import collect_recoverable_runs
 from services.run_report_service import build_run_report_summary, render_run_reports
+from services.source_field_profile_registry import SourceFieldProfileRegistry
 from services.source_semantic_contract_service import SourceSemanticContractService
 from services.tile_partition_service import TilePartitionService
 from services.tiled_building_runtime_service import TiledBuildingRuntimeService
@@ -1856,6 +1858,8 @@ class AgentRunService:
                 requested_bbox=self._parse_bbox(request.trigger.spatial_extent),
                 component_coverage=component_coverage,
                 quality_policy_id=self._quality_policy_id_for_plan(plan),
+                contract_id=self._quality_contract_id_for_request(request),
+                source_expected_null_rates=self._source_expected_null_rates_for_request(request, plan),
             )
             quality_report_path = output_dir / "quality_report.json"
             quality_report_path.write_text(
@@ -1975,6 +1979,23 @@ class AgentRunService:
         if isinstance(intent, dict) and intent.get("quality_policy_id"):
             return str(intent["quality_policy_id"])
         return None
+
+    @staticmethod
+    def _quality_contract_id_for_request(request: RunCreateRequest) -> str:
+        return get_domain_output_contract(_task_kind_for_request(request)).contract_id
+
+    def _source_expected_null_rates_for_request(
+        self,
+        request: RunCreateRequest,
+        plan: WorkflowPlan,
+    ) -> dict[str, float]:
+        task_kind = _task_kind_for_request(request)
+        if task_kind != TaskKind.road:
+            return {}
+        resolved_aoi = self._extract_resolved_aoi(plan)
+        country_code = resolved_aoi.country_code if resolved_aoi is not None else None
+        profile = SourceFieldProfileRegistry().resolve("fields.road.osm", country_code=country_code)
+        return dict(profile.expected_null_rates)
 
     def _output_schema_policy_id_for_plan(self, plan: WorkflowPlan) -> str | None:
         output_data_type = self._extract_output_data_type(plan)

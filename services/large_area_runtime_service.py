@@ -272,20 +272,29 @@ class LargeAreaRuntimeService:
     @staticmethod
     def _dedupe(frame: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
         result = frame.copy()
-        for column in ("canonical_id", "source_feature_id", "osm_id", "id"):
-            if column not in result.columns:
-                continue
-            populated = result[column].notna() & result[column].astype(str).str.len().gt(0)
-            if populated.any():
-                subset = [_SLICE_KEY, column] if _SLICE_KEY in result.columns else [column]
-                keyed = result.loc[populated].drop_duplicates(subset=subset, keep="first")
-                unkeyed = result.loc[~populated]
-                result = gpd.GeoDataFrame(
-                    pd.concat([keyed, unkeyed], ignore_index=True),
-                    geometry="geometry",
-                    crs=frame.crs,
-                )
-            break
+        line_mask = result.geometry.geom_type.isin(["LineString", "MultiLineString"])
+        non_line = result.loc[~line_mask].copy()
+        lines = result.loc[line_mask].copy()
+        if not non_line.empty:
+            for column in ("canonical_id", "source_feature_id", "osm_id", "id"):
+                if column not in non_line.columns:
+                    continue
+                populated = non_line[column].notna() & non_line[column].astype(str).str.len().gt(0)
+                if populated.any():
+                    subset = [_SLICE_KEY, column] if _SLICE_KEY in non_line.columns else [column]
+                    keyed = non_line.loc[populated].drop_duplicates(subset=subset, keep="first")
+                    unkeyed = non_line.loc[~populated]
+                    non_line = gpd.GeoDataFrame(
+                        pd.concat([keyed, unkeyed], ignore_index=True),
+                        geometry="geometry",
+                        crs=frame.crs,
+                    )
+                break
+            result = gpd.GeoDataFrame(
+                pd.concat([non_line, lines], ignore_index=True),
+                geometry="geometry",
+                crs=frame.crs,
+            )
 
         result[_GEOMETRY_KEY] = result.geometry.apply(lambda geom: geom.wkb_hex if geom is not None else None)
         subset = [_SLICE_KEY, _GEOMETRY_KEY] if _SLICE_KEY in result.columns else [_GEOMETRY_KEY]

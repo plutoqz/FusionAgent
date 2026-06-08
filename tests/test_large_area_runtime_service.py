@@ -167,6 +167,50 @@ def test_large_area_runtime_preserves_complete_cross_tile_line_geometry(tmp_path
     assert fused.geometry.iloc[0].length == pytest.approx(2.0)
 
 
+def test_large_area_runtime_preserves_split_line_segments_with_same_source_feature_id(tmp_path: Path) -> None:
+    source = _write(
+        tmp_path / "roads.gpkg",
+        gpd.GeoDataFrame(
+            {"source_id": ["raw.road"], "source_feature_id": ["road-1"]},
+            geometry=[LineString([(0.0, 0.5), (2.0, 0.5)])],
+            crs="EPSG:3857",
+        ),
+    )
+
+    def runner(tile, sources, output_dir, target_crs, parameters):
+        del tile, sources, parameters
+        frame = gpd.GeoDataFrame(
+            {
+                "source_id": ["raw.road", "raw.road"],
+                "source_feature_id": ["road-1", "road-1"],
+            },
+            geometry=[
+                LineString([(0.1, 0.5), (0.8, 0.5)]),
+                LineString([(0.8, 0.5), (1.8, 0.5)]),
+            ],
+            crs=target_crs,
+        )
+        path = output_dir / "fused.gpkg"
+        frame.to_file(path, driver="GPKG")
+        return path, {"algorithm_id": "algo.test.split-line"}
+
+    result = LargeAreaRuntimeService(max_workers=1).run(
+        run_id="run-split-line",
+        job_type="road",
+        tile_manifest=_manifest(),
+        slices=[LargeAreaSlice(name="road", geometry_family="line", sources={"raw.road": source}, runner=runner)],
+        output_dir=tmp_path / "out-split-line",
+        target_crs="EPSG:3857",
+        parameters={},
+    )
+
+    fused = gpd.read_file(result.output_path)
+
+    assert len(fused) == 2
+    assert fused["source_feature_id"].tolist() == ["road-1", "road-1"]
+    assert fused.geometry.length.sum() == pytest.approx(1.7)
+
+
 def test_large_area_runtime_keeps_boundary_intersecting_polygon_when_representative_point_is_outside(
     tmp_path: Path,
 ) -> None:
