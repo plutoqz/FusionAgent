@@ -256,6 +256,32 @@ def test_quality_gate_preserves_source_id_lineage_requirement_without_contract(t
     assert "source_lineage" in report.failure_reasons
 
 
+def test_quality_gate_contract_mode_accepts_source_feature_id_lineage(tmp_path: Path) -> None:
+    path = tmp_path / "building_feature_id_contract.gpkg"
+    frame = gpd.GeoDataFrame(
+        {"source_feature_id": ["building-1"]},
+        geometry=[Polygon([(0, 0), (0, 1), (1, 1), (1, 0)])],
+        crs="EPSG:4326",
+    )
+    frame.to_file(path, driver="GPKG")
+
+    report = QualityGateService().evaluate(
+        artifact_path=path,
+        task_kind=TaskKind.building,
+        required_fields=["geometry"],
+        requested_bbox=(-1, -1, 2, 2),
+        component_coverage={
+            "raw.osm.building": {"feature_count": 1, "coverage_status": "available"},
+            "raw.microsoft.building": {"feature_count": 1, "coverage_status": "available"},
+        },
+        contract_id="contract.building.fused.v1",
+    )
+
+    assert report.accepted is True
+    assert report.checks["source_lineage"]["passed"] is True
+    assert "source_id" not in report.metrics["missing_fields"]
+
+
 def test_quality_gate_uses_road_contract_required_fields_when_enabled(tmp_path: Path) -> None:
     path = tmp_path / "road_missing_contract_fields.gpkg"
     frame = gpd.GeoDataFrame(

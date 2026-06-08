@@ -1406,6 +1406,7 @@ def test_agent_run_service_passes_contract_and_country_baselines_to_quality_gate
     )
 
     assert captured["contract_id"] == "contract.road.fused.v1"
+    assert captured["required_fields"] == ["geometry"]
     assert captured["source_expected_null_rates"]["name"] == 0.95
 
 

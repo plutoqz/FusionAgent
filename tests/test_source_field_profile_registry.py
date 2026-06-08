@@ -67,3 +67,23 @@ def test_registry_resolve_isolates_merged_provider_probe_lists() -> None:
 
     fresh = registry.resolve("fields.road.osm", country_code="npl")
     assert fresh.provider_probe_order["name"] == ["name", "ref"]
+
+
+def test_registry_get_isolates_provider_probe_lists() -> None:
+    registry = SourceFieldProfileRegistry()
+    profile = registry.get("fields.building.microsoft")
+
+    profile.provider_probe_order["height_m"].append("mutated")
+
+    fresh = registry.get("fields.building.microsoft")
+    assert fresh.provider_probe_order["height_m"] == ["height", "Height", "HEIGHT", "building_h", "bld_h"]
+
+
+def test_registry_resolve_fallback_isolates_provider_probe_lists() -> None:
+    registry = SourceFieldProfileRegistry()
+    profile = registry.resolve("fields.road.osm", country_code="pk")
+
+    profile.provider_probe_order["name"].append("mutated")
+
+    fresh = registry.resolve("fields.road.osm", country_code="pk")
+    assert fresh.provider_probe_order["name"] == ["name", "ref"]

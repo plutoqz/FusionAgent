@@ -323,7 +323,7 @@ class SourceFieldProfileRegistry:
 
     def get(self, profile_id: str) -> SourceFieldProfile:
         try:
-            return self._profiles[profile_id]
+            return _copy_profile(self._profiles[profile_id])
         except KeyError as exc:
             raise KeyError(f"Unknown source field mapping profile={profile_id}") from exc
 
@@ -361,3 +361,14 @@ def _normalize_country_code(country_code: str | None) -> str:
 
 def _copy_provider_probe_order(provider_probe_order: dict[str, list[str]]) -> dict[str, list[str]]:
     return {field: list(probes) for field, probes in provider_probe_order.items()}
+
+
+def _copy_profile(profile: SourceFieldProfile) -> SourceFieldProfile:
+    return SourceFieldProfile(
+        profile_id=profile.profile_id,
+        theme=profile.theme,
+        canonical_fields=dict(profile.canonical_fields),
+        provider_probe_order=_copy_provider_probe_order(profile.provider_probe_order),
+        expected_null_rates=dict(profile.expected_null_rates),
+        country_overrides=dict(profile.country_overrides),
+    )

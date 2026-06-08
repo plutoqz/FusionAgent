@@ -70,6 +70,7 @@ class QualityGateService:
                         if contract is not None
                         else {"source_id"}
                     ),
+                    require_required_field=contract is None,
                 ),
             },
             "multi_source_lineage": {
@@ -164,8 +165,12 @@ def _lineage_present(
     metrics: dict[str, object],
     *,
     lineage_fields: set[str],
+    require_required_field: bool,
 ) -> bool:
     missing = set(metrics.get("missing_fields", []) or [])
+    if not require_required_field:
+        available_fields = set((metrics.get("field_null_rates") or {}).keys())
+        return any(field in available_fields and field not in missing for field in lineage_fields)
     return any(field in required_fields and field not in missing for field in lineage_fields)
 
 

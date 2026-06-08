@@ -1851,14 +1851,15 @@ class AgentRunService:
             fused_shp=fused_shp,
         )
         if Path(fused_shp).suffix.lower() == ".gpkg":
+            contract_id = self._quality_contract_id_for_request(request)
             quality_report = self.quality_gate_service.evaluate(
                 artifact_path=fused_shp,
                 task_kind=_task_kind_for_request(request),
-                required_fields=self._quality_gate_required_fields_for_plan(plan),
+                required_fields=self._quality_gate_required_fields_for_plan(plan, contract_id=contract_id),
                 requested_bbox=self._parse_bbox(request.trigger.spatial_extent),
                 component_coverage=component_coverage,
                 quality_policy_id=self._quality_policy_id_for_plan(plan),
-                contract_id=self._quality_contract_id_for_request(request),
+                contract_id=contract_id,
                 source_expected_null_rates=self._source_expected_null_rates_for_request(request, plan),
             )
             quality_report_path = output_dir / "quality_report.json"
@@ -1963,8 +1964,10 @@ class AgentRunService:
             return list(schema_policy.required_fields)
         return ["geometry"]
 
-    def _quality_gate_required_fields_for_plan(self, plan: WorkflowPlan) -> list[str]:
+    def _quality_gate_required_fields_for_plan(self, plan: WorkflowPlan, *, contract_id: str | None = None) -> list[str]:
         required_fields = list(self._required_fields_for_plan(plan))
+        if contract_id is not None:
+            return required_fields
         if "source_id" not in required_fields:
             required_fields.append("source_id")
         return required_fields
