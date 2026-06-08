@@ -2596,8 +2596,8 @@
     }
   ],
   "metadata": {
-    "content_hash": "sha256:d624c6d0549116072adb36eb4115f95cf79f003569c17f83293c141369ff26c8",
-    "generated_at": "2026-06-05T06:39:45.977146+00:00",
+    "content_hash": "sha256:91ce7d7ca697c2907f05fb60b105cdf0d2dc98d953f61108175b89c3992f3688",
+    "generated_at": "2026-06-08T07:42:55.577865+00:00",
     "generated_from": "kg.seed",
     "schema_version": "1.0.0",
     "source_modules": [
@@ -2826,6 +2826,7 @@
         "claim_state": "runtime_supported",
         "notes": "Road output schema documents the canonical V7 conflation fields exposed by the active runtime path.",
         "policy_scope": "current_runtime",
+        "quality_contract_id": "contract.road.fused.v1",
         "runtime_role": "output_schema_policy",
         "runtime_status": "runtime_candidate"
       },
@@ -2840,7 +2841,14 @@
         "residual_part",
         "osm_id",
         "FID_1",
-        "fclass"
+        "fclass",
+        "name",
+        "osm_name",
+        "road_name",
+        "source_feature_id",
+        "surface",
+        "lanes",
+        "ref"
       ],
       "output_type": "dt.road.fused",
       "policy_id": "osp.road.fused.v1",
