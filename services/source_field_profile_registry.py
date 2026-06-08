@@ -312,6 +312,10 @@ PROFILES: dict[str, SourceFieldProfile] = {
     ),
 }
 
+_COUNTRY_CODE_ALIASES = {
+    "np": "npl",
+}
+
 
 class SourceFieldProfileRegistry:
     def __init__(self, profiles: dict[str, SourceFieldProfile] | None = None) -> None:
@@ -325,15 +329,13 @@ class SourceFieldProfileRegistry:
 
     def resolve(self, profile_id: str, *, country_code: str | None = None) -> SourceFieldProfile:
         profile = self.get(profile_id)
-        normalized_country = str(country_code or "").strip().casefold()
+        normalized_country = _normalize_country_code(country_code)
         override = profile.country_overrides.get(normalized_country)
         if override is None:
             return profile
 
-        provider_probe_order = {
-            **profile.provider_probe_order,
-            **override.provider_probe_order,
-        }
+        provider_probe_order = _copy_provider_probe_order(profile.provider_probe_order)
+        provider_probe_order.update(_copy_provider_probe_order(override.provider_probe_order))
         expected_null_rates = {
             **profile.expected_null_rates,
             **override.expected_null_rates,
@@ -350,3 +352,12 @@ class SourceFieldProfileRegistry:
     def profile_ids_for_theme(self, theme: str) -> list[str]:
         requested = theme.strip().lower()
         return sorted(profile_id for profile_id, profile in self._profiles.items() if profile.theme == requested)
+
+
+def _normalize_country_code(country_code: str | None) -> str:
+    token = str(country_code or "").strip().casefold()
+    return _COUNTRY_CODE_ALIASES.get(token, token)
+
+
+def _copy_provider_probe_order(provider_probe_order: dict[str, list[str]]) -> dict[str, list[str]]:
+    return {field: list(probes) for field, probes in provider_probe_order.items()}

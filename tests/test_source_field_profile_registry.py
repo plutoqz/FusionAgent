@@ -48,3 +48,22 @@ def test_registry_falls_back_to_provider_profile_when_country_override_is_absent
 
     assert profile.profile_id == "fields.road.osm"
     assert profile.expected_null_rates["name"] == 0.80
+
+
+def test_registry_accepts_alpha_2_country_code_alias_for_country_overrides() -> None:
+    registry = SourceFieldProfileRegistry()
+
+    profile = registry.resolve("fields.road.osm", country_code=" NP ")
+
+    assert profile.profile_id == "fields.road.osm.npl"
+    assert profile.expected_null_rates["name"] == 0.95
+
+
+def test_registry_resolve_isolates_merged_provider_probe_lists() -> None:
+    registry = SourceFieldProfileRegistry()
+    resolved = registry.resolve("fields.road.osm", country_code="npl")
+
+    resolved.provider_probe_order["name"].append("mutated")
+
+    fresh = registry.resolve("fields.road.osm", country_code="npl")
+    assert fresh.provider_probe_order["name"] == ["name", "ref"]
