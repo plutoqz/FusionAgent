@@ -35,6 +35,10 @@ class QualityGateService:
             if contract_id is not None
             else None
         )
+        if contract is not None and contract.contract_id != contract_id:
+            raise ValueError(
+                f"Quality contract {contract.contract_id} for {task_kind.value} does not match requested {contract_id}"
+            )
         effective_required_fields = _merge_fields(
             list(required_fields or []),
             contract.required_fields if contract is not None else [],
@@ -58,7 +62,15 @@ class QualityGateService:
                 "passed": bool(metrics.get("aoi_consistency", {}).get("artifact_intersects_aoi", requested_bbox is None)),
             },
             "source_lineage": {
-                "passed": _lineage_present(effective_required_fields, metrics),
+                "passed": _lineage_present(
+                    effective_required_fields,
+                    metrics,
+                    lineage_fields=(
+                        {"source_id", "source_feature_id", "fusion_source", "source_layer"}
+                        if contract is not None
+                        else {"source_id"}
+                    ),
+                ),
             },
             "multi_source_lineage": {
                 "passed": _multi_source_lineage_available(component_coverage or {}),
@@ -69,9 +81,9 @@ class QualityGateService:
                 metric_name = f"{field}_null_rate"
                 value = metrics.get(metric_name)
                 checks[f"field_null_rate:{field}"] = {
-                    "passed": _policy_check_passed(value, operator="lt", threshold=threshold),
+                    "passed": _policy_check_passed(value, operator="lte", threshold=threshold),
                     "severity": "soft",
-                    "operator": "lt",
+                    "operator": "lte",
                     "threshold": threshold,
                     "actual": value,
                     "metric_name": metric_name,
@@ -147,9 +159,13 @@ def _merge_fields(primary: list[str], secondary: list[str]) -> list[str]:
     return result
 
 
-def _lineage_present(required_fields: list[str], metrics: dict[str, object]) -> bool:
+def _lineage_present(
+    required_fields: list[str],
+    metrics: dict[str, object],
+    *,
+    lineage_fields: set[str],
+) -> bool:
     missing = set(metrics.get("missing_fields", []) or [])
-    lineage_fields = {"source_id", "source_feature_id", "fusion_source", "source_layer"}
     return any(field in required_fields and field not in missing for field in lineage_fields)
 
 
