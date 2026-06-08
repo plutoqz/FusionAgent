@@ -226,3 +226,97 @@ def test_quality_gate_rejects_waterways_dangle_endpoint_count_above_threshold(tm
     assert report.metrics["dangle_endpoint_count"] == 6
     assert "zero_length_geometry_count" not in report.failure_reasons
     assert "dangle_endpoint_count" in report.failure_reasons
+
+
+def test_quality_gate_uses_road_contract_required_fields_when_enabled(tmp_path: Path) -> None:
+    path = tmp_path / "road_missing_contract_fields.gpkg"
+    frame = gpd.GeoDataFrame(
+        {"fusion_source": ["base_road_network"], "match_role": ["base"], "road_class": ["primary"]},
+        geometry=[LineString([(0, 0), (1, 0)])],
+        crs="EPSG:4326",
+    )
+    frame.to_file(path, driver="GPKG")
+
+    report = QualityGateService().evaluate(
+        artifact_path=path,
+        task_kind=TaskKind.road,
+        required_fields=["geometry"],
+        requested_bbox=(-1, -1, 2, 1),
+        component_coverage={"raw.osm.road": {"feature_count": 1, "coverage_status": "available"}},
+        contract_id="contract.road.fused.v1",
+    )
+
+    assert report.accepted is False
+    assert "name" in report.metrics["missing_fields"]
+    assert "osm_name" in report.metrics["missing_fields"]
+    assert "road_name" in report.metrics["missing_fields"]
+
+
+def test_quality_gate_rejects_field_null_rate_above_contract_threshold(tmp_path: Path) -> None:
+    path = tmp_path / "road_empty_names.gpkg"
+    frame = gpd.GeoDataFrame(
+        {
+            "fusion_source": ["base_road_network"] * 5,
+            "match_role": ["base"] * 5,
+            "road_class": ["primary"] * 5,
+            "source_layer": ["base"] * 5,
+            "name": ["A", "", "", "", ""],
+            "osm_name": ["A", "", "", "", ""],
+            "road_name": ["A", "", "", "", ""],
+        },
+        geometry=[LineString([(idx, 0), (idx + 1, 0)]) for idx in range(5)],
+        crs="EPSG:4326",
+    )
+    frame.to_file(path, driver="GPKG")
+
+    report = QualityGateService().evaluate(
+        artifact_path=path,
+        task_kind=TaskKind.road,
+        required_fields=["geometry"],
+        requested_bbox=(-1, -1, 6, 1),
+        component_coverage={
+            "raw.osm.road": {"feature_count": 5, "coverage_status": "available"},
+            "raw.overture.road": {"feature_count": 5, "coverage_status": "available"},
+        },
+        contract_id="contract.road.fused.v1",
+    )
+
+    assert report.accepted is True
+    assert "field_null_rate:name" in report.soft_failure_reasons
+    assert report.checks["field_null_rate:name"]["actual"] == 0.8
+    assert report.checks["field_null_rate:name"]["threshold"] == 0.80
+
+
+def test_quality_gate_accepts_country_expected_high_road_name_null_rate(tmp_path: Path) -> None:
+    path = tmp_path / "nepal_road_names.gpkg"
+    frame = gpd.GeoDataFrame(
+        {
+            "fusion_source": ["base_road_network"] * 5,
+            "match_role": ["base"] * 5,
+            "road_class": ["primary"] * 5,
+            "source_layer": ["base"] * 5,
+            "name": ["A", "", "", "", ""],
+            "osm_name": ["A", "", "", "", ""],
+            "road_name": ["A", "", "", "", ""],
+        },
+        geometry=[LineString([(idx, 0), (idx + 1, 0)]) for idx in range(5)],
+        crs="EPSG:4326",
+    )
+    frame.to_file(path, driver="GPKG")
+
+    report = QualityGateService().evaluate(
+        artifact_path=path,
+        task_kind=TaskKind.road,
+        required_fields=["geometry"],
+        requested_bbox=(-1, -1, 6, 1),
+        component_coverage={
+            "raw.osm.road": {"feature_count": 5, "coverage_status": "available"},
+            "raw.overture.road": {"feature_count": 5, "coverage_status": "available"},
+        },
+        contract_id="contract.road.fused.v1",
+        source_expected_null_rates={"name": 0.95},
+    )
+
+    assert "field_null_rate:name" not in report.soft_failure_reasons
+    assert report.checks["field_null_rate:name"]["passed"] is True
+    assert report.checks["field_null_rate:name"]["threshold"] == 0.95

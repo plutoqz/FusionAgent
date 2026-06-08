@@ -5,6 +5,7 @@ from pathlib import Path
 from schemas.quality_gate import QualityGateReport
 from schemas.task_kind import TaskKind
 from services.artifact_evaluation_service import evaluate_vector_artifact
+from services.output_contract_service import get_domain_output_contract
 from services.quality_policy_service import get_quality_policy
 
 _EXPECTED_GEOMETRIES = {
@@ -26,11 +27,22 @@ class QualityGateService:
         requested_bbox=None,
         component_coverage: dict[str, object] | None = None,
         quality_policy_id: str | None = None,
+        contract_id: str | None = None,
+        source_expected_null_rates: dict[str, float] | None = None,
     ) -> QualityGateReport:
+        contract = (
+            get_domain_output_contract(task_kind, source_expected_null_rates=source_expected_null_rates)
+            if contract_id is not None
+            else None
+        )
+        effective_required_fields = _merge_fields(
+            list(required_fields or []),
+            contract.required_fields if contract is not None else [],
+        )
         policy = get_quality_policy(task_kind=task_kind, policy_id=quality_policy_id)
         metrics = evaluate_vector_artifact(
             Path(artifact_path),
-            required_fields=required_fields,
+            required_fields=effective_required_fields,
             requested_bbox=requested_bbox,
         )
         checks = {
@@ -46,12 +58,24 @@ class QualityGateService:
                 "passed": bool(metrics.get("aoi_consistency", {}).get("artifact_intersects_aoi", requested_bbox is None)),
             },
             "source_lineage": {
-                "passed": "source_id" in required_fields and "source_id" not in metrics.get("missing_fields", []),
+                "passed": _lineage_present(effective_required_fields, metrics),
             },
             "multi_source_lineage": {
                 "passed": _multi_source_lineage_available(component_coverage or {}),
             },
         }
+        if contract is not None:
+            for field, threshold in contract.field_null_rate_thresholds.items():
+                metric_name = f"{field}_null_rate"
+                value = metrics.get(metric_name)
+                checks[f"field_null_rate:{field}"] = {
+                    "passed": _policy_check_passed(value, operator="lt", threshold=threshold),
+                    "severity": "soft",
+                    "operator": "lt",
+                    "threshold": threshold,
+                    "actual": value,
+                    "metric_name": metric_name,
+                }
         policy_metrics = {**metrics, **{name: check["passed"] for name, check in checks.items()}}
         for policy_check in policy.checks:
             if not policy_check.enabled:
@@ -113,6 +137,20 @@ def _multi_source_lineage_available(component_coverage: dict[str, object]) -> bo
             if status in {"available", "unknown_until_materialization"} or (count is not None and int(count) > 0):
                 available.append(source_id)
     return len(set(available)) >= 2
+
+
+def _merge_fields(primary: list[str], secondary: list[str]) -> list[str]:
+    result: list[str] = []
+    for field in [*primary, *secondary]:
+        if field not in result:
+            result.append(field)
+    return result
+
+
+def _lineage_present(required_fields: list[str], metrics: dict[str, object]) -> bool:
+    missing = set(metrics.get("missing_fields", []) or [])
+    lineage_fields = {"source_id", "source_feature_id", "fusion_source", "source_layer"}
+    return any(field in required_fields and field not in missing for field in lineage_fields)
 
 
 def _policy_check_passed(value, *, operator: str, threshold) -> bool:
