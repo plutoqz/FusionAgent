@@ -79,6 +79,72 @@ def test_evaluate_vector_artifact_reports_duplicate_and_invalid_geometry_rates(t
     assert metrics["source_feature_counts"] == {"a": 2, "b": 1}
 
 
+def test_evaluate_vector_artifact_reports_field_null_rates(tmp_path):
+    path = tmp_path / "field_quality.gpkg"
+    frame = gpd.GeoDataFrame(
+        {
+            "source_id": ["a", "b", "c", "d"],
+            "name": ["Main Road", "", None, "<NA>"],
+            "height_m": [12.0, None, 18.0, None],
+        },
+        geometry=[
+            Polygon([(0, 0), (0, 10), (10, 10), (10, 0)]),
+            Polygon([(20, 0), (20, 10), (30, 10), (30, 0)]),
+            Polygon([(40, 0), (40, 10), (50, 10), (50, 0)]),
+            Polygon([(60, 0), (60, 10), (70, 10), (70, 0)]),
+        ],
+        crs="EPSG:32631",
+    )
+    frame.to_file(path, driver="GPKG")
+
+    metrics = evaluate_vector_artifact(path, required_fields=["geometry", "source_id"])
+
+    assert metrics["field_null_rates"]["name"] == 0.75
+    assert metrics["field_nonempty_counts"]["name"] == 1
+    assert metrics["field_null_rates"]["height_m"] == 0.5
+    assert metrics["field_nonempty_counts"]["height_m"] == 2
+    assert metrics["name_null_rate"] == 0.75
+    assert metrics["height_m_null_rate"] == 0.5
+
+
+def test_evaluate_vector_artifact_reports_polygon_overlap_metrics(tmp_path):
+    path = tmp_path / "overlap_quality.gpkg"
+    frame = gpd.GeoDataFrame(
+        {"source_id": ["a", "b", "c"]},
+        geometry=[
+            Polygon([(0, 0), (0, 10), (10, 10), (10, 0)]),
+            Polygon([(5, 0), (5, 10), (15, 10), (15, 0)]),
+            Polygon([(20, 0), (20, 10), (30, 10), (30, 0)]),
+        ],
+        crs="EPSG:32631",
+    )
+    frame.to_file(path, driver="GPKG")
+
+    metrics = evaluate_vector_artifact(path, required_fields=["geometry", "source_id"])
+
+    assert metrics["overlap_pair_count"] == 1
+    assert metrics["overlap_area_sq_m"] == 50.0
+    assert metrics["overlap_area_rate"] == 50.0 / 300.0
+
+
+def test_evaluate_vector_artifact_reports_dangle_endpoint_rate_per_100km(tmp_path):
+    path = tmp_path / "dangle_rate.gpkg"
+    frame = gpd.GeoDataFrame(
+        {"source_id": ["a", "b"]},
+        geometry=[
+            LineString([(0, 0), (1000, 0)]),
+            LineString([(2000, 0), (3000, 0)]),
+        ],
+        crs="EPSG:32631",
+    )
+    frame.to_file(path, driver="GPKG")
+
+    metrics = evaluate_vector_artifact(path, required_fields=["geometry", "source_id"])
+
+    assert metrics["dangle_endpoint_count"] == 4
+    assert metrics["dangle_endpoint_rate_per_100km"] == 200.0
+
+
 def test_evaluate_vector_artifact_reports_polygon_topology_quality_metrics(tmp_path):
     path = tmp_path / "polygon_quality.gpkg"
     valid = Polygon([(0, 0), (0, 20), (20, 20), (20, 0)])
