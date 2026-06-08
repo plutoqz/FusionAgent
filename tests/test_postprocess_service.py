@@ -49,6 +49,27 @@ def test_postprocess_service_backfills_height_from_overlap_and_median() -> None:
     assert stats["remaining_missing_height"] == 0
 
 
+def test_postprocess_service_counts_missing_height_when_reference_has_no_valid_heights() -> None:
+    buildings = gpd.GeoDataFrame(
+        {"Height": [None, None]},
+        geometry=[
+            Polygon([(0, 0), (0, 10), (10, 10), (10, 0)]),
+            Polygon([(100, 0), (100, 10), (110, 10), (110, 0)]),
+        ],
+        crs="EPSG:32645",
+    )
+    reference = gpd.GeoDataFrame(
+        {"Height": [None]},
+        geometry=[Polygon([(0, 0), (0, 10), (10, 10), (10, 0)])],
+        crs="EPSG:32645",
+    )
+
+    _result, stats = _backfill_building_height(buildings, reference)
+
+    assert stats["filled_height"] == 0
+    assert stats["remaining_missing_height"] == 2
+
+
 def test_postprocess_service_removes_remaining_building_overlaps() -> None:
     buildings = gpd.GeoDataFrame(
         {"Height": [10.0, 12.0]},

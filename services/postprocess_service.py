@@ -282,7 +282,7 @@ def _backfill_building_height(
         result["H_Raster"] = None
     valid_ref = reference_3d[reference_3d.get("Height", pd.Series(dtype=float)).map(_valid_height)].copy()
     if valid_ref.empty:
-        missing = int(~result["Height"].map(_valid_height).sum())
+        missing = int((~result["Height"].map(_valid_height)).sum())
         return result, {"filled_height": 0, "median_fallback_height": 0, "remaining_missing_height": missing}
     if result.crs != valid_ref.crs:
         valid_ref = valid_ref.to_crs(result.crs)
@@ -507,4 +507,3 @@ def run_country(config: CountryPostprocessConfig, *, overwrite: bool = True) -> 
         ]
     ).to_csv(shp_dir / "postprocess_summary.csv", index=False, encoding="utf-8-sig")
     return summary
-
