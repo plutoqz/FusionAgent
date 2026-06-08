@@ -196,16 +196,16 @@ def test_quality_gate_rejects_waterways_zero_length_geometry(tmp_path: Path) -> 
     assert "zero_length_geometry_count" in report.failure_reasons
 
 
-def test_quality_gate_rejects_waterways_dangle_endpoint_count_above_threshold(tmp_path: Path) -> None:
+def test_quality_gate_rejects_waterways_dangle_endpoint_rate_above_threshold(tmp_path: Path) -> None:
     path = tmp_path / "dangling_waterways.gpkg"
     frame = gpd.GeoDataFrame(
         {"source_id": ["raw.osm.waterways", "raw.ms.waterways", "raw.local.waterways"]},
         geometry=[
-            LineString([(0, 0), (1, 0)]),
-            LineString([(2, 0), (3, 0)]),
-            LineString([(4, 0), (5, 0)]),
+            LineString([(500000, 0), (500001, 0)]),
+            LineString([(500002, 0), (500003, 0)]),
+            LineString([(500004, 0), (500005, 0)]),
         ],
-        crs="EPSG:4326",
+        crs="EPSG:32631",
     )
     frame.to_file(path, driver="GPKG")
 
@@ -213,7 +213,7 @@ def test_quality_gate_rejects_waterways_dangle_endpoint_count_above_threshold(tm
         artifact_path=path,
         task_kind=TaskKind.waterways,
         required_fields=["geometry", "source_id"],
-        requested_bbox=(-1, -1, 6, 1),
+        requested_bbox=(2.9, -0.1, 3.1, 0.1),
         component_coverage={
             "raw.osm.waterways": {"feature_count": 1, "coverage_status": "available"},
             "raw.ms.waterways": {"feature_count": 1, "coverage_status": "available"},
@@ -225,8 +225,10 @@ def test_quality_gate_rejects_waterways_dangle_endpoint_count_above_threshold(tm
     assert report.accepted is False
     assert report.metrics["zero_length_geometry_count"] == 0
     assert report.metrics["dangle_endpoint_count"] == 6
+    assert report.metrics["dangle_endpoint_rate_per_100km"] > 500.0
     assert "zero_length_geometry_count" not in report.failure_reasons
-    assert "dangle_endpoint_count" in report.failure_reasons
+    assert "dangle_endpoint_rate_per_100km" in report.failure_reasons
+    assert "dangle_endpoint_count" not in report.failure_reasons
 
 
 def test_quality_gate_preserves_source_id_lineage_requirement_without_contract(tmp_path: Path) -> None:

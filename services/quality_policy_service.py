@@ -108,10 +108,11 @@ def _topology_policy_checks(task_kind: TaskKind) -> list[QualityPolicyCheck]:
                 threshold=0,
             ),
             QualityPolicyCheck(
-                check_id="dangle_endpoint_count",
-                metric_name="dangle_endpoint_count",
+                check_id="dangle_endpoint_rate_per_100km",
+                metric_name="dangle_endpoint_rate_per_100km",
                 operator="lte",
-                threshold=2,
+                threshold=500.0,
+                metadata={"normalization": "dangle endpoints per 100 km of line length"},
             ),
         ]
     if task_kind in {TaskKind.building, TaskKind.water_polygon}:
