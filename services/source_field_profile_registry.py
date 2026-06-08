@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 @dataclass(frozen=True)
@@ -17,6 +17,15 @@ class SourceFieldProfile:
     theme: str
     canonical_fields: dict[str, CanonicalField]
     provider_probe_order: dict[str, list[str]]
+    expected_null_rates: dict[str, float] = field(default_factory=dict)
+    country_overrides: dict[str, "SourceFieldProfileOverride"] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class SourceFieldProfileOverride:
+    profile_id_suffix: str
+    provider_probe_order: dict[str, list[str]] = field(default_factory=dict)
+    expected_null_rates: dict[str, float] = field(default_factory=dict)
 
 
 def _field(name: str, meaning: str, *, required: bool = True, value_type: str = "string") -> CanonicalField:
@@ -123,6 +132,13 @@ PROFILES: dict[str, SourceFieldProfile] = {
             "surface": ["surface"],
             "lanes": ["lanes"],
         },
+        expected_null_rates={"name": 0.80},
+        country_overrides={
+            "npl": SourceFieldProfileOverride(
+                profile_id_suffix="npl",
+                expected_null_rates={"name": 0.95},
+            ),
+        },
     ),
     "fields.road.overture_transportation": SourceFieldProfile(
         profile_id="fields.road.overture_transportation",
@@ -134,6 +150,13 @@ PROFILES: dict[str, SourceFieldProfile] = {
             "name": ["name", "names.primary", "names_primary", "primary_name", "ref"],
             "surface": ["surface"],
             "lanes": ["lane_count", "lanes"],
+        },
+        expected_null_rates={"name": 0.85},
+        country_overrides={
+            "npl": SourceFieldProfileOverride(
+                profile_id_suffix="npl",
+                expected_null_rates={"name": 0.98},
+            ),
         },
     ),
     "fields.water.osm_polygon": SourceFieldProfile(
@@ -299,6 +322,30 @@ class SourceFieldProfileRegistry:
             return self._profiles[profile_id]
         except KeyError as exc:
             raise KeyError(f"Unknown source field mapping profile={profile_id}") from exc
+
+    def resolve(self, profile_id: str, *, country_code: str | None = None) -> SourceFieldProfile:
+        profile = self.get(profile_id)
+        normalized_country = str(country_code or "").strip().casefold()
+        override = profile.country_overrides.get(normalized_country)
+        if override is None:
+            return profile
+
+        provider_probe_order = {
+            **profile.provider_probe_order,
+            **override.provider_probe_order,
+        }
+        expected_null_rates = {
+            **profile.expected_null_rates,
+            **override.expected_null_rates,
+        }
+        return SourceFieldProfile(
+            profile_id=f"{profile.profile_id}.{override.profile_id_suffix}",
+            theme=profile.theme,
+            canonical_fields=profile.canonical_fields,
+            provider_probe_order=provider_probe_order,
+            expected_null_rates=expected_null_rates,
+            country_overrides=profile.country_overrides,
+        )
 
     def profile_ids_for_theme(self, theme: str) -> list[str]:
         requested = theme.strip().lower()
