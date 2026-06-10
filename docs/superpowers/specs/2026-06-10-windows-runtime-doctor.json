@@ -1,0 +1,15 @@
+{
+  "status": "ready",
+  "manual_intervention_required": false,
+  "missing_paths": [],
+  "unwritable_dirs": [],
+  "free_disk_gb": 23.4378662109375,
+  "min_free_disk_gb": 2.0,
+  "windows_scope": "current Windows local runtime only",
+  "repo_root": "C:\\Users\\QDX\\.config\\superpowers\\worktrees\\fusionAgent\\codex\\plan-e-windows",
+  "known_limits": {
+    "cross_platform": "out_of_scope",
+    "production_deployment": "out_of_scope",
+    "process_supervision": "operator_or_external_scheduler_responsibility"
+  }
+}

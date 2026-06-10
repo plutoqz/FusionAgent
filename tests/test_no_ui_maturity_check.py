@@ -38,6 +38,12 @@ def test_default_required_files_include_operator_read_model_contract() -> None:
     )
 
 
+def test_no_ui_maturity_check_requires_windows_runtime_docs() -> None:
+    required = {path.name for path in DEFAULT_REQUIRED_FILES}
+
+    assert "windows-local-runtime.md" in required
+
+
 def test_readme_stale_wording_detects_only_a_prototype(
     tmp_path: Path,
 ) -> None:

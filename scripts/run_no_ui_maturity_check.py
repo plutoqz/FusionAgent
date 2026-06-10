@@ -26,6 +26,9 @@ DEFAULT_REQUIRED_FILES = [
     REPO_ROOT / "docs/superpowers/specs/2026-04-21-no-ui-maturity-evidence-freeze.md",
     REPO_ROOT / "docs/superpowers/specs/2026-04-21-operator-read-model-contract.md",
     REPO_ROOT / "docs/no-ui-agent-operations.md",
+    REPO_ROOT / "docs/windows-local-runtime.md",
+    REPO_ROOT
+    / "docs/superpowers/specs/2026-06-10-windows-runtime-operability-evidence.md",
 ]
 
 README_FILES = [
