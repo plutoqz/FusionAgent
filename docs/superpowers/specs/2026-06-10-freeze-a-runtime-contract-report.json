@@ -1,0 +1,58 @@
+{
+  "seed_content_hash": "sha256:56cac4eb3a573ba1068b59ed9542a2a6b0e9eac566a61163202823cfcedd377c",
+  "tool_registry_algorithm_ids": [
+    "algo.assess.building.quality_metrics.v1",
+    "algo.detect.spatial_conflicts.v1",
+    "algo.enrich.building.height_from_raster.v1",
+    "algo.enrich.building.obm_attributes.v1",
+    "algo.fusion.building.cascade_geometry_priority.v1",
+    "algo.fusion.building.multi_source.decomposed.v1",
+    "algo.fusion.building.safe",
+    "algo.fusion.building.v1",
+    "algo.fusion.poi.geohash_neighbor_match.v1",
+    "algo.fusion.poi.v1",
+    "algo.fusion.road.conflation.v7",
+    "algo.fusion.water_polygon.priority_merge.v2",
+    "algo.fusion.waterways.conflation.v7",
+    "algo.match.building.v8_candidate_graph.v1",
+    "algo.match.building.v8_component_solver.v1",
+    "algo.optimize.building.conflict_graph.v1",
+    "algo.optimize.road.topology_for_buildings.v1",
+    "algo.preprocess.building.source_normalize.v1",
+    "algo.refine.building.post_conflict_shrink.v1",
+    "algo.refine.building.road_tail.v1",
+    "algo.resolve.building.residual_priority.v1",
+    "algo.transform.trajectory_to_road_candidate",
+    "algo.validate.building.presence_raster.v1"
+  ],
+  "validator_mode": {
+    "default": "enforce",
+    "grounding_default": "enforce"
+  },
+  "deprecated_algorithm_guard": {
+    "ok": true,
+    "checked": [
+      "algo.fusion.road.safe",
+      "algo.fusion.road.v1",
+      "algo.fusion.water.v1"
+    ],
+    "failures": []
+  },
+  "tool_registry_guard": {
+    "ok": true,
+    "failures": [],
+    "reserved_ids": [
+      "algo.clip.raster.tile.v1",
+      "algo.enrich.building.height_from_raster.reserved",
+      "algo.fusion.building.multi_source.reserved",
+      "algo.merge.building.tiles.reserved",
+      "algo.partition.aoi.grid.v1",
+      "algo.transform.trajectory_to_road_candidate"
+    ]
+  },
+  "workflow_pattern_guard": {
+    "ok": true,
+    "failures": []
+  },
+  "ok": true
+}
