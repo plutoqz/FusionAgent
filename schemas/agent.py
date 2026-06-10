@@ -152,6 +152,11 @@ class RepairRecord(BaseModel):
     reason_code: Optional[str] = None
     from_algorithm: Optional[str] = None
     to_algorithm: Optional[str] = None
+    policy_source: Optional[str] = None
+    policy_decision_basis: Dict[str, Any] = Field(default_factory=dict)
+    candidate_actions: List[Dict[str, Any]] = Field(default_factory=list)
+    selected_action: Optional[Dict[str, Any]] = None
+    skipped_actions: List[Dict[str, Any]] = Field(default_factory=list)
 
 
 class DecisionCandidate(BaseModel):
