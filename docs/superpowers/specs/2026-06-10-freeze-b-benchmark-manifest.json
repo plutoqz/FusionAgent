@@ -1,0 +1,97 @@
+{
+  "manifest_id": "freeze-b-v1",
+  "freeze_line": "Freeze B",
+  "notes": [
+    "Real and semi-real cases support thesis quality claims.",
+    "Synthetic cases are smoke-only unless independently generated."
+  ],
+  "cases": [
+    {
+      "case_id": "case.building.real.benin",
+      "task_kind": "building",
+      "data_tier": "real",
+      "independence_label": "real_source",
+      "claim_use": "quality_claim",
+      "aoi": {"name": "benin-parakou", "bbox": [2.55, 9.25, 2.75, 9.45]},
+      "sources": [{"source_id": "raw.osm.building", "version_token": "freeze-b-local"}],
+      "baselines": [{"baseline_id": "fixed_adapter", "runner": "adapter_direct"}],
+      "metrics": [
+        {"metric_name": "invalid_geometry_rate", "operator": "eq", "threshold": 0.0},
+        {"metric_name": "duplicate_geometry_rate", "operator": "lte", "threshold": 0.25}
+      ],
+      "expected_artifact_roles": ["fused_vector"]
+    },
+    {
+      "case_id": "case.road.semi_real.perturbed",
+      "task_kind": "road",
+      "data_tier": "semi_real",
+      "independence_label": "perturbation_independent",
+      "claim_use": "robustness_claim",
+      "aoi": {"name": "road-controlled-perturbation", "bbox": [0, 0, 1, 1]},
+      "sources": [{"source_id": "fixture.road.base", "version_token": "freeze-b-fixture"}],
+      "baselines": [{"baseline_id": "fixed_adapter", "runner": "adapter_direct"}],
+      "metrics": [
+        {"metric_name": "invalid_geometry_rate", "operator": "eq", "threshold": 0.0},
+        {"metric_name": "zero_length_geometry_count", "operator": "eq", "threshold": 0}
+      ],
+      "expected_artifact_roles": ["fused_vector"]
+    },
+    {
+      "case_id": "case.water_polygon.semi_real.priority_merge",
+      "task_kind": "water_polygon",
+      "data_tier": "semi_real",
+      "independence_label": "perturbation_independent",
+      "claim_use": "robustness_claim",
+      "aoi": {"name": "water-polygon-controlled", "bbox": [0, 0, 1, 1]},
+      "sources": [{"source_id": "fixture.water.polygon", "version_token": "freeze-b-fixture"}],
+      "baselines": [{"baseline_id": "fixed_adapter", "runner": "adapter_direct"}],
+      "metrics": [
+        {"metric_name": "invalid_geometry_rate", "operator": "eq", "threshold": 0.0},
+        {"metric_name": "sliver_polygon_count", "operator": "lte", "threshold": 1}
+      ],
+      "expected_artifact_roles": ["fused_vector"]
+    },
+    {
+      "case_id": "case.waterways.semi_real.line_conflation",
+      "task_kind": "waterways",
+      "data_tier": "semi_real",
+      "independence_label": "perturbation_independent",
+      "claim_use": "robustness_claim",
+      "aoi": {"name": "waterways-controlled", "bbox": [0, 0, 1, 1]},
+      "sources": [{"source_id": "fixture.waterways", "version_token": "freeze-b-fixture"}],
+      "baselines": [{"baseline_id": "fixed_adapter", "runner": "adapter_direct"}],
+      "metrics": [
+        {"metric_name": "invalid_geometry_rate", "operator": "eq", "threshold": 0.0},
+        {"metric_name": "zero_length_geometry_count", "operator": "eq", "threshold": 0}
+      ],
+      "expected_artifact_roles": ["fused_vector"]
+    },
+    {
+      "case_id": "case.poi.semi_real.neighbor_match",
+      "task_kind": "poi",
+      "data_tier": "semi_real",
+      "independence_label": "perturbation_independent",
+      "claim_use": "robustness_claim",
+      "aoi": {"name": "poi-controlled", "bbox": [0, 0, 1, 1]},
+      "sources": [{"source_id": "fixture.poi", "version_token": "freeze-b-fixture"}],
+      "baselines": [{"baseline_id": "fixed_adapter", "runner": "adapter_direct"}],
+      "metrics": [
+        {"metric_name": "invalid_geometry_rate", "operator": "eq", "threshold": 0.0},
+        {"metric_name": "duplicate_geometry_rate", "operator": "lte", "threshold": 0.25}
+      ],
+      "expected_artifact_roles": ["fused_vector"]
+    },
+    {
+      "case_id": "case.building.synthetic.smoke",
+      "task_kind": "building",
+      "data_tier": "synthetic",
+      "independence_label": "algorithm_generated",
+      "claim_use": "smoke_only",
+      "aoi": {"name": "synthetic-smoke", "bbox": [0, 0, 0.01, 0.01]},
+      "sources": [],
+      "baselines": [],
+      "metrics": [],
+      "expected_artifact_roles": ["fused_vector"]
+    }
+  ]
+}

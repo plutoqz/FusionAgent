@@ -10,6 +10,7 @@ from agent.executor import ExecutionContext, WorkflowExecutor
 from kg.inmemory_repository import InMemoryKGRepository
 from schemas.agent import ValidationReport, WorkflowPlan, WorkflowTask, WorkflowTaskInput, WorkflowTaskOutput
 from schemas.fusion import JobType
+from services.artifact_evaluation_service import evaluate_vector_artifact
 
 
 def _write_shapefile(path: Path, frame: gpd.GeoDataFrame) -> Path:
@@ -188,3 +189,24 @@ def test_run_building_fusion_safe_normalizes_invalid_reference_confidence(tmp_pa
 
     assert len(result) == 1
     assert float(result.iloc[0]["confidence"]) == pytest.approx(1.0)
+
+
+def test_safe_building_fusion_golden_metrics_remain_stable(tmp_path: Path) -> None:
+    from adapters.building_adapter import run_building_fusion_safe
+
+    osm_path, ref_path = _build_sample_inputs(tmp_path)
+    output_shp = run_building_fusion_safe(
+        osm_shp=osm_path,
+        ref_shp=ref_path,
+        output_dir=tmp_path / "metric-output",
+        target_crs="EPSG:3857",
+        field_mapping={},
+        debug=False,
+        parameters={"match_similarity_threshold": 0.3},
+    )
+
+    metrics = evaluate_vector_artifact(output_shp, required_fields=["osm_id", "confidence"])
+
+    assert metrics["artifact_validity"] is True
+    assert metrics["invalid_geometry_rate"] == 0.0
+    assert metrics["duplicate_geometry_rate"] <= 0.25

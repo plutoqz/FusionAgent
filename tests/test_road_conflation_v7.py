@@ -6,6 +6,7 @@ import geopandas as gpd
 from shapely.geometry import LineString, MultiLineString
 
 from fusion_algorithms.road_conflation_v7 import RoadConflationV7Config, run_road_conflation_v7
+from services.artifact_evaluation_service import evaluate_vector_artifact
 
 
 def test_run_road_conflation_v7_returns_frame_and_stats() -> None:
@@ -205,3 +206,36 @@ def test_run_road_conflation_v7_accepts_paths_and_multiline_inputs(tmp_path: Pat
     assert set(result.frame.geom_type.unique()) <= {"LineString"}
     assert result.stats["base_segments"] == 2
     assert result.stats["supplement_segments"] == 2
+
+
+def test_road_conflation_v7_golden_metrics_remain_stable(tmp_path: Path) -> None:
+    base = gpd.GeoDataFrame(
+        {"osm_id": [1], "fclass": ["primary"], "name": ["Main Road"]},
+        geometry=[LineString([(0, 0), (10, 0)])],
+        crs="EPSG:3857",
+    )
+    supplement = gpd.GeoDataFrame(
+        {"id": [2], "road_class": ["secondary"]},
+        geometry=[LineString([(0, 30), (10, 30)])],
+        crs="EPSG:3857",
+    )
+    result = run_road_conflation_v7(
+        base,
+        supplement,
+        config=RoadConflationV7Config(
+            target_crs="EPSG:3857",
+            do_split_by_angle=False,
+            max_segment_length=None,
+            enable_dangle_cleanup=False,
+        ),
+    )
+    output_path = tmp_path / "road_v7.gpkg"
+    result.frame.to_file(output_path, driver="GPKG")
+
+    metrics = evaluate_vector_artifact(output_path, required_fields=["fusion_source", "source_layer"])
+
+    assert result.stats["base_segments"] == 1
+    assert result.stats["supplement_segments"] == 1
+    assert metrics["artifact_validity"] is True
+    assert metrics["invalid_geometry_rate"] == 0.0
+    assert metrics["zero_length_geometry_count"] == 0

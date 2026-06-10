@@ -1,0 +1,13 @@
+{
+  "ok": true,
+  "manifest_id": "freeze-b-v1",
+  "case_count": 6,
+  "task_coverage": [
+    "building",
+    "poi",
+    "road",
+    "water_polygon",
+    "waterways"
+  ],
+  "synthetic_claim_violations": []
+}
