@@ -61,6 +61,19 @@ def test_planner_fallback_skips_deprecated_high_score_pattern() -> None:
     assert plan.context["runtime_contract"]["skipped_fallback_patterns"][0]["pattern_id"] == "wp.deprecated.road"
 
 
+def test_planner_fallback_runtime_contract_metadata_does_not_mutate_kg_patterns() -> None:
+    repo = InMemoryKGRepository(patterns=[_deprecated_pattern(), *InMemoryKGRepository().patterns])
+    planner = WorkflowPlanner(repo, FailingProvider())
+
+    planner.create_plan(
+        run_id="run-planner-contract-metadata",
+        job_type=JobType.road,
+        trigger=RunTrigger(type=RunTriggerType.user_query, content="road"),
+    )
+
+    assert all("_runtime_contract_skipped_patterns" not in pattern.metadata for pattern in repo.patterns)
+
+
 def test_planner_finalize_filters_deprecated_alternatives() -> None:
     repo = InMemoryKGRepository()
     planner = WorkflowPlanner(repo, MockLLMProvider())

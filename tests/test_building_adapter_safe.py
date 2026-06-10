@@ -7,6 +7,7 @@ import pytest
 from shapely.geometry import Polygon
 
 from agent.executor import ExecutionContext, WorkflowExecutor
+from kg.inmemory_repository import InMemoryKGRepository
 from schemas.agent import ValidationReport, WorkflowPlan, WorkflowTask, WorkflowTaskInput, WorkflowTaskOutput
 from schemas.fusion import JobType
 
@@ -102,9 +103,8 @@ def test_workflow_executor_falls_back_to_safe_building_algorithm_for_large_input
     osm_path, ref_path = _build_sample_inputs(tmp_path)
     monkeypatch.setenv("GEOFUSION_BUILDING_LEGACY_MAX_FEATURES", "1")
 
-    class _DummyRepo:
-        @staticmethod
-        def get_alternative_algorithms(_algorithm_id: str, limit: int = 3) -> list[object]:
+    class _DummyRepo(InMemoryKGRepository):
+        def get_alternative_algorithms(self, _algorithm_id: str, limit: int = 3) -> list[object]:
             return []
 
     plan = WorkflowPlan(

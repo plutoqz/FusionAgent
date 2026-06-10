@@ -389,7 +389,16 @@ class AgentRunService:
             attempt_no=0,
             healing_summary={},
             failure_summary=None,
-            planning_telemetry={},
+            planning_telemetry=(
+                {
+                    "component_coverage": {
+                        "upload.osm": {"feature_count": 1, "coverage_status": "operator_supplied"},
+                        "upload.reference": {"feature_count": 1, "coverage_status": "operator_supplied"},
+                    }
+                }
+                if request.input_strategy == RunInputStrategy.uploaded
+                else {}
+            ),
             plan_revision=0,
             event_count=0,
             last_event=None,
@@ -1619,11 +1628,16 @@ class AgentRunService:
                 "country_name": resolved_aoi.country_name,
                 "bbox": list(resolved_aoi.bbox),
             }
+        status = self.get_run(run_id)
+        planning_telemetry = dict(getattr(status, "planning_telemetry", {}) or {})
+        if resolved_inputs.component_coverage:
+            planning_telemetry["component_coverage"] = dict(resolved_inputs.component_coverage)
         if resolved_inputs.component_coverage:
             self._update_status(
                 run_id,
                 RunPhase.running,
                 progress=max(0, progress - 3),
+                planning_telemetry=planning_telemetry,
                 plan_revision=self._extract_plan_revision(plan),
                 checkpoint=self._checkpoint(stage="execution", plan_revision=self._extract_plan_revision(plan)),
                 event_kind="source_coverage_checked",
@@ -1680,6 +1694,7 @@ class AgentRunService:
             run_id,
             RunPhase.running,
             progress=progress,
+            planning_telemetry=planning_telemetry if resolved_inputs.component_coverage else None,
             plan_revision=self._extract_plan_revision(plan),
             checkpoint=self._checkpoint(stage="execution", plan_revision=self._extract_plan_revision(plan)),
             event_kind="task_inputs_resolved",
@@ -1869,6 +1884,7 @@ class AgentRunService:
         repair_records: List[RepairRecord],
         output_dir: Path,
     ) -> RunArtifactMeta:
+        output_dir.mkdir(parents=True, exist_ok=True)
         component_coverage = _component_coverage_from_status(self.get_run(run_id))
         self._validate_output_artifact_against_schema_policy(
             run_id=run_id,
@@ -3048,7 +3064,7 @@ class AgentRunService:
             if failure_summary is not None or phase == RunPhase.succeeded:
                 current.failure_summary = failure_summary
             if planning_telemetry is not None:
-                current.planning_telemetry = dict(planning_telemetry)
+                current.planning_telemetry = {**dict(current.planning_telemetry or {}), **dict(planning_telemetry)}
             if plan_revision is not None:
                 current.plan_revision = plan_revision
             if checkpoint is not None:

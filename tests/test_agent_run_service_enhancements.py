@@ -9,6 +9,7 @@ import pytest
 from shapely.geometry import LineString, box
 
 from agent.executor import ExecutionContext, WorkflowExecutor
+from kg.inmemory_repository import InMemoryKGRepository
 from schemas.agent import (
     RepairRecord,
     RunCreateRequest,
@@ -136,12 +137,9 @@ def _build_plan(
     )
 
 
-class _NoHealingKG:
+class _NoHealingKG(InMemoryKGRepository):
     def get_alternative_algorithms(self, *_args, **_kwargs):
         return []
-
-    def get_algorithm(self, *_args, **_kwargs):
-        return None
 
     def find_transform_path(self, *_args, **_kwargs):
         return None
@@ -2902,7 +2900,12 @@ def test_agent_run_service_copies_planning_telemetry_to_status_and_audit(tmp_pat
 
     latest = service.get_run(status.run_id)
     assert latest is not None
-    assert latest.planning_telemetry == plan.context["planning_telemetry"]
+    for key, value in plan.context["planning_telemetry"].items():
+        assert latest.planning_telemetry[key] == value
+    assert latest.planning_telemetry["component_coverage"] == {
+        "upload.osm": {"feature_count": 1, "coverage_status": "operator_supplied"},
+        "upload.reference": {"feature_count": 1, "coverage_status": "operator_supplied"},
+    }
     audit_events = service.get_audit_events(status.run_id)
     plan_created = next(event for event in audit_events if event.kind == "plan_created")
     assert plan_created.details["planning_telemetry"] == plan.context["planning_telemetry"]

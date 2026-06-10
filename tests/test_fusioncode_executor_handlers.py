@@ -2,8 +2,12 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import geopandas as gpd
+from shapely.geometry import Polygon
+
 from agent.executor import ExecutionContext
 from agent.tooling import build_default_tool_registry
+from adapters.fusioncode_polygon_adapter import run_water_polygon_priority_merge
 from schemas.fusion import JobType
 
 
@@ -36,3 +40,32 @@ def test_tool_registry_exposes_fusioncode_handlers() -> None:
     }
     for algorithm_id, handler_name in expected.items():
         assert registry.require(algorithm_id).handler_name == handler_name
+
+
+def test_water_polygon_priority_merge_emits_standard_source_lineage(tmp_path: Path) -> None:
+    base_path = tmp_path / "base.gpkg"
+    target_path = tmp_path / "target.gpkg"
+    gpd.GeoDataFrame(
+        {"name": ["base-water"]},
+        geometry=[Polygon([(0, 0), (0, 1), (1, 1), (1, 0)])],
+        crs="EPSG:4326",
+    ).to_file(base_path, driver="GPKG")
+    gpd.GeoDataFrame(
+        {"name": ["target-water"]},
+        geometry=[Polygon([(2, 2), (2, 3), (3, 3), (3, 2)])],
+        crs="EPSG:4326",
+    ).to_file(target_path, driver="GPKG")
+    context = ExecutionContext(
+        run_id="run-water-lineage",
+        job_type=JobType.water,
+        osm_shp=base_path,
+        ref_shp=target_path,
+        output_dir=tmp_path / "output",
+        target_crs="EPSG:4326",
+        active_step=1,
+    )
+
+    output_path = run_water_polygon_priority_merge(context)
+
+    result = gpd.read_file(output_path)
+    assert set(result["source_id"]) == {"raw.osm.water", "raw.hydrolakes.water"}

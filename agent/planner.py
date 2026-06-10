@@ -4,6 +4,7 @@ import json
 import logging
 import time
 import uuid
+from dataclasses import replace
 from threading import Lock
 from typing import Any, Dict, List, Optional
 
@@ -125,19 +126,10 @@ class WorkflowPlanner:
         if preferred:
             for pattern in patterns:
                 if pattern.pattern_id == preferred:
-                    pattern.metadata = {
-                        **pattern.metadata,
-                        "_runtime_contract_skipped_patterns": skipped_patterns,
-                    }
-                    return pattern
+                    return self._pattern_with_runtime_contract_metadata(pattern, skipped_patterns)
         if not patterns:
             raise ValueError(f"No runtime-selectable workflow pattern found for job_type={job_type.value}")
-        pattern = patterns[0]
-        pattern.metadata = {
-            **pattern.metadata,
-            "_runtime_contract_skipped_patterns": skipped_patterns,
-        }
-        return pattern
+        return self._pattern_with_runtime_contract_metadata(patterns[0], skipped_patterns)
 
     def _select_fallback_pattern_from_context(
         self,
@@ -166,16 +158,25 @@ class WorkflowPlanner:
                     continue
                 decision = self.runtime_contract.evaluate_pattern(pattern, surface="planner_fallback")
                 if decision.allowed:
-                    pattern.metadata = {
-                        **pattern.metadata,
-                        "_runtime_contract_skipped_patterns": skipped_patterns,
-                    }
-                    return pattern
+                    return self._pattern_with_runtime_contract_metadata(pattern, skipped_patterns)
                 skipped_patterns.append({"pattern_id": pattern_id, **decision.to_dict()})
         return self._select_fallback_pattern(
             job_type=job_type,
             disaster_type=disaster_type,
             preferred_pattern_id=preferred_pattern_id,
+        )
+
+    @staticmethod
+    def _pattern_with_runtime_contract_metadata(
+        pattern: WorkflowPatternNode,
+        skipped_patterns: list[dict[str, object]],
+    ) -> WorkflowPatternNode:
+        return replace(
+            pattern,
+            metadata={
+                **dict(pattern.metadata or {}),
+                "_runtime_contract_skipped_patterns": list(skipped_patterns),
+            },
         )
 
     @staticmethod

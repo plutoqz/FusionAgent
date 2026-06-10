@@ -21,9 +21,15 @@ def test_specs_readme_lists_new_thesis_live_docs() -> None:
     assert "2026-05-13-thesis-capability-handshake.md" in text
 
 
-def test_completed_master_plan_is_archived_with_no_active_plan_left() -> None:
+def test_completed_master_plan_is_archived_and_only_roadmap_plans_are_active() -> None:
     plans_root = Path("docs/superpowers/plans")
     active_plans = sorted(path.name for path in plans_root.glob("*.md"))
 
-    assert active_plans == []
+    assert active_plans == [
+        "2026-06-10-plan-a-algorithm-trust-runtime-contract-freeze.md",
+        "2026-06-10-plan-b-benchmark-protocol-quality-evaluation-freeze.md",
+        "2026-06-10-plan-c-architecture-mvp-ablation-harness.md",
+        "2026-06-10-plan-d-freeze-c-evidence-thesis-closure.md",
+        "2026-06-10-plan-e-windows-runtime-operability-long-run.md",
+    ]
     assert (plans_root / "done" / "2026-05-13-fusionagent-master-execution-plan.md").exists()

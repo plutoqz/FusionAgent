@@ -113,7 +113,7 @@ def _write_minimal_polygon_shapefile(path: Path) -> Path:
     from shapely.geometry import Polygon
 
     frame = geopandas.GeoDataFrame(
-        {"fid": [1]},
+        {"fid": [1], "source_id": ["raw.osm.water"]},
         geometry=[Polygon([(0, 0), (0, 0.01), (0.01, 0.01), (0.01, 0)])],
         crs="EPSG:4326",
     )
@@ -125,7 +125,7 @@ def _write_minimal_point_shapefile(path: Path) -> Path:
     from shapely.geometry import Point
 
     frame = geopandas.GeoDataFrame(
-        {"fid": [1]},
+        {"fid": [1], "source_id": ["raw.osm.poi"], "name": ["Clinic A"]},
         geometry=[Point(36.8, -1.3)],
         crs="EPSG:4326",
     )
