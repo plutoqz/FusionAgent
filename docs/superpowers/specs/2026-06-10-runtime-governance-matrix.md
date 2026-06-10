@@ -1,0 +1,16 @@
+# Runtime Governance Matrix
+
+This matrix is the Freeze A governance snapshot. `gap_severity` uses `none`, `fail_soft`, or `unguarded`.
+
+| contract_surface | gap_severity | allowed_states | blocked_states | current_behavior | target_behavior | rejection_code | fallback_behavior | audit_event | regression_test | freeze_line |
+|---|---|---|---|---|---|---|---|---|---|---|
+| KG seed and manifest | fail_soft | runtime_candidate, runtime_supported, bounded_supported | deprecated, reservation_only, selectable_now=false | mixed metadata existed before Plan A | all registered algorithms explicit | MISSING_RUNTIME_STATUS | fail closed | freeze_a_runtime_contract_check | test_kg_seed_manifest | Freeze A |
+| ToolRegistry | none | registered executable tools | missing tools, reserved tools | registry miss raises | unchanged plus KG runtime check | UNKNOWN_TOOL, RESERVED_TOOL | no fallback | tool_contract_report | test_tool_registry | Freeze A |
+| Validator | fail_soft | runtime-selectable algorithms and sources | deprecated, reserved, unknown, unselectable | marked invalid | rejected in enforce mode | VALIDATION_REJECTED | no execution | validation_rejected | test_workflow_validator | Freeze A |
+| Planner fallback | unguarded | runtime-selectable patterns | patterns containing blocked algorithms | selected top KG pattern | skip blocked pattern | PATTERN_CONTAINS_BLOCKED_ALGORITHM | next allowed pattern | runtime_contract.skipped_fallback_patterns | test_planner_runtime_contract | Freeze A |
+| Planner alternatives | fail_soft | runtime-selectable alternatives | deprecated, reserved, unknown | injected KG alternatives | filter alternatives | DEPRECATED_ALGORITHM | skip alternative | runtime_contract.skipped_alternatives | test_planner_runtime_contract | Freeze A |
+| Executor primary dispatch | fail_soft | runtime-selectable registered tools | blocked KG state or missing registry | registry checked only | registry plus KG state checked | DEPRECATED_ALGORITHM, UNKNOWN_TOOL | healing only after safe failure | repair_records | test_repair_audit | Freeze A |
+| Executor healing | fail_soft | runtime-selectable alternatives | blocked alternatives | try loop | filter and record skipped actions | alternative_algorithm_contract_rejected | transform insertion after skipped alternatives | repair_records.policy_source | test_repair_audit | Freeze A |
+| Semantic parameter binding | unguarded | parameters in AlgorithmParameterSpec | unsupported params | task-kind based injection | spec-gated injection | PARAM_UNSUPPORTED_BY_ALGORITHM | skip param | source semantic contract evidence | test_semantic_parameter_binding | Freeze A |
+| Recovery service | unguarded | stale runs with still-selectable plan algorithms | stale plans using blocked algorithms | phase/checkpoint/failure only | manual review on algorithm drift | DEPRECATED_ALGORITHM | no auto redispatch | algorithm_state | test_run_recovery_service | Freeze A |
+| Freeze evidence | fail_soft | current seed/registry/settings | mutated seed or outputs | scattered commands | single script report | FREEZE_A_CONTRACT_FAILED | stop experiment session | freeze_a_runtime_contract_check.json | test_freeze_a_runtime_contract_check | Freeze A |
