@@ -119,11 +119,13 @@ Governance risks:
 - P1: Neo4j live graph differs from the seed/manifest but the operator cannot see the difference.
 - P1: preferred pattern or old plan replay bypasses current selectability rules.
 - P1: healing alternatives include algorithms that normal planning would not allow.
+- P1: recovery service may classify old runs as recoverable when their planned algorithms are no longer selectable under the new state machine.
 - P2: output schema policy, QoS policy, output requirement, and scenario profile remain advisory JSON rather than explicit constraints.
 
 Runtime Governance Matrix fields:
 
 - `contract_surface`: seed, manifest, Neo4j, ToolRegistry, Planner, Validator, Executor, RepairStrategy, QualityGate.
+- `gap_severity`: one of `none`, `fail_soft`, `unguarded`.
 - `allowed_states`
 - `blocked_states`
 - `current_behavior`
@@ -134,6 +136,12 @@ Runtime Governance Matrix fields:
 - `regression_test`
 - `freeze_line`
 
+`gap_severity` definitions:
+
+- `none`: current behavior already enforces the target contract.
+- `fail_soft`: current behavior detects or records the violation but does not block execution or recovery.
+- `unguarded`: current behavior has no explicit detection at this surface.
+
 Closure for Workstream 2:
 
 1. The runtime state machine is documented and applied consistently to algorithms, sources, workflow patterns, preferred patterns, fallback patterns, and healing alternatives.
@@ -143,7 +151,8 @@ Closure for Workstream 2:
 5. Preferred pattern replay and old plan replay are checked against current runtime state before execution.
 6. Neo4j stale graph inspection reports managed-node drift and gives a reset or re-bootstrap instruction.
 7. RepairStrategy-driven healing records the policy source and decision basis at decision time.
-8. Thesis draft text exists for runtime contract, fail-closed semantics, and the distinction between LLM planning quality and runtime recovery.
+8. Recovery classification checks the current algorithm state before declaring a stale run automatically recoverable, or records that algorithm-state drift requires manual review.
+9. Thesis draft text exists for runtime contract, fail-closed semantics, and the distinction between LLM planning quality and runtime recovery.
 
 ### Workstream 3: Fusion Quality Evaluation
 
@@ -282,6 +291,13 @@ Core claims:
 - C4: Fusion outputs can be evaluated with task-specific, reproducible quality evidence rather than completion-only success.
 - C5: The architecture preserves an extension contract for future capabilities without promoting unimplemented tasks into current claims.
 
+Scenario-layer role:
+
+- Core ablation tables are single-run/task-family experiments by default.
+- Scenario-level orchestration may support operator inspection, long-running Windows usability, and disaster-response demonstrations.
+- Scenario-level results enter thesis core claims only if Freeze B explicitly registers scenario cases, metrics, and baselines.
+- Otherwise scenario evidence is reported as auxiliary system evidence rather than as part of A0/A1/A2 comparisons.
+
 Evidence rules:
 
 - Every result table must cite a Freeze C experiment manifest.
@@ -363,6 +379,10 @@ Required regression suite:
 
 Freeze C integrity checks should hash file contents, not depend on timestamps. Any intentional rerun creates a new experiment id and a new manifest rather than modifying frozen evidence in place.
 
+Regression carry-forward rule:
+
+Before any experiment session that produces Freeze B or Freeze C evidence, the operator must run all active freeze regression suites and confirm they pass. A helper script, Makefile target, or equivalent single command should make this hard to skip.
+
 ## Ablation Design Notes
 
 The A2 variants must separate LLM planning quality from runtime constraint and fallback behavior.
@@ -421,6 +441,12 @@ P0 must be expressed as concrete scenarios:
 - Scenario B: Validator marks an invalid plan but does not reject it before execution.
 - Scenario C: Neo4j contains stale managed nodes or step templates that are absent from the current seed.
 
+`healing_source_consistency` calculation:
+
+- Compare `set(plan_task.alternatives)` with `set(kg_algorithm.alternatives) ∩ set(tool_registry.algorithm_ids)`.
+- Record both directions of drift: alternatives present in plan but absent from KG, and alternatives present in KG/tool registry but absent from plan.
+- Deprecated, reserved, or unselectable alternatives are counted as violations even if they appear in both sources.
+
 ## Algorithm Audit Protocol
 
 The algorithm audit must start from entry points, not from claims. For each algorithm family, enumerate every path that can call it:
@@ -435,7 +461,8 @@ The algorithm audit must start from entry points, not from claims. For each algo
 - adapter function
 - compatibility wrapper
 - benchmark script
-- old run plan replay
+- `semantic_parameter_binding.bind_source_semantic_parameters`
+- historical run plan references in Neo4j `WorkflowInstance` nodes or evidence manifests. This is a read-only reference risk, not an independent execution path, but stale references can confuse retrieval, inspection, or thesis evidence.
 - healing fallback
 - preferred pattern request
 
@@ -527,6 +554,21 @@ Recommended plan split:
 - Plan B: Benchmark Protocol plus Quality Evaluation Freeze.
 - Plan C: Architecture MVP plus Ablation Harness.
 - Plan D: Freeze C Evidence plus Thesis Closure.
+
+Plan dependencies:
+
+```text
+Plan A: Workstream 1+2 -> Freeze A
+    |
+    +--> Plan B: Workstream 3 -> Freeze B
+    |
+    +--> Plan C: Workstream 4 MVP + ablation harness
+             |
+             v
+Plan D: Workstream 5 -> Freeze C, after Freeze B and the required Plan C MVP evidence are stable
+```
+
+Plan B and Plan C can run partly in parallel after Freeze A. Plan D should not start producing final thesis evidence until both benchmark definitions and architecture-MVP evidence are stable.
 
 ## Non-Goals
 
