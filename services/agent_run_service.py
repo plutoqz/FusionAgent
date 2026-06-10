@@ -112,6 +112,56 @@ def _component_coverage_from_status(status: RunStatus | None) -> dict[str, objec
     return {}
 
 
+def _build_durable_learning_condition_metadata(
+    *,
+    task_kind: str,
+    requested_bbox: list[float] | tuple[float, float, float, float] | None,
+    component_coverage: dict[str, object] | None,
+    failure_category: str | None,
+    quality_gate_accepted: bool | None,
+) -> dict[str, object]:
+    return {
+        "task_kind": task_kind,
+        "aoi_size_bucket": _aoi_size_bucket(requested_bbox),
+        "source_coverage_bucket": _source_coverage_bucket(component_coverage or {}),
+        "failure_category": failure_category or "none",
+        "quality_outcome": (
+            "quality_gate_passed"
+            if quality_gate_accepted is True
+            else "quality_gate_failed"
+            if quality_gate_accepted is False
+            else "quality_unknown"
+        ),
+        "quality_gate_accepted": quality_gate_accepted,
+    }
+
+
+def _aoi_size_bucket(bbox: list[float] | tuple[float, float, float, float] | None) -> str:
+    if bbox is None or len(bbox) != 4:
+        return "unknown"
+    minx, miny, maxx, maxy = [float(value) for value in bbox]
+    area = max(0.0, maxx - minx) * max(0.0, maxy - miny)
+    if area <= 0.05:
+        return "small"
+    if area <= 1.0:
+        return "medium"
+    return "large"
+
+
+def _source_coverage_bucket(component_coverage: dict[str, object]) -> str:
+    if not component_coverage:
+        return "unknown"
+    statuses = []
+    for payload in component_coverage.values():
+        if isinstance(payload, dict):
+            statuses.append(str(payload.get("coverage_status") or "unknown"))
+    if statuses and all(status == "available" for status in statuses):
+        return "complete"
+    if any(status == "available" for status in statuses):
+        return "partial"
+    return "missing"
+
+
 def build_run_inspection_digest(
     *,
     current_phase: str | None,
@@ -2878,6 +2928,21 @@ class AgentRunService:
             }
             quality_metadata = self._durable_quality_gate_metadata(run_id)
             durable_metadata.update(quality_metadata)
+            status = self.get_run(run_id)
+            failure_details = classify_failure_details(error=failure_reason, reason_code=failure_reason)
+            durable_metadata.update(
+                _build_durable_learning_condition_metadata(
+                    task_kind=_task_kind_for_request(request).value,
+                    requested_bbox=self._parse_bbox(request.trigger.spatial_extent),
+                    component_coverage=_component_coverage_from_status(status),
+                    failure_category=(failure_details.failure_category if failure_reason else None),
+                    quality_gate_accepted=(
+                        bool(quality_metadata["quality_gate_accepted"])
+                        if "quality_gate_accepted" in quality_metadata
+                        else None
+                    ),
+                )
+            )
             latency_seconds = self._durable_latency_seconds(run_id)
             if latency_seconds is not None:
                 durable_metadata["latency_seconds"] = latency_seconds

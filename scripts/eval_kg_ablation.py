@@ -10,10 +10,11 @@ from typing import Any
 
 
 SUPPORTED_VARIANTS: tuple[tuple[str, str], ...] = (
-    ("kg_llm", "current full system"),
-    ("kg_top_pattern", "KG skeleton fallback"),
-    ("no_schema_hints", "removes data/source/parameter/schema hints"),
-    ("no_kg_llm", "experimental baseline"),
+    ("A0", "unconstrained LLM planning baseline"),
+    ("A1", "KG retrieval context without fail-closed validation"),
+    ("A2a", "KG context plus Validator report-only"),
+    ("A2b", "KG context plus Validator fail-closed plus KG fallback"),
+    ("A2c", "A2b plus policy and healing governance"),
 )
 REQUIRED_METRIC_FIELDS: tuple[str, ...] = (
     "planning_valid",
@@ -94,6 +95,10 @@ def summarize_ablation_results(rows: list[dict[str, Any]]) -> dict[str, Any]:
                     "unknown_algorithm_rate": None,
                     "execution_success_rate": None,
                     "average_grounding_score": None,
+                    "validator_rejection_rate": None,
+                    "kg_fallback_rate": None,
+                    "llm_plan_valid_before_fallback_rate": None,
+                    "average_fallback_plan_quality_delta": None,
                 }
             )
             continue
@@ -102,6 +107,16 @@ def summarize_ablation_results(rows: list[dict[str, Any]]) -> dict[str, Any]:
         unknown_counts = [_unknown_algorithm_count(row["unknown_algorithms"]) for row in variant_rows]
         execution_values = [bool(row["execution_success"]) for row in variant_rows]
         grounding_values = [float(row["grounding_score"]) for row in variant_rows]
+        validator_values = [bool(row.get("validator_rejected", False)) for row in variant_rows]
+        fallback_values = [bool(row.get("kg_fallback_used", False)) for row in variant_rows]
+        pre_fallback_values = [
+            bool(row.get("llm_plan_valid_before_fallback", row["planning_valid"])) for row in variant_rows
+        ]
+        quality_delta_values = [
+            float(row.get("fallback_plan_quality_delta", 0.0))
+            for row in variant_rows
+            if row.get("fallback_plan_quality_delta", 0.0) is not None
+        ]
 
         variants.append(
             {
@@ -113,6 +128,10 @@ def summarize_ablation_results(rows: list[dict[str, Any]]) -> dict[str, Any]:
                 "unknown_algorithm_rate": _rate([count > 0 for count in unknown_counts]),
                 "execution_success_rate": _rate(execution_values),
                 "average_grounding_score": _average(grounding_values),
+                "validator_rejection_rate": _rate(validator_values),
+                "kg_fallback_rate": _rate(fallback_values),
+                "llm_plan_valid_before_fallback_rate": _rate(pre_fallback_values),
+                "average_fallback_plan_quality_delta": _average(quality_delta_values),
             }
         )
 
