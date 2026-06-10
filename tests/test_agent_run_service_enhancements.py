@@ -1333,6 +1333,83 @@ def test_agent_run_service_passes_plan_quality_policy_id_to_quality_gate(tmp_pat
     assert captured["quality_policy_id"] == "quality.default.building.v1"
 
 
+def test_agent_run_service_passes_contract_and_country_baselines_to_quality_gate(tmp_path: Path) -> None:
+    captured: dict[str, object] = {}
+
+    class FakeQualityGate:
+        def evaluate(self, **kwargs):
+            captured.update(kwargs)
+            return QualityGateReport(
+                accepted=True,
+                task_kind=kwargs["task_kind"],
+                artifact_path=str(kwargs["artifact_path"]),
+                checks={},
+                metrics={},
+                failure_reasons=[],
+                policy_id=kwargs.get("quality_policy_id"),
+            )
+
+    service = AgentRunService(base_dir=tmp_path / "runs")
+    service.quality_gate_service = FakeQualityGate()
+    run_id = "run-contract"
+    request = RunCreateRequest(
+        job_type=JobType.road,
+        trigger=RunTrigger(
+            type=RunTriggerType.user_query,
+            content="road",
+            spatial_extent="bbox(80.0,26.0,81.0,27.0)",
+        ),
+        target_crs=None,
+        field_mapping={},
+        debug=False,
+    )
+    _seed_run_status(service, run_id, request)
+    plan = _build_plan(workflow_id="wf_quality_contract", revision=1, algorithm_id="algo.fusion.road.conflation.v7")
+    plan.context["intent"]["job_type"] = "road"
+    plan.context["intent"]["resolved_aoi"] = {
+        "query": "Kathmandu, Nepal",
+        "display_name": "Kathmandu, Nepal",
+        "country_name": "Nepal",
+        "country_code": "np",
+        "bbox": [80.0, 26.0, 81.0, 27.0],
+        "confidence": 1.0,
+        "selection_reason": "test",
+    }
+    plan.tasks[0].name = "road_fusion"
+    plan.tasks[0].description = "road fusion"
+    plan.tasks[0].input.data_type_id = "dt.road.bundle"
+    plan.tasks[0].output.data_type_id = "dt.road.fused"
+    output_dir = tmp_path / "output-contract"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    fused_gpkg = output_dir / "road.gpkg"
+    gpd.GeoDataFrame(
+        {
+            "fusion_source": ["base_road_network"],
+            "match_role": ["base"],
+            "road_class": ["primary"],
+            "source_layer": ["base"],
+            "name": [""],
+            "osm_name": [""],
+            "road_name": [""],
+        },
+        geometry=[LineString([(0, 0), (1, 0)])],
+        crs="EPSG:4326",
+    ).to_file(fused_gpkg, driver="GPKG")
+
+    service.run_writeback_stage(
+        run_id=run_id,
+        request=request,
+        plan=plan,
+        fused_shp=fused_gpkg,
+        repair_records=[],
+        output_dir=output_dir,
+    )
+
+    assert captured["contract_id"] == "contract.road.fused.v1"
+    assert captured["required_fields"] == ["geometry"]
+    assert captured["source_expected_null_rates"]["name"] == 0.95
+
+
 def test_record_feedback_includes_quality_and_latency_metadata(tmp_path: Path) -> None:
     service = AgentRunService(base_dir=tmp_path / "runs")
     request = RunCreateRequest(

@@ -24,7 +24,8 @@ def test_default_road_quality_policy_contains_line_topology_checks() -> None:
 
     assert checks["zero_length_geometry_count"].operator == "eq"
     assert checks["zero_length_geometry_count"].threshold == 0
-    assert checks["dangle_endpoint_count"].operator == "lte"
+    assert checks["dangle_endpoint_rate_per_100km"].operator == "lte"
+    assert checks["dangle_endpoint_rate_per_100km"].threshold == 500.0
 
 
 def test_default_water_polygon_quality_policy_contains_polygon_topology_checks() -> None:
@@ -44,8 +45,8 @@ def test_default_waterways_quality_policy_contains_line_topology_checks() -> Non
 
     assert checks["zero_length_geometry_count"].operator == "eq"
     assert checks["zero_length_geometry_count"].threshold == 0
-    assert checks["dangle_endpoint_count"].operator == "lte"
-    assert checks["dangle_endpoint_count"].threshold == 2
+    assert checks["dangle_endpoint_rate_per_100km"].operator == "lte"
+    assert checks["dangle_endpoint_rate_per_100km"].threshold == 500.0
 
 
 def test_default_poi_quality_policy_omits_topology_hard_checks() -> None:
@@ -54,6 +55,6 @@ def test_default_poi_quality_policy_omits_topology_hard_checks() -> None:
     check_ids = {check.check_id for check in policy.checks}
 
     assert "zero_length_geometry_count" not in check_ids
-    assert "dangle_endpoint_count" not in check_ids
+    assert "dangle_endpoint_rate_per_100km" not in check_ids
     assert "self_intersection_count" not in check_ids
     assert "sliver_polygon_count" not in check_ids

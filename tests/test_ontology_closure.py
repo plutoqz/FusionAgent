@@ -140,6 +140,19 @@ def test_poi_seed_records_exist() -> None:
     assert poi_source.metadata["component_source_ids"] == ["raw.osm.poi", "raw.gns.poi"]
 
 
+def test_road_output_schema_policy_lists_name_and_lineage_fields() -> None:
+    policy = OUTPUT_SCHEMA_POLICIES["dt.road.fused"]
+
+    assert policy.policy_id == "osp.road.fused.v1"
+    assert policy.required_fields == ["geometry"]
+    assert "name" in policy.optional_fields
+    assert "osm_name" in policy.optional_fields
+    assert "road_name" in policy.optional_fields
+    assert "fusion_source" in policy.optional_fields
+    assert "match_role" in policy.optional_fields
+    assert policy.metadata["quality_contract_id"] == "contract.road.fused.v1"
+
+
 def test_targets_2_6_default_sources_are_remote_capable() -> None:
     from kg.source_catalog import get_catalog_bundle_spec
 

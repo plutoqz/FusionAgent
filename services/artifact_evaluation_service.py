@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any
 
 import geopandas as gpd
+import pandas as pd
 from shapely.validation import explain_validity
 
 from services.kg_path_trace_service import build_kg_path_trace
@@ -38,6 +39,7 @@ def evaluate_vector_artifact(
         metrics["aoi_consistency"] = _aoi_consistency(metrics.get("bbox"), requested_bbox)
     metrics.update(_geometry_measurements(frame))
     metrics.update(_geometry_quality_metrics(frame, sliver_area_threshold_sq_m=sliver_area_threshold_sq_m))
+    metrics.update(_field_quality_metrics(frame))
     return metrics
 
 
@@ -47,6 +49,35 @@ def _has_required_field(*, field: str, frame: gpd.GeoDataFrame, artifact_path: P
     if field in frame.columns:
         return True
     return field == "fid" and artifact_path.suffix.lower() == ".gpkg"
+
+
+_PSEUDO_EMPTY_STRINGS = {"", "nan", "none", "<na>", "null"}
+
+
+def _semantic_null_mask(series: Any) -> Any:
+    values = series.astype("object")
+    missing = values.map(pd.isna)
+    text = values.fillna("").astype(str).str.strip().str.casefold()
+    return missing | text.isin(_PSEUDO_EMPTY_STRINGS)
+
+
+def _field_quality_metrics(frame: gpd.GeoDataFrame) -> dict[str, Any]:
+    field_null_rates: dict[str, float] = {}
+    field_nonempty_counts: dict[str, int] = {}
+    total = int(len(frame))
+    for column in frame.columns:
+        if column == frame.geometry.name:
+            continue
+        null_mask = _semantic_null_mask(frame[column])
+        null_count = int(null_mask.sum())
+        field_null_rates[column] = null_count / total if total else 0.0
+        field_nonempty_counts[column] = total - null_count
+    flattened = {f"{column}_null_rate": value for column, value in field_null_rates.items()}
+    return {
+        "field_null_rates": field_null_rates,
+        "field_nonempty_counts": field_nonempty_counts,
+        **flattened,
+    }
 
 
 def _aoi_consistency(artifact_bbox: list[float] | None, requested_bbox) -> dict[str, Any]:
@@ -149,6 +180,10 @@ def _geometry_quality_metrics(
             "self_intersection_count": 0,
             "sliver_polygon_count": 0,
             "dangle_endpoint_count": 0,
+            "dangle_endpoint_rate_per_100km": 0.0,
+            "overlap_pair_count": 0,
+            "overlap_area_sq_m": 0.0,
+            "overlap_area_rate": 0.0,
         }
     geometries = [geom for geom in frame.geometry if geom is not None]
     total = len(geometries)
@@ -168,7 +203,7 @@ def _topology_quality_metrics(
     frame: gpd.GeoDataFrame,
     *,
     sliver_area_threshold_sq_m: float = _DEFAULT_SLIVER_AREA_THRESHOLD_SQ_M,
-) -> dict[str, int]:
+) -> dict[str, Any]:
     measured = frame
     if measured.crs is not None and measured.crs.is_geographic:
         measured = measured.to_crs("EPSG:3857")
@@ -188,11 +223,66 @@ def _topology_quality_metrics(
             if polygon.is_valid and polygon.area < sliver_area_threshold_sq_m:
                 sliver_polygon_count += 1
 
+    overlap_metrics = _polygon_overlap_metrics(measured)
+    total_length_km = _line_length_km(measured)
+    dangle_endpoint_count = sum(1 for count in dangle_endpoints.values() if count == 1)
+
     return {
         "zero_length_geometry_count": zero_length_geometry_count,
         "self_intersection_count": _self_intersection_count(frame),
         "sliver_polygon_count": sliver_polygon_count,
-        "dangle_endpoint_count": sum(1 for count in dangle_endpoints.values() if count == 1),
+        "dangle_endpoint_count": dangle_endpoint_count,
+        "dangle_endpoint_rate_per_100km": (dangle_endpoint_count / total_length_km * 100.0)
+        if total_length_km > 0
+        else 0.0,
+        **overlap_metrics,
+    }
+
+
+def _line_length_km(frame: gpd.GeoDataFrame) -> float:
+    total = 0.0
+    for geom in frame.geometry:
+        for line in _line_parts(geom):
+            total += float(line.length)
+    return total / 1000.0
+
+
+def _polygon_overlap_metrics(frame: gpd.GeoDataFrame) -> dict[str, float | int]:
+    polygons = []
+    for index, geom in enumerate(frame.geometry):
+        for polygon in _polygon_parts(geom):
+            if polygon.is_empty or not polygon.is_valid:
+                continue
+            polygons.append((index, polygon))
+    if not polygons:
+        return {"overlap_pair_count": 0, "overlap_area_sq_m": 0.0, "overlap_area_rate": 0.0}
+
+    polygon_frame = gpd.GeoDataFrame(
+        {"_source_index": [item[0] for item in polygons]},
+        geometry=[item[1] for item in polygons],
+        crs=frame.crs,
+    )
+    total_area = float(polygon_frame.geometry.area.sum())
+    pair_count = 0
+    overlap_area = 0.0
+    spatial_index = polygon_frame.sindex
+    for left_pos, left in enumerate(polygon_frame.geometry):
+        for right_pos in spatial_index.intersection(left.bounds):
+            right_pos = int(right_pos)
+            if right_pos <= left_pos:
+                continue
+            right = polygon_frame.geometry.iloc[right_pos]
+            if not left.intersects(right):
+                continue
+            area = float(left.intersection(right).area)
+            if area <= 0:
+                continue
+            pair_count += 1
+            overlap_area += area
+    return {
+        "overlap_pair_count": pair_count,
+        "overlap_area_sq_m": overlap_area,
+        "overlap_area_rate": overlap_area / total_area if total_area > 0 else 0.0,
     }
 
 

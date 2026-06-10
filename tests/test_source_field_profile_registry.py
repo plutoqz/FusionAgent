@@ -29,3 +29,61 @@ def test_registry_lists_theme_profile_ids() -> None:
 
     assert "fields.building.osm" in registry.profile_ids_for_theme("building")
     assert "fields.poi.gns" in registry.profile_ids_for_theme("poi")
+
+
+def test_registry_resolves_country_specific_expected_null_rates() -> None:
+    registry = SourceFieldProfileRegistry()
+
+    profile = registry.resolve("fields.road.osm", country_code="npl")
+
+    assert profile.profile_id == "fields.road.osm.npl"
+    assert profile.expected_null_rates["name"] == 0.95
+    assert profile.provider_probe_order["name"] == ["name", "ref"]
+
+
+def test_registry_falls_back_to_provider_profile_when_country_override_is_absent() -> None:
+    registry = SourceFieldProfileRegistry()
+
+    profile = registry.resolve("fields.road.osm", country_code="pk")
+
+    assert profile.profile_id == "fields.road.osm"
+    assert profile.expected_null_rates["name"] == 0.80
+
+
+def test_registry_accepts_alpha_2_country_code_alias_for_country_overrides() -> None:
+    registry = SourceFieldProfileRegistry()
+
+    profile = registry.resolve("fields.road.osm", country_code=" NP ")
+
+    assert profile.profile_id == "fields.road.osm.npl"
+    assert profile.expected_null_rates["name"] == 0.95
+
+
+def test_registry_resolve_isolates_merged_provider_probe_lists() -> None:
+    registry = SourceFieldProfileRegistry()
+    resolved = registry.resolve("fields.road.osm", country_code="npl")
+
+    resolved.provider_probe_order["name"].append("mutated")
+
+    fresh = registry.resolve("fields.road.osm", country_code="npl")
+    assert fresh.provider_probe_order["name"] == ["name", "ref"]
+
+
+def test_registry_get_isolates_provider_probe_lists() -> None:
+    registry = SourceFieldProfileRegistry()
+    profile = registry.get("fields.building.microsoft")
+
+    profile.provider_probe_order["height_m"].append("mutated")
+
+    fresh = registry.get("fields.building.microsoft")
+    assert fresh.provider_probe_order["height_m"] == ["height", "Height", "HEIGHT", "building_h", "bld_h"]
+
+
+def test_registry_resolve_fallback_isolates_provider_probe_lists() -> None:
+    registry = SourceFieldProfileRegistry()
+    profile = registry.resolve("fields.road.osm", country_code="pk")
+
+    profile.provider_probe_order["name"].append("mutated")
+
+    fresh = registry.resolve("fields.road.osm", country_code="pk")
+    assert fresh.provider_probe_order["name"] == ["name", "ref"]

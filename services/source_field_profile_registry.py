@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 
 @dataclass(frozen=True)
@@ -17,6 +17,15 @@ class SourceFieldProfile:
     theme: str
     canonical_fields: dict[str, CanonicalField]
     provider_probe_order: dict[str, list[str]]
+    expected_null_rates: dict[str, float] = field(default_factory=dict)
+    country_overrides: dict[str, "SourceFieldProfileOverride"] = field(default_factory=dict)
+
+
+@dataclass(frozen=True)
+class SourceFieldProfileOverride:
+    profile_id_suffix: str
+    provider_probe_order: dict[str, list[str]] = field(default_factory=dict)
+    expected_null_rates: dict[str, float] = field(default_factory=dict)
 
 
 def _field(name: str, meaning: str, *, required: bool = True, value_type: str = "string") -> CanonicalField:
@@ -123,6 +132,13 @@ PROFILES: dict[str, SourceFieldProfile] = {
             "surface": ["surface"],
             "lanes": ["lanes"],
         },
+        expected_null_rates={"name": 0.80},
+        country_overrides={
+            "npl": SourceFieldProfileOverride(
+                profile_id_suffix="npl",
+                expected_null_rates={"name": 0.95},
+            ),
+        },
     ),
     "fields.road.overture_transportation": SourceFieldProfile(
         profile_id="fields.road.overture_transportation",
@@ -134,6 +150,13 @@ PROFILES: dict[str, SourceFieldProfile] = {
             "name": ["name", "names.primary", "names_primary", "primary_name", "ref"],
             "surface": ["surface"],
             "lanes": ["lane_count", "lanes"],
+        },
+        expected_null_rates={"name": 0.85},
+        country_overrides={
+            "npl": SourceFieldProfileOverride(
+                profile_id_suffix="npl",
+                expected_null_rates={"name": 0.98},
+            ),
         },
     ),
     "fields.water.osm_polygon": SourceFieldProfile(
@@ -289,6 +312,10 @@ PROFILES: dict[str, SourceFieldProfile] = {
     ),
 }
 
+_COUNTRY_CODE_ALIASES = {
+    "np": "npl",
+}
+
 
 class SourceFieldProfileRegistry:
     def __init__(self, profiles: dict[str, SourceFieldProfile] | None = None) -> None:
@@ -296,10 +323,52 @@ class SourceFieldProfileRegistry:
 
     def get(self, profile_id: str) -> SourceFieldProfile:
         try:
-            return self._profiles[profile_id]
+            return _copy_profile(self._profiles[profile_id])
         except KeyError as exc:
             raise KeyError(f"Unknown source field mapping profile={profile_id}") from exc
+
+    def resolve(self, profile_id: str, *, country_code: str | None = None) -> SourceFieldProfile:
+        profile = self.get(profile_id)
+        normalized_country = _normalize_country_code(country_code)
+        override = profile.country_overrides.get(normalized_country)
+        if override is None:
+            return profile
+
+        provider_probe_order = _copy_provider_probe_order(profile.provider_probe_order)
+        provider_probe_order.update(_copy_provider_probe_order(override.provider_probe_order))
+        expected_null_rates = {
+            **profile.expected_null_rates,
+            **override.expected_null_rates,
+        }
+        return SourceFieldProfile(
+            profile_id=f"{profile.profile_id}.{override.profile_id_suffix}",
+            theme=profile.theme,
+            canonical_fields=profile.canonical_fields,
+            provider_probe_order=provider_probe_order,
+            expected_null_rates=expected_null_rates,
+            country_overrides=profile.country_overrides,
+        )
 
     def profile_ids_for_theme(self, theme: str) -> list[str]:
         requested = theme.strip().lower()
         return sorted(profile_id for profile_id, profile in self._profiles.items() if profile.theme == requested)
+
+
+def _normalize_country_code(country_code: str | None) -> str:
+    token = str(country_code or "").strip().casefold()
+    return _COUNTRY_CODE_ALIASES.get(token, token)
+
+
+def _copy_provider_probe_order(provider_probe_order: dict[str, list[str]]) -> dict[str, list[str]]:
+    return {field: list(probes) for field, probes in provider_probe_order.items()}
+
+
+def _copy_profile(profile: SourceFieldProfile) -> SourceFieldProfile:
+    return SourceFieldProfile(
+        profile_id=profile.profile_id,
+        theme=profile.theme,
+        canonical_fields=dict(profile.canonical_fields),
+        provider_probe_order=_copy_provider_probe_order(profile.provider_probe_order),
+        expected_null_rates=dict(profile.expected_null_rates),
+        country_overrides=dict(profile.country_overrides),
+    )
