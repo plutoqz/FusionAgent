@@ -22,6 +22,7 @@ from schemas.agent import (
 )
 from schemas.fusion import JobType
 from services.artifact_registry import ArtifactRegistry
+from services.runtime_contract_service import RuntimeContractService
 from services.run_telemetry_service import estimate_json_size_bytes, normalize_llm_usage
 
 
@@ -49,6 +50,7 @@ class WorkflowPlanner:
         self.kg_repo = kg_repo
         self.llm_provider = llm_provider
         self.context_builder = PlanningContextBuilder(kg_repo, artifact_registry=artifact_registry)
+        self.runtime_contract = RuntimeContractService(kg_repo)
         self.logger = logging.getLogger("geofusion.planner")
         self._provider_call_lock = Lock()
 
@@ -118,14 +120,24 @@ class WorkflowPlanner:
         preferred_pattern_id: str | None,
     ) -> WorkflowPatternNode:
         patterns = self.kg_repo.get_candidate_patterns(job_type=job_type, disaster_type=disaster_type, limit=20)
+        patterns, skipped_patterns = self.runtime_contract.filter_patterns(patterns, surface="planner_fallback")
         preferred = str(preferred_pattern_id or "").strip()
         if preferred:
             for pattern in patterns:
                 if pattern.pattern_id == preferred:
+                    pattern.metadata = {
+                        **pattern.metadata,
+                        "_runtime_contract_skipped_patterns": skipped_patterns,
+                    }
                     return pattern
         if not patterns:
-            raise ValueError(f"No workflow pattern found for job_type={job_type.value}")
-        return patterns[0]
+            raise ValueError(f"No runtime-selectable workflow pattern found for job_type={job_type.value}")
+        pattern = patterns[0]
+        pattern.metadata = {
+            **pattern.metadata,
+            "_runtime_contract_skipped_patterns": skipped_patterns,
+        }
+        return pattern
 
     def _select_fallback_pattern_from_context(
         self,
@@ -143,13 +155,23 @@ class WorkflowPlanner:
             if isinstance(item, dict) and str(item.get("pattern_id") or "").strip()
         ]
         if ranked_ids:
+            skipped_patterns: list[dict[str, object]] = []
             by_id = {
                 pattern.pattern_id: pattern
                 for pattern in self.kg_repo.get_candidate_patterns(job_type=job_type, disaster_type=disaster_type, limit=20)
             }
             for pattern_id in ranked_ids:
-                if pattern_id in by_id:
-                    return by_id[pattern_id]
+                pattern = by_id.get(pattern_id)
+                if pattern is None:
+                    continue
+                decision = self.runtime_contract.evaluate_pattern(pattern, surface="planner_fallback")
+                if decision.allowed:
+                    pattern.metadata = {
+                        **pattern.metadata,
+                        "_runtime_contract_skipped_patterns": skipped_patterns,
+                    }
+                    return pattern
+                skipped_patterns.append({"pattern_id": pattern_id, **decision.to_dict()})
         return self._select_fallback_pattern(
             job_type=job_type,
             disaster_type=disaster_type,
@@ -285,6 +307,11 @@ class WorkflowPlanner:
                 "pattern_id": pattern.pattern_id,
                 "pattern_name": pattern.pattern_name,
                 "source": "kg_fallback",
+                "runtime_contract": {
+                    "skipped_fallback_patterns": list(
+                        pattern.metadata.get("_runtime_contract_skipped_patterns", [])
+                    ),
+                },
             },
             "tasks": [
                 {
@@ -323,8 +350,16 @@ class WorkflowPlanner:
     def _finalize_plan(self, plan: WorkflowPlan, fallback_workflow_id: Optional[str] = None) -> WorkflowPlan:
         patched_tasks: List[WorkflowTask] = []
         for task in plan.tasks:
-            alternatives = [a.algo_id for a in self.kg_repo.get_alternative_algorithms(task.algorithm_id, limit=3)]
-            task.alternatives = list(dict.fromkeys([*task.alternatives, *alternatives]))
+            kg_alternatives = [a.algo_id for a in self.kg_repo.get_alternative_algorithms(task.algorithm_id, limit=3)]
+            filter_result = self.runtime_contract.filter_algorithm_ids(
+                [*task.alternatives, *kg_alternatives],
+                surface="planner_alternative",
+            )
+            task.alternatives = list(dict.fromkeys(filter_result.allowed_ids))
+            if filter_result.skipped:
+                runtime_contract = dict(plan.context.get("runtime_contract") or {})
+                runtime_contract.setdefault("skipped_alternatives", []).extend(filter_result.skipped)
+                plan.context = {**plan.context, "runtime_contract": runtime_contract}
             patched_tasks.append(task)
         plan.tasks = patched_tasks
 
@@ -382,7 +417,7 @@ class WorkflowPlanner:
             "planning_telemetry": planning_telemetry,
         }
         if isinstance(existing_context, dict):
-            for key in ("pattern_id", "pattern_name", "source"):
+            for key in ("pattern_id", "pattern_name", "source", "runtime_contract"):
                 value = existing_context.get(key)
                 if value is not None:
                     normalized[key] = value
