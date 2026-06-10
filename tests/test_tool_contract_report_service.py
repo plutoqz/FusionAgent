@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from kg.inmemory_repository import InMemoryKGRepository
 from services.tool_contract_report_service import build_tool_contract_report
 from schemas.agent import (
     RunTrigger,
@@ -14,6 +15,7 @@ from schemas.agent import (
 def _plan(
     *,
     algorithm_id: str = "algo.fusion.building.v1",
+    input_type: str = "dt.building.bundle",
     output_type: str = "dt.building.fused",
 ) -> WorkflowPlan:
     return WorkflowPlan(
@@ -27,7 +29,7 @@ def _plan(
                 description="building fusion",
                 algorithm_id=algorithm_id,
                 input=WorkflowTaskInput(
-                    data_type_id="dt.building.bundle",
+                    data_type_id=input_type,
                     data_source_id="catalog.flood.building",
                 ),
                 output=WorkflowTaskOutput(data_type_id=output_type),
@@ -80,3 +82,16 @@ def test_tool_contract_report_marks_reserved_trajectory_transform() -> None:
     assert report["valid"] is True
     assert report["steps"][0]["reserved"] is True
     assert report["steps"][0]["issue_codes"] == ["RESERVATION_ONLY_TOOL"]
+
+
+def test_tool_contract_report_includes_kg_runtime_contract_for_deprecated_algorithm() -> None:
+    report = build_tool_contract_report(
+        _plan(algorithm_id="algo.fusion.road.v1", input_type="dt.road.bundle", output_type="dt.road.fused"),
+        kg_repo=InMemoryKGRepository(),
+    )
+
+    step = report["steps"][0]
+    assert report["valid"] is False
+    assert step["runtime_contract"]["allowed"] is False
+    assert step["runtime_contract"]["reason_code"] == "DEPRECATED_ALGORITHM"
+    assert "DEPRECATED_ALGORITHM" in step["issue_codes"]
