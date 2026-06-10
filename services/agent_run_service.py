@@ -55,6 +55,7 @@ from services.quality_gate_service import QualityGateService
 from services.raw_vector_source_service import RawVectorSourceService
 from services.runtime_settings_service import RuntimeSettingsService
 from services.run_recovery_service import collect_recoverable_runs
+from services.runtime_contract_service import RuntimeContractService
 from services.run_report_service import build_run_report_summary, render_run_reports
 from services.source_field_profile_registry import SourceFieldProfileRegistry
 from services.source_semantic_contract_service import SourceSemanticContractService
@@ -2737,6 +2738,7 @@ class AgentRunService:
         return collect_recoverable_runs(
             runs_root=self.base_dir,
             stale_after_seconds=stale_after_seconds,
+            runtime_contract_service=RuntimeContractService(self.kg_repo),
         )
 
     def resume_run_from_checkpoint(self, run_id: str, recovery_action: str) -> dict[str, object]:
