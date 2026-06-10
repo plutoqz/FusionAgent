@@ -46,6 +46,11 @@ def _remap_source_layer(frame: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     return remapped
 
 
+def _clean_name_values(values: pd.Series) -> pd.Series:
+    cleaned = values.fillna("").astype(str)
+    return cleaned.mask(cleaned.str.lower().isin({"nan", "none", "<na>"}), "")
+
+
 def _canonicalize_road_output(frame: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     result = _remap_source_layer(frame)
     residual_mask = result.get("residual_from_matched", pd.Series(False, index=result.index)).fillna(False).astype(bool)
@@ -65,6 +70,12 @@ def _canonicalize_road_output(frame: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
         if column in result.columns:
             road_class = road_class.where(result[column].isna(), result[column].astype(str))
     result["road_class"] = road_class.fillna("road")
+    name_values = _clean_name_values(
+        result.get("name", pd.Series([""] * len(result), index=result.index, dtype="object"))
+    )
+    result["osm_name"] = ""
+    result.loc[~supplement_mask, "osm_name"] = name_values.loc[~supplement_mask].astype(str)
+    result["road_name"] = name_values.astype(str)
     return result
 
 

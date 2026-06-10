@@ -1,6 +1,7 @@
 from pathlib import Path
 
 import geopandas as gpd
+import numpy as np
 from shapely.geometry import LineString, MultiLineString, MultiPolygon, Polygon
 
 from schemas.agent import DecisionCandidate, DecisionRecord, RunEvent, RunPhase, RunTrigger, RunTriggerType, WorkflowPlan, WorkflowTask, WorkflowTaskInput, WorkflowTaskOutput
@@ -46,6 +47,38 @@ def test_evaluate_vector_artifact_reads_gpkg_layer(tmp_path):
     assert metrics["artifact_validity"] is True
     assert metrics["feature_count"] == 2
     assert metrics["bbox"]
+
+
+def test_evaluate_vector_artifact_uses_metadata_for_large_gpkg(tmp_path, monkeypatch):
+    gpkg_path = tmp_path / "large_buildings.gpkg"
+    with gpkg_path.open("wb") as handle:
+        handle.truncate(600 * 1024 * 1024)
+
+    def fake_read_info(path):
+        assert Path(path) == gpkg_path
+        return {
+            "crs": "EPSG:32645",
+            "features": 7_826_949,
+            "fields": np.array(["fusion_id", "height_final"]),
+            "geometry_type": "MultiPolygon",
+            "total_bounds": (300000.0, 2900000.0, 350000.0, 2950000.0),
+            "capabilities": {"fast_feature_count": True, "fast_total_bounds": True},
+        }
+
+    def fail_read_file(*args, **kwargs):
+        raise AssertionError("large GPKG evaluation should not load all features")
+
+    monkeypatch.setattr("services.artifact_evaluation_service.pyogrio.read_info", fake_read_info)
+    monkeypatch.setattr("services.artifact_evaluation_service.gpd.read_file", fail_read_file)
+
+    metrics = evaluate_vector_artifact(gpkg_path, required_fields=["geometry"])
+
+    assert metrics["artifact_validity"] is True
+    assert metrics["feature_count"] == 7_826_949
+    assert metrics["crs"] == "EPSG:32645"
+    assert metrics["geometry_types"] == ["MultiPolygon"]
+    assert metrics["bbox"]
+    assert metrics["evaluation_mode"] == "metadata_only"
 
 
 def test_evaluate_vector_artifact_reports_aoi_containment(tmp_path):

@@ -950,6 +950,49 @@ def test_source_asset_service_recognizes_track_b_b2_refs_via_local_tree(tmp_path
     assert hydrolakes.feature_count == 1
 
 
+def test_source_asset_service_recognizes_gpkg_refs_via_local_tree(tmp_path: Path) -> None:
+    _write_frame(
+        tmp_path / "Data" / "roads" / "Overture" / "overture_roads.gpkg",
+        geopandas.GeoDataFrame(
+            {"segment_id": [1]},
+            geometry=[LineString([(36.80, -1.35), (36.90, -1.25)])],
+            crs="EPSG:4326",
+        ),
+    )
+    _write_frame(
+        tmp_path / "Data" / "water" / "HydroRIVERS" / "hydrorivers.gpkg",
+        geopandas.GeoDataFrame(
+            {"river_id": [1]},
+            geometry=[LineString([(36.79, -1.36), (36.88, -1.24)])],
+            crs="EPSG:4326",
+        ),
+    )
+    _write_frame(
+        tmp_path / "Data" / "water" / "HydroLAKES" / "hydrolakes.gpkg",
+        geopandas.GeoDataFrame(
+            {"lake_id": [1]},
+            geometry=[Polygon([(36.78, -1.34), (36.78, -1.28), (36.84, -1.28), (36.84, -1.34)])],
+            crs="EPSG:4326",
+        ),
+    )
+
+    service = SourceAssetService(repo_root=tmp_path, cache_dir=tmp_path / "cache")
+
+    overture = service.resolve_raw_source_path("raw.overture.transportation")
+    hydrorivers = service.resolve_raw_source_path("raw.hydrorivers.water")
+    hydrolakes = service.resolve_raw_source_path("raw.hydrolakes.water")
+
+    assert overture.path.name == "overture_roads.gpkg"
+    assert hydrorivers.path.name == "hydrorivers.gpkg"
+    assert hydrolakes.path.name == "hydrolakes.gpkg"
+    assert overture.source_mode == "local_data"
+    assert hydrorivers.source_mode == "local_data"
+    assert hydrolakes.source_mode == "local_data"
+    assert overture.feature_count == 1
+    assert hydrorivers.feature_count == 1
+    assert hydrolakes.feature_count == 1
+
+
 def test_source_asset_service_resolves_recursive_track_b_poi_preloads_from_aoi_hint(tmp_path: Path) -> None:
     _write_frame(
         tmp_path / "Data" / "POI" / "Kenya" / "GNS.shp",
@@ -979,6 +1022,25 @@ def test_source_asset_service_resolves_recursive_track_b_poi_preloads_from_aoi_h
     assert rh.source_mode == "local_data_clipped"
     assert gns.feature_count == 1
     assert rh.feature_count == 1
+
+
+def test_source_asset_service_resolves_recursive_gpkg_track_b_poi_preload_from_aoi_hint(tmp_path: Path) -> None:
+    _write_frame(
+        tmp_path / "Data" / "POI" / "Kenya" / "GNS.gpkg",
+        geopandas.GeoDataFrame(
+            {"gns_id": [1]},
+            geometry=[Point(36.817223, -1.286389)],
+            crs="EPSG:4326",
+        ),
+    )
+
+    service = SourceAssetService(repo_root=tmp_path, cache_dir=tmp_path / "cache")
+
+    gns = service.resolve_raw_source_path("raw.gns.poi", aoi=_resolved_nairobi_aoi())
+
+    assert gns.path.name == "GNS.gpkg"
+    assert gns.source_mode == "local_data_clipped"
+    assert gns.feature_count == 1
 
 
 def test_source_asset_service_treats_geonames_poi_as_gns_alias(tmp_path: Path) -> None:

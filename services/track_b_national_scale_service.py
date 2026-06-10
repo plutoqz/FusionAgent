@@ -8,6 +8,7 @@ from typing import Any
 
 import geopandas as gpd
 import pandas as pd
+import pyogrio
 from shapely.geometry import box
 
 from fusion_algorithms.poi_fusion import run_poi_geohash_priority_fusion
@@ -112,6 +113,18 @@ class TrackBNationalScaleService:
         output_root.mkdir(parents=True, exist_ok=True)
 
         timings: dict[str, float] = {}
+
+        if theme == "building":
+            return self._build_building_theme_evidence(
+                selected_source_id=selected_source_id,
+                request_bbox=request_bbox,
+                target_crs=target_crs,
+                output_root=output_root,
+                tile_width_m=tile_width_m,
+                tile_height_m=tile_height_m,
+                overlap_m=overlap_m,
+                resolved_aoi=resolved_aoi,
+            )
 
         bundle_started = time.perf_counter()
         materialized = self.bundle_provider.materialize_with_fallback(
@@ -411,6 +424,287 @@ class TrackBNationalScaleService:
             "tile_count": tile_count,
         }
 
+    def _build_building_theme_evidence(
+        self,
+        *,
+        selected_source_id: str,
+        request_bbox: tuple[float, float, float, float],
+        target_crs: str,
+        output_root: Path,
+        tile_width_m: float,
+        tile_height_m: float,
+        overlap_m: float,
+        resolved_aoi: ResolvedAOI | None,
+    ) -> dict[str, Any]:
+        timings: dict[str, float] = {}
+        source_started = time.perf_counter()
+        component_source_ids = self._primary_component_source_ids(
+            selected_source_id,
+            list(get_catalog_bundle_spec(selected_source_id).component_source_ids),
+        )
+        selected_source_summaries: dict[str, dict[str, Any]] = {}
+        selected_sources: dict[str, Path] = {}
+        component_coverage: dict[str, SourceCoverageStatus] = {}
+        for source_id in component_source_ids:
+            summary = self._building_raw_source_summary(source_id, resolved_aoi=resolved_aoi)
+            selected_source_summaries[source_id] = summary
+            artifact_path = self._summary_artifact_path(summary)
+            if artifact_path is None:
+                raise FileNotFoundError(f"Required building source is unavailable: {source_id}")
+            selected_sources[source_id] = artifact_path
+            component_coverage[source_id] = SourceCoverageStatus(
+                source_id=source_id,
+                source_mode=str(summary.get("source_mode") or "local_data_raw_runtime"),
+                feature_count=int(summary.get("feature_count") or 0),
+                coverage_status=str(summary.get("coverage_status") or "unknown"),
+                path=artifact_path,
+                error=summary.get("error"),
+            )
+
+        supplemental_summary = self._building_raw_supplemental_sources(
+            selected_component_ids=set(component_source_ids),
+            resolved_aoi=resolved_aoi,
+        )
+        timings["source_resolve_sec"] = time.perf_counter() - source_started
+        timings["normalize_sec"] = 0.0
+        timings["bundle_materialize_sec"] = 0.0
+
+        tile_manifest = TilePartitionService(
+            tile_width_m=tile_width_m,
+            tile_height_m=tile_height_m,
+            overlap_m=overlap_m,
+        ).partition_bbox(
+            bbox=request_bbox,
+            bbox_crs="EPSG:4326",
+            working_crs=target_crs,
+        )
+        tile_payload = tile_manifest.to_dict()
+        tile_payload["manifest_mode"] = "national_bbox_tiling"
+        tile_payload["tile_count"] = len(tile_manifest.tiles)
+        (output_root / "tile_manifest.json").write_text(
+            json.dumps(tile_payload, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+
+        tile_started = time.perf_counter()
+        final_output, tile_results, fusion_summary = self._run_building_national_fusion(
+            tile_manifest=tile_manifest,
+            target_crs=target_crs,
+            output_root=output_root,
+            selected_sources=selected_sources,
+            supplemental_summary=supplemental_summary,
+            vector_source_crs=self._building_vector_source_crs(
+                list(selected_source_summaries.values()) + list(supplemental_summary.values())
+            ),
+            parameters={
+                "large_tile_fallback_feature_threshold": 250_000,
+            },
+        )
+        timings["tile_fusion_sec"] = time.perf_counter() - tile_started
+        timings["stitch_sec"] = 0.0
+
+        tile_count = self._evidence_tile_count(tile_results)
+        selected_coverage = _jsonable_component_coverage(component_coverage)
+        claim_state = self._claim_state(selected_coverage)
+        artifact_metrics = evaluate_vector_artifact(final_output, required_fields=["geometry"])
+        stitched_artifact_payload = {
+            "job_type": "building",
+            "artifact_path": str(final_output),
+            "tile_count": tile_count,
+            "stitched_feature_count": int(artifact_metrics.get("feature_count") or 0),
+            "artifact_metrics": artifact_metrics,
+            "tile_outputs": [item.to_dict() for item in tile_results],
+            "fusion_summary": fusion_summary,
+        }
+        (output_root / "stitched_artifact.json").write_text(
+            json.dumps(stitched_artifact_payload, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+
+        source_profile_snapshot = {
+            "snapshot_mode": "track_b_national_scale",
+            "job_type": "building",
+            "runtime_mode": "raw_source_tiled_runtime",
+            "requested_source_id": selected_source_id,
+            "selected_source_id": selected_source_id,
+            "fallback_from_source_id": None,
+            "component_source_ids": component_source_ids,
+            "selected_profiles": [
+                self._profile_snapshot_entry(source_id=source_id, artifact_path=path)
+                for source_id, path in selected_sources.items()
+            ],
+            "supplemental_profiles": list(supplemental_summary.values()),
+            "fusion_summary": fusion_summary,
+        }
+        (output_root / "source_profile_snapshot.json").write_text(
+            json.dumps(source_profile_snapshot, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+
+        selected_sources_payload = {
+            "job_type": "building",
+            "requested_source_id": selected_source_id,
+            "selected_source_id": selected_source_id,
+            "fallback_from_source_id": None,
+            "source_mode": "raw_source_tiled_runtime",
+            "target_crs": target_crs,
+            "component_source_ids": component_source_ids,
+            "component_coverage": selected_coverage,
+            "fusion_summary": fusion_summary,
+        }
+        (output_root / "selected_sources.json").write_text(
+            json.dumps(selected_sources_payload, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+
+        normalization_summary = {
+            "runtime_mode": "raw_source_tiled_runtime",
+            "selected_sources": selected_source_summaries,
+            "supplemental_sources": supplemental_summary,
+        }
+        (output_root / "normalization_summary.json").write_text(
+            json.dumps(normalization_summary, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+
+        timing_payload = {
+            "timings_sec": timings,
+            "tile_count": tile_count,
+            "stitched_feature_count": int(artifact_metrics.get("feature_count") or 0),
+            "artifact_path": str(final_output),
+            "fusion_summary": fusion_summary,
+        }
+        (output_root / "timing.json").write_text(
+            json.dumps(timing_payload, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+
+        inspection_summary = {
+            "mode": "track_b_national_scale_evidence",
+            "claim_state": claim_state,
+            "run_type": "national_scale_utility",
+            "job_type": "building",
+            "runtime_mode": "raw_source_tiled_runtime",
+            "requested_source_id": selected_source_id,
+            "selected_source_id": selected_source_id,
+            "fallback_from_source_id": None,
+            "bbox": [float(value) for value in request_bbox],
+            "target_crs": target_crs,
+            "tile_count": tile_count,
+            "artifact_path": str(final_output),
+            "selected_component_source_ids": component_source_ids,
+            "evidence": {
+                "selected_sources": "selected_sources.json",
+                "source_profile_snapshot": "source_profile_snapshot.json",
+                "normalization_summary": "normalization_summary.json",
+                "tile_manifest": "tile_manifest.json",
+                "stitched_artifact": "stitched_artifact.json",
+                "timing": "timing.json",
+                "artifact_path": str(final_output),
+            },
+            "artifact_metrics": artifact_metrics,
+            "operator_readable_summary": {
+                "artifact_validity": bool(artifact_metrics.get("artifact_validity", False)),
+                "feature_count": artifact_metrics.get("feature_count"),
+                "component_coverage": selected_coverage,
+                "supplemental_source_ids": sorted(supplemental_summary.keys()),
+                "fusion_summary": fusion_summary,
+            },
+        }
+        (output_root / "inspection_summary.json").write_text(
+            json.dumps(inspection_summary, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+
+        return {
+            "claim_state": claim_state,
+            "output_root": str(output_root),
+            "artifact_path": str(final_output),
+            "tile_count": tile_count,
+        }
+
+    def _building_raw_supplemental_sources(
+        self,
+        *,
+        selected_component_ids: set[str],
+        resolved_aoi: ResolvedAOI | None,
+    ) -> dict[str, dict[str, Any]]:
+        candidate_ids = [
+            source_id
+            for source_id in (
+                list(TRACK_B_THEME_CONTRACTS["building"].official_remote_source_ids)
+                + list(TRACK_B_THEME_CONTRACTS["building"].manual_preload_source_ids)
+                + list(TRACK_B_THEME_CONTRACTS["building"].reservation_only_source_ids)
+            )
+            if source_id not in selected_component_ids
+        ]
+        summary: dict[str, dict[str, Any]] = {}
+        for source_id in candidate_ids:
+            summary[source_id] = self._building_raw_source_summary(source_id, resolved_aoi=resolved_aoi)
+        return summary
+
+    def _building_raw_source_summary(
+        self,
+        source_id: str,
+        *,
+        resolved_aoi: ResolvedAOI | None,
+    ) -> dict[str, Any]:
+        try:
+            path = self.raw_source_service.resolve_local_source_path(source_id, resolved_aoi=resolved_aoi)
+            info = pyogrio.read_info(path)
+            raw_count = info.get("features")
+            feature_count = int(raw_count) if raw_count is not None and int(raw_count) >= 0 else None
+            raw_fields = info.get("fields")
+            fields = [str(item) for item in list(raw_fields)] if raw_fields is not None else []
+            crs = str(info.get("crs") or "").strip() or None
+            return {
+                "source_id": source_id,
+                "artifact_path": str(path),
+                "feature_count": feature_count,
+                "coverage_status": self._coverage_status_for_feature_count(feature_count),
+                "source_mode": "local_data_raw_runtime",
+                "columns": fields,
+                "crs": crs,
+            }
+        except Exception as exc:  # noqa: BLE001
+            return {
+                "source_id": source_id,
+                "artifact_path": None,
+                "feature_count": 0,
+                "coverage_status": "empty",
+                "source_mode": "missing_local_raw_runtime",
+                "columns": [],
+                "crs": None,
+                "error": f"{type(exc).__name__}: {exc}",
+            }
+
+    @staticmethod
+    def _coverage_status_for_feature_count(feature_count: int | None) -> str:
+        if feature_count is None:
+            return "unknown"
+        if feature_count == 0:
+            return "empty"
+        return "available"
+
+    @staticmethod
+    def _summary_artifact_path(summary: dict[str, Any]) -> Path | None:
+        raw = summary.get("artifact_path")
+        if not raw:
+            return None
+        path = Path(str(raw))
+        return path if path.exists() else None
+
+    @staticmethod
+    def _building_vector_source_crs(summaries: list[dict[str, Any]]) -> str:
+        crs_values = {
+            str(summary.get("crs") or "").strip()
+            for summary in summaries
+            if summary.get("artifact_path") and str(summary.get("crs") or "").strip()
+        }
+        if len(crs_values) == 1:
+            return next(iter(crs_values))
+        return "EPSG:4326"
+
     def _materialize_supplemental_normalized_sources(
         self,
         *,
@@ -513,6 +807,8 @@ class TrackBNationalScaleService:
         output_root: Path,
         selected_sources: dict[str, Path | None],
         supplemental_summary: dict[str, dict[str, Any]],
+        vector_source_crs: str | None = None,
+        parameters: dict[str, object] | None = None,
     ) -> tuple[Path, list[TileFusionArtifact], dict[str, Any]]:
         vector_sources, source_id_by_alias = self._building_vector_sources(
             selected_sources=selected_sources,
@@ -527,14 +823,25 @@ class TrackBNationalScaleService:
             alias for alias in BUILDING_SOURCE_PRIORITY_ORDER if alias in vector_sources
         ) + tuple(alias for alias in vector_sources if alias not in BUILDING_SOURCE_PRIORITY_ORDER)
         runtime = TiledBuildingRuntimeService(max_workers=1)
+        event_path = output_root / "building_tile_events.jsonl"
+        if event_path.exists():
+            event_path.unlink()
+
+        def on_event(event_type: str, payload: dict[str, Any]) -> None:
+            event_payload = {"event": event_type, **payload}
+            with event_path.open("a", encoding="utf-8") as handle:
+                handle.write(json.dumps(event_payload, ensure_ascii=False) + "\n")
+
         result = runtime.run_tiled_multisource_building_job(
             run_id="track-b-national-building",
             tile_manifest=tile_manifest,
             vector_sources=vector_sources,
             output_dir=output_root / "runtime_output",
             target_crs=target_crs,
-            vector_source_crs=target_crs,
+            vector_source_crs=vector_source_crs or target_crs,
             source_priority_order=source_priority_order,
+            parameters=parameters,
+            on_event=on_event,
         )
         tile_results = [
             TileFusionArtifact(
@@ -549,6 +856,8 @@ class TrackBNationalScaleService:
             "vector_source_ids": [source_id_by_alias[alias] for alias in source_priority_order],
             "vector_source_aliases": {source_id_by_alias[alias]: alias for alias in source_priority_order},
             "source_priority_order": list(source_priority_order),
+            "runtime_parameters": dict(parameters or {}),
+            "runtime_event_log": str(event_path),
         }
         return result.output_path, tile_results, fusion_summary
 

@@ -7,10 +7,11 @@ from typing import Any, Callable, Optional
 
 import geopandas as gpd
 import pandas as pd
+import pyogrio
 from shapely.geometry import box
 
 from adapters.building_adapter import run_building_fusion_safe
-from fusion_algorithms.building_height import attach_source_heights_and_final
+from fusion_algorithms.building_height import attach_source_heights_and_final, first_height_field, source_height_field
 from fusion_algorithms.building_matching_v8 import run_cascaded_multi_source_fusion
 from fusion_algorithms.building_raster import enrich_height_from_raster, validate_presence_from_raster
 from fusion_algorithms.contracts import (
@@ -290,10 +291,20 @@ class TiledBuildingRuntimeService:
                 },
             )
 
-        source_map = {
-            name: self._read_vector_tile(path, tile=tile, source_crs=source_crs, target_crs=target_crs)
-            for name, path in vector_sources.items()
-        }
+        source_map = {}
+        for name, path in vector_sources.items():
+            frame = self._read_vector_tile(path, tile=tile, source_crs=source_crs, target_crs=target_crs)
+            source_map[name] = frame
+            if on_event is not None:
+                on_event(
+                    "tile_source_read",
+                    {
+                        "run_id": run_id,
+                        "tile_id": tile.tile_id,
+                        "source": name,
+                        "feature_count": int(len(frame.index)),
+                    },
+                )
         source_map = {name: frame for name, frame in source_map.items() if not frame.empty}
         output_path = tile_dir / "fused_buildings.gpkg"
         if source_map:
@@ -362,20 +373,33 @@ class TiledBuildingRuntimeService:
             roads = self._read_vector_tile(road_path, tile=tile, source_crs=target_crs, target_crs=target_crs)
 
         if len(source_map) >= 2:
+            large_tile_threshold = int(values.get("large_tile_fallback_feature_threshold") or 0)
+            source_feature_count = sum(int(len(frame.index)) for frame in source_map.values())
             order = tuple(source_map.keys())
-            fused = run_cascaded_multi_source_fusion(
-                source_map,
-                roads,
-                match_params,
-                source_priority_order=order,
-            )
+            if large_tile_threshold > 0 and source_feature_count > large_tile_threshold:
+                fused = self._bounded_priority_tile_fusion(
+                    source_map=source_map,
+                    source_priority_order=order,
+                    height_params=height_params,
+                )
+                skip_height_attachment = True
+            else:
+                fused = run_cascaded_multi_source_fusion(
+                    source_map,
+                    roads,
+                    match_params,
+                    source_priority_order=order,
+                )
+                skip_height_attachment = False
         else:
             name, frame = next(iter(source_map.items()))
             fused = frame.copy()
             fused["fusion_runtime_mode"] = "single_source_tile"
             fused["fusion_source"] = name
+            skip_height_attachment = False
 
-        fused = attach_source_heights_and_final(fused, source_map, height_params)
+        if not skip_height_attachment:
+            fused = attach_source_heights_and_final(fused, source_map, height_params)
         height_path = raster_sources.get("building_height")
         if height_path is not None and Path(height_path).exists():
             fused = enrich_height_from_raster(
@@ -388,6 +412,36 @@ class TiledBuildingRuntimeService:
         else:
             fused = fused.to_crs(target_crs)
         return fused
+
+    @staticmethod
+    def _bounded_priority_tile_fusion(
+        *,
+        source_map: dict[str, gpd.GeoDataFrame],
+        source_priority_order: tuple[str, ...],
+        height_params: BuildingHeightParams,
+    ) -> gpd.GeoDataFrame:
+        for source_name in source_priority_order:
+            frame = source_map.get(source_name)
+            if frame is None or frame.empty:
+                continue
+            output = frame.copy()
+            output["fusion_runtime_mode"] = "bounded_priority_tile"
+            output["fusion_source"] = source_name
+            source_field = source_height_field(source_name)
+            if source_field not in output.columns:
+                height_field = first_height_field(frame, height_params)
+                output[source_field] = (
+                    pd.to_numeric(frame[height_field], errors="coerce")
+                    if height_field is not None
+                    else pd.NA
+                )
+            vector_values = pd.to_numeric(output[source_field], errors="coerce")
+            output["height_vector_fused"] = vector_values
+            output["height_final"] = vector_values.fillna(float(height_params.fallback_height))
+            output["height_final_source"] = source_field
+            output[height_params.canonical_height_field] = output["height_final"]
+            return output
+        return gpd.GeoDataFrame(geometry=gpd.GeoSeries([], dtype="geometry"))
 
     def _run_tile_fusion(
         self,
@@ -454,7 +508,10 @@ class TiledBuildingRuntimeService:
         output_path: Path,
         target_crs: str,
     ) -> Path:
-        frames: list[gpd.GeoDataFrame] = []
+        output_path.parent.mkdir(parents=True, exist_ok=True)
+        if output_path.exists():
+            output_path.unlink()
+        wrote_any = False
         for tile_result in tile_results:
             frame = gpd.read_file(tile_result.output_path)
             if frame.empty:
@@ -471,17 +528,14 @@ class TiledBuildingRuntimeService:
             frame = frame[owner_mask].copy()
             if frame.empty:
                 continue
-            frame["_tile_id"] = tile_result.tile_id
-            frames.append(frame)
+            frame = frame.drop(columns=["_tile_id"], errors="ignore")
+            frame.to_file(output_path, driver="GPKG", mode="a" if wrote_any else "w")
+            wrote_any = True
 
-        if not frames:
+        if not wrote_any:
             return self._write_empty_multisource_output(output_path, target_crs=target_crs)
 
-        combined = gpd.GeoDataFrame(pd.concat(frames, ignore_index=True), geometry="geometry", crs=target_crs)
-        combined["_geometry_wkb"] = combined.geometry.apply(lambda geom: geom.wkb_hex if geom is not None else None)
-        combined = combined.drop_duplicates(subset=["_geometry_wkb"], keep="first").copy()
-        combined = combined.drop(columns=["_geometry_wkb", "_tile_id"], errors="ignore")
-        return self._write_gpkg(combined, output_path, target_crs=target_crs)
+        return output_path
 
     @staticmethod
     def _ordered_sources(
@@ -531,6 +585,13 @@ class TiledBuildingRuntimeService:
 
     @staticmethod
     def _feature_count(path: Path) -> int:
+        try:
+            info = pyogrio.read_info(path)
+            features = info.get("features")
+            if features is not None and int(features) >= 0:
+                return int(features)
+        except Exception:  # noqa: BLE001
+            pass
         frame = gpd.read_file(path)
         return int(len(frame.index))
 

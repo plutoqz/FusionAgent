@@ -10,7 +10,7 @@ from fusion_algorithms.road_conflation_v7 import RoadConflationV7Config, run_roa
 
 def test_run_road_conflation_v7_returns_frame_and_stats() -> None:
     base = gpd.GeoDataFrame(
-        {"osm_id": [1], "fclass": ["primary"]},
+        {"osm_id": [1], "fclass": ["primary"], "name": ["Main Road"]},
         geometry=[LineString([(0, 0), (10, 0)])],
         crs="EPSG:3857",
     )
@@ -37,6 +37,13 @@ def test_run_road_conflation_v7_returns_frame_and_stats() -> None:
     assert result.stats["unmatched_supplement_segments"] == 1
     assert result.frame.crs.to_epsg() == 3857
     assert {"fusion_source", "match_role", "road_class", "supplement_segment_id"} <= set(result.frame.columns)
+    base_rows = result.frame[result.frame["source_layer"] == "base"]
+    assert base_rows.iloc[0]["name"] == "Main Road"
+    assert base_rows.iloc[0]["osm_name"] == "Main Road"
+    assert base_rows.iloc[0]["road_name"] == "Main Road"
+    supplement_rows = result.frame[result.frame["source_layer"] == "supplement"]
+    assert supplement_rows.iloc[0]["osm_name"] == ""
+    assert supplement_rows.iloc[0]["road_name"] == ""
 
 
 def test_run_road_conflation_v7_keeps_uncovered_residual_from_matched_supplement() -> None:

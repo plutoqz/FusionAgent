@@ -33,6 +33,14 @@ def _extract_bounds(bundle_zip: Path, *, output_crs: str = "EPSG:4326") -> list[
     return [float(value) for value in bounds]
 
 
+def _extract_columns(bundle_zip: Path) -> list[str]:
+    extract_dir = bundle_zip.parent / f"extract_columns_{bundle_zip.stem}"
+    with zipfile.ZipFile(bundle_zip, "r") as zf:
+        zf.extractall(extract_dir)
+    shp_path = next(extract_dir.glob("*.shp"))
+    return list(gpd.read_file(shp_path).columns)
+
+
 def _seed_raw_source_tree(root: Path) -> None:
     _write_frame(
         root / "Data" / "buildings" / "OSM" / "osm_buildings.shp",
@@ -514,6 +522,110 @@ def test_raw_vector_source_service_supports_overture_transportation_via_source_a
     assert resolved.version_token == "overture-v1"
     assert resolved.source_mode == "downloaded"
     assert resolved.cache_hit is False
+
+
+def test_raw_vector_source_service_projects_overture_transportation_fields_before_shapefile_bundle(
+    tmp_path: Path,
+) -> None:
+    registry = ArtifactRegistry(index_path=tmp_path / "artifact_registry.json")
+    remote_gpkg = tmp_path / "remote" / "overture_transportation.gpkg"
+    _write_frame(
+        remote_gpkg,
+        gpd.GeoDataFrame(
+            {
+                "id": ["seg-1"],
+                "class": ["primary"],
+                "subclass": ["arterial"],
+                "surface": ["paved"],
+                "lane_count": [2],
+                "sources": ["x" * 10000],
+                "access_restrictions": ["y" * 10000],
+            },
+            geometry=[LineString([(36.80, -1.35), (36.90, -1.25)])],
+            crs="EPSG:4326",
+        ),
+    )
+
+    class _StubSourceAssetService:
+        def can_materialize(self, source_id: str) -> bool:
+            return source_id == "raw.overture.transportation"
+
+        def resolve_raw_source_path(self, source_id: str, *, request_bbox=None, aoi=None):
+            assert source_id == "raw.overture.transportation"
+            return type(
+                "Resolution",
+                (),
+                {
+                    "path": remote_gpkg,
+                    "version_token": "overture-wide-v1",
+                    "source_mode": "local_data",
+                    "cache_hit": True,
+                    "bbox": request_bbox,
+                    "feature_count": 1,
+                },
+            )()
+
+    service = RawVectorSourceService(
+        root_dir=tmp_path,
+        registry=registry,
+        cache_dir=tmp_path / "cache",
+        source_asset_service=_StubSourceAssetService(),
+    )
+
+    resolved = service.resolve(
+        source_id="raw.overture.transportation",
+        request_bbox=(36.7, -1.4, 37.0, -1.1),
+        target_path=tmp_path / "run" / "overture_transportation.zip",
+        target_crs="EPSG:4326",
+        resolved_aoi=_resolved_nairobi_aoi(),
+    )
+
+    columns = _extract_columns(resolved.zip_path)
+
+    assert "id" in columns
+    assert "class" in columns
+    assert "subclass" in columns
+    assert "surface" in columns
+    assert "lane_count" in columns
+    assert "sources" not in columns
+    assert "access_restrictions" not in columns
+
+
+def test_raw_vector_source_service_locates_google_open_buildings_vector_gpkg_when_no_shp(
+    tmp_path: Path,
+) -> None:
+    registry = ArtifactRegistry(index_path=tmp_path / "artifact_registry.json")
+    vector_gpkg = tmp_path / "Data" / "buildings" / "GoogleOpenBuildingsVector" / "google_open_buildings.gpkg"
+    _write_frame(
+        vector_gpkg,
+        gpd.GeoDataFrame(
+            {"id": ["gob-1"], "confidence": [0.91]},
+            geometry=[Polygon([(36.7, -1.3), (36.7, -1.2), (36.8, -1.2), (36.8, -1.3)])],
+            crs="EPSG:4326",
+        ),
+    )
+
+    class _NoSourceAssetService:
+        def can_materialize(self, _source_id: str) -> bool:
+            return False
+
+    service = RawVectorSourceService(
+        root_dir=tmp_path,
+        registry=registry,
+        cache_dir=tmp_path / "cache",
+        source_asset_service=_NoSourceAssetService(),
+    )
+
+    resolved = service.resolve(
+        source_id="raw.google.open_buildings.vector",
+        request_bbox=None,
+        target_path=tmp_path / "run" / "google_open_buildings.zip",
+        target_crs="EPSG:4326",
+    )
+
+    assert resolved.zip_path.exists()
+    assert resolved.source_mode == "downloaded"
+    assert resolved.feature_count == 1
 
 
 def test_raw_vector_source_service_selects_gns_reference_by_resolved_aoi_country_hint(tmp_path: Path) -> None:

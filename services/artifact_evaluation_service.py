@@ -4,12 +4,15 @@ from pathlib import Path
 from typing import Any
 
 import geopandas as gpd
+import pyogrio
+from pyproj import Transformer
 from shapely.validation import explain_validity
 
 from services.kg_path_trace_service import build_kg_path_trace
 
 
 _DEFAULT_SLIVER_AREA_THRESHOLD_SQ_M = 1.0
+_DEFAULT_METADATA_ONLY_THRESHOLD_BYTES = 512 * 1024 * 1024
 
 
 def evaluate_vector_artifact(
@@ -18,8 +21,18 @@ def evaluate_vector_artifact(
     required_fields: list[str],
     requested_bbox: list[float] | tuple[float, float, float, float] | None = None,
     sliver_area_threshold_sq_m: float = _DEFAULT_SLIVER_AREA_THRESHOLD_SQ_M,
+    metadata_only_threshold_bytes: int = _DEFAULT_METADATA_ONLY_THRESHOLD_BYTES,
 ) -> dict[str, Any]:
     shp_path = Path(shp_path)
+    metadata_metrics = _metadata_only_metrics(
+        shp_path,
+        required_fields=required_fields,
+        requested_bbox=requested_bbox,
+        metadata_only_threshold_bytes=metadata_only_threshold_bytes,
+    )
+    if metadata_metrics is not None:
+        return metadata_metrics
+
     frame = gpd.read_file(shp_path)
     missing_fields = [
         field
@@ -39,6 +52,96 @@ def evaluate_vector_artifact(
     metrics.update(_geometry_measurements(frame))
     metrics.update(_geometry_quality_metrics(frame, sliver_area_threshold_sq_m=sliver_area_threshold_sq_m))
     return metrics
+
+
+def _metadata_only_metrics(
+    artifact_path: Path,
+    *,
+    required_fields: list[str],
+    requested_bbox: list[float] | tuple[float, float, float, float] | None,
+    metadata_only_threshold_bytes: int,
+) -> dict[str, Any] | None:
+    if metadata_only_threshold_bytes <= 0:
+        return None
+    if not artifact_path.exists() or artifact_path.stat().st_size < metadata_only_threshold_bytes:
+        return None
+    try:
+        info = pyogrio.read_info(artifact_path)
+    except Exception:  # noqa: BLE001
+        return None
+
+    feature_count = _metadata_feature_count(info)
+    crs = str(info.get("crs") or "")
+    geometry_types = _metadata_geometry_types(info)
+    raw_fields = info.get("fields")
+    fields = {str(field) for field in list(raw_fields) if field is not None} if raw_fields is not None else set()
+    missing_fields = [
+        field
+        for field in required_fields
+        if field != "geometry" and not (field == "fid" and artifact_path.suffix.lower() == ".gpkg") and field not in fields
+    ]
+    bbox = _metadata_bbox_wgs84(info, crs=crs)
+    metrics: dict[str, Any] = {
+        "artifact_validity": artifact_path.exists() and bool(feature_count) and not missing_fields,
+        "feature_count": int(feature_count or 0),
+        "crs": crs,
+        "geometry_types": geometry_types,
+        "missing_fields": missing_fields,
+        "bbox": bbox,
+        "evaluation_mode": "metadata_only",
+        "total_area_sq_km": 0.0,
+        "total_length_km": 0.0,
+        "duplicate_geometry_rate": 0.0,
+        "invalid_geometry_rate": 0.0,
+        "source_feature_counts": {},
+        "source_contribution_balance": 0.0,
+        "zero_length_geometry_count": 0,
+        "self_intersection_count": 0,
+        "sliver_polygon_count": 0,
+        "dangle_endpoint_count": 0,
+    }
+    if requested_bbox is not None:
+        metrics["aoi_consistency"] = _aoi_consistency(metrics.get("bbox"), requested_bbox)
+    return metrics
+
+
+def _metadata_feature_count(info: dict[str, Any]) -> int | None:
+    value = info.get("features")
+    if value is None:
+        return None
+    try:
+        count = int(value)
+    except Exception:  # noqa: BLE001
+        return None
+    return count if count >= 0 else None
+
+
+def _metadata_geometry_types(info: dict[str, Any]) -> list[str]:
+    value = info.get("geometry_type")
+    if value is None:
+        return []
+    if isinstance(value, (list, tuple, set)):
+        return sorted(str(item) for item in value if item)
+    text = str(value)
+    return [text] if text else []
+
+
+def _metadata_bbox_wgs84(info: dict[str, Any], *, crs: str) -> list[float] | None:
+    bounds = info.get("total_bounds")
+    if bounds is None:
+        return None
+    values = [float(value) for value in list(bounds)]
+    if len(values) != 4:
+        return None
+    if not crs or crs.upper() == "EPSG:4326":
+        return values
+    try:
+        transformer = Transformer.from_crs(crs, "EPSG:4326", always_xy=True)
+        minx, miny, maxx, maxy = values
+        xs, ys = transformer.transform([minx, minx, maxx, maxx], [miny, maxy, miny, maxy])
+        return [float(min(xs)), float(min(ys)), float(max(xs)), float(max(ys))]
+    except Exception:  # noqa: BLE001
+        return values
 
 
 def _has_required_field(*, field: str, frame: gpd.GeoDataFrame, artifact_path: Path) -> bool:
