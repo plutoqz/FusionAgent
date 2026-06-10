@@ -1743,7 +1743,7 @@ class AgentRunService:
         del request
         path = self.base_dir / run_id / "source_semantic_contract.json"
         path.write_text(json.dumps(contract.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8")
-        updated_plan = bind_source_semantic_parameters(plan, contract)
+        updated_plan = bind_source_semantic_parameters(plan, contract, kg_repo=self.kg_repo)
         self._persist_plan(self._plan_path(run_id), updated_plan)
         summary = {
             "job_type": contract.job_type,
