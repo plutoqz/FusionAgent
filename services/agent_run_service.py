@@ -1123,6 +1123,31 @@ class AgentRunService:
         validation_path = self._validation_path(run_id)
         self._persist_plan(plan_path, validated)
         self._persist_validation(validation_path, validated)
+        if validated.validation is not None and bool(getattr(validated.validation, "rejected", False)):
+            issue_codes = [issue.code for issue in validated.validation.issues]
+            error = "VALIDATION_REJECTED: " + ", ".join(issue_codes)
+            plan_revision = self._extract_plan_revision(validated)
+            self._update_status(
+                run_id,
+                RunPhase.failed,
+                progress=45,
+                error=error,
+                failure_summary=error,
+                finished_at=_utc_now(),
+                plan_path=str(plan_path),
+                validation_path=str(validation_path),
+                plan_revision=plan_revision,
+                checkpoint=self._checkpoint(stage="validation", plan_revision=plan_revision),
+                event_kind="validation_rejected",
+                event_message="Workflow plan rejected by Validator fail-closed mode.",
+                event_details={
+                    "issue_codes": issue_codes,
+                    "enforcement_mode": validated.validation.enforcement_mode,
+                    "issues": [issue.model_dump(mode="json") for issue in validated.validation.issues],
+                },
+            )
+            raise RuntimeError(error)
+
         self._update_status(
             run_id,
             RunPhase.running,

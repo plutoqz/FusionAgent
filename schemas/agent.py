@@ -75,6 +75,8 @@ class ValidationReport(BaseModel):
     valid: bool
     inserted_transform_steps: int = 0
     issues: List[ValidationIssue] = Field(default_factory=list)
+    enforcement_mode: str = "report"
+    rejected: bool = False
 
 
 class TaskBundleRef(BaseModel):

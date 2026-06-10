@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import math
+import os
 from typing import Dict, List
 
 from kg.repository import KGRepository
@@ -12,11 +13,14 @@ from schemas.agent import (
     WorkflowTaskInput,
     WorkflowTaskOutput,
 )
+from services.runtime_contract_service import RuntimeContractService
 
 
 class WorkflowValidator:
-    def __init__(self, kg_repo: KGRepository) -> None:
+    def __init__(self, kg_repo: KGRepository, *, enforcement_mode: str | None = None) -> None:
         self.kg_repo = kg_repo
+        self.enforcement_mode = str(enforcement_mode or os.getenv("GEOFUSION_VALIDATOR_MODE", "report")).lower()
+        self.contract = RuntimeContractService(kg_repo)
         if hasattr(kg_repo, "list_data_sources"):
             self._data_sources = {source.source_id: source for source in kg_repo.list_data_sources()}
         else:
@@ -72,6 +76,22 @@ class WorkflowValidator:
                 )
                 continue
 
+            algo_decision = self.contract.evaluate_algorithm(task.algorithm_id, surface="validator")
+            if not algo_decision.allowed:
+                task.kg_validated = False
+                task.depends_on = normalized_deps
+                task.step = len(output_tasks) + 1
+                output_tasks.append(task)
+                step_map[original_step] = task.step
+                issues.append(
+                    ValidationIssue(
+                        code=algo_decision.reason_code or "ALGORITHM_RUNTIME_CONTRACT_FAILED",
+                        message=algo_decision.message,
+                        step=task.step,
+                    )
+                )
+                continue
+
             source = self._data_sources.get(task.input.data_source_id)
             if source is None:
                 task.kg_validated = False
@@ -88,7 +108,8 @@ class WorkflowValidator:
                 )
                 continue
 
-            if self._is_reservation_only(source.metadata):
+            source_decision = self.contract.evaluate_data_source(task.input.data_source_id, surface="validator")
+            if not source_decision.allowed:
                 task.kg_validated = False
                 task.depends_on = normalized_deps
                 task.step = len(output_tasks) + 1
@@ -96,23 +117,8 @@ class WorkflowValidator:
                 step_map[original_step] = task.step
                 issues.append(
                     ValidationIssue(
-                        code="UNSELECTABLE_DATA_SOURCE",
-                        message=f"Data source is reservation_only and cannot execute now: {task.input.data_source_id}",
-                        step=task.step,
-                    )
-                )
-                continue
-
-            if self._is_reservation_only(algo.metadata):
-                task.kg_validated = False
-                task.depends_on = normalized_deps
-                task.step = len(output_tasks) + 1
-                output_tasks.append(task)
-                step_map[original_step] = task.step
-                issues.append(
-                    ValidationIssue(
-                        code="RESERVED_ALGORITHM",
-                        message=f"Algorithm is reservation_only and cannot execute now: {task.algorithm_id}",
+                        code=source_decision.reason_code or "DATA_SOURCE_RUNTIME_CONTRACT_FAILED",
+                        message=source_decision.message,
                         step=task.step,
                     )
                 )
@@ -208,7 +214,15 @@ class WorkflowValidator:
             output_tasks.append(task)
             step_map[original_step] = task.step
 
-        report = ValidationReport(valid=(len(issues) == 0), inserted_transform_steps=inserted, issues=issues)
+        valid = len(issues) == 0
+        rejected = (not valid) and self.enforcement_mode == "enforce"
+        report = ValidationReport(
+            valid=valid,
+            inserted_transform_steps=inserted,
+            issues=issues,
+            enforcement_mode=self.enforcement_mode,
+            rejected=rejected,
+        )
         plan.tasks = output_tasks
         plan.validation = report
         return plan
