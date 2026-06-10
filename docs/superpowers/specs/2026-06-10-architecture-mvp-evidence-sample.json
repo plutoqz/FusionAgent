@@ -1,0 +1,19 @@
+{
+  "kg_hard_constraints": {
+    "validator_rejection_count": 1,
+    "reason_codes": ["DEPRECATED_ALGORITHM"]
+  },
+  "repair_strategy_policy": {
+    "policy_sourced_repair_count": 1,
+    "policy_sources": ["repair.alternative_algorithm.v1"]
+  },
+  "conditional_learning": {
+    "conditioned_summary_count": 1,
+    "nonzero_adjustment_count": 1
+  },
+  "claim_boundary": {
+    "kg": "KG state acts as runtime constraint, not only prompt context",
+    "repair": "existing healing capabilities ordered and explained by policy/KG evidence",
+    "learning": "condition-specific policy hints, not autonomous optimization"
+  }
+}
