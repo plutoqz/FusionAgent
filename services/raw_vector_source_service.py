@@ -24,11 +24,24 @@ def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
 
 
-def _first_shp(directory: Path) -> Path:
-    matches = sorted(directory.glob("*.shp"))
-    if not matches:
-        raise FileNotFoundError(f"No shapefile found in {directory}")
-    return matches[0]
+_LOCAL_VECTOR_GLOB_PATTERNS = ("*.shp", "*.gpkg")
+
+
+def _local_vector_glob_patterns(pattern: str | None) -> tuple[str, ...]:
+    if not pattern:
+        return _LOCAL_VECTOR_GLOB_PATTERNS
+    patterns = [pattern]
+    if pattern.lower().endswith(".shp"):
+        patterns.append(f"{pattern[:-4]}.gpkg")
+    return tuple(patterns)
+
+
+def _first_local_vector(directory: Path) -> Path:
+    for pattern in _LOCAL_VECTOR_GLOB_PATTERNS:
+        matches = sorted(directory.glob(pattern))
+        if matches:
+            return matches[0]
+    raise FileNotFoundError(f"No vector source (.shp/.gpkg) found in {directory}")
 
 
 def _normalize_path_hint(value: str | None) -> str:
@@ -43,10 +56,10 @@ def _tokenize_path_hint(value: str | None) -> set[str]:
     return {token for token in normalized.split() if len(token) >= 3}
 
 
-def _bundle_version_token(shp_path: Path) -> str:
-    files = collect_bundle_files(shp_path)
+def _bundle_version_token(vector_path: Path) -> str:
+    files = collect_bundle_files(vector_path) if vector_path.suffix.lower() == ".shp" else [vector_path]
     if not files:
-        raise FileNotFoundError(f"No shapefile bundle files found near {shp_path}")
+        raise FileNotFoundError(f"No vector source files found near {vector_path}")
     payload = "|".join(f"{file.name}:{int(file.stat().st_mtime)}:{file.stat().st_size}" for file in files)
     return hashlib.sha1(payload.encode("utf-8")).hexdigest()
 
@@ -64,6 +77,33 @@ def _tile_meta(request_bbox: Optional[BBox]) -> dict[str, object]:
         "tile_bbox": [float(value) for value in request_bbox],
         "tile_key": key,
     }
+
+
+def _project_source_frame_for_bundle(source_id: str, frame: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
+    if source_id not in {"raw.overture.transportation", "raw.overture.road"}:
+        return frame
+    keep_columns = [
+        "id",
+        "segment_id",
+        "road_id",
+        "class",
+        "subclass",
+        "subtype",
+        "type",
+        "surface",
+        "lane_count",
+        "lanes",
+        "name",
+        "names.primary",
+        "names_primary",
+        "primary_name",
+        "ref",
+        "geometry",
+    ]
+    present = [column for column in keep_columns if column in frame.columns]
+    if "geometry" not in present and frame.geometry.name in frame.columns:
+        present.append(frame.geometry.name)
+    return frame[present].copy()
 
 
 @dataclass(frozen=True)
@@ -100,6 +140,15 @@ class RawVectorSourceService:
 
     def can_handle(self, source_id: str) -> bool:
         return source_id in self.specs
+
+    def resolve_local_source_path(
+        self,
+        source_id: str,
+        *,
+        resolved_aoi: ResolvedAOI | None = None,
+    ) -> Path:
+        spec = get_raw_vector_source_spec(source_id)
+        return self._resolve_source_path(spec, resolved_aoi=resolved_aoi)
 
     def current_version(
         self,
@@ -232,6 +281,7 @@ class RawVectorSourceService:
             projected = projected.to_crs(target_crs)
         else:
             projected = projected.set_crs(clipped.crs or REQUEST_BBOX_CRS).to_crs(target_crs)
+        projected = _project_source_frame_for_bundle(source_id, projected)
 
         target_path.parent.mkdir(parents=True, exist_ok=True)
         out_dir = target_path.parent / f"bundle_{uuid.uuid4().hex[:8]}"
@@ -285,17 +335,25 @@ class RawVectorSourceService:
     ) -> Path:
         base_path = self.root_dir.joinpath(*spec.relative_path)
         if spec.locator_kind == "exact_path":
-            if not base_path.exists():
-                raise FileNotFoundError(f"Raw source path does not exist for {spec.source_id}: {base_path}")
-            return base_path
+            if base_path.exists():
+                return base_path
+            if base_path.suffix.lower() == ".shp":
+                gpkg_path = base_path.with_suffix(".gpkg")
+                if gpkg_path.exists():
+                    return gpkg_path
+            raise FileNotFoundError(f"Raw source path does not exist for {spec.source_id}: {base_path}")
         if spec.locator_kind == "first_shp_in_dir":
             if not base_path.exists():
                 raise FileNotFoundError(f"Raw source directory does not exist for {spec.source_id}: {base_path}")
-            return _first_shp(base_path)
+            return _first_local_vector(base_path)
         if spec.locator_kind == "recursive_glob":
-            matches = sorted(base_path.glob(spec.glob_pattern or "**/*.shp"))
+            matches = [
+                path
+                for pattern in _local_vector_glob_patterns(spec.glob_pattern or "**/*.shp")
+                for path in sorted(base_path.glob(pattern))
+            ]
             if not matches:
-                raise FileNotFoundError(f"No shapefile matched {spec.glob_pattern} under {base_path}")
+                raise FileNotFoundError(f"No vector source matched {spec.glob_pattern} under {base_path}")
             return self._select_recursive_glob_match(
                 source_id=spec.source_id,
                 matches=matches,

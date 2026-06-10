@@ -122,10 +122,20 @@ _REMOTELY_MATERIALIZABLE_SOURCE_IDS = {
 _SOURCE_ID_ALIASES = {
     "raw.geonames.poi": "raw.gns.poi",
 }
+_LOCAL_VECTOR_GLOB_PATTERNS = ("*.shp", "*.gpkg")
 
 
 def _canonical_source_id(source_id: str) -> str:
     return _SOURCE_ID_ALIASES.get(source_id, source_id)
+
+
+def _local_vector_glob_patterns(pattern: str | None) -> tuple[str, ...]:
+    if not pattern:
+        return _LOCAL_VECTOR_GLOB_PATTERNS
+    patterns = [pattern]
+    if pattern.lower().endswith(".shp"):
+        patterns.append(f"{pattern[:-4]}.gpkg")
+    return tuple(patterns)
 
 
 @dataclass(frozen=True)
@@ -454,10 +464,11 @@ class SourceAssetService:
             if not candidate.exists():
                 continue
             if candidate.is_dir():
-                matches = sorted(candidate.glob("*.shp"))
-                for match in matches:
-                    if _is_usable_local_vector_path(match):
-                        return match
+                for pattern in _LOCAL_VECTOR_GLOB_PATTERNS:
+                    matches = sorted(candidate.glob(pattern))
+                    for match in matches:
+                        if _is_usable_local_vector_path(match):
+                            return match
                 continue
             if _is_usable_local_vector_path(candidate):
                 return candidate
@@ -478,13 +489,23 @@ class SourceAssetService:
         if spec.locator_kind == "first_shp_in_dir":
             if not base_path.exists():
                 return None
-            matches = [path for path in sorted(base_path.glob("*.shp")) if _is_usable_local_vector_path(path)]
+            matches = [
+                path
+                for pattern in _LOCAL_VECTOR_GLOB_PATTERNS
+                for path in sorted(base_path.glob(pattern))
+                if _is_usable_local_vector_path(path)
+            ]
             return matches[0] if matches else None
 
         if spec.locator_kind == "recursive_glob":
             if not base_path.exists():
                 return None
-            matches = [path for path in sorted(base_path.glob(spec.glob_pattern or "**/*.shp")) if _is_usable_local_vector_path(path)]
+            matches = [
+                path
+                for pattern in _local_vector_glob_patterns(spec.glob_pattern or "**/*.shp")
+                for path in sorted(base_path.glob(pattern))
+                if _is_usable_local_vector_path(path)
+            ]
             if not matches:
                 return None
             if len(matches) == 1:

@@ -9,6 +9,7 @@ from shapely.geometry import LineString, Point, Polygon, mapping
 from services.aoi_resolution_service import ResolvedAOI
 from services.source_asset_service import SourceAssetService
 from services import tiled_building_runtime_service
+from services.tiled_building_runtime_service import MultiSourceTileRunArtifact, TiledMultiSourceBuildingRunResult
 from services.track_b_national_scale_service import TrackBNationalScaleService
 
 
@@ -169,6 +170,104 @@ def test_track_b_national_scale_service_writes_building_evidence_with_multisourc
     assert fused.loc[0, "height_final_source"] == "height_obm"
     assert stitched_artifact["fusion_summary"]["source_priority_order"][0] == "MS"
     assert inspection_summary["operator_readable_summary"]["fusion_summary"]["vector_source_ids"][0] == "raw.microsoft.building"
+
+
+def test_track_b_building_national_fusion_passes_raw_sources_to_tiled_runtime(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    building_geom = Point(36.8, -1.3).buffer(0.01)
+    osm_path = tmp_path / "Data" / "buildings" / "OSM" / "gis_osm_buildings_a_free_1.shp"
+    ms_path = tmp_path / "Data" / "buildings" / "Microsoft" / "microsoft_buildings.gpkg"
+    gobv_path = tmp_path / "Data" / "buildings" / "GoogleOpenBuildingsVector" / "google_open_buildings.gpkg"
+    _write_frame(
+        osm_path,
+        gpd.GeoDataFrame({"osm_id": [1]}, geometry=[building_geom], crs="EPSG:4326"),
+    )
+    _write_frame(
+        ms_path,
+        gpd.GeoDataFrame({"id": ["ms-1"]}, geometry=[building_geom], crs="EPSG:4326"),
+    )
+    _write_frame(
+        gobv_path,
+        gpd.GeoDataFrame({"id": ["gobv-1"]}, geometry=[building_geom], crs="EPSG:4326"),
+    )
+
+    captured: dict[str, object] = {}
+
+    def fake_tiled_building_job(
+        self,
+        *,
+        run_id,
+        tile_manifest,
+        vector_sources,
+        output_dir,
+        target_crs,
+        vector_source_crs=None,
+        raster_sources=None,
+        context_vectors=None,
+        source_priority_order=None,
+        parameters=None,
+        on_event=None,
+    ):
+        del self, run_id, raster_sources, context_vectors, parameters, on_event
+        captured["vector_sources"] = dict(vector_sources)
+        captured["vector_source_crs"] = vector_source_crs
+        captured["source_priority_order"] = tuple(source_priority_order or ())
+        output_path = output_dir / "fused_buildings.gpkg"
+        _write_frame(
+            output_path,
+            gpd.GeoDataFrame(
+                {"fusion_source": ["MS"]},
+                geometry=[building_geom],
+                crs="EPSG:4326",
+            ).to_crs(target_crs),
+        )
+        tile = tile_manifest.tiles[0]
+        return TiledMultiSourceBuildingRunResult(
+            output_path=output_path,
+            tile_count=1,
+            stitched_feature_count=1,
+            tile_outputs=[
+                MultiSourceTileRunArtifact(
+                    tile_id=tile.tile_id,
+                    output_path=output_path,
+                    feature_count=1,
+                    bbox=tile.bbox,
+                    buffered_bbox=tile.buffered_bbox,
+                    working_bbox=tile.working_bbox,
+                    working_buffered_bbox=tile.working_buffered_bbox,
+                )
+            ],
+        )
+
+    monkeypatch.setattr(
+        "services.track_b_national_scale_service.TiledBuildingRuntimeService.run_tiled_multisource_building_job",
+        fake_tiled_building_job,
+    )
+
+    service = TrackBNationalScaleService(root_dir=tmp_path, cache_dir=tmp_path / "cache")
+    output_root = tmp_path / "evidence" / "building_raw_runtime"
+    summary = service.build_theme_evidence(
+        job_type="building",
+        source_id="catalog.earthquake.building",
+        request_bbox=(36.7, -1.4, 36.9, -1.2),
+        target_crs="EPSG:32737",
+        output_root=output_root,
+        tile_width_m=50_000.0,
+        tile_height_m=50_000.0,
+        overlap_m=0.0,
+    )
+
+    assert summary["claim_state"] == "national_scale_supported"
+    assert captured["vector_sources"] == {
+        "MS": ms_path,
+        "GOOGLE_OPEN_BUILDINGS": gobv_path,
+        "OSM": osm_path,
+    }
+    assert captured["vector_source_crs"] == "EPSG:4326"
+    assert captured["source_priority_order"] == ("MS", "GOOGLE_OPEN_BUILDINGS", "OSM")
+    assert not (output_root / "normalized").exists()
 
 
 def test_track_b_national_scale_service_writes_poi_evidence_with_real_tiling(tmp_path: Path) -> None:
