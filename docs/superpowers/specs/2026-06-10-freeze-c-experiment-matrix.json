@@ -1,0 +1,43 @@
+{
+  "matrix_id": "freeze-c-v1",
+  "experiments": [
+    {
+      "experiment_id": "exp-ablation-a0-a2",
+      "claim_ids": ["C1", "C2"],
+      "requires_freeze": ["Freeze A", "Freeze B"],
+      "runner": "scripts/eval_kg_ablation.py",
+      "output_dir": "runs/experiments/exp-ablation-a0-a2",
+      "required_metrics": [
+        "unknown_algorithm_rate",
+        "planning_valid_rate",
+        "validator_rejection_rate",
+        "kg_fallback_rate",
+        "execution_success_rate"
+      ]
+    },
+    {
+      "experiment_id": "exp-quality-freeze-b",
+      "claim_ids": ["C4"],
+      "requires_freeze": ["Freeze A", "Freeze B"],
+      "runner": "scripts/run_fusion_quality_benchmark.py",
+      "output_dir": "runs/experiments/exp-quality-freeze-b",
+      "required_metrics": [
+        "invalid_geometry_rate",
+        "duplicate_geometry_rate",
+        "source_contribution_balance"
+      ]
+    },
+    {
+      "experiment_id": "exp-windows-operability",
+      "claim_ids": ["C5"],
+      "requires_freeze": ["Freeze A"],
+      "runner": "scripts/windows_runtime_doctor.py",
+      "output_dir": "runs/experiments/exp-windows-operability",
+      "required_metrics": [
+        "doctor_passed",
+        "recovery_tick_passed",
+        "long_run_smoke_passed"
+      ]
+    }
+  ]
+}
