@@ -105,6 +105,48 @@ def test_seed_provider_manifest_payload_keeps_python_seed_transform_graph() -> N
     assert _normalized_transform_edges(manifest_seed) == _normalized_transform_edges(default_seed)
 
 
+def test_registered_runtime_algorithms_have_explicit_runtime_metadata() -> None:
+    from agent.tooling import build_default_tool_registry
+
+    payload = build_seed_manifest_payload()
+    algorithms = {item["algo_id"]: item for item in payload["algorithms"]}
+    registry = build_default_tool_registry()
+    reserved_ids = {
+        item["algo_id"]
+        for item in payload["algorithms"]
+        if (item.get("metadata") or {}).get("runtime_status") == "reservation_only"
+    }
+
+    for algorithm_id in registry.list_algorithm_ids():
+        algo = algorithms.get(algorithm_id)
+        assert algo is not None, algorithm_id
+        metadata = algo.get("metadata") or {}
+        assert metadata.get("runtime_status"), algorithm_id
+        if algorithm_id not in reserved_ids:
+            assert metadata.get("selectable_now") is True, algorithm_id
+        else:
+            assert metadata.get("selectable_now") is False, algorithm_id
+
+
+def test_deprecated_algorithms_are_explicitly_unselectable() -> None:
+    payload = build_seed_manifest_payload()
+    deprecated = [
+        item
+        for item in payload["algorithms"]
+        if (item.get("metadata") or {}).get("runtime_status") == "deprecated"
+    ]
+
+    assert {item["algo_id"] for item in deprecated} >= {
+        "algo.fusion.road.v1",
+        "algo.fusion.road.safe",
+        "algo.fusion.water.v1",
+    }
+    for item in deprecated:
+        metadata = item.get("metadata") or {}
+        assert metadata.get("selectable_now") is False
+        assert metadata.get("deprecated_by")
+
+
 def _ids(payload: dict, section: str, key: str) -> set[str]:
     return {str(item[key]) for item in payload[section]}
 

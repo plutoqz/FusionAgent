@@ -424,6 +424,9 @@ ALGORITHMS: Dict[str, AlgorithmNode] = {
         metadata={
             "selection_profile": "primary",
             "evidence_basis": "legacy_default_runtime",
+            "runtime_status": "runtime_candidate",
+            "selectable_now": True,
+            "claim_state": "runtime_supported",
         },
         alternatives=["algo.fusion.building.safe"],
     ),
@@ -441,6 +444,9 @@ ALGORITHMS: Dict[str, AlgorithmNode] = {
         metadata={
             "selection_profile": "fallback",
             "evidence_basis": "conservative_thresholds",
+            "runtime_status": "runtime_candidate",
+            "selectable_now": True,
+            "claim_state": "runtime_supported",
         },
         alternatives=["algo.fusion.building.v1"],
     ),
@@ -460,6 +466,7 @@ ALGORITHMS: Dict[str, AlgorithmNode] = {
             "evidence_basis": "superseded_by_v7_conflation",
             "runtime_status": "deprecated",
             "selectable_now": False,
+            "claim_state": "deprecated",
             "deprecated_by": "algo.fusion.road.conflation.v7",
         },
         alternatives=[],
@@ -480,6 +487,7 @@ ALGORITHMS: Dict[str, AlgorithmNode] = {
             "evidence_basis": "superseded_by_v7_profile_conservative",
             "runtime_status": "deprecated",
             "selectable_now": False,
+            "claim_state": "deprecated",
             "deprecated_by": "algo.fusion.road.conflation.v7",
         },
         alternatives=[],
@@ -501,6 +509,7 @@ ALGORITHMS: Dict[str, AlgorithmNode] = {
             "runtime_scope": "uploaded_or_task_driven_auto",
             "runtime_status": "deprecated",
             "selectable_now": False,
+            "claim_state": "deprecated",
             "deprecated_by": "algo.fusion.water_polygon.priority_merge.v2",
         },
     ),
@@ -519,6 +528,9 @@ ALGORITHMS: Dict[str, AlgorithmNode] = {
             "selection_profile": "primary",
             "evidence_basis": "shared_bundle_runtime",
             "runtime_scope": "uploaded_or_task_driven_auto",
+            "runtime_status": "runtime_candidate",
+            "selectable_now": True,
+            "claim_state": "bounded_supported",
         },
     ),
     "algo.partition.aoi.grid.v1": AlgorithmNode(
@@ -530,7 +542,11 @@ ALGORITHMS: Dict[str, AlgorithmNode] = {
         tool_ref="reserved:aoi_grid_partition",
         success_rate=0.0,
         usage_mode="reserved",
-        metadata={"runtime_status": "reservation_only"},
+        metadata={
+            "runtime_status": "reservation_only",
+            "selectable_now": False,
+            "claim_state": "reservation_only",
+        },
     ),
     "algo.clip.raster.tile.v1": AlgorithmNode(
         algo_id="algo.clip.raster.tile.v1",
@@ -541,7 +557,11 @@ ALGORITHMS: Dict[str, AlgorithmNode] = {
         tool_ref="reserved:raster_tile_clip",
         success_rate=0.0,
         usage_mode="reserved",
-        metadata={"runtime_status": "reservation_only"},
+        metadata={
+            "runtime_status": "reservation_only",
+            "selectable_now": False,
+            "claim_state": "reservation_only",
+        },
     ),
     "algo.fusion.building.multi_source.reserved": AlgorithmNode(
         algo_id="algo.fusion.building.multi_source.reserved",
@@ -552,7 +572,11 @@ ALGORITHMS: Dict[str, AlgorithmNode] = {
         tool_ref="reserved:multi_source_building_fusion",
         success_rate=0.0,
         usage_mode="reserved",
-        metadata={"runtime_status": "reservation_only"},
+        metadata={
+            "runtime_status": "reservation_only",
+            "selectable_now": False,
+            "claim_state": "reservation_only",
+        },
     ),
     "algo.merge.building.tiles.reserved": AlgorithmNode(
         algo_id="algo.merge.building.tiles.reserved",
@@ -563,7 +587,11 @@ ALGORITHMS: Dict[str, AlgorithmNode] = {
         tool_ref="reserved:building_tile_merge",
         success_rate=0.0,
         usage_mode="reserved",
-        metadata={"runtime_status": "reservation_only"},
+        metadata={
+            "runtime_status": "reservation_only",
+            "selectable_now": False,
+            "claim_state": "reservation_only",
+        },
     ),
     "algo.enrich.building.height_from_raster.reserved": AlgorithmNode(
         algo_id="algo.enrich.building.height_from_raster.reserved",
@@ -574,7 +602,11 @@ ALGORITHMS: Dict[str, AlgorithmNode] = {
         tool_ref="reserved:building_height_from_raster",
         success_rate=0.0,
         usage_mode="reserved",
-        metadata={"runtime_status": "reservation_only"},
+        metadata={
+            "runtime_status": "reservation_only",
+            "selectable_now": False,
+            "claim_state": "reservation_only",
+        },
     ),
     "algo.transform.raw_to_building_bundle": AlgorithmNode(
         algo_id="algo.transform.raw_to_building_bundle",
@@ -624,6 +656,9 @@ ALGORITHMS: Dict[str, AlgorithmNode] = {
             "evidence_basis": "phase4_transform_reservation",
             "runtime_scope": "metadata_only",
             "activation": "non_default",
+            "runtime_status": "reservation_only",
+            "selectable_now": False,
+            "claim_state": "reservation_only",
         },
     ),
 }
