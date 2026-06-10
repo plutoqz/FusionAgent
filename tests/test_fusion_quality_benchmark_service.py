@@ -62,3 +62,51 @@ def test_duplicate_case_ids_are_rejected() -> None:
             freeze_line="Freeze B",
             cases=[_case(case_id="same"), _case(case_id="same")],
         )
+
+from services.fusion_quality_benchmark_service import (
+    compare_metrics_to_thresholds,
+    metric_profile_for_task,
+    summarize_benchmark_results,
+)
+
+
+def test_metric_profile_contains_task_specific_quality_metrics() -> None:
+    road_profile = metric_profile_for_task(TaskKind.road)
+
+    assert "zero_length_geometry_count" in road_profile.required_metrics
+    assert "dangle_endpoint_count" in road_profile.required_metrics
+    assert "network_connectivity_proxy" in road_profile.interpretations
+
+
+def test_threshold_comparison_reports_each_metric() -> None:
+    result = compare_metrics_to_thresholds(
+        {"invalid_geometry_rate": 0.0, "duplicate_geometry_rate": 0.05},
+        [
+            BenchmarkMetricThreshold(metric_name="invalid_geometry_rate", operator="eq", threshold=0.0),
+            BenchmarkMetricThreshold(metric_name="duplicate_geometry_rate", operator="lte", threshold=0.10),
+        ],
+    )
+
+    assert result == {"invalid_geometry_rate": True, "duplicate_geometry_rate": True}
+
+
+def test_summary_keeps_smoke_only_out_of_quality_claim_count() -> None:
+    manifest = BenchmarkManifest(
+        manifest_id="freeze-b-v1",
+        freeze_line="Freeze B",
+        cases=[
+            _case(case_id="real-quality", data_tier="real"),
+            {
+                **_case_payload(case_id="synthetic-smoke", data_tier="synthetic"),
+                "independence_label": "algorithm_generated",
+                "claim_use": "smoke_only",
+                "baselines": [],
+                "metrics": [],
+            },
+        ],
+    )
+
+    summary = summarize_benchmark_results(manifest, [])
+
+    assert summary.quality_claim_case_count == 1
+    assert summary.smoke_only_case_count == 1
