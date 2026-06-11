@@ -19,6 +19,12 @@ def test_build_source_materialization_manifest_records_fault_and_provider_attemp
         clipped_to_aoi=True,
         component_coverage={"raw.osm.water": {"coverage_status": "available", "feature_count": 4}},
         provider_attempts=[{"source_id": "catalog.flood.water", "status": "failed", "fault_class": "SOURCE_MISSING"}],
+        source_attempts_path="source_attempts.json",
+        coverage_state="partial",
+        degradation={
+            "degraded_source_ids": ["raw.gns.water"],
+            "external_uncontrollable_source_ids": ["raw.gns.water"],
+        },
         fault={"fault_class": "SOURCE_MISSING", "fault_message": "missing water", "recoverable": True},
     )
 
@@ -33,6 +39,12 @@ def test_build_source_materialization_manifest_records_fault_and_provider_attemp
     assert manifest["clipped_to_aoi"] is True
     assert manifest["component_coverage"]["raw.osm.water"]["feature_count"] == 4
     assert manifest["provider_attempts"][0]["fault_class"] == "SOURCE_MISSING"
+    assert manifest["source_attempts_path"] == "source_attempts.json"
+    assert manifest["coverage_state"] == "partial"
+    assert manifest["degradation"] == {
+        "degraded_source_ids": ["raw.gns.water"],
+        "external_uncontrollable_source_ids": ["raw.gns.water"],
+    }
     assert manifest["fault"] == {
         "fault_class": "SOURCE_MISSING",
         "fault_message": "missing water",

@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import re
 import shutil
 import uuid
@@ -17,7 +18,7 @@ from services.source_materialization_manifest_service import (
     build_source_materialization_manifest,
     write_source_materialization_manifest,
 )
-from services.source_acquisition_policy import build_failed_attempt
+from services.source_acquisition_policy import build_failed_attempt, build_source_attempt
 from utils.crs import normalize_target_crs
 from utils.vector_clip import BBox, bundle_bbox_from_zip, clip_zip_to_request_bbox
 
@@ -269,9 +270,21 @@ class InputAcquisitionService:
         if bundle_bbox is None:
             bundle_bbox = bundle_bbox_from_zip(materialized.osm_zip_path)
         if effective_request_bbox is not None and (bundle_bbox is None or tuple(bundle_bbox) != effective_request_bbox):
-            materialized = self._clip_materialized_bundle(
+            original_materialized = materialized
+            clipped_materialized = self._clip_materialized_bundle(
                 bundle_dir=cache_bundle_dir,
                 request_bbox=effective_request_bbox,
+            )
+            materialized = MaterializedInputBundle(
+                osm_zip_path=clipped_materialized.osm_zip_path,
+                ref_zip_path=clipped_materialized.ref_zip_path,
+                bbox=clipped_materialized.bbox,
+                target_crs=original_materialized.target_crs,
+                source_id=original_materialized.source_id,
+                fallback_from=original_materialized.fallback_from,
+                attempted_sources=list(original_materialized.attempted_sources),
+                component_coverage=dict(original_materialized.component_coverage),
+                provider_attempts=[dict(attempt) for attempt in original_materialized.provider_attempts],
             )
             bundle_bbox = materialized.bbox
         self.registry.register(
@@ -440,6 +453,15 @@ class InputAcquisitionService:
         provider_attempts: list[dict[str, object]],
         fault: dict[str, object] | None = None,
     ) -> Path:
+        source_attempts_path = _write_source_attempts(
+            path.parent / "source_attempts.json",
+            provider_attempts,
+            component_coverage,
+        )
+        jsonable_coverage = _jsonable_component_coverage(component_coverage)
+        source_attempts = _source_attempts_for_evidence(provider_attempts, jsonable_coverage)
+        coverage_state = _coverage_state(jsonable_coverage)
+        degradation = _degradation_payload(jsonable_coverage, source_attempts)
         return write_source_materialization_manifest(
             path,
             build_source_materialization_manifest(
@@ -454,9 +476,28 @@ class InputAcquisitionService:
                 clipped_to_aoi=clipped_to_aoi,
                 component_coverage=component_coverage,
                 provider_attempts=provider_attempts,
+                source_attempts_path=source_attempts_path.name,
+                coverage_state=coverage_state,
+                degradation=degradation,
                 fault=fault,
             ),
         )
+
+
+def _write_source_attempts(path: Path, attempts: list[dict[str, object]], component_coverage: dict[str, object]) -> Path:
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    coverage = _jsonable_component_coverage(component_coverage)
+    source_attempts = _source_attempts_for_evidence(attempts, coverage)
+    payload = {
+        "schema_version": 1,
+        "coverage_state": _coverage_state(coverage),
+        "component_coverage": coverage,
+        "attempts": source_attempts,
+        "degradation": _degradation_payload(coverage, source_attempts),
+    }
+    path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    return path
 
 
 def _jsonable_component_coverage(component_coverage: dict[str, object]) -> dict[str, dict[str, object]]:
@@ -477,6 +518,117 @@ def _jsonable_component_coverage(component_coverage: dict[str, object]) -> dict[
             value = {"source_id": source_id, "value": raw}
         payload[source_id] = value
     return payload
+
+
+def _coverage_state(component_coverage: dict[str, object]) -> str:
+    coverage = _jsonable_component_coverage(component_coverage)
+    if not coverage:
+        return "missing"
+    statuses = [str(value.get("coverage_status") or "").lower() for value in coverage.values()]
+    if statuses and all(status == "available" for status in statuses):
+        return "complete"
+    if any(status == "available" for status in statuses):
+        return "partial"
+    if any(status == "empty" for status in statuses):
+        return "empty"
+    return "missing"
+
+
+def _degradation_payload(component_coverage: dict[str, object], attempts: list[dict[str, object]]) -> dict[str, list[str]]:
+    coverage = _jsonable_component_coverage(component_coverage)
+    degraded_source_ids: list[str] = []
+    for source_id, value in coverage.items():
+        if str(value.get("coverage_status") or "").lower() != "available":
+            degraded_source_ids.append(source_id)
+    for attempt in attempts:
+        source_id = str(attempt.get("source_id") or "")
+        status = str(attempt.get("status") or "").lower()
+        if source_id and status in {"failed", "provider_failed", "network_failed", "missing", "empty", "no_official_coverage"}:
+            degraded_source_ids.append(source_id)
+    return {
+        "degraded_source_ids": _unique_preserving_order(degraded_source_ids),
+        "external_uncontrollable_source_ids": _unique_preserving_order(
+            str(attempt.get("source_id") or "")
+            for attempt in attempts
+            if attempt.get("source_id") and bool(attempt.get("external_uncontrollable"))
+        ),
+    }
+
+
+def _source_attempts_for_evidence(
+    provider_attempts: list[dict[str, object]],
+    component_coverage: dict[str, object],
+) -> list[dict[str, object]]:
+    coverage = _jsonable_component_coverage(component_coverage)
+    attempts: list[dict[str, object]] = []
+    for index, raw_attempt in enumerate(provider_attempts or [], start=1):
+        attempt = dict(raw_attempt)
+        source_id = str(attempt.get("source_id") or "")
+        coverage_item = coverage.get(source_id, {})
+        attempts.append(
+            build_source_attempt(
+                source_id=source_id,
+                status=str(attempt.get("status") or "missing"),
+                attempt_type=str(attempt.get("attempt_type") or "provider"),
+                attempt_no=int(attempt.get("attempt_no") or index),
+                channel=str(attempt.get("channel")) if attempt.get("channel") is not None else None,
+                fault_class=str(attempt.get("fault_class")) if attempt.get("fault_class") is not None else None,
+                fault_message=str(attempt.get("fault_message")) if attempt.get("fault_message") is not None else None,
+                recoverable=bool(attempt.get("recoverable")) if "recoverable" in attempt else None,
+                next_retry_after_seconds=(
+                    int(attempt["next_retry_after_seconds"])
+                    if attempt.get("next_retry_after_seconds") is not None
+                    else None
+                ),
+                coverage_status=_coverage_status_for_attempt(attempt, coverage_item),
+                feature_count=_feature_count_for_attempt(attempt, coverage_item),
+                selected_for_fusion=_selected_for_fusion(attempt, coverage_item),
+            )
+        )
+    return attempts
+
+
+def _coverage_status_for_attempt(attempt: dict[str, object], coverage_item: dict[str, object]) -> str | None:
+    if attempt.get("coverage_status") is not None:
+        return str(attempt.get("coverage_status"))
+    if coverage_item.get("coverage_status") is not None:
+        return str(coverage_item.get("coverage_status"))
+    status = str(attempt.get("status") or "").lower()
+    if status in {"available", "materialized", "cache_reused"}:
+        return "available"
+    if status in {"empty"}:
+        return "empty"
+    if status in {"failed", "provider_failed", "network_failed", "missing", "no_official_coverage"}:
+        return "missing"
+    return None
+
+
+def _feature_count_for_attempt(attempt: dict[str, object], coverage_item: dict[str, object]) -> int | None:
+    value = attempt.get("feature_count", coverage_item.get("feature_count"))
+    if value is None:
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _selected_for_fusion(attempt: dict[str, object], coverage_item: dict[str, object]) -> bool:
+    if "selected_for_fusion" in attempt:
+        return bool(attempt.get("selected_for_fusion"))
+    status = str(attempt.get("status") or "").lower()
+    coverage_status = str(coverage_item.get("coverage_status") or "").lower()
+    return status in {"available", "materialized", "cache_reused"} and coverage_status in {"", "available"}
+
+
+def _unique_preserving_order(values) -> list[str]:
+    seen: set[str] = set()
+    unique: list[str] = []
+    for value in values:
+        if value and value not in seen:
+            seen.add(value)
+            unique.append(value)
+    return unique
 
 
 def _provider_attempts_for_materialized(source_id: str, materialized: MaterializedInputBundle) -> list[dict[str, object]]:

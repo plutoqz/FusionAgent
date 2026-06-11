@@ -19,6 +19,9 @@ def build_source_materialization_manifest(
     artifact_role: str = "input_bundle",
     component_coverage: dict[str, object] | None = None,
     provider_attempts: list[dict[str, object]] | None = None,
+    source_attempts_path: str | None = None,
+    coverage_state: str | None = None,
+    degradation: dict[str, object] | None = None,
     fault: dict[str, object] | None = None,
 ) -> dict[str, object]:
     return {
@@ -35,6 +38,9 @@ def build_source_materialization_manifest(
         "clipped_to_aoi": bool(clipped_to_aoi),
         "component_coverage": dict(component_coverage or {}),
         "provider_attempts": [_attempt_payload(attempt) for attempt in (provider_attempts or [])],
+        "source_attempts_path": source_attempts_path,
+        "coverage_state": coverage_state,
+        "degradation": dict(degradation or {}),
         "fault": _fault_payload(fault),
     }
 

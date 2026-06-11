@@ -13,3 +13,7 @@ class SourceAcquisitionAttempt(BaseModel):
     fault_message: str | None = None
     recoverable: bool = False
     next_retry_after_seconds: int | None = None
+    coverage_status: str | None = None
+    feature_count: int | None = None
+    selected_for_fusion: bool = False
+    external_uncontrollable: bool = False

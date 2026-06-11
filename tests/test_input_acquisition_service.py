@@ -92,6 +92,40 @@ class _AttemptRecordingBundleProvider(_StubBundleProvider):
         )
 
 
+class _PoiSourceAttemptsBundleProvider(_StubBundleProvider):
+    def materialize(self, *, source_id: str, request_bbox, target_dir: Path, target_crs: str):
+        bundle = super().materialize(
+            source_id=source_id,
+            request_bbox=request_bbox,
+            target_dir=target_dir,
+            target_crs=target_crs,
+        )
+        from services.input_acquisition_service import MaterializedInputBundle
+
+        component_coverage = {
+            source_id: {
+                "source_id": source_id,
+                "source_mode": "downloaded",
+                "feature_count": index + 1,
+                "coverage_status": "available",
+            }
+            for index, source_id in enumerate(("raw.osm.poi", "raw.google.poi", "raw.gns.poi"))
+        }
+
+        return MaterializedInputBundle(
+            osm_zip_path=bundle.osm_zip_path,
+            ref_zip_path=bundle.ref_zip_path,
+            bbox=bundle.bbox,
+            target_crs=bundle.target_crs,
+            source_id=source_id,
+            component_coverage=component_coverage,
+            provider_attempts=[
+                {"source_id": source_id, "status": "available"}
+                for source_id in ("raw.osm.poi", "raw.google.poi", "raw.gns.poi")
+            ],
+        )
+
+
 class _FaultingBundleProvider:
     def __init__(self, exc: Exception) -> None:
         self.exc = exc
@@ -199,6 +233,10 @@ def test_input_acquisition_reuses_cached_bundle_when_version_matches_and_clips_t
     assert reused_manifest["requested_bbox"] == [1.0, 1.0, 2.0, 2.0]
     assert reused_manifest["materialized_bbox"] == [1.0, 1.0, 2.0, 2.0]
     assert reused_manifest["clipped_to_aoi"] is True
+    assert reused_manifest["source_attempts_path"] == "source_attempts.json"
+    reused_attempts = json.loads((reused.manifest_path.parent / "source_attempts.json").read_text(encoding="utf-8"))
+    assert reused_attempts["coverage_state"] == "missing"
+    assert reused_attempts["attempts"][0]["status"] == "cache_reused"
     assert reused_manifest["provider_attempts"] == [
         {
             "source_id": "catalog.task.building.default",
@@ -458,6 +496,47 @@ def test_input_acquisition_manifest_records_provider_attempts_and_component_cove
     ]
 
 
+def test_input_acquisition_writes_structured_source_attempts_evidence(tmp_path: Path) -> None:
+    from services.input_acquisition_service import InputAcquisitionService
+
+    registry = ArtifactRegistry(index_path=tmp_path / "artifact_registry.json")
+    provider = _PoiSourceAttemptsBundleProvider(
+        version_token="poi-v1",
+        supported_source_ids={"catalog.generic.poi"},
+    )
+    service = InputAcquisitionService(registry=registry, providers=[provider], cache_dir=tmp_path / "cache")
+
+    resolved = service.resolve_task_driven_inputs(
+        request=_build_request(job_type=JobType.poi, content="need poi data"),
+        source_id="catalog.generic.poi",
+        required_output_type="dt.poi.bundle",
+        input_dir=tmp_path / "run-input",
+        request_bbox=(0, 0, 1, 1),
+    )
+
+    assert resolved.manifest_path is not None
+    source_attempts_path = resolved.manifest_path.parent / "source_attempts.json"
+    assert source_attempts_path.exists()
+
+    payload = json.loads(source_attempts_path.read_text(encoding="utf-8"))
+    assert payload["schema_version"] == 1
+    assert payload["coverage_state"] == "complete"
+    assert [attempt["source_id"] for attempt in payload["attempts"]] == [
+        "raw.osm.poi",
+        "raw.google.poi",
+        "raw.gns.poi",
+    ]
+    assert payload["component_coverage"]["raw.google.poi"]["coverage_status"] == "available"
+
+    manifest = json.loads(resolved.manifest_path.read_text(encoding="utf-8"))
+    assert manifest["source_attempts_path"] == "source_attempts.json"
+    assert manifest["coverage_state"] == "complete"
+    assert manifest["degradation"] == {
+        "degraded_source_ids": [],
+        "external_uncontrollable_source_ids": [],
+    }
+
+
 def test_input_acquisition_writes_manifest_for_failed_provider(tmp_path: Path) -> None:
     from services.input_acquisition_service import InputAcquisitionService
 
@@ -481,6 +560,10 @@ def test_input_acquisition_writes_manifest_for_failed_provider(tmp_path: Path) -
     assert manifest["source_id"] == "catalog.flood.water"
     assert manifest["source_mode"] == "failed"
     assert manifest["cache_hit"] is False
+    assert manifest["source_attempts_path"] == "source_attempts.json"
+    source_attempts = json.loads((tmp_path / "run" / "source_attempts.json").read_text(encoding="utf-8"))
+    assert source_attempts["coverage_state"] == "missing"
+    assert source_attempts["attempts"][0]["status"] == "failed"
     assert manifest["fault"]["fault_class"] == "SOURCE_MISSING"
     assert manifest["fault"]["recoverable"] is True
     attempt = manifest["provider_attempts"][0]

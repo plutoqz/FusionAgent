@@ -74,3 +74,23 @@ def test_input_acquisition_wraps_faults_with_machine_readable_category(exc: Exce
             input_dir=tmp_path / "run",
         )
 
+
+@pytest.mark.parametrize("fault_class", ["NETWORK_FAILED", "NO_OFFICIAL_COVERAGE"])
+def test_build_source_attempt_marks_external_uncontrollable_faults(fault_class: str) -> None:
+    from services.source_acquisition_policy import build_source_attempt
+
+    attempt = build_source_attempt(
+        source_id="raw.google.poi",
+        status="network_failed",
+        fault_class=fault_class,
+        fault_message="outside operator control",
+        coverage_status="missing",
+        feature_count=0,
+    )
+
+    assert attempt["source_id"] == "raw.google.poi"
+    assert attempt["fault_class"] == fault_class
+    assert attempt["coverage_status"] == "missing"
+    assert attempt["feature_count"] == 0
+    assert attempt["external_uncontrollable"] is True
+
