@@ -481,7 +481,7 @@ def test_large_area_runtime_claims_road_water_and_poi(tmp_path: Path) -> None:
     try:
         water = service._should_use_large_area_runtime(
             request=_request(JobType.water),
-            plan=_plan("catalog.flood.water", "dt.water.bundle", "dt.water.fused", "algo.fusion.water.v1"),
+            plan=_plan("catalog.flood.water", "dt.water.bundle", "dt.water.fused", "algo.fusion.water_polygon.priority_merge.v2"),
             resolved_inputs=water_resolved,
             resolved_aoi=None,
         )
@@ -505,7 +505,7 @@ def test_large_area_runtime_claims_road_water_and_poi(tmp_path: Path) -> None:
         )
         legacy_zip_fallback = service._should_use_large_area_runtime(
             request=_request(JobType.water),
-            plan=_plan("catalog.flood.water", "dt.water.bundle", "dt.water.fused", "algo.fusion.water.v1"),
+            plan=_plan("catalog.flood.water", "dt.water.bundle", "dt.water.fused", "algo.fusion.water_polygon.priority_merge.v2"),
             resolved_inputs=legacy_zip_resolved,
             resolved_aoi=None,
         )

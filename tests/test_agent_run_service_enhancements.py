@@ -9,6 +9,7 @@ import pytest
 from shapely.geometry import LineString, box
 
 from agent.executor import ExecutionContext, WorkflowExecutor
+from kg.inmemory_repository import InMemoryKGRepository
 from schemas.agent import (
     RepairRecord,
     RunCreateRequest,
@@ -136,12 +137,9 @@ def _build_plan(
     )
 
 
-class _NoHealingKG:
+class _NoHealingKG(InMemoryKGRepository):
     def get_alternative_algorithms(self, *_args, **_kwargs):
         return []
-
-    def get_algorithm(self, *_args, **_kwargs):
-        return None
 
     def find_transform_path(self, *_args, **_kwargs):
         return None
@@ -2902,7 +2900,12 @@ def test_agent_run_service_copies_planning_telemetry_to_status_and_audit(tmp_pat
 
     latest = service.get_run(status.run_id)
     assert latest is not None
-    assert latest.planning_telemetry == plan.context["planning_telemetry"]
+    for key, value in plan.context["planning_telemetry"].items():
+        assert latest.planning_telemetry[key] == value
+    assert latest.planning_telemetry["component_coverage"] == {
+        "upload.osm": {"feature_count": 1, "coverage_status": "operator_supplied"},
+        "upload.reference": {"feature_count": 1, "coverage_status": "operator_supplied"},
+    }
     audit_events = service.get_audit_events(status.run_id)
     plan_created = next(event for event in audit_events if event.kind == "plan_created")
     assert plan_created.details["planning_telemetry"] == plan.context["planning_telemetry"]
@@ -3634,6 +3637,39 @@ def test_agent_run_service_enforces_plan_grounding_before_validation(tmp_path: P
     events = service.get_audit_events(status.run_id)
     assert any(event.kind == "plan_grounding_rejected" for event in events)
     assert not any(event.kind == "plan_validated" for event in events)
+
+
+def test_agent_run_service_rejects_validator_invalid_plan_before_execution(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("GEOFUSION_VALIDATOR_MODE", "enforce")
+    service = AgentRunService(base_dir=tmp_path / "runs")
+    plan = _build_road_task_driven_plan(workflow_id="wf_deprecated_validator")
+    plan.tasks[0].algorithm_id = "algo.fusion.road.v1"
+
+    monkeypatch.setattr(service.planner, "create_plan", lambda **_kwargs: plan.model_copy(deep=True))
+    called = {"execution": False}
+
+    def fake_resolve_execution_inputs(**_kwargs):
+        called["execution"] = True
+        raise AssertionError("execution inputs must not resolve after validation rejection")
+
+    monkeypatch.setattr(service, "_resolve_execution_inputs", fake_resolve_execution_inputs)
+
+    status = service.create_run(
+        request=_build_auto_request(job_type=JobType.road, content="need road data"),
+        osm_zip_name=None,
+        osm_zip_bytes=None,
+        ref_zip_name=None,
+        ref_zip_bytes=None,
+    )
+
+    latest = service.get_run(status.run_id)
+    assert latest is not None
+    assert latest.phase == RunPhase.failed
+    assert "DEPRECATED_ALGORITHM" in (latest.error or "")
+    assert called["execution"] is False
+    events = service.get_audit_events(status.run_id)
+    assert any(event.kind == "validation_rejected" for event in events)
+    assert not any(event.kind == "task_inputs_resolved" for event in events)
 
 
 def test_agent_run_service_records_grounding_gate_in_report_mode(tmp_path: Path, monkeypatch) -> None:

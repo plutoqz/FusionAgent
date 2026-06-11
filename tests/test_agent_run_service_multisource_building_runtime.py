@@ -82,7 +82,7 @@ def _plan() -> WorkflowPlan:
 def _write_building(path: Path) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     gpd.GeoDataFrame(
-        {"id": ["building-1"], "HEIGHT": [9.0]},
+        {"id": ["building-1"], "source_id": ["raw.osm.building"], "HEIGHT": [9.0]},
         geometry=[box(0.2, 0.2, 0.8, 0.8)],
         crs="EPSG:4326",
     ).to_file(path, driver="GPKG")
@@ -366,6 +366,12 @@ def test_writeback_stage_zips_gpkg_artifact_as_single_gpkg_member(tmp_path: Path
         phase=RunPhase.running,
         progress=80,
         target_crs="EPSG:4326",
+        planning_telemetry={
+            "component_coverage": {
+                "raw.osm.building": {"feature_count": 1, "coverage_status": "available"},
+                "raw.microsoft.building": {"feature_count": 1, "coverage_status": "available"},
+            }
+        },
         checkpoint={"stage": "writeback"},
         created_at="2026-05-20T00:00:00+00:00",
         updated_at="2026-05-20T00:00:00+00:00",

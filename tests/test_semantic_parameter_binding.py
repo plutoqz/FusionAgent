@@ -74,3 +74,40 @@ def test_semantic_binding_adds_poi_geohash_precision() -> None:
     bound = bind_source_semantic_parameters(plan, contract)
 
     assert bound.tasks[0].input.parameters["geohash_precision"] == 8
+
+
+class _FakeSpec:
+    def __init__(self, key: str) -> None:
+        self.key = key
+
+
+class _FakeKG:
+    def __init__(self, keys: set[str]) -> None:
+        self.keys = keys
+
+    def get_parameter_specs(self, _algorithm_id: str):
+        return [_FakeSpec(key) for key in sorted(self.keys)]
+
+
+def test_semantic_binding_skips_parameters_not_supported_by_algorithm_specs() -> None:
+    contract = SourceSemanticContract(
+        run_id="run-1",
+        job_type="building",
+        selected_source_id="catalog.earthquake.building",
+        target_crs="EPSG:4326",
+        component_source_ids=["raw.microsoft.building", "raw.osm.building"],
+        sources={},
+        height_policy={
+            "height_output_field": "height_raster",
+            "canonical_height_field": "height",
+            "positive_only": True,
+        },
+        parameter_hints={"source_priority_order": ["MS", "OSM"]},
+        validation={"valid": True, "issues": []},
+    )
+    plan = _plan("building", "algo.fusion.road.v1")
+
+    bound = bind_source_semantic_parameters(plan, contract, kg_repo=_FakeKG({"source_semantic_contract_path"}))
+
+    params = bound.tasks[0].input.parameters
+    assert params == {"source_semantic_contract_path": "source_semantic_contract.json"}

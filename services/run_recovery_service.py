@@ -5,7 +5,9 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from schemas.agent import WorkflowPlan
 from schemas.failure_taxonomy import classify_failure_category
+from services.runtime_contract_service import RuntimeContractService
 
 TERMINAL_PHASES = {"succeeded"}
 RECOVERABLE_ACTIONS = {
@@ -22,7 +24,13 @@ RECOVERABLE_FAILURE_CATEGORIES = {
 }
 
 
-def collect_recoverable_runs(runs_root: Path, stale_after_seconds: int) -> list[dict[str, Any]]:
+def collect_recoverable_runs(
+    runs_root: Path,
+    stale_after_seconds: int,
+    *,
+    include_manual_review: bool = False,
+    runtime_contract_service: RuntimeContractService | None = None,
+) -> list[dict[str, Any]]:
     root = Path(runs_root)
     if not root.exists():
         return []
@@ -65,7 +73,10 @@ def collect_recoverable_runs(runs_root: Path, stale_after_seconds: int) -> list[
                 "error": raw_record.get("error"),
             }
         )
-        if recovery_action not in RECOVERABLE_ACTIONS:
+        algorithm_state = _algorithm_state_for_run(run_json_path.parent, runtime_contract_service)
+        if algorithm_state is not None and algorithm_state.get("allowed") is False:
+            recovery_action = "mark_failed_requires_manual_review"
+        if recovery_action not in RECOVERABLE_ACTIONS and not include_manual_review:
             continue
         record = {
             "run_id": str(raw_record.get("run_id") or run_json_path.parent.name),
@@ -77,10 +88,42 @@ def collect_recoverable_runs(runs_root: Path, stale_after_seconds: int) -> list[
         }
         if failure_category is not None:
             record["failure_category"] = failure_category
+        if algorithm_state is not None:
+            record["algorithm_state"] = algorithm_state
         records.append((last_update, record))
 
     records.sort(key=lambda item: item[0])
     return [record for _, record in records]
+
+
+def _algorithm_state_for_run(
+    run_dir: Path,
+    runtime_contract_service: RuntimeContractService | None,
+) -> dict[str, Any] | None:
+    if runtime_contract_service is None:
+        return None
+    plan_path = run_dir / "plan.json"
+    if not plan_path.exists():
+        return None
+    try:
+        plan = WorkflowPlan.model_validate(json.loads(plan_path.read_text(encoding="utf-8")))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError):
+        return {
+            "allowed": False,
+            "reason_code": "PLAN_UNREADABLE",
+            "message": "Plan could not be read for recovery contract check.",
+        }
+    for task in plan.tasks:
+        if task.is_transform:
+            continue
+        decision = runtime_contract_service.evaluate_algorithm(task.algorithm_id, surface="recovery")
+        if not decision.allowed:
+            return {
+                "allowed": False,
+                "algorithm_id": task.algorithm_id,
+                **decision.to_dict(),
+            }
+    return {"allowed": True}
 
 
 def classify_recovery_action(record: dict[str, Any]) -> str:

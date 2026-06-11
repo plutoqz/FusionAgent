@@ -152,3 +152,65 @@ def test_validator_rejects_task_not_activated_by_effective_scenario_profile() ->
     assert fixed.validation is not None
     assert fixed.validation.valid is False
     assert fixed.validation.issues[0].code == "SCENARIO_PROFILE_TASK_MISMATCH"
+
+
+def test_validator_marks_deprecated_algorithm_with_runtime_contract_issue() -> None:
+    plan = WorkflowPlan(
+        workflow_id="wf_deprecated_algo",
+        trigger=RunTrigger(type=RunTriggerType.user_query, content="road"),
+        context={},
+        tasks=[
+            WorkflowTask(
+                step=1,
+                name="deprecated_road",
+                description="deprecated road",
+                algorithm_id="algo.fusion.road.v1",
+                input=WorkflowTaskInput(
+                    data_type_id="dt.road.bundle",
+                    data_source_id="catalog.flood.road",
+                    parameters={},
+                ),
+                output=WorkflowTaskOutput(data_type_id="dt.road.fused", description=""),
+            )
+        ],
+        expected_output="road result",
+    )
+
+    fixed = WorkflowValidator(InMemoryKGRepository()).validate_and_repair(plan)
+
+    assert fixed.validation is not None
+    assert fixed.validation.valid is False
+    assert fixed.validation.issues[0].code == "DEPRECATED_ALGORITHM"
+    assert fixed.validation.rejected is False
+    assert fixed.validation.enforcement_mode == "report"
+    assert fixed.tasks[0].kg_validated is False
+
+
+def test_validator_enforce_mode_marks_report_rejected() -> None:
+    plan = WorkflowPlan(
+        workflow_id="wf_enforce_deprecated",
+        trigger=RunTrigger(type=RunTriggerType.user_query, content="road"),
+        context={},
+        tasks=[
+            WorkflowTask(
+                step=1,
+                name="deprecated_road",
+                description="deprecated road",
+                algorithm_id="algo.fusion.road.v1",
+                input=WorkflowTaskInput(
+                    data_type_id="dt.road.bundle",
+                    data_source_id="catalog.flood.road",
+                    parameters={},
+                ),
+                output=WorkflowTaskOutput(data_type_id="dt.road.fused", description=""),
+            )
+        ],
+        expected_output="road result",
+    )
+
+    fixed = WorkflowValidator(InMemoryKGRepository(), enforcement_mode="enforce").validate_and_repair(plan)
+
+    assert fixed.validation is not None
+    assert fixed.validation.valid is False
+    assert fixed.validation.rejected is True
+    assert fixed.validation.enforcement_mode == "enforce"

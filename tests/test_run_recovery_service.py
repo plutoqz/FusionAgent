@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from kg.inmemory_repository import InMemoryKGRepository
 from schemas.agent import RunCreateRequest, RunInputStrategy, RunPhase, RunStatus, RunTrigger, RunTriggerType
 from schemas.fusion import JobType
 from services.agent_run_service import AgentRunService
@@ -11,6 +12,7 @@ from services.run_recovery_service import (
     classify_recovery_action,
     collect_recoverable_runs,
 )
+from services.runtime_contract_service import RuntimeContractService
 
 
 def _write_run_record(runs_root: Path, run_id: str, payload: dict[str, object]) -> Path:
@@ -212,6 +214,55 @@ def test_collect_recoverable_runs_includes_failed_timeout_run_with_recovery_acti
     assert records[0]["run_id"] == "run-failed-timeout"
     assert records[0]["recovery_action"] == "redispatch_from_execution"
     assert records[0]["failure_category"] == "ALGO_TIMEOUT"
+
+
+def test_collect_recoverable_runs_marks_algorithm_state_drift_for_manual_review(tmp_path: Path) -> None:
+    runs_root = tmp_path / "runs"
+    run_dir = _write_run_record(
+        runs_root,
+        "run-stale-deprecated",
+        {
+            "run_id": "run-stale-deprecated",
+            "phase": "running",
+            "job_type": "road",
+            "updated_at": "2026-04-23T00:00:00+00:00",
+            "checkpoint": {"stage": "execution", "plan_revision": 1},
+        },
+    )
+    (run_dir / "plan.json").write_text(
+        json.dumps(
+            {
+                "workflow_id": "wf-deprecated",
+                "trigger": {"type": "user_query", "content": "road"},
+                "tasks": [
+                    {
+                        "step": 1,
+                        "name": "deprecated_road",
+                        "description": "deprecated",
+                        "algorithm_id": "algo.fusion.road.v1",
+                        "input": {"data_type_id": "dt.road.bundle", "data_source_id": "catalog.flood.road"},
+                        "output": {"data_type_id": "dt.road.fused"},
+                    }
+                ],
+                "expected_output": "road",
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+
+    records = collect_recoverable_runs(
+        runs_root=runs_root,
+        stale_after_seconds=300,
+        include_manual_review=True,
+        runtime_contract_service=RuntimeContractService(InMemoryKGRepository()),
+    )
+
+    assert len(records) == 1
+    assert records[0]["run_id"] == "run-stale-deprecated"
+    assert records[0]["recovery_action"] == "mark_failed_requires_manual_review"
+    assert records[0]["algorithm_state"]["reason_code"] == "DEPRECATED_ALGORITHM"
 
 
 def test_build_recovery_hint_marks_terminal_runs_not_recoverable() -> None:

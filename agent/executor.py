@@ -9,6 +9,7 @@ from agent.tooling import ToolRegistry, build_default_tool_registry
 from kg.repository import KGRepository
 from schemas.agent import RepairRecord, WorkflowPlan, WorkflowTask
 from schemas.fusion import JobType
+from services.runtime_contract_service import RuntimeContractService
 
 
 def _utc_now() -> str:
@@ -47,6 +48,7 @@ class WorkflowExecutor:
         self.planner = planner
         self.algorithm_handlers = dict(algorithm_handlers or {})
         self.tool_registry = tool_registry or build_default_tool_registry()
+        self.runtime_contract = RuntimeContractService(self.kg_repo, tool_registry=self.tool_registry)
 
     def execute_plan(
         self,
@@ -111,9 +113,31 @@ class WorkflowExecutor:
                 )
 
             # Strategy 2: alternative algorithm.
-            alt_algos = [*task.alternatives]
-            if not alt_algos:
-                alt_algos = [a.algo_id for a in self.kg_repo.get_alternative_algorithms(task.algorithm_id, limit=3)]
+            candidate_alt_algos = [*task.alternatives]
+            if not candidate_alt_algos:
+                candidate_alt_algos = [a.algo_id for a in self.kg_repo.get_alternative_algorithms(task.algorithm_id, limit=3)]
+            alt_filter = self.runtime_contract.filter_algorithm_ids(candidate_alt_algos, surface="executor_healing")
+            alt_algos = alt_filter.allowed_ids
+            candidate_actions = [{"algorithm_id": item} for item in dict.fromkeys(candidate_alt_algos)]
+            skipped_actions = alt_filter.skipped
+            if candidate_alt_algos and not alt_algos:
+                attempt_no += 1
+                repair_records.append(
+                    RepairRecord(
+                        attempt_no=attempt_no,
+                        strategy="alternative_algorithm",
+                        step=task.step,
+                        message="All alternative algorithms were rejected by runtime contract.",
+                        success=False,
+                        timestamp=_utc_now(),
+                        reason_code="alternative_algorithm_contract_rejected",
+                        from_algorithm=task.algorithm_id,
+                        policy_source="runtime_contract",
+                        policy_decision_basis={"surface": "executor_healing"},
+                        candidate_actions=candidate_actions,
+                        skipped_actions=skipped_actions,
+                    )
+                )
             for alt_algo in alt_algos:
                 try:
                     step_output = self._execute_algorithm(alt_algo, context)
@@ -132,6 +156,11 @@ class WorkflowExecutor:
                             reason_code="alternative_algorithm_succeeded",
                             from_algorithm=task.algorithm_id,
                             to_algorithm=alt_algo,
+                            policy_source="runtime_contract",
+                            policy_decision_basis={"surface": "executor_healing"},
+                            candidate_actions=candidate_actions,
+                            selected_action={"algorithm_id": alt_algo},
+                            skipped_actions=skipped_actions,
                         )
                     )
                     self._emit_step_event(
@@ -156,6 +185,11 @@ class WorkflowExecutor:
                             reason_code="alternative_algorithm_failed",
                             from_algorithm=task.algorithm_id,
                             to_algorithm=alt_algo,
+                            policy_source="runtime_contract",
+                            policy_decision_basis={"surface": "executor_healing"},
+                            candidate_actions=candidate_actions,
+                            selected_action={"algorithm_id": alt_algo},
+                            skipped_actions=skipped_actions,
                         )
                     )
             if step_output is not None:
@@ -231,6 +265,9 @@ class WorkflowExecutor:
         return last_output
 
     def _execute_algorithm(self, algorithm_id: str, context: ExecutionContext) -> Path:
+        decision = self.runtime_contract.evaluate_algorithm(algorithm_id, surface="executor")
+        if not decision.allowed:
+            raise ValueError(f"{decision.reason_code}: {decision.message}")
         spec = self.tool_registry.require(algorithm_id)
         handler = self.algorithm_handlers.get(algorithm_id)
         if handler is None:

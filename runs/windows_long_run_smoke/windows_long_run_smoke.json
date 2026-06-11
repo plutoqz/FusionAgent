@@ -1,0 +1,29 @@
+{
+  "status": "passed",
+  "iterations": 3,
+  "dry_run": true,
+  "tick_results": [
+    {
+      "iteration": 1,
+      "dry_run": true,
+      "inbox_tick": "skipped",
+      "recovery_tick": "skipped",
+      "elapsed_ms": 0
+    },
+    {
+      "iteration": 2,
+      "dry_run": true,
+      "inbox_tick": "skipped",
+      "recovery_tick": "skipped",
+      "elapsed_ms": 0
+    },
+    {
+      "iteration": 3,
+      "dry_run": true,
+      "inbox_tick": "skipped",
+      "recovery_tick": "skipped",
+      "elapsed_ms": 0
+    }
+  ],
+  "long_running_boundary": "external scheduler or process supervisor owns uptime"
+}

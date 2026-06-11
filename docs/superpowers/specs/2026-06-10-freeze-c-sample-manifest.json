@@ -1,0 +1,15 @@
+{
+  "experiment_id": "freeze-c-sample",
+  "output_dir": "runs\\experiments\\freeze-c-sample",
+  "commit_sha": "sample-commit",
+  "seed_hash": "sample-seed",
+  "runtime_settings_hash": "sample-settings",
+  "metric_definition_hash": "sample-metrics",
+  "files": [
+    {
+      "relative_path": "result.json",
+      "sha256": "9474d93c4b3924c332cfaf7ff8acc734b1e24c053781f2f125f247943cd693b6",
+      "size_bytes": 18
+    }
+  ]
+}

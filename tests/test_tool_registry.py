@@ -85,13 +85,13 @@ def test_execute_algorithm_fails_on_registry_miss_before_handler_lookup(tmp_path
         ]
     )
     executor = WorkflowExecutor(
-        kg_repo=object(),
-        algorithm_handlers={"algo.fusion.unknown.v1": unexpected_handler},
+        kg_repo=InMemoryKGRepository(),
+        algorithm_handlers={"algo.fusion.road.conflation.v7": unexpected_handler},
         tool_registry=registry,
     )
 
-    with pytest.raises(ValueError, match="Unknown algorithm.*algo\\.fusion\\.unknown\\.v1"):
-        executor._execute_algorithm("algo.fusion.unknown.v1", _build_context(tmp_path))
+    with pytest.raises(ValueError, match="UNKNOWN_TOOL.*algo\\.fusion\\.road\\.conflation\\.v7"):
+        executor._execute_algorithm("algo.fusion.road.conflation.v7", _build_context(tmp_path))
 
     assert called is False
 
@@ -104,7 +104,7 @@ def test_execute_algorithm_uses_custom_handler_for_registered_algorithm(tmp_path
         return expected
 
     executor = WorkflowExecutor(
-        kg_repo=object(),
+        kg_repo=InMemoryKGRepository(),
         algorithm_handlers={"algo.fusion.building.v1": custom_handler},
         tool_registry=build_default_tool_registry(),
     )

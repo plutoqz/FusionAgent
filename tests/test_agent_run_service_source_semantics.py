@@ -92,4 +92,4 @@ def test_agent_run_service_persists_source_semantic_contract(tmp_path: Path) -> 
     assert contract_path.exists()
     payload = json.loads(contract_path.read_text(encoding="utf-8"))
     assert payload["height_policy"]["height_output_field"] == "height_raster"
-    assert updated.tasks[0].input.parameters["source_priority_order"] == ["MS", "OSM"]
+    assert updated.tasks[0].input.parameters == {}

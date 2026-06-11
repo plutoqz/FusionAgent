@@ -141,6 +141,8 @@ def _algo(
         usage_mode=usage_mode,
         metadata={
             "runtime_status": "runtime_candidate",
+            "selectable_now": True,
+            "claim_state": "runtime_supported",
             "algorithm_family": "fusioncode_decomposed",
             "source_file": source_file,
             "handler_name": handler_name,

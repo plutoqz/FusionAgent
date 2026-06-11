@@ -5,6 +5,7 @@ import pytest
 from shapely.geometry import Point
 
 from adapters.poi_adapter import run_poi_fusion
+from services.artifact_evaluation_service import evaluate_vector_artifact
 
 
 def _write_shapefile(gdf: gpd.GeoDataFrame, path: Path) -> Path:
@@ -145,3 +146,29 @@ def test_run_poi_fusion_enforces_greedy_one_to_one_matching(tmp_path: Path) -> N
     assert list(result["MATCH_REF"]) == [1, 0]
     assert list(result["OSM_ID"]) == [1, 2]
     assert list(result["SRC"]) == ["osm", "osm"]
+
+
+def test_poi_fusion_golden_metrics_remain_stable(tmp_path: Path) -> None:
+    osm = gpd.GeoDataFrame(
+        {"name": ["osm clinic", "osm cafe"], "category": ["clinic", "cafe"]},
+        geometry=[Point(0, 0), Point(1000, 1000)],
+        crs="EPSG:3857",
+    )
+    ref = gpd.GeoDataFrame(
+        {"name": ["ref clinic", "ref school"], "category": ["clinic", "school"]},
+        geometry=[Point(10, 0), Point(2500, 2500)],
+        crs="EPSG:3857",
+    )
+    osm_shp = _write_shapefile(osm, tmp_path / "metric-osm" / "osm_poi.shp")
+    ref_shp = _write_shapefile(ref, tmp_path / "metric-ref" / "ref_poi.shp")
+    output_shp = run_poi_fusion(
+        osm_shp=osm_shp,
+        ref_shp=ref_shp,
+        output_dir=tmp_path / "metric-output",
+        target_crs="EPSG:3857",
+    )
+
+    metrics = evaluate_vector_artifact(output_shp, required_fields=["POI_ID", "SRC"])
+    assert metrics["artifact_validity"] is True
+    assert metrics["invalid_geometry_rate"] == 0.0
+    assert metrics["duplicate_geometry_rate"] == 0.0

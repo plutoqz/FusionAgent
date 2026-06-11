@@ -11,8 +11,10 @@
       ],
       "metadata": {
         "algorithm_family": "fusioncode_decomposed",
+        "claim_state": "runtime_supported",
         "handler_name": "_handle_building_quality_metrics",
         "runtime_status": "runtime_candidate",
+        "selectable_now": true,
         "source_file": "algorithm_core/models/spatial_optimizer.py:calculate_metrics"
       },
       "output_type": "dt.building.quality_report",
@@ -31,7 +33,9 @@
         "dt.raster.building_presence"
       ],
       "metadata": {
-        "runtime_status": "reservation_only"
+        "claim_state": "reservation_only",
+        "runtime_status": "reservation_only",
+        "selectable_now": false
       },
       "output_type": "dt.raster.building_presence",
       "stability_score": null,
@@ -52,8 +56,10 @@
       ],
       "metadata": {
         "algorithm_family": "fusioncode_decomposed",
+        "claim_state": "runtime_supported",
         "handler_name": "_handle_spatial_conflicts",
         "runtime_status": "runtime_candidate",
+        "selectable_now": true,
         "source_file": "MapTileTool/FusionTool/conflict.py"
       },
       "output_type": "dt.building.quality_report",
@@ -72,7 +78,9 @@
         "dt.raster.building_presence"
       ],
       "metadata": {
-        "runtime_status": "reservation_only"
+        "claim_state": "reservation_only",
+        "runtime_status": "reservation_only",
+        "selectable_now": false
       },
       "output_type": "dt.building.fused",
       "stability_score": null,
@@ -92,8 +100,10 @@
       ],
       "metadata": {
         "algorithm_family": "fusioncode_decomposed",
+        "claim_state": "runtime_supported",
         "handler_name": "_handle_building_height_from_raster",
         "runtime_status": "runtime_candidate",
+        "selectable_now": true,
         "source_file": "algorithm_core/models/temporal_validator.py:extract_height_parallel"
       },
       "output_type": "dt.building.height_enriched",
@@ -113,8 +123,10 @@
       ],
       "metadata": {
         "algorithm_family": "fusioncode_decomposed",
+        "claim_state": "runtime_supported",
         "handler_name": "_handle_building_obm_attributes",
         "runtime_status": "runtime_candidate",
+        "selectable_now": true,
         "source_file": "algorithm_core/models/obm_enricher.py"
       },
       "output_type": "dt.building.normalized_set",
@@ -135,8 +147,10 @@
       ],
       "metadata": {
         "algorithm_family": "fusioncode_decomposed",
+        "claim_state": "runtime_supported",
         "handler_name": "_handle_building_cascade_fusion",
         "runtime_status": "runtime_candidate",
+        "selectable_now": true,
         "source_file": "algorithm_core/models/matching_engine.py:build_fusion_rows"
       },
       "output_type": "dt.building.fused_raw",
@@ -159,8 +173,10 @@
       ],
       "metadata": {
         "algorithm_family": "fusioncode_decomposed",
+        "claim_state": "runtime_supported",
         "handler_name": "_handle_building_multi_source_decomposed",
         "runtime_status": "runtime_candidate",
+        "selectable_now": true,
         "source_file": "algorithm_core/main.py decomposed sequence"
       },
       "output_type": "dt.building.fused",
@@ -179,7 +195,9 @@
         "dt.building.source_set"
       ],
       "metadata": {
-        "runtime_status": "reservation_only"
+        "claim_state": "reservation_only",
+        "runtime_status": "reservation_only",
+        "selectable_now": false
       },
       "output_type": "dt.building.fused",
       "stability_score": null,
@@ -199,7 +217,10 @@
         "dt.building.bundle"
       ],
       "metadata": {
+        "claim_state": "runtime_supported",
         "evidence_basis": "conservative_thresholds",
+        "runtime_status": "runtime_candidate",
+        "selectable_now": true,
         "selection_profile": "fallback"
       },
       "output_type": "dt.building.fused",
@@ -220,7 +241,10 @@
         "dt.building.bundle"
       ],
       "metadata": {
+        "claim_state": "runtime_supported",
         "evidence_basis": "legacy_default_runtime",
+        "runtime_status": "runtime_candidate",
+        "selectable_now": true,
         "selection_profile": "primary"
       },
       "output_type": "dt.building.fused",
@@ -240,8 +264,10 @@
       ],
       "metadata": {
         "algorithm_family": "fusioncode_decomposed",
+        "claim_state": "runtime_supported",
         "handler_name": "_handle_poi_geohash_neighbor_match",
         "runtime_status": "runtime_candidate",
+        "selectable_now": true,
         "source_file": "MapTileTool/FusionPOI.py"
       },
       "output_type": "dt.poi.fused",
@@ -260,8 +286,11 @@
         "dt.poi.bundle"
       ],
       "metadata": {
+        "claim_state": "bounded_supported",
         "evidence_basis": "shared_bundle_runtime",
         "runtime_scope": "uploaded_or_task_driven_auto",
+        "runtime_status": "runtime_candidate",
+        "selectable_now": true,
         "selection_profile": "primary"
       },
       "output_type": "dt.poi.fused",
@@ -281,8 +310,10 @@
       ],
       "metadata": {
         "algorithm_family": "fusioncode_decomposed",
+        "claim_state": "runtime_supported",
         "handler_name": "_handle_road_conflation_v7",
         "runtime_status": "runtime_candidate",
+        "selectable_now": true,
         "source_file": "Algorithm/road_fusion_optimized_v7.py"
       },
       "output_type": "dt.road.fused",
@@ -301,6 +332,7 @@
         "dt.road.bundle"
       ],
       "metadata": {
+        "claim_state": "deprecated",
         "deprecated_by": "algo.fusion.road.conflation.v7",
         "evidence_basis": "superseded_by_v7_profile_conservative",
         "runtime_status": "deprecated",
@@ -323,6 +355,7 @@
         "dt.road.bundle"
       ],
       "metadata": {
+        "claim_state": "deprecated",
         "deprecated_by": "algo.fusion.road.conflation.v7",
         "evidence_basis": "superseded_by_v7_conflation",
         "runtime_status": "deprecated",
@@ -345,6 +378,7 @@
         "dt.water.bundle"
       ],
       "metadata": {
+        "claim_state": "deprecated",
         "deprecated_by": "algo.fusion.water_polygon.priority_merge.v2",
         "evidence_basis": "superseded_by_polygon_priority_merge_v2",
         "runtime_scope": "uploaded_or_task_driven_auto",
@@ -369,8 +403,10 @@
       ],
       "metadata": {
         "algorithm_family": "fusioncode_decomposed",
+        "claim_state": "runtime_supported",
         "handler_name": "_handle_water_polygon_priority_merge",
         "runtime_status": "runtime_candidate",
+        "selectable_now": true,
         "source_file": "MapTileTool/FusionTool/lake.py"
       },
       "output_type": "dt.water.fused",
@@ -390,8 +426,10 @@
       ],
       "metadata": {
         "algorithm_family": "fusioncode_decomposed",
+        "claim_state": "runtime_supported",
         "handler_name": "_handle_waterways_conflation_v7",
         "runtime_status": "runtime_candidate",
+        "selectable_now": true,
         "source_file": "Algorithm/waterways_fusion_v7.py"
       },
       "output_type": "dt.waterways.fused",
@@ -412,8 +450,10 @@
       ],
       "metadata": {
         "algorithm_family": "fusioncode_decomposed",
+        "claim_state": "runtime_supported",
         "handler_name": "_handle_building_v8_candidate_graph",
         "runtime_status": "runtime_candidate",
+        "selectable_now": true,
         "source_file": "algorithm_core/models/matching_engine.py:generate_candidate_edges_v8"
       },
       "output_type": "dt.building.match_candidate_graph",
@@ -433,8 +473,10 @@
       ],
       "metadata": {
         "algorithm_family": "fusioncode_decomposed",
+        "claim_state": "runtime_supported",
         "handler_name": "_handle_building_v8_component_solver",
         "runtime_status": "runtime_candidate",
+        "selectable_now": true,
         "source_file": "algorithm_core/models/matching_engine.py:process_worker_v8"
       },
       "output_type": "dt.building.match_components",
@@ -453,7 +495,9 @@
         "dt.partition.tile_manifest"
       ],
       "metadata": {
-        "runtime_status": "reservation_only"
+        "claim_state": "reservation_only",
+        "runtime_status": "reservation_only",
+        "selectable_now": false
       },
       "output_type": "dt.building.fused",
       "stability_score": null,
@@ -473,8 +517,10 @@
       ],
       "metadata": {
         "algorithm_family": "fusioncode_decomposed",
+        "claim_state": "runtime_supported",
         "handler_name": "_handle_building_conflict_graph",
         "runtime_status": "runtime_candidate",
+        "selectable_now": true,
         "source_file": "algorithm_core/models/spatial_optimizer.py:run_graph_optimization_v5"
       },
       "output_type": "dt.building.conflict_optimized",
@@ -495,8 +541,10 @@
       ],
       "metadata": {
         "algorithm_family": "fusioncode_decomposed",
+        "claim_state": "runtime_supported",
         "handler_name": "_handle_building_road_topology",
         "runtime_status": "runtime_candidate",
+        "selectable_now": true,
         "source_file": "algorithm_core/models/spatial_optimizer.py:optimize_road_topology"
       },
       "output_type": "dt.building.road_topology_adjusted",
@@ -515,7 +563,9 @@
         "dt.raw.vector"
       ],
       "metadata": {
-        "runtime_status": "reservation_only"
+        "claim_state": "reservation_only",
+        "runtime_status": "reservation_only",
+        "selectable_now": false
       },
       "output_type": "dt.partition.tile_manifest",
       "stability_score": null,
@@ -535,8 +585,10 @@
       ],
       "metadata": {
         "algorithm_family": "fusioncode_decomposed",
+        "claim_state": "runtime_supported",
         "handler_name": "_handle_building_source_normalize",
         "runtime_status": "runtime_candidate",
+        "selectable_now": true,
         "source_file": "algorithm_adapter.py:_parse_geometry_source_paths"
       },
       "output_type": "dt.building.normalized_set",
@@ -556,8 +608,10 @@
       ],
       "metadata": {
         "algorithm_family": "fusioncode_decomposed",
+        "claim_state": "runtime_supported",
         "handler_name": "_handle_building_post_conflict_shrink",
         "runtime_status": "runtime_candidate",
+        "selectable_now": true,
         "source_file": "algorithm_core/models/post_conflict_shrink_refiner.py"
       },
       "output_type": "dt.building.conflict_optimized",
@@ -578,8 +632,10 @@
       ],
       "metadata": {
         "algorithm_family": "fusioncode_decomposed",
+        "claim_state": "runtime_supported",
         "handler_name": "_handle_building_road_tail",
         "runtime_status": "runtime_candidate",
+        "selectable_now": true,
         "source_file": "algorithm_core/models/z1r3_conflict.py:road_tail_refinement"
       },
       "output_type": "dt.building.conflict_optimized",
@@ -599,8 +655,10 @@
       ],
       "metadata": {
         "algorithm_family": "fusioncode_decomposed",
+        "claim_state": "runtime_supported",
         "handler_name": "_handle_building_residual_priority",
         "runtime_status": "runtime_candidate",
+        "selectable_now": true,
         "source_file": "algorithm_core/models/matching_engine.py:resolve_residual_conflicts_by_priority"
       },
       "output_type": "dt.building.fused_raw",
@@ -658,8 +716,11 @@
       ],
       "metadata": {
         "activation": "non_default",
+        "claim_state": "reservation_only",
         "evidence_basis": "phase4_transform_reservation",
         "runtime_scope": "metadata_only",
+        "runtime_status": "reservation_only",
+        "selectable_now": false,
         "selection_profile": "reserved_seam"
       },
       "output_type": "dt.road.candidate",
@@ -680,8 +741,10 @@
       ],
       "metadata": {
         "algorithm_family": "fusioncode_decomposed",
+        "claim_state": "runtime_supported",
         "handler_name": "_handle_building_presence_raster",
         "runtime_status": "runtime_candidate",
+        "selectable_now": true,
         "source_file": "algorithm_core/models/temporal_validator.py:validate_existence_parallel"
       },
       "output_type": "dt.building.presence_validated_set",
@@ -2596,8 +2659,8 @@
     }
   ],
   "metadata": {
-    "content_hash": "sha256:91ce7d7ca697c2907f05fb60b105cdf0d2dc98d953f61108175b89c3992f3688",
-    "generated_at": "2026-06-08T07:42:55.577865+00:00",
+    "content_hash": "sha256:56cac4eb3a573ba1068b59ed9542a2a6b0e9eac566a61163202823cfcedd377c",
+    "generated_at": "2026-06-10T12:08:02.586643+00:00",
     "generated_from": "kg.seed",
     "schema_version": "1.0.0",
     "source_modules": [

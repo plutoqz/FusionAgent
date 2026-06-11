@@ -55,6 +55,7 @@ from services.quality_gate_service import QualityGateService
 from services.raw_vector_source_service import RawVectorSourceService
 from services.runtime_settings_service import RuntimeSettingsService
 from services.run_recovery_service import collect_recoverable_runs
+from services.runtime_contract_service import RuntimeContractService
 from services.run_report_service import build_run_report_summary, render_run_reports
 from services.source_field_profile_registry import SourceFieldProfileRegistry
 from services.source_semantic_contract_service import SourceSemanticContractService
@@ -109,6 +110,56 @@ def _component_coverage_from_status(status: RunStatus | None) -> dict[str, objec
         if isinstance(coverage, dict):
             return coverage
     return {}
+
+
+def _build_durable_learning_condition_metadata(
+    *,
+    task_kind: str,
+    requested_bbox: list[float] | tuple[float, float, float, float] | None,
+    component_coverage: dict[str, object] | None,
+    failure_category: str | None,
+    quality_gate_accepted: bool | None,
+) -> dict[str, object]:
+    return {
+        "task_kind": task_kind,
+        "aoi_size_bucket": _aoi_size_bucket(requested_bbox),
+        "source_coverage_bucket": _source_coverage_bucket(component_coverage or {}),
+        "failure_category": failure_category or "none",
+        "quality_outcome": (
+            "quality_gate_passed"
+            if quality_gate_accepted is True
+            else "quality_gate_failed"
+            if quality_gate_accepted is False
+            else "quality_unknown"
+        ),
+        "quality_gate_accepted": quality_gate_accepted,
+    }
+
+
+def _aoi_size_bucket(bbox: list[float] | tuple[float, float, float, float] | None) -> str:
+    if bbox is None or len(bbox) != 4:
+        return "unknown"
+    minx, miny, maxx, maxy = [float(value) for value in bbox]
+    area = max(0.0, maxx - minx) * max(0.0, maxy - miny)
+    if area <= 0.05:
+        return "small"
+    if area <= 1.0:
+        return "medium"
+    return "large"
+
+
+def _source_coverage_bucket(component_coverage: dict[str, object]) -> str:
+    if not component_coverage:
+        return "unknown"
+    statuses = []
+    for payload in component_coverage.values():
+        if isinstance(payload, dict):
+            statuses.append(str(payload.get("coverage_status") or "unknown"))
+    if statuses and all(status == "available" for status in statuses):
+        return "complete"
+    if any(status == "available" for status in statuses):
+        return "partial"
+    return "missing"
 
 
 def build_run_inspection_digest(
@@ -388,7 +439,16 @@ class AgentRunService:
             attempt_no=0,
             healing_summary={},
             failure_summary=None,
-            planning_telemetry={},
+            planning_telemetry=(
+                {
+                    "component_coverage": {
+                        "upload.osm": {"feature_count": 1, "coverage_status": "operator_supplied"},
+                        "upload.reference": {"feature_count": 1, "coverage_status": "operator_supplied"},
+                    }
+                }
+                if request.input_strategy == RunInputStrategy.uploaded
+                else {}
+            ),
             plan_revision=0,
             event_count=0,
             last_event=None,
@@ -1123,6 +1183,31 @@ class AgentRunService:
         validation_path = self._validation_path(run_id)
         self._persist_plan(plan_path, validated)
         self._persist_validation(validation_path, validated)
+        if validated.validation is not None and bool(getattr(validated.validation, "rejected", False)):
+            issue_codes = [issue.code for issue in validated.validation.issues]
+            error = "VALIDATION_REJECTED: " + ", ".join(issue_codes)
+            plan_revision = self._extract_plan_revision(validated)
+            self._update_status(
+                run_id,
+                RunPhase.failed,
+                progress=45,
+                error=error,
+                failure_summary=error,
+                finished_at=_utc_now(),
+                plan_path=str(plan_path),
+                validation_path=str(validation_path),
+                plan_revision=plan_revision,
+                checkpoint=self._checkpoint(stage="validation", plan_revision=plan_revision),
+                event_kind="validation_rejected",
+                event_message="Workflow plan rejected by Validator fail-closed mode.",
+                event_details={
+                    "issue_codes": issue_codes,
+                    "enforcement_mode": validated.validation.enforcement_mode,
+                    "issues": [issue.model_dump(mode="json") for issue in validated.validation.issues],
+                },
+            )
+            raise RuntimeError(error)
+
         self._update_status(
             run_id,
             RunPhase.running,
@@ -1593,11 +1678,16 @@ class AgentRunService:
                 "country_name": resolved_aoi.country_name,
                 "bbox": list(resolved_aoi.bbox),
             }
+        status = self.get_run(run_id)
+        planning_telemetry = dict(getattr(status, "planning_telemetry", {}) or {})
+        if resolved_inputs.component_coverage:
+            planning_telemetry["component_coverage"] = dict(resolved_inputs.component_coverage)
         if resolved_inputs.component_coverage:
             self._update_status(
                 run_id,
                 RunPhase.running,
                 progress=max(0, progress - 3),
+                planning_telemetry=planning_telemetry,
                 plan_revision=self._extract_plan_revision(plan),
                 checkpoint=self._checkpoint(stage="execution", plan_revision=self._extract_plan_revision(plan)),
                 event_kind="source_coverage_checked",
@@ -1654,6 +1744,7 @@ class AgentRunService:
             run_id,
             RunPhase.running,
             progress=progress,
+            planning_telemetry=planning_telemetry if resolved_inputs.component_coverage else None,
             plan_revision=self._extract_plan_revision(plan),
             checkpoint=self._checkpoint(stage="execution", plan_revision=self._extract_plan_revision(plan)),
             event_kind="task_inputs_resolved",
@@ -1718,7 +1809,7 @@ class AgentRunService:
         del request
         path = self.base_dir / run_id / "source_semantic_contract.json"
         path.write_text(json.dumps(contract.to_dict(), ensure_ascii=False, indent=2), encoding="utf-8")
-        updated_plan = bind_source_semantic_parameters(plan, contract)
+        updated_plan = bind_source_semantic_parameters(plan, contract, kg_repo=self.kg_repo)
         self._persist_plan(self._plan_path(run_id), updated_plan)
         summary = {
             "job_type": contract.job_type,
@@ -1843,6 +1934,7 @@ class AgentRunService:
         repair_records: List[RepairRecord],
         output_dir: Path,
     ) -> RunArtifactMeta:
+        output_dir.mkdir(parents=True, exist_ok=True)
         component_coverage = _component_coverage_from_status(self.get_run(run_id))
         self._validate_output_artifact_against_schema_policy(
             run_id=run_id,
@@ -2712,6 +2804,7 @@ class AgentRunService:
         return collect_recoverable_runs(
             runs_root=self.base_dir,
             stale_after_seconds=stale_after_seconds,
+            runtime_contract_service=RuntimeContractService(self.kg_repo),
         )
 
     def resume_run_from_checkpoint(self, run_id: str, recovery_action: str) -> dict[str, object]:
@@ -2835,6 +2928,21 @@ class AgentRunService:
             }
             quality_metadata = self._durable_quality_gate_metadata(run_id)
             durable_metadata.update(quality_metadata)
+            status = self.get_run(run_id)
+            failure_details = classify_failure_details(error=failure_reason, reason_code=failure_reason)
+            durable_metadata.update(
+                _build_durable_learning_condition_metadata(
+                    task_kind=_task_kind_for_request(request).value,
+                    requested_bbox=self._parse_bbox(request.trigger.spatial_extent),
+                    component_coverage=_component_coverage_from_status(status),
+                    failure_category=(failure_details.failure_category if failure_reason else None),
+                    quality_gate_accepted=(
+                        bool(quality_metadata["quality_gate_accepted"])
+                        if "quality_gate_accepted" in quality_metadata
+                        else None
+                    ),
+                )
+            )
             latency_seconds = self._durable_latency_seconds(run_id)
             if latency_seconds is not None:
                 durable_metadata["latency_seconds"] = latency_seconds
@@ -3021,7 +3129,7 @@ class AgentRunService:
             if failure_summary is not None or phase == RunPhase.succeeded:
                 current.failure_summary = failure_summary
             if planning_telemetry is not None:
-                current.planning_telemetry = dict(planning_telemetry)
+                current.planning_telemetry = {**dict(current.planning_telemetry or {}), **dict(planning_telemetry)}
             if plan_revision is not None:
                 current.plan_revision = plan_revision
             if checkpoint is not None:

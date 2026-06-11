@@ -453,7 +453,10 @@ def test_durable_learning_summary_uses_condition_key_and_time_decay() -> None:
         limit=5,
     )["patterns"][0]
 
-    assert summary.condition_key == "building|flood|africa|small_city|wp.building"
+    assert summary.condition_key == (
+        "task=building|entity=wp.building|aoi=small_city|"
+        "source_coverage=unknown|failure=none|quality=unknown"
+    )
     assert 0.0 < summary.time_decayed_score <= 1.0
     assert summary.recent_success_rate == 0.5
 

@@ -232,10 +232,15 @@ class KGRepository(ABC):
 
 def _learning_condition_key(record: DurableLearningRecord, entity_id: str) -> str:
     metadata = record.metadata if isinstance(record.metadata, dict) else {}
-    region = str(metadata.get("region_group") or "global")
-    aoi_class = str(metadata.get("aoi_class") or "unknown_aoi")
-    disaster = record.disaster_type or "none"
-    return f"{record.job_type.value}|{disaster}|{region}|{aoi_class}|{entity_id}"
+    task = str(metadata.get("task_kind") or record.job_type.value)
+    aoi_size = str(metadata.get("aoi_size_bucket") or metadata.get("aoi_class") or "unknown")
+    source_coverage = str(metadata.get("source_coverage_bucket") or "unknown")
+    failure_category = str(metadata.get("failure_category") or record.failure_reason or "none")
+    quality_outcome = str(metadata.get("quality_outcome") or "unknown")
+    return (
+        f"task={task}|entity={entity_id}|aoi={aoi_size}|"
+        f"source_coverage={source_coverage}|failure={failure_category}|quality={quality_outcome}"
+    )
 
 
 def _parse_learning_timestamp(value: str | None) -> Optional[datetime]:
