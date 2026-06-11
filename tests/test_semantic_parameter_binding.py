@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from agent.semantic_parameter_binding import bind_source_semantic_parameters
+from kg.inmemory_repository import InMemoryKGRepository
 from schemas.agent import WorkflowPlan
 from services.source_semantic_contract_service import SourceSemanticContract
 
@@ -27,6 +28,24 @@ def _plan(job_type: str, algorithm_id: str) -> WorkflowPlan:
             "expected_output": f"dt.{job_type}.fused",
         }
     )
+
+
+def _contract_with_metadata(*, component_source_ids: list[str], metadata: dict) -> object:
+    class _Contract:
+        run_id = "run-1"
+        job_type = "building"
+        selected_source_id = "catalog.earthquake.building"
+        target_crs = "EPSG:4326"
+        sources = {}
+        height_policy = {}
+        parameter_hints = {}
+        validation = {"valid": True, "issues": []}
+
+        def __init__(self) -> None:
+            self.component_source_ids = component_source_ids
+            self.metadata = metadata
+
+    return _Contract()
 
 
 def test_semantic_binding_adds_building_height_and_priority_parameters() -> None:
@@ -111,3 +130,32 @@ def test_semantic_binding_skips_parameters_not_supported_by_algorithm_specs() ->
 
     params = bound.tasks[0].input.parameters
     assert params == {"source_semantic_contract_path": "source_semantic_contract.json"}
+
+
+def test_semantic_parameter_binding_uses_conditional_parameter_defaults() -> None:
+    plan = _plan("building", "algo.fusion.building.v1")
+    contract = _contract_with_metadata(
+        component_source_ids=["raw.google.building", "raw.osm.building"],
+        metadata={"country_name": "Nepal"},
+    )
+
+    bound = bind_source_semantic_parameters(plan, contract, kg_repo=InMemoryKGRepository())
+
+    params = bound.tasks[0].input.parameters
+    assert params["match_similarity_threshold"] == 0.75
+    assert params["parameter_provenance"]["match_similarity_threshold"]["source"] == "manual_seed"
+
+
+def test_semantic_parameter_binding_keeps_explicit_parameter_over_conditional_default() -> None:
+    plan = _plan("building", "algo.fusion.building.v1")
+    plan.tasks[0].input.parameters["match_similarity_threshold"] = 0.9
+    contract = _contract_with_metadata(
+        component_source_ids=["raw.google.building", "raw.osm.building"],
+        metadata={"country_name": "Nepal"},
+    )
+
+    bound = bind_source_semantic_parameters(plan, contract, kg_repo=InMemoryKGRepository())
+
+    params = bound.tasks[0].input.parameters
+    assert params["match_similarity_threshold"] == 0.9
+    assert params["parameter_provenance"]["match_similarity_threshold"]["source"] == "manual_seed"
