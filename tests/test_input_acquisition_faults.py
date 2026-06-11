@@ -75,22 +75,74 @@ def test_input_acquisition_wraps_faults_with_machine_readable_category(exc: Exce
         )
 
 
-@pytest.mark.parametrize("fault_class", ["NETWORK_FAILED", "NO_OFFICIAL_COVERAGE"])
-def test_build_source_attempt_marks_external_uncontrollable_faults(fault_class: str) -> None:
+def test_source_attempt_statuses_include_contract_states() -> None:
+    from services.source_acquisition_policy import SOURCE_ATTEMPT_STATUSES
+
+    assert {
+        "attempted",
+        "available",
+        "empty",
+        "no_coverage",
+        "network_failed",
+        "provider_failed",
+        "unauthorized",
+        "cache_reused",
+        "materialized",
+        "internal_failed",
+    } <= SOURCE_ATTEMPT_STATUSES
+
+
+@pytest.mark.parametrize(
+    ("fault_class", "expected_status"),
+    [
+        ("SOURCE_DOWNLOAD_FAILED", "network_failed"),
+        ("NO_OFFICIAL_COVERAGE", "no_coverage"),
+        ("UNAUTHORIZED", "unauthorized"),
+        ("PROVIDER_UNAVAILABLE", "provider_failed"),
+    ],
+)
+def test_build_source_attempt_normalizes_external_fault_statuses(fault_class: str, expected_status: str) -> None:
     from services.source_acquisition_policy import build_source_attempt
 
     attempt = build_source_attempt(
-        source_id="raw.google.poi",
-        status="network_failed",
+        source_id="raw.google.building",
+        status="attempted",
         fault_class=fault_class,
         fault_message="outside operator control",
         coverage_status="missing",
         feature_count=0,
     )
 
-    assert attempt["source_id"] == "raw.google.poi"
+    assert attempt["source_id"] == "raw.google.building"
+    assert attempt["status"] == expected_status
     assert attempt["fault_class"] == fault_class
     assert attempt["coverage_status"] == "missing"
     assert attempt["feature_count"] == 0
     assert attempt["external_uncontrollable"] is True
+
+
+def test_build_source_attempt_preserves_contract_status() -> None:
+    from services.source_acquisition_policy import build_source_attempt
+
+    attempt = build_source_attempt(
+        source_id="raw.google.building",
+        status="no_coverage",
+        fault_class="NO_OFFICIAL_COVERAGE",
+    )
+
+    assert attempt["status"] == "no_coverage"
+    assert attempt["external_uncontrollable"] is True
+
+
+def test_build_source_attempt_normalizes_other_faults_to_provider_failed() -> None:
+    from services.source_acquisition_policy import build_source_attempt
+
+    attempt = build_source_attempt(
+        source_id="raw.osm.water",
+        status="failed",
+        fault_class="SOURCE_MISSING",
+    )
+
+    assert attempt["status"] == "provider_failed"
+    assert attempt["external_uncontrollable"] is False
 

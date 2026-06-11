@@ -10,21 +10,38 @@ _RECOVERABLE_FAULTS = {
 }
 
 SOURCE_ATTEMPT_STATUSES = {
-    "available",
-    "materialized",
     "attempted",
-    "cache_reused",
-    "failed",
-    "provider_failed",
-    "network_failed",
-    "no_official_coverage",
-    "missing",
+    "available",
     "empty",
+    "no_coverage",
+    "network_failed",
+    "provider_failed",
+    "unauthorized",
+    "cache_reused",
+    "materialized",
+    "internal_failed",
 }
 
 EXTERNAL_UNCONTROLLABLE_FAULTS = {
+    "SOURCE_DOWNLOAD_FAILED",
     "NETWORK_FAILED",
+    "PROVIDER_UNAVAILABLE",
     "NO_OFFICIAL_COVERAGE",
+    "UNAUTHORIZED",
+}
+
+_FAULT_STATUS_NORMALIZATION = {
+    "SOURCE_DOWNLOAD_FAILED": "network_failed",
+    "NETWORK_FAILED": "network_failed",
+    "PROVIDER_UNAVAILABLE": "provider_failed",
+    "NO_OFFICIAL_COVERAGE": "no_coverage",
+    "UNAUTHORIZED": "unauthorized",
+}
+
+_FAULT_NORMALIZED_FROM_STATUSES = {
+    "attempted",
+    "failed",
+    "provider_failed",
 }
 
 _SOURCE_FALLBACKS = {
@@ -56,14 +73,16 @@ def build_source_attempt(
     coverage_status: str | None = None,
     feature_count: int | None = None,
     selected_for_fusion: bool = False,
+    normalize_status: bool = True,
 ) -> dict[str, object]:
     normalized_fault_class = str(fault_class or "") if fault_class else None
+    normalized_status = _normalize_attempt_status(status=status, fault_class=normalized_fault_class) if normalize_status else status
     is_recoverable = is_recoverable_fault(normalized_fault_class or "") if recoverable is None else bool(recoverable)
     if next_retry_after_seconds is None and is_recoverable:
         next_retry_after_seconds = retry_schedule_seconds(attempt_no=attempt_no)
     return SourceAcquisitionAttempt(
         source_id=source_id,
-        status=status,
+        status=normalized_status,
         attempt_type=attempt_type,
         attempt_no=attempt_no,
         channel=channel,
@@ -76,6 +95,17 @@ def build_source_attempt(
         selected_for_fusion=selected_for_fusion,
         external_uncontrollable=normalized_fault_class in EXTERNAL_UNCONTROLLABLE_FAULTS,
     ).model_dump(mode="json")
+
+
+def _normalize_attempt_status(*, status: str, fault_class: str | None) -> str:
+    normalized_status = str(status or "").strip() or "attempted"
+    if normalized_status in SOURCE_ATTEMPT_STATUSES and normalized_status not in _FAULT_NORMALIZED_FROM_STATUSES:
+        return normalized_status
+    if fault_class in _FAULT_STATUS_NORMALIZATION:
+        return _FAULT_STATUS_NORMALIZATION[fault_class]
+    if fault_class and normalized_status in _FAULT_NORMALIZED_FROM_STATUSES:
+        return "provider_failed"
+    return normalized_status if normalized_status in SOURCE_ATTEMPT_STATUSES else "internal_failed"
 
 
 def build_failed_attempt(
@@ -96,6 +126,7 @@ def build_failed_attempt(
         fault_message=fault_message,
         recoverable=recoverable,
         next_retry_after_seconds=retry_schedule_seconds(attempt_no=attempt_no) if recoverable else None,
+        normalize_status=False,
     )
 
 

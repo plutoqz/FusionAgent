@@ -563,7 +563,7 @@ def test_input_acquisition_writes_manifest_for_failed_provider(tmp_path: Path) -
     assert manifest["source_attempts_path"] == "source_attempts.json"
     source_attempts = json.loads((tmp_path / "run" / "source_attempts.json").read_text(encoding="utf-8"))
     assert source_attempts["coverage_state"] == "missing"
-    assert source_attempts["attempts"][0]["status"] == "failed"
+    assert source_attempts["attempts"][0]["status"] == "provider_failed"
     assert manifest["fault"]["fault_class"] == "SOURCE_MISSING"
     assert manifest["fault"]["recoverable"] is True
     attempt = manifest["provider_attempts"][0]
