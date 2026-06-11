@@ -85,12 +85,23 @@ def _poi_source_id_for_alias(alias: str, sources: dict[str, Path]) -> str:
     return alias
 
 
+def _poi_alias_for_source_id(source_id: object) -> str | None:
+    text = str(source_id or "").strip()
+    if not text:
+        return None
+    if text in POI_SOURCE_PRIORITY_ORDER:
+        return text
+    if text == "raw.geonames.poi":
+        text = "raw.gns.poi"
+    return POI_SOURCE_ALIASES.get(text)
+
+
 def _fill_missing_source_id(frame: gpd.GeoDataFrame, source_id: str) -> gpd.GeoDataFrame:
     result = frame.copy()
     if "source_id" not in result.columns:
         result["source_id"] = source_id
         return result
-    missing = result["source_id"].isna() | result["source_id"].astype(str).str.len().eq(0)
+    missing = result["source_id"].isna() | result["source_id"].astype(str).str.strip().str.len().eq(0)
     result.loc[missing, "source_id"] = source_id
     return result
 
@@ -335,17 +346,24 @@ def run_poi_tile(
     )
     fused = run_poi_geohash_priority_fusion(ordered_sources, params)
     rank_by_source = {name: rank for rank, name in enumerate(params.source_priority_order, start=1)}
+    source_id_by_alias = {alias: _poi_source_id_for_alias(alias, sources) for alias in params.source_priority_order}
+    if "source_id" not in fused.columns:
+        fused["source_id"] = ""
+    source_id_text = fused["source_id"].fillna("").astype(str).str.strip()
+    missing_source_id = source_id_text.eq("")
+    alias_from_source_id = source_id_text.map(_poi_alias_for_source_id)
     if "SRC" in fused.columns:
         source_from_src = fused["SRC"].replace({"base": params.source_priority_order[0]})
         if len(params.source_priority_order) > 1:
             source_from_src = source_from_src.replace({"target": params.source_priority_order[-1]})
-        fused["source_rank"] = source_from_src.map(rank_by_source).fillna(99).astype(int)
-        source_id_by_alias = {alias: _poi_source_id_for_alias(alias, sources) for alias in params.source_priority_order}
-        fused["source_id"] = source_from_src.map(source_id_by_alias).fillna(fused.get("source_id", ""))
+        fallback_source_id = source_from_src.map(source_id_by_alias)
+        fused.loc[missing_source_id, "source_id"] = fallback_source_id[missing_source_id].fillna("")
+        source_id_text = fused["source_id"].fillna("").astype(str).str.strip()
+        alias_from_source_id = source_id_text.map(_poi_alias_for_source_id)
+        fallback_alias = source_from_src.where(missing_source_id)
+        fused["source_rank"] = alias_from_source_id.fillna(fallback_alias).map(rank_by_source).fillna(99).astype(int)
     else:
-        fused["source_rank"] = 99
-        if "source_id" not in fused.columns:
-            fused["source_id"] = ""
+        fused["source_rank"] = alias_from_source_id.map(rank_by_source).fillna(99).astype(int)
     if "MATCHED" not in fused.columns:
         fused["MATCHED"] = False
     if "canonical_id" not in fused.columns or "canonical_name" not in fused.columns or "canonical_category" not in fused.columns:

@@ -11,6 +11,7 @@ import pandas as pd
 import pyogrio
 from shapely.geometry import box
 
+from fusion_algorithms.contracts import PoiFusionParams
 from fusion_algorithms.poi_fusion import run_poi_geohash_priority_fusion
 from fusion_algorithms.road_conflation_v7 import RoadConflationV7Config, run_road_conflation_v7
 from fusion_algorithms.water_fusion import fuse_water_polygons
@@ -57,6 +58,17 @@ BUILDING_SOURCE_PRIORITY_ORDER = (
     "GOOGLE",
     "OSM",
 )
+
+POI_SOURCE_ALIASES = {
+    "raw.gns.poi": "GNG",
+    "raw.geonames.poi": "GNG",
+    "raw.google.poi": "GOOGLE",
+    "raw.osm.poi": "OSM",
+    "raw.rh.poi": "RH",
+}
+
+POI_SOURCE_PRIORITY_ORDER = ("GNG", "GOOGLE", "OSM", "RH")
+CORE_SELECTED_POI_SOURCE_IDS = {"raw.gns.poi", "raw.google.poi", "raw.osm.poi"}
 
 
 @dataclass(frozen=True)
@@ -139,9 +151,14 @@ class TrackBNationalScaleService:
         coverage_component_source_ids = list(materialized.component_coverage.keys())
         if not coverage_component_source_ids:
             raise ValueError(f"No component sources were materialized for {selected_source_id}")
-        component_source_ids = self._primary_component_source_ids(selected_source_id, coverage_component_source_ids)
-        osm_source_id = component_source_ids[0]
-        ref_source_id = component_source_ids[1] if len(component_source_ids) > 1 else None
+        bundle_component_source_ids = self._primary_component_source_ids(selected_source_id, coverage_component_source_ids)
+        if theme == "poi":
+            component_source_ids = self._poi_component_source_ids(coverage_component_source_ids)
+        else:
+            component_source_ids = bundle_component_source_ids
+        extract_component_source_ids = bundle_component_source_ids if theme == "poi" else component_source_ids
+        osm_source_id = extract_component_source_ids[0]
+        ref_source_id = extract_component_source_ids[1] if len(extract_component_source_ids) > 1 else None
 
         extract_dir = output_root / "_extract"
         osm_shp = validate_zip_has_shapefile(materialized.osm_zip_path, extract_dir / "osm")
@@ -174,6 +191,28 @@ class TrackBNationalScaleService:
             if ref_source_id is not None
             else None
         )
+        selected_normalized_sources: dict[str, dict[str, Any]] = {
+            osm_source_id: self._normalization_entry(osm_source_id, osm_normalized, osm_normalized_path),
+            **(
+                {ref_source_id: self._normalization_entry(ref_source_id, ref_normalized, ref_normalized_path)}
+                if ref_source_id is not None and ref_normalized_path is not None
+                else {}
+            ),
+        }
+        poi_normalized_sources: dict[str, gpd.GeoDataFrame] = {}
+        poi_normalized_paths: dict[str, Path] = {}
+        if theme == "poi":
+            poi_normalized_sources, poi_normalized_paths = self._materialize_poi_normalized_sources(
+                component_source_ids=component_source_ids,
+                component_coverage=materialized.component_coverage,
+                target_crs=target_crs,
+                normalized_dir=normalized_dir,
+            )
+            selected_normalized_sources = {
+                source_id: self._normalization_entry(source_id, poi_normalized_sources[source_id], poi_normalized_paths[source_id])
+                for source_id in component_source_ids
+                if source_id in poi_normalized_sources and source_id in poi_normalized_paths
+            }
         if theme in {"road", "waterways"}:
             supplemental_summary = {}
         elif theme == "water":
@@ -272,6 +311,7 @@ class TrackBNationalScaleService:
                     supplemental_summary=supplemental_summary,
                     target_crs=target_crs,
                     tile_dir=tile_dir / tile.tile_id,
+                    poi_sources=poi_normalized_sources,
                 )
                 tile_results.append(tile_output)
             timings["tile_fusion_sec"] = time.perf_counter() - tile_started
@@ -312,6 +352,17 @@ class TrackBNationalScaleService:
             encoding="utf-8",
         )
 
+        selected_profile_paths = [
+            (osm_source_id, osm_normalized_path),
+            (ref_source_id, ref_normalized_path),
+        ]
+        if theme == "poi":
+            selected_profile_paths = [
+                (source_id, poi_normalized_paths[source_id])
+                for source_id in component_source_ids
+                if source_id in poi_normalized_paths
+            ]
+
         source_profile_snapshot = {
             "snapshot_mode": "track_b_national_scale",
             "job_type": theme,
@@ -321,10 +372,7 @@ class TrackBNationalScaleService:
             "component_source_ids": component_source_ids,
             "selected_profiles": [
                 self._profile_snapshot_entry(source_id=item, artifact_path=path)
-                for item, path in [
-                    (osm_source_id, osm_normalized_path),
-                    (ref_source_id, ref_normalized_path),
-                ]
+                for item, path in selected_profile_paths
                 if item is not None and path is not None
             ],
             "supplemental_profiles": list(supplemental_summary.values()),
@@ -352,14 +400,7 @@ class TrackBNationalScaleService:
         )
 
         normalization_summary = {
-            "selected_sources": {
-                osm_source_id: self._normalization_entry(osm_source_id, osm_normalized, osm_normalized_path),
-                **(
-                    {ref_source_id: self._normalization_entry(ref_source_id, ref_normalized, ref_normalized_path)}
-                    if ref_source_id is not None and ref_normalized_path is not None
-                    else {}
-                ),
-            },
+            "selected_sources": selected_normalized_sources,
             "supplemental_sources": supplemental_summary,
         }
         (output_root / "normalization_summary.json").write_text(
@@ -764,6 +805,64 @@ class TrackBNationalScaleService:
             return component_source_ids
         return [source_id for source_id in primary_ids if source_id in component_source_ids] or component_source_ids
 
+    @staticmethod
+    def _poi_component_source_ids(component_source_ids: list[str]) -> list[str]:
+        available = {"raw.gns.poi" if item == "raw.geonames.poi" else item for item in component_source_ids}
+        ordered = [source_id for source_id in ("raw.gns.poi", "raw.google.poi", "raw.osm.poi", "raw.rh.poi") if source_id in available]
+        ordered.extend(sorted(source_id for source_id in available if source_id not in ordered))
+        return ordered
+
+    def _materialize_poi_normalized_sources(
+        self,
+        *,
+        component_source_ids: list[str],
+        component_coverage: dict[str, object],
+        target_crs: str,
+        normalized_dir: Path,
+    ) -> tuple[dict[str, gpd.GeoDataFrame], dict[str, Path]]:
+        frames: dict[str, gpd.GeoDataFrame] = {}
+        paths: dict[str, Path] = {}
+        for source_id in component_source_ids:
+            coverage = component_coverage.get(source_id)
+            if coverage is None and source_id == "raw.gns.poi":
+                coverage = component_coverage.get("raw.geonames.poi")
+            path = self._coverage_path(coverage)
+            is_core_selected = source_id in CORE_SELECTED_POI_SOURCE_IDS
+            coverage_available = self._coverage_is_available(coverage)
+            if path is None:
+                if is_core_selected and coverage_available:
+                    self._raise_selected_poi_materialization_error(source_id, None, "available coverage has no path")
+                continue
+            if not path.exists():
+                if is_core_selected and coverage_available:
+                    self._raise_selected_poi_materialization_error(
+                        source_id,
+                        path,
+                        "available coverage path does not exist",
+                    )
+                continue
+            try:
+                source_path = path
+                if path.suffix.lower() == ".zip":
+                    source_path = validate_zip_has_shapefile(path, normalized_dir / f"extract_{source_id.replace('.', '_')}")
+                normalized = normalize_track_b_source_frame(
+                    source_id,
+                    gpd.read_file(source_path),
+                    target_crs=target_crs,
+                )
+                artifact_path = self._write_gpkg(
+                    normalized,
+                    normalized_dir / f"{source_id.replace('.', '_')}.gpkg",
+                    target_crs=target_crs,
+                )
+                frames[source_id] = normalized
+                paths[source_id] = artifact_path
+            except Exception as exc:  # noqa: BLE001
+                if is_core_selected and coverage_available:
+                    self._raise_selected_poi_materialization_error(source_id, path, exc)
+                continue
+        return frames, paths
+
     def _materialize_water_line_supplemental_normalized_sources(
         self,
         *,
@@ -1116,6 +1215,32 @@ class TrackBNationalScaleService:
         return getattr(coverage, "source_mode", None)
 
     @staticmethod
+    def _coverage_is_available(coverage: object) -> bool:
+        if coverage is None:
+            return False
+        if isinstance(coverage, dict):
+            coverage_status = coverage.get("coverage_status")
+            feature_count = coverage.get("feature_count")
+        else:
+            coverage_status = getattr(coverage, "coverage_status", None)
+            feature_count = getattr(coverage, "feature_count", None)
+        if str(coverage_status or "").strip().lower() == "available":
+            return True
+        try:
+            return int(feature_count or 0) > 0
+        except (TypeError, ValueError):
+            return False
+
+    @staticmethod
+    def _raise_selected_poi_materialization_error(source_id: str, path: Path | None, reason: Exception | str) -> None:
+        path_text = str(path) if path is not None else "<missing>"
+        if isinstance(reason, Exception):
+            detail = f"{type(reason).__name__}: {reason}"
+        else:
+            detail = str(reason)
+        raise RuntimeError(f"Failed to materialize selected POI source {source_id}: {detail} path={path_text}")
+
+    @staticmethod
     def _supplemental_artifact_path(
         supplemental_summary: dict[str, dict[str, Any]],
         source_id: str,
@@ -1162,6 +1287,7 @@ class TrackBNationalScaleService:
         supplemental_summary: dict[str, dict[str, Any]],
         target_crs: str,
         tile_dir: Path,
+        poi_sources: dict[str, gpd.GeoDataFrame] | None = None,
     ) -> TileFusionArtifact:
         tile_dir.mkdir(parents=True, exist_ok=True)
         buffered = box(*tile.working_buffered_bbox)
@@ -1183,10 +1309,29 @@ class TrackBNationalScaleService:
                 config=WaterwaysConflationV7Config(target_crs=target_crs),
             ).frame
         else:
-            sources = {"OSM": base_tile}
-            if not ref_tile.empty:
-                sources["GNG"] = ref_tile
-            fused = run_poi_geohash_priority_fusion(sources)
+            sources = {}
+            if poi_sources:
+                for source_id in self._poi_component_source_ids(list(poi_sources.keys())):
+                    alias = POI_SOURCE_ALIASES.get(source_id)
+                    if alias is None:
+                        continue
+                    frame = poi_sources[source_id]
+                    tile_frame = frame[frame.geometry.intersects(buffered)].copy()
+                    if not tile_frame.empty:
+                        sources[alias] = tile_frame
+            else:
+                if not ref_tile.empty:
+                    sources["GNG"] = ref_tile
+                if not base_tile.empty:
+                    sources["OSM"] = base_tile
+            if not sources:
+                fused = _empty_frame(target_crs)
+            else:
+                source_priority_order = tuple(alias for alias in POI_SOURCE_PRIORITY_ORDER if alias in sources)
+                fused = run_poi_geohash_priority_fusion(
+                    sources,
+                    PoiFusionParams(source_priority_order=source_priority_order),
+                )
 
         if fused.crs is None:
             fused = fused.set_crs(target_crs)

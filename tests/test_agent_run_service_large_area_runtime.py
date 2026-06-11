@@ -21,6 +21,7 @@ from schemas.agent import (
 )
 from schemas.fusion import JobType
 from services.agent_run_service import AgentRunService
+from services.domain_fusion_runners import run_poi_tile
 from services.input_acquisition_service import ResolvedRunInputs
 from services.tile_partition_service import TileManifest, TileSpec
 
@@ -347,6 +348,14 @@ def test_poi_task_driven_run_uses_osm_and_gns_large_area_runtime(tmp_path: Path,
             crs="EPSG:3857",
         ),
     )
+    google = _write(
+        tmp_path / "google_poi.gpkg",
+        gpd.GeoDataFrame(
+            {"place_id": ["g1"], "displayName": ["Clinic A"], "primaryType": ["hospital"], "GeoHash": ["abc"]},
+            geometry=[Point(0.505, 0.5)],
+            crs="EPSG:3857",
+        ),
+    )
     gns = _write(
         tmp_path / "gns_poi.gpkg",
         gpd.GeoDataFrame(
@@ -365,6 +374,7 @@ def test_poi_task_driven_run_uses_osm_and_gns_large_area_runtime(tmp_path: Path,
         selected_source_id="catalog.generic.poi",
         component_coverage={
             "raw.osm.poi": {"path": str(osm), "feature_count": 1},
+            "raw.google.poi": {"path": str(google), "feature_count": 1},
             "raw.gns.poi": {"path": str(gns), "feature_count": 1},
         },
     )
@@ -388,17 +398,142 @@ def test_poi_task_driven_run_uses_osm_and_gns_large_area_runtime(tmp_path: Path,
         service.shutdown()
 
     fused = gpd.read_file(path)
+    selected_sources = json.loads((run_dir / "output" / "selected_sources.json").read_text(encoding="utf-8"))
+    poi_sources = selected_sources["slices"][0]["sources"]
     assert repairs == []
     assert path.exists()
+    assert set(poi_sources) == {"raw.gns.poi", "raw.google.poi", "raw.osm.poi"}
     assert {"source_id", "source_rank", "MATCHED", "canonical_id", "canonical_name", "canonical_category"}.issubset(
         fused.columns
     )
-    assert set(fused["source_id"]) == {"raw.osm.poi"}
+    assert set(fused["source_id"]) == {"raw.gns.poi"}
     assert fused.iloc[0]["source_rank"] == 1
     assert bool(fused.iloc[0]["MATCHED"]) is True
-    assert fused.iloc[0]["canonical_id"] == "raw.osm.poi:1"
+    assert fused.iloc[0]["canonical_id"] == "raw.gns.poi:10"
     assert fused.iloc[0]["canonical_name"] == "Clinic A"
-    assert fused.iloc[0]["canonical_category"] == "clinic"
+    assert fused.iloc[0]["canonical_category"] == "hospital"
+
+
+def test_poi_tile_preserves_three_source_unique_google_provenance_and_rank(tmp_path: Path) -> None:
+    tile = _single_tile_manifest().tiles[0]
+    gns = _write(
+        tmp_path / "gns_unique.gpkg",
+        gpd.GeoDataFrame(
+            {
+                "source_id": ["raw.gns.poi"],
+                "source_feature_id": ["gns-1"],
+                "name": ["GNS Unique"],
+                "category": ["admin"],
+                "GeoHash": ["a"],
+            },
+            geometry=[Point(0.1, 0.1)],
+            crs="EPSG:3857",
+        ),
+    )
+    google = _write(
+        tmp_path / "google_unique.gpkg",
+        gpd.GeoDataFrame(
+            {
+                "source_id": ["raw.google.poi"],
+                "source_feature_id": ["google-1"],
+                "name": ["Google Unique"],
+                "category": ["hospital"],
+                "GeoHash": ["b"],
+            },
+            geometry=[Point(20.0, 0.1)],
+            crs="EPSG:3857",
+        ),
+    )
+    osm = _write(
+        tmp_path / "osm_unique.gpkg",
+        gpd.GeoDataFrame(
+            {
+                "source_id": ["raw.osm.poi"],
+                "source_feature_id": ["osm-1"],
+                "name": ["OSM Unique"],
+                "category": ["school"],
+                "GeoHash": ["c"],
+            },
+            geometry=[Point(40.0, 0.1)],
+            crs="EPSG:3857",
+        ),
+    )
+
+    output_path, stats = run_poi_tile(
+        tile,
+        {"raw.gns.poi": gns, "raw.google.poi": google, "raw.osm.poi": osm},
+        tmp_path / "out",
+        "EPSG:3857",
+        {"duplicate_distance_m": 1.0},
+    )
+
+    fused = gpd.read_file(output_path)
+    google_rows = fused[fused["source_feature_id"] == "google-1"]
+    assert stats["source_priority_order"] == ["GNG", "GOOGLE", "OSM"]
+    assert len(google_rows) == 1
+    assert google_rows.iloc[0]["source_id"] == "raw.google.poi"
+    assert google_rows.iloc[0]["source_rank"] == 2
+
+
+def test_poi_tile_ranks_alias_valued_source_ids(tmp_path: Path) -> None:
+    tile = _single_tile_manifest().tiles[0]
+    gns = _write(
+        tmp_path / "gns_alias.gpkg",
+        gpd.GeoDataFrame(
+            {
+                "source_id": ["GNG"],
+                "source_feature_id": ["gng-alias"],
+                "name": ["GNG Alias"],
+                "category": ["clinic"],
+                "GeoHash": ["a"],
+            },
+            geometry=[Point(0.0, 0.0)],
+            crs="EPSG:3857",
+        ),
+    )
+    google = _write(
+        tmp_path / "google_alias.gpkg",
+        gpd.GeoDataFrame(
+            {
+                "source_id": ["GOOGLE"],
+                "source_feature_id": ["google-alias"],
+                "name": ["Google Alias"],
+                "category": ["hospital"],
+                "GeoHash": ["b"],
+            },
+            geometry=[Point(20.0, 0.1)],
+            crs="EPSG:3857",
+        ),
+    )
+    osm = _write(
+        tmp_path / "osm_alias.gpkg",
+        gpd.GeoDataFrame(
+            {
+                "source_id": ["OSM"],
+                "source_feature_id": ["osm-alias"],
+                "name": ["OSM Alias"],
+                "category": ["school"],
+                "GeoHash": ["c"],
+            },
+            geometry=[Point(40.0, 0.1)],
+            crs="EPSG:3857",
+        ),
+    )
+
+    output_path, stats = run_poi_tile(
+        tile,
+        {"raw.gns.poi": gns, "raw.google.poi": google, "raw.osm.poi": osm},
+        tmp_path / "out_alias",
+        "EPSG:3857",
+        {"duplicate_distance_m": 1.0},
+    )
+
+    fused = gpd.read_file(output_path)
+    ranks = {row["source_id"]: int(row["source_rank"]) for _, row in fused.iterrows()}
+    assert stats["source_priority_order"] == ["GNG", "GOOGLE", "OSM"]
+    assert ranks["GNG"] == 1
+    assert ranks["GOOGLE"] == 2
+    assert ranks["OSM"] == 3
 
 
 def test_large_area_runtime_claims_road_water_and_poi(tmp_path: Path) -> None:

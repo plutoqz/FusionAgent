@@ -23,12 +23,13 @@ BUILDING_SOURCE_PRIORITY_ORDER: tuple[str, ...] = (
 
 POI_SOURCE_ALIASES: dict[str, str] = {
     "raw.osm.poi": "OSM",
-    "raw.gns.poi": "GNS",
-    "raw.geonames.poi": "GNS",
+    "raw.gns.poi": "GNG",
+    "raw.geonames.poi": "GNG",
+    "raw.google.poi": "GOOGLE",
     "raw.rh.poi": "RH",
 }
 
-POI_SOURCE_PRIORITY_ORDER: tuple[str, ...] = ("OSM", "GNS", "RH")
+POI_SOURCE_PRIORITY_ORDER: tuple[str, ...] = ("GNG", "GOOGLE", "OSM", "RH")
 
 LINE_SOURCE_ALIASES: dict[str, str] = {
     "raw.osm.road": "OSM",

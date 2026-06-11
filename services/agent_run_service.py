@@ -2289,7 +2289,7 @@ class AgentRunService:
                 "raw.osm.waterways",
                 "raw.hydrorivers.water",
             },
-            JobType.poi: {"raw.osm.poi", "raw.gns.poi", "raw.geonames.poi"},
+            JobType.poi: {"raw.osm.poi", "raw.google.poi", "raw.gns.poi", "raw.geonames.poi"},
         }
         allowed_source_ids = allowed_source_ids_by_job.get(job_type, set())
         coverage = dict(resolved_inputs.component_coverage or {})
@@ -2468,13 +2468,15 @@ class AgentRunService:
         elif request.job_type == JobType.poi:
             if component_paths.get("raw.osm.poi") is None:
                 raise ValueError("POI large-area runtime requires raw.osm.poi")
-            poi_sources = {"raw.osm.poi": component_paths["raw.osm.poi"]}
-            if component_paths.get("raw.gns.poi") is not None:
-                poi_sources["raw.gns.poi"] = component_paths["raw.gns.poi"]
-            elif component_paths.get("raw.geonames.poi") is not None:
-                poi_sources["raw.geonames.poi"] = component_paths["raw.geonames.poi"]
-            else:
-                raise ValueError("POI large-area runtime requires raw.gns.poi or raw.geonames.poi")
+            poi_sources = {
+                source_id: path
+                for source_id, path in {
+                    "raw.gns.poi": component_paths.get("raw.gns.poi") or component_paths.get("raw.geonames.poi"),
+                    "raw.google.poi": component_paths.get("raw.google.poi"),
+                    "raw.osm.poi": component_paths.get("raw.osm.poi"),
+                }.items()
+                if path is not None
+            }
             slices = [
                 LargeAreaSlice(
                     name="poi",

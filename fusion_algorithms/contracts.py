@@ -224,7 +224,7 @@ class PoiFusionParams:
     geohash_precision: int = 8
     neighbor_rings: int = 1
     name_similarity_threshold: float = 0.75
-    source_priority_order: tuple[str, ...] = ("GOOGLE", "GNG", "OSM", "RH")
+    source_priority_order: tuple[str, ...] = ("GNG", "GOOGLE", "OSM", "RH")
     duplicate_distance_m: float = 250.0
     remaining_output_mode: str = "separate"
 

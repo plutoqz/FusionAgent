@@ -87,7 +87,7 @@ def test_geonames_alias_is_documented_as_gns_poi_alias() -> None:
 def test_runtime_alias_paths_rejects_duplicate_runtime_aliases() -> None:
     from services.runtime_source_aliases import POI_SOURCE_ALIASES, alias_paths
 
-    with pytest.raises(ValueError, match=r"GNS.*raw\.gns\.poi.*raw\.geonames\.poi"):
+    with pytest.raises(ValueError, match=r"GNG.*raw\.gns\.poi.*raw\.geonames\.poi"):
         alias_paths(
             {
                 "raw.gns.poi": Path("gns.gpkg"),
