@@ -24,12 +24,14 @@ def test_specs_readme_lists_new_thesis_live_docs() -> None:
 def test_completed_master_plan_is_archived_and_only_roadmap_plans_are_active() -> None:
     plans_root = Path("docs/superpowers/plans")
     active_plans = sorted(path.name for path in plans_root.glob("*.md"))
-
-    assert active_plans == [
+    completed_roadmap_plans = [
         "2026-06-10-plan-a-algorithm-trust-runtime-contract-freeze.md",
         "2026-06-10-plan-b-benchmark-protocol-quality-evaluation-freeze.md",
         "2026-06-10-plan-c-architecture-mvp-ablation-harness.md",
         "2026-06-10-plan-d-freeze-c-evidence-thesis-closure.md",
         "2026-06-10-plan-e-windows-runtime-operability-long-run.md",
     ]
+
+    assert active_plans == []
     assert (plans_root / "done" / "2026-05-13-fusionagent-master-execution-plan.md").exists()
+    assert all((plans_root / "done" / plan).exists() for plan in completed_roadmap_plans)
