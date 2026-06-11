@@ -62,6 +62,8 @@ Google building must be part of the automatic source acquisition loop. The prefe
 
 Google POI must also be part of the automatic source acquisition loop. It requires `GOOGLE_PLACES_API_KEY` and a local authorization manifest confirming the project is allowed to persist, export, and fuse Google POI results with non-Google sources. Without that authorization manifest, `raw.google.poi` is classified as `unauthorized`, and POI full closure must fail or degrade as externally uncontrollable according to the readiness policy.
 
+Track B national evidence CLI runs expose Google source configuration through `--google-open-buildings-url`, `--google-poi-authorization`, `--google-places-api-key-env`, and `--google-places-cache-key`. API key values are read from the named environment variable and must not be written to evidence files.
+
 ## Fusion Path Selection
 
 The runtime should first attempt all required and optional candidates for the task. It may proceed with a degraded fusion path only when missing required sources are classified as external-uncontrollable and the evidence states the missing source ids. It must not claim `full_autonomous_closure` unless every required source for that task is available with non-empty AOI coverage.
@@ -91,6 +93,8 @@ Each autonomous run should expose:
 | `full_autonomous_closure` | Every required source is available and non-empty, and the fusion path completed. |
 | `degraded_external` | One or more required sources are missing only for external-uncontrollable reasons, with evidence. |
 | `system_failure` | A required source or fusion stage failed for an internal reason, or evidence is missing. |
+
+The evidence CLI option `--require-full-autonomous-closure` is a strict gate for claim-building runs. When set, the command must read `inspection_summary.json`, inspect `autonomous_readiness.status`, print missing required source ids, and return non-zero unless the status is `full_autonomous_closure`.
 
 ## Long-Running Follow-Up Boundary
 

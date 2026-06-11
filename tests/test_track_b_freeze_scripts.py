@@ -3,13 +3,131 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from scripts import build_track_b_national_evidence as evidence_cli
 from scripts.freeze_track_b_national_evidence import freeze_track_b_national_evidence
 from scripts.freeze_track_b_smoke_evidence import SmokeSnapshot, freeze_track_b_smoke_evidence
+from services.track_b_national_scale_service import TrackBNationalScaleService
 
 
 def _write_json(path: Path, payload: dict) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+
+
+def test_build_track_b_national_evidence_parse_args_accepts_google_source_options() -> None:
+    args = evidence_cli.parse_args(
+        [
+            "--job-type",
+            "poi",
+            "--bbox",
+            "36.7,-1.3,36.9,-1.1",
+            "--target-crs",
+            "EPSG:32737",
+            "--output-root",
+            "runs/evidence",
+            "--google-open-buildings-url",
+            "file:///tmp/google-open-buildings-1.csv",
+            "--google-open-buildings-url",
+            "file:///tmp/google-open-buildings-2.csv",
+            "--google-poi-authorization",
+            "config/google-poi-authorization.json",
+            "--google-places-api-key-env",
+            "TEST_GOOGLE_PLACES_API_KEY",
+            "--require-full-autonomous-closure",
+        ]
+    )
+
+    assert args.google_open_buildings_url == [
+        "file:///tmp/google-open-buildings-1.csv",
+        "file:///tmp/google-open-buildings-2.csv",
+    ]
+    assert args.google_poi_authorization == "config/google-poi-authorization.json"
+    assert args.google_places_api_key_env == "TEST_GOOGLE_PLACES_API_KEY"
+    assert args.require_full_autonomous_closure is True
+
+
+def test_build_track_b_national_evidence_requires_full_autonomous_closure(
+    tmp_path: Path,
+    monkeypatch,
+    capsys,
+) -> None:
+    captured_init: dict[str, object] = {}
+
+    class _FakeTrackBNationalScaleService:
+        def __init__(self, **kwargs) -> None:
+            captured_init.update(kwargs)
+
+        def build_theme_evidence(self, **kwargs) -> dict:
+            output_root = Path(kwargs["output_root"])
+            _write_json(
+                output_root / "inspection_summary.json",
+                {
+                    "autonomous_readiness": {
+                        "status": "system_failure",
+                        "missing_required_source_ids": ["raw.google.poi", "raw.gns.poi"],
+                    }
+                },
+            )
+            return {
+                "claim_state": "national_scale_partial_reference",
+                "tile_count": 1,
+                "artifact_path": str(output_root / "poi_national_scale_fused.gpkg"),
+            }
+
+    monkeypatch.setenv("TEST_GOOGLE_PLACES_API_KEY", "secret-test-key")
+    monkeypatch.setattr(evidence_cli, "TrackBNationalScaleService", _FakeTrackBNationalScaleService)
+
+    result = evidence_cli.main(
+        [
+            "--job-type",
+            "poi",
+            "--bbox",
+            "36.7,-1.3,36.9,-1.1",
+            "--target-crs",
+            "EPSG:32737",
+            "--output-root",
+            str(tmp_path / "evidence"),
+            "--google-open-buildings-url",
+            "file:///tmp/google-open-buildings.csv",
+            "--google-poi-authorization",
+            str(tmp_path / "google-poi-authorization.json"),
+            "--google-places-api-key-env",
+            "TEST_GOOGLE_PLACES_API_KEY",
+            "--google-places-cache-key",
+            "places-fixture-v1",
+            "--require-full-autonomous-closure",
+        ]
+    )
+
+    assert result == 2
+    assert captured_init["google_open_buildings_urls"] == ["file:///tmp/google-open-buildings.csv"]
+    assert captured_init["google_poi_authorization_path"] == tmp_path / "google-poi-authorization.json"
+    assert captured_init["google_places_api_key"] == "secret-test-key"
+    assert captured_init["google_places_cache_key"] == "places-fixture-v1"
+
+    output = capsys.readouterr().out
+    assert "full_autonomous_closure_required" in output
+    assert "status=system_failure" in output
+    assert "raw.google.poi" in output
+    assert "raw.gns.poi" in output
+
+
+def test_track_b_national_scale_service_threads_google_source_options(tmp_path: Path) -> None:
+    auth_path = tmp_path / "google-poi-authorization.json"
+    service = TrackBNationalScaleService(
+        root_dir=tmp_path,
+        cache_dir=tmp_path / "cache",
+        google_open_buildings_urls=["file:///tmp/google-open-buildings.csv"],
+        google_poi_authorization_path=auth_path,
+        google_places_api_key="secret-test-key",
+        google_places_cache_key="places-fixture-v1",
+    )
+
+    source_asset_service = service.raw_source_service.source_asset_service
+    assert source_asset_service.google_open_buildings_urls == ["file:///tmp/google-open-buildings.csv"]
+    assert source_asset_service.google_poi_authorization_path == auth_path
+    assert source_asset_service.google_places_api_key == "secret-test-key"
+    assert source_asset_service.google_places_cache_key == "places-fixture-v1"
 
 
 def test_freeze_track_b_national_evidence_builds_repo_relative_freeze(tmp_path: Path) -> None:

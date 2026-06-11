@@ -27,7 +27,7 @@ from services.artifact_registry import ArtifactRegistry
 from services.autonomous_fusion_readiness_service import classify_autonomous_readiness
 from services.local_bundle_catalog import LocalBundleCatalogProvider
 from services.raw_vector_source_service import RawVectorSourceService
-from services.source_asset_service import SourceCoverageStatus
+from services.source_asset_service import SourceAssetService, SourceCoverageStatus
 from services.tile_partition_service import TilePartitionService, TileSpec
 from services.tiled_building_runtime_service import TiledBuildingRuntimeService
 from services.track_b_source_normalization import normalize_track_b_source_frame
@@ -89,15 +89,33 @@ class TileFusionArtifact:
 
 
 class TrackBNationalScaleService:
-    def __init__(self, *, root_dir: Path, cache_dir: Path) -> None:
+    def __init__(
+        self,
+        *,
+        root_dir: Path,
+        cache_dir: Path,
+        google_open_buildings_urls: list[str] | None = None,
+        google_poi_authorization_path: Path | None = None,
+        google_places_api_key: str | None = None,
+        google_places_cache_key: str | None = None,
+    ) -> None:
         self.root_dir = Path(root_dir)
         self.cache_dir = Path(cache_dir)
         self.cache_dir.mkdir(parents=True, exist_ok=True)
         self.registry = ArtifactRegistry(index_path=self.cache_dir / "artifact_registry.json")
+        source_asset_service = SourceAssetService(
+            repo_root=self.root_dir,
+            cache_dir=self.cache_dir / "raw_source_cache" / "source_assets",
+            google_open_buildings_urls=google_open_buildings_urls,
+            google_poi_authorization_path=google_poi_authorization_path,
+            google_places_api_key=google_places_api_key,
+            google_places_cache_key=google_places_cache_key,
+        )
         self.raw_source_service = RawVectorSourceService(
             root_dir=self.root_dir,
             registry=self.registry,
             cache_dir=self.cache_dir / "raw_source_cache",
+            source_asset_service=source_asset_service,
         )
         self.bundle_provider = LocalBundleCatalogProvider(
             self.root_dir,
