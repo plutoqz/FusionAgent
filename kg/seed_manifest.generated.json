@@ -950,12 +950,12 @@
         ],
         "track_b_implementation_goal": "Expand the current building path from OSM plus one reference into a locked multi-source national workflow.",
         "track_b_manual_preload_source_ids": [
-          "raw.google.building",
           "raw.openbuildingmap.building",
           "raw.google.open_buildings.vector",
           "raw.local.microsoft.building"
         ],
         "track_b_official_remote_source_ids": [
+          "raw.google.building",
           "raw.osm.building",
           "raw.microsoft.building"
         ],
@@ -1073,12 +1073,12 @@
         ],
         "track_b_implementation_goal": "Expand the current building path from OSM plus one reference into a locked multi-source national workflow.",
         "track_b_manual_preload_source_ids": [
-          "raw.google.building",
           "raw.openbuildingmap.building",
           "raw.google.open_buildings.vector",
           "raw.local.microsoft.building"
         ],
         "track_b_official_remote_source_ids": [
+          "raw.google.building",
           "raw.osm.building",
           "raw.microsoft.building"
         ],
@@ -1518,15 +1518,16 @@
       "freshness_hours": 240,
       "freshness_score": 0.58,
       "metadata": {
-        "acquisition_class": "manual_preload_required",
-        "clip_strategy": "local_national_clip_then_aoi_clip",
-        "coverage_scope": "local_only",
+        "acquisition_class": "official_remote_supported",
+        "clip_strategy": "resolved_aoi_clip",
+        "coverage_scope": "url_index_then_aoi_clip",
         "field_mapping_profile": "fields.building.google",
-        "format_hint": "shapefile_bundle",
+        "format_hint": "google_open_buildings_csv_wkt",
         "height_semantics": "unknown",
         "kind": "raw_vector",
-        "license_boundary": "Manual reference preload only; keep provider attribution and do not promote as automated remote support.",
-        "materialization_scope": "local_only",
+        "license_boundary": "Google Open Buildings attribution and CC-BY-4.0 terms apply; preserve provider attribution and keep runtime claims tied to checked AOI clip evidence.",
+        "materialization_provider": "google_open_buildings",
+        "materialization_scope": "resolved_aoi_clip",
         "path_hint": "Data/buildings/Google",
         "provider_family": "google",
         "runtime_status": "runtime_candidate",
@@ -1535,11 +1536,11 @@
         "source_form": "vector",
         "source_matrix_stage": "track_b_b1_locked",
         "source_role": "reference_candidate",
-        "supports_aoi": false,
+        "supports_aoi": true,
         "supports_tiling": true,
         "theme": "building",
-        "track_b_notes": "Included in the first-phase building matrix but still depends on local preload discipline.",
-        "track_b_role": "reference_manual",
+        "track_b_notes": "Promoted Google Open Buildings target with bounded URL-index materialization and AOI clip support.",
+        "track_b_role": "reference_remote",
         "track_b_theme": "building"
       },
       "quality_score": 0.87,
@@ -2659,8 +2660,8 @@
     }
   ],
   "metadata": {
-    "content_hash": "sha256:0bbdd647fb86f21ca5fb4a4a5d85f42ee0852564bd5161f4cd3d8278a686f4bf",
-    "generated_at": "2026-06-11T10:56:55.010202+00:00",
+    "content_hash": "sha256:77a9d638daf454fe16d488ab5ad6e383b7d53ddcacbc0ee8323ca8136ea8bcec",
+    "generated_at": "2026-06-11T13:41:33.483928+00:00",
     "generated_from": "kg.seed",
     "schema_version": "1.0.0",
     "source_modules": [

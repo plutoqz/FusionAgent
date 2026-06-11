@@ -332,6 +332,11 @@ def _bbox_cache_key(request_bbox: Optional[BBox]) -> str:
     return hashlib.sha1(repr(tuple(request_bbox)).encode("utf-8")).hexdigest()[:12]
 
 
+def _url_list_cache_key(urls: Iterable[str]) -> str:
+    normalized = "\n".join(sorted(str(url).strip() for url in urls if str(url).strip()))
+    return hashlib.sha1(normalized.encode("utf-8")).hexdigest()[:12]
+
+
 def _normalize_country_code(value: Any) -> str | None:
     if value is None:
         return None
@@ -803,7 +808,8 @@ class SourceAssetService:
             raise FileNotFoundError(f"Google Open Buildings URL index is not configured for {source_id}")
 
         cache_key = _bbox_cache_key(request_bbox)
-        target_dir = self.cache_dir / "google_open_buildings" / cache_key
+        urls_key = _url_list_cache_key(self.google_open_buildings_urls)
+        target_dir = self.cache_dir / "google_open_buildings" / cache_key / urls_key
         output_gpkg = target_dir / "google_open_buildings.gpkg"
         if _is_usable_local_vector_path(output_gpkg):
             bbox, feature_count = self._inspect_vector_path(output_gpkg)
