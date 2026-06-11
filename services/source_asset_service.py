@@ -1206,9 +1206,10 @@ class SourceAssetService:
     def _download_cached(self, url: str, *, cache_subdir: str, force_refresh: bool = False) -> Path:
         parsed = urllib.parse.urlparse(url)
         filename = Path(parsed.path).name or hashlib.sha1(url.encode("utf-8")).hexdigest()
+        url_hash = hashlib.sha1(url.encode("utf-8")).hexdigest()[:12]
         target_dir = self.cache_dir / cache_subdir
         target_dir.mkdir(parents=True, exist_ok=True)
-        target_path = target_dir / filename
+        target_path = target_dir / f"{url_hash}_{filename}"
         if force_refresh and target_path.exists():
             try:
                 target_path.unlink()

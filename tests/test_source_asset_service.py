@@ -817,6 +817,54 @@ def test_source_asset_service_keys_google_open_buildings_cache_by_url_list(tmp_p
     assert second.path != first.path
 
 
+def test_source_asset_service_isolates_google_open_buildings_parts_with_same_basename(tmp_path: Path) -> None:
+    google_csv_1 = tmp_path / "fixtures" / "a" / "part.csv"
+    google_csv_2 = tmp_path / "fixtures" / "b" / "part.csv"
+    google_csv_1.parent.mkdir(parents=True, exist_ok=True)
+    google_csv_2.parent.mkdir(parents=True, exist_ok=True)
+    google_csv_1.write_text(
+        "\n".join(
+            [
+                "latitude,longitude,area_in_meters,confidence,geometry",
+                '"0.5","0.5","100","0.93","POLYGON ((0.1 0.1, 0.1 0.4, 0.4 0.4, 0.4 0.1, 0.1 0.1))"',
+            ]
+        ),
+        encoding="utf-8",
+    )
+    google_csv_2.write_text(
+        "\n".join(
+            [
+                "latitude,longitude,area_in_meters,confidence,geometry",
+                '"0.5","0.5","100","0.93","POLYGON ((0.1 0.1, 0.1 0.4, 0.4 0.4, 0.4 0.1, 0.1 0.1))"',
+                '"0.7","0.7","120","0.91","POLYGON ((0.6 0.6, 0.6 0.9, 0.9 0.9, 0.9 0.6, 0.6 0.6))"',
+            ]
+        ),
+        encoding="utf-8",
+    )
+    cache_dir = tmp_path / "cache"
+
+    first_service = SourceAssetService(
+        repo_root=tmp_path,
+        cache_dir=cache_dir,
+        google_open_buildings_urls=[google_csv_1.resolve().as_uri()],
+        prefer_local_data=False,
+    )
+    second_service = SourceAssetService(
+        repo_root=tmp_path,
+        cache_dir=cache_dir,
+        google_open_buildings_urls=[google_csv_2.resolve().as_uri()],
+        prefer_local_data=False,
+    )
+
+    first = first_service.resolve_raw_source_path("raw.google.building", request_bbox=(0, 0, 1, 1))
+    second = second_service.resolve_raw_source_path("raw.google.building", request_bbox=(0, 0, 1, 1))
+
+    assert first.feature_count == 1
+    assert second.cache_hit is False
+    assert second.feature_count == 2
+    assert second.path != first.path
+
+
 def test_source_asset_service_uses_aoi_bbox_for_kenya_msft_reference_source(tmp_path: Path) -> None:
     inside_feature = {
         "type": "Feature",
