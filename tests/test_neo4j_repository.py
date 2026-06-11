@@ -156,6 +156,61 @@ def test_get_parameter_specs_maps_conditional_defaults_from_fake_driver() -> Non
     assert specs[0].default_provenance["source"] == "static_seed"
 
 
+def test_get_parameter_specs_falls_back_when_conditional_default_json_shape_is_wrong() -> None:
+    class FakeSession:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def run(self, cypher: str, parameters=None, **kwargs):
+            return [
+                {
+                    "ps": {
+                        "specId": "ps.test.threshold",
+                        "algoId": "algo.test",
+                        "key": "threshold",
+                        "label": "Threshold",
+                        "paramType": "float",
+                        "default": 0.7,
+                        "conditionalDefaults": "{}",
+                        "defaultProvenance": "[]",
+                    },
+                    "hs": {"order": 1},
+                },
+                {
+                    "ps": {
+                        "specId": "ps.test.threshold.non_empty_wrong_shape",
+                        "algoId": "algo.test",
+                        "key": "threshold_non_empty_wrong_shape",
+                        "label": "Threshold",
+                        "paramType": "float",
+                        "default": 0.8,
+                        "conditionalDefaults": '{"unexpected":"object"}',
+                        "defaultProvenance": '[["source","not_a_dict_payload"]]',
+                    },
+                    "hs": {"order": 2},
+                },
+            ]
+
+    class FakeDriver:
+        def session(self, database=None):
+            return FakeSession()
+
+    repo = Neo4jKGRepository.__new__(Neo4jKGRepository)
+    repo._driver = FakeDriver()
+    repo.database = None
+    repo.graph_namespace = GRAPH_NAMESPACE
+
+    specs = repo.get_parameter_specs("algo.test")
+
+    assert specs[0].conditional_defaults == []
+    assert specs[0].default_provenance == {}
+    assert specs[1].conditional_defaults == []
+    assert specs[1].default_provenance == {}
+
+
 def test_list_methods_map_rows_from_fake_driver() -> None:
     captured: list[tuple[str, object]] = []
 

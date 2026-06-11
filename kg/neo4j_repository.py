@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import json
 import os
-from typing import Dict, List, Optional
+from typing import Dict, List, Optional, Type
 
 from schemas.fusion import JobType
 
@@ -96,15 +96,16 @@ class Neo4jKGRepository(KGRepository):
         return {}
 
     @staticmethod
-    def _parse_json_property(value: object, fallback: object) -> object:
+    def _parse_json_property(value: object, fallback: object, expected_type: Type[object]) -> object:
         if value is None or value == "":
             return fallback
         if isinstance(value, (dict, list)):
-            return value
+            return value if isinstance(value, expected_type) else fallback
         try:
-            return json.loads(str(value))
+            payload = json.loads(str(value))
         except (TypeError, ValueError):
             return fallback
+        return payload if isinstance(payload, expected_type) else fallback
 
     def list_algorithms(self) -> List[AlgorithmNode]:
         rows = self._execute(
@@ -578,8 +579,8 @@ class Neo4jKGRepository(KGRepository):
                     choices=choices,
                     tunable=bool(ps.get("tunable", False)),
                     optimization_tags=list(ps.get("optimizationTags", [])),
-                    conditional_defaults=list(self._parse_json_property(ps.get("conditionalDefaults"), [])),
-                    default_provenance=dict(self._parse_json_property(ps.get("defaultProvenance"), {})),
+                    conditional_defaults=list(self._parse_json_property(ps.get("conditionalDefaults"), [], list)),
+                    default_provenance=dict(self._parse_json_property(ps.get("defaultProvenance"), {}, dict)),
                     order=int(order),
                 )
             )

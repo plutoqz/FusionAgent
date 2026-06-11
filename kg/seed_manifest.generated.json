@@ -2659,8 +2659,8 @@
     }
   ],
   "metadata": {
-    "content_hash": "sha256:56cac4eb3a573ba1068b59ed9542a2a6b0e9eac566a61163202823cfcedd377c",
-    "generated_at": "2026-06-10T12:08:02.586643+00:00",
+    "content_hash": "sha256:0bbdd647fb86f21ca5fb4a4a5d85f42ee0852564bd5161f4cd3d8278a686f4bf",
+    "generated_at": "2026-06-11T10:56:55.010202+00:00",
     "generated_from": "kg.seed",
     "schema_version": "1.0.0",
     "source_modules": [
@@ -3001,7 +3001,9 @@
     {
       "algo_id": "algo.enrich.building.height_from_raster.v1",
       "choices": null,
+      "conditional_defaults": [],
       "default": -1,
+      "default_provenance": {},
       "description": "FusionCode parameter `n_jobs` for algo.enrich.building.height_from_raster.v1.",
       "key": "n_jobs",
       "label": "N Jobs",
@@ -3020,7 +3022,9 @@
     {
       "algo_id": "algo.enrich.building.height_from_raster.v1",
       "choices": null,
+      "conditional_defaults": [],
       "default": "H_Raster",
+      "default_provenance": {},
       "description": "FusionCode parameter `height_output_field` for algo.enrich.building.height_from_raster.v1.",
       "key": "height_output_field",
       "label": "Height Output Field",
@@ -3039,7 +3043,9 @@
     {
       "algo_id": "algo.enrich.building.height_from_raster.v1",
       "choices": null,
+      "conditional_defaults": [],
       "default": true,
+      "default_provenance": {},
       "description": "FusionCode parameter `positive_only` for algo.enrich.building.height_from_raster.v1.",
       "key": "positive_only",
       "label": "Positive Only",
@@ -3058,7 +3064,11 @@
     {
       "algo_id": "algo.fusion.building.safe",
       "choices": null,
+      "conditional_defaults": [],
       "default": 0.4,
+      "default_provenance": {
+        "source": "static_seed"
+      },
       "description": "Conservative match threshold for safe mode.",
       "key": "match_similarity_threshold",
       "label": "Match Similarity Threshold",
@@ -3079,7 +3089,11 @@
     {
       "algo_id": "algo.fusion.building.safe",
       "choices": null,
+      "conditional_defaults": [],
       "default": 0.45,
+      "default_provenance": {
+        "source": "static_seed"
+      },
       "description": "Conservative area similarity threshold for safe mode.",
       "key": "one_to_one_min_area_similarity",
       "label": "One-to-One Min Area Similarity",
@@ -3100,7 +3114,11 @@
     {
       "algo_id": "algo.fusion.building.safe",
       "choices": null,
+      "conditional_defaults": [],
       "default": 0.45,
+      "default_provenance": {
+        "source": "static_seed"
+      },
       "description": "Conservative shape similarity threshold for safe mode.",
       "key": "one_to_one_min_shape_similarity",
       "label": "One-to-One Min Shape Similarity",
@@ -3121,7 +3139,11 @@
     {
       "algo_id": "algo.fusion.building.safe",
       "choices": null,
+      "conditional_defaults": [],
       "default": 0.4,
+      "default_provenance": {
+        "source": "static_seed"
+      },
       "description": "Conservative one-to-one overlap threshold for safe mode.",
       "key": "one_to_one_min_overlap_similarity",
       "label": "One-to-One Min Overlap Similarity",
@@ -3142,7 +3164,59 @@
     {
       "algo_id": "algo.fusion.building.v1",
       "choices": null,
+      "conditional_defaults": [
+        {
+          "provenance": {
+            "reason": "Google/OSM building matches need stricter geometry confidence.",
+            "source": "manual_seed"
+          },
+          "value": 0.75,
+          "when": {
+            "source_combination": [
+              "raw.google.building",
+              "raw.osm.building"
+            ]
+          }
+        },
+        {
+          "provenance": {
+            "reason": "Current Microsoft/OSM default.",
+            "source": "static_seed"
+          },
+          "value": 0.7,
+          "when": {
+            "source_combination": [
+              "raw.microsoft.building",
+              "raw.osm.building"
+            ]
+          }
+        },
+        {
+          "provenance": {
+            "reason": "Nepal training run tolerance.",
+            "source": "operator_annotation"
+          },
+          "value": 0.65,
+          "when": {
+            "region_country_name": "Nepal"
+          }
+        },
+        {
+          "provenance": {
+            "reason": "Mongolia training run precision preference.",
+            "source": "operator_annotation"
+          },
+          "value": 0.75,
+          "when": {
+            "region_country_name": "Mongolia"
+          }
+        }
+      ],
       "default": 0.3,
+      "default_provenance": {
+        "reason": "Original KG seed default.",
+        "source": "static_seed"
+      },
       "description": "Pairs with similarity > this value are treated as matched (legacy label=1).",
       "key": "match_similarity_threshold",
       "label": "Match Similarity Threshold",
@@ -3163,7 +3237,11 @@
     {
       "algo_id": "algo.fusion.building.v1",
       "choices": null,
+      "conditional_defaults": [],
       "default": 0.3,
+      "default_provenance": {
+        "source": "static_seed"
+      },
       "description": "For 1:1 matches, sim_area must be >= this value to fuse as one-to-one.",
       "key": "one_to_one_min_area_similarity",
       "label": "One-to-One Min Area Similarity",
@@ -3184,7 +3262,11 @@
     {
       "algo_id": "algo.fusion.building.v1",
       "choices": null,
+      "conditional_defaults": [],
       "default": 0.3,
+      "default_provenance": {
+        "source": "static_seed"
+      },
       "description": "For 1:1 matches, sim_shape must be >= this value to fuse as one-to-one.",
       "key": "one_to_one_min_shape_similarity",
       "label": "One-to-One Min Shape Similarity",
@@ -3205,7 +3287,11 @@
     {
       "algo_id": "algo.fusion.building.v1",
       "choices": null,
+      "conditional_defaults": [],
       "default": 0.3,
+      "default_provenance": {
+        "source": "static_seed"
+      },
       "description": "For 1:1 matches, sim_overlap must be >= this value to fuse as one-to-one.",
       "key": "one_to_one_min_overlap_similarity",
       "label": "One-to-One Min Overlap Similarity",
@@ -3226,7 +3312,9 @@
     {
       "algo_id": "algo.fusion.poi.geohash_neighbor_match.v1",
       "choices": null,
+      "conditional_defaults": [],
       "default": 1,
+      "default_provenance": {},
       "description": "FusionCode parameter `neighbor_rings` for algo.fusion.poi.geohash_neighbor_match.v1.",
       "key": "neighbor_rings",
       "label": "Neighbor Rings",
@@ -3245,7 +3333,9 @@
     {
       "algo_id": "algo.fusion.poi.geohash_neighbor_match.v1",
       "choices": null,
+      "conditional_defaults": [],
       "default": 0.75,
+      "default_provenance": {},
       "description": "FusionCode parameter `name_similarity_threshold` for algo.fusion.poi.geohash_neighbor_match.v1.",
       "key": "name_similarity_threshold",
       "label": "Name Similarity Threshold",
@@ -3264,7 +3354,9 @@
     {
       "algo_id": "algo.fusion.road.conflation.v7",
       "choices": null,
+      "conditional_defaults": [],
       "default": "balanced",
+      "default_provenance": {},
       "description": "FusionCode parameter `profile` for algo.fusion.road.conflation.v7.",
       "key": "profile",
       "label": "Profile",
@@ -3283,7 +3375,9 @@
     {
       "algo_id": "algo.fusion.road.conflation.v7",
       "choices": null,
+      "conditional_defaults": [],
       "default": "EPSG:32643",
+      "default_provenance": {},
       "description": "FusionCode parameter `target_crs` for algo.fusion.road.conflation.v7.",
       "key": "target_crs",
       "label": "Target Crs",
@@ -3302,7 +3396,9 @@
     {
       "algo_id": "algo.fusion.road.conflation.v7",
       "choices": null,
+      "conditional_defaults": [],
       "default": 135,
+      "default_provenance": {},
       "description": "FusionCode parameter `angle_threshold` for algo.fusion.road.conflation.v7.",
       "key": "angle_threshold",
       "label": "Angle Threshold",
@@ -3321,7 +3417,9 @@
     {
       "algo_id": "algo.fusion.road.conflation.v7",
       "choices": null,
+      "conditional_defaults": [],
       "default": 800.0,
+      "default_provenance": {},
       "description": "FusionCode parameter `max_segment_length` for algo.fusion.road.conflation.v7.",
       "key": "max_segment_length",
       "label": "Max Segment Length",
@@ -3340,7 +3438,9 @@
     {
       "algo_id": "algo.fusion.road.conflation.v7",
       "choices": null,
+      "conditional_defaults": [],
       "default": 20.0,
+      "default_provenance": {},
       "description": "FusionCode parameter `match_buffer_dist` for algo.fusion.road.conflation.v7.",
       "key": "match_buffer_dist",
       "label": "Match Buffer Dist",
@@ -3359,7 +3459,9 @@
     {
       "algo_id": "algo.fusion.road.conflation.v7",
       "choices": null,
+      "conditional_defaults": [],
       "default": 15.0,
+      "default_provenance": {},
       "description": "FusionCode parameter `max_hausdorff` for algo.fusion.road.conflation.v7.",
       "key": "max_hausdorff",
       "label": "Max Hausdorff",
@@ -3378,7 +3480,9 @@
     {
       "algo_id": "algo.fusion.road.conflation.v7",
       "choices": null,
+      "conditional_defaults": [],
       "default": 45.0,
+      "default_provenance": {},
       "description": "FusionCode parameter `loose_angle_threshold` for algo.fusion.road.conflation.v7.",
       "key": "loose_angle_threshold",
       "label": "Loose Angle Threshold",
@@ -3397,7 +3501,9 @@
     {
       "algo_id": "algo.fusion.road.conflation.v7",
       "choices": null,
+      "conditional_defaults": [],
       "default": 0.05,
+      "default_provenance": {},
       "description": "FusionCode parameter `min_len_similarity` for algo.fusion.road.conflation.v7.",
       "key": "min_len_similarity",
       "label": "Min Len Similarity",
@@ -3416,7 +3522,9 @@
     {
       "algo_id": "algo.fusion.road.conflation.v7",
       "choices": null,
+      "conditional_defaults": [],
       "default": 0.8,
+      "default_provenance": {},
       "description": "FusionCode parameter `min_supplement_coverage_for_matched` for algo.fusion.road.conflation.v7.",
       "key": "min_supplement_coverage_for_matched",
       "label": "Min Supplement Coverage For Matched",
@@ -3435,7 +3543,9 @@
     {
       "algo_id": "algo.fusion.road.conflation.v7",
       "choices": null,
+      "conditional_defaults": [],
       "default": true,
+      "default_provenance": {},
       "description": "FusionCode parameter `preserve_matched_supplement_residuals` for algo.fusion.road.conflation.v7.",
       "key": "preserve_matched_supplement_residuals",
       "label": "Preserve Matched Supplement Residuals",
@@ -3454,7 +3564,9 @@
     {
       "algo_id": "algo.fusion.road.conflation.v7",
       "choices": null,
+      "conditional_defaults": [],
       "default": 10.0,
+      "default_provenance": {},
       "description": "FusionCode parameter `min_residual_length` for algo.fusion.road.conflation.v7.",
       "key": "min_residual_length",
       "label": "Min Residual Length",
@@ -3473,7 +3585,9 @@
     {
       "algo_id": "algo.fusion.road.conflation.v7",
       "choices": null,
+      "conditional_defaults": [],
       "default": 10.0,
+      "default_provenance": {},
       "description": "FusionCode parameter `duplicate_buffer_dist` for algo.fusion.road.conflation.v7.",
       "key": "duplicate_buffer_dist",
       "label": "Duplicate Buffer Dist",
@@ -3492,7 +3606,9 @@
     {
       "algo_id": "algo.fusion.road.conflation.v7",
       "choices": null,
+      "conditional_defaults": [],
       "default": 0.92,
+      "default_provenance": {},
       "description": "FusionCode parameter `duplicate_coverage_threshold` for algo.fusion.road.conflation.v7.",
       "key": "duplicate_coverage_threshold",
       "label": "Duplicate Coverage Threshold",
@@ -3511,7 +3627,9 @@
     {
       "algo_id": "algo.fusion.road.conflation.v7",
       "choices": null,
+      "conditional_defaults": [],
       "default": 0.85,
+      "default_provenance": {},
       "description": "FusionCode parameter `near_base_return_coverage_threshold` for algo.fusion.road.conflation.v7.",
       "key": "near_base_return_coverage_threshold",
       "label": "Near Base Return Coverage Threshold",
@@ -3530,7 +3648,9 @@
     {
       "algo_id": "algo.fusion.road.conflation.v7",
       "choices": null,
+      "conditional_defaults": [],
       "default": 0.82,
+      "default_provenance": {},
       "description": "FusionCode parameter `crossing_coverage_threshold` for algo.fusion.road.conflation.v7.",
       "key": "crossing_coverage_threshold",
       "label": "Crossing Coverage Threshold",
@@ -3549,7 +3669,9 @@
     {
       "algo_id": "algo.fusion.road.conflation.v7",
       "choices": null,
+      "conditional_defaults": [],
       "default": "quality",
+      "default_provenance": {},
       "description": "FusionCode parameter `cleanup_mode` for algo.fusion.road.conflation.v7.",
       "key": "cleanup_mode",
       "label": "Cleanup Mode",
@@ -3568,7 +3690,9 @@
     {
       "algo_id": "algo.fusion.road.conflation.v7",
       "choices": null,
+      "conditional_defaults": [],
       "default": null,
+      "default_provenance": {},
       "description": "FusionCode parameter `output_crs` for algo.fusion.road.conflation.v7.",
       "key": "output_crs",
       "label": "Output Crs",
@@ -3587,7 +3711,9 @@
     {
       "algo_id": "algo.fusion.road.safe",
       "choices": null,
+      "conditional_defaults": [],
       "default": 120,
+      "default_provenance": {},
       "description": "Conservative split angle threshold for safe mode.",
       "key": "angle_threshold_deg",
       "label": "Split Angle Threshold",
@@ -3607,7 +3733,9 @@
     {
       "algo_id": "algo.fusion.road.safe",
       "choices": null,
+      "conditional_defaults": [],
       "default": 0.75,
+      "default_provenance": {},
       "description": "Conservative endpoint snap tolerance for safe mode.",
       "key": "snap_tolerance_m",
       "label": "Snap Tolerance",
@@ -3627,7 +3755,9 @@
     {
       "algo_id": "algo.fusion.road.safe",
       "choices": null,
+      "conditional_defaults": [],
       "default": 15.0,
+      "default_provenance": {},
       "description": "Conservative match buffer for safe mode.",
       "key": "match_buffer_m",
       "label": "Match Buffer Distance",
@@ -3647,7 +3777,9 @@
     {
       "algo_id": "algo.fusion.road.safe",
       "choices": null,
+      "conditional_defaults": [],
       "default": 10.0,
+      "default_provenance": {},
       "description": "Conservative Hausdorff threshold for safe mode.",
       "key": "max_hausdorff_m",
       "label": "Max Hausdorff Distance",
@@ -3668,7 +3800,9 @@
     {
       "algo_id": "algo.fusion.road.safe",
       "choices": null,
+      "conditional_defaults": [],
       "default": 12.0,
+      "default_provenance": {},
       "description": "Conservative dedupe buffer for safe mode.",
       "key": "dedupe_buffer_m",
       "label": "Dedupe Buffer Distance",
@@ -3688,7 +3822,9 @@
     {
       "algo_id": "algo.fusion.road.v1",
       "choices": null,
+      "conditional_defaults": [],
       "default": 135,
+      "default_provenance": {},
       "description": "Split lines at sharp turns: angles below this threshold trigger a split.",
       "key": "angle_threshold_deg",
       "label": "Split Angle Threshold",
@@ -3708,7 +3844,9 @@
     {
       "algo_id": "algo.fusion.road.v1",
       "choices": null,
+      "conditional_defaults": [],
       "default": 1.0,
+      "default_provenance": {},
       "description": "Endpoint snap tolerance used when normalizing line endpoints.",
       "key": "snap_tolerance_m",
       "label": "Snap Tolerance",
@@ -3728,7 +3866,9 @@
     {
       "algo_id": "algo.fusion.road.v1",
       "choices": null,
+      "conditional_defaults": [],
       "default": 20.0,
+      "default_provenance": {},
       "description": "Buffer radius for candidate matching between OSM and reference lines.",
       "key": "match_buffer_m",
       "label": "Match Buffer Distance",
@@ -3748,7 +3888,9 @@
     {
       "algo_id": "algo.fusion.road.v1",
       "choices": null,
+      "conditional_defaults": [],
       "default": 15.0,
+      "default_provenance": {},
       "description": "Maximum Hausdorff distance allowed to consider two lines as a match.",
       "key": "max_hausdorff_m",
       "label": "Max Hausdorff Distance",
@@ -3769,7 +3911,9 @@
     {
       "algo_id": "algo.fusion.road.v1",
       "choices": null,
+      "conditional_defaults": [],
       "default": 15.0,
+      "default_provenance": {},
       "description": "Buffer distance used during post-fusion deduplication.",
       "key": "dedupe_buffer_m",
       "label": "Dedupe Buffer Distance",
@@ -3789,7 +3933,9 @@
     {
       "algo_id": "algo.fusion.water_polygon.priority_merge.v2",
       "choices": null,
+      "conditional_defaults": [],
       "default": 0.1,
+      "default_provenance": {},
       "description": "FusionCode parameter `overlap_threshold` for algo.fusion.water_polygon.priority_merge.v2.",
       "key": "overlap_threshold",
       "label": "Overlap Threshold",
@@ -3808,7 +3954,9 @@
     {
       "algo_id": "algo.fusion.waterways.conflation.v7",
       "choices": null,
+      "conditional_defaults": [],
       "default": "EPSG:32643",
+      "default_provenance": {},
       "description": "FusionCode parameter `target_crs` for algo.fusion.waterways.conflation.v7.",
       "key": "target_crs",
       "label": "Target Crs",
@@ -3827,7 +3975,9 @@
     {
       "algo_id": "algo.fusion.waterways.conflation.v7",
       "choices": null,
+      "conditional_defaults": [],
       "default": 135,
+      "default_provenance": {},
       "description": "FusionCode parameter `angle_threshold` for algo.fusion.waterways.conflation.v7.",
       "key": "angle_threshold",
       "label": "Angle Threshold",
@@ -3846,7 +3996,9 @@
     {
       "algo_id": "algo.fusion.waterways.conflation.v7",
       "choices": null,
+      "conditional_defaults": [],
       "default": 1000.0,
+      "default_provenance": {},
       "description": "FusionCode parameter `max_segment_length` for algo.fusion.waterways.conflation.v7.",
       "key": "max_segment_length",
       "label": "Max Segment Length",
@@ -3865,7 +4017,9 @@
     {
       "algo_id": "algo.fusion.waterways.conflation.v7",
       "choices": null,
+      "conditional_defaults": [],
       "default": 25.0,
+      "default_provenance": {},
       "description": "FusionCode parameter `match_buffer_dist` for algo.fusion.waterways.conflation.v7.",
       "key": "match_buffer_dist",
       "label": "Match Buffer Dist",
@@ -3884,7 +4038,9 @@
     {
       "algo_id": "algo.fusion.waterways.conflation.v7",
       "choices": null,
+      "conditional_defaults": [],
       "default": 20.0,
+      "default_provenance": {},
       "description": "FusionCode parameter `max_hausdorff` for algo.fusion.waterways.conflation.v7.",
       "key": "max_hausdorff",
       "label": "Max Hausdorff",
@@ -3903,7 +4059,9 @@
     {
       "algo_id": "algo.fusion.waterways.conflation.v7",
       "choices": null,
+      "conditional_defaults": [],
       "default": 50.0,
+      "default_provenance": {},
       "description": "FusionCode parameter `loose_angle_threshold` for algo.fusion.waterways.conflation.v7.",
       "key": "loose_angle_threshold",
       "label": "Loose Angle Threshold",
@@ -3922,7 +4080,9 @@
     {
       "algo_id": "algo.fusion.waterways.conflation.v7",
       "choices": null,
+      "conditional_defaults": [],
       "default": 0.03,
+      "default_provenance": {},
       "description": "FusionCode parameter `min_len_similarity` for algo.fusion.waterways.conflation.v7.",
       "key": "min_len_similarity",
       "label": "Min Len Similarity",
@@ -3941,7 +4101,9 @@
     {
       "algo_id": "algo.fusion.waterways.conflation.v7",
       "choices": null,
+      "conditional_defaults": [],
       "default": 0.8,
+      "default_provenance": {},
       "description": "FusionCode parameter `min_supplement_coverage_for_matched` for algo.fusion.waterways.conflation.v7.",
       "key": "min_supplement_coverage_for_matched",
       "label": "Min Supplement Coverage For Matched",
@@ -3960,7 +4122,9 @@
     {
       "algo_id": "algo.fusion.waterways.conflation.v7",
       "choices": null,
+      "conditional_defaults": [],
       "default": 20.0,
+      "default_provenance": {},
       "description": "FusionCode parameter `min_residual_length` for algo.fusion.waterways.conflation.v7.",
       "key": "min_residual_length",
       "label": "Min Residual Length",
@@ -3979,7 +4143,9 @@
     {
       "algo_id": "algo.fusion.waterways.conflation.v7",
       "choices": null,
+      "conditional_defaults": [],
       "default": 12.0,
+      "default_provenance": {},
       "description": "FusionCode parameter `duplicate_buffer_dist` for algo.fusion.waterways.conflation.v7.",
       "key": "duplicate_buffer_dist",
       "label": "Duplicate Buffer Dist",
@@ -3998,7 +4164,9 @@
     {
       "algo_id": "algo.fusion.waterways.conflation.v7",
       "choices": null,
+      "conditional_defaults": [],
       "default": 15.0,
+      "default_provenance": {},
       "description": "FusionCode parameter `near_base_return_corridor_dist` for algo.fusion.waterways.conflation.v7.",
       "key": "near_base_return_corridor_dist",
       "label": "Near Base Return Corridor Dist",
@@ -4017,7 +4185,9 @@
     {
       "algo_id": "algo.fusion.waterways.conflation.v7",
       "choices": null,
+      "conditional_defaults": [],
       "default": 15.0,
+      "default_provenance": {},
       "description": "FusionCode parameter `crossing_corridor_dist` for algo.fusion.waterways.conflation.v7.",
       "key": "crossing_corridor_dist",
       "label": "Crossing Corridor Dist",
@@ -4036,7 +4206,9 @@
     {
       "algo_id": "algo.fusion.waterways.conflation.v7",
       "choices": null,
+      "conditional_defaults": [],
       "default": "fast",
+      "default_provenance": {},
       "description": "FusionCode parameter `cleanup_mode` for algo.fusion.waterways.conflation.v7.",
       "key": "cleanup_mode",
       "label": "Cleanup Mode",
@@ -4055,7 +4227,9 @@
     {
       "algo_id": "algo.fusion.waterways.conflation.v7",
       "choices": null,
+      "conditional_defaults": [],
       "default": null,
+      "default_provenance": {},
       "description": "FusionCode parameter `output_crs` for algo.fusion.waterways.conflation.v7.",
       "key": "output_crs",
       "label": "Output Crs",
@@ -4074,7 +4248,9 @@
     {
       "algo_id": "algo.match.building.v8_component_solver.v1",
       "choices": null,
+      "conditional_defaults": [],
       "default": 0.05,
+      "default_provenance": {},
       "description": "FusionCode parameter `weak_min_cover` for algo.match.building.v8_component_solver.v1.",
       "key": "weak_min_cover",
       "label": "Weak Min Cover",
@@ -4094,7 +4270,9 @@
     {
       "algo_id": "algo.match.building.v8_component_solver.v1",
       "choices": null,
+      "conditional_defaults": [],
       "default": 0.05,
+      "default_provenance": {},
       "description": "FusionCode parameter `weak_min_iou` for algo.match.building.v8_component_solver.v1.",
       "key": "weak_min_iou",
       "label": "Weak Min Iou",
@@ -4114,7 +4292,9 @@
     {
       "algo_id": "algo.match.building.v8_component_solver.v1",
       "choices": null,
+      "conditional_defaults": [],
       "default": 0.4,
+      "default_provenance": {},
       "description": "FusionCode parameter `thresh_1_to_1` for algo.match.building.v8_component_solver.v1.",
       "key": "thresh_1_to_1",
       "label": "Thresh 1 To 1",
@@ -4133,7 +4313,9 @@
     {
       "algo_id": "algo.match.building.v8_component_solver.v1",
       "choices": null,
+      "conditional_defaults": [],
       "default": 0.44,
+      "default_provenance": {},
       "description": "FusionCode parameter `thresh_1_to_N` for algo.match.building.v8_component_solver.v1.",
       "key": "thresh_1_to_N",
       "label": "Thresh 1 To N",
@@ -4152,7 +4334,9 @@
     {
       "algo_id": "algo.match.building.v8_component_solver.v1",
       "choices": null,
+      "conditional_defaults": [],
       "default": 0.47,
+      "default_provenance": {},
       "description": "FusionCode parameter `thresh_M_to_N` for algo.match.building.v8_component_solver.v1.",
       "key": "thresh_M_to_N",
       "label": "Thresh M To N",
@@ -4171,11 +4355,13 @@
     {
       "algo_id": "algo.match.building.v8_component_solver.v1",
       "choices": null,
+      "conditional_defaults": [],
       "default": [
         "MS",
         "GG",
         "OSM"
       ],
+      "default_provenance": {},
       "description": "FusionCode parameter `source_priority_order` for algo.match.building.v8_component_solver.v1.",
       "key": "source_priority_order",
       "label": "Source Priority Order",
@@ -4195,7 +4381,9 @@
     {
       "algo_id": "algo.optimize.building.conflict_graph.v1",
       "choices": null,
+      "conditional_defaults": [],
       "default": 4.0,
+      "default_provenance": {},
       "description": "FusionCode parameter `global_max_shift` for algo.optimize.building.conflict_graph.v1.",
       "key": "global_max_shift",
       "label": "Global Max Shift",
@@ -4214,7 +4402,9 @@
     {
       "algo_id": "algo.optimize.building.conflict_graph.v1",
       "choices": null,
+      "conditional_defaults": [],
       "default": 0.75,
+      "default_provenance": {},
       "description": "FusionCode parameter `overlap_delete_threshold` for algo.optimize.building.conflict_graph.v1.",
       "key": "overlap_delete_threshold",
       "label": "Overlap Delete Threshold",
@@ -4233,7 +4423,9 @@
     {
       "algo_id": "algo.optimize.building.conflict_graph.v1",
       "choices": null,
+      "conditional_defaults": [],
       "default": 0.1,
+      "default_provenance": {},
       "description": "FusionCode parameter `road_buffer_width` for algo.optimize.building.conflict_graph.v1.",
       "key": "road_buffer_width",
       "label": "Road Buffer Width",
@@ -4252,7 +4444,9 @@
     {
       "algo_id": "algo.optimize.building.conflict_graph.v1",
       "choices": null,
+      "conditional_defaults": [],
       "default": 4267.96,
+      "default_provenance": {},
       "description": "FusionCode parameter `w_road_expulsion` for algo.optimize.building.conflict_graph.v1.",
       "key": "w_road_expulsion",
       "label": "W Road Expulsion",
@@ -4272,7 +4466,9 @@
     {
       "algo_id": "algo.optimize.building.conflict_graph.v1",
       "choices": null,
+      "conditional_defaults": [],
       "default": 3,
+      "default_provenance": {},
       "description": "FusionCode parameter `max_outer_iterations` for algo.optimize.building.conflict_graph.v1.",
       "key": "max_outer_iterations",
       "label": "Max Outer Iterations",
@@ -4291,7 +4487,9 @@
     {
       "algo_id": "algo.refine.building.post_conflict_shrink.v1",
       "choices": null,
+      "conditional_defaults": [],
       "default": 5.0,
+      "default_provenance": {},
       "description": "FusionCode parameter `post_shrink_threshold_m2` for algo.refine.building.post_conflict_shrink.v1.",
       "key": "post_shrink_threshold_m2",
       "label": "Post Shrink Threshold M2",
@@ -4310,7 +4508,9 @@
     {
       "algo_id": "algo.refine.building.post_conflict_shrink.v1",
       "choices": null,
+      "conditional_defaults": [],
       "default": 0.05,
+      "default_provenance": {},
       "description": "FusionCode parameter `post_shrink_scale_cap_pct` for algo.refine.building.post_conflict_shrink.v1.",
       "key": "post_shrink_scale_cap_pct",
       "label": "Post Shrink Scale Cap Pct",
@@ -4329,7 +4529,9 @@
     {
       "algo_id": "algo.validate.building.presence_raster.v1",
       "choices": null,
+      "conditional_defaults": [],
       "default": 0.2,
+      "default_provenance": {},
       "description": "FusionCode parameter `prob_threshold` for algo.validate.building.presence_raster.v1.",
       "key": "prob_threshold",
       "label": "Prob Threshold",
@@ -4349,7 +4551,9 @@
     {
       "algo_id": "algo.validate.building.presence_raster.v1",
       "choices": null,
+      "conditional_defaults": [],
       "default": 4.0,
+      "default_provenance": {},
       "description": "FusionCode parameter `search_dist_m` for algo.validate.building.presence_raster.v1.",
       "key": "search_dist_m",
       "label": "Search Dist M",
@@ -4369,7 +4573,9 @@
     {
       "algo_id": "algo.validate.building.presence_raster.v1",
       "choices": null,
+      "conditional_defaults": [],
       "default": 0.55,
+      "default_provenance": {},
       "description": "FusionCode parameter `confirmed_score_threshold` for algo.validate.building.presence_raster.v1.",
       "key": "confirmed_score_threshold",
       "label": "Confirmed Score Threshold",
@@ -4388,7 +4594,9 @@
     {
       "algo_id": "algo.validate.building.presence_raster.v1",
       "choices": null,
+      "conditional_defaults": [],
       "default": 0.3,
+      "default_provenance": {},
       "description": "FusionCode parameter `uncertain_score_threshold` for algo.validate.building.presence_raster.v1.",
       "key": "uncertain_score_threshold",
       "label": "Uncertain Score Threshold",
