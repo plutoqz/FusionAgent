@@ -347,16 +347,19 @@ Currently materializable source ids:
 - `raw.osm.water`
 - `raw.osm.poi`
 - `raw.microsoft.building`
+- `raw.google.building`
 - `raw.overture.transportation`
 - `raw.hydrorivers.water`
 - `raw.hydrolakes.water`
 - `raw.gns.poi`
+- `raw.google.poi`
 
 `raw.overture.transportation` is retained here for compatibility with older runs only; it is not the current Track B road full-closure second source.
+`raw.google.building` remote materialization requires configured Google Open Buildings URL/index inputs. `raw.google.poi` local preload requires a Google POI authorization manifest before persistent vector output can be reused; remote Google Places materialization additionally requires a Places API key, an injectable fetcher, and a stable non-secret cache key. Missing authorization is an autonomous-readiness failure/degradation condition, not a silent success.
 
 The same `SourceAssetService` entrypoint now also resolves repo-local manual-preload Track B sources when they are present under the checked-in `Data/` tree. This is still local/manual support, not remote automation:
 
-- building manual-preload refs: `raw.google.building`, `raw.openbuildingmap.building`, `raw.google.open_buildings.vector`, `raw.local.microsoft.building`
+- building manual-preload refs: `raw.openbuildingmap.building`, `raw.google.open_buildings.vector`, `raw.local.microsoft.building`
 - road manual-preload refs: `raw.microsoft.road`, `raw.overture.road`
 - water manual-preload refs: `raw.local.water`
 - poi manual-preload refs: `raw.rh.poi`
@@ -375,9 +378,11 @@ raw run outputs under `runs/2026-05-18-track-b-national-evidence/`.
 
 Current claim boundary:
 
+- Full autonomous closure is stricter than historical `national_scale_supported`: every required source in `autonomous_readiness.json` must be available and non-empty. Historical national-scale evidence may remain valid as partial/support evidence while still failing the stricter full-closure gate.
+- `building`: current full-closure source contract targets `raw.google.building + raw.microsoft.building + raw.osm.building + raw.osm.road`; OBM remains optional supplemental building evidence, not a full-closure requirement.
 - `road`: current full-closure source contract targets `raw.osm.road + raw.microsoft.road`; `raw.microsoft.road` is local/manual/preload bounded rather than a completed remote acquisition path. The older `OSM + raw.overture.transportation` freeze is retained only as superseded historical compatibility evidence, and Overture remains compatibility/reservation.
 - `water`: `national_scale_supported` for the current `OSM + raw.hydrolakes.water` fused path, with supplemental normalized evidence for `raw.hydrorivers.water`
-- `poi`: `national_scale_supported` for the current `OSM + raw.gns.poi` fused path, with supplemental normalized evidence for `raw.rh.poi`
+- `poi`: full-closure source contract targets `raw.gns.poi + raw.google.poi + raw.osm.poi`; the historical `OSM + raw.gns.poi` fused path is support evidence but is incomplete for full autonomous POI closure without authorized Google POI.
 
 | Source ID | Local Data Supported | Remote Materialization Supported | Current Claim |
 | --- | --- | --- | --- |
@@ -386,7 +391,7 @@ Current claim boundary:
 | raw.osm.water | yes | yes | planner-level scenario evidence unless execution source is available |
 | raw.osm.poi | yes | yes | bounded POI evidence only |
 | raw.microsoft.building | yes | yes | mature no-UI supported for bounded building |
-| raw.google.building | yes | no | manual/local-only boundary |
+| raw.google.building | yes | configured Google Open Buildings URL/index required | required building full-closure source |
 | raw.openbuildingmap.building | yes | no | manual-preload Track B building reference |
 | raw.google.open_buildings.vector | yes | no | manual-preload Track B building reference |
 | raw.local.microsoft.building | yes | no | manual-preload Track B building cache |
@@ -397,6 +402,7 @@ Current claim boundary:
 | raw.hydrorivers.water | yes | yes | promoted Track B water line reference |
 | raw.hydrolakes.water | yes | yes | promoted Track B water polygon reference |
 | raw.gns.poi | yes | yes | promoted Track B POI gazetteer reference |
+| raw.google.poi | yes, with authorization manifest | configured Google Places fetcher/API key/cache key required | required POI full-closure source |
 | raw.rh.poi | yes | no | manual-preload Track B POI local supplement |
 
 Water and bounded POI are mature as bounded task-driven runtime slices, but the default fast-mode scenario regression set still treats them as planner-level capability checks when local raw source materialization is unavailable.
@@ -426,7 +432,6 @@ no-network fixture closure.
 
 Current non-goals for this slice:
 
-- `raw.google.building` still requires locally restored data
 - local-only reference or Excel-style inputs are still manual
 - AOI resolution still depends on external geocoding availability and request latency
 
