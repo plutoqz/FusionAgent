@@ -20,6 +20,7 @@ from typing import Any, Iterable, Optional
 import geopandas as gpd
 import httpx
 import pandas as pd
+from shapely import wkt
 from shapely.geometry import shape
 
 from kg.source_catalog import get_raw_vector_source_spec
@@ -109,6 +110,8 @@ _REMOTELY_MATERIALIZABLE_SOURCE_IDS = {
     "raw.osm.water",
     "raw.osm.waterways",
     "raw.osm.poi",
+    "raw.google.building",
+    "raw.google.open_buildings.vector",
     "raw.microsoft.building",
     "raw.overture.transportation",
     "raw.overture.road",
@@ -116,8 +119,6 @@ _REMOTELY_MATERIALIZABLE_SOURCE_IDS = {
     "raw.hydrolakes.water",
     "raw.gns.poi",
 }
-# raw.google.building is intentionally absent: it remains a local/manual-only
-# source until an official, tested remote materialization path exists.
 
 _SOURCE_ID_ALIASES = {
     "raw.geonames.poi": "raw.gns.poi",
@@ -365,6 +366,7 @@ class SourceAssetService:
         msft_dataset_links_url: str = MSFT_BUILDING_DATASET_LINKS_URL,
         gns_data_index_url: str = GNS_DATA_INDEX_URL,
         overture_transportation_url: str | None = None,
+        google_open_buildings_urls: list[str] | None = None,
         hydrorivers_global_zip_url: str = HYDRORIVERS_GLOBAL_ZIP_URL,
         hydrolakes_global_zip_url: str = HYDROLAKES_GLOBAL_ZIP_URL,
         prefer_local_data: bool = True,
@@ -378,6 +380,7 @@ class SourceAssetService:
         self.msft_dataset_links_url = msft_dataset_links_url
         self.gns_data_index_url = gns_data_index_url
         self.overture_transportation_url = overture_transportation_url
+        self.google_open_buildings_urls = list(google_open_buildings_urls or [])
         self.hydrorivers_global_zip_url = hydrorivers_global_zip_url
         self.hydrolakes_global_zip_url = hydrolakes_global_zip_url
         self.prefer_local_data = prefer_local_data
@@ -435,6 +438,8 @@ class SourceAssetService:
 
         if source_id == "raw.microsoft.building":
             return self._resolve_msft_buildings(request_bbox=effective_bbox, aoi=aoi)
+        if source_id in {"raw.google.building", "raw.google.open_buildings.vector"}:
+            return self._resolve_google_open_buildings(source_id, request_bbox=effective_bbox)
         if source_id in {"raw.overture.transportation", "raw.overture.road"}:
             return self._resolve_overture_transportation(source_id=source_id, request_bbox=effective_bbox)
         if source_id in {"raw.hydrorivers.water", "raw.hydrolakes.water"}:
@@ -788,6 +793,59 @@ class SourceAssetService:
             feature_count=feature_count,
         )
 
+    def _resolve_google_open_buildings(
+        self,
+        source_id: str,
+        *,
+        request_bbox: Optional[BBox],
+    ) -> SourceAssetResolution:
+        if not self.google_open_buildings_urls:
+            raise FileNotFoundError(f"Google Open Buildings URL index is not configured for {source_id}")
+
+        cache_key = _bbox_cache_key(request_bbox)
+        target_dir = self.cache_dir / "google_open_buildings" / cache_key
+        output_gpkg = target_dir / "google_open_buildings.gpkg"
+        if _is_usable_local_vector_path(output_gpkg):
+            bbox, feature_count = self._inspect_vector_path(output_gpkg)
+            return SourceAssetResolution(
+                source_id=source_id,
+                path=output_gpkg,
+                source_mode="coverage_empty" if feature_count == 0 else "asset_cached",
+                cache_hit=True,
+                version_token=_path_version_token(output_gpkg),
+                bbox=bbox,
+                feature_count=feature_count,
+            )
+
+        frames = [
+            self._load_google_open_buildings_frame(
+                self._download_cached(url, cache_subdir="google_open_buildings_parts")
+            )
+            for url in self.google_open_buildings_urls
+        ]
+        if frames:
+            combined = gpd.GeoDataFrame(pd.concat(frames, ignore_index=True), geometry="geometry", crs="EPSG:4326")
+        else:
+            combined = self._empty_google_open_buildings_frame()
+
+        if request_bbox is not None and not combined.empty:
+            combined = clip_frame_to_request_bbox(combined, request_bbox)
+        combined = _filter_polygonal_frame(combined)
+
+        target_dir.mkdir(parents=True, exist_ok=True)
+        combined.to_file(output_gpkg, driver="GPKG")
+        bbox = frame_bbox_in_crs(combined)
+        feature_count = len(combined.index)
+        return SourceAssetResolution(
+            source_id=source_id,
+            path=output_gpkg,
+            source_mode="coverage_empty" if feature_count == 0 else "asset_downloaded",
+            cache_hit=False,
+            version_token=_path_version_token(output_gpkg),
+            bbox=bbox,
+            feature_count=feature_count,
+        )
+
     def _resolve_hydrosheds_water(
         self,
         source_id: str,
@@ -1047,6 +1105,29 @@ class SourceAssetService:
         if not features:
             return gpd.GeoDataFrame({"geometry": []}, geometry="geometry", crs="EPSG:4326")
         return gpd.GeoDataFrame(features, geometry="geometry", crs="EPSG:4326")
+
+    @staticmethod
+    def _empty_google_open_buildings_frame() -> gpd.GeoDataFrame:
+        return gpd.GeoDataFrame(
+            {
+                "latitude": pd.Series(dtype="float64"),
+                "longitude": pd.Series(dtype="float64"),
+                "area_in_meters": pd.Series(dtype="float64"),
+                "confidence": pd.Series(dtype="float64"),
+            },
+            geometry=gpd.GeoSeries([], crs="EPSG:4326"),
+            crs="EPSG:4326",
+        )
+
+    def _load_google_open_buildings_frame(self, csv_path: Path) -> gpd.GeoDataFrame:
+        frame = pd.read_csv(csv_path)
+        if "geometry" not in frame.columns:
+            raise ValueError(f"Google Open Buildings CSV is missing required geometry WKT column: {csv_path}")
+        geometries = frame["geometry"].apply(lambda value: wkt.loads(str(value)) if pd.notna(value) else None)
+        frame = frame.drop(columns=["geometry"])
+        geo_frame = gpd.GeoDataFrame(frame, geometry=gpd.GeoSeries(geometries, crs="EPSG:4326"), crs="EPSG:4326")
+        geo_frame = geo_frame[geo_frame.geometry.notna() & ~geo_frame.geometry.is_empty].copy()
+        return _filter_polygonal_frame(geo_frame)
 
     def _download_msft_features(self, rows: Iterable[dict[str, str]]) -> Iterable[dict[str, object]]:
         for row in rows:

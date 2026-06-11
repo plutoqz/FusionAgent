@@ -16,9 +16,14 @@ def test_track_b_theme_contract_locks_first_wave_source_matrix() -> None:
     waterways = TRACK_B_THEME_CONTRACTS["waterways"]
     poi = TRACK_B_THEME_CONTRACTS["poi"]
 
-    assert building.official_remote_source_ids == ("raw.osm.building", "raw.microsoft.building")
-    assert "raw.google.building" in building.manual_preload_source_ids
+    assert building.official_remote_source_ids == (
+        "raw.google.building",
+        "raw.osm.building",
+        "raw.microsoft.building",
+    )
+    assert "raw.google.building" not in building.manual_preload_source_ids
     assert "raw.openbuildingmap.building" in building.manual_preload_source_ids
+    assert "raw.google.open_buildings.vector" in building.manual_preload_source_ids
 
     assert road.official_remote_source_ids == ("raw.osm.road", "raw.overture.transportation")
     assert "raw.overture.road" in road.manual_preload_source_ids
@@ -38,8 +43,13 @@ def test_source_catalog_metadata_carries_track_b_b1_contract_for_live_sources() 
     sources = {source.source_id: source for source in build_data_sources()}
 
     assert sources["raw.osm.building"].metadata["acquisition_class"] == "official_remote_supported"
-    assert sources["raw.google.building"].metadata["acquisition_class"] == "manual_preload_required"
+    assert sources["raw.google.building"].metadata["acquisition_class"] == "official_remote_supported"
+    assert sources["raw.google.building"].metadata["supports_aoi"] is True
+    assert sources["raw.google.building"].metadata["materialization_scope"] == "resolved_aoi_clip"
+    assert sources["raw.google.building"].metadata["selectable_now"] is True
     assert sources["raw.microsoft.building"].metadata["field_mapping_profile"] == "fields.building.microsoft"
+    assert sources["raw.openbuildingmap.building"].metadata["acquisition_class"] == "manual_preload_required"
+    assert sources["raw.google.open_buildings.vector"].metadata["acquisition_class"] == "manual_preload_required"
 
     assert sources["raw.osm.road"].metadata["track_b_theme"] == "road"
     assert sources["raw.overture.road"].metadata["acquisition_class"] == "manual_preload_required"

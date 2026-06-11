@@ -34,9 +34,8 @@ class TrackBThemeContract:
 TRACK_B_THEME_CONTRACTS: Dict[str, TrackBThemeContract] = {
     "building": TrackBThemeContract(
         theme="building",
-        official_remote_source_ids=("raw.osm.building", "raw.microsoft.building"),
+        official_remote_source_ids=("raw.google.building", "raw.osm.building", "raw.microsoft.building"),
         manual_preload_source_ids=(
-            "raw.google.building",
             "raw.openbuildingmap.building",
             "raw.google.open_buildings.vector",
             "raw.local.microsoft.building",
@@ -108,14 +107,14 @@ TRACK_B_SOURCE_CONTRACTS: Dict[str, TrackBSourceContract] = {
     "raw.google.building": TrackBSourceContract(
         source_id="raw.google.building",
         theme="building",
-        role="reference_manual",
-        acquisition_class="manual_preload_required",
-        format_hint="shapefile_bundle",
-        clip_strategy="local_national_clip_then_aoi_clip",
+        role="reference_remote",
+        acquisition_class="official_remote_supported",
+        format_hint="google_open_buildings_csv_wkt",
+        clip_strategy="resolved_aoi_clip",
         field_mapping_profile="fields.building.google",
-        license_boundary="Manual reference preload only; keep provider attribution and do not promote as automated remote support.",
+        license_boundary="Google Open Buildings attribution and CC-BY-4.0 terms apply; preserve provider attribution and keep runtime claims tied to checked AOI clip evidence.",
         runtime_status="runtime_candidate",
-        notes="Included in the first-phase building matrix but still depends on local preload discipline.",
+        notes="Promoted Google Open Buildings target with bounded URL-index materialization and AOI clip support.",
     ),
     "raw.openbuildingmap.building": TrackBSourceContract(
         source_id="raw.openbuildingmap.building",

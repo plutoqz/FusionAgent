@@ -711,6 +711,65 @@ def test_source_asset_service_builds_msft_burundi_clip_from_geojsonl_parts(tmp_p
     assert "confidence" in frame.columns
 
 
+def test_source_asset_service_materializes_google_open_buildings_from_file_uri(tmp_path: Path) -> None:
+    google_csv = tmp_path / "fixtures" / "google_open_buildings.csv"
+    google_csv.parent.mkdir(parents=True, exist_ok=True)
+    google_csv.write_text(
+        "\n".join(
+            [
+                "latitude,longitude,area_in_meters,confidence,geometry",
+                '"0.5","0.5","100","0.93","POLYGON ((0.1 0.1, 0.1 0.9, 0.9 0.9, 0.9 0.1, 0.1 0.1))"',
+            ]
+        ),
+        encoding="utf-8",
+    )
+    service = SourceAssetService(
+        repo_root=tmp_path,
+        cache_dir=tmp_path / "cache",
+        google_open_buildings_urls=[google_csv.resolve().as_uri()],
+        prefer_local_data=False,
+    )
+
+    resolved = service.resolve_raw_source_path("raw.google.building", request_bbox=(0, 0, 1, 1))
+    cached = service.resolve_raw_source_path("raw.google.building", request_bbox=(0, 0, 1, 1))
+    alias = service.resolve_raw_source_path("raw.google.open_buildings.vector", request_bbox=(0, 0, 1, 1))
+
+    assert resolved.source_id == "raw.google.building"
+    assert resolved.feature_count == 1
+    assert resolved.source_mode in {"asset_downloaded", "asset_cached"}
+    assert cached.cache_hit is True
+    assert cached.source_mode == "asset_cached"
+    assert alias.source_id == "raw.google.open_buildings.vector"
+    assert alias.path == resolved.path
+    assert alias.source_mode == "asset_cached"
+
+
+def test_source_asset_service_materializes_empty_google_open_buildings_coverage(tmp_path: Path) -> None:
+    google_csv = tmp_path / "fixtures" / "google_open_buildings.csv"
+    google_csv.parent.mkdir(parents=True, exist_ok=True)
+    google_csv.write_text(
+        "\n".join(
+            [
+                "latitude,longitude,area_in_meters,confidence,geometry",
+                '"0.5","0.5","100","0.93","POLYGON ((0.1 0.1, 0.1 0.9, 0.9 0.9, 0.9 0.1, 0.1 0.1))"',
+            ]
+        ),
+        encoding="utf-8",
+    )
+    service = SourceAssetService(
+        repo_root=tmp_path,
+        cache_dir=tmp_path / "cache",
+        google_open_buildings_urls=[google_csv.resolve().as_uri()],
+        prefer_local_data=False,
+    )
+
+    resolved = service.resolve_raw_source_path("raw.google.building", request_bbox=(2, 2, 3, 3))
+
+    assert resolved.source_id == "raw.google.building"
+    assert resolved.feature_count == 0
+    assert resolved.source_mode == "coverage_empty"
+
+
 def test_source_asset_service_uses_aoi_bbox_for_kenya_msft_reference_source(tmp_path: Path) -> None:
     inside_feature = {
         "type": "Feature",

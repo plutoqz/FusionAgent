@@ -150,9 +150,11 @@ def _normalize_building_osm(frame: gpd.GeoDataFrame, *, geohash_precision: int) 
 
 def _normalize_building_reference(frame: gpd.GeoDataFrame, *, geohash_precision: int) -> gpd.GeoDataFrame:
     del geohash_precision
-    frame["source_feature_id"] = _stringify(
-        _coalesce(frame, ["id", "quadkey", "sourceid", "OBJECTID", "objectid", "fid"])
-    )
+    source_feature_id = _coalesce(frame, ["id", "quadkey", "sourceid", "OBJECTID", "objectid", "fid"])
+    if source_feature_id.apply(_is_missing).any() and {"latitude", "longitude"}.issubset(frame.columns):
+        lat_lon_id = frame["latitude"].astype(str) + "," + frame["longitude"].astype(str)
+        source_feature_id = source_feature_id.where(~source_feature_id.apply(_is_missing), lat_lon_id)
+    frame["source_feature_id"] = _stringify(source_feature_id)
     frame["name"] = _coalesce(frame, ["name", "Name"])
     frame["height_m"] = _numeric_coalesce(frame, ["height", "Height", "HEIGHT", "building_h", "bld_h"])
     frame["building_class"] = _coalesce(frame, ["type", "class", "CATEGORY"], default="building")

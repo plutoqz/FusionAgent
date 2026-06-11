@@ -29,6 +29,29 @@ def test_track_b_normalization_maps_building_profiles_to_canonical_height_and_co
     assert normalized.iloc[0]["source_id"] == "raw.microsoft.building"
 
 
+def test_track_b_normalization_maps_google_open_buildings_fields() -> None:
+    frame = gpd.GeoDataFrame(
+        {
+            "latitude": [0.5],
+            "longitude": [0.5],
+            "area_in_meters": [100.0],
+            "confidence": [0.93],
+        },
+        geometry=[Polygon([(0.1, 0.1), (0.1, 0.9), (0.9, 0.9), (0.9, 0.1)])],
+        crs="EPSG:4326",
+    )
+
+    normalized = normalize_track_b_source_frame(
+        "raw.google.building",
+        frame,
+        target_crs="EPSG:4326",
+    )
+
+    assert normalized.iloc[0]["source_id"] == "raw.google.building"
+    assert normalized.iloc[0]["source_feature_id"] == "0.5,0.5"
+    assert float(normalized.iloc[0]["confidence"]) == 0.93
+
+
 def test_track_b_normalization_maps_hydrorivers_profile_to_canonical_water_fields() -> None:
     frame = gpd.GeoDataFrame(
         {
