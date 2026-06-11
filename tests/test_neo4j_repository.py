@@ -113,6 +113,49 @@ def test_get_parameter_specs_maps_rows_from_fake_driver() -> None:
     assert captured[0][1] == {"algo_id": "algo.test", "graph_namespace": GRAPH_NAMESPACE}
 
 
+def test_get_parameter_specs_maps_conditional_defaults_from_fake_driver() -> None:
+    class FakeSession:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def run(self, cypher: str, parameters=None, **kwargs):
+            return [
+                {
+                    "ps": {
+                        "specId": "ps.test.threshold",
+                        "algoId": "algo.test",
+                        "key": "threshold",
+                        "label": "Threshold",
+                        "paramType": "float",
+                        "default": 0.7,
+                        "conditionalDefaults": (
+                            '[{"when":{"region_country_name":"Nepal"},"value":0.65,'
+                            '"provenance":{"source":"operator_annotation"}}]'
+                        ),
+                        "defaultProvenance": '{"source":"static_seed"}',
+                    },
+                    "hs": {"order": 1},
+                }
+            ]
+
+    class FakeDriver:
+        def session(self, database=None):
+            return FakeSession()
+
+    repo = Neo4jKGRepository.__new__(Neo4jKGRepository)
+    repo._driver = FakeDriver()
+    repo.database = None
+    repo.graph_namespace = GRAPH_NAMESPACE
+
+    specs = repo.get_parameter_specs("algo.test")
+
+    assert specs[0].conditional_defaults[0]["value"] == 0.65
+    assert specs[0].default_provenance["source"] == "static_seed"
+
+
 def test_list_methods_map_rows_from_fake_driver() -> None:
     captured: list[tuple[str, object]] = []
 

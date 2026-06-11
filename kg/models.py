@@ -124,6 +124,8 @@ class AlgorithmParameterSpec:
     choices: Optional[List[Any]] = None
     tunable: bool = False
     optimization_tags: List[str] = field(default_factory=list)
+    conditional_defaults: List[Dict[str, Any]] = field(default_factory=list)
+    default_provenance: Dict[str, Any] = field(default_factory=dict)
     order: int = 0
 
 

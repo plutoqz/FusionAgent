@@ -95,6 +95,17 @@ class Neo4jKGRepository(KGRepository):
             return payload if isinstance(payload, dict) else {}
         return {}
 
+    @staticmethod
+    def _parse_json_property(value: object, fallback: object) -> object:
+        if value is None or value == "":
+            return fallback
+        if isinstance(value, (dict, list)):
+            return value
+        try:
+            return json.loads(str(value))
+        except (TypeError, ValueError):
+            return fallback
+
     def list_algorithms(self) -> List[AlgorithmNode]:
         rows = self._execute(
             f"""
@@ -567,6 +578,8 @@ class Neo4jKGRepository(KGRepository):
                     choices=choices,
                     tunable=bool(ps.get("tunable", False)),
                     optimization_tags=list(ps.get("optimizationTags", [])),
+                    conditional_defaults=list(self._parse_json_property(ps.get("conditionalDefaults"), [])),
+                    default_provenance=dict(self._parse_json_property(ps.get("defaultProvenance"), {})),
                     order=int(order),
                 )
             )

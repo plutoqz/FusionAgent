@@ -264,6 +264,8 @@ def _build_parameter_spec_section(graph_namespace: str) -> str:
                 "choices": spec.choices,
                 "tunable": spec.tunable,
                 "optimizationTags": spec.optimization_tags,
+                "conditionalDefaults": json.dumps(spec.conditional_defaults, ensure_ascii=False),
+                "defaultProvenance": json.dumps(spec.default_provenance, ensure_ascii=False),
                 "order": spec.order,
                 "graphNamespace": graph_namespace,
             }

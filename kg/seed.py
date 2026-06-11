@@ -682,6 +682,35 @@ PARAMETER_SPECS: Dict[str, List[AlgorithmParameterSpec]] = {
             required=False,
             tunable=True,
             optimization_tags=["precision", "recall", "matching"],
+            conditional_defaults=[
+                {
+                    "when": {"source_combination": ["raw.google.building", "raw.osm.building"]},
+                    "value": 0.75,
+                    "provenance": {
+                        "source": "manual_seed",
+                        "reason": "Google/OSM building matches need stricter geometry confidence.",
+                    },
+                },
+                {
+                    "when": {"source_combination": ["raw.microsoft.building", "raw.osm.building"]},
+                    "value": 0.70,
+                    "provenance": {"source": "static_seed", "reason": "Current Microsoft/OSM default."},
+                },
+                {
+                    "when": {"region_country_name": "Nepal"},
+                    "value": 0.65,
+                    "provenance": {"source": "operator_annotation", "reason": "Nepal training run tolerance."},
+                },
+                {
+                    "when": {"region_country_name": "Mongolia"},
+                    "value": 0.75,
+                    "provenance": {
+                        "source": "operator_annotation",
+                        "reason": "Mongolia training run precision preference.",
+                    },
+                },
+            ],
+            default_provenance={"source": "static_seed", "reason": "Original KG seed default."},
             order=10,
         ),
         AlgorithmParameterSpec(
@@ -698,6 +727,7 @@ PARAMETER_SPECS: Dict[str, List[AlgorithmParameterSpec]] = {
             required=False,
             tunable=True,
             optimization_tags=["precision", "stability", "shape_consistency"],
+            default_provenance={"source": "static_seed"},
             order=20,
         ),
         AlgorithmParameterSpec(
@@ -714,6 +744,7 @@ PARAMETER_SPECS: Dict[str, List[AlgorithmParameterSpec]] = {
             required=False,
             tunable=True,
             optimization_tags=["precision", "stability", "shape_consistency"],
+            default_provenance={"source": "static_seed"},
             order=30,
         ),
         AlgorithmParameterSpec(
@@ -730,6 +761,7 @@ PARAMETER_SPECS: Dict[str, List[AlgorithmParameterSpec]] = {
             required=False,
             tunable=True,
             optimization_tags=["precision", "recall", "overlap_consistency"],
+            default_provenance={"source": "static_seed"},
             order=40,
         ),
     ],
@@ -748,6 +780,7 @@ PARAMETER_SPECS: Dict[str, List[AlgorithmParameterSpec]] = {
             required=False,
             tunable=True,
             optimization_tags=["precision", "stability", "matching"],
+            default_provenance={"source": "static_seed"},
             order=10,
         ),
         AlgorithmParameterSpec(
@@ -764,6 +797,7 @@ PARAMETER_SPECS: Dict[str, List[AlgorithmParameterSpec]] = {
             required=False,
             tunable=True,
             optimization_tags=["precision", "stability", "shape_consistency"],
+            default_provenance={"source": "static_seed"},
             order=20,
         ),
         AlgorithmParameterSpec(
@@ -780,6 +814,7 @@ PARAMETER_SPECS: Dict[str, List[AlgorithmParameterSpec]] = {
             required=False,
             tunable=True,
             optimization_tags=["precision", "stability", "shape_consistency"],
+            default_provenance={"source": "static_seed"},
             order=30,
         ),
         AlgorithmParameterSpec(
@@ -796,6 +831,7 @@ PARAMETER_SPECS: Dict[str, List[AlgorithmParameterSpec]] = {
             required=False,
             tunable=True,
             optimization_tags=["precision", "stability", "overlap_consistency"],
+            default_provenance={"source": "static_seed"},
             order=40,
         ),
     ],

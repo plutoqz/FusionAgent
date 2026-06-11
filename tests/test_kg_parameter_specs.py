@@ -89,3 +89,22 @@ def test_parameter_specs_expose_policy_facing_metadata_without_guessing_unknowns
     assert road_v7_spec.tunable is True
     assert "matching" in road_v7_spec.optimization_tags
     assert road_v7_spec.default is not None
+
+
+def test_parameter_specs_support_conditional_defaults_and_provenance() -> None:
+    repo = InMemoryKGRepository()
+
+    spec = next(
+        item
+        for item in repo.get_parameter_specs("algo.fusion.building.v1")
+        if item.key == "match_similarity_threshold"
+    )
+
+    assert spec.default is not None
+    assert spec.conditional_defaults, "Expected conditional defaults on building match threshold."
+    assert {
+        "when",
+        "value",
+        "provenance",
+    }.issubset(spec.conditional_defaults[0])
+    assert spec.default_provenance["source"] == "static_seed"
