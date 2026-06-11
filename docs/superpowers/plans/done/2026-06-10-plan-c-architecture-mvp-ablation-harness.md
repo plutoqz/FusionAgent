@@ -12,9 +12,10 @@
 
 ## Entry Conditions
 
-- Plan A has implemented runtime contract enforcement and repair decision audit fields.
-- Plan B has either frozen or clearly defined benchmark metrics used by A2c quality outcomes.
-- This plan can begin after Freeze A for harness work, but final thesis evidence waits for Freeze B and Plan D.
+- Minimum dependency: Plan A has implemented runtime contract enforcement and repair decision audit fields. Harness work, A2a/A2b toggles, fallback-mask metrics, and repair evidence aggregation may begin immediately after Freeze A.
+- Full evidence dependency: Plan B has frozen benchmark metrics before A2c quality outcomes are treated as thesis evidence.
+- If Plan C runs before Plan B finishes, durable-learning metadata must write `quality_outcome="quality_unknown"` and `quality_gate_accepted=None`; those records support plumbing tests, not quality-improvement claims.
+- Final thesis evidence waits for Freeze B and Plan D.
 
 ## Sources Consulted
 
@@ -59,6 +60,8 @@
 **Files:**
 - Modify: `kg/repository.py`
 - Test: `tests/test_durable_learning_condition_keys.py`
+
+**History boundary:** Changing the condition key silos records created before Plan C into `unknown` buckets unless their metadata already carries the new fields. This is acceptable for MVP evidence because Plan C demonstrates condition-specific evidence flow; it must not claim statistically significant learning improvement from old local history.
 
 - [ ] **Step 1: Write failing condition-key tests**
 
@@ -460,6 +463,41 @@ def test_ablation_summary_reports_fallback_masking_metrics() -> None:
     assert a2b["kg_fallback_rate"] == 0.5
     assert a2b["validator_rejection_rate"] == 0.5
     assert a2b["llm_plan_valid_before_fallback_rate"] == 0.5
+
+
+def test_ablation_summary_exposes_equal_success_with_different_fallback_mechanism() -> None:
+    rows = [
+        {
+            "variant": "A2a",
+            "planning_valid": False,
+            "unknown_algorithms": ["algo.fake"],
+            "execution_success": True,
+            "grounding_score": 0.5,
+            "validator_rejected": False,
+            "kg_fallback_used": False,
+            "llm_plan_valid_before_fallback": False,
+            "fallback_plan_quality_delta": None,
+        },
+        {
+            "variant": "A2b",
+            "planning_valid": False,
+            "unknown_algorithms": ["algo.fake"],
+            "execution_success": True,
+            "grounding_score": 0.5,
+            "validator_rejected": True,
+            "kg_fallback_used": True,
+            "llm_plan_valid_before_fallback": False,
+            "fallback_plan_quality_delta": -0.2,
+        },
+    ]
+
+    summary = summarize_ablation_results(rows)
+    by_variant = {item["variant"]: item for item in summary["variants"]}
+
+    assert by_variant["A2a"]["execution_success_rate"] == by_variant["A2b"]["execution_success_rate"]
+    assert by_variant["A2a"]["kg_fallback_rate"] == 0.0
+    assert by_variant["A2b"]["kg_fallback_rate"] == 1.0
+    assert by_variant["A2b"]["average_fallback_plan_quality_delta"] == -0.2
 ```
 
 - [ ] **Step 2: Run test to confirm failure**
@@ -652,4 +690,3 @@ git commit -m "docs: record architecture mvp verification"
 - Scope discipline:
   - This plan adds no new policy algorithm, no RL/bandit method, and no new task family.
   - This plan does not claim statistically significant learning improvement from sparse local runs.
-

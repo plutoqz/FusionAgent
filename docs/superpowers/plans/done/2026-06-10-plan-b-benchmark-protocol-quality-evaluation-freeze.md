@@ -45,7 +45,7 @@
 - Create: `docs/superpowers/specs/2026-06-10-fusion-quality-benchmark-protocol.md`
   - Human-readable benchmark protocol and claim limits.
 - Create: `docs/superpowers/specs/2026-06-10-freeze-b-benchmark-manifest.json`
-  - Initial benchmark manifest with real, semi-real, and smoke-only synthetic cases.
+  - Initial benchmark manifest with real quality cases, controlled fixture robustness cases, and smoke-only synthetic cases.
 - Create: `tests/test_fusion_quality_benchmark_service.py`
   - Unit tests for manifest validation, metric profiles, independence guards, and result summaries.
 - Create: `tests/test_run_fusion_quality_benchmark.py`
@@ -56,6 +56,8 @@
   - Add small helper functions only if required to expose metrics already computed internally.
 - Modify: `tests/test_road_conflation_v7.py`, `tests/test_waterways_conflation_v7.py`, `tests/test_poi_adapter.py`, `tests/test_building_adapter_safe.py`
   - Add algorithm-level golden metric assertions for prior real-test risk areas.
+
+**Manifest boundary:** Cases with AOI bbox `[0, 0, 1, 1]` are controlled fixtures, not geographic real AOIs. They may support smoke or robustness claims only. To support a thesis quality claim, replace the case with a documented real AOI and frozen source version, or keep the fixture out of quality tables.
 
 ---
 
@@ -130,6 +132,20 @@ def test_duplicate_case_ids_are_rejected() -> None:
             freeze_line="Freeze B",
             cases=[_case(case_id="same"), _case(case_id="same")],
         )
+
+
+def test_controlled_fixture_case_is_not_a_quality_claim() -> None:
+    fixture_case = {
+        **_case_payload(case_id="case.road.fixture.controlled", data_tier="semi_real"),
+        "task_kind": "road",
+        "independence_label": "perturbation_independent",
+        "claim_use": "quality_claim",
+        "aoi": {"name": "road-controlled-fixture", "bbox": [0, 0, 1, 1]},
+        "sources": [{"source_id": "fixture.road.base", "version_token": "freeze-b-fixture"}],
+    }
+
+    with pytest.raises(ValidationError, match="controlled fixture cases must not support quality_claim"):
+        BenchmarkManifest(manifest_id="bad-fixture-claim", freeze_line="Freeze B", cases=[fixture_case])
 ```
 
 - [ ] **Step 2: Run test to confirm failure**
@@ -209,6 +225,9 @@ class BenchmarkCase(BaseModel):
             raise ValueError("quality or robustness cases must define at least one baseline")
         if self.claim_use != "smoke_only" and not self.metrics:
             raise ValueError("quality or robustness cases must define metric thresholds")
+        bbox = self.aoi.get("bbox") if isinstance(self.aoi, dict) else None
+        if bbox == [0, 0, 1, 1] and self.claim_use == "quality_claim":
+            raise ValueError("controlled fixture cases must not support quality_claim")
         return self
 
 
@@ -703,7 +722,7 @@ def test_run_manifest_summarizes_precomputed_artifact(tmp_path: Path) -> None:
                         "data_tier": "real",
                         "independence_label": "real_source",
                         "claim_use": "quality_claim",
-                        "aoi": {"bbox": [0, 0, 1, 1]},
+                        "aoi": {"bbox": [2.55, 9.25, 2.75, 9.45]},
                         "sources": [{"source_id": "fixture", "version_token": "test"}],
                         "baselines": [{"baseline_id": "fixed_adapter", "runner": "adapter_direct"}],
                         "metrics": [{"metric_name": "invalid_geometry_rate", "operator": "eq", "threshold": 0.0}],
@@ -874,7 +893,7 @@ def test_freeze_b_manifest_check_reports_required_coverage(tmp_path: Path) -> No
                         "data_tier": "real",
                         "independence_label": "real_source",
                         "claim_use": "quality_claim",
-                        "aoi": {"bbox": [0, 0, 1, 1]},
+                        "aoi": {"bbox": [2.55, 9.25, 2.75, 9.45]},
                         "sources": [{"source_id": "fixture", "version_token": "test"}],
                         "baselines": [{"baseline_id": "fixed_adapter", "runner": "adapter_direct"}],
                         "metrics": [{"metric_name": "invalid_geometry_rate", "operator": "eq", "threshold": 0.0}],
@@ -890,6 +909,40 @@ def test_freeze_b_manifest_check_reports_required_coverage(tmp_path: Path) -> No
     assert report["manifest_id"] == "freeze-b-v1"
     assert report["case_count"] == 1
     assert report["synthetic_quality_claim_violations"] == []
+
+
+def test_freeze_b_manifest_check_reports_unknown_extra_keys(tmp_path: Path) -> None:
+    manifest = tmp_path / "manifest.json"
+    manifest.write_text(
+        json.dumps(
+            {
+                "manifest_id": "freeze-b-v1",
+                "freeze_line": "Freeze B",
+                "cases": [
+                    {
+                        "case_id": "case.building.real",
+                        "task_kind": "building",
+                        "data_tier": "real",
+                        "independence_label": "real_source",
+                        "claim_use": "quality_claim",
+                        "aoi": {"bbox": [2.55, 9.25, 2.75, 9.45]},
+                        "sources": [{"source_id": "raw.osm.building", "version_token": "freeze-b-local"}],
+                        "baselines": [{"baseline_id": "fixed_adapter", "runner": "adapter_direct"}],
+                        "metrics": [{"metric_name": "invalid_geometry_rate", "operator": "eq", "threshold": 0.0}],
+                        "source_snapshot": {"kind": "local_frozen_subset", "path": "tests/golden_cases/building_disaster_flood"},
+                        "soruce_snapshot": {"typo": True},
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    report = check_freeze_b_manifest(manifest)
+
+    assert report["unknown_extra_keys"] == [
+        {"case_id": "case.building.real", "keys": ["soruce_snapshot"]}
+    ]
 ```
 
 - [ ] **Step 2: Run test to confirm failure**
@@ -922,6 +975,17 @@ if str(REPO_ROOT) not in sys.path:
 from schemas.benchmark import BenchmarkManifest, DataTier, IndependenceLabel
 
 
+ALLOWED_CASE_EXTRA_KEYS = {
+    "precomputed_artifact_path",
+    "fixture_path",
+    "fixture_generation",
+    "source_snapshot",
+    "source_versions",
+    "golden_case_path",
+    "thesis_use_note",
+}
+
+
 def check_freeze_b_manifest(manifest_path: Path) -> dict[str, Any]:
     manifest = BenchmarkManifest.model_validate_json(Path(manifest_path).read_text(encoding="utf-8"))
     synthetic_violations = [
@@ -932,12 +996,19 @@ def check_freeze_b_manifest(manifest_path: Path) -> dict[str, Any]:
         and case.independence_label != IndependenceLabel.algorithm_independent_synthetic
     ]
     task_coverage = sorted({case.task_kind.value for case in manifest.cases})
+    unknown_extra_keys = []
+    for case in manifest.cases:
+        extras = set(case.model_extra or {})
+        unknown = sorted(extras - ALLOWED_CASE_EXTRA_KEYS)
+        if unknown:
+            unknown_extra_keys.append({"case_id": case.case_id, "keys": unknown})
     report = {
-        "ok": not synthetic_violations,
+        "ok": not synthetic_violations and not unknown_extra_keys,
         "manifest_id": manifest.manifest_id,
         "case_count": manifest.case_count,
         "task_coverage": task_coverage,
         "synthetic_quality_claim_violations": synthetic_violations,
+        "unknown_extra_keys": unknown_extra_keys,
     }
     return report
 
@@ -968,14 +1039,14 @@ Create `docs/superpowers/specs/2026-06-10-fusion-quality-benchmark-protocol.md` 
 
 ## Claim Boundary
 
-Fusion quality claims require real or semi-real AOI cases, frozen source versions, fixed baselines, and task-specific metrics. Synthetic cases are smoke-only unless their generation mechanism is independent of the tested algorithm.
+Fusion quality claims require real AOI cases, frozen source versions, fixed baselines, and task-specific metrics. Controlled fixture cases with bbox `[0, 0, 1, 1]` support robustness or smoke claims only and must stay out of quality tables. Synthetic cases are smoke-only unless their generation mechanism is independent of the tested algorithm.
 
 ## Data Tiers
 
 | Tier | Thesis Use | Required Label |
 | --- | --- | --- |
 | real | quality claim | real_source |
-| semi_real | robustness or quality claim | perturbation_independent |
+| semi_real | robustness claim unless real AOI and source versions are documented | perturbation_independent |
 | synthetic | smoke by default | algorithm_independent_synthetic only if used for quality |
 
 ## Task Metrics
@@ -994,7 +1065,8 @@ Create `docs/superpowers/specs/2026-06-10-freeze-b-benchmark-manifest.json`:
   "manifest_id": "freeze-b-v1",
   "freeze_line": "Freeze B",
   "notes": [
-    "Real and semi-real cases support thesis quality claims.",
+    "Real AOI cases support thesis quality claims.",
+    "Controlled fixture cases with bbox [0, 0, 1, 1] support robustness claims only.",
     "Synthetic cases are smoke-only unless independently generated."
   ],
   "cases": [
@@ -1006,6 +1078,11 @@ Create `docs/superpowers/specs/2026-06-10-freeze-b-benchmark-manifest.json`:
       "claim_use": "quality_claim",
       "aoi": {"name": "benin-parakou", "bbox": [2.55, 9.25, 2.75, 9.45]},
       "sources": [{"source_id": "raw.osm.building", "version_token": "freeze-b-local"}],
+      "source_snapshot": {
+        "kind": "local_frozen_subset",
+        "path": "tests/golden_cases/building_disaster_flood",
+        "version_note": "Freeze B local golden case; replace with immutable data hash before Freeze C if used in thesis table"
+      },
       "baselines": [{"baseline_id": "fixed_adapter", "runner": "adapter_direct"}],
       "metrics": [
         {"metric_name": "invalid_geometry_rate", "operator": "eq", "threshold": 0.0},
@@ -1021,6 +1098,8 @@ Create `docs/superpowers/specs/2026-06-10-freeze-b-benchmark-manifest.json`:
       "claim_use": "robustness_claim",
       "aoi": {"name": "road-controlled-perturbation", "bbox": [0, 0, 1, 1]},
       "sources": [{"source_id": "fixture.road.base", "version_token": "freeze-b-fixture"}],
+      "fixture_generation": "hand-authored line perturbation independent of road conflation implementation",
+      "thesis_use_note": "robustness fixture only; not a real-AOI quality claim",
       "baselines": [{"baseline_id": "fixed_adapter", "runner": "adapter_direct"}],
       "metrics": [
         {"metric_name": "invalid_geometry_rate", "operator": "eq", "threshold": 0.0},
@@ -1036,6 +1115,8 @@ Create `docs/superpowers/specs/2026-06-10-freeze-b-benchmark-manifest.json`:
       "claim_use": "robustness_claim",
       "aoi": {"name": "water-polygon-controlled", "bbox": [0, 0, 1, 1]},
       "sources": [{"source_id": "fixture.water.polygon", "version_token": "freeze-b-fixture"}],
+      "fixture_generation": "hand-authored polygon overlap fixture independent of priority-merge thresholds",
+      "thesis_use_note": "robustness fixture only; not a real-AOI quality claim",
       "baselines": [{"baseline_id": "fixed_adapter", "runner": "adapter_direct"}],
       "metrics": [
         {"metric_name": "invalid_geometry_rate", "operator": "eq", "threshold": 0.0},
@@ -1051,6 +1132,8 @@ Create `docs/superpowers/specs/2026-06-10-freeze-b-benchmark-manifest.json`:
       "claim_use": "robustness_claim",
       "aoi": {"name": "waterways-controlled", "bbox": [0, 0, 1, 1]},
       "sources": [{"source_id": "fixture.waterways", "version_token": "freeze-b-fixture"}],
+      "fixture_generation": "hand-authored line fixture independent of waterways conflation implementation",
+      "thesis_use_note": "robustness fixture only; not a real-AOI quality claim",
       "baselines": [{"baseline_id": "fixed_adapter", "runner": "adapter_direct"}],
       "metrics": [
         {"metric_name": "invalid_geometry_rate", "operator": "eq", "threshold": 0.0},
@@ -1066,6 +1149,8 @@ Create `docs/superpowers/specs/2026-06-10-freeze-b-benchmark-manifest.json`:
       "claim_use": "robustness_claim",
       "aoi": {"name": "poi-controlled", "bbox": [0, 0, 1, 1]},
       "sources": [{"source_id": "fixture.poi", "version_token": "freeze-b-fixture"}],
+      "fixture_generation": "hand-authored point-neighbor fixture independent of geohash implementation details",
+      "thesis_use_note": "robustness fixture only; not a real-AOI quality claim",
       "baselines": [{"baseline_id": "fixed_adapter", "runner": "adapter_direct"}],
       "metrics": [
         {"metric_name": "invalid_geometry_rate", "operator": "eq", "threshold": 0.0},

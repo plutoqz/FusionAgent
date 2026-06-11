@@ -437,6 +437,13 @@ New-Item -ItemType Directory -Force -Path $LogPath | Out-Null
 & $Python (Join-Path $RepoRoot "scripts\start_local.py") `
     --port $Port `
     *> (Join-Path $LogPath "fusionagent-local.log")
+
+$ExitCode = $LASTEXITCODE
+if ($ExitCode -ne 0) {
+    Write-Host "FusionAgent startup failed with exit code $ExitCode. Last log lines:" -ForegroundColor Red
+    Get-Content (Join-Path $LogPath "fusionagent-local.log") -Tail 80
+    exit $ExitCode
+}
 ```
 
 - [ ] **Step 2: Create Windows runtime guide**
@@ -473,6 +480,8 @@ Run:
 ```powershell
 .venv\Scripts\python.exe scripts\run_windows_long_run_smoke.py --dry-run --iterations 3 --output-dir runs\windows_long_run_smoke
 ```
+
+This dry-run smoke validates loop structure, imports, JSON evidence writing, and operator command paths. It does not dispatch real fusion runs, exercise real recovery ticks, or prove systematic end-to-end soak stability.
 
 ## Recovery
 
@@ -549,7 +558,7 @@ Create `docs/superpowers/specs/2026-06-10-windows-runtime-operability-evidence.m
 
 ## Claim Boundary
 
-The system is required to run on the current Windows local environment for thesis support. Cross-platform compatibility and production deployment are outside the current scope.
+The system is required to run on the current Windows local environment for thesis support. The dry-run long-run smoke validates loop structure, import paths, command wiring, and JSON evidence writing; it does not prove systematic end-to-end soak stability under real fusion workload. Cross-platform compatibility and production deployment are outside the current scope.
 ```
 
 - [ ] **Step 5: Run maturity and Windows tests**

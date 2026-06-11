@@ -35,8 +35,10 @@
   - Directory hashing, manifest creation, manifest verification, and evidence reference validation.
 - Create: `scripts/freeze_experiment_evidence.py`
   - CLI that freezes one experiment output directory into a manifest.
+- Create: `scripts/compute_freeze_hashes.py`
+  - CLI helper that computes seed, runtime-settings, and metric-definition hashes for Freeze C commands.
 - Create: `scripts/render_thesis_tables.py`
-  - CLI that renders Markdown/JSON thesis tables from frozen experiment manifests.
+  - CLI that renders Markdown/JSON thesis tables from frozen experiment manifests, ablation summaries, and quality benchmark summaries.
 - Create: `tests/test_experiment_evidence_service.py`
   - Hash and integrity tests.
 - Create: `tests/test_freeze_experiment_evidence.py`
@@ -49,6 +51,8 @@
   - Experiment matrix covering reliability, ablation, healing, quality, and Windows operability evidence.
 - Create: `docs/thesis/experiment-results-draft.md`
   - Thesis-ready result section draft skeleton linked to generated tables.
+- Create: `docs/thesis/thesis-hook-index.md`
+  - Consolidated index of thesis hooks from Plans A-E, with source plan and target thesis section.
 
 ---
 
@@ -219,9 +223,10 @@ git commit -m "feat: add immutable experiment evidence manifests"
 
 **Files:**
 - Create: `scripts/freeze_experiment_evidence.py`
+- Create: `scripts/compute_freeze_hashes.py`
 - Test: `tests/test_freeze_experiment_evidence.py`
 
-- [ ] **Step 1: Write failing CLI test**
+- [ ] **Step 1: Write failing CLI and hash-helper tests**
 
 Create `tests/test_freeze_experiment_evidence.py`:
 
@@ -231,7 +236,24 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+from scripts.compute_freeze_hashes import compute_freeze_hashes
 from scripts.freeze_experiment_evidence import freeze_experiment
+
+
+def test_compute_freeze_hashes_returns_required_fields(tmp_path: Path) -> None:
+    seed = tmp_path / "seed.json"
+    metrics = tmp_path / "metrics.md"
+    seed.write_text('{"seed": true}', encoding="utf-8")
+    metrics.write_text("# Metrics\n", encoding="utf-8")
+
+    payload = compute_freeze_hashes(
+        seed_paths=[seed],
+        runtime_settings={"validator_mode": "enforce", "plan_grounding_mode": "enforce"},
+        metric_paths=[metrics],
+    )
+
+    assert set(payload) == {"seed_hash", "runtime_settings_hash", "metric_definition_hash"}
+    assert all(len(value) == 64 for value in payload.values())
 
 
 def test_freeze_experiment_writes_manifest(tmp_path: Path) -> None:
@@ -263,9 +285,81 @@ Run:
 .venv\Scripts\python.exe -m pytest tests/test_freeze_experiment_evidence.py -q
 ```
 
-Expected: FAIL because the script does not exist.
+Expected: FAIL because the scripts do not exist.
 
-- [ ] **Step 3: Implement Freeze C CLI**
+- [ ] **Step 3: Implement Freeze C hash helper**
+
+Create `scripts/compute_freeze_hashes.py`:
+
+```python
+from __future__ import annotations
+
+import argparse
+import hashlib
+import json
+import sys
+from pathlib import Path
+from typing import Any
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+
+def compute_freeze_hashes(
+    *,
+    seed_paths: list[Path],
+    runtime_settings: dict[str, Any],
+    metric_paths: list[Path],
+) -> dict[str, str]:
+    return {
+        "seed_hash": _hash_paths(seed_paths),
+        "runtime_settings_hash": _hash_json(runtime_settings),
+        "metric_definition_hash": _hash_paths(metric_paths),
+    }
+
+
+def _hash_paths(paths: list[Path]) -> str:
+    digest = hashlib.sha256()
+    for path in sorted(Path(item) for item in paths):
+        digest.update(str(path.as_posix()).encode("utf-8"))
+        digest.update(b"\0")
+        digest.update(path.read_bytes())
+        digest.update(b"\0")
+    return digest.hexdigest()
+
+
+def _hash_json(payload: dict[str, Any]) -> str:
+    text = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":"))
+    return hashlib.sha256(text.encode("utf-8")).hexdigest()
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description="Compute Freeze C seed/runtime/metric hashes.")
+    parser.add_argument("--seed-path", action="append", required=True)
+    parser.add_argument("--metric-path", action="append", required=True)
+    parser.add_argument("--runtime-setting", action="append", default=[], help="KEY=VALUE setting included in runtime hash")
+    args = parser.parse_args(argv)
+    settings = {}
+    for item in args.runtime_setting:
+        key, separator, value = item.partition("=")
+        if not key or not separator:
+            raise SystemExit(f"Invalid --runtime-setting value: {item}")
+        settings[key] = value
+    payload = compute_freeze_hashes(
+        seed_paths=[Path(item) for item in args.seed_path],
+        runtime_settings=settings,
+        metric_paths=[Path(item) for item in args.metric_path],
+    )
+    print(json.dumps(payload, ensure_ascii=False, indent=2))
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())
+```
+
+- [ ] **Step 4: Implement Freeze C CLI**
 
 Create `scripts/freeze_experiment_evidence.py`:
 
@@ -322,9 +416,9 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--experiment-id", required=True)
     parser.add_argument("--output-dir", required=True)
     parser.add_argument("--output-json", required=True)
-    parser.add_argument("--seed-hash", required=True)
-    parser.add_argument("--runtime-settings-hash", required=True)
-    parser.add_argument("--metric-definition-hash", required=True)
+    parser.add_argument("--seed-hash", required=True, help="Use scripts/compute_freeze_hashes.py to compute this value")
+    parser.add_argument("--runtime-settings-hash", required=True, help="Use scripts/compute_freeze_hashes.py to compute this value")
+    parser.add_argument("--metric-definition-hash", required=True, help="Use scripts/compute_freeze_hashes.py to compute this value")
     parser.add_argument("--commit-sha", default="")
     args = parser.parse_args(argv)
     manifest = freeze_experiment(
@@ -344,7 +438,7 @@ if __name__ == "__main__":
     raise SystemExit(main())
 ```
 
-- [ ] **Step 4: Run CLI test**
+- [ ] **Step 5: Run CLI test**
 
 Run:
 
@@ -354,12 +448,12 @@ Run:
 
 Expected: PASS.
 
-- [ ] **Step 5: Commit Freeze C CLI**
+- [ ] **Step 6: Commit Freeze C CLI**
 
 Run:
 
 ```powershell
-git add scripts/freeze_experiment_evidence.py tests/test_freeze_experiment_evidence.py
+git add scripts/compute_freeze_hashes.py scripts/freeze_experiment_evidence.py tests/test_freeze_experiment_evidence.py
 git commit -m "feat: add freeze c experiment evidence cli"
 ```
 
@@ -406,6 +500,50 @@ def test_render_tables_references_registered_experiments(tmp_path: Path) -> None
 
     assert payload["experiment_count"] == 1
     assert "| exp-a2b |" in output_md.read_text(encoding="utf-8")
+
+
+def test_render_tables_includes_ablation_and_quality_summaries(tmp_path: Path) -> None:
+    manifest = tmp_path / "exp.json"
+    manifest.write_text(
+        json.dumps(
+            {
+                "experiment_id": "exp-a2b",
+                "output_dir": "runs/exp-a2b",
+                "commit_sha": "abc",
+                "seed_hash": "seed",
+                "runtime_settings_hash": "settings",
+                "metric_definition_hash": "metrics",
+                "files": [],
+            }
+        ),
+        encoding="utf-8",
+    )
+    ablation = tmp_path / "ablation.json"
+    ablation.write_text(
+        json.dumps({"variants": [{"variant": "A2b", "kg_fallback_rate": 0.25, "execution_success_rate": 1.0}]}),
+        encoding="utf-8",
+    )
+    quality = tmp_path / "quality.json"
+    quality.write_text(
+        json.dumps({"results": [{"case_id": "case.building.real.benin", "accepted_for_claim": True}]}),
+        encoding="utf-8",
+    )
+    output_md = tmp_path / "tables.md"
+
+    payload = render_tables(
+        [manifest],
+        output_markdown=output_md,
+        ablation_summary=ablation,
+        quality_summary=quality,
+    )
+
+    text = output_md.read_text(encoding="utf-8")
+    assert payload["ablation_variant_count"] == 1
+    assert payload["quality_result_count"] == 1
+    assert "## Ablation Results" in text
+    assert "| A2b | 0.25 | 1.0 |" in text
+    assert "## Quality Results" in text
+    assert "| case.building.real.benin | True |" in text
 ```
 
 - [ ] **Step 2: Run test to confirm failure**
@@ -438,19 +576,37 @@ if str(REPO_ROOT) not in sys.path:
 from schemas.experiment_evidence import ExperimentEvidenceManifest
 
 
-def render_tables(manifest_paths: list[Path], *, output_markdown: Path) -> dict[str, Any]:
+def render_tables(
+    manifest_paths: list[Path],
+    *,
+    output_markdown: Path,
+    ablation_summary: Path | None = None,
+    quality_summary: Path | None = None,
+) -> dict[str, Any]:
     manifests = [
         ExperimentEvidenceManifest.model_validate_json(Path(path).read_text(encoding="utf-8"))
         for path in manifest_paths
     ]
+    ablation_payload = _read_json(ablation_summary) if ablation_summary else {}
+    quality_payload = _read_json(quality_summary) if quality_summary else {}
     payload = {
         "experiment_count": len(manifests),
         "experiments": [manifest.model_dump(mode="json") for manifest in manifests],
+        "ablation": ablation_payload,
+        "quality": quality_payload,
+        "ablation_variant_count": len(ablation_payload.get("variants", [])),
+        "quality_result_count": len(quality_payload.get("results", [])),
     }
     output_markdown = Path(output_markdown)
     output_markdown.parent.mkdir(parents=True, exist_ok=True)
     output_markdown.write_text(_render_markdown(payload), encoding="utf-8")
     return payload
+
+
+def _read_json(path: Path | None) -> dict[str, Any]:
+    if path is None:
+        return {}
+    return json.loads(Path(path).read_text(encoding="utf-8"))
 
 
 def _render_markdown(payload: dict[str, Any]) -> str:
@@ -471,6 +627,34 @@ def _render_markdown(payload: dict[str, Any]) -> str:
                 file_count=len(experiment["files"]),
             )
         )
+    variants = payload.get("ablation", {}).get("variants", [])
+    if variants:
+        lines.extend(
+            [
+                "",
+                "## Ablation Results",
+                "",
+                "| Variant | KG Fallback Rate | Execution Success Rate |",
+                "| --- | ---: | ---: |",
+            ]
+        )
+        for variant in variants:
+            lines.append(
+                f"| {variant.get('variant')} | {variant.get('kg_fallback_rate')} | {variant.get('execution_success_rate')} |"
+            )
+    quality_results = payload.get("quality", {}).get("results", [])
+    if quality_results:
+        lines.extend(
+            [
+                "",
+                "## Quality Results",
+                "",
+                "| Case | Accepted For Claim |",
+                "| --- | --- |",
+            ]
+        )
+        for result in quality_results:
+            lines.append(f"| {result.get('case_id')} | {result.get('accepted_for_claim')} |")
     lines.append("")
     return "\n".join(lines)
 
@@ -479,8 +663,21 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description="Render thesis tables from Freeze C experiment manifests.")
     parser.add_argument("--manifest", action="append", required=True)
     parser.add_argument("--output-markdown", required=True)
+    parser.add_argument("--ablation-summary", default="")
+    parser.add_argument("--quality-summary", default="")
     args = parser.parse_args(argv)
-    print(json.dumps(render_tables([Path(item) for item in args.manifest], output_markdown=Path(args.output_markdown)), ensure_ascii=False, indent=2))
+    print(
+        json.dumps(
+            render_tables(
+                [Path(item) for item in args.manifest],
+                output_markdown=Path(args.output_markdown),
+                ablation_summary=Path(args.ablation_summary) if args.ablation_summary else None,
+                quality_summary=Path(args.quality_summary) if args.quality_summary else None,
+            ),
+            ensure_ascii=False,
+            indent=2,
+        )
+    )
     return 0
 
 
@@ -522,13 +719,13 @@ Create `docs/superpowers/specs/2026-06-10-research-contribution-ledger.md`:
 ```markdown
 # Research Contribution Ledger
 
-| claim_id | claim_text | engineering_dependencies | baseline | metric | evidence_source | claim_boundary | thesis_section | draft_status |
-| --- | --- | --- | --- | --- | --- | --- | --- | --- |
-| C1 | KG-grounded planning and validation reduce invalid plans | Freeze A | A0 | unknown_algorithm_rate, planning_valid_rate | Freeze C ablation manifest | planning validity, not fusion quality | Experiments | draft required |
-| C2 | Fail-closed runtime governance improves executable success while exposing fallback | Freeze A, Plan C | A2a | validator_rejection_rate, kg_fallback_rate, final_executable_success_rate | Freeze C ablation manifest | runtime resilience, not LLM optimality | Results | draft required |
-| C3 | Policy and healing governance improve resilience under failures | Freeze A, Plan C | A2b | healing_success_rate, policy_sourced_repair_count | repair evidence manifest | existing repair capability boundary | Results | draft required |
-| C4 | Fusion outputs have reproducible task-specific quality evidence | Freeze B | fixed_adapter | invalid_geometry_rate, duplicate_geometry_rate, task metrics | Freeze C quality manifest | frozen AOIs only | Benchmark | draft required |
-| C5 | Architecture preserves extension contract without promoting future tasks | Freeze A, Plan E | none | reserved_capability_blocked, extension_contract_complete | runtime contract and Windows docs | trajectory-to-road remains reservation-only | Discussion | draft required |
+| claim_id | claim_text | engineering_dependencies | baseline | metric | evidence_source | claim_boundary | negative_result_handling | thesis_section | draft_status |
+| --- | --- | --- | --- | --- | --- | --- | --- | --- | --- |
+| C1 | KG-grounded planning and validation reduce invalid plans | Freeze A | A0 | unknown_algorithm_rate, planning_valid_rate | Freeze C ablation manifest | planning validity, not fusion quality | claim_narrowed if planning_valid_rate does not improve | Experiments | draft required |
+| C2 | Fail-closed runtime governance improves executable success while exposing fallback | Freeze A, Plan C | A2a | validator_rejection_rate, kg_fallback_rate, final_executable_success_rate | Freeze C ablation manifest | runtime resilience, not LLM optimality | documented_as_limitation when kg_fallback_rate is high | Results | draft required |
+| C3 | Policy and healing governance improve resilience under failures | Freeze A, Plan C | A2b | healing_success_rate, policy_sourced_repair_count | repair evidence manifest | existing repair capability boundary | claim_narrowed if A2c does not exceed A2b | Results | draft required |
+| C4 | Fusion outputs have reproducible task-specific quality evidence | Freeze B | fixed_adapter | invalid_geometry_rate, duplicate_geometry_rate, task metrics | Freeze C quality manifest | frozen AOIs only | documented_as_limitation for task families below threshold | Benchmark | draft required |
+| C5 | Architecture preserves extension contract without promoting future tasks | Freeze A, Plan E | none | reserved_capability_blocked, extension_contract_complete | runtime contract and Windows docs | trajectory-to-road remains reservation-only | not_applicable unless reserved seam becomes executable | Discussion | draft required |
 ```
 
 - [ ] **Step 2: Create experiment matrix**
@@ -546,6 +743,14 @@ Create `docs/superpowers/specs/2026-06-10-freeze-c-experiment-matrix.json`:
       "runner": "scripts/eval_kg_ablation.py",
       "output_dir": "runs/experiments/exp-ablation-a0-a2",
       "required_metrics": ["unknown_algorithm_rate", "planning_valid_rate", "validator_rejection_rate", "kg_fallback_rate", "execution_success_rate"]
+    },
+    {
+      "experiment_id": "exp-negative-results-ledger",
+      "claim_ids": ["C1", "C2", "C3", "C4"],
+      "requires_freeze": ["Freeze A", "Freeze B"],
+      "runner": "manual_from_frozen_evidence",
+      "output_dir": "runs/experiments/exp-negative-results-ledger",
+      "required_metrics": ["claim_id", "observed_result", "negative_result_handling", "claim_boundary_update"]
     },
     {
       "experiment_id": "exp-quality-freeze-b",
@@ -582,6 +787,7 @@ git commit -m "docs: add research contribution ledger and freeze c matrix"
 
 **Files:**
 - Create: `docs/thesis/experiment-results-draft.md`
+- Create: `docs/thesis/thesis-hook-index.md`
 
 - [ ] **Step 1: Create thesis draft section**
 
@@ -611,12 +817,28 @@ Quality tables report task-family metrics from machine-readable benchmark output
 Fusion algorithms remain deterministic GIS implementations. The agentic contribution is constrained planning, runtime governance, repair evidence, recovery, auditability, and evidence lifecycle.
 ```
 
-- [ ] **Step 2: Commit thesis draft hook**
+- [ ] **Step 2: Create thesis hook index**
+
+Create `docs/thesis/thesis-hook-index.md`:
+
+```markdown
+# Thesis Hook Index
+
+| source_plan | hook | target_section | evidence_dependency | claim_boundary |
+| --- | --- | --- | --- | --- |
+| Plan A | Runtime contract and algorithm trust matrix | System Design, Reliability Engineering | Freeze A runtime contract report | KG constrains executable choices; it does not prove LLM plan optimality |
+| Plan B | Benchmark protocol and metric rationale | Benchmark Protocol, Results | Freeze B benchmark manifest and quality summaries | Quality claims are bounded to frozen real AOIs and documented source versions |
+| Plan C | A0/A1/A2a/A2b/A2c ablation and fallback masking | Experiments, Ablation Results | Freeze C ablation summary | `kg_fallback_rate` must be reported separately from final executable success |
+| Plan D | Evidence immutability and negative result protocol | Reproducibility, Threats to Validity | Freeze C manifests and negative-results ledger | Frozen outputs are immutable; negative results narrow claims instead of being hidden |
+| Plan E | Windows runnable system and operability boundary | Implementation Appendix | Windows doctor and dry-run smoke evidence | Dry-run smoke validates loop/import paths, not systematic end-to-end soak stability |
+```
+
+- [ ] **Step 3: Commit thesis draft hook**
 
 Run:
 
 ```powershell
-git add docs/thesis/experiment-results-draft.md
+git add docs/thesis/experiment-results-draft.md docs/thesis/thesis-hook-index.md
 git commit -m "docs: add thesis experiment results draft"
 ```
 

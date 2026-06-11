@@ -82,6 +82,8 @@
 - Create: `docs/superpowers/specs/2026-06-10-runtime-governance-matrix.md`
   - Runtime governance matrix snapshot for Plan A.
 
+**Ablation side-effect note:** Filtering `_finalize_plan()` alternatives changes which algorithms can later enter Executor healing. Plan C must report this separately through A2a/A2b/A2c `kg_fallback_rate`, `validator_rejection_rate`, and skipped-alternative metrics so final executable success is not misattributed to LLM planning quality.
+
 ---
 
 ### Task 1: Add Shared Runtime Contract Service
@@ -96,8 +98,6 @@ Create `tests/test_runtime_contract_service.py`:
 
 ```python
 from __future__ import annotations
-
-from dataclasses import replace
 
 from agent.tooling import build_default_tool_registry
 from kg.inmemory_repository import InMemoryKGRepository
@@ -154,6 +154,22 @@ def test_runtime_contract_blocks_registry_missing_algorithm() -> None:
 
 def test_runtime_contract_blocks_pattern_containing_deprecated_step() -> None:
     repo = InMemoryKGRepository()
+    algorithms = dict(repo.algorithms)
+    algorithms["algo.test.deprecated.injected"] = AlgorithmNode(
+        algo_id="algo.test.deprecated.injected",
+        algo_name="Injected Deprecated Algorithm",
+        input_types=["dt.road.bundle"],
+        output_type="dt.road.fused",
+        task_type="road_fusion",
+        tool_ref="test:deprecated",
+        usage_mode="deprecated",
+        metadata={
+            "runtime_status": "deprecated",
+            "selectable_now": False,
+            "deprecated_by": "algo.fusion.road.conflation.v7",
+        },
+    )
+    repo = InMemoryKGRepository(algorithms=algorithms)
     pattern = WorkflowPatternNode(
         pattern_id="wp.bad.deprecated",
         pattern_name="Bad Deprecated Pattern",
@@ -163,7 +179,7 @@ def test_runtime_contract_blocks_pattern_containing_deprecated_step() -> None:
             PatternStep(
                 order=1,
                 name="deprecated_road",
-                algorithm_id="algo.fusion.road.v1",
+                algorithm_id="algo.test.deprecated.injected",
                 input_data_type="dt.road.bundle",
                 output_data_type="dt.road.fused",
                 data_source_id="catalog.flood.road",
@@ -176,7 +192,7 @@ def test_runtime_contract_blocks_pattern_containing_deprecated_step() -> None:
 
     assert decision.allowed is False
     assert decision.reason_code == "PATTERN_CONTAINS_BLOCKED_ALGORITHM"
-    assert decision.evidence["blocked_algorithm_ids"] == ["algo.fusion.road.v1"]
+    assert decision.evidence["blocked_algorithm_ids"] == ["algo.test.deprecated.injected"]
 
 
 def test_runtime_contract_filters_alternatives_and_reports_skips() -> None:
@@ -503,7 +519,11 @@ def test_registered_runtime_algorithms_have_explicit_runtime_metadata() -> None:
     payload = build_seed_manifest_payload()
     algorithms = {item["algo_id"]: item for item in payload["algorithms"]}
     registry = build_default_tool_registry()
-    reserved_ids = {"algo.transform.trajectory_to_road_candidate"}
+    reserved_ids = {
+        item["algo_id"]
+        for item in payload["algorithms"]
+        if (item.get("metadata") or {}).get("runtime_status") == "reservation_only"
+    }
 
     for algorithm_id in registry.list_algorithm_ids():
         algo = algorithms.get(algorithm_id)
@@ -512,6 +532,8 @@ def test_registered_runtime_algorithms_have_explicit_runtime_metadata() -> None:
         assert metadata.get("runtime_status"), algorithm_id
         if algorithm_id not in reserved_ids:
             assert metadata.get("selectable_now") is True, algorithm_id
+        else:
+            assert metadata.get("selectable_now") is False, algorithm_id
 
 
 def test_deprecated_algorithms_are_explicitly_unselectable() -> None:
@@ -1826,7 +1848,10 @@ def build_report() -> dict[str, object]:
             deprecated_failures.append({"algorithm_id": item["algo_id"], "decision": decision.to_dict()})
 
     registry_failures = []
-    reserved_ids = {"algo.transform.trajectory_to_road_candidate"}
+    reserved_ids = {
+        item["algo_id"] for item in manifest["algorithms"]
+        if (item.get("metadata") or {}).get("runtime_status") == "reservation_only"
+    }
     for algorithm_id in registry.list_algorithm_ids():
         if algorithm_id in reserved_ids:
             continue
@@ -1855,6 +1880,7 @@ def build_report() -> dict[str, object]:
         "tool_registry_guard": {
             "ok": not registry_failures,
             "failures": registry_failures,
+            "reserved_ids": sorted(reserved_ids),
         },
         "workflow_pattern_guard": {
             "ok": not pattern_failures,
