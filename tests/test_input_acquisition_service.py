@@ -126,6 +126,82 @@ class _PoiSourceAttemptsBundleProvider(_StubBundleProvider):
         )
 
 
+class _CoverageOnlyPoiBundleProvider(_StubBundleProvider):
+    def materialize(self, *, source_id: str, request_bbox, target_dir: Path, target_crs: str):
+        bundle = super().materialize(
+            source_id=source_id,
+            request_bbox=request_bbox,
+            target_dir=target_dir,
+            target_crs=target_crs,
+        )
+        from services.input_acquisition_service import MaterializedInputBundle
+
+        return MaterializedInputBundle(
+            osm_zip_path=bundle.osm_zip_path,
+            ref_zip_path=bundle.ref_zip_path,
+            bbox=bundle.bbox,
+            target_crs=bundle.target_crs,
+            source_id=source_id,
+            component_coverage={
+                "raw.osm.poi": {
+                    "source_id": "raw.osm.poi",
+                    "source_mode": "downloaded",
+                    "feature_count": 3,
+                    "coverage_status": "available",
+                },
+                "raw.gns.poi": {
+                    "source_id": "raw.gns.poi",
+                    "source_mode": "downloaded",
+                    "feature_count": 0,
+                    "coverage_status": "empty",
+                },
+            },
+        )
+
+
+class _DegradedExternalAttemptBundleProvider(_StubBundleProvider):
+    def materialize(self, *, source_id: str, request_bbox, target_dir: Path, target_crs: str):
+        bundle = super().materialize(
+            source_id=source_id,
+            request_bbox=request_bbox,
+            target_dir=target_dir,
+            target_crs=target_crs,
+        )
+        from services.input_acquisition_service import MaterializedInputBundle
+
+        return MaterializedInputBundle(
+            osm_zip_path=bundle.osm_zip_path,
+            ref_zip_path=bundle.ref_zip_path,
+            bbox=bundle.bbox,
+            target_crs=bundle.target_crs,
+            source_id=source_id,
+            component_coverage={
+                "raw.osm.poi": {
+                    "source_id": "raw.osm.poi",
+                    "source_mode": "downloaded",
+                    "feature_count": 2,
+                    "coverage_status": "available",
+                },
+                "raw.google.poi": {
+                    "source_id": "raw.google.poi",
+                    "source_mode": "downloaded",
+                    "feature_count": 0,
+                    "coverage_status": "missing",
+                },
+            },
+            provider_attempts=[
+                {"source_id": "raw.osm.poi", "status": "available", "feature_count": 2},
+                {
+                    "source_id": "raw.google.poi",
+                    "status": "attempted",
+                    "fault_class": "NETWORK_FAILED",
+                    "fault_message": "network down",
+                    "feature_count": 0,
+                },
+            ],
+        )
+
+
 class _FaultingBundleProvider:
     def __init__(self, exc: Exception) -> None:
         self.exc = exc
@@ -537,6 +613,71 @@ def test_input_acquisition_writes_structured_source_attempts_evidence(tmp_path: 
     }
 
 
+def test_input_acquisition_synthesizes_source_attempts_from_component_coverage(tmp_path: Path) -> None:
+    from services.input_acquisition_service import InputAcquisitionService
+
+    registry = ArtifactRegistry(index_path=tmp_path / "artifact_registry.json")
+    provider = _CoverageOnlyPoiBundleProvider(
+        version_token="poi-coverage-v1",
+        supported_source_ids={"catalog.generic.poi"},
+    )
+    service = InputAcquisitionService(registry=registry, providers=[provider], cache_dir=tmp_path / "cache")
+
+    resolved = service.resolve_task_driven_inputs(
+        request=_build_request(job_type=JobType.poi, content="need poi data"),
+        source_id="catalog.generic.poi",
+        required_output_type="dt.poi.bundle",
+        input_dir=tmp_path / "run",
+        request_bbox=(0, 0, 1, 1),
+    )
+
+    assert resolved.manifest_path is not None
+    payload = json.loads((resolved.manifest_path.parent / "source_attempts.json").read_text(encoding="utf-8"))
+    attempts = {attempt["source_id"]: attempt for attempt in payload["attempts"]}
+    assert attempts["raw.osm.poi"]["status"] == "available"
+    assert attempts["raw.osm.poi"]["feature_count"] == 3
+    assert attempts["raw.osm.poi"]["selected_for_fusion"] is True
+    assert attempts["raw.gns.poi"]["status"] == "empty"
+    assert attempts["raw.gns.poi"]["feature_count"] == 0
+    assert attempts["raw.gns.poi"]["selected_for_fusion"] is False
+    assert payload["degradation"]["degraded_source_ids"] == ["raw.gns.poi"]
+
+
+def test_input_acquisition_cache_reuse_preserves_raw_degraded_external_attempts(tmp_path: Path) -> None:
+    from services.input_acquisition_service import InputAcquisitionService
+
+    registry = ArtifactRegistry(index_path=tmp_path / "artifact_registry.json")
+    provider = _DegradedExternalAttemptBundleProvider(
+        version_token="poi-degraded-v1",
+        supported_source_ids={"catalog.generic.poi"},
+    )
+    service = InputAcquisitionService(registry=registry, providers=[provider], cache_dir=tmp_path / "cache")
+
+    service.resolve_task_driven_inputs(
+        request=_build_request(job_type=JobType.poi, content="need poi data"),
+        source_id="catalog.generic.poi",
+        required_output_type="dt.poi.bundle",
+        input_dir=tmp_path / "run1",
+    )
+    reused = service.resolve_task_driven_inputs(
+        request=_build_request(job_type=JobType.poi, content="need poi data"),
+        source_id="catalog.generic.poi",
+        required_output_type="dt.poi.bundle",
+        input_dir=tmp_path / "run2",
+    )
+
+    assert reused.source_mode == "cache_reused"
+    assert reused.manifest_path is not None
+    payload = json.loads((reused.manifest_path.parent / "source_attempts.json").read_text(encoding="utf-8"))
+    attempts = {attempt["source_id"]: attempt for attempt in payload["attempts"]}
+    assert set(attempts) == {"raw.osm.poi", "raw.google.poi"}
+    assert attempts["raw.osm.poi"]["status"] == "cache_reused"
+    assert attempts["raw.google.poi"]["status"] == "network_failed"
+    assert attempts["raw.google.poi"]["external_uncontrollable"] is True
+    assert payload["degradation"]["degraded_source_ids"] == ["raw.google.poi"]
+    assert payload["degradation"]["external_uncontrollable_source_ids"] == ["raw.google.poi"]
+
+
 def test_input_acquisition_writes_manifest_for_failed_provider(tmp_path: Path) -> None:
     from services.input_acquisition_service import InputAcquisitionService
 
@@ -573,3 +714,36 @@ def test_input_acquisition_writes_manifest_for_failed_provider(tmp_path: Path) -
     assert attempt["recoverable"] is True
     assert attempt["next_retry_after_seconds"] == 30
     assert attempt["channel"] == "provider"
+
+
+def test_input_acquisition_failed_provider_records_external_normalized_source_attempt(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    import services.input_acquisition_service as input_acquisition_service
+    from services.input_acquisition_service import InputAcquisitionService
+
+    monkeypatch.setattr(input_acquisition_service, "classify_source_fault", lambda **_: "NETWORK_FAILED")
+    service = InputAcquisitionService(
+        registry=ArtifactRegistry(index_path=tmp_path / "artifact_registry.json"),
+        providers=[_FaultingBundleProvider(RuntimeError("temporary network outage"))],
+        cache_dir=tmp_path / "cache",
+    )
+
+    with pytest.raises(ValueError, match="NETWORK_FAILED"):
+        service.resolve_task_driven_inputs(
+            request=_build_request(job_type=JobType.water, content="need water data"),
+            source_id="catalog.flood.water",
+            required_output_type="dt.water.bundle",
+            input_dir=tmp_path / "run",
+        )
+
+    source_attempts = json.loads((tmp_path / "run" / "source_attempts.json").read_text(encoding="utf-8"))
+    assert source_attempts["attempts"][0]["status"] == "network_failed"
+    assert source_attempts["attempts"][0]["external_uncontrollable"] is True
+    assert source_attempts["degradation"] == {
+        "degraded_source_ids": ["catalog.flood.water"],
+        "external_uncontrollable_source_ids": ["catalog.flood.water"],
+    }
+    manifest = json.loads((tmp_path / "run" / "source_materialization_manifest.json").read_text(encoding="utf-8"))
+    assert manifest["degradation"] == source_attempts["degradation"]
