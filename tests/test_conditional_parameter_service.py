@@ -77,3 +77,27 @@ def test_durable_learning_overrides_seeded_or_conditional_default() -> None:
 
     assert result.values["match_similarity_threshold"] == 0.82
     assert result.provenance["match_similarity_threshold"]["source"] == "durable_learning"
+
+
+def test_conditional_default_missing_provenance_uses_conditional_default_source() -> None:
+    spec = AlgorithmParameterSpec(
+        spec_id="ps.algo.fusion.building.v1.match_similarity_threshold",
+        algo_id="algo.fusion.building.v1",
+        key="match_similarity_threshold",
+        label="Match Similarity Threshold",
+        param_type="float",
+        default=0.70,
+        conditional_defaults=[
+            {
+                "when": {"region_country_name": "Nepal"},
+                "value": 0.65,
+            }
+        ],
+        default_provenance={"source": "static_seed"},
+    )
+    context = ConditionalParameterContext(region_country_name="Nepal")
+
+    result = resolve_effective_parameters([spec], context)
+
+    assert result.values["match_similarity_threshold"] == 0.65
+    assert result.provenance["match_similarity_threshold"]["source"] == "conditional_default"

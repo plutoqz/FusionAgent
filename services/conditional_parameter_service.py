@@ -43,7 +43,7 @@ def resolve_effective_parameters(
                 continue
             if _matches_condition(candidate.get("when") or {}, context):
                 value = candidate.get("value")
-                source = _provenance_or_static_seed(candidate.get("provenance"))
+                source = _provenance_or(candidate.get("provenance"), "conditional_default")
                 break
 
         if key in durable_overrides:
@@ -109,6 +109,10 @@ def _casefold(value: Any) -> str:
 
 
 def _provenance_or_static_seed(value: Any) -> dict[str, Any]:
+    return _provenance_or(value, "static_seed")
+
+
+def _provenance_or(value: Any, fallback_source: str) -> dict[str, Any]:
     if isinstance(value, dict) and value:
         return dict(value)
-    return {"source": "static_seed"}
+    return {"source": fallback_source}

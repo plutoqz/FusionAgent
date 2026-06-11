@@ -75,9 +75,10 @@ def _bind_conditional_defaults(params: dict, specs: list | None, contract: Sourc
     for key, value in result.values.items():
         if value is None:
             continue
-        params.setdefault(key, value)
         if key in params:
-            applied_provenance[key] = result.provenance[key]
+            continue
+        params[key] = value
+        applied_provenance[key] = result.provenance[key]
 
     if not applied_provenance:
         return

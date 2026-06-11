@@ -6,7 +6,7 @@ import geopandas as gpd
 from shapely.geometry import Polygon
 
 from kg.source_catalog import build_data_sources
-from services.source_semantic_contract_service import SourceSemanticContractService
+from services.source_semantic_contract_service import SourceSemanticContract, SourceSemanticContractService
 
 
 class _Repo:
@@ -71,3 +71,19 @@ def test_semantic_contract_marks_required_missing_fields(tmp_path: Path) -> None
         "canonical_field": "source_feature_id",
         "code": "required_field_unmatched",
     } in issues
+
+
+def test_semantic_contract_to_dict_includes_top_level_metadata() -> None:
+    contract = SourceSemanticContract(
+        run_id="run-1",
+        job_type="building",
+        selected_source_id="catalog.earthquake.building",
+        target_crs="EPSG:4326",
+        component_source_ids=["raw.google.building", "raw.osm.building"],
+        sources={},
+        metadata={"country_name": "Nepal", "aoi_size_bucket": "small"},
+    )
+
+    payload = contract.to_dict()
+
+    assert payload["metadata"] == {"country_name": "Nepal", "aoi_size_bucket": "small"}

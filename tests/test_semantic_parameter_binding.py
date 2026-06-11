@@ -30,22 +30,19 @@ def _plan(job_type: str, algorithm_id: str) -> WorkflowPlan:
     )
 
 
-def _contract_with_metadata(*, component_source_ids: list[str], metadata: dict) -> object:
-    class _Contract:
-        run_id = "run-1"
-        job_type = "building"
-        selected_source_id = "catalog.earthquake.building"
-        target_crs = "EPSG:4326"
-        sources = {}
-        height_policy = {}
-        parameter_hints = {}
-        validation = {"valid": True, "issues": []}
-
-        def __init__(self) -> None:
-            self.component_source_ids = component_source_ids
-            self.metadata = metadata
-
-    return _Contract()
+def _building_contract_with_metadata(*, component_source_ids: list[str], metadata: dict) -> SourceSemanticContract:
+    return SourceSemanticContract(
+        run_id="run-1",
+        job_type="building",
+        selected_source_id="catalog.earthquake.building",
+        target_crs="EPSG:4326",
+        component_source_ids=component_source_ids,
+        sources={},
+        height_policy={},
+        parameter_hints={},
+        validation={"valid": True, "issues": []},
+        metadata=metadata,
+    )
 
 
 def test_semantic_binding_adds_building_height_and_priority_parameters() -> None:
@@ -134,7 +131,7 @@ def test_semantic_binding_skips_parameters_not_supported_by_algorithm_specs() ->
 
 def test_semantic_parameter_binding_uses_conditional_parameter_defaults() -> None:
     plan = _plan("building", "algo.fusion.building.v1")
-    contract = _contract_with_metadata(
+    contract = _building_contract_with_metadata(
         component_source_ids=["raw.google.building", "raw.osm.building"],
         metadata={"country_name": "Nepal"},
     )
@@ -149,7 +146,7 @@ def test_semantic_parameter_binding_uses_conditional_parameter_defaults() -> Non
 def test_semantic_parameter_binding_keeps_explicit_parameter_over_conditional_default() -> None:
     plan = _plan("building", "algo.fusion.building.v1")
     plan.tasks[0].input.parameters["match_similarity_threshold"] = 0.9
-    contract = _contract_with_metadata(
+    contract = _building_contract_with_metadata(
         component_source_ids=["raw.google.building", "raw.osm.building"],
         metadata={"country_name": "Nepal"},
     )
@@ -158,4 +155,22 @@ def test_semantic_parameter_binding_keeps_explicit_parameter_over_conditional_de
 
     params = bound.tasks[0].input.parameters
     assert params["match_similarity_threshold"] == 0.9
-    assert params["parameter_provenance"]["match_similarity_threshold"]["source"] == "manual_seed"
+    assert "match_similarity_threshold" not in params.get("parameter_provenance", {})
+
+
+def test_semantic_parameter_binding_preserves_existing_explicit_parameter_provenance() -> None:
+    plan = _plan("building", "algo.fusion.building.v1")
+    plan.tasks[0].input.parameters["match_similarity_threshold"] = 0.9
+    plan.tasks[0].input.parameters["parameter_provenance"] = {
+        "match_similarity_threshold": {"source": "user_supplied"}
+    }
+    contract = _building_contract_with_metadata(
+        component_source_ids=["raw.google.building", "raw.osm.building"],
+        metadata={"country_name": "Nepal"},
+    )
+
+    bound = bind_source_semantic_parameters(plan, contract, kg_repo=InMemoryKGRepository())
+
+    params = bound.tasks[0].input.parameters
+    assert params["match_similarity_threshold"] == 0.9
+    assert params["parameter_provenance"]["match_similarity_threshold"]["source"] == "user_supplied"

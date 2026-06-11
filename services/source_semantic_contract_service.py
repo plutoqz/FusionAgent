@@ -54,6 +54,7 @@ class SourceSemanticContract:
     height_policy: dict[str, Any] = field(default_factory=dict)
     parameter_hints: dict[str, Any] = field(default_factory=dict)
     validation: dict[str, Any] = field(default_factory=dict)
+    metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -66,6 +67,7 @@ class SourceSemanticContract:
             "height_policy": dict(self.height_policy),
             "parameter_hints": dict(self.parameter_hints),
             "validation": dict(self.validation),
+            "metadata": dict(self.metadata),
         }
 
 
@@ -193,6 +195,7 @@ class SourceSemanticContractService:
             height_policy=height_policy,
             parameter_hints=parameter_hints,
             validation={"valid": not issues, "issues": issues},
+            metadata={},
         )
 
     def _match_fields(self, *, profile: SourceProfile, profile_id: str) -> dict[str, MatchedField]:
