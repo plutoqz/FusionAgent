@@ -24,6 +24,7 @@ from kg.track_b_source_contract import TRACK_B_THEME_CONTRACTS
 from services.aoi_resolution_service import ResolvedAOI
 from services.artifact_evaluation_service import evaluate_vector_artifact
 from services.artifact_registry import ArtifactRegistry
+from services.autonomous_fusion_readiness_service import classify_autonomous_readiness
 from services.local_bundle_catalog import LocalBundleCatalogProvider
 from services.raw_vector_source_service import RawVectorSourceService
 from services.source_asset_service import SourceCoverageStatus
@@ -327,6 +328,13 @@ class TrackBNationalScaleService:
 
         tile_count = self._evidence_tile_count(tile_results)
         selected_coverage = _jsonable_component_coverage(materialized.component_coverage)
+        source_attempts = list(getattr(materialized, "provider_attempts", []) or [])
+        autonomous_readiness = _write_autonomous_readiness(
+            output_root=output_root,
+            job_type=theme,
+            component_coverage=selected_coverage,
+            source_attempts=source_attempts,
+        )
         claim_state = self._claim_state(selected_coverage)
         artifact_metrics = evaluate_vector_artifact(final_output, required_fields=["geometry"])
         stitched_artifact_path = output_root / "stitched_artifact.json"
@@ -437,12 +445,14 @@ class TrackBNationalScaleService:
                 "selected_sources": "selected_sources.json",
                 "source_profile_snapshot": "source_profile_snapshot.json",
                 "normalization_summary": "normalization_summary.json",
+                "autonomous_readiness": "autonomous_readiness.json",
                 "tile_manifest": "tile_manifest.json",
                 "stitched_artifact": "stitched_artifact.json",
                 "timing": "timing.json",
                 **({"fusion_stats": "fusion_stats.json"} if (output_root / "fusion_stats.json").exists() else {}),
                 "artifact_path": str(final_output),
             },
+            "autonomous_readiness": autonomous_readiness,
             "artifact_metrics": artifact_metrics,
             "operator_readable_summary": {
                 "artifact_validity": bool(artifact_metrics.get("artifact_validity", False)),
@@ -506,6 +516,13 @@ class TrackBNationalScaleService:
             selected_component_ids=set(component_source_ids),
             resolved_aoi=resolved_aoi,
         )
+        road_summary = self._building_raw_source_summary("raw.osm.road", resolved_aoi=resolved_aoi)
+        road_path = self._summary_artifact_path(road_summary)
+        context_vectors = self._building_context_vectors(
+            road_path=road_path,
+            output_root=output_root,
+            target_crs=target_crs,
+        )
         timings["source_resolve_sec"] = time.perf_counter() - source_started
         timings["normalize_sec"] = 0.0
         timings["bundle_materialize_sec"] = 0.0
@@ -537,6 +554,7 @@ class TrackBNationalScaleService:
             vector_source_crs=self._building_vector_source_crs(
                 list(selected_source_summaries.values()) + list(supplemental_summary.values())
             ),
+            context_vectors=context_vectors,
             parameters={
                 "large_tile_fallback_feature_threshold": 250_000,
             },
@@ -546,6 +564,17 @@ class TrackBNationalScaleService:
 
         tile_count = self._evidence_tile_count(tile_results)
         selected_coverage = _jsonable_component_coverage(component_coverage)
+        readiness_coverage = _building_readiness_coverage(
+            selected_coverage=selected_coverage,
+            supplemental_summary=supplemental_summary,
+            road_summary=road_summary,
+        )
+        autonomous_readiness = _write_autonomous_readiness(
+            output_root=output_root,
+            job_type="building",
+            component_coverage=readiness_coverage,
+            source_attempts=[],
+        )
         claim_state = self._claim_state(selected_coverage)
         artifact_metrics = evaluate_vector_artifact(final_output, required_fields=["geometry"])
         stitched_artifact_payload = {
@@ -638,11 +667,13 @@ class TrackBNationalScaleService:
                 "selected_sources": "selected_sources.json",
                 "source_profile_snapshot": "source_profile_snapshot.json",
                 "normalization_summary": "normalization_summary.json",
+                "autonomous_readiness": "autonomous_readiness.json",
                 "tile_manifest": "tile_manifest.json",
                 "stitched_artifact": "stitched_artifact.json",
                 "timing": "timing.json",
                 "artifact_path": str(final_output),
             },
+            "autonomous_readiness": autonomous_readiness,
             "artifact_metrics": artifact_metrics,
             "operator_readable_summary": {
                 "artifact_validity": bool(artifact_metrics.get("artifact_validity", False)),
@@ -745,6 +776,23 @@ class TrackBNationalScaleService:
         if len(crs_values) == 1:
             return next(iter(crs_values))
         return "EPSG:4326"
+
+    def _building_context_vectors(
+        self,
+        *,
+        road_path: Path | None,
+        output_root: Path,
+        target_crs: str,
+    ) -> dict[str, Path] | None:
+        if road_path is None:
+            return None
+        road_frame = gpd.read_file(road_path)
+        context_path = self._write_gpkg(
+            road_frame,
+            output_root / "context_vectors" / "raw_osm_road.gpkg",
+            target_crs=target_crs,
+        )
+        return {"roads": context_path}
 
     def _materialize_supplemental_normalized_sources(
         self,
@@ -907,6 +955,7 @@ class TrackBNationalScaleService:
         selected_sources: dict[str, Path | None],
         supplemental_summary: dict[str, dict[str, Any]],
         vector_source_crs: str | None = None,
+        context_vectors: dict[str, Path] | None = None,
         parameters: dict[str, object] | None = None,
     ) -> tuple[Path, list[TileFusionArtifact], dict[str, Any]]:
         vector_sources, source_id_by_alias = self._building_vector_sources(
@@ -938,6 +987,7 @@ class TrackBNationalScaleService:
             output_dir=output_root / "runtime_output",
             target_crs=target_crs,
             vector_source_crs=vector_source_crs or target_crs,
+            context_vectors=context_vectors,
             source_priority_order=source_priority_order,
             parameters=parameters,
             on_event=on_event,
@@ -1556,3 +1606,47 @@ def _jsonable_component_coverage(component_coverage: dict[str, object]) -> dict[
         else:
             payload[source_id] = {"source_id": source_id, "value": raw}
     return payload
+
+
+def _building_readiness_coverage(
+    *,
+    selected_coverage: dict[str, dict[str, Any]],
+    supplemental_summary: dict[str, dict[str, Any]],
+    road_summary: dict[str, Any],
+) -> dict[str, dict[str, Any]]:
+    coverage = {source_id: dict(payload) for source_id, payload in selected_coverage.items()}
+    for source_id, summary in supplemental_summary.items():
+        payload = _readiness_payload_from_summary(source_id, summary)
+        coverage.setdefault(source_id, payload)
+    coverage["raw.osm.road"] = _readiness_payload_from_summary("raw.osm.road", road_summary)
+    return coverage
+
+
+def _readiness_payload_from_summary(source_id: str, summary: dict[str, Any]) -> dict[str, Any]:
+    return {
+        "source_id": source_id,
+        "source_mode": summary.get("source_mode"),
+        "feature_count": summary.get("feature_count"),
+        "coverage_status": summary.get("coverage_status"),
+        "path": summary.get("artifact_path") or summary.get("path"),
+        "error": summary.get("error"),
+    }
+
+
+def _write_autonomous_readiness(
+    *,
+    output_root: Path,
+    job_type: str,
+    component_coverage: dict[str, Any],
+    source_attempts: list[dict[str, Any]],
+) -> dict[str, Any]:
+    autonomous_readiness = classify_autonomous_readiness(
+        job_type=job_type,
+        component_coverage=component_coverage,
+        source_attempts=source_attempts,
+    )
+    (output_root / "autonomous_readiness.json").write_text(
+        json.dumps(autonomous_readiness, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+    )
+    return autonomous_readiness

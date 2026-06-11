@@ -132,9 +132,23 @@ def test_track_b_national_scale_service_writes_building_evidence_with_multisourc
             crs="EPSG:4326",
         ),
     )
+    _write_frame(
+        tmp_path / "Data" / "roads" / "OSM" / "gis_osm_roads_free_1.shp",
+        gpd.GeoDataFrame(
+            {
+                "osm_id": [10],
+                "fclass": ["primary"],
+            },
+            geometry=[LineString([(29.2, -3.3), (29.8, -3.1)])],
+            crs="EPSG:4326",
+        ),
+    )
 
     def fake_multisource(source_map, roads, params, source_priority_order):
-        del roads, params
+        del params
+        assert roads is not None
+        assert not roads.empty
+        assert str(roads.crs).upper() == "EPSG:32735"
         assert tuple(source_priority_order) == (
             "MS",
             "OBM",
@@ -171,6 +185,7 @@ def test_track_b_national_scale_service_writes_building_evidence_with_multisourc
     selected_sources = json.loads((output_root / "selected_sources.json").read_text(encoding="utf-8"))
     normalization_summary = json.loads((output_root / "normalization_summary.json").read_text(encoding="utf-8"))
     stitched_artifact = json.loads((output_root / "stitched_artifact.json").read_text(encoding="utf-8"))
+    autonomous_readiness = json.loads((output_root / "autonomous_readiness.json").read_text(encoding="utf-8"))
     inspection_summary = json.loads((output_root / "inspection_summary.json").read_text(encoding="utf-8"))
     fused = gpd.read_file(summary["artifact_path"])
 
@@ -191,6 +206,10 @@ def test_track_b_national_scale_service_writes_building_evidence_with_multisourc
     assert float(fused.loc[0, "height_final"]) == 11.0
     assert fused.loc[0, "height_final_source"] == "height_obm"
     assert stitched_artifact["fusion_summary"]["source_priority_order"][0] == "MS"
+    assert autonomous_readiness["status"] == "full_autonomous_closure"
+    assert autonomous_readiness["missing_required_source_ids"] == []
+    assert inspection_summary["autonomous_readiness"] == autonomous_readiness
+    assert inspection_summary["evidence"]["autonomous_readiness"] == "autonomous_readiness.json"
     assert inspection_summary["operator_readable_summary"]["fusion_summary"]["vector_source_ids"][0] == "raw.microsoft.building"
 
 
@@ -369,6 +388,7 @@ def test_track_b_national_scale_service_writes_poi_evidence_with_real_tiling(
     selected_sources = json.loads((output_root / "selected_sources.json").read_text(encoding="utf-8"))
     normalization_summary = json.loads((output_root / "normalization_summary.json").read_text(encoding="utf-8"))
     stitched_artifact = json.loads((output_root / "stitched_artifact.json").read_text(encoding="utf-8"))
+    autonomous_readiness = json.loads((output_root / "autonomous_readiness.json").read_text(encoding="utf-8"))
     inspection_summary = json.loads((output_root / "inspection_summary.json").read_text(encoding="utf-8"))
 
     assert summary["claim_state"] == "national_scale_supported"
@@ -384,7 +404,11 @@ def test_track_b_national_scale_service_writes_poi_evidence_with_real_tiling(
     assert stitched_artifact["tile_count"] == tile_manifest["tile_count"]
     assert len(stitched_artifact["tile_outputs"]) == tile_manifest["tile_count"]
     assert stitched_artifact["artifact_metrics"]["artifact_validity"] is True
+    assert autonomous_readiness["status"] == "full_autonomous_closure"
+    assert autonomous_readiness["missing_required_source_ids"] == []
     assert inspection_summary["claim_state"] == "national_scale_supported"
+    assert inspection_summary["autonomous_readiness"] == autonomous_readiness
+    assert inspection_summary["evidence"]["autonomous_readiness"] == "autonomous_readiness.json"
     assert inspection_summary["evidence"]["stitched_artifact"] == "stitched_artifact.json"
     assert (
         inspection_summary["operator_readable_summary"]["component_coverage"]["raw.google.poi"]["coverage_status"]
@@ -393,6 +417,78 @@ def test_track_b_national_scale_service_writes_poi_evidence_with_real_tiling(
     assert Path(inspection_summary["artifact_path"]).exists()
     assert any(keys == ["GNG", "GOOGLE", "OSM"] for keys in captured["keys_by_tile"])
     assert any(order == ("GNG", "GOOGLE", "OSM") for order in captured["params_by_tile"])
+
+
+def test_track_b_poi_evidence_marks_google_unauthorized_as_degraded_external(
+    tmp_path: Path,
+) -> None:
+    _write_frame(
+        tmp_path / "Data" / "burundi-260127-free.shp" / "gis_osm_pois_free_1.shp",
+        gpd.GeoDataFrame(
+            {
+                "osm_id": [1],
+                "name": ["Clinic A"],
+                "fclass": ["hospital"],
+            },
+            geometry=[Point(36.82, -1.29)],
+            crs="EPSG:4326",
+        ),
+    )
+
+    archive_path = tmp_path / "fixtures" / "Kenya.zip"
+    archive_path.parent.mkdir(parents=True, exist_ok=True)
+    gns_rows = "\n".join(
+        [
+            "rk\tufi\tuni\tfull_name\tnt\tlat_dd\tlong_dd\tdesig_cd\tfc\tcc_ft\tfull_nm_nd\tgeneric\tdisplay",
+            "1\t100\t200\tClinic A\tN\t-1.286389\t36.817223\tHSP\tP\tKEN\tCLINIC A\t\t",
+        ]
+    )
+    import zipfile
+
+    with zipfile.ZipFile(archive_path, "w") as archive:
+        archive.writestr("Kenya.txt", gns_rows)
+
+    index_path = tmp_path / "fixtures" / "gns-data.json"
+    index_path.write_text(
+        json.dumps(
+            {
+                "KEN": (
+                    "<tr id='KEN' cc='KEN' cn='Kenya'>"
+                    f"<td><a href='{archive_path.resolve().as_uri()}'>KEN</a></td></tr>"
+                )
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    service = TrackBNationalScaleService(root_dir=tmp_path, cache_dir=tmp_path / "cache")
+    service.raw_source_service.source_asset_service = SourceAssetService(
+        repo_root=tmp_path,
+        cache_dir=tmp_path / "cache" / "source_assets",
+        gns_data_index_url=index_path.resolve().as_uri(),
+    )
+    output_root = tmp_path / "evidence" / "poi_google_unauthorized"
+
+    service.build_theme_evidence(
+        job_type="poi",
+        source_id="catalog.generic.poi",
+        request_bbox=(36.65, -1.45, 37.10, -1.10),
+        target_crs="EPSG:32737",
+        output_root=output_root,
+        tile_width_m=20_000.0,
+        tile_height_m=20_000.0,
+        overlap_m=0.0,
+        resolved_aoi=_resolved_nairobi_aoi(),
+    )
+
+    autonomous_readiness = json.loads((output_root / "autonomous_readiness.json").read_text(encoding="utf-8"))
+    inspection_summary = json.loads((output_root / "inspection_summary.json").read_text(encoding="utf-8"))
+
+    assert autonomous_readiness["status"] == "degraded_external"
+    assert autonomous_readiness["missing_required_source_ids"] == ["raw.google.poi"]
+    assert autonomous_readiness["external_uncontrollable_source_ids"] == ["raw.google.poi"]
+    assert inspection_summary["autonomous_readiness"] == autonomous_readiness
+    assert inspection_summary["evidence"]["autonomous_readiness"] == "autonomous_readiness.json"
 
 
 def test_track_b_national_scale_service_fails_on_bad_selected_google_poi_path(
@@ -789,6 +885,7 @@ def test_track_b_national_scale_service_can_materialize_remote_gns_reference_wit
 
     selected_sources = json.loads((output_root / "selected_sources.json").read_text(encoding="utf-8"))
     normalization_summary = json.loads((output_root / "normalization_summary.json").read_text(encoding="utf-8"))
+    autonomous_readiness = json.loads((output_root / "autonomous_readiness.json").read_text(encoding="utf-8"))
     inspection_summary = json.loads((output_root / "inspection_summary.json").read_text(encoding="utf-8"))
 
     assert summary["claim_state"] == "national_scale_partial_reference"
@@ -796,7 +893,10 @@ def test_track_b_national_scale_service_can_materialize_remote_gns_reference_wit
     assert selected_sources["component_coverage"]["raw.google.poi"]["coverage_status"] == "missing"
     assert normalization_summary["selected_sources"]["raw.gns.poi"]["feature_count"] == 2
     assert "raw.google.poi" not in normalization_summary["selected_sources"]
+    assert autonomous_readiness["status"] != "full_autonomous_closure"
+    assert autonomous_readiness["missing_required_source_ids"] == ["raw.google.poi"]
     assert inspection_summary["claim_state"] == "national_scale_partial_reference"
+    assert inspection_summary["autonomous_readiness"] == autonomous_readiness
     assert Path(inspection_summary["artifact_path"]).exists()
 
 
@@ -835,6 +935,7 @@ def test_track_b_national_scale_service_marks_road_evidence_as_partial_when_manu
 
     selected_sources = json.loads((output_root / "selected_sources.json").read_text(encoding="utf-8"))
     stitched_artifact = json.loads((output_root / "stitched_artifact.json").read_text(encoding="utf-8"))
+    autonomous_readiness = json.loads((output_root / "autonomous_readiness.json").read_text(encoding="utf-8"))
     inspection_summary = json.loads((output_root / "inspection_summary.json").read_text(encoding="utf-8"))
 
     assert summary["claim_state"] == "national_scale_partial_reference"
@@ -842,7 +943,11 @@ def test_track_b_national_scale_service_marks_road_evidence_as_partial_when_manu
     assert selected_sources["component_coverage"]["raw.microsoft.road"]["feature_count"] == 0
     assert stitched_artifact["artifact_path"] == summary["artifact_path"]
     assert stitched_artifact["stitched_feature_count"] == inspection_summary["artifact_metrics"]["feature_count"]
+    assert autonomous_readiness["status"] == "system_failure"
+    assert autonomous_readiness["missing_required_source_ids"] == ["raw.microsoft.road"]
+    assert inspection_summary["autonomous_readiness"] == autonomous_readiness
     assert inspection_summary["claim_state"] == "national_scale_partial_reference"
+    assert inspection_summary["evidence"]["autonomous_readiness"] == "autonomous_readiness.json"
     assert inspection_summary["evidence"]["stitched_artifact"] == "stitched_artifact.json"
 
 
