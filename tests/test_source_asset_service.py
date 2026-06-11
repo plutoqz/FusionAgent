@@ -113,6 +113,27 @@ def _write_corrupt_gzip(path: Path, payload: bytes = b"{\"broken\": true}\n") ->
     path.write_bytes(truncated)
 
 
+def _write_google_poi_authorization(path: Path, *, export_vector_files: bool = True) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(
+        json.dumps(
+            {
+                "provider": "google_places",
+                "authorization_status": "approved",
+                "authorized_use": {
+                    "persistent_storage": True,
+                    "export_vector_files": export_vector_files,
+                    "fuse_with_non_google_sources": True,
+                },
+                "attribution_required": True,
+                "api_key": "do-not-copy",
+                "headers": {"authorization": "Bearer secret"},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+
 def _resolved_nairobi_aoi() -> ResolvedAOI:
     return ResolvedAOI(
         query="Nairobi, Kenya",
@@ -768,6 +789,273 @@ def test_source_asset_service_materializes_empty_google_open_buildings_coverage(
     assert resolved.source_id == "raw.google.building"
     assert resolved.feature_count == 0
     assert resolved.source_mode == "coverage_empty"
+
+
+def test_source_asset_service_requires_google_poi_authorization_manifest(tmp_path: Path) -> None:
+    service = SourceAssetService(
+        repo_root=tmp_path,
+        cache_dir=tmp_path / "cache",
+        google_places_api_key="test-key",
+        google_places_fetcher=lambda bbox, api_key: [],
+        prefer_local_data=False,
+    )
+
+    with pytest.raises(PermissionError, match="authorization manifest is required"):
+        service.resolve_raw_source_path("raw.google.poi", request_bbox=(36.7, -1.3, 36.9, -1.1))
+
+
+def test_source_asset_service_requires_google_poi_non_secret_cache_key_for_remote_acquisition(tmp_path: Path) -> None:
+    auth_path = tmp_path / "auth" / "google-poi-authorization.json"
+    _write_google_poi_authorization(auth_path)
+    service = SourceAssetService(
+        repo_root=tmp_path,
+        cache_dir=tmp_path / "cache",
+        google_poi_authorization_path=auth_path,
+        google_places_api_key="test-key",
+        google_places_fetcher=lambda bbox, api_key: [],
+        prefer_local_data=False,
+    )
+
+    with pytest.raises(RuntimeError, match="non-secret cache key"):
+        service.resolve_raw_source_path("raw.google.poi", request_bbox=(36.7, -1.3, 36.9, -1.1))
+
+
+def test_source_asset_service_rejects_google_poi_authorization_without_required_use(tmp_path: Path) -> None:
+    auth_path = tmp_path / "auth" / "google-poi-authorization.json"
+    _write_google_poi_authorization(auth_path, export_vector_files=False)
+    service = SourceAssetService(
+        repo_root=tmp_path,
+        cache_dir=tmp_path / "cache",
+        google_poi_authorization_path=auth_path,
+        google_places_api_key="test-key",
+        google_places_cache_key="places-test-v1",
+        google_places_fetcher=lambda bbox, api_key: [],
+        prefer_local_data=False,
+    )
+
+    with pytest.raises(PermissionError, match="authorization manifest"):
+        service.resolve_raw_source_path("raw.google.poi", request_bbox=(36.7, -1.3, 36.9, -1.1))
+
+
+def test_source_asset_service_materializes_authorized_google_poi(tmp_path: Path) -> None:
+    auth_path = tmp_path / "auth" / "google-poi-authorization.json"
+    _write_google_poi_authorization(auth_path)
+
+    def fetcher(request_bbox, api_key):
+        assert request_bbox == (36.7, -1.3, 36.9, -1.1)
+        assert api_key == "test-key"
+        return [
+            {
+                "place_id": "google-place-1",
+                "name": "Nairobi Hospital",
+                "category": "hospital",
+                "lat": -1.296,
+                "lng": 36.806,
+            }
+        ]
+
+    service = SourceAssetService(
+        repo_root=tmp_path,
+        cache_dir=tmp_path / "cache",
+        google_poi_authorization_path=auth_path,
+        google_places_api_key="test-key",
+        google_places_cache_key="places-test-v1",
+        google_places_fetcher=fetcher,
+        prefer_local_data=False,
+    )
+
+    resolved = service.resolve_raw_source_path("raw.google.poi", request_bbox=(36.7, -1.3, 36.9, -1.1))
+    frame = geopandas.read_file(resolved.path)
+
+    assert resolved.source_id == "raw.google.poi"
+    assert resolved.source_mode == "asset_downloaded"
+    assert resolved.feature_count == 1
+    assert len(frame) == 1
+    assert frame.iloc[0]["place_id"] == "google-place-1"
+    assert frame.iloc[0]["name"] == "Nairobi Hospital"
+    assert frame.iloc[0]["category"] == "hospital"
+    evidence = json.loads((resolved.path.parent / "google_poi_authorization_evidence.json").read_text(encoding="utf-8"))
+    assert evidence["provider"] == "google_places"
+    assert evidence["authorization_status"] == "approved"
+    assert evidence["authorized_use"]["persistent_storage"] is True
+    assert "api_key" not in evidence
+    assert "headers" not in evidence
+
+
+def test_source_asset_service_materializes_empty_authorized_google_poi(tmp_path: Path) -> None:
+    auth_path = tmp_path / "auth" / "google-poi-authorization.json"
+    _write_google_poi_authorization(auth_path)
+    service = SourceAssetService(
+        repo_root=tmp_path,
+        cache_dir=tmp_path / "cache",
+        google_poi_authorization_path=auth_path,
+        google_places_api_key="test-key",
+        google_places_cache_key="places-test-v1",
+        google_places_fetcher=lambda bbox, api_key: [
+            {
+                "place_id": "outside",
+                "name": "Outside",
+                "primary_type": "store",
+                "lat": 10.0,
+                "lng": 10.0,
+            }
+        ],
+        prefer_local_data=False,
+    )
+
+    resolved = service.resolve_raw_source_path("raw.google.poi", request_bbox=(36.7, -1.3, 36.9, -1.1))
+    frame = geopandas.read_file(resolved.path)
+
+    assert resolved.source_id == "raw.google.poi"
+    assert resolved.feature_count == 0
+    assert resolved.source_mode == "coverage_empty"
+    assert frame.empty
+    assert (resolved.path.parent / "google_poi_authorization_evidence.json").exists()
+
+
+def test_source_asset_service_keys_google_poi_cache_by_non_secret_fetcher_config(tmp_path: Path) -> None:
+    auth_path = tmp_path / "auth" / "google-poi-authorization.json"
+    _write_google_poi_authorization(auth_path)
+    cache_dir = tmp_path / "cache"
+
+    first_service = SourceAssetService(
+        repo_root=tmp_path,
+        cache_dir=cache_dir,
+        google_poi_authorization_path=auth_path,
+        google_places_api_key="test-key",
+        google_places_cache_key="places-textsearch-v1",
+        google_places_fetcher=lambda bbox, api_key: [
+            {"place_id": "first", "name": "First", "category": "hospital", "lat": -1.296, "lng": 36.806}
+        ],
+        prefer_local_data=False,
+    )
+    second_service = SourceAssetService(
+        repo_root=tmp_path,
+        cache_dir=cache_dir,
+        google_poi_authorization_path=auth_path,
+        google_places_api_key="test-key",
+        google_places_cache_key="places-nearby-v2",
+        google_places_fetcher=lambda bbox, api_key: [
+            {"place_id": "second", "name": "Second", "category": "school", "lat": -1.297, "lng": 36.807}
+        ],
+        prefer_local_data=False,
+    )
+
+    first = first_service.resolve_raw_source_path("raw.google.poi", request_bbox=(36.7, -1.3, 36.9, -1.1))
+    second = second_service.resolve_raw_source_path("raw.google.poi", request_bbox=(36.7, -1.3, 36.9, -1.1))
+
+    assert first.path != second.path
+    assert geopandas.read_file(first.path).iloc[0]["place_id"] == "first"
+    assert geopandas.read_file(second.path).iloc[0]["place_id"] == "second"
+
+
+def test_source_asset_service_materializes_google_places_shaped_poi_rows_and_redacts_output(tmp_path: Path) -> None:
+    auth_path = tmp_path / "auth" / "google-poi-authorization.json"
+    _write_google_poi_authorization(auth_path)
+    service = SourceAssetService(
+        repo_root=tmp_path,
+        cache_dir=tmp_path / "cache",
+        google_poi_authorization_path=auth_path,
+        google_places_api_key="test-key",
+        google_places_cache_key="places-test-v1",
+        google_places_fetcher=lambda bbox, api_key: [
+            {
+                "place_id": "nested-place",
+                "displayName": {"text": "Nested Cafe"},
+                "formatted_address": "River Road",
+                "primaryType": "cafe",
+                "types": ["cafe", "food", "point_of_interest"],
+                "location": {"latitude": -1.2965, "longitude": 36.8065},
+                "admin_country": "KE",
+                "api_key": "test-key",
+                "headers": {"authorization": "Bearer secret"},
+                "request_url": "https://places.googleapis.com/v1/places:searchNearby?key=test-key",
+                "authorization": "Bearer secret",
+            }
+        ],
+        prefer_local_data=False,
+    )
+
+    resolved = service.resolve_raw_source_path("raw.google.poi", request_bbox=(36.7, -1.3, 36.9, -1.1))
+    frame = geopandas.read_file(resolved.path)
+    evidence_text = (resolved.path.parent / "google_poi_authorization_evidence.json").read_text(encoding="utf-8")
+
+    assert frame.iloc[0]["place_id"] == "nested-place"
+    assert frame.iloc[0]["name"] == "Nested Cafe"
+    assert frame.iloc[0]["name_alt"] == "River Road"
+    assert frame.iloc[0]["primary_type"] == "cafe"
+    assert frame.iloc[0]["category"] == "cafe"
+    assert "types" in frame.columns
+    assert "api_key" not in frame.columns
+    assert "headers" not in frame.columns
+    assert "request_url" not in frame.columns
+    assert "authorization" not in frame.columns
+    assert "test-key" not in evidence_text
+    assert "Bearer secret" not in evidence_text
+
+
+def test_source_asset_service_prefers_google_places_display_name_over_resource_name(tmp_path: Path) -> None:
+    auth_path = tmp_path / "auth" / "google-poi-authorization.json"
+    _write_google_poi_authorization(auth_path)
+    service = SourceAssetService(
+        repo_root=tmp_path,
+        cache_dir=tmp_path / "cache",
+        google_poi_authorization_path=auth_path,
+        google_places_api_key="test-key",
+        google_places_cache_key="places-test-v1",
+        google_places_fetcher=lambda bbox, api_key: [
+            {
+                "name": "places/abc123",
+                "displayName": {"text": "Readable Cafe"},
+                "formattedAddress": "Readable Street",
+                "primaryType": "cafe",
+                "types": ["cafe", "food"],
+                "location": {"latitude": -1.2965, "longitude": 36.8065},
+            }
+        ],
+        prefer_local_data=False,
+    )
+
+    resolved = service.resolve_raw_source_path("raw.google.poi", request_bbox=(36.7, -1.3, 36.9, -1.1))
+    frame = geopandas.read_file(resolved.path)
+
+    assert frame.iloc[0]["place_id"] == "places/abc123"
+    assert frame.iloc[0]["name"] == "Readable Cafe"
+    assert frame.iloc[0]["name_alt"] == "Readable Street"
+    assert frame.iloc[0]["category"] == "cafe"
+
+
+def test_source_asset_service_uses_authorized_local_google_poi_before_remote_fetch(tmp_path: Path) -> None:
+    auth_path = tmp_path / "auth" / "google-poi-authorization.json"
+    _write_google_poi_authorization(auth_path)
+    local_path = tmp_path / "Data" / "POI" / "Kenya" / "GooglePlaces.shp"
+    _write_frame(
+        local_path,
+        geopandas.GeoDataFrame(
+            {"place_id": ["local-google"], "name": ["Local Google POI"]},
+            geometry=[Point(36.806, -1.296)],
+            crs="EPSG:4326",
+        ),
+    )
+
+    def _fail_fetcher(_bbox, _api_key):
+        raise AssertionError("remote fetcher should not be called for authorized local Google POI")
+
+    service = SourceAssetService(
+        repo_root=tmp_path,
+        cache_dir=tmp_path / "cache",
+        google_poi_authorization_path=auth_path,
+        google_places_fetcher=_fail_fetcher,
+        prefer_local_data=True,
+    )
+
+    resolved = service.resolve_raw_source_path("raw.google.poi", request_bbox=(36.7, -1.3, 36.9, -1.1))
+    frame = geopandas.read_file(resolved.path)
+
+    assert resolved.source_id == "raw.google.poi"
+    assert resolved.source_mode == "local_data_clipped"
+    assert resolved.feature_count == 1
+    assert frame.iloc[0]["place_id"] == "local-google"
 
 
 def test_source_asset_service_keys_google_open_buildings_cache_by_url_list(tmp_path: Path) -> None:

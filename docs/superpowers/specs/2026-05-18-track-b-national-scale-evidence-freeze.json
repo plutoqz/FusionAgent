@@ -44,7 +44,7 @@
     }
   },
   "runtime_notes": [
-    "road now materializes raw.overture.transportation with non-empty coverage alongside raw.osm.road under the national-scale utility.",
+    "road full-closure contract is superseded by the 2026-06-11 autonomous source contract: raw.osm.road plus raw.microsoft.road. The Overture artifacts retained in this freeze are historical compatibility evidence only.",
     "water uses raw.osm.water plus raw.hydrolakes.water as the selected polygon pair and keeps raw.hydrorivers.water as supplemental normalized evidence for the line-style reference.",
     "poi uses raw.osm.poi plus raw.gns.poi as the selected national pair and keeps raw.rh.poi as a missing local supplement unless an operator preload is present.",
     "Raw national run directories stay under runs/ and are referenced here instead of being copied into docs/."
@@ -53,12 +53,18 @@
     {
       "theme": "road",
       "job_type": "road",
-      "claim_state": "national_scale_supported",
+      "claim_state": "superseded_historical_evidence",
       "selected_source_id": "catalog.flood.road",
       "component_source_ids": [
         "raw.osm.road",
+        "raw.microsoft.road"
+      ],
+      "historical_component_source_ids": [
+        "raw.osm.road",
         "raw.overture.transportation"
       ],
+      "contract_superseded_by": "2026-06-11 autonomous road source contract",
+      "claim_boundary": "Historical OSM+Overture evidence is retained for reproducibility only; current road full closure targets OSM+Microsoft road, with Microsoft as local/manual preload and Overture as compatibility/reservation.",
       "tile_count": 154,
       "tile_width_m": 20000.0,
       "tile_height_m": 20000.0,
@@ -109,9 +115,9 @@
         },
         "raw.overture.transportation": {
           "source_id": "raw.overture.transportation",
-          "source_mode": "cache_reused",
+          "source_mode": "reservation_only_historical_evidence",
           "feature_count": 320939,
-          "coverage_status": "available",
+          "coverage_status": "compatibility_historical",
           "path": "runs/2026-05-18-track-b-national-evidence/road/input_bundle/ref.zip",
           "error": null
         }
@@ -146,6 +152,8 @@
           "source_id": "raw.overture.transportation",
           "artifact_path": "runs/2026-05-18-track-b-national-evidence/road/normalized/raw_overture_transportation.gpkg",
           "feature_count": 320939,
+          "compatibility_only": true,
+          "claim_boundary": "historical evidence only; not current full-closure second source",
           "columns": [
             "id",
             "names",

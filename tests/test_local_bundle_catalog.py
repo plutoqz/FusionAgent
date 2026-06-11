@@ -52,6 +52,14 @@ def _seed_local_catalog_tree(root: Path) -> None:
         ),
     )
     _write_frame(
+        root / "Data" / "roads" / "Microsoft" / "microsoft_roads.shp",
+        geopandas.GeoDataFrame(
+            {"ms_road_id": [901], "ms_class": ["collector"]},
+            geometry=[LineString([(0, 0), (1, 1)])],
+            crs="EPSG:4326",
+        ),
+    )
+    _write_frame(
         root / "Data" / "roads" / "Overture" / "overture_roads.shp",
         geopandas.GeoDataFrame(
             {"id": ["seg-1"], "class": ["primary"], "surface": ["paved"], "lane_count": [2]},
@@ -189,7 +197,7 @@ def test_local_bundle_catalog_supports_expanded_building_and_flood_road_sources(
         assert materialized.ref_zip_path.exists()
 
 
-def test_local_bundle_catalog_materializes_flood_road_bundle_from_osm_and_overture(tmp_path: Path) -> None:
+def test_local_bundle_catalog_materializes_flood_road_bundle_from_osm_and_microsoft(tmp_path: Path) -> None:
     _seed_local_catalog_tree(tmp_path)
     provider = LocalBundleCatalogProvider(
         tmp_path,
@@ -210,7 +218,40 @@ def test_local_bundle_catalog_materializes_flood_road_bundle_from_osm_and_overtu
 
     assert provider.can_handle("catalog.flood.road")
     assert "road_id" in _read_columns(materialized.osm_zip_path)
-    assert "id" in _read_columns(materialized.ref_zip_path)
+    ref_columns = _read_columns(materialized.ref_zip_path)
+    assert "ms_road_id" in ref_columns
+    assert "id" not in ref_columns
+
+
+def test_local_bundle_catalog_records_task6_building_candidate_attempts(tmp_path: Path) -> None:
+    _seed_local_catalog_tree(tmp_path)
+    provider = LocalBundleCatalogProvider(
+        tmp_path,
+        raw_source_service=RawVectorSourceService(
+            root_dir=tmp_path,
+            registry=ArtifactRegistry(index_path=tmp_path / "artifact_registry.json"),
+            cache_dir=tmp_path / "raw-cache",
+            source_asset_service=_NoRemoteSourceAssetService(),
+        ),
+    )
+
+    materialized = provider.materialize_with_fallback(
+        source_id="catalog.flood.building",
+        request_bbox=None,
+        target_dir=tmp_path / "task6_building_bundle",
+        target_crs="EPSG:4326",
+    )
+
+    assert materialized.osm_zip_path.name == "osm.zip"
+    assert materialized.ref_zip_path.name == "ref.zip"
+    assert set(materialized.component_coverage) >= {
+        "raw.google.building",
+        "raw.microsoft.building",
+        "raw.osm.building",
+        "raw.osm.road",
+        "raw.openbuildingmap.building",
+    }
+    assert [attempt["attempt_no"] for attempt in materialized.provider_attempts] == [1, 2, 3, 4, 5]
 
 
 def test_local_bundle_catalog_uses_microsoft_reference_layer_for_default_building_pairs(tmp_path: Path) -> None:
@@ -274,7 +315,7 @@ def test_local_bundle_catalog_materializes_flood_water_bundle_from_shared_provid
     assert materialized.component_coverage["raw.hydrorivers.water"].feature_count == 1
 
 
-def test_local_bundle_catalog_materializes_flood_road_bundle_with_overture_reference(tmp_path: Path) -> None:
+def test_local_bundle_catalog_materializes_flood_road_bundle_with_microsoft_reference(tmp_path: Path) -> None:
     _seed_local_catalog_tree(tmp_path)
     provider = LocalBundleCatalogProvider(
         tmp_path,
@@ -294,11 +335,11 @@ def test_local_bundle_catalog_materializes_flood_road_bundle_with_overture_refer
 
     assert "road_id" in _read_columns(materialized.osm_zip_path)
     ref_columns = _read_columns(materialized.ref_zip_path)
-    assert "id" in ref_columns
-    assert "class" in ref_columns
+    assert "ms_road_id" in ref_columns
+    assert "ms_class" in ref_columns
 
 
-def test_local_bundle_catalog_road_bundle_tolerates_missing_manual_overture_reference(tmp_path: Path) -> None:
+def test_local_bundle_catalog_road_bundle_uses_microsoft_when_overture_absent(tmp_path: Path) -> None:
     _seed_local_catalog_tree(tmp_path)
     overture_dir = tmp_path / "Data" / "roads" / "Overture"
     for path in overture_dir.glob("*"):
@@ -322,8 +363,10 @@ def test_local_bundle_catalog_road_bundle_tolerates_missing_manual_overture_refe
     )
 
     assert materialized.source_id == "catalog.flood.road"
-    assert materialized.component_coverage["raw.overture.transportation"].feature_count == 0
-    assert materialized.component_coverage["raw.overture.transportation"].source_mode == "missing_optional_ref"
+    assert materialized.component_coverage["raw.microsoft.road"].feature_count == 1
+    ref_columns = _read_columns(materialized.ref_zip_path)
+    assert "ms_road_id" in ref_columns
+    assert "id" not in ref_columns
 
 
 def test_local_bundle_catalog_uses_policy_fallback_for_waterways(tmp_path: Path) -> None:
@@ -344,7 +387,7 @@ def test_local_bundle_catalog_uses_policy_fallback_for_waterways(tmp_path: Path)
     assert bundle.attempted_sources == ["catalog.flood.waterways", "catalog.flood.water"]
 
 
-def test_local_bundle_catalog_current_version_tolerates_missing_manual_overture_reference(tmp_path: Path) -> None:
+def test_local_bundle_catalog_current_version_ignores_missing_overture_compatibility_source(tmp_path: Path) -> None:
     _seed_local_catalog_tree(tmp_path)
     overture_dir = tmp_path / "Data" / "roads" / "Overture"
     for path in overture_dir.glob("*"):
@@ -363,7 +406,8 @@ def test_local_bundle_catalog_current_version_tolerates_missing_manual_overture_
     version = provider.current_version("catalog.flood.road")
 
     assert version
-    assert "|missing:raw.overture.transportation" in version
+    assert "missing:raw.microsoft.road" not in version
+    assert "|" in version
 
 
 def test_local_bundle_catalog_water_bundle_raises_when_aoi_has_empty_component_coverage(tmp_path: Path) -> None:

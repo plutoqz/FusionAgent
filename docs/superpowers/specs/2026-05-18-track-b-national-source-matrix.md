@@ -48,13 +48,14 @@ Locked source set:
 | Source ID | Role | Acquisition | Format | Clip Strategy | Field Mapping | Claim Boundary |
 | --- | --- | --- | --- | --- | --- | --- |
 | `raw.osm.road` | primary | `official_remote_supported` | `geofabrik_shapefile_bundle` | `country_bundle_then_clip` | `fields.road.osm` | ODbL-derived source; preserve attribution in fused outputs and evidence. |
-| `raw.overture.transportation` | second-source target | `official_remote_supported` | `geojson_extract` | `theme_partition_then_clip` | `fields.road.overture_transportation` | Promoted B2 road second source; keep claims tied to checked Overture materialization evidence. |
-| `raw.overture.road` | optional local preload alias | `manual_preload_required` | `parquet_or_geoparquet_extract` | `national_extract_then_aoi_clip` | `fields.road.overture_transportation` | Local operator cache alias for the promoted Overture transportation source. |
+| `raw.microsoft.road` | Task 6 reference | `manual_preload_required` | `shapefile_bundle` | `local_national_clip_then_aoi_clip` | `fields.road.osm` | Local/provider reference candidate for Task 6 source-attempt evidence; do not claim remote acquisition until a resolver exists. |
+| `raw.overture.transportation` | compatibility extra | `reservation_only` | `geojson_extract` | `theme_partition_then_clip` | `fields.road.overture_transportation` | Compatibility source for existing Overture road flows; not official full-closure evidence. |
+| `raw.overture.road` | optional local preload alias | `manual_preload_required` | `parquet_or_geoparquet_extract` | `national_extract_then_aoi_clip` | `fields.road.overture_transportation` | Local operator cache alias for compatibility-only Overture road flows. |
 
 Default preload directory for the current B2 slice:
 
-- expected local preload root for the cache alias: `raw.overture.road` -> `Data/roads/Overture/`
-- promoted remote path: `raw.overture.transportation` can materialize from the bounded Overture download flow when local cache data is absent.
+- expected local preload root for the Task 6 reference: `raw.microsoft.road` -> `Data/roads/Microsoft/`
+- compatibility cache alias: `raw.overture.road` -> `Data/roads/Overture/`
 
 ### Water
 
@@ -128,4 +129,4 @@ Remote and local acquisition notes for the current B2 slice:
   claiming multi-source fusion parity.
 - B5 must produce run evidence against the exact source IDs and claim boundaries
   listed above.
-- The current live B5 freeze is `docs/superpowers/specs/2026-05-18-track-b-national-scale-evidence-freeze.json`. It must reference the promoted source ids (`raw.overture.transportation`, `raw.hydrolakes.water`, `raw.gns.poi`) once refreshed, while preserving bounded claim-state wording if a second-source artifact is still absent at runtime.
+- The current live B5 freeze is `docs/superpowers/specs/2026-05-18-track-b-national-scale-evidence-freeze.json`. It must reference the promoted source ids (`raw.microsoft.road`, `raw.hydrolakes.water`, `raw.gns.poi`) once refreshed, while preserving bounded claim-state wording if a second-source artifact is still absent at runtime.

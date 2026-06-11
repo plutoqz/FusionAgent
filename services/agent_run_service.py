@@ -2282,7 +2282,7 @@ class AgentRunService:
     @classmethod
     def _has_large_area_runtime_material(cls, resolved_inputs: ResolvedRunInputs, *, job_type: JobType) -> bool:
         allowed_source_ids_by_job = {
-            JobType.road: {"raw.osm.road", "raw.overture.transportation", "raw.overture.road"},
+            JobType.road: {"raw.osm.road", "raw.microsoft.road", "raw.overture.transportation", "raw.overture.road"},
             JobType.water: {
                 "raw.osm.water",
                 "raw.hydrolakes.water",
@@ -2417,7 +2417,9 @@ class AgentRunService:
                 source_id: path
                 for source_id, path in {
                     "raw.osm.road": component_paths.get("raw.osm.road"),
+                    "raw.microsoft.road": component_paths.get("raw.microsoft.road"),
                     "raw.overture.transportation": component_paths.get("raw.overture.transportation"),
+                    "raw.overture.road": component_paths.get("raw.overture.road"),
                 }.items()
                 if path is not None
             }

@@ -16,7 +16,7 @@
 ## B1 冻结结论
 
 - Building 的第一批国家级自动链路固定为 `raw.osm.building + raw.microsoft.building`。
-- Road 的第二来源硬目标固定为 `raw.overture.transportation`。
+- Road 的当前 full-closure 合约固定为 `raw.osm.road + raw.microsoft.road`；`raw.overture.transportation` 仅保留为 compatibility / reservation 额外源。
 - Water 的第二来源硬目标固定为 `raw.hydrorivers.water + raw.hydrolakes.water`，`raw.overture.water` 降为 deferred 备选。
 - POI 当前国家级组合固定为 `raw.osm.poi + raw.gns.poi`，`raw.rh.poi` 继续作为本地参考源，`raw.overture.places` 保留为 deferred 第三源。
 - Building 的 `Google / OpenBuildingMap / Google Open Buildings Vector / local Microsoft clip` 都保留为 `manual_preload_required` 参考源，不在 B1 里提升为自动下载承诺。
@@ -32,7 +32,8 @@
 | building | `raw.google.open_buildings.vector` | local validation reference | `optional_reference` | `manual_preload_required` | shapefile bundle | `local_clip_then_reuse` | `Data/buildings/GoogleOpenBuildingsVector/` | `local_reference_only` |
 | building | `raw.local.microsoft.building` | local cached national clip | `optional_reference` | `manual_preload_required` | shapefile bundle | `local_clip_then_reuse` | `Data/buildings/MicrosoftLocal/` | `local_reference_only` |
 | road | `raw.osm.road` | OSM primary | `current_runtime` | `official_remote_supported` | shapefile bundle | `country_bundle_then_clip` | `Data/roads/OSM/` | `runtime_supported_now` |
-| road | `raw.overture.transportation` | national secondary reference | `next_implementation` | `official_remote_supported` | parquet or geoparquet partitions | `theme_partition_then_clip` | null | `no_runtime_claim_until_b2` |
+| road | `raw.microsoft.road` | Task 6 local reference | `current_contract_local_preload` | `manual_preload_required` | shapefile bundle | `local_national_clip_then_aoi_clip` | `Data/roads/Microsoft/` | `current_full_closure_contract_no_remote_claim` |
+| road | `raw.overture.transportation` | compatibility extra | `reservation_only` | `reservation_only` | parquet or geoparquet partitions | `theme_partition_then_clip` | null | `superseded_by_2026_06_11_osm_microsoft_road_contract` |
 | water | `raw.osm.water` | OSM primary | `current_runtime` | `official_remote_supported` | shapefile bundle | `country_bundle_then_clip` | `Data/burundi-260127-free.shp/gis_osm_water_a_free_1.shp` | `runtime_supported_now` |
 | water | `raw.local.water` | local reference sample | `optional_reference` | `manual_preload_required` | shapefile bundle | `local_clip_then_reuse` | `Data/water/` | `local_reference_only` |
 | water | `raw.hydrorivers.water` | line secondary reference | `next_implementation` | `official_remote_supported` | shapefile bundle | `global_bundle_then_clip` | null | `no_runtime_claim_until_b2` |
@@ -77,9 +78,10 @@
   - `lanes`
 - probe policy:
   - OSM 优先探测 `osm_id / fclass / highway / name / surface / lanes`
-  - Overture Transportation 预留 `id / class / subclass / names.primary / surface / lane_count`
+  - Microsoft road 优先探测 `ms_road_id / road_id / id / ms_class / class / fclass / highway / name / surface / lanes / lane_count`
+  - Overture Transportation 仅作为 compatibility extra 预留 `id / class / subclass / names.primary / surface / lane_count`
 - 约束:
-  - `raw.overture.transportation` 在 B2 落地前只锁命名和映射方向，不宣传为已支持。
+  - `raw.overture.transportation` 已被 2026-06-11 autonomous source contract 从当前 road full-closure 合约中移除，不宣传为 official/promoted second source。
 
 ### `water.line_polygon.v1`
 
@@ -118,7 +120,7 @@
 
 ## B2-B5 执行入口
 
-- B2 只能先实现本文件里 `delivery_stage=next_implementation` 的 source。
+- 后续实现只能把 `delivery_stage=next_implementation` 的 source 当作未来候选；当前 road full-closure 读取 `raw.osm.road + raw.microsoft.road`，MS road 仍是 local/manual/preload 边界。
 - B3 的 national clip / tiling / stitching 设计必须复用这里的 `clip_strategy` 命名。
 - B4 的规范化实现必须以这里的 `field_mapping_profile` 为 canonical 入口，而不是每个脚本自行命名字段。
 - B5 的 smoke 或 bounded run 只允许引用这里已经锁定的 source ids。

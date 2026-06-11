@@ -284,6 +284,19 @@ PROFILES: dict[str, SourceFieldProfile] = {
             "GeoHash": ["GeoHash", "geohash"],
         },
     ),
+    "fields.poi.google": SourceFieldProfile(
+        profile_id="fields.poi.google",
+        theme="poi",
+        canonical_fields=POI_FIELDS,
+        provider_probe_order={
+            "source_feature_id": ["place_id", "id", "sourceid", "name"],
+            "name": ["displayName.text", "display_name", "name"],
+            "name_alt": ["formatted_address", "formattedAddress", "vicinity", "name"],
+            "category": ["category", "primary_type", "primaryType", "type", "types"],
+            "admin_country": ["admin_country", "country", "region_code"],
+            "GeoHash": ["GeoHash", "geohash"],
+        },
+    ),
     "fields.poi.rh": SourceFieldProfile(
         profile_id="fields.poi.rh",
         theme="poi",

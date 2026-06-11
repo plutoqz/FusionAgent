@@ -2,17 +2,22 @@
   "delivery_stage_vocab": [
     "current_runtime",
     "next_implementation",
+    "current_contract_local_preload",
+    "reservation_only",
     "optional_reference",
     "deferred"
   ],
   "source_mode_vocab": [
     "official_remote_supported",
-    "manual_preload_required"
+    "manual_preload_required",
+    "reservation_only"
   ],
   "claim_boundary_vocab": [
     "runtime_supported_now",
     "bounded_runtime_now",
     "local_reference_only",
+    "current_full_closure_contract_no_remote_claim",
+    "superseded_by_2026_06_11_osm_microsoft_road_contract",
     "no_runtime_claim_until_b2",
     "deferred_after_b1"
   ],
@@ -45,6 +50,10 @@
     "road": {
       "minimum_sources": [
         "raw.osm.road",
+        "raw.microsoft.road"
+      ],
+      "compatibility_extra_sources": [
+        "raw.overture.road",
         "raw.overture.transportation"
       ]
     },
@@ -183,7 +192,31 @@
             "lanes"
           ]
         },
+        "raw.microsoft.road": {
+          "source_feature_id": [
+            "ms_road_id",
+            "road_id",
+            "id"
+          ],
+          "road_class": [
+            "ms_class",
+            "class",
+            "fclass",
+            "highway"
+          ],
+          "name": [
+            "name"
+          ],
+          "surface": [
+            "surface"
+          ],
+          "lanes": [
+            "lanes",
+            "lane_count"
+          ]
+        },
         "raw.overture.transportation": {
+          "compatibility_only": true,
           "source_feature_id": [
             "id"
           ],
@@ -462,17 +495,30 @@
         "claim_boundary": "runtime_supported_now"
       },
       {
+        "source_id": "raw.microsoft.road",
+        "provider": "Microsoft Road Network",
+        "theme": "road",
+        "role": "task6_reference_local_preload",
+        "delivery_stage": "current_contract_local_preload",
+        "source_mode": "manual_preload_required",
+        "format": "shapefile bundle",
+        "clip_strategy": "local_national_clip_then_aoi_clip",
+        "field_mapping_profile": "road.line.v1",
+        "preload_path": "Data/roads/Microsoft/",
+        "claim_boundary": "current_full_closure_contract_no_remote_claim"
+      },
+      {
         "source_id": "raw.overture.transportation",
         "provider": "Overture Transportation",
         "theme": "road",
-        "role": "national_secondary_reference",
-        "delivery_stage": "next_implementation",
-        "source_mode": "official_remote_supported",
+        "role": "compatibility_extra",
+        "delivery_stage": "reservation_only",
+        "source_mode": "reservation_only",
         "format": "parquet or geoparquet partitions",
         "clip_strategy": "theme_partition_then_clip",
         "field_mapping_profile": "road.line.v1",
         "preload_path": null,
-        "claim_boundary": "no_runtime_claim_until_b2"
+        "claim_boundary": "superseded_by_2026_06_11_osm_microsoft_road_contract"
       }
     ],
     "water": [

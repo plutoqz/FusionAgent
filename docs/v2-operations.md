@@ -352,10 +352,12 @@ Currently materializable source ids:
 - `raw.hydrolakes.water`
 - `raw.gns.poi`
 
+`raw.overture.transportation` is retained here for compatibility with older runs only; it is not the current Track B road full-closure second source.
+
 The same `SourceAssetService` entrypoint now also resolves repo-local manual-preload Track B sources when they are present under the checked-in `Data/` tree. This is still local/manual support, not remote automation:
 
 - building manual-preload refs: `raw.google.building`, `raw.openbuildingmap.building`, `raw.google.open_buildings.vector`, `raw.local.microsoft.building`
-- road manual-preload refs: `raw.overture.road`
+- road manual-preload refs: `raw.microsoft.road`, `raw.overture.road`
 - water manual-preload refs: `raw.local.water`
 - poi manual-preload refs: `raw.rh.poi`
 
@@ -373,7 +375,7 @@ raw run outputs under `runs/2026-05-18-track-b-national-evidence/`.
 
 Current claim boundary:
 
-- `road`: `national_scale_supported` for the refreshed `OSM + raw.overture.transportation` fused path; the current freeze records 154 `20km x 20km` tiles, non-empty Overture coverage, and keeps `raw.overture.road` only as an optional local cache alias
+- `road`: current full-closure source contract targets `raw.osm.road + raw.microsoft.road`; `raw.microsoft.road` is local/manual/preload bounded rather than a completed remote acquisition path. The older `OSM + raw.overture.transportation` freeze is retained only as superseded historical compatibility evidence, and Overture remains compatibility/reservation.
 - `water`: `national_scale_supported` for the current `OSM + raw.hydrolakes.water` fused path, with supplemental normalized evidence for `raw.hydrorivers.water`
 - `poi`: `national_scale_supported` for the current `OSM + raw.gns.poi` fused path, with supplemental normalized evidence for `raw.rh.poi`
 
@@ -388,8 +390,9 @@ Current claim boundary:
 | raw.openbuildingmap.building | yes | no | manual-preload Track B building reference |
 | raw.google.open_buildings.vector | yes | no | manual-preload Track B building reference |
 | raw.local.microsoft.building | yes | no | manual-preload Track B building cache |
-| raw.overture.road | yes | no | manual-preload cache alias for the promoted Track B road reference |
-| raw.overture.transportation | yes | yes | promoted Track B road second-source path |
+| raw.microsoft.road | yes | no | Task 6 road full-closure reference, local/manual/preload bounded |
+| raw.overture.road | yes | no | compatibility manual-preload cache alias |
+| raw.overture.transportation | yes | compatibility only | reservation/compatibility extra, not current road full-closure evidence |
 | raw.local.water | yes | no | manual-preload Track B water reference |
 | raw.hydrorivers.water | yes | yes | promoted Track B water line reference |
 | raw.hydrolakes.water | yes | yes | promoted Track B water polygon reference |

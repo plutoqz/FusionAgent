@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from typing import Callable
 
 import geopandas as gpd
@@ -313,6 +314,40 @@ def _normalize_poi_gns(frame: gpd.GeoDataFrame, *, geohash_precision: int) -> gp
     return frame
 
 
+def _normalize_poi_google(frame: gpd.GeoDataFrame, *, geohash_precision: int) -> gpd.GeoDataFrame:
+    frame["source_feature_id"] = _stringify(_coalesce(frame, ["place_id", "id", "sourceid", "name"]))
+    display_name = _coalesce(frame, ["displayName.text", "display_name"])
+    raw_name = _coalesce(frame, ["name"])
+    resource_name = raw_name.apply(lambda value: str(value).strip() if _is_google_places_resource_name(value) else pd.NA)
+    frame["name"] = display_name.where(~display_name.apply(_is_missing), raw_name.where(resource_name.apply(_is_missing), pd.NA))
+    frame["name_alt"] = _coalesce(frame, ["formatted_address", "formattedAddress", "vicinity"])
+    frame["name_alt"] = frame["name_alt"].where(~frame["name_alt"].apply(_is_missing), resource_name)
+    category = _coalesce(frame, ["category", "primary_type", "primaryType", "type", "types"], default="poi")
+    frame["category"] = _stringify(category).apply(_first_google_poi_category)
+    frame["admin_country"] = _coalesce(frame, ["country", "admin_country", "region_code"])
+    frame = _ensure_point_geometry(frame)
+    frame["GeoHash"] = _ensure_geohash(frame, precision=geohash_precision)
+    return frame
+
+
+def _is_google_places_resource_name(value: object) -> bool:
+    return isinstance(value, str) and value.strip().startswith("places/")
+
+
+def _first_google_poi_category(value: object) -> str:
+    text = str(value or "").strip()
+    if not text or text == "<NA>":
+        return "poi"
+    if text.startswith("[") and text.endswith("]"):
+        try:
+            parsed = json.loads(text)
+            if isinstance(parsed, list) and parsed:
+                return str(parsed[0])
+        except Exception:  # noqa: BLE001
+            pass
+    return text.split(",")[0].strip() or "poi"
+
+
 def _normalize_poi_rh(frame: gpd.GeoDataFrame, *, geohash_precision: int) -> gpd.GeoDataFrame:
     frame["source_feature_id"] = _stringify(_coalesce(frame, ["id", "sourceid"]))
     frame["name"] = _coalesce(frame, ["name", "alternaten"])
@@ -354,6 +389,7 @@ _PROFILE_HANDLERS: dict[str, Callable[[gpd.GeoDataFrame], gpd.GeoDataFrame]] = {
     "fields.waterways.hydrorivers": _normalize_waterways_hydrorivers,
     "fields.poi.osm": _normalize_poi_osm,
     "fields.poi.gns": _normalize_poi_gns,
+    "fields.poi.google": _normalize_poi_google,
     "fields.poi.rh": _normalize_poi_rh,
     "fields.poi.overture_places": _normalize_poi_overture,
 }

@@ -46,11 +46,11 @@ TRACK_B_THEME_CONTRACTS: Dict[str, TrackBThemeContract] = {
     ),
     "road": TrackBThemeContract(
         theme="road",
-        official_remote_source_ids=("raw.osm.road", "raw.overture.transportation"),
+        official_remote_source_ids=("raw.osm.road", "raw.microsoft.road"),
         manual_preload_source_ids=("raw.overture.road",),
-        reservation_only_source_ids=(),
+        reservation_only_source_ids=("raw.overture.transportation",),
         current_catalog_source_ids=("catalog.flood.road", "catalog.earthquake.road", "catalog.typhoon.road"),
-        implementation_goal="Upgrade the current OSM-only road baseline to a dual-source national fusion path with Overture Transportation as the locked second-source target.",
+        implementation_goal="Upgrade the current OSM-only road baseline to a dual-source national path with Microsoft road as the Task 6 reference candidate and Overture kept as compatibility-only.",
     ),
     "water": TrackBThemeContract(
         theme="water",
@@ -70,11 +70,11 @@ TRACK_B_THEME_CONTRACTS: Dict[str, TrackBThemeContract] = {
     ),
     "poi": TrackBThemeContract(
         theme="poi",
-        official_remote_source_ids=("raw.osm.poi", "raw.gns.poi"),
+        official_remote_source_ids=("raw.gns.poi", "raw.google.poi", "raw.osm.poi"),
         manual_preload_source_ids=("raw.rh.poi",),
         reservation_only_source_ids=("raw.overture.poi",),
         current_catalog_source_ids=("catalog.generic.poi",),
-        implementation_goal="Keep OSM plus GNS as the first national POI pair, with RH as a manual local supplement and Overture Places deferred until field alignment work is complete.",
+        implementation_goal="Keep GNS, authorized Google POI, and OSM as the first national POI path, with RH as a manual local supplement and Overture Places deferred until field alignment work is complete.",
     ),
 }
 
@@ -164,6 +164,18 @@ TRACK_B_SOURCE_CONTRACTS: Dict[str, TrackBSourceContract] = {
         runtime_status="runtime_candidate",
         notes="Current automated road baseline.",
     ),
+    "raw.microsoft.road": TrackBSourceContract(
+        source_id="raw.microsoft.road",
+        theme="road",
+        role="reference_manual",
+        acquisition_class="manual_preload_required",
+        format_hint="shapefile_bundle",
+        clip_strategy="local_national_clip_then_aoi_clip",
+        field_mapping_profile="fields.road.osm",
+        license_boundary="Local/provider road reference candidate for Task 6 source-attempt evidence; preserve provider attribution and do not claim remote acquisition until a resolver exists.",
+        runtime_status="runtime_candidate",
+        notes="Task 6 required road closure candidate via local spec path; remote materialization can be added later.",
+    ),
     "raw.overture.road": TrackBSourceContract(
         source_id="raw.overture.road",
         theme="road",
@@ -179,14 +191,14 @@ TRACK_B_SOURCE_CONTRACTS: Dict[str, TrackBSourceContract] = {
     "raw.overture.transportation": TrackBSourceContract(
         source_id="raw.overture.transportation",
         theme="road",
-        role="reference_remote",
-        acquisition_class="official_remote_supported",
+        role="reference_compatibility",
+        acquisition_class="reservation_only",
         format_hint="geojson_extract",
         clip_strategy="theme_partition_then_clip",
         field_mapping_profile="fields.road.overture_transportation",
-        license_boundary="Bounded Overture transportation materialization path for the promoted B2 road second source; keep attribution and runtime claims tied to checked evidence.",
-        runtime_status="runtime_candidate",
-        notes="Promoted B2 road second-source id that resolves from local preload first and can fall back to the Overture download path.",
+        license_boundary="Compatibility source for existing Overture road flows; keep attribution and do not use as Task 6 official full-closure evidence.",
+        runtime_status="reservation_only",
+        notes="Kept for compatibility with existing Overture materialization and normalization paths; not the Task 6 road closure second source.",
     ),
     "raw.osm.water": TrackBSourceContract(
         source_id="raw.osm.water",
@@ -295,6 +307,21 @@ TRACK_B_SOURCE_CONTRACTS: Dict[str, TrackBSourceContract] = {
         license_boundary="Official GNS gazetteer export; keep name and identifier provenance visible in normalized POI outputs and evidence bundles.",
         runtime_status="runtime_candidate",
         notes="Promoted B5 POI reference source with bounded country-zip discovery and AOI clip support.",
+    ),
+    "raw.google.poi": TrackBSourceContract(
+        source_id="raw.google.poi",
+        theme="poi",
+        role="core_remote",
+        acquisition_class="authorized_remote_supported",
+        format_hint="google_places_fetcher_gpkg",
+        clip_strategy="resolved_aoi_clip",
+        field_mapping_profile="fields.poi.google",
+        license_boundary=(
+            "Requires project authorization manifest for persistent storage, vector export, "
+            "and fusion with non-Google sources; do not persist API keys in outputs."
+        ),
+        runtime_status="runtime_candidate",
+        notes="Authorized Google POI acquisition source gated by a local project manifest and injectable Places fetcher.",
     ),
     "raw.geonames.poi": TrackBSourceContract(
         source_id="raw.geonames.poi",

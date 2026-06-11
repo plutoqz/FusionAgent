@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from pathlib import Path
 from zipfile import ZipFile
 
@@ -129,10 +130,10 @@ def test_road_task_driven_run_uses_shared_large_area_runtime(tmp_path: Path, mon
             crs="EPSG:3857",
         ),
     )
-    overture = _write(
-        tmp_path / "overture_road.gpkg",
+    microsoft = _write(
+        tmp_path / "microsoft_road.gpkg",
         gpd.GeoDataFrame(
-            {"id": ["o1"], "class": ["primary"]},
+            {"ms_road_id": ["m1"], "ms_class": ["primary"]},
             geometry=[LineString([(0, 0.1), (2, 0.1)])],
             crs="EPSG:3857",
         ),
@@ -147,7 +148,7 @@ def test_road_task_driven_run_uses_shared_large_area_runtime(tmp_path: Path, mon
         selected_source_id="catalog.flood.road",
         component_coverage={
             "raw.osm.road": {"path": str(osm), "feature_count": 1},
-            "raw.overture.transportation": {"path": str(overture), "feature_count": 1},
+            "raw.microsoft.road": {"path": str(microsoft), "feature_count": 1},
         },
     )
 
@@ -172,6 +173,11 @@ def test_road_task_driven_run_uses_shared_large_area_runtime(tmp_path: Path, mon
     assert repairs == []
     assert path.exists()
     assert (run_dir / "output" / "stitched_artifact.json").exists()
+    selected_sources = json.loads((run_dir / "output" / "selected_sources.json").read_text(encoding="utf-8"))
+    road_sources = selected_sources["slices"][0]["sources"]
+    assert "raw.osm.road" in road_sources
+    assert "raw.microsoft.road" in road_sources
+    assert "raw.overture.transportation" not in road_sources
 
 
 def test_large_area_runtime_records_per_tile_progress_events(tmp_path: Path, monkeypatch) -> None:
@@ -192,10 +198,10 @@ def test_large_area_runtime_records_per_tile_progress_events(tmp_path: Path, mon
             crs="EPSG:3857",
         ),
     )
-    overture = _write(
-        tmp_path / "overture_road.gpkg",
+    microsoft = _write(
+        tmp_path / "microsoft_road.gpkg",
         gpd.GeoDataFrame(
-            {"id": ["o1"], "class": ["primary"]},
+            {"ms_road_id": ["m1"], "ms_class": ["primary"]},
             geometry=[LineString([(0, 0.1), (2, 0.1)])],
             crs="EPSG:3857",
         ),
@@ -210,7 +216,7 @@ def test_large_area_runtime_records_per_tile_progress_events(tmp_path: Path, mon
         selected_source_id="catalog.flood.road",
         component_coverage={
             "raw.osm.road": {"path": str(osm), "feature_count": 1},
-            "raw.overture.transportation": {"path": str(overture), "feature_count": 1},
+            "raw.microsoft.road": {"path": str(microsoft), "feature_count": 1},
         },
     )
 
@@ -402,13 +408,13 @@ def test_large_area_runtime_claims_road_water_and_poi(tmp_path: Path) -> None:
     osm_poi_path = tmp_path / "osm_poi.gpkg"
     gns_poi_path = tmp_path / "gns_poi.gpkg"
     osm_road_path = tmp_path / "osm_road.gpkg"
-    overture_path = tmp_path / "overture.gpkg"
+    microsoft_road_path = tmp_path / "microsoft_road.gpkg"
     water_path.write_bytes(b"materialized-water")
     hydrolakes_path.write_bytes(b"materialized-hydrolakes")
     osm_poi_path.write_bytes(b"materialized-osm-poi")
     gns_poi_path.write_bytes(b"materialized-gns-poi")
     osm_road_path.write_bytes(b"materialized-osm-road")
-    overture_path.write_bytes(b"materialized-overture")
+    microsoft_road_path.write_bytes(b"materialized-microsoft-road")
     legacy_osm_zip = tmp_path / "legacy_osm.zip"
     legacy_ref_zip = tmp_path / "legacy_ref.zip"
     poi_water_osm_zip = tmp_path / "poi_water_osm.zip"
@@ -464,7 +470,7 @@ def test_large_area_runtime_claims_road_water_and_poi(tmp_path: Path) -> None:
         selected_source_id="catalog.flood.road",
         component_coverage={
             "raw.osm.road": {"path": str(osm_road_path), "feature_count": 1},
-            "raw.overture.transportation": {"path": str(overture_path), "feature_count": 1},
+            "raw.microsoft.road": {"path": str(microsoft_road_path), "feature_count": 1},
         },
     )
     legacy_zip_resolved = ResolvedRunInputs(
@@ -549,7 +555,7 @@ def test_road_large_area_runtime_allows_partial_component_paths_without_keyerror
         selected_source_id="catalog.flood.road",
         component_coverage={
             "raw.osm.road": {"path": str(osm), "feature_count": 1},
-            "raw.overture.transportation": {"feature_count": 0},
+            "raw.microsoft.road": {"feature_count": 0},
         },
     )
 
@@ -597,10 +603,10 @@ def test_large_area_runtime_failure_records_repair_context(
             crs="EPSG:3857",
         ),
     )
-    overture = _write(
-        tmp_path / "overture_road.gpkg",
+    microsoft = _write(
+        tmp_path / "microsoft_road.gpkg",
         gpd.GeoDataFrame(
-            {"id": ["o1"], "class": ["primary"]},
+            {"ms_road_id": ["m1"], "ms_class": ["primary"]},
             geometry=[LineString([(0, 0.1), (2, 0.1)])],
             crs="EPSG:3857",
         ),
@@ -615,7 +621,7 @@ def test_large_area_runtime_failure_records_repair_context(
         selected_source_id="catalog.flood.road",
         component_coverage={
             "raw.osm.road": {"path": str(osm), "feature_count": 1},
-            "raw.overture.transportation": {"path": str(overture), "feature_count": 1},
+            "raw.microsoft.road": {"path": str(microsoft), "feature_count": 1},
         },
     )
 

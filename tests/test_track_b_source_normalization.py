@@ -174,6 +174,79 @@ def test_track_b_normalization_preserves_rh_poi_geohash_and_name_aliases() -> No
     assert normalized.iloc[0]["category"] == "clinic"
 
 
+def test_track_b_normalization_maps_google_poi_profile_to_canonical_fields() -> None:
+    frame = gpd.GeoDataFrame(
+        {
+            "place_id": ["google-place-1"],
+            "name": ["Nairobi Hospital"],
+            "primary_type": ["hospital"],
+        },
+        geometry=[Point(36.806, -1.296)],
+        crs="EPSG:4326",
+    )
+
+    normalized = normalize_track_b_source_frame(
+        "raw.google.poi",
+        frame,
+        target_crs="EPSG:4326",
+    )
+
+    assert normalized.iloc[0]["source_id"] == "raw.google.poi"
+    assert normalized.iloc[0]["field_mapping_profile"] == "fields.poi.google"
+    assert normalized.iloc[0]["source_feature_id"] == "google-place-1"
+    assert normalized.iloc[0]["name"] == "Nairobi Hospital"
+    assert normalized.iloc[0]["category"] == "hospital"
+    assert isinstance(normalized.iloc[0]["GeoHash"], str)
+    assert len(normalized.iloc[0]["GeoHash"]) == 8
+
+
+def test_track_b_normalization_maps_google_poi_camel_case_and_types_fallback() -> None:
+    frame = gpd.GeoDataFrame(
+        {
+            "place_id": ["google-place-2"],
+            "name": ["Unnamed Google Place"],
+            "primaryType": [None],
+            "types": ["library,point_of_interest"],
+        },
+        geometry=[Point(36.806, -1.296)],
+        crs="EPSG:4326",
+    )
+
+    normalized = normalize_track_b_source_frame(
+        "raw.google.poi",
+        frame,
+        target_crs="EPSG:4326",
+    )
+
+    assert normalized.iloc[0]["source_feature_id"] == "google-place-2"
+    assert normalized.iloc[0]["category"] == "library"
+
+
+def test_track_b_normalization_prefers_google_display_name_over_resource_name() -> None:
+    frame = gpd.GeoDataFrame(
+        {
+            "name": ["places/abc123"],
+            "displayName.text": ["Readable Cafe"],
+            "formattedAddress": ["Readable Street"],
+            "primaryType": ["cafe"],
+            "types": ["cafe,food"],
+        },
+        geometry=[Point(36.806, -1.296)],
+        crs="EPSG:4326",
+    )
+
+    normalized = normalize_track_b_source_frame(
+        "raw.google.poi",
+        frame,
+        target_crs="EPSG:4326",
+    )
+
+    assert normalized.iloc[0]["source_feature_id"] == "places/abc123"
+    assert normalized.iloc[0]["name"] == "Readable Cafe"
+    assert normalized.iloc[0]["name_alt"] == "Readable Street"
+    assert normalized.iloc[0]["category"] == "cafe"
+
+
 def test_track_b_normalization_maps_overture_road_surface_and_lanes() -> None:
     frame = gpd.GeoDataFrame(
         {

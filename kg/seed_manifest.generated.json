@@ -989,13 +989,13 @@
         "bundle_strategy": "osm_ref_pair",
         "component_source_ids": [
           "raw.osm.road",
-          "raw.overture.transportation"
+          "raw.microsoft.road"
         ],
         "kind": "catalog",
         "materialization_scope": "resolved_aoi_clip",
         "path_hints": [
           "Data/roads/OSM",
-          "Data/roads/Overture"
+          "Data/roads/Microsoft"
         ],
         "priority": 2,
         "provider_family": "local_bundle_catalog",
@@ -1011,22 +1011,24 @@
           "catalog.earthquake.road",
           "catalog.typhoon.road"
         ],
-        "track_b_implementation_goal": "Upgrade the current OSM-only road baseline to a dual-source national fusion path with Overture Transportation as the locked second-source target.",
+        "track_b_implementation_goal": "Upgrade the current OSM-only road baseline to a dual-source national path with Microsoft road as the Task 6 reference candidate and Overture kept as compatibility-only.",
         "track_b_manual_preload_source_ids": [
           "raw.overture.road"
         ],
         "track_b_official_remote_source_ids": [
           "raw.osm.road",
+          "raw.microsoft.road"
+        ],
+        "track_b_reservation_only_source_ids": [
           "raw.overture.transportation"
         ],
-        "track_b_reservation_only_source_ids": [],
         "track_b_theme": "road"
       },
       "quality_score": 0.85,
       "quality_tier": "curated",
       "source_id": "catalog.earthquake.road",
       "source_kind": "catalog",
-      "source_name": "Earthquake Road Bundle (OSM + Overture)",
+      "source_name": "Earthquake Road Bundle (OSM + Microsoft)",
       "supported_geometry_types": [
         "line"
       ],
@@ -1112,13 +1114,13 @@
         "bundle_strategy": "osm_ref_pair",
         "component_source_ids": [
           "raw.osm.road",
-          "raw.overture.transportation"
+          "raw.microsoft.road"
         ],
         "kind": "catalog",
         "materialization_scope": "resolved_aoi_clip",
         "path_hints": [
           "Data/roads/OSM",
-          "Data/roads/Overture"
+          "Data/roads/Microsoft"
         ],
         "priority": 2,
         "provider_family": "local_bundle_catalog",
@@ -1134,22 +1136,24 @@
           "catalog.earthquake.road",
           "catalog.typhoon.road"
         ],
-        "track_b_implementation_goal": "Upgrade the current OSM-only road baseline to a dual-source national fusion path with Overture Transportation as the locked second-source target.",
+        "track_b_implementation_goal": "Upgrade the current OSM-only road baseline to a dual-source national path with Microsoft road as the Task 6 reference candidate and Overture kept as compatibility-only.",
         "track_b_manual_preload_source_ids": [
           "raw.overture.road"
         ],
         "track_b_official_remote_source_ids": [
           "raw.osm.road",
+          "raw.microsoft.road"
+        ],
+        "track_b_reservation_only_source_ids": [
           "raw.overture.transportation"
         ],
-        "track_b_reservation_only_source_ids": [],
         "track_b_theme": "road"
       },
       "quality_score": 0.86,
       "quality_tier": "curated",
       "source_id": "catalog.flood.road",
       "source_kind": "catalog",
-      "source_name": "Flood Road Bundle (OSM + Overture)",
+      "source_name": "Flood Road Bundle (OSM + Microsoft)",
       "supported_geometry_types": [
         "line"
       ],
@@ -1370,13 +1374,14 @@
         "track_b_current_catalog_source_ids": [
           "catalog.generic.poi"
         ],
-        "track_b_implementation_goal": "Keep OSM plus GNS as the first national POI pair, with RH as a manual local supplement and Overture Places deferred until field alignment work is complete.",
+        "track_b_implementation_goal": "Keep GNS, authorized Google POI, and OSM as the first national POI path, with RH as a manual local supplement and Overture Places deferred until field alignment work is complete.",
         "track_b_manual_preload_source_ids": [
           "raw.rh.poi"
         ],
         "track_b_official_remote_source_ids": [
-          "raw.osm.poi",
-          "raw.gns.poi"
+          "raw.gns.poi",
+          "raw.google.poi",
+          "raw.osm.poi"
         ],
         "track_b_reservation_only_source_ids": [
           "raw.overture.poi"
@@ -1410,13 +1415,13 @@
         "bundle_strategy": "osm_ref_pair",
         "component_source_ids": [
           "raw.osm.road",
-          "raw.overture.transportation"
+          "raw.microsoft.road"
         ],
         "kind": "catalog",
         "materialization_scope": "resolved_aoi_clip",
         "path_hints": [
           "Data/roads/OSM",
-          "Data/roads/Overture"
+          "Data/roads/Microsoft"
         ],
         "priority": 2,
         "provider_family": "local_bundle_catalog",
@@ -1432,22 +1437,24 @@
           "catalog.earthquake.road",
           "catalog.typhoon.road"
         ],
-        "track_b_implementation_goal": "Upgrade the current OSM-only road baseline to a dual-source national fusion path with Overture Transportation as the locked second-source target.",
+        "track_b_implementation_goal": "Upgrade the current OSM-only road baseline to a dual-source national path with Microsoft road as the Task 6 reference candidate and Overture kept as compatibility-only.",
         "track_b_manual_preload_source_ids": [
           "raw.overture.road"
         ],
         "track_b_official_remote_source_ids": [
           "raw.osm.road",
+          "raw.microsoft.road"
+        ],
+        "track_b_reservation_only_source_ids": [
           "raw.overture.transportation"
         ],
-        "track_b_reservation_only_source_ids": [],
         "track_b_theme": "road"
       },
       "quality_score": 0.88,
       "quality_tier": "curated",
       "source_id": "catalog.typhoon.road",
       "source_kind": "catalog",
-      "source_name": "Typhoon Road Bundle (OSM + Overture)",
+      "source_name": "Typhoon Road Bundle (OSM + Microsoft)",
       "supported_geometry_types": [
         "line"
       ],
@@ -1683,6 +1690,56 @@
       ],
       "supported_job_types": [
         "building"
+      ],
+      "supported_types": [
+        "dt.raw.vector"
+      ]
+    },
+    {
+      "disaster_types": [
+        "generic",
+        "flood",
+        "earthquake",
+        "typhoon"
+      ],
+      "freshness_category": "runtime_query",
+      "freshness_hours": 24,
+      "freshness_score": 0.82,
+      "metadata": {
+        "acquisition_class": "authorized_remote_supported",
+        "clip_strategy": "resolved_aoi_clip",
+        "field_mapping_profile": "fields.poi.google",
+        "format_hint": "google_places_fetcher_gpkg",
+        "kind": "raw_vector",
+        "license_boundary": "Requires project authorization manifest for persistent storage, vector export, and fusion with non-Google sources; do not persist API keys in outputs.",
+        "materialization_provider": "google_places_fetcher",
+        "materialization_scope": "resolved_aoi_clip",
+        "path_hint": "Data/POI/**/Google*.shp",
+        "provider_family": "google_places",
+        "runtime_status": "runtime_candidate",
+        "selectable_now": true,
+        "source_contract_ref": "docs/superpowers/specs/2026-05-18-track-b-national-source-matrix.md",
+        "source_form": "vector",
+        "source_matrix_stage": "track_b_b1_locked",
+        "source_role": "core_poi_source",
+        "supports_aoi": true,
+        "theme": "poi",
+        "track_b_notes": "Authorized Google POI acquisition source gated by a local project manifest and injectable Places fetcher.",
+        "track_b_role": "core_remote",
+        "track_b_theme": "poi"
+      },
+      "quality_score": 0.84,
+      "quality_tier": "provider_curated",
+      "source_id": "raw.google.poi",
+      "source_kind": "authorized_data",
+      "source_name": "Google Places POI",
+      "supported_geometry_types": [
+        "point"
+      ],
+      "supported_job_types": [
+        "building",
+        "road",
+        "poi"
       ],
       "supported_types": [
         "dt.raw.vector"
@@ -1984,6 +2041,53 @@
       ],
       "supported_job_types": [
         "building"
+      ],
+      "supported_types": [
+        "dt.raw.vector"
+      ]
+    },
+    {
+      "disaster_types": [
+        "generic",
+        "flood",
+        "earthquake",
+        "typhoon"
+      ],
+      "freshness_category": "sample_snapshot",
+      "freshness_hours": 240,
+      "freshness_score": 0.5,
+      "metadata": {
+        "acquisition_class": "manual_preload_required",
+        "clip_strategy": "local_national_clip_then_aoi_clip",
+        "field_mapping_profile": "fields.road.osm",
+        "format_hint": "shapefile_bundle",
+        "kind": "raw_vector",
+        "license_boundary": "Local/provider road reference candidate for Task 6 source-attempt evidence; preserve provider attribution and do not claim remote acquisition until a resolver exists.",
+        "materialization_scope": "local_only",
+        "path_hint": "Data/roads/Microsoft",
+        "provider_family": "microsoft",
+        "runtime_status": "runtime_candidate",
+        "selectable_now": true,
+        "source_contract_ref": "docs/superpowers/specs/2026-05-18-track-b-national-source-matrix.md",
+        "source_form": "vector",
+        "source_matrix_stage": "track_b_b1_locked",
+        "source_role": "reference_candidate",
+        "supports_aoi": false,
+        "theme": "road",
+        "track_b_notes": "Task 6 required road closure candidate via local spec path; remote materialization can be added later.",
+        "track_b_role": "reference_manual",
+        "track_b_theme": "road"
+      },
+      "quality_score": 0.8,
+      "quality_tier": "provider_curated",
+      "source_id": "raw.microsoft.road",
+      "source_kind": "provider_data",
+      "source_name": "Microsoft Road Network",
+      "supported_geometry_types": [
+        "line"
+      ],
+      "supported_job_types": [
+        "road"
       ],
       "supported_types": [
         "dt.raw.vector"
@@ -2349,27 +2453,27 @@
       "freshness_hours": 168,
       "freshness_score": 0.62,
       "metadata": {
-        "acquisition_class": "official_remote_supported",
+        "acquisition_class": "reservation_only",
         "clip_strategy": "theme_partition_then_clip",
         "coverage_scope": "latest_release_bbox",
         "field_mapping_profile": "fields.road.overture_transportation",
         "format_hint": "geojson_extract",
         "kind": "raw_vector",
-        "license_boundary": "Bounded Overture transportation materialization path for the promoted B2 road second source; keep attribution and runtime claims tied to checked evidence.",
+        "license_boundary": "Compatibility source for existing Overture road flows; keep attribution and do not use as Task 6 official full-closure evidence.",
         "materialization_provider": "overturemaps",
-        "materialization_scope": "theme_partition_then_clip",
+        "materialization_scope": "compatibility_only",
         "path_hint": "Data/roads/Overture",
         "provider_family": "overturemaps",
-        "runtime_status": "runtime_candidate",
-        "selectable_now": true,
+        "runtime_status": "reservation_only",
+        "selectable_now": false,
         "source_contract_ref": "docs/superpowers/specs/2026-05-18-track-b-national-source-matrix.md",
         "source_form": "vector",
         "source_matrix_stage": "track_b_b1_locked",
-        "source_role": "reference_candidate",
+        "source_role": "compatibility_extra",
         "supports_aoi": true,
         "theme": "road",
-        "track_b_notes": "Promoted B2 road second-source id that resolves from local preload first and can fall back to the Overture download path.",
-        "track_b_role": "reference_remote",
+        "track_b_notes": "Kept for compatibility with existing Overture materialization and normalization paths; not the Task 6 road closure second source.",
+        "track_b_role": "reference_compatibility",
         "track_b_theme": "road"
       },
       "quality_score": 0.81,
@@ -2660,8 +2764,8 @@
     }
   ],
   "metadata": {
-    "content_hash": "sha256:77a9d638daf454fe16d488ab5ad6e383b7d53ddcacbc0ee8323ca8136ea8bcec",
-    "generated_at": "2026-06-11T13:41:33.483928+00:00",
+    "content_hash": "sha256:dccb63663b04e19fd1be24ac18f5ac105593dd7dafb8dbc0b42c45039497bd5a",
+    "generated_at": "2026-06-11T16:45:56.840343+00:00",
     "generated_from": "kg.seed",
     "schema_version": "1.0.0",
     "source_modules": [

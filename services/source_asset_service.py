@@ -112,6 +112,7 @@ _REMOTELY_MATERIALIZABLE_SOURCE_IDS = {
     "raw.osm.poi",
     "raw.google.building",
     "raw.google.open_buildings.vector",
+    "raw.google.poi",
     "raw.microsoft.building",
     "raw.overture.transportation",
     "raw.overture.road",
@@ -326,6 +327,25 @@ def _feature_geometry(feature: dict[str, Any]) -> Any | None:
         return None
 
 
+def _json_safe_vector_value(value: Any) -> Any:
+    if isinstance(value, (dict, list, tuple)):
+        return json.dumps(value, ensure_ascii=False, sort_keys=True)
+    return value
+
+
+def _is_google_places_resource_name(value: Any) -> bool:
+    return isinstance(value, str) and value.strip().startswith("places/")
+
+
+def _nested_mapping_value(value: Any, *keys: str) -> Any:
+    current = value
+    for key in keys:
+        if not isinstance(current, dict):
+            return None
+        current = current.get(key)
+    return current
+
+
 def _bbox_cache_key(request_bbox: Optional[BBox]) -> str:
     if request_bbox is None:
         return "full"
@@ -372,6 +392,10 @@ class SourceAssetService:
         gns_data_index_url: str = GNS_DATA_INDEX_URL,
         overture_transportation_url: str | None = None,
         google_open_buildings_urls: list[str] | None = None,
+        google_places_api_key: str | None = None,
+        google_places_cache_key: str | None = None,
+        google_poi_authorization_path: Path | None = None,
+        google_places_fetcher: object | None = None,
         hydrorivers_global_zip_url: str = HYDRORIVERS_GLOBAL_ZIP_URL,
         hydrolakes_global_zip_url: str = HYDROLAKES_GLOBAL_ZIP_URL,
         prefer_local_data: bool = True,
@@ -386,6 +410,10 @@ class SourceAssetService:
         self.gns_data_index_url = gns_data_index_url
         self.overture_transportation_url = overture_transportation_url
         self.google_open_buildings_urls = list(google_open_buildings_urls or [])
+        self.google_places_api_key = google_places_api_key
+        self.google_places_cache_key = google_places_cache_key
+        self.google_poi_authorization_path = Path(google_poi_authorization_path) if google_poi_authorization_path else None
+        self.google_places_fetcher = google_places_fetcher
         self.hydrorivers_global_zip_url = hydrorivers_global_zip_url
         self.hydrolakes_global_zip_url = hydrolakes_global_zip_url
         self.prefer_local_data = prefer_local_data
@@ -424,6 +452,9 @@ class SourceAssetService:
     ) -> SourceAssetResolution:
         source_id = _canonical_source_id(source_id)
         effective_bbox = request_bbox or (tuple(aoi.bbox) if aoi is not None else None)
+
+        if source_id == "raw.google.poi":
+            return self._resolve_google_poi(request_bbox=effective_bbox, aoi=aoi)
 
         if self.prefer_local_data:
             local_path = self._try_local_path(source_id)
@@ -852,6 +883,128 @@ class SourceAssetService:
             feature_count=feature_count,
         )
 
+    def _load_google_poi_authorization(self) -> dict[str, Any]:
+        path = self.google_poi_authorization_path
+        if path is None or not path.exists():
+            raise PermissionError("Google POI persistence authorization manifest is required.")
+
+        payload = json.loads(path.read_text(encoding="utf-8"))
+        authorized_use = payload.get("authorized_use")
+        required_use_flags = (
+            "persistent_storage",
+            "export_vector_files",
+            "fuse_with_non_google_sources",
+        )
+        if (
+            payload.get("authorization_status") != "approved"
+            or not isinstance(authorized_use, dict)
+            or not all(authorized_use.get(flag) is True for flag in required_use_flags)
+        ):
+            raise PermissionError("Google POI persistence authorization manifest does not allow this use.")
+        return payload
+
+    def _resolve_google_poi(self, *, request_bbox: Optional[BBox], aoi: ResolvedAOI | None = None) -> SourceAssetResolution:
+        authorization_payload = self._load_google_poi_authorization()
+        if self.prefer_local_data:
+            local_path = self._try_local_path("raw.google.poi")
+            if local_path is None:
+                local_path = self._try_spec_local_path("raw.google.poi", aoi=aoi)
+            if local_path is not None:
+                return self._build_local_resolution(
+                    "raw.google.poi",
+                    local_path=local_path,
+                    request_bbox=request_bbox,
+                )
+
+        if not self.google_places_api_key:
+            raise PermissionError("GOOGLE_PLACES_API_KEY is required for Google POI acquisition.")
+        if self.google_places_fetcher is None or not callable(self.google_places_fetcher):
+            raise RuntimeError("A callable google_places_fetcher is required for Google POI acquisition.")
+
+        authorization_path = self.google_poi_authorization_path
+        if authorization_path is None:
+            raise PermissionError("Google POI persistence authorization manifest is required.")
+        authorization_digest = hashlib.sha1(authorization_path.read_bytes()).hexdigest()[:12]
+        fetcher_config_digest = self._google_places_fetcher_config_digest()
+        target_dir = self.cache_dir / "google_poi" / _bbox_cache_key(request_bbox) / authorization_digest / fetcher_config_digest
+        output_gpkg = target_dir / "google_poi.gpkg"
+        if _is_usable_local_vector_path(output_gpkg):
+            self._write_google_poi_authorization_evidence(target_dir, authorization_payload=authorization_payload)
+            bbox, feature_count = self._inspect_vector_path(output_gpkg)
+            return SourceAssetResolution(
+                source_id="raw.google.poi",
+                path=output_gpkg,
+                source_mode="coverage_empty" if feature_count == 0 else "asset_cached",
+                cache_hit=True,
+                version_token=_path_version_token(output_gpkg),
+                bbox=bbox,
+                feature_count=feature_count,
+            )
+
+        rows = list(self.google_places_fetcher(request_bbox, self.google_places_api_key))
+        frame = self._google_poi_rows_to_frame(rows)
+        if request_bbox is not None and not frame.empty:
+            frame = clip_frame_to_request_bbox(frame, request_bbox)
+
+        target_dir.mkdir(parents=True, exist_ok=True)
+        frame.to_file(output_gpkg, driver="GPKG")
+        self._write_google_poi_authorization_evidence(target_dir, authorization_payload=authorization_payload)
+
+        bbox = frame_bbox_in_crs(frame)
+        feature_count = len(frame.index)
+        return SourceAssetResolution(
+            source_id="raw.google.poi",
+            path=output_gpkg,
+            source_mode="coverage_empty" if feature_count == 0 else "asset_downloaded",
+            cache_hit=False,
+            version_token=_path_version_token(output_gpkg),
+            bbox=bbox,
+            feature_count=feature_count,
+        )
+
+    def _google_places_fetcher_config_digest(self) -> str:
+        configured_key = self.google_places_cache_key
+        if configured_key is None and self.google_places_fetcher is not None:
+            configured_key = getattr(self.google_places_fetcher, "cache_key", None)
+        if configured_key is None and self.google_places_fetcher is not None:
+            version = getattr(self.google_places_fetcher, "version", None)
+            configured_key = str(version) if version is not None else None
+        payload = str(configured_key or "").strip()
+        if not payload:
+            raise RuntimeError("A stable non-secret cache key is required for Google POI remote acquisition.")
+        return hashlib.sha1(payload.encode("utf-8")).hexdigest()[:12]
+
+    def _write_google_poi_authorization_evidence(
+        self,
+        target_dir: Path,
+        *,
+        authorization_payload: dict[str, Any],
+    ) -> None:
+        target_dir.mkdir(parents=True, exist_ok=True)
+        manifest_bytes = (
+            self.google_poi_authorization_path.read_bytes()
+            if self.google_poi_authorization_path is not None and self.google_poi_authorization_path.exists()
+            else json.dumps(authorization_payload, sort_keys=True).encode("utf-8")
+        )
+        evidence = {
+            "provider": authorization_payload.get("provider") or "google_places",
+            "authorization_status": authorization_payload.get("authorization_status"),
+            "authorized_use": {
+                key: bool((authorization_payload.get("authorized_use") or {}).get(key))
+                for key in (
+                    "persistent_storage",
+                    "export_vector_files",
+                    "fuse_with_non_google_sources",
+                )
+            },
+            "attribution_required": bool(authorization_payload.get("attribution_required", True)),
+            "source_manifest_digest": hashlib.sha1(manifest_bytes).hexdigest(),
+        }
+        (target_dir / "google_poi_authorization_evidence.json").write_text(
+            json.dumps(evidence, ensure_ascii=False, indent=2),
+            encoding="utf-8",
+        )
+
     def _resolve_hydrosheds_water(
         self,
         source_id: str,
@@ -1134,6 +1287,104 @@ class SourceAssetService:
         geo_frame = gpd.GeoDataFrame(frame, geometry=gpd.GeoSeries(geometries, crs="EPSG:4326"), crs="EPSG:4326")
         geo_frame = geo_frame[geo_frame.geometry.notna() & ~geo_frame.geometry.is_empty].copy()
         return _filter_polygonal_frame(geo_frame)
+
+    @staticmethod
+    def _google_poi_rows_to_frame(rows: Iterable[dict[str, Any]]) -> gpd.GeoDataFrame:
+        base_columns = [
+            "place_id",
+            "name",
+            "name_alt",
+            "category",
+            "primary_type",
+            "type",
+            "types",
+            "admin_country",
+            "country",
+            "region_code",
+            "lat",
+            "lng",
+        ]
+        normalized_rows = []
+        for raw_row in rows:
+            if not isinstance(raw_row, dict):
+                continue
+            location = raw_row.get("location")
+            display_name = raw_row.get("displayName")
+            lat = raw_row.get("lat", raw_row.get("latitude"))
+            lng = raw_row.get("lng", raw_row.get("longitude"))
+            if lat is None:
+                lat = _nested_mapping_value(location, "latitude")
+            if lng is None:
+                lng = _nested_mapping_value(location, "longitude")
+
+            display_text = raw_row.get("display_name") or _nested_mapping_value(display_name, "text")
+            name_value = raw_row.get("name")
+            resource_name = str(name_value).strip() if _is_google_places_resource_name(name_value) else None
+            primary_type = raw_row.get("primary_type", raw_row.get("primaryType"))
+            types = raw_row.get("types")
+            category = raw_row.get("category", primary_type)
+            if category is None:
+                category = raw_row.get("type")
+            if category is None and isinstance(types, list) and types:
+                category = types[0]
+
+            normalized_rows.append(
+                {
+                    "place_id": raw_row.get("place_id") or raw_row.get("id") or resource_name,
+                    "name": display_text or (None if resource_name else name_value),
+                    "name_alt": (
+                        raw_row.get("name_alt")
+                        or raw_row.get("formatted_address")
+                        or raw_row.get("formattedAddress")
+                        or raw_row.get("vicinity")
+                        or resource_name
+                    ),
+                    "category": category,
+                    "primary_type": primary_type,
+                    "type": raw_row.get("type"),
+                    "types": types,
+                    "admin_country": raw_row.get("admin_country"),
+                    "country": raw_row.get("country"),
+                    "region_code": raw_row.get("region_code"),
+                    "lat": lat,
+                    "lng": lng,
+                }
+            )
+
+        frame = pd.DataFrame(normalized_rows, columns=base_columns)
+        if frame.empty:
+            return gpd.GeoDataFrame(
+                {column: pd.Series(dtype="object") for column in base_columns},
+                geometry=gpd.GeoSeries([], crs="EPSG:4326"),
+                crs="EPSG:4326",
+            )
+
+        frame["category"] = frame["category"].where(
+            frame["category"].notna(),
+            frame.get("primary_type", pd.Series(pd.NA, index=frame.index)),
+        )
+        frame["category"] = frame["category"].where(
+            frame["category"].notna(),
+            frame.get("type", pd.Series(pd.NA, index=frame.index)),
+        )
+        frame["lat"] = pd.to_numeric(frame.get("lat"), errors="coerce")
+        frame["lng"] = pd.to_numeric(frame.get("lng"), errors="coerce")
+        frame = frame[frame["lat"].notna() & frame["lng"].notna()].copy()
+        if frame.empty:
+            return gpd.GeoDataFrame(
+                {column: pd.Series(dtype="object") for column in base_columns},
+                geometry=gpd.GeoSeries([], crs="EPSG:4326"),
+                crs="EPSG:4326",
+            )
+
+        for column in base_columns:
+            if column not in frame.columns:
+                frame[column] = pd.NA
+        frame = frame[base_columns].copy()
+        for column in base_columns:
+            frame[column] = frame[column].apply(_json_safe_vector_value)
+        geometry = gpd.points_from_xy(frame["lng"], frame["lat"], crs="EPSG:4326")
+        return gpd.GeoDataFrame(frame, geometry=geometry, crs="EPSG:4326")
 
     def _download_msft_features(self, rows: Iterable[dict[str, str]]) -> Iterable[dict[str, object]]:
         for row in rows:

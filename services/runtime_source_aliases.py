@@ -32,6 +32,7 @@ POI_SOURCE_PRIORITY_ORDER: tuple[str, ...] = ("OSM", "GNS", "RH")
 
 LINE_SOURCE_ALIASES: dict[str, str] = {
     "raw.osm.road": "OSM",
+    "raw.microsoft.road": "MS",
     "raw.overture.transportation": "OVERTURE",
     "raw.overture.road": "OVERTURE",
     "raw.osm.waterways": "OSM",

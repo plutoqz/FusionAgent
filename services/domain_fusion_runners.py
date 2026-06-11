@@ -187,7 +187,13 @@ def run_road_tile(
     del tile
     paths = _line_source_paths(sources)
     base_path = paths.get("raw.osm.road") or paths.get("OSM")
-    supplement_path = paths.get("raw.overture.transportation") or paths.get("raw.overture.road") or paths.get("OVERTURE")
+    supplement_path = (
+        paths.get("raw.microsoft.road")
+        or paths.get("MS")
+        or paths.get("raw.overture.transportation")
+        or paths.get("raw.overture.road")
+        or paths.get("OVERTURE")
+    )
     if base_path is None or supplement_path is None:
         return _empty_output(output_dir, "road_fused", target_crs), {
             "algorithm_id": "algo.fusion.road.conflation.v7",

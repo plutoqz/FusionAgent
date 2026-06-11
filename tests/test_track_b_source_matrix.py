@@ -25,8 +25,9 @@ def test_track_b_theme_contract_locks_first_wave_source_matrix() -> None:
     assert "raw.openbuildingmap.building" in building.manual_preload_source_ids
     assert "raw.google.open_buildings.vector" in building.manual_preload_source_ids
 
-    assert road.official_remote_source_ids == ("raw.osm.road", "raw.overture.transportation")
+    assert road.official_remote_source_ids == ("raw.osm.road", "raw.microsoft.road")
     assert "raw.overture.road" in road.manual_preload_source_ids
+    assert "raw.overture.transportation" in road.reservation_only_source_ids
 
     assert water.official_remote_source_ids == ("raw.osm.water", "raw.hydrolakes.water")
     assert water.manual_preload_source_ids == ("raw.local.water",)
@@ -34,7 +35,7 @@ def test_track_b_theme_contract_locks_first_wave_source_matrix() -> None:
     assert waterways.official_remote_source_ids == ("raw.osm.waterways", "raw.hydrorivers.water")
     assert waterways.manual_preload_source_ids == ("raw.local.pakistan.waterways",)
 
-    assert poi.official_remote_source_ids == ("raw.osm.poi", "raw.gns.poi")
+    assert poi.official_remote_source_ids == ("raw.gns.poi", "raw.google.poi", "raw.osm.poi")
     assert poi.manual_preload_source_ids == ("raw.rh.poi",)
     assert "raw.overture.poi" in poi.reservation_only_source_ids or "raw.overture.places" in poi.reservation_only_source_ids
 
@@ -52,14 +53,18 @@ def test_source_catalog_metadata_carries_track_b_b1_contract_for_live_sources() 
     assert sources["raw.google.open_buildings.vector"].metadata["acquisition_class"] == "manual_preload_required"
 
     assert sources["raw.osm.road"].metadata["track_b_theme"] == "road"
+    assert sources["raw.microsoft.road"].metadata["acquisition_class"] == "manual_preload_required"
+    assert sources["raw.microsoft.road"].metadata["field_mapping_profile"] == "fields.road.osm"
     assert sources["raw.overture.road"].metadata["acquisition_class"] == "manual_preload_required"
-    assert sources["raw.overture.transportation"].metadata["acquisition_class"] == "official_remote_supported"
+    assert sources["raw.overture.transportation"].metadata["acquisition_class"] == "reservation_only"
     assert sources["raw.local.water"].metadata["acquisition_class"] == "manual_preload_required"
     assert sources["raw.osm.waterways"].metadata["field_mapping_profile"] == "fields.waterways.osm"
     assert sources["raw.local.pakistan.waterways"].metadata["field_mapping_profile"] == "fields.waterways.local_osm_like"
     assert sources["raw.hydrorivers.water"].metadata["acquisition_class"] == "official_remote_supported"
     assert sources["raw.hydrolakes.water"].metadata["runtime_status"] == "runtime_candidate"
     assert sources["raw.gns.poi"].metadata["acquisition_class"] == "official_remote_supported"
+    assert sources["raw.google.poi"].metadata["acquisition_class"] == "authorized_remote_supported"
+    assert sources["raw.google.poi"].metadata["field_mapping_profile"] == "fields.poi.google"
     assert sources["raw.rh.poi"].metadata["field_mapping_profile"] == "fields.poi.rh"
 
     flood_road = sources["catalog.flood.road"]
@@ -67,8 +72,9 @@ def test_source_catalog_metadata_carries_track_b_b1_contract_for_live_sources() 
     flood_waterways = sources["catalog.flood.waterways"]
     generic_poi = sources["catalog.generic.poi"]
 
-    assert flood_road.metadata["component_source_ids"] == ["raw.osm.road", "raw.overture.transportation"]
+    assert flood_road.metadata["component_source_ids"] == ["raw.osm.road", "raw.microsoft.road"]
     assert "raw.overture.road" in flood_road.metadata["track_b_manual_preload_source_ids"]
+    assert "raw.overture.transportation" in flood_road.metadata["track_b_reservation_only_source_ids"]
     assert flood_water.metadata["track_b_manual_preload_source_ids"] == ["raw.local.water"]
     assert flood_water.metadata["track_b_official_remote_source_ids"] == ["raw.osm.water", "raw.hydrolakes.water"]
     assert flood_waterways.metadata["track_b_official_remote_source_ids"] == [
@@ -76,7 +82,11 @@ def test_source_catalog_metadata_carries_track_b_b1_contract_for_live_sources() 
         "raw.hydrorivers.water",
     ]
     assert flood_waterways.metadata["track_b_manual_preload_source_ids"] == ["raw.local.pakistan.waterways"]
-    assert generic_poi.metadata["track_b_official_remote_source_ids"] == ["raw.osm.poi", "raw.gns.poi"]
+    assert generic_poi.metadata["track_b_official_remote_source_ids"] == [
+        "raw.gns.poi",
+        "raw.google.poi",
+        "raw.osm.poi",
+    ]
     assert "raw.overture.poi" in generic_poi.metadata["track_b_reservation_only_source_ids"] or "raw.overture.places" in generic_poi.metadata["track_b_reservation_only_source_ids"]
 
 
@@ -106,7 +116,7 @@ def test_track_b_live_spec_covers_all_locked_source_contracts() -> None:
     text = Path(TRACK_B_SOURCE_CONTRACT_REF).read_text(encoding="utf-8")
 
     for source_id in TRACK_B_SOURCE_CONTRACTS:
-        if source_id in {"raw.overture.transportation", "raw.overture.places"}:
+        if source_id in {"raw.overture.transportation", "raw.overture.places", "raw.google.poi", "raw.microsoft.road"}:
             continue
         assert source_id in text
 
@@ -130,6 +140,7 @@ def test_source_catalog_exposes_locked_track_b_b2_raw_sources() -> None:
     assert "raw.hydrolakes.water" in sources
     assert "raw.osm.waterways" in sources
     assert "raw.local.pakistan.waterways" in sources
+    assert "raw.google.poi" in sources
 
 
 def test_track_b_national_scale_freeze_captures_current_claim_boundary() -> None:
@@ -143,15 +154,27 @@ def test_track_b_national_scale_freeze_captures_current_claim_boundary() -> None
     assert freeze["tile_config_scope"] == "per_theme"
     assert freeze["theme_tile_metadata"]["road"]["tile_width_m"] == 20_000.0
 
-    assert runs["road"]["claim_state"] == "national_scale_supported"
+    assert runs["road"]["claim_state"] == "superseded_historical_evidence"
     assert runs["road"]["stitched_artifact"].endswith("road/stitched_artifact.json")
     assert runs["road"]["tile_count"] == 154
     assert runs["road"]["tile_width_m"] == 20_000.0
-    assert runs["road"]["component_source_ids"] == ["raw.osm.road", "raw.overture.transportation"]
+    assert runs["road"]["component_source_ids"] == ["raw.osm.road", "raw.microsoft.road"]
+    assert runs["road"]["historical_component_source_ids"] == [
+        "raw.osm.road",
+        "raw.overture.transportation",
+    ]
+    assert runs["road"]["contract_superseded_by"] == "2026-06-11 autonomous road source contract"
+    assert "current road full closure targets OSM+Microsoft road" in runs["road"]["claim_boundary"]
     road_coverage = runs["road"]["component_coverage"]
     assert road_coverage["raw.overture.transportation"]["feature_count"] > 0
-    assert road_coverage["raw.overture.transportation"]["coverage_status"] == "available"
-    assert "raw.overture.transportation" in runs["road"]["selected_normalized_sources"]
+    assert road_coverage["raw.overture.transportation"]["coverage_status"] == "compatibility_historical"
+    assert (
+        road_coverage["raw.overture.transportation"]["source_mode"]
+        == "reservation_only_historical_evidence"
+    )
+    overture_selection = runs["road"]["selected_normalized_sources"]["raw.overture.transportation"]
+    assert overture_selection["compatibility_only"] is True
+    assert "historical evidence only" in overture_selection["claim_boundary"]
     assert runs["road"]["artifact_metrics"]["feature_count"] > 0
 
     assert runs["water"]["claim_state"] == "national_scale_supported"

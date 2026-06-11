@@ -49,6 +49,51 @@ _SOURCE_FALLBACKS = {
     "catalog.flood.waterways": ["catalog.flood.water"],
 }
 
+_SOURCE_COMPONENT_CANDIDATES = {
+    "catalog.flood.building": [
+        "raw.google.building",
+        "raw.microsoft.building",
+        "raw.osm.building",
+        "raw.osm.road",
+        "raw.openbuildingmap.building",
+    ],
+    "catalog.earthquake.building": [
+        "raw.google.building",
+        "raw.microsoft.building",
+        "raw.osm.building",
+        "raw.osm.road",
+        "raw.openbuildingmap.building",
+    ],
+    "catalog.generic.poi": ["raw.gns.poi", "raw.google.poi", "raw.osm.poi"],
+    "catalog.flood.water": ["raw.osm.water", "raw.hydrolakes.water", "raw.osm.waterways", "raw.hydrorivers.water"],
+    "catalog.flood.waterways": ["raw.osm.waterways", "raw.hydrorivers.water", "raw.osm.water", "raw.hydrolakes.water"],
+    "catalog.flood.road": ["raw.osm.road", "raw.microsoft.road"],
+    "catalog.earthquake.road": ["raw.osm.road", "raw.microsoft.road"],
+    "catalog.typhoon.road": ["raw.osm.road", "raw.microsoft.road"],
+}
+
+_REQUIRED_FULL_CLOSURE_SOURCE_IDS = {
+    "catalog.flood.building": [
+        "raw.google.building",
+        "raw.microsoft.building",
+        "raw.osm.building",
+        "raw.osm.road",
+    ],
+    "catalog.earthquake.building": [
+        "raw.google.building",
+        "raw.microsoft.building",
+        "raw.osm.building",
+        "raw.osm.road",
+    ],
+    "catalog.generic.poi": ["raw.gns.poi", "raw.google.poi", "raw.osm.poi"],
+    "catalog.flood.road": ["raw.osm.road", "raw.microsoft.road"],
+    "catalog.earthquake.road": ["raw.osm.road", "raw.microsoft.road"],
+    "catalog.typhoon.road": ["raw.osm.road", "raw.microsoft.road"],
+    "catalog.flood.water": ["raw.osm.water", "raw.hydrolakes.water"],
+    "catalog.flood.water_polygon": ["raw.osm.water", "raw.hydrolakes.water"],
+    "catalog.flood.waterways": ["raw.osm.waterways", "raw.hydrorivers.water"],
+}
+
 
 def retry_schedule_seconds(*, attempt_no: int) -> int:
     attempt_no = max(1, int(attempt_no))
@@ -140,6 +185,7 @@ def build_success_attempt(
     *,
     source_id: str,
     status: str = "materialized",
+    attempt_no: int = 1,
     channel: str | None = None,
     coverage_status: str | None = None,
     feature_count: int | None = None,
@@ -148,6 +194,7 @@ def build_success_attempt(
     return build_source_attempt(
         source_id=source_id,
         status=status,
+        attempt_no=attempt_no,
         channel=channel,
         coverage_status=coverage_status,
         feature_count=feature_count,
@@ -158,6 +205,14 @@ def build_success_attempt(
 
 def source_fallback_candidates(source_id: str) -> list[str]:
     return list(_SOURCE_FALLBACKS.get(str(source_id), []))
+
+
+def source_component_candidates(source_id: str, default: list[str] | tuple[str, ...]) -> list[str]:
+    return list(_SOURCE_COMPONENT_CANDIDATES.get(str(source_id), list(default)))
+
+
+def required_full_closure_source_ids(source_id: str) -> list[str]:
+    return list(_REQUIRED_FULL_CLOSURE_SOURCE_IDS.get(str(source_id), []))
 
 
 _PARTIAL_COVERAGE_ALLOWED_SOURCES = {
