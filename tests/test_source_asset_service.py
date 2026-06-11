@@ -11,7 +11,7 @@ import pytest
 geopandas = pytest.importorskip("geopandas")
 from shapely.geometry import LineString, Point, Polygon
 
-from services.source_asset_service import SourceAssetService
+from services.source_asset_service import SourceAssetService, classify_source_fault
 from services.aoi_resolution_service import ResolvedAOI
 from utils.shp_zip import zip_shapefile_bundle
 
@@ -124,6 +124,19 @@ def _resolved_nairobi_aoi() -> ResolvedAOI:
         selection_reason="single_high_confidence_candidate",
         candidates=(),
     )
+
+
+@pytest.mark.parametrize(
+    ("error", "expected"),
+    [
+        (TimeoutError("network timed out while downloading source"), "NETWORK_FAILED"),
+        (RuntimeError("403 forbidden: invalid API key credential"), "UNAUTHORIZED"),
+        (RuntimeError("provider unavailable: upstream service unavailable 503"), "PROVIDER_UNAVAILABLE"),
+        (RuntimeError("outside coverage: no official coverage for requested AOI"), "NO_OFFICIAL_COVERAGE"),
+    ],
+)
+def test_classify_source_fault_recognizes_external_faults(error: Exception, expected: str) -> None:
+    assert classify_source_fault(source={"source_id": "raw.external"}, error=error) == expected
 
 
 def test_source_asset_service_prefers_existing_local_data_tree(tmp_path: Path) -> None:

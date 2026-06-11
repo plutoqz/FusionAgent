@@ -73,11 +73,17 @@ def build_source_attempt(
     coverage_status: str | None = None,
     feature_count: int | None = None,
     selected_for_fusion: bool = False,
+    external_uncontrollable: bool | None = None,
     normalize_status: bool = True,
 ) -> dict[str, object]:
     normalized_fault_class = str(fault_class or "") if fault_class else None
     normalized_status = _normalize_attempt_status(status=status, fault_class=normalized_fault_class) if normalize_status else status
     is_recoverable = is_recoverable_fault(normalized_fault_class or "") if recoverable is None else bool(recoverable)
+    is_external_uncontrollable = (
+        bool(external_uncontrollable)
+        if external_uncontrollable is not None
+        else normalized_fault_class in EXTERNAL_UNCONTROLLABLE_FAULTS
+    )
     if next_retry_after_seconds is None and is_recoverable:
         next_retry_after_seconds = retry_schedule_seconds(attempt_no=attempt_no)
     return SourceAcquisitionAttempt(
@@ -93,7 +99,7 @@ def build_source_attempt(
         coverage_status=coverage_status,
         feature_count=feature_count,
         selected_for_fusion=selected_for_fusion,
-        external_uncontrollable=normalized_fault_class in EXTERNAL_UNCONTROLLABLE_FAULTS,
+        external_uncontrollable=is_external_uncontrollable,
     ).model_dump(mode="json")
 
 

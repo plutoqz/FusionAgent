@@ -184,6 +184,39 @@ def classify_source_fault(
         return "CRS_MISMATCH"
     if "corrupt" in text or "corrupted" in text or "broken" in text or "badzipfile" in text:
         return "SOURCE_CORRUPTED"
+    if (
+        "no official coverage" in text
+        or "official no coverage" in text
+        or "outside coverage" in text
+    ):
+        return "NO_OFFICIAL_COVERAGE"
+    if (
+        "unauthorized" in text
+        or "forbidden" in text
+        or "401" in text
+        or "403" in text
+        or "permission" in text
+        or "api key" in text
+        or "credential" in text
+    ):
+        return "UNAUTHORIZED"
+    if (
+        "provider unavailable" in text
+        or "service unavailable" in text
+        or "503" in text
+        or "upstream unavailable" in text
+    ):
+        return "PROVIDER_UNAVAILABLE"
+    if (
+        "timeout" in text
+        or "timed out" in text
+        or "connection" in text
+        or "network" in text
+        or "dns" in text
+        or "temporary failure" in text
+        or "unreachable" in text
+    ):
+        return "NETWORK_FAILED"
     if "no local or remote source asset path available" in text or "not found" in text or "missing" in text:
         return "SOURCE_MISSING"
     if source.get("path") in {None, ""}:

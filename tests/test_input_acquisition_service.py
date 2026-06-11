@@ -193,10 +193,10 @@ class _DegradedExternalAttemptBundleProvider(_StubBundleProvider):
                 {"source_id": "raw.osm.poi", "status": "available", "feature_count": 2},
                 {
                     "source_id": "raw.google.poi",
-                    "status": "attempted",
-                    "fault_class": "NETWORK_FAILED",
+                    "status": "network_failed",
                     "fault_message": "network down",
                     "feature_count": 0,
+                    "external_uncontrollable": True,
                 },
             ],
         )
@@ -718,15 +718,12 @@ def test_input_acquisition_writes_manifest_for_failed_provider(tmp_path: Path) -
 
 def test_input_acquisition_failed_provider_records_external_normalized_source_attempt(
     tmp_path: Path,
-    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    import services.input_acquisition_service as input_acquisition_service
     from services.input_acquisition_service import InputAcquisitionService
 
-    monkeypatch.setattr(input_acquisition_service, "classify_source_fault", lambda **_: "NETWORK_FAILED")
     service = InputAcquisitionService(
         registry=ArtifactRegistry(index_path=tmp_path / "artifact_registry.json"),
-        providers=[_FaultingBundleProvider(RuntimeError("temporary network outage"))],
+        providers=[_FaultingBundleProvider(RuntimeError("network timed out while downloading source"))],
         cache_dir=tmp_path / "cache",
     )
 

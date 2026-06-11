@@ -605,6 +605,11 @@ def _source_attempts_for_evidence(
                 coverage_status=_coverage_status_for_attempt(attempt, coverage_item),
                 feature_count=_feature_count_for_attempt(attempt, coverage_item),
                 selected_for_fusion=_selected_for_fusion(attempt, coverage_item),
+                external_uncontrollable=(
+                    bool(attempt.get("external_uncontrollable"))
+                    if "external_uncontrollable" in attempt
+                    else None
+                ),
             )
         )
     return attempts
