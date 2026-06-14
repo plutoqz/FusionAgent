@@ -47,6 +47,12 @@ _GEOFABRIK_LAYER_NAMES = {
     "raw.osm.poi": "gis_osm_pois_free_1.shp",
 }
 
+_GEOFABRIK_COUNTRY_ALIASES = {
+    "gb": {"great britain", "england", "scotland", "wales"},
+    "uk": {"great britain", "england", "scotland", "wales"},
+    "united kingdom": {"great britain", "england", "scotland", "wales"},
+}
+
 _LOCAL_SOURCE_CANDIDATES = {
     "raw.osm.building": [
         ("Data", "buildings", "OSM"),
@@ -325,6 +331,41 @@ def _feature_geometry(feature: dict[str, Any]) -> Any | None:
         return shape(geometry)
     except Exception:  # noqa: BLE001
         return None
+
+
+def _aoi_bbox_polygon(aoi: ResolvedAOI) -> Any | None:
+    bbox = getattr(aoi, "bbox", None)
+    if bbox is None or len(bbox) < 4:
+        return None
+    try:
+        min_x, min_y, max_x, max_y = (float(value) for value in bbox[:4])
+    except (TypeError, ValueError):
+        return None
+    if not all(math.isfinite(value) for value in (min_x, min_y, max_x, max_y)):
+        return None
+    if min_x >= max_x or min_y >= max_y:
+        return None
+    return shape(
+        {
+            "type": "Polygon",
+            "coordinates": [
+                [
+                    [min_x, min_y],
+                    [min_x, max_y],
+                    [max_x, max_y],
+                    [max_x, min_y],
+                    [min_x, min_y],
+                ]
+            ],
+        }
+    )
+
+
+def _geofabrik_candidate_area(feature: dict[str, Any]) -> float:
+    geometry = _feature_geometry(feature)
+    if geometry is None or geometry.is_empty:
+        return math.inf
+    return float(geometry.area)
 
 
 def _json_safe_vector_value(value: Any) -> Any:
@@ -674,9 +715,22 @@ class SourceAssetService:
         if aoi is None or (aoi.country_name is None and aoi.country_code is None):
             return _GeofabrikBundle(slug="burundi", download_url=self.geofabrik_burundi_url)
 
+        for matcher in (
+            self._match_geofabrik_by_exact_country,
+            self._match_geofabrik_by_alias,
+            self._match_geofabrik_by_bbox,
+        ):
+            bundle = matcher(aoi)
+            if bundle is not None:
+                return bundle
+
+        raise FileNotFoundError(
+            f"No Geofabrik country bundle matched AOI country={aoi.country_name!r} code={aoi.country_code!r}"
+        )
+
+    def _match_geofabrik_by_exact_country(self, aoi: ResolvedAOI) -> _GeofabrikBundle | None:
         country_code = _normalize_country_code(aoi.country_code)
         country_name = _normalize_country_name(aoi.country_name)
-
         for feature in self._load_geofabrik_index():
             properties = feature.get("properties") or {}
             download_url = str((properties.get("urls") or {}).get("shp") or "").strip()
@@ -709,8 +763,66 @@ class SourceAssetService:
                     boundary_geometry=_feature_geometry(feature),
                 )
 
-        raise FileNotFoundError(
-            f"No Geofabrik country bundle matched AOI country={aoi.country_name!r} code={aoi.country_code!r}"
+        return None
+
+    def _match_geofabrik_by_alias(self, aoi: ResolvedAOI) -> _GeofabrikBundle | None:
+        alias_names: set[str] = set()
+        for hint in (_normalize_country_code(aoi.country_code), _normalize_country_name(aoi.country_name)):
+            if hint is not None:
+                alias_names.update(_GEOFABRIK_COUNTRY_ALIASES.get(hint, set()))
+        if not alias_names:
+            return None
+
+        aoi_polygon = _aoi_bbox_polygon(aoi)
+        matches: list[dict[str, Any]] = []
+        for feature in self._load_geofabrik_index():
+            properties = feature.get("properties") or {}
+            download_url = str((properties.get("urls") or {}).get("shp") or "").strip()
+            if not download_url:
+                continue
+            names = {
+                _normalize_country_name(properties.get("name")),
+                _normalize_country_name(str(properties.get("id") or "").split("/")[-1]),
+            }
+            if names.isdisjoint(alias_names):
+                continue
+            matches.append(feature)
+
+        if aoi_polygon is None:
+            return None
+        if not matches:
+            return None
+        containing = [
+            feature
+            for feature in matches
+            if (geometry := _feature_geometry(feature)) is not None and geometry.covers(aoi_polygon)
+        ]
+        if not containing:
+            return None
+        return self._geofabrik_bundle_from_feature(min(containing, key=_geofabrik_candidate_area))
+
+    def _match_geofabrik_by_bbox(self, aoi: ResolvedAOI) -> _GeofabrikBundle | None:
+        aoi_polygon = _aoi_bbox_polygon(aoi)
+        if aoi_polygon is None:
+            return None
+        matches = [
+            feature
+            for feature in self._load_geofabrik_index()
+            if (geometry := _feature_geometry(feature)) is not None
+            and geometry.covers(aoi_polygon)
+            and str(((feature.get("properties") or {}).get("urls") or {}).get("shp") or "").strip()
+        ]
+        if not matches:
+            return None
+        return self._geofabrik_bundle_from_feature(min(matches, key=_geofabrik_candidate_area))
+
+    def _geofabrik_bundle_from_feature(self, feature: dict[str, Any]) -> _GeofabrikBundle:
+        properties = feature.get("properties") or {}
+        download_url = str((properties.get("urls") or {}).get("shp") or "").strip()
+        return _GeofabrikBundle(
+            slug=self._geofabrik_slug(properties, download_url),
+            download_url=download_url,
+            boundary_geometry=_feature_geometry(feature),
         )
 
     @staticmethod

@@ -9,7 +9,7 @@ from pathlib import Path
 import pytest
 
 geopandas = pytest.importorskip("geopandas")
-from shapely.geometry import LineString, Point, Polygon
+from shapely.geometry import LineString, Point, Polygon, box, mapping
 
 from services.source_asset_service import SourceAssetService, classify_source_fault
 from services.aoi_resolution_service import ResolvedAOI
@@ -542,6 +542,213 @@ def test_source_asset_service_materializes_osm_waterways_from_geofabrik_bundle(t
     assert len(frame) == 1
     assert set(frame.geom_type) == {"LineString"}
     assert frame.iloc[0]["waterway_i"] == 1
+
+
+def test_geofabrik_selection_uses_country_alias_without_location_special_case(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    archive_path = tmp_path / "fixtures" / "england-latest-free.shp.zip"
+    roads = geopandas.GeoDataFrame(
+        {"road_id": [1]},
+        geometry=[LineString([(-0.25, 51.35), (-0.10, 51.50)])],
+        crs="EPSG:4326",
+    )
+    _write_geofabrik_zip_with_layers(archive_path, roads=roads)
+    service = SourceAssetService(repo_root=tmp_path, cache_dir=tmp_path / "cache", prefer_local_data=False)
+    aoi = ResolvedAOI(
+        query="Any city in a country resolved as GB",
+        display_name="Generic AOI",
+        country_name="United Kingdom",
+        country_code="gb",
+        bbox=(-0.35, 51.30, 0.00, 51.60),
+        confidence=0.98,
+        selection_reason="fixture",
+        candidates=(),
+    )
+
+    monkeypatch.setattr(
+        service,
+        "_load_geofabrik_index",
+        lambda: [
+            {
+                "type": "Feature",
+                "properties": {
+                    "id": "europe/great-britain/england",
+                    "parent": "europe/great-britain",
+                    "name": "England",
+                    "iso3166-1:alpha2": [],
+                    "urls": {"shp": archive_path.resolve().as_uri()},
+                },
+                "geometry": mapping(box(-6.0, 49.0, 2.0, 56.0)),
+            }
+        ],
+    )
+
+    resolved = service.resolve_raw_source_path("raw.osm.road", aoi=aoi)
+
+    assert resolved.feature_count == 1
+    assert "england" in str(resolved.path).lower()
+
+
+def test_geofabrik_selection_uses_smallest_containing_bbox_when_country_metadata_is_missing(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    continent_archive = tmp_path / "fixtures" / "continent-latest-free.shp.zip"
+    region_archive = tmp_path / "fixtures" / "region-latest-free.shp.zip"
+    waterways = geopandas.GeoDataFrame(
+        {"waterway_id": [1]},
+        geometry=[LineString([(10.25, 10.25), (10.75, 10.75)])],
+        crs="EPSG:4326",
+    )
+    _write_geofabrik_zip_with_layers(continent_archive, waterways=waterways)
+    _write_geofabrik_zip_with_layers(region_archive, waterways=waterways)
+    service = SourceAssetService(repo_root=tmp_path, cache_dir=tmp_path / "cache", prefer_local_data=False)
+    aoi = ResolvedAOI(
+        query="Fixture AOI",
+        display_name="Fixture AOI",
+        country_name="No Matching Country",
+        country_code="zz",
+        bbox=(10.0, 10.0, 11.0, 11.0),
+        confidence=0.95,
+        selection_reason="fixture",
+        candidates=(),
+    )
+
+    monkeypatch.setattr(
+        service,
+        "_load_geofabrik_index",
+        lambda: [
+            {
+                "type": "Feature",
+                "properties": {
+                    "id": "continent",
+                    "name": "Continent",
+                    "iso3166-1:alpha2": [],
+                    "urls": {"shp": continent_archive.resolve().as_uri()},
+                },
+                "geometry": mapping(box(0.0, 0.0, 50.0, 50.0)),
+            },
+            {
+                "type": "Feature",
+                "properties": {
+                    "id": "continent/region",
+                    "name": "Region",
+                    "iso3166-1:alpha2": [],
+                    "urls": {"shp": region_archive.resolve().as_uri()},
+                },
+                "geometry": mapping(box(9.0, 9.0, 12.0, 12.0)),
+            },
+        ],
+    )
+
+    resolved = service.resolve_raw_source_path("raw.osm.waterways", aoi=aoi)
+
+    assert resolved.feature_count == 1
+    assert "region" in str(resolved.path).lower()
+
+
+def test_geofabrik_selection_lets_bbox_fallback_handle_non_covering_alias_candidate(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    england_archive = tmp_path / "fixtures" / "england-latest-free.shp.zip"
+    region_archive = tmp_path / "fixtures" / "region-latest-free.shp.zip"
+    roads = geopandas.GeoDataFrame(
+        {"road_id": [1]},
+        geometry=[LineString([(10.25, 10.25), (10.75, 10.75)])],
+        crs="EPSG:4326",
+    )
+    _write_geofabrik_zip_with_layers(england_archive, roads=roads)
+    _write_geofabrik_zip_with_layers(region_archive, roads=roads)
+    service = SourceAssetService(repo_root=tmp_path, cache_dir=tmp_path / "cache", prefer_local_data=False)
+    aoi = ResolvedAOI(
+        query="Any city in a country resolved as GB",
+        display_name="Generic AOI",
+        country_name="United Kingdom",
+        country_code="gb",
+        bbox=(10.0, 10.0, 11.0, 11.0),
+        confidence=0.95,
+        selection_reason="fixture",
+        candidates=(),
+    )
+
+    monkeypatch.setattr(
+        service,
+        "_load_geofabrik_index",
+        lambda: [
+            {
+                "type": "Feature",
+                "properties": {
+                    "id": "europe/great-britain/england",
+                    "name": "England",
+                    "iso3166-1:alpha2": [],
+                    "urls": {"shp": england_archive.resolve().as_uri()},
+                },
+                "geometry": mapping(box(-6.0, 49.0, 2.0, 56.0)),
+            },
+            {
+                "type": "Feature",
+                "properties": {
+                    "id": "continent/region",
+                    "name": "Region",
+                    "iso3166-1:alpha2": [],
+                    "urls": {"shp": region_archive.resolve().as_uri()},
+                },
+                "geometry": mapping(box(9.0, 9.0, 12.0, 12.0)),
+            },
+        ],
+    )
+
+    resolved = service.resolve_raw_source_path("raw.osm.road", aoi=aoi)
+
+    assert resolved.feature_count == 1
+    assert "region" in str(resolved.path).lower()
+
+
+def test_geofabrik_selection_does_not_use_alias_when_aoi_bbox_is_invalid(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    archive_path = tmp_path / "fixtures" / "england-latest-free.shp.zip"
+    roads = geopandas.GeoDataFrame(
+        {"road_id": [1]},
+        geometry=[LineString([(-0.25, 51.35), (-0.10, 51.50)])],
+        crs="EPSG:4326",
+    )
+    _write_geofabrik_zip_with_layers(archive_path, roads=roads)
+    service = SourceAssetService(repo_root=tmp_path, cache_dir=tmp_path / "cache", prefer_local_data=False)
+    aoi = ResolvedAOI(
+        query="Any city in a country resolved as GB",
+        display_name="Generic AOI",
+        country_name="United Kingdom",
+        country_code="gb",
+        bbox=(1.0, 1.0, 0.0, 0.0),
+        confidence=0.95,
+        selection_reason="fixture",
+        candidates=(),
+    )
+
+    monkeypatch.setattr(
+        service,
+        "_load_geofabrik_index",
+        lambda: [
+            {
+                "type": "Feature",
+                "properties": {
+                    "id": "europe/great-britain/england",
+                    "name": "England",
+                    "iso3166-1:alpha2": [],
+                    "urls": {"shp": archive_path.resolve().as_uri()},
+                },
+                "geometry": mapping(box(-6.0, 49.0, 2.0, 56.0)),
+            }
+        ],
+    )
+
+    with pytest.raises(FileNotFoundError):
+        service.resolve_raw_source_path("raw.osm.road", aoi=aoi)
 
 
 @pytest.mark.parametrize(
