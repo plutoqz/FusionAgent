@@ -322,6 +322,14 @@ class RuntimeDependencies:
     executor: WorkflowExecutor
 
 
+@dataclass(frozen=True)
+class LargeAreaSlicePlan:
+    can_execute: bool
+    slices: list[object]
+    failure_reason: str | None = None
+    missing_sources: list[str] | None = None
+
+
 class RuntimeSnapshotUnavailableError(RuntimeError):
     pass
 
@@ -2387,6 +2395,78 @@ class AgentRunService:
         )
         return result.output_path, repair_records
 
+    def _large_area_water_slices_for_task(
+        self,
+        *,
+        request: RunCreateRequest,
+        task_kind: TaskKind,
+        component_paths: dict[str, Path],
+        resolved_inputs: ResolvedRunInputs,
+    ) -> LargeAreaSlicePlan:
+        from services.domain_fusion_runners import run_water_polygon_tile, run_waterways_tile
+        from services.large_area_runtime_service import LargeAreaSlice
+
+        del request, resolved_inputs
+        if task_kind == TaskKind.water_polygon:
+            water_sources = {
+                key: path
+                for key, path in {
+                    "raw.osm.water": component_paths.get("raw.osm.water"),
+                    "raw.hydrolakes.water": component_paths.get("raw.hydrolakes.water"),
+                }.items()
+                if path is not None
+            }
+            return LargeAreaSlicePlan(
+                can_execute=True,
+                slices=[
+                    LargeAreaSlice(
+                        name="water_polygon",
+                        geometry_family="polygon",
+                        sources=water_sources,
+                        runner=run_water_polygon_tile,
+                    )
+                ],
+            )
+
+        if task_kind == TaskKind.waterways:
+            line_supplement = component_paths.get("raw.hydrorivers.water") or component_paths.get(
+                "raw.local.pakistan.waterways"
+            )
+            if component_paths.get("raw.osm.waterways") is None or line_supplement is None:
+                missing_sources: list[str] = []
+                if component_paths.get("raw.osm.waterways") is None:
+                    missing_sources.append("raw.osm.waterways")
+                if line_supplement is None:
+                    missing_sources.append("raw.hydrorivers.water|raw.local.pakistan.waterways")
+                return LargeAreaSlicePlan(
+                    can_execute=False,
+                    slices=[],
+                    failure_reason="no_line_source_available",
+                    missing_sources=missing_sources,
+                )
+            line_sources = {"raw.osm.waterways": component_paths["raw.osm.waterways"]}
+            if component_paths.get("raw.hydrorivers.water") is not None:
+                line_sources["raw.hydrorivers.water"] = component_paths["raw.hydrorivers.water"]
+            else:
+                line_sources["raw.local.pakistan.waterways"] = component_paths["raw.local.pakistan.waterways"]
+            return LargeAreaSlicePlan(
+                can_execute=True,
+                slices=[
+                    LargeAreaSlice(
+                        name="waterways_line",
+                        geometry_family="line",
+                        sources=line_sources,
+                        runner=run_waterways_tile,
+                    )
+                ],
+            )
+
+        return LargeAreaSlicePlan(
+            can_execute=False,
+            slices=[],
+            failure_reason=f"unsupported_water_task_kind:{task_kind.value}",
+        )
+
     def run_large_area_execution_stage(
         self,
         *,
@@ -2399,7 +2479,7 @@ class AgentRunService:
         resolved_aoi: ResolvedAOI | None,
         repair_records: Optional[List[RepairRecord]] = None,
     ) -> tuple[Path, List[RepairRecord]]:
-        from services.domain_fusion_runners import run_poi_tile, run_road_tile, run_water_polygon_tile, run_waterways_tile
+        from services.domain_fusion_runners import run_poi_tile, run_road_tile
         from services.large_area_runtime_service import LargeAreaRuntimeService, LargeAreaSlice
 
         del intermediate_dir
@@ -2414,6 +2494,7 @@ class AgentRunService:
             run_id=run_id,
             resolved_inputs=resolved_inputs,
         )
+        task_kind = _task_kind_for_request(request)
         tile_manifest = self.tile_partition_service.partition_bbox(
             bbox=request_bbox,
             bbox_crs="EPSG:4326",
@@ -2439,39 +2520,18 @@ class AgentRunService:
                 )
             ]
         elif request.job_type == JobType.water:
-            water_sources = {
-                source_id: path
-                for source_id, path in {
-                    "raw.osm.water": component_paths.get("raw.osm.water"),
-                    "raw.hydrolakes.water": component_paths.get("raw.hydrolakes.water"),
-                }.items()
-                if path is not None
-            }
-            slices = [
-                LargeAreaSlice(
-                    name="water_polygon",
-                    geometry_family="polygon",
-                    sources=water_sources,
-                    runner=run_water_polygon_tile,
-                )
-            ]
-            line_supplement = component_paths.get("raw.hydrorivers.water") or component_paths.get(
-                "raw.local.pakistan.waterways"
+            slice_plan = self._large_area_water_slices_for_task(
+                request=request,
+                task_kind=task_kind,
+                component_paths=component_paths,
+                resolved_inputs=resolved_inputs,
             )
-            if component_paths.get("raw.osm.waterways") is not None and line_supplement is not None:
-                line_sources = {"raw.osm.waterways": component_paths["raw.osm.waterways"]}
-                if component_paths.get("raw.hydrorivers.water") is not None:
-                    line_sources["raw.hydrorivers.water"] = component_paths["raw.hydrorivers.water"]
-                else:
-                    line_sources["raw.local.pakistan.waterways"] = component_paths["raw.local.pakistan.waterways"]
-                slices.append(
-                    LargeAreaSlice(
-                        name="waterways_line",
-                        geometry_family="line",
-                        sources=line_sources,
-                        runner=run_waterways_tile,
-                    )
+            if not slice_plan.can_execute:
+                raise RuntimeError(
+                    "SOURCE_MISSING: "
+                    f"{slice_plan.failure_reason}; missing_sources={slice_plan.missing_sources or []}"
                 )
+            slices = slice_plan.slices
         elif request.job_type == JobType.poi:
             if component_paths.get("raw.osm.poi") is None:
                 raise ValueError("POI large-area runtime requires raw.osm.poi")

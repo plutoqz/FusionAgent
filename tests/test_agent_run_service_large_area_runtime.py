@@ -20,6 +20,7 @@ from schemas.agent import (
     WorkflowPlan,
 )
 from schemas.fusion import JobType
+from schemas.task_kind import TaskKind
 from services.agent_run_service import AgentRunService
 from services.domain_fusion_runners import run_poi_tile
 from services.input_acquisition_service import ResolvedRunInputs
@@ -249,7 +250,7 @@ def test_large_area_runtime_records_per_tile_progress_events(tmp_path: Path, mon
     assert completed[0].details["feature_count"] >= 0
 
 
-def test_water_task_driven_run_outputs_polygon_and_line_slices(tmp_path: Path, monkeypatch) -> None:
+def test_water_polygon_task_driven_run_outputs_polygon_slice_only(tmp_path: Path, monkeypatch) -> None:
     service = AgentRunService(base_dir=tmp_path / "runs")
     run_id = "water-run"
     request = _request(JobType.water)
@@ -327,7 +328,187 @@ def test_water_task_driven_run_outputs_polygon_and_line_slices(tmp_path: Path, m
 
     fused = gpd.read_file(path)
     assert repairs == []
-    assert {"polygon", "line"}.issubset(set(fused["feature_kind"]))
+    assert set(fused["feature_kind"]) == {"polygon"}
+    selected_sources = json.loads((run_dir / "output" / "selected_sources.json").read_text(encoding="utf-8"))
+    assert [slice_info["name"] for slice_info in selected_sources["slices"]] == ["water_polygon"]
+
+
+def test_waterways_task_driven_run_outputs_line_slice_only(tmp_path: Path, monkeypatch) -> None:
+    service = AgentRunService(base_dir=tmp_path / "runs")
+    run_id = "waterways-run"
+    request = _request(JobType.water).model_copy(update={"preferred_pattern_id": "wp.flood.waterways.default"})
+    run_dir = service.base_dir / run_id
+    for name in ["intermediate", "output", "logs"]:
+        (run_dir / name).mkdir(parents=True, exist_ok=True)
+    service._persist_status(_status(run_id, request))
+    monkeypatch.setattr(service.tile_partition_service, "partition_bbox", lambda **_kwargs: _single_tile_manifest())
+
+    osm_water = _write(
+        tmp_path / "osm_water.gpkg",
+        gpd.GeoDataFrame(
+            {"osm_id": [1]},
+            geometry=[Polygon([(0, 0), (0, 1), (1, 1), (1, 0)])],
+            crs="EPSG:3857",
+        ),
+    )
+    hydrolakes = _write(
+        tmp_path / "hydrolakes.gpkg",
+        gpd.GeoDataFrame(
+            {"Hylak_id": [11]},
+            geometry=[Polygon([(0.2, 0.2), (0.2, 0.8), (0.8, 0.8), (0.8, 0.2)])],
+            crs="EPSG:3857",
+        ),
+    )
+    osm_waterways = _write(
+        tmp_path / "osm_waterways.gpkg",
+        gpd.GeoDataFrame(
+            {"osm_id": [2], "fclass": ["river"]},
+            geometry=[LineString([(0, 0.5), (2, 0.5)])],
+            crs="EPSG:3857",
+        ),
+    )
+    hydrorivers = _write(
+        tmp_path / "hydrorivers.gpkg",
+        gpd.GeoDataFrame(
+            {"HYRIV_ID": [22]},
+            geometry=[LineString([(0, 0.55), (2, 0.55)])],
+            crs="EPSG:3857",
+        ),
+    )
+    resolved = ResolvedRunInputs(
+        osm_zip_path=tmp_path / "osm.zip",
+        ref_zip_path=tmp_path / "ref.zip",
+        source_mode="downloaded",
+        source_id="catalog.flood.water",
+        cache_hit=False,
+        version_token="v1",
+        selected_source_id="catalog.flood.water",
+        component_coverage={
+            "raw.osm.water": {"path": str(osm_water), "feature_count": 1},
+            "raw.hydrolakes.water": {"path": str(hydrolakes), "feature_count": 1},
+            "raw.osm.waterways": {"path": str(osm_waterways), "feature_count": 1},
+            "raw.hydrorivers.water": {"path": str(hydrorivers), "feature_count": 1},
+        },
+    )
+
+    try:
+        path, repairs = service.run_large_area_execution_stage(
+            run_id=run_id,
+            request=request,
+            plan=_plan(
+                "catalog.flood.water",
+                "dt.water.bundle",
+                "dt.waterways.fused",
+                "algo.fusion.waterways.conflation.v7",
+            ),
+            intermediate_dir=run_dir / "intermediate",
+            output_dir=run_dir / "output",
+            resolved_inputs=resolved,
+            resolved_aoi=None,
+        )
+    finally:
+        service.shutdown()
+
+    fused = gpd.read_file(path)
+    assert repairs == []
+    assert set(fused["feature_kind"]) == {"line"}
+    selected_sources = json.loads((run_dir / "output" / "selected_sources.json").read_text(encoding="utf-8"))
+    assert [slice_info["name"] for slice_info in selected_sources["slices"]] == ["waterways_line"]
+
+
+def test_large_area_waterways_fails_before_execution_when_line_sources_are_missing(tmp_path: Path) -> None:
+    service = AgentRunService(base_dir=tmp_path / "runs", max_workers=1)
+    request = RunCreateRequest(
+        job_type=JobType.water,
+        trigger=RunTrigger(
+            type=RunTriggerType.user_query,
+            content="Fuse waterways for a generic AOI",
+            spatial_extent="bbox(0, 0, 1, 1)",
+            force_aoi_resolution=False,
+        ),
+        input_strategy=RunInputStrategy.task_driven_auto,
+        preferred_pattern_id="wp.flood.waterways.default",
+    )
+    resolved_inputs = ResolvedRunInputs(
+        osm_zip_path=tmp_path / "osm.zip",
+        ref_zip_path=tmp_path / "ref.zip",
+        source_mode="downloaded",
+        source_id="catalog.flood.water",
+        selected_source_id="catalog.flood.water",
+        cache_hit=False,
+        version_token="v1",
+        component_coverage={
+            "raw.hydrolakes.water": {
+                "feature_count": 2,
+                "coverage_status": "available",
+                "path": str(tmp_path / "ref.zip"),
+            },
+            "raw.hydrorivers.water": {"feature_count": 0, "coverage_status": "empty", "path": None},
+            "raw.osm.waterways": {"feature_count": 0, "coverage_status": "missing", "path": None},
+        },
+    )
+
+    result = service._large_area_water_slices_for_task(
+        request=request,
+        task_kind=TaskKind.waterways,
+        component_paths={},
+        resolved_inputs=resolved_inputs,
+    )
+
+    assert result.can_execute is False
+    assert result.failure_reason == "no_line_source_available"
+
+
+def test_large_area_waterways_missing_sources_omit_hydrorivers_when_local_supplement_exists(
+    tmp_path: Path,
+) -> None:
+    service = AgentRunService(base_dir=tmp_path / "runs", max_workers=1)
+    request = _request(JobType.water).model_copy(update={"preferred_pattern_id": "wp.flood.waterways.default"})
+
+    result = service._large_area_water_slices_for_task(
+        request=request,
+        task_kind=TaskKind.waterways,
+        component_paths={"raw.local.pakistan.waterways": tmp_path / "local_waterways.gpkg"},
+        resolved_inputs=ResolvedRunInputs(
+            osm_zip_path=tmp_path / "osm.zip",
+            ref_zip_path=tmp_path / "ref.zip",
+            source_mode="downloaded",
+            source_id="catalog.flood.water",
+            selected_source_id="catalog.flood.water",
+            cache_hit=False,
+            version_token="v1",
+        ),
+    )
+
+    assert result.can_execute is False
+    assert result.failure_reason == "no_line_source_available"
+    assert result.missing_sources == ["raw.osm.waterways"]
+
+
+def test_large_area_waterways_missing_sources_report_supplement_alternatives_when_both_are_missing(
+    tmp_path: Path,
+) -> None:
+    service = AgentRunService(base_dir=tmp_path / "runs", max_workers=1)
+    request = _request(JobType.water).model_copy(update={"preferred_pattern_id": "wp.flood.waterways.default"})
+
+    result = service._large_area_water_slices_for_task(
+        request=request,
+        task_kind=TaskKind.waterways,
+        component_paths={"raw.osm.waterways": tmp_path / "osm_waterways.gpkg"},
+        resolved_inputs=ResolvedRunInputs(
+            osm_zip_path=tmp_path / "osm.zip",
+            ref_zip_path=tmp_path / "ref.zip",
+            source_mode="downloaded",
+            source_id="catalog.flood.water",
+            selected_source_id="catalog.flood.water",
+            cache_hit=False,
+            version_token="v1",
+        ),
+    )
+
+    assert result.can_execute is False
+    assert result.failure_reason == "no_line_source_available"
+    assert result.missing_sources == ["raw.hydrorivers.water|raw.local.pakistan.waterways"]
 
 
 def test_poi_task_driven_run_uses_osm_and_gns_large_area_runtime(tmp_path: Path, monkeypatch) -> None:
