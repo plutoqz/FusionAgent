@@ -6,6 +6,7 @@ import geopandas as gpd
 import pytest
 from shapely.geometry import LineString, Point, Polygon
 
+from schemas.degradation import DegradationContext, DegradationLevel
 from schemas.task_kind import TaskKind
 from services.quality_gate_service import QualityGateService
 
@@ -398,3 +399,22 @@ def test_quality_gate_rejects_mismatched_contract_id(tmp_path: Path) -> None:
             },
             contract_id="contract.poi.fused.v1",
         )
+
+
+def test_degradation_context_serializes_external_source_absence() -> None:
+    context = DegradationContext(
+        degraded=True,
+        level=DegradationLevel.external_uncontrollable,
+        reason="missing optional provider authorization",
+        available_sources=["raw.gns.poi"],
+        missing_sources=["raw.google.poi", "raw.osm.poi"],
+        external_uncontrollable_sources=["raw.google.poi"],
+        system_failure_sources=[],
+    )
+
+    payload = context.model_dump()
+
+    assert payload["degraded"] is True
+    assert payload["level"] == "external_uncontrollable"
+    assert payload["available_sources"] == ["raw.gns.poi"]
+    assert payload["missing_sources"] == ["raw.google.poi", "raw.osm.poi"]

@@ -16,3 +16,7 @@ class QualityGateReport(BaseModel):
     failure_reasons: list[str] = Field(default_factory=list)
     policy_id: str | None = None
     soft_failure_reasons: list[str] = Field(default_factory=list)
+    degraded_mode: bool = False
+    degradation_level: str | None = None
+    degradation_reason: str | None = None
+    degradation_context: dict[str, Any] = Field(default_factory=dict)
