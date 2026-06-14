@@ -202,6 +202,53 @@ class _DegradedExternalAttemptBundleProvider(_StubBundleProvider):
         )
 
 
+class _DataclassExternalCoverageBundleProvider(_StubBundleProvider):
+    def materialize(self, *, source_id: str, request_bbox, target_dir: Path, target_crs: str):
+        bundle = super().materialize(
+            source_id=source_id,
+            request_bbox=request_bbox,
+            target_dir=target_dir,
+            target_crs=target_crs,
+        )
+        from services.input_acquisition_service import MaterializedInputBundle
+        from services.source_asset_service import SourceCoverageStatus
+
+        return MaterializedInputBundle(
+            osm_zip_path=bundle.osm_zip_path,
+            ref_zip_path=bundle.ref_zip_path,
+            bbox=bundle.bbox,
+            target_crs=bundle.target_crs,
+            source_id=source_id,
+            component_coverage={
+                "raw.osm.poi": SourceCoverageStatus(
+                    source_id="raw.osm.poi",
+                    source_mode="downloaded",
+                    feature_count=2,
+                    coverage_status="available",
+                ),
+                "raw.google.poi": SourceCoverageStatus(
+                    source_id="raw.google.poi",
+                    source_mode="unauthorized",
+                    feature_count=0,
+                    coverage_status="missing",
+                    fault_class="UNAUTHORIZED",
+                    external_uncontrollable=True,
+                ),
+            },
+            provider_attempts=[
+                {"source_id": "raw.osm.poi", "status": "available", "feature_count": 2},
+                {
+                    "source_id": "raw.google.poi",
+                    "status": "unauthorized",
+                    "fault_class": "UNAUTHORIZED",
+                    "fault_message": "missing authorization",
+                    "feature_count": 0,
+                    "external_uncontrollable": True,
+                },
+            ],
+        )
+
+
 class _FaultingBundleProvider:
     def __init__(self, exc: Exception) -> None:
         self.exc = exc
@@ -676,6 +723,35 @@ def test_input_acquisition_cache_reuse_preserves_raw_degraded_external_attempts(
     assert attempts["raw.google.poi"]["external_uncontrollable"] is True
     assert payload["degradation"]["degraded_source_ids"] == ["raw.google.poi"]
     assert payload["degradation"]["external_uncontrollable_source_ids"] == ["raw.google.poi"]
+
+
+def test_input_acquisition_preserves_dataclass_coverage_fault_metadata(tmp_path: Path) -> None:
+    from services.input_acquisition_service import InputAcquisitionService
+
+    registry = ArtifactRegistry(index_path=tmp_path / "artifact_registry.json")
+    provider = _DataclassExternalCoverageBundleProvider(
+        version_token="poi-dataclass-fault-v1",
+        supported_source_ids={"catalog.generic.poi"},
+    )
+    service = InputAcquisitionService(registry=registry, providers=[provider], cache_dir=tmp_path / "cache")
+
+    resolved = service.resolve_task_driven_inputs(
+        request=_build_request(job_type=JobType.poi, content="need poi data"),
+        source_id="catalog.generic.poi",
+        required_output_type="dt.poi.bundle",
+        input_dir=tmp_path / "run",
+    )
+
+    assert resolved.manifest_path is not None
+    payload = json.loads((resolved.manifest_path.parent / "source_attempts.json").read_text(encoding="utf-8"))
+    google_coverage = payload["component_coverage"]["raw.google.poi"]
+    assert google_coverage["fault_class"] == "UNAUTHORIZED"
+    assert google_coverage["external_uncontrollable"] is True
+    assert payload["degradation"]["external_uncontrollable_source_ids"] == ["raw.google.poi"]
+
+    manifest = json.loads(resolved.manifest_path.read_text(encoding="utf-8"))
+    assert manifest["component_coverage"]["raw.google.poi"]["fault_class"] == "UNAUTHORIZED"
+    assert manifest["component_coverage"]["raw.google.poi"]["external_uncontrollable"] is True
 
 
 def test_input_acquisition_writes_manifest_for_failed_provider(tmp_path: Path) -> None:

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from schemas.degradation import DegradationContext, DegradationLevel
 from schemas.source_acquisition import SourceAcquisitionAttempt
 
 _RECOVERABLE_FAULTS = {
@@ -29,6 +30,8 @@ EXTERNAL_UNCONTROLLABLE_FAULTS = {
     "NO_OFFICIAL_COVERAGE",
     "UNAUTHORIZED",
 }
+
+SYSTEM_FAILURE_FAULTS = {"MISSING_PROVIDER", "ALGO_RUNTIME_ERROR", "PARAM_OUT_OF_RANGE", "CRS_MISMATCH"}
 
 _FAULT_STATUS_NORMALIZATION = {
     "SOURCE_DOWNLOAD_FAILED": "network_failed",
@@ -213,6 +216,93 @@ def source_component_candidates(source_id: str, default: list[str] | tuple[str, 
 
 def required_full_closure_source_ids(source_id: str) -> list[str]:
     return list(_REQUIRED_FULL_CLOSURE_SOURCE_IDS.get(str(source_id), []))
+
+
+def classify_component_degradation(component_coverage: dict[str, object]) -> DegradationContext:
+    available_sources: list[str] = []
+    missing_sources: list[str] = []
+    external_sources: list[str] = []
+    system_sources: list[str] = []
+
+    if not component_coverage:
+        return DegradationContext(
+            degraded=True,
+            level=DegradationLevel.partial_source,
+            reason="no component coverage evidence",
+        )
+
+    for source_id, coverage in component_coverage.items():
+        coverage_status = str(_coverage_value(coverage, "coverage_status") or "").strip().lower()
+        feature_count = _coverage_feature_count(coverage)
+        if coverage_status == "available" or feature_count > 0:
+            available_sources.append(source_id)
+            continue
+
+        missing_sources.append(source_id)
+        fault_class = str(_coverage_value(coverage, "fault_class") or "").strip().upper()
+        external_uncontrollable = _coverage_bool(coverage, "external_uncontrollable")
+        if external_uncontrollable or fault_class in EXTERNAL_UNCONTROLLABLE_FAULTS:
+            external_sources.append(source_id)
+        if fault_class in SYSTEM_FAILURE_FAULTS:
+            system_sources.append(source_id)
+
+    if not missing_sources:
+        return DegradationContext(
+            degraded=False,
+            level=DegradationLevel.none,
+            reason="all component sources have coverage",
+            available_sources=available_sources,
+            missing_sources=[],
+        )
+
+    if system_sources:
+        level = DegradationLevel.system_failure
+        reason = "component coverage degraded by system provider failure"
+    elif len(external_sources) == len(missing_sources):
+        level = DegradationLevel.external_uncontrollable
+        reason = "component coverage degraded by external uncontrollable source failures"
+    else:
+        level = DegradationLevel.partial_source
+        reason = "component coverage degraded by partial source coverage"
+
+    return DegradationContext(
+        degraded=True,
+        level=level,
+        reason=reason,
+        available_sources=available_sources,
+        missing_sources=missing_sources,
+        external_uncontrollable_sources=external_sources,
+        system_failure_sources=system_sources,
+    )
+
+
+def _coverage_value(coverage: object, field_name: str) -> object:
+    if isinstance(coverage, dict):
+        return coverage.get(field_name)
+    if hasattr(coverage, "model_dump"):
+        dumped = coverage.model_dump()
+        if isinstance(dumped, dict):
+            return dumped.get(field_name)
+    return getattr(coverage, field_name, None)
+
+
+def _coverage_feature_count(coverage: object) -> int:
+    value = _coverage_value(coverage, "feature_count")
+    if isinstance(value, bool):
+        return 0
+    try:
+        return int(float(value or 0))
+    except (OverflowError, TypeError, ValueError):
+        return 0
+
+
+def _coverage_bool(coverage: object, field_name: str) -> bool:
+    value = _coverage_value(coverage, field_name)
+    if isinstance(value, bool):
+        return value
+    if isinstance(value, str):
+        return value.strip().lower() in {"1", "true", "yes", "y", "on"}
+    return bool(value)
 
 
 _PARTIAL_COVERAGE_ALLOWED_SOURCES = {

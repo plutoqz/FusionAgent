@@ -526,6 +526,8 @@ def _jsonable_component_coverage(component_coverage: dict[str, object]) -> dict[
                 "coverage_status": getattr(raw, "coverage_status", None),
                 "path": str(getattr(raw, "path", "")) if getattr(raw, "path", None) else None,
                 "error": getattr(raw, "error", None),
+                "fault_class": getattr(raw, "fault_class", None),
+                "external_uncontrollable": bool(getattr(raw, "external_uncontrollable", False)),
             }
         elif isinstance(raw, dict):
             value = dict(raw)

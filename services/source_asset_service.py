@@ -165,6 +165,8 @@ class SourceCoverageStatus:
     coverage_status: str
     path: Path | None = None
     error: str | None = None
+    fault_class: str | None = None
+    external_uncontrollable: bool = False
 
 
 def coverage_status_for_count(feature_count: int | None) -> str:

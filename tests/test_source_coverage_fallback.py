@@ -2,10 +2,16 @@ from pathlib import Path
 
 import pytest
 
+from schemas.degradation import DegradationLevel
 from services.aoi_resolution_service import ResolvedAOI
 from services.local_bundle_catalog import LocalBundleCatalogProvider
 from services.raw_vector_source_service import MaterializedRawVectorSource
-from services.source_acquisition_policy import required_full_closure_source_ids, source_component_candidates
+from services.source_asset_service import SourceCoverageStatus
+from services.source_acquisition_policy import (
+    classify_component_degradation,
+    required_full_closure_source_ids,
+    source_component_candidates,
+)
 
 
 def test_task6_required_full_closure_source_ids_are_complete() -> None:
@@ -26,6 +32,112 @@ def test_task6_road_candidate_policy_covers_all_road_catalogs() -> None:
             "raw.osm.road",
             "raw.microsoft.road",
         ]
+
+
+def test_classify_component_degradation_detects_external_only_missing_sources() -> None:
+    context = classify_component_degradation(
+        {
+            "raw.gns.poi": {"coverage_status": "available", "feature_count": 12},
+            "raw.google.poi": {
+                "coverage_status": "missing",
+                "feature_count": 0,
+                "fault_class": "UNAUTHORIZED",
+            },
+        }
+    )
+
+    assert context.degraded is True
+    assert context.level == DegradationLevel.external_uncontrollable
+    assert context.available_sources == ["raw.gns.poi"]
+    assert context.external_uncontrollable_sources == ["raw.google.poi"]
+    assert context.system_failure_sources == []
+
+
+def test_classify_component_degradation_detects_system_provider_failures() -> None:
+    context = classify_component_degradation(
+        {
+            "raw.osm.road": {"coverage_status": "missing", "feature_count": 0, "fault_class": "SOURCE_MISSING"},
+            "raw.microsoft.road": {
+                "coverage_status": "missing",
+                "feature_count": 0,
+                "fault_class": "MISSING_PROVIDER",
+            },
+        }
+    )
+
+    assert context.degraded is True
+    assert context.level == DegradationLevel.system_failure
+    assert context.system_failure_sources == ["raw.microsoft.road"]
+
+
+def test_classify_component_degradation_treats_empty_coverage_as_degraded_missing_evidence() -> None:
+    context = classify_component_degradation({})
+
+    assert context.degraded is True
+    assert context.level == DegradationLevel.partial_source
+    assert context.reason == "no component coverage evidence"
+    assert context.available_sources == []
+    assert context.missing_sources == []
+    assert context.external_uncontrollable_sources == []
+    assert context.system_failure_sources == []
+
+
+def test_classify_component_degradation_reads_fault_class_from_attribute_payload() -> None:
+    context = classify_component_degradation(
+        {
+            "raw.google.poi": SourceCoverageStatus(
+                source_id="raw.google.poi",
+                source_mode="unauthorized",
+                feature_count=False,
+                coverage_status=" Missing ",
+                fault_class="UNAUTHORIZED",
+                external_uncontrollable=True,
+            )
+        }
+    )
+
+    assert context.degraded is True
+    assert context.level == DegradationLevel.external_uncontrollable
+    assert context.available_sources == []
+    assert context.missing_sources == ["raw.google.poi"]
+    assert context.external_uncontrollable_sources == ["raw.google.poi"]
+    assert context.system_failure_sources == []
+
+
+def test_classify_component_degradation_reads_external_flag_from_attribute_payload() -> None:
+    context = classify_component_degradation(
+        {
+            "raw.google.poi": SourceCoverageStatus(
+                source_id="raw.google.poi",
+                source_mode="unauthorized",
+                feature_count=0,
+                coverage_status="missing",
+                fault_class=None,
+                external_uncontrollable=True,
+            )
+        }
+    )
+
+    assert context.degraded is True
+    assert context.level == DegradationLevel.external_uncontrollable
+    assert context.external_uncontrollable_sources == ["raw.google.poi"]
+    assert context.system_failure_sources == []
+
+
+def test_classify_component_degradation_does_not_treat_false_string_as_external() -> None:
+    context = classify_component_degradation(
+        {
+            "raw.google.poi": {
+                "coverage_status": "missing",
+                "feature_count": 0,
+                "external_uncontrollable": "false",
+            }
+        }
+    )
+
+    assert context.degraded is True
+    assert context.level == DegradationLevel.partial_source
+    assert context.external_uncontrollable_sources == []
 
 
 def test_building_catalog_records_google_attempt_but_keeps_missing_microsoft_degraded(tmp_path):
@@ -173,6 +285,8 @@ def test_poi_catalog_records_google_poi_attempt_when_remote_is_unauthorized(tmp_
     assert provider.raw_source_service.resolved_source_ids == ["raw.gns.poi", "raw.google.poi", "raw.osm.poi"]
     assert bundle.component_coverage["raw.google.poi"].coverage_status == "missing"
     assert bundle.component_coverage["raw.google.poi"].source_mode == "unauthorized"
+    assert bundle.component_coverage["raw.google.poi"].fault_class == "UNAUTHORIZED"
+    assert bundle.component_coverage["raw.google.poi"].external_uncontrollable is True
     attempts = {attempt["source_id"]: attempt for attempt in bundle.provider_attempts}
     assert attempts["raw.google.poi"]["status"] == "unauthorized"
     assert attempts["raw.google.poi"]["fault_class"] == "UNAUTHORIZED"

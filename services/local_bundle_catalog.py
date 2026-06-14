@@ -12,6 +12,7 @@ from services.aoi_resolution_service import ResolvedAOI
 from services.input_acquisition_service import BBox, MaterializedInputBundle
 from services.raw_vector_source_service import MaterializedRawVectorSource, RawVectorSourceService
 from services.source_acquisition_policy import (
+    EXTERNAL_UNCONTROLLABLE_FAULTS,
     build_source_attempt,
     build_success_attempt,
     requires_complete_pair_coverage,
@@ -304,6 +305,8 @@ class LocalBundleCatalogProvider:
                     coverage_status="missing",
                     path=None,
                     error=str(exc),
+                    fault_class=fault_class,
+                    external_uncontrollable=fault_class in EXTERNAL_UNCONTROLLABLE_FAULTS,
                 )
                 provider_attempts.append(
                     build_source_attempt(
