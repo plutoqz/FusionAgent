@@ -20,3 +20,31 @@ def test_runtime_source_contract_records_provider_readiness() -> None:
     assert contract.raw_vector_supported is True
     assert contract.input_bundle_supported is False
     assert contract.required_external_config == ["EXAMPLE_API_KEY"]
+
+
+def test_runtime_source_contract_serializes_status_as_json_string() -> None:
+    contract = RuntimeSourceContract(
+        source_id="raw.example.source",
+        status=RuntimeProviderStatus.runtime_ready,
+    )
+
+    payload = contract.model_dump(mode="json")
+
+    assert payload["status"] == "runtime_ready"
+    assert type(payload["status"]) is str
+
+
+def test_runtime_source_contract_default_lists_are_isolated() -> None:
+    first = RuntimeSourceContract(
+        source_id="raw.example.first",
+        status=RuntimeProviderStatus.runtime_ready,
+    )
+    second = RuntimeSourceContract(
+        source_id="raw.example.second",
+        status=RuntimeProviderStatus.runtime_ready,
+    )
+
+    first.reasons.append("first-only reason")
+
+    assert first.reasons == ["first-only reason"]
+    assert second.reasons == []

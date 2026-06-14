@@ -412,9 +412,35 @@ def test_degradation_context_serializes_external_source_absence() -> None:
         system_failure_sources=[],
     )
 
-    payload = context.model_dump()
+    payload = context.model_dump(mode="json")
 
     assert payload["degraded"] is True
     assert payload["level"] == "external_uncontrollable"
+    assert type(payload["level"]) is str
     assert payload["available_sources"] == ["raw.gns.poi"]
     assert payload["missing_sources"] == ["raw.google.poi", "raw.osm.poi"]
+
+
+def test_degradation_context_external_only_requires_external_degradation_without_system_failures() -> None:
+    external_only = DegradationContext(
+        degraded=True,
+        level=DegradationLevel.external_uncontrollable,
+        external_uncontrollable_sources=["raw.google.poi"],
+        system_failure_sources=[],
+    )
+    with_system_failure = DegradationContext(
+        degraded=True,
+        level=DegradationLevel.external_uncontrollable,
+        external_uncontrollable_sources=["raw.google.poi"],
+        system_failure_sources=["raw.osm.poi"],
+    )
+    not_degraded = DegradationContext(
+        degraded=False,
+        level=DegradationLevel.external_uncontrollable,
+        external_uncontrollable_sources=["raw.google.poi"],
+        system_failure_sources=[],
+    )
+
+    assert external_only.external_only is True
+    assert with_system_failure.external_only is False
+    assert not_degraded.external_only is False
