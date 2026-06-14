@@ -444,3 +444,108 @@ def test_degradation_context_external_only_requires_external_degradation_without
     assert external_only.external_only is True
     assert with_system_failure.external_only is False
     assert not_degraded.external_only is False
+
+
+def test_quality_gate_allows_poi_single_source_when_missing_sources_are_external(tmp_path: Path) -> None:
+    path = tmp_path / "poi_single_source.gpkg"
+    frame = gpd.GeoDataFrame(
+        {"source_id": ["raw.gns.poi"], "canonical_name": ["Example"]},
+        geometry=[Point(0, 0)],
+        crs="EPSG:4326",
+    )
+    frame.to_file(path, driver="GPKG")
+
+    context = DegradationContext(
+        degraded=True,
+        level=DegradationLevel.external_uncontrollable,
+        reason="Google POI authorization is absent and OSM POI has no coverage",
+        available_sources=["raw.gns.poi"],
+        missing_sources=["raw.google.poi", "raw.osm.poi"],
+        external_uncontrollable_sources=["raw.google.poi", "raw.osm.poi"],
+    )
+
+    report = QualityGateService().evaluate(
+        artifact_path=path,
+        task_kind=TaskKind.poi,
+        required_fields=["geometry", "source_id"],
+        requested_bbox=(-1, -1, 1, 1),
+        component_coverage={
+            "raw.gns.poi": {"feature_count": 1, "coverage_status": "available"},
+            "raw.google.poi": {"feature_count": 0, "coverage_status": "missing", "fault_class": "UNAUTHORIZED"},
+            "raw.osm.poi": {"feature_count": 0, "coverage_status": "missing", "fault_class": "NO_OFFICIAL_COVERAGE"},
+        },
+        degradation_context=context,
+    )
+
+    assert report.accepted is True
+    assert report.degraded_mode is True
+    assert report.degradation_level == "external_uncontrollable"
+    assert report.degradation_context["level"] == "external_uncontrollable"
+    assert type(report.degradation_context["level"]) is str
+    assert report.checks["multi_source_lineage"]["severity"] == "soft"
+    assert "multi_source_lineage" in report.soft_failure_reasons
+
+
+def test_quality_gate_does_not_downgrade_non_poi_multi_source_lineage(tmp_path: Path) -> None:
+    path = tmp_path / "building_single_source.gpkg"
+    frame = gpd.GeoDataFrame(
+        {"source_id": ["raw.osm.building"]},
+        geometry=[Polygon([(0, 0), (0, 1), (1, 1), (1, 0)])],
+        crs="EPSG:4326",
+    )
+    frame.to_file(path, driver="GPKG")
+
+    context = DegradationContext(
+        degraded=True,
+        level=DegradationLevel.external_uncontrollable,
+        available_sources=["raw.osm.building"],
+        missing_sources=["raw.microsoft.building"],
+        external_uncontrollable_sources=["raw.microsoft.building"],
+    )
+
+    report = QualityGateService().evaluate(
+        artifact_path=path,
+        task_kind=TaskKind.building,
+        required_fields=["geometry", "source_id"],
+        requested_bbox=(-1, -1, 2, 2),
+        component_coverage={
+            "raw.osm.building": {"feature_count": 1, "coverage_status": "available"},
+            "raw.microsoft.building": {"feature_count": 0, "coverage_status": "missing"},
+        },
+        degradation_context=context,
+    )
+
+    assert report.accepted is False
+    assert report.checks["multi_source_lineage"]["severity"] == "hard"
+    assert "multi_source_lineage" in report.failure_reasons
+    assert "multi_source_lineage" not in report.soft_failure_reasons
+
+
+def test_quality_gate_does_not_downgrade_geometry_type_under_degradation(tmp_path: Path) -> None:
+    path = tmp_path / "wrong_geometry.gpkg"
+    frame = gpd.GeoDataFrame(
+        {"source_id": ["raw.gns.poi"]},
+        geometry=[Polygon([(0, 0), (0, 1), (1, 1), (1, 0)])],
+        crs="EPSG:4326",
+    )
+    frame.to_file(path, driver="GPKG")
+
+    context = DegradationContext(
+        degraded=True,
+        level=DegradationLevel.external_uncontrollable,
+        available_sources=["raw.gns.poi"],
+        missing_sources=["raw.google.poi"],
+        external_uncontrollable_sources=["raw.google.poi"],
+    )
+
+    report = QualityGateService().evaluate(
+        artifact_path=path,
+        task_kind=TaskKind.poi,
+        required_fields=["geometry", "source_id"],
+        requested_bbox=(-1, -1, 1, 1),
+        component_coverage={"raw.gns.poi": {"feature_count": 1, "coverage_status": "available"}},
+        degradation_context=context,
+    )
+
+    assert report.accepted is False
+    assert "geometry_type" in report.failure_reasons

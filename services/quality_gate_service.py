@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from schemas.degradation import DegradationContext
 from schemas.quality_gate import QualityGateReport
 from schemas.task_kind import TaskKind
 from services.artifact_evaluation_service import evaluate_vector_artifact
@@ -29,6 +30,7 @@ class QualityGateService:
         quality_policy_id: str | None = None,
         contract_id: str | None = None,
         source_expected_null_rates: dict[str, float] | None = None,
+        degradation_context: DegradationContext | None = None,
     ) -> QualityGateReport:
         contract = (
             get_domain_output_contract(task_kind, source_expected_null_rates=source_expected_null_rates)
@@ -99,22 +101,34 @@ class QualityGateService:
                     operator=policy_check.operator,
                     threshold=policy_check.threshold,
                 )
+                severity = _effective_policy_severity(
+                    policy_check.severity,
+                    policy_check=policy_check,
+                    task_kind=task_kind,
+                    degradation_context=degradation_context,
+                )
                 checks[policy_check.check_id] = {
                     **checks[policy_check.check_id],
                     "passed": passed,
-                    "severity": policy_check.severity,
+                    "severity": severity,
                     "operator": policy_check.operator,
                     "threshold": policy_check.threshold,
                 }
                 continue
             value = policy_metrics.get(policy_check.metric_name)
+            severity = _effective_policy_severity(
+                policy_check.severity,
+                policy_check=policy_check,
+                task_kind=task_kind,
+                degradation_context=degradation_context,
+            )
             checks[policy_check.check_id] = {
                 "passed": _policy_check_passed(
                     value,
                     operator=policy_check.operator,
                     threshold=policy_check.threshold,
                 ),
-                "severity": policy_check.severity,
+                "severity": severity,
                 "operator": policy_check.operator,
                 "threshold": policy_check.threshold,
                 "actual": value,
@@ -138,6 +152,10 @@ class QualityGateService:
             failure_reasons=failure_reasons,
             policy_id=policy.policy_id,
             soft_failure_reasons=soft_failure_reasons,
+            degraded_mode=bool(degradation_context and degradation_context.degraded),
+            degradation_level=degradation_context.level.value if degradation_context is not None else None,
+            degradation_reason=degradation_context.reason if degradation_context is not None else None,
+            degradation_context=degradation_context.model_dump(mode="json") if degradation_context is not None else {},
         )
 
 
@@ -158,6 +176,23 @@ def _merge_fields(primary: list[str], secondary: list[str]) -> list[str]:
         if field not in result:
             result.append(field)
     return result
+
+
+def _effective_policy_severity(
+    configured: str,
+    *,
+    policy_check,
+    task_kind: TaskKind,
+    degradation_context: DegradationContext | None,
+) -> str:
+    if configured != "hard":
+        return configured
+    if degradation_context is None or not degradation_context.external_only:
+        return configured
+    allowed = policy_check.metadata.get("downgrade_to_soft_when_external_degraded_for_task_kinds", [])
+    if task_kind.value in allowed:
+        return "soft"
+    return configured
 
 
 def _lineage_present(

@@ -51,7 +51,13 @@ def _policy(
         QualityPolicyCheck(check_id="geometry_type", metric_name="geometry_type", operator="eq", threshold=True),
         QualityPolicyCheck(check_id="aoi_intersection", metric_name="aoi_intersection", operator="eq", threshold=True),
         QualityPolicyCheck(check_id="source_lineage", metric_name="source_lineage", operator="eq", threshold=True),
-        QualityPolicyCheck(check_id="multi_source_lineage", metric_name="multi_source_lineage", operator="eq", threshold=True),
+        QualityPolicyCheck(
+            check_id="multi_source_lineage",
+            metric_name="multi_source_lineage",
+            operator="eq",
+            threshold=True,
+            metadata={"downgrade_to_soft_when_external_degraded_for_task_kinds": ["poi"]},
+        ),
         QualityPolicyCheck(
             check_id="duplicate_geometry_rate",
             metric_name="duplicate_geometry_rate",
