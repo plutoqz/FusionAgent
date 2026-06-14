@@ -52,6 +52,7 @@ from services.local_bundle_catalog import LocalBundleCatalogProvider
 from services.output_contract_service import get_domain_output_contract
 from services.plan_grounding_service import ensure_plan_grounding_report, evaluate_plan_grounding_gate
 from services.quality_gate_service import QualityGateService
+from services.raw_vector_input_bundle_provider import RawVectorInputBundleProvider
 from services.raw_vector_source_service import RawVectorSourceService
 from services.runtime_settings_service import RuntimeSettingsService
 from services.run_recovery_service import collect_recoverable_runs
@@ -4144,6 +4145,7 @@ class AgentRunService:
                 "Failed to initialize local bundle catalog provider: %s",
                 exc,
             )
+        providers.append(RawVectorInputBundleProvider(raw_source_service=self.raw_vector_source_service))
         return providers
 
 
