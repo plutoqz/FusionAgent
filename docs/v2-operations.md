@@ -604,3 +604,7 @@ Treat the raw evidence as the source of truth:
 - artifact bundle
 
 If the aggregated API view disagrees with those files, fix the API layer rather than rewriting the evidence.
+
+## Runtime Contract Closure Diagnostics
+
+Autonomous fusion runs should inspect source materialization manifests, source attempts, runtime source contracts, degradation context, and quality reports together. A partial run is considered diagnosable only when each failed or degraded child run identifies whether the boundary failure occurred in source provider readiness, raw source materialization, task routing, execution, or quality gate evaluation.
