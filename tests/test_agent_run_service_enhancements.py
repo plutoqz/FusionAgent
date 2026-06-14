@@ -24,6 +24,7 @@ from schemas.agent import (
     WorkflowTaskInput,
     WorkflowTaskOutput,
 )
+from schemas.degradation import DegradationContext, DegradationLevel
 from schemas.fusion import JobType
 from schemas.quality_gate import QualityGateReport
 from schemas.settings import EffectiveLLMSettings
@@ -36,6 +37,7 @@ from services.local_bundle_catalog import LocalBundleCatalogProvider
 from services.raw_vector_source_service import RawVectorSourceService
 from services.source_asset_service import SourceAssetResolution
 from services.input_acquisition_service import ResolvedRunInputs
+from services.source_materialization_manifest_service import build_source_materialization_manifest
 from services.tiled_building_runtime_service import TiledBuildingRunResult
 
 
@@ -1406,6 +1408,102 @@ def test_agent_run_service_passes_contract_and_country_baselines_to_quality_gate
     assert captured["contract_id"] == "contract.road.fused.v1"
     assert captured["required_fields"] == ["geometry"]
     assert captured["source_expected_null_rates"]["name"] == 0.95
+
+
+def test_agent_writeback_passes_degradation_context_to_quality_gate(tmp_path: Path, monkeypatch) -> None:
+    service = AgentRunService(base_dir=tmp_path / "runs", max_workers=1)
+    request = RunCreateRequest(
+        job_type=JobType.poi,
+        trigger=RunTrigger(type=RunTriggerType.user_query, content="Fuse POI", spatial_extent="bbox(0,0,1,1)"),
+        target_crs="EPSG:4326",
+        field_mapping={},
+        debug=False,
+    )
+    run_id = "run-poi-degradation-context"
+    _seed_run_status(service, run_id, request)
+    status = service.get_run(run_id)
+    assert status is not None
+    status.checkpoint = {
+        "stage": "execution",
+        "component_coverage": {
+            "raw.gns.poi": {"feature_count": 3, "coverage_status": "available"},
+            "raw.google.poi": {
+                "feature_count": 0,
+                "coverage_status": "missing",
+                "fault_class": "UNAUTHORIZED",
+            },
+        },
+    }
+    service._runs[run_id] = status
+    service._persist_status(status)
+
+    plan = _build_plan(workflow_id="wf_poi_degradation_context", revision=1, algorithm_id="algo.fusion.poi.v1")
+    plan.context["intent"]["job_type"] = "poi"
+    output_dir = tmp_path / "output-poi-degradation-context"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    fused_gpkg = output_dir / "poi_fusion_result.gpkg"
+    gpd.GeoDataFrame(
+        {"fid": [1], "source_id": ["raw.gns.poi"]},
+        geometry=[box(0.1, 0.1, 0.2, 0.2).centroid],
+        crs="EPSG:4326",
+    ).to_file(fused_gpkg, driver="GPKG")
+    captured: dict[str, object] = {}
+
+    def fake_evaluate(**kwargs):
+        captured["degradation_context"] = kwargs.get("degradation_context")
+        return QualityGateReport(
+            accepted=True,
+            task_kind=kwargs["task_kind"],
+            artifact_path=str(kwargs["artifact_path"]),
+            checks={},
+            metrics={},
+            degraded_mode=True,
+            degradation_level="external_uncontrollable",
+        )
+
+    monkeypatch.setattr(service.quality_gate_service, "evaluate", fake_evaluate)
+
+    service.run_writeback_stage(
+        run_id=run_id,
+        request=request,
+        plan=plan,
+        fused_shp=fused_gpkg,
+        repair_records=[],
+        output_dir=output_dir,
+    )
+
+    assert isinstance(captured["degradation_context"], DegradationContext)
+    assert captured["degradation_context"].level == DegradationLevel.external_uncontrollable
+    assert captured["degradation_context"].available_sources == ["raw.gns.poi"]
+    assert captured["degradation_context"].missing_sources == ["raw.google.poi"]
+    assert captured["degradation_context"].external_uncontrollable_sources == ["raw.google.poi"]
+    assert captured["degradation_context"].system_failure_sources == []
+
+
+def test_source_materialization_manifest_includes_runtime_source_contracts() -> None:
+    manifest = build_source_materialization_manifest(
+        source_id="raw.poi.bundle",
+        selected_source_id="raw.gns.poi",
+        source_mode="runtime",
+        cache_hit=False,
+        version_token="v1",
+        target_crs="EPSG:4326",
+        runtime_source_contracts=[
+            {
+                "source_id": "raw.gns.poi",
+                "contract_id": "runtime.source.poi.gns.v1",
+                "required_fields": ["geometry", "name"],
+            }
+        ],
+    )
+
+    assert manifest["runtime_source_contracts"] == [
+        {
+            "source_id": "raw.gns.poi",
+            "contract_id": "runtime.source.poi.gns.v1",
+            "required_fields": ["geometry", "name"],
+        }
+    ]
 
 
 def test_record_feedback_includes_quality_and_latency_metadata(tmp_path: Path) -> None:

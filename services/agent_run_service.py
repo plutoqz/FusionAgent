@@ -60,6 +60,7 @@ from services.run_recovery_service import collect_recoverable_runs
 from services.runtime_contract_service import RuntimeContractService
 from services.run_report_service import build_run_report_summary, render_run_reports
 from services.source_field_profile_registry import SourceFieldProfileRegistry
+from services.source_acquisition_policy import classify_component_degradation
 from services.source_semantic_contract_service import SourceSemanticContractService
 from services.tile_partition_service import TilePartitionService
 from services.tiled_building_runtime_service import TiledBuildingRuntimeService
@@ -1940,6 +1941,10 @@ class AgentRunService:
                 rasters[str(source_id)] = path
         return rasters
 
+    @staticmethod
+    def _degradation_context_from_component_coverage(component_coverage: dict[str, object] | None):
+        return classify_component_degradation(component_coverage or {})
+
     def run_writeback_stage(
         self,
         run_id: str,
@@ -1965,6 +1970,7 @@ class AgentRunService:
                 required_fields=self._quality_gate_required_fields_for_plan(plan, contract_id=contract_id),
                 requested_bbox=self._parse_bbox(request.trigger.spatial_extent),
                 component_coverage=component_coverage,
+                degradation_context=self._degradation_context_from_component_coverage(component_coverage),
                 quality_policy_id=self._quality_policy_id_for_plan(plan),
                 contract_id=contract_id,
                 source_expected_null_rates=self._source_expected_null_rates_for_request(request, plan),

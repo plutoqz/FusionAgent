@@ -23,6 +23,7 @@ def build_source_materialization_manifest(
     coverage_state: str | None = None,
     degradation: dict[str, object] | None = None,
     fault: dict[str, object] | None = None,
+    runtime_source_contracts: list[dict[str, object]] | None = None,
 ) -> dict[str, object]:
     return {
         "manifest_version": 2,
@@ -42,6 +43,7 @@ def build_source_materialization_manifest(
         "coverage_state": coverage_state,
         "degradation": dict(degradation or {}),
         "fault": _fault_payload(fault),
+        "runtime_source_contracts": list(runtime_source_contracts or []),
     }
 
 
