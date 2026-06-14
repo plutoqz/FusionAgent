@@ -55,6 +55,7 @@ from services.quality_gate_service import QualityGateService
 from services.raw_vector_input_bundle_provider import RawVectorInputBundleProvider
 from services.raw_vector_source_service import RawVectorSourceService
 from services.runtime_settings_service import RuntimeSettingsService
+from services.runtime_source_contract_service import RuntimeSourceContractService
 from services.run_recovery_service import collect_recoverable_runs
 from services.runtime_contract_service import RuntimeContractService
 from services.run_report_service import build_run_report_summary, render_run_reports
@@ -349,6 +350,11 @@ class AgentRunService:
             registry=self.artifact_registry,
             providers=self._build_input_bundle_providers(),
             cache_dir=self.base_dir / "input_bundle_cache",
+        )
+        self.runtime_source_contract_service = RuntimeSourceContractService(
+            raw_source_service=self.raw_vector_source_service,
+            input_bundle_providers=self.input_acquisition_service.providers,
+            external_config_provider=self._source_required_external_config,
         )
         self.tile_partition_service = TilePartitionService()
         self.tiled_building_runtime_service = TiledBuildingRuntimeService(max_workers=max_workers)
@@ -4147,6 +4153,14 @@ class AgentRunService:
             )
         providers.append(RawVectorInputBundleProvider(raw_source_service=self.raw_vector_source_service))
         return providers
+
+    @staticmethod
+    def _source_required_external_config(source_id: str) -> list[str]:
+        if source_id == "raw.google.poi":
+            return ["GOOGLE_PLACES_API_KEY", "google_poi_authorization_manifest"]
+        if source_id in {"raw.google.building", "raw.google.open_buildings.vector"}:
+            return ["google_open_buildings_urls"]
+        return []
 
 
 agent_run_service = AgentRunService(base_dir=Path(os.getenv("GEOFUSION_RUNS_ROOT", "runs")))
