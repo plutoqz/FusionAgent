@@ -1,0 +1,20 @@
+{
+  "experiment_id": "exp-ablation-a0-a2-trace-backed-a2c",
+  "output_dir": "runs\\experiments\\exp-ablation-a0-a2-trace-backed",
+  "commit_sha": "21c91196263b10d82c5f9a6ca4a5f10948251e87",
+  "seed_hash": "inspection-smoke-2026-05-12",
+  "runtime_settings_hash": "trace-backed-a2c-evidence-v1",
+  "metric_definition_hash": "trace-backed-ablation-evidence-v1",
+  "files": [
+    {
+      "relative_path": "trace_backed_a2c_evidence.json",
+      "sha256": "d1ec33d250110e46e5eac91f2d32883d90daa523f1ea70ac71f19be08145b517",
+      "size_bytes": 6701
+    },
+    {
+      "relative_path": "trace_backed_a2c_evidence.md",
+      "sha256": "23d6a6f3f661894745803f687a729ec1d87d018e3cf159b477c31cdd34fc8f2a",
+      "size_bytes": 954
+    }
+  ]
+}

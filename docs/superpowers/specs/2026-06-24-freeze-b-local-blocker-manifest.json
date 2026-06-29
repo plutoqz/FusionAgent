@@ -1,0 +1,30 @@
+{
+  "experiment_id": "exp-quality-freeze-b-local-blocker-report",
+  "output_dir": "runs\\experiments\\exp-quality-freeze-b",
+  "commit_sha": "21c91196263b10d82c5f9a6ca4a5f10948251e87",
+  "seed_hash": "freeze-b-v1",
+  "runtime_settings_hash": "local-source-root-check-v1",
+  "metric_definition_hash": "freeze-b-readiness-blocker-v1",
+  "files": [
+    {
+      "relative_path": "blocker_report.json",
+      "sha256": "4d77c4eb2c3fdbbb7ea788790fec217a634daee2ff6382f36b8f1a4a155fafda",
+      "size_bytes": 2900
+    },
+    {
+      "relative_path": "blocker_report.md",
+      "sha256": "e0aa9552a2f0c4f55264a93735c63ad3c985249ddb33d8efe60c488d4797f9dc",
+      "size_bytes": 1561
+    },
+    {
+      "relative_path": "readiness.json",
+      "sha256": "0b76db93a8f70b33c740d7f4a1dd8c50ed3fb7c4536a6ea363a673db0d949d77",
+      "size_bytes": 2007
+    },
+    {
+      "relative_path": "readiness.md",
+      "sha256": "d97d80dbfca56e9fb0ed1c5bd11a265629e9a0d127a38a00d0f15fd3b6ea10ec",
+      "size_bytes": 940
+    }
+  ]
+}

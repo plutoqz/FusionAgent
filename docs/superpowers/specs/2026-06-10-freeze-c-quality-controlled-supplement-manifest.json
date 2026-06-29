@@ -1,0 +1,45 @@
+{
+  "experiment_id": "exp-quality-freeze-b-controlled-supplement",
+  "output_dir": "runs\\experiments\\exp-quality-freeze-b-controlled",
+  "commit_sha": "21c91196263b10d82c5f9a6ca4a5f10948251e87",
+  "seed_hash": "controlled-quality-v1",
+  "runtime_settings_hash": "controlled-fixtures-v1",
+  "metric_definition_hash": "fusion-quality-benchmark-v1",
+  "files": [
+    {
+      "relative_path": "artifact_lineage.json",
+      "sha256": "53037ae53b5ddfe9ab4331a5302ee7e7c07c6f318627b3cc1f593ceb385ec0b4",
+      "size_bytes": 2657
+    },
+    {
+      "relative_path": "artifacts/poi_controlled.gpkg",
+      "sha256": "5639e042a6b31cf41a763fe027b61b527ea373b4b23976f75e04b3857f2c8c2c",
+      "size_bytes": 98304
+    },
+    {
+      "relative_path": "artifacts/road_controlled.gpkg",
+      "sha256": "785c3642a4cecba6e3deb7194a33de80cab0d0f0d33aee349e6db090385abfe3",
+      "size_bytes": 98304
+    },
+    {
+      "relative_path": "artifacts/water_polygon_controlled.gpkg",
+      "sha256": "8f4c7692f6cd78ab827949f658ce1524fdfad7f497839c84542e5a0e2a6440e6",
+      "size_bytes": 98304
+    },
+    {
+      "relative_path": "artifacts/waterways_controlled.gpkg",
+      "sha256": "facd4900eef75c9160351106f282cf954301f0df8e83f915ce16cfb1b6bce29e",
+      "size_bytes": 98304
+    },
+    {
+      "relative_path": "benchmark_results.json",
+      "sha256": "93f88830b406c69c8549c284ee5fa7ce5aa51be834b87497d4339d9c0df9533d",
+      "size_bytes": 12930
+    },
+    {
+      "relative_path": "benchmark_summary.md",
+      "sha256": "40f818fe807e46cf600ee8f2271be68da3eaa4b334dcaee01e3db36e42cb41ae",
+      "size_bytes": 730
+    }
+  ]
+}

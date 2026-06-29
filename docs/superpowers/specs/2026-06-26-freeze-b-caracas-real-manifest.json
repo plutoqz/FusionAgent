@@ -1,0 +1,277 @@
+{
+  "manifest_id": "freeze-b-caracas-real-v1",
+  "freeze_line": "Freeze B",
+  "notes": [
+    "Real-data Caracas supplement for Freeze B quality evidence.",
+    "Does not replace the original Benin Freeze B benchmark; it records a separate Venezuela/Caracas real-data test.",
+    "Building output uses an auditable overlap-priority fixed adapter because the external FusionCode V8 runtime is not bundled in this checkout.",
+    "Road, waterways, and POI outputs use checked-in FusionAgent fusion modules.",
+    "Water polygon output is a single-source OSM structural-quality sanity case, not a multi-source fusion superiority claim."
+  ],
+  "cases": [
+    {
+      "case_id": "case.building.real.caracas",
+      "task_kind": "building",
+      "data_tier": "real",
+      "independence_label": "real_source",
+      "claim_use": "quality_claim",
+      "aoi": {
+        "name": "venezuela-caracas-capital",
+        "bbox": [
+          -67.17,
+          10.38,
+          -66.86,
+          10.57
+        ]
+      },
+      "sources": [
+        {
+          "source_id": "raw.microsoft.building",
+          "version_token": "caracas-local-2026-06-25"
+        },
+        {
+          "source_id": "raw.google.open_buildings.vector",
+          "version_token": "caracas-local-2026-06-25"
+        },
+        {
+          "source_id": "raw.osm.building",
+          "version_token": "caracas-local-2026-06-25"
+        }
+      ],
+      "baselines": [
+        {
+          "baseline_id": "fixed_adapter_overlap_priority",
+          "runner": "adapter_direct",
+          "description": "Priority-ordered overlap deduplication baseline: MS > Google > OSM."
+        }
+      ],
+      "metrics": [
+        {
+          "metric_name": "feature_count",
+          "operator": "gt",
+          "threshold": 0
+        },
+        {
+          "metric_name": "invalid_geometry_rate",
+          "operator": "eq",
+          "threshold": 0.0
+        },
+        {
+          "metric_name": "duplicate_geometry_rate",
+          "operator": "lte",
+          "threshold": 0.25
+        }
+      ],
+      "expected_artifact_roles": [
+        "fused_vector"
+      ],
+      "evidence_boundary": "real multi-source weak baseline; not a statistical superiority claim",
+      "precomputed_artifact_path": "runs/experiments/exp-quality-freeze-b-caracas-real/artifacts/building_caracas_overlap_priority.gpkg"
+    },
+    {
+      "case_id": "case.road.real.caracas",
+      "task_kind": "road",
+      "data_tier": "real",
+      "independence_label": "real_source",
+      "claim_use": "quality_claim",
+      "aoi": {
+        "name": "venezuela-caracas-capital",
+        "bbox": [
+          -67.17,
+          10.38,
+          -66.86,
+          10.57
+        ]
+      },
+      "sources": [
+        {
+          "source_id": "raw.osm.road",
+          "version_token": "caracas-local-2026-06-25"
+        },
+        {
+          "source_id": "raw.microsoft.road",
+          "version_token": "caracas-local-2026-06-25"
+        }
+      ],
+      "baselines": [
+        {
+          "baseline_id": "fusionagent_road_v7",
+          "runner": "adapter_direct"
+        }
+      ],
+      "metrics": [
+        {
+          "metric_name": "feature_count",
+          "operator": "gt",
+          "threshold": 0
+        },
+        {
+          "metric_name": "invalid_geometry_rate",
+          "operator": "eq",
+          "threshold": 0.0
+        },
+        {
+          "metric_name": "zero_length_geometry_count",
+          "operator": "eq",
+          "threshold": 0
+        }
+      ],
+      "expected_artifact_roles": [
+        "fused_vector"
+      ],
+      "precomputed_artifact_path": "runs/experiments/exp-quality-freeze-b-caracas-real/artifacts/road_caracas_conflation_v7.gpkg"
+    },
+    {
+      "case_id": "case.waterways.real.caracas",
+      "task_kind": "waterways",
+      "data_tier": "real",
+      "independence_label": "real_source",
+      "claim_use": "quality_claim",
+      "aoi": {
+        "name": "venezuela-caracas-capital",
+        "bbox": [
+          -67.17,
+          10.38,
+          -66.86,
+          10.57
+        ]
+      },
+      "sources": [
+        {
+          "source_id": "raw.osm.waterways",
+          "version_token": "caracas-local-2026-06-25"
+        },
+        {
+          "source_id": "raw.hydrorivers.waterways",
+          "version_token": "caracas-local-2026-06-25"
+        }
+      ],
+      "baselines": [
+        {
+          "baseline_id": "fusionagent_waterways_v7",
+          "runner": "adapter_direct"
+        }
+      ],
+      "metrics": [
+        {
+          "metric_name": "feature_count",
+          "operator": "gt",
+          "threshold": 0
+        },
+        {
+          "metric_name": "invalid_geometry_rate",
+          "operator": "eq",
+          "threshold": 0.0
+        },
+        {
+          "metric_name": "zero_length_geometry_count",
+          "operator": "eq",
+          "threshold": 0
+        }
+      ],
+      "expected_artifact_roles": [
+        "fused_vector"
+      ],
+      "precomputed_artifact_path": "runs/experiments/exp-quality-freeze-b-caracas-real/artifacts/waterways_caracas_conflation_v7.gpkg"
+    },
+    {
+      "case_id": "case.water_polygon.real.caracas.single_source_sanity",
+      "task_kind": "water_polygon",
+      "data_tier": "real",
+      "independence_label": "real_source",
+      "claim_use": "quality_claim",
+      "aoi": {
+        "name": "venezuela-caracas-capital",
+        "bbox": [
+          -67.17,
+          10.38,
+          -66.86,
+          10.57
+        ]
+      },
+      "sources": [
+        {
+          "source_id": "raw.osm.water_polygon",
+          "version_token": "caracas-local-2026-06-25"
+        }
+      ],
+      "baselines": [
+        {
+          "baseline_id": "fixed_adapter_single_source_passthrough",
+          "runner": "adapter_direct",
+          "description": "Single-source OSM water polygon structural-quality sanity case."
+        }
+      ],
+      "metrics": [
+        {
+          "metric_name": "feature_count",
+          "operator": "gt",
+          "threshold": 0
+        },
+        {
+          "metric_name": "invalid_geometry_rate",
+          "operator": "eq",
+          "threshold": 0.0
+        }
+      ],
+      "expected_artifact_roles": [
+        "fused_vector"
+      ],
+      "evidence_boundary": "single-source sanity case; not multi-source fusion evidence",
+      "precomputed_artifact_path": "runs/experiments/exp-quality-freeze-b-caracas-real/artifacts/water_polygon_caracas_osm_passthrough.gpkg"
+    },
+    {
+      "case_id": "case.poi.real.caracas",
+      "task_kind": "poi",
+      "data_tier": "real",
+      "independence_label": "real_source",
+      "claim_use": "quality_claim",
+      "aoi": {
+        "name": "venezuela-caracas-capital",
+        "bbox": [
+          -67.17,
+          10.38,
+          -66.86,
+          10.57
+        ]
+      },
+      "sources": [
+        {
+          "source_id": "raw.geonames.poi",
+          "version_token": "caracas-local-2026-06-25"
+        },
+        {
+          "source_id": "raw.osm.poi",
+          "version_token": "caracas-local-2026-06-25"
+        }
+      ],
+      "baselines": [
+        {
+          "baseline_id": "fusionagent_poi_neighbor_match",
+          "runner": "adapter_direct"
+        }
+      ],
+      "metrics": [
+        {
+          "metric_name": "feature_count",
+          "operator": "gt",
+          "threshold": 0
+        },
+        {
+          "metric_name": "invalid_geometry_rate",
+          "operator": "eq",
+          "threshold": 0.0
+        },
+        {
+          "metric_name": "duplicate_geometry_rate",
+          "operator": "lte",
+          "threshold": 0.25
+        }
+      ],
+      "expected_artifact_roles": [
+        "fused_vector"
+      ],
+      "precomputed_artifact_path": "runs/experiments/exp-quality-freeze-b-caracas-real/artifacts/poi_caracas_geonames_osm.gpkg"
+    }
+  ]
+}

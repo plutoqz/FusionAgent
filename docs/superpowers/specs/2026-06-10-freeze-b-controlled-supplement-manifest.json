@@ -1,0 +1,187 @@
+{
+  "manifest_id": "freeze-b-controlled-supplement-v1",
+  "freeze_line": "Freeze B",
+  "notes": [
+    "Controlled semi-real supplement for Freeze B quality execution.",
+    "Does not replace case.building.real.benin from freeze-b-v1.",
+    "Artifacts are generated from checked-in deterministic fixtures in scripts/materialize_controlled_quality_artifacts.py."
+  ],
+  "cases": [
+    {
+      "case_id": "case.road.semi_real.perturbed",
+      "task_kind": "road",
+      "data_tier": "semi_real",
+      "independence_label": "perturbation_independent",
+      "claim_use": "robustness_claim",
+      "aoi": {
+        "name": "road-controlled-perturbation",
+        "bbox": [
+          0,
+          0,
+          1,
+          1
+        ]
+      },
+      "sources": [
+        {
+          "source_id": "fixture.road.base",
+          "version_token": "controlled-v1"
+        }
+      ],
+      "baselines": [
+        {
+          "baseline_id": "fixed_adapter",
+          "runner": "adapter_direct"
+        }
+      ],
+      "metrics": [
+        {
+          "metric_name": "invalid_geometry_rate",
+          "operator": "eq",
+          "threshold": 0.0
+        },
+        {
+          "metric_name": "zero_length_geometry_count",
+          "operator": "eq",
+          "threshold": 0
+        }
+      ],
+      "expected_artifact_roles": [
+        "fused_vector"
+      ],
+      "precomputed_artifact_path": "runs/experiments/exp-quality-freeze-b-controlled/artifacts/road_controlled.gpkg"
+    },
+    {
+      "case_id": "case.water_polygon.semi_real.priority_merge",
+      "task_kind": "water_polygon",
+      "data_tier": "semi_real",
+      "independence_label": "perturbation_independent",
+      "claim_use": "robustness_claim",
+      "aoi": {
+        "name": "water-polygon-controlled",
+        "bbox": [
+          0,
+          0,
+          1,
+          1
+        ]
+      },
+      "sources": [
+        {
+          "source_id": "fixture.water.polygon",
+          "version_token": "controlled-v1"
+        }
+      ],
+      "baselines": [
+        {
+          "baseline_id": "fixed_adapter",
+          "runner": "adapter_direct"
+        }
+      ],
+      "metrics": [
+        {
+          "metric_name": "invalid_geometry_rate",
+          "operator": "eq",
+          "threshold": 0.0
+        },
+        {
+          "metric_name": "sliver_polygon_count",
+          "operator": "lte",
+          "threshold": 1
+        }
+      ],
+      "expected_artifact_roles": [
+        "fused_vector"
+      ],
+      "precomputed_artifact_path": "runs/experiments/exp-quality-freeze-b-controlled/artifacts/water_polygon_controlled.gpkg"
+    },
+    {
+      "case_id": "case.waterways.semi_real.line_conflation",
+      "task_kind": "waterways",
+      "data_tier": "semi_real",
+      "independence_label": "perturbation_independent",
+      "claim_use": "robustness_claim",
+      "aoi": {
+        "name": "waterways-controlled",
+        "bbox": [
+          0,
+          0,
+          1,
+          1
+        ]
+      },
+      "sources": [
+        {
+          "source_id": "fixture.waterways",
+          "version_token": "controlled-v1"
+        }
+      ],
+      "baselines": [
+        {
+          "baseline_id": "fixed_adapter",
+          "runner": "adapter_direct"
+        }
+      ],
+      "metrics": [
+        {
+          "metric_name": "invalid_geometry_rate",
+          "operator": "eq",
+          "threshold": 0.0
+        },
+        {
+          "metric_name": "zero_length_geometry_count",
+          "operator": "eq",
+          "threshold": 0
+        }
+      ],
+      "expected_artifact_roles": [
+        "fused_vector"
+      ],
+      "precomputed_artifact_path": "runs/experiments/exp-quality-freeze-b-controlled/artifacts/waterways_controlled.gpkg"
+    },
+    {
+      "case_id": "case.poi.semi_real.neighbor_match",
+      "task_kind": "poi",
+      "data_tier": "semi_real",
+      "independence_label": "perturbation_independent",
+      "claim_use": "robustness_claim",
+      "aoi": {
+        "name": "poi-controlled",
+        "bbox": [
+          0,
+          0,
+          1,
+          1
+        ]
+      },
+      "sources": [
+        {
+          "source_id": "fixture.poi",
+          "version_token": "controlled-v1"
+        }
+      ],
+      "baselines": [
+        {
+          "baseline_id": "fixed_adapter",
+          "runner": "adapter_direct"
+        }
+      ],
+      "metrics": [
+        {
+          "metric_name": "invalid_geometry_rate",
+          "operator": "eq",
+          "threshold": 0.0
+        },
+        {
+          "metric_name": "duplicate_geometry_rate",
+          "operator": "lte",
+          "threshold": 0.25
+        }
+      ],
+      "expected_artifact_roles": [
+        "fused_vector"
+      ],
+      "precomputed_artifact_path": "runs/experiments/exp-quality-freeze-b-controlled/artifacts/poi_controlled.gpkg"
+    }
+  ]
+}

@@ -1,0 +1,20 @@
+{
+  "experiment_id": "exp-recovery-governance-c3",
+  "output_dir": "runs\\experiments\\exp-recovery-governance",
+  "commit_sha": "21c91196263b10d82c5f9a6ca4a5f10948251e87",
+  "seed_hash": "paper-evidence-freeze-2026-04-21",
+  "runtime_settings_hash": "recovery-governance-table-v1",
+  "metric_definition_hash": "c3-recovery-governance-v1",
+  "files": [
+    {
+      "relative_path": "recovery_governance_evidence.json",
+      "sha256": "9ac12aa10b0dad363ddef88aeba84d16dbbc96d443da14894ff50078c04e1137",
+      "size_bytes": 4163
+    },
+    {
+      "relative_path": "recovery_governance_evidence.md",
+      "sha256": "0577069684b26e355708e6741c8252d2f569e66d772d44178e563b7f800e3e16",
+      "size_bytes": 1534
+    }
+  ]
+}

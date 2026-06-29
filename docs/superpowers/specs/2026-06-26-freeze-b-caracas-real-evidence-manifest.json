@@ -1,0 +1,70 @@
+{
+  "experiment_id": "exp-quality-freeze-b-caracas-real-supplement",
+  "output_dir": "runs\\experiments\\exp-quality-freeze-b-caracas-real",
+  "commit_sha": "21c91196263b10d82c5f9a6ca4a5f10948251e87",
+  "seed_hash": "caracas-real-local-2026-06-25",
+  "runtime_settings_hash": "caracas-real-materialization-v1",
+  "metric_definition_hash": "fusion-quality-benchmark-v1",
+  "files": [
+    {
+      "relative_path": "artifacts/building_caracas_overlap_priority.gpkg",
+      "sha256": "e87703018b6cd5353c7e0fd4b64faec5fa73e0f3589d77a37c32ebb9ca2bd241",
+      "size_bytes": 70942720
+    },
+    {
+      "relative_path": "artifacts/poi_caracas_geonames_osm.gpkg",
+      "sha256": "caac8811c34caa04c9e2960736fcb1a7adecd03ef6e525b8622e66c4b81b2984",
+      "size_bytes": 573440
+    },
+    {
+      "relative_path": "artifacts/road_caracas_conflation_v7.gpkg",
+      "sha256": "7d049c2a26ba19a1091cf089cc2f0bc3b346abd9fc950146819a8cae4cacf497",
+      "size_bytes": 9936896
+    },
+    {
+      "relative_path": "artifacts/water_polygon_caracas_osm_passthrough.gpkg",
+      "sha256": "d1dce110468ce3e2bf73e3d29072d9e0e657692590eae3c6cbabc6348fe69ed8",
+      "size_bytes": 167936
+    },
+    {
+      "relative_path": "artifacts/waterways_caracas_conflation_v7.gpkg",
+      "sha256": "570fe67e4f6c9f86b0911f6d4574b419daa1522a1f305c975d8782c1a3f795b5",
+      "size_bytes": 376832
+    },
+    {
+      "relative_path": "benchmark_results.json",
+      "sha256": "37d0d46dafb5265a03a484713118ab16f199b9e23ea4ffb20c01b587f5cbb452",
+      "size_bytes": 20530
+    },
+    {
+      "relative_path": "benchmark_summary.md",
+      "sha256": "aed5bb89dba3f6a85aeb0553f6864ba44f271c963a50275c1ab26cc417b9b0ed",
+      "size_bytes": 845
+    },
+    {
+      "relative_path": "materialization_summary.json",
+      "sha256": "a9caff4e83a53e86213b9a9725d519c5feef6d299141e022620207dbeffebe7d",
+      "size_bytes": 16877
+    },
+    {
+      "relative_path": "materialization_summary.md",
+      "sha256": "e1a2bb64d1535e64c9320bb550762ee67e41a6a9d9377cdeb09e2aaaf02b984d",
+      "size_bytes": 1600
+    },
+    {
+      "relative_path": "protocol_check.json",
+      "sha256": "e3b10a5ecd30fe1d915c003eb195aff7063269b098d799ad2709e48383ce546a",
+      "size_bytes": 230
+    },
+    {
+      "relative_path": "readiness.json",
+      "sha256": "45aaff0e95acbf16d5173c14c01c61888c54f82fd7b174407efd6a6ce3c2b2dd",
+      "size_bytes": 2035
+    },
+    {
+      "relative_path": "readiness.md",
+      "sha256": "f0848ba57d4bc5ec80332f677f511562e120646d0912dfe84bf39af08b51676e",
+      "size_bytes": 1146
+    }
+  ]
+}

@@ -1,0 +1,50 @@
+{
+  "experiment_id": "exp-ablation-a0-a2-controlled-comparison",
+  "output_dir": "runs\\experiments\\exp-ablation-a0-a2",
+  "commit_sha": "21c91196263b10d82c5f9a6ca4a5f10948251e87",
+  "seed_hash": "inspection-smoke-2026-05-12-plus-controlled-counterfactual-v1",
+  "runtime_settings_hash": "controlled-ablation-counterfactual-v1",
+  "metric_definition_hash": "eval-kg-ablation-v1",
+  "files": [
+    {
+      "relative_path": "ablation_summary.json",
+      "sha256": "7d74e341a30649bbdfb48df48feb8cbb3231a437028569f92bc1268309e6720d",
+      "size_bytes": 2566
+    },
+    {
+      "relative_path": "ablation_summary.md",
+      "sha256": "9b2611c8508c3bf00687fd6a702d7747e2643bd575b6f8a9128363ff2ad7a991",
+      "size_bytes": 786
+    },
+    {
+      "relative_path": "ablation_summary_controlled.json",
+      "sha256": "60b340448635d4286c663a882498b9a902d326de05d342f261b903067df5aeb1",
+      "size_bytes": 2561
+    },
+    {
+      "relative_path": "ablation_summary_controlled.md",
+      "sha256": "101580b3e7e9218e1be07ab9ce8156add21d9ce24ee8c08259dd73aa9facf0c1",
+      "size_bytes": 1039
+    },
+    {
+      "relative_path": "input_rows.json",
+      "sha256": "64b918af627c6a050346b3339f6ec5a99fcb44ddad6a7e646ead6ba03e1a8e3d",
+      "size_bytes": 2822
+    },
+    {
+      "relative_path": "input_rows.md",
+      "sha256": "f5e536131c426a8a6bd8da7d0ce995a48f5e5a6d10cd0c74972df5398c98b6df",
+      "size_bytes": 608
+    },
+    {
+      "relative_path": "input_rows_controlled.json",
+      "sha256": "a87c2cdf18c96cf819843a488020224d6a769b1abc78d63c23e18ef9b864b570",
+      "size_bytes": 22368
+    },
+    {
+      "relative_path": "input_rows_controlled.md",
+      "sha256": "76eee25427e088d0715d90279d9ed240ee062e61ed71e4ca0bed69c86575d7b9",
+      "size_bytes": 2821
+    }
+  ]
+}
