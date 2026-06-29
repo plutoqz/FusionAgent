@@ -336,7 +336,9 @@ def test_quality_gate_rejects_field_null_rate_above_contract_threshold(tmp_path:
         contract_id="contract.road.fused.v1",
     )
 
-    assert report.accepted is True
+    assert report.accepted is False
+    assert "road_osm_name_preservation" in report.failure_reasons
+    assert report.checks["road_osm_name_preservation"]["actual_nonempty_count"] == 0
     assert "field_null_rate:name" in report.soft_failure_reasons
     assert report.checks["field_null_rate:name"]["actual"] == 1.0
     assert report.checks["field_null_rate:name"]["operator"] == "lte"
@@ -376,6 +378,7 @@ def test_quality_gate_accepts_country_expected_high_road_name_null_rate(tmp_path
     assert "field_null_rate:name" not in report.soft_failure_reasons
     assert report.checks["field_null_rate:name"]["passed"] is True
     assert report.checks["field_null_rate:name"]["threshold"] == 0.95
+    assert report.checks["road_osm_name_preservation"]["passed"] is True
 
 
 def test_quality_gate_rejects_mismatched_contract_id(tmp_path: Path) -> None:

@@ -175,6 +175,35 @@ def test_run_road_conflation_v7_cleans_pseudo_empty_name_values() -> None:
     assert base_rows.iloc[0]["road_name"] == ""
 
 
+def test_run_road_conflation_v7_preserves_osm_name_from_common_alias_columns() -> None:
+    base = gpd.GeoDataFrame(
+        {"osm_id": [1], "fclass": ["primary"], "Name": ["Ring Road"]},
+        geometry=[LineString([(0, 0), (10, 0)])],
+        crs="EPSG:3857",
+    )
+    supplement = gpd.GeoDataFrame(
+        {"id": [2], "road_class": ["secondary"]},
+        geometry=[LineString([(0, 30), (10, 30)])],
+        crs="EPSG:3857",
+    )
+
+    result = run_road_conflation_v7(
+        base,
+        supplement,
+        config=RoadConflationV7Config(
+            target_crs="EPSG:3857",
+            do_split_by_angle=False,
+            max_segment_length=None,
+            enable_dangle_cleanup=False,
+        ),
+    )
+
+    base_rows = result.frame[result.frame["source_layer"] == "base"]
+    assert base_rows.iloc[0]["name"] == "Ring Road"
+    assert base_rows.iloc[0]["osm_name"] == "Ring Road"
+    assert base_rows.iloc[0]["road_name"] == "Ring Road"
+
+
 def test_run_road_conflation_v7_accepts_paths_and_multiline_inputs(tmp_path: Path) -> None:
     base = gpd.GeoDataFrame(
         {"osm_id": [1], "fclass": ["residential"]},

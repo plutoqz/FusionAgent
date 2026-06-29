@@ -91,6 +91,19 @@ class QualityGateService:
                     "actual": value,
                     "metric_name": metric_name,
                 }
+        if task_kind == TaskKind.road and _osm_road_coverage_available(component_coverage or {}):
+            nonempty_counts = metrics.get("field_nonempty_counts") or {}
+            preserved_count = max(
+                _safe_int(nonempty_counts.get("name")),
+                _safe_int(nonempty_counts.get("road_name")),
+                _safe_int(nonempty_counts.get("osm_name")),
+            )
+            checks["road_osm_name_preservation"] = {
+                "passed": preserved_count > 0,
+                "severity": "hard",
+                "expected": "OSM road names preserved in name or road_name",
+                "actual_nonempty_count": preserved_count,
+            }
         policy_metrics = {**metrics, **{name: check["passed"] for name, check in checks.items()}}
         for policy_check in policy.checks:
             if not policy_check.enabled:
@@ -168,6 +181,28 @@ def _multi_source_lineage_available(component_coverage: dict[str, object]) -> bo
             if status in {"available", "unknown_until_materialization"} or (count is not None and int(count) > 0):
                 available.append(source_id)
     return len(set(available)) >= 2
+
+
+def _osm_road_coverage_available(component_coverage: dict[str, object]) -> bool:
+    payload = component_coverage.get("raw.osm.road")
+    if not payload:
+        return False
+    if isinstance(payload, dict):
+        status = str(payload.get("coverage_status") or "")
+        count = payload.get("feature_count")
+    else:
+        status = str(getattr(payload, "coverage_status", "") or "")
+        count = getattr(payload, "feature_count", None)
+    return status == "available" or _safe_int(count) > 0
+
+
+def _safe_int(value) -> int:
+    if isinstance(value, bool):
+        return 0
+    try:
+        return int(value or 0)
+    except (TypeError, ValueError):
+        return 0
 
 
 def _merge_fields(primary: list[str], secondary: list[str]) -> list[str]:

@@ -51,6 +51,16 @@ def _clean_name_values(values: pd.Series) -> pd.Series:
     return cleaned.mask(cleaned.str.lower().isin({"nan", "none", "<na>"}), "")
 
 
+def _coalesced_name_values(frame: gpd.GeoDataFrame) -> pd.Series:
+    values = pd.Series([""] * len(frame), index=frame.index, dtype="object")
+    for column in ("name", "Name", "NAME", "road_name", "osm_name", "name_en", "ref", "REF"):
+        if column not in frame.columns:
+            continue
+        candidate = _clean_name_values(frame[column])
+        values = values.mask(values.str.len().eq(0), candidate)
+    return values
+
+
 def _canonicalize_road_output(frame: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     result = _remap_source_layer(frame)
     residual_mask = result.get("residual_from_matched", pd.Series(False, index=result.index)).fillna(False).astype(bool)
@@ -89,9 +99,7 @@ def _canonicalize_road_output(frame: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
         if column in result.columns:
             road_class = road_class.where(result[column].isna(), result[column].astype(str))
     result["road_class"] = road_class.fillna("road")
-    name_values = _clean_name_values(
-        result.get("name", pd.Series([""] * len(result), index=result.index, dtype="object"))
-    )
+    name_values = _coalesced_name_values(result)
     result["name"] = name_values.astype(str)
     result["osm_name"] = ""
     result.loc[~supplement_mask, "osm_name"] = name_values.loc[~supplement_mask].astype(str)
