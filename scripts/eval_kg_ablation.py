@@ -148,13 +148,15 @@ def render_markdown_summary(summary: dict[str, Any]) -> str:
         "",
         "This summary aggregates supplied rows only; it does not run live API, LLM, or KG calls.",
         "",
-        "| Variant | Label | Status | Cases | Planning Valid Rate | Unknown Algorithm Rate | Execution Success Rate | Avg Grounding Score |",
-        "| --- | --- | --- | ---: | ---: | ---: | ---: | ---: |",
+        "| Variant | Label | Status | Cases | Planning Valid Rate | Unknown Algorithm Rate | Execution Success Rate | Avg Grounding Score | Validator Rejection Rate | KG Fallback Rate | Pre-Fallback Valid Rate | Avg Fallback Delta |",
+        "| --- | --- | --- | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: | ---: |",
     ]
     for item in summary["variants"]:
         lines.append(
             "| {variant} | {label} | {status} | {case_count} | {planning_valid_rate} | "
-            "{unknown_algorithm_rate} | {execution_success_rate} | {average_grounding_score} |".format(**item)
+            "{unknown_algorithm_rate} | {execution_success_rate} | {average_grounding_score} | "
+            "{validator_rejection_rate} | {kg_fallback_rate} | {llm_plan_valid_before_fallback_rate} | "
+            "{average_fallback_plan_quality_delta} |".format(**item)
         )
     lines.append("")
     return "\n".join(lines)

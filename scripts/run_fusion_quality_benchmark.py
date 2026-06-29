@@ -21,7 +21,12 @@ def run_manifest(manifest_path: Path, *, output_dir: Path) -> dict[str, Any]:
     output_dir.mkdir(parents=True, exist_ok=True)
     results: list[BenchmarkCaseResult] = []
     for case in manifest.cases:
-        artifact_path = Path(str(case.model_extra.get("precomputed_artifact_path") if case.model_extra else ""))
+        raw_artifact_path = case.model_extra.get("precomputed_artifact_path") if case.model_extra else None
+        if not raw_artifact_path:
+            raise FileNotFoundError(
+                f"Benchmark case {case.case_id} is missing precomputed_artifact_path"
+            )
+        artifact_path = Path(str(raw_artifact_path))
         if not artifact_path.exists():
             raise FileNotFoundError(f"Benchmark case {case.case_id} has no precomputed artifact at {artifact_path}")
         metrics = evaluate_vector_artifact(artifact_path, required_fields=["geometry"])
@@ -32,6 +37,7 @@ def run_manifest(manifest_path: Path, *, output_dir: Path) -> dict[str, Any]:
                 case_id=case.case_id,
                 task_kind=case.task_kind,
                 baseline_id=case.baselines[0].baseline_id if case.baselines else "smoke",
+                claim_use=case.claim_use,
                 artifact_path=str(artifact_path),
                 metrics=metrics,
                 threshold_results=threshold_results,
@@ -51,14 +57,17 @@ def _render_markdown(summary: dict[str, Any]) -> str:
         f"- Manifest: `{summary['manifest_id']}`",
         f"- Results: {summary['result_count']}",
         f"- Quality claim cases: {summary['quality_claim_case_count']}",
+        f"- Robustness claim cases: {summary.get('robustness_claim_case_count', 0)}",
         f"- Accepted quality claim cases: {summary['accepted_quality_claim_count']}",
+        f"- Accepted robustness claim cases: {summary.get('accepted_robustness_claim_count', 0)}",
+        f"- Accepted non-smoke claim cases: {summary.get('accepted_non_smoke_claim_count', summary['accepted_quality_claim_count'])}",
         "",
-        "| Case | Task | Baseline | Accepted |",
-        "| --- | --- | --- | --- |",
+        "| Case | Task | Claim Use | Baseline | Accepted |",
+        "| --- | --- | --- | --- | --- |",
     ]
     for result in summary["results"]:
         lines.append(
-            f"| {result['case_id']} | {result['task_kind']} | {result['baseline_id']} | {result['accepted_for_claim']} |"
+            f"| {result['case_id']} | {result['task_kind']} | {result.get('claim_use', 'quality_claim')} | {result['baseline_id']} | {result['accepted_for_claim']} |"
         )
     lines.append("")
     return "\n".join(lines)

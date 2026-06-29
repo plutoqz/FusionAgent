@@ -109,4 +109,6 @@ def test_summary_keeps_smoke_only_out_of_quality_claim_count() -> None:
     summary = summarize_benchmark_results(manifest, [])
 
     assert summary.quality_claim_case_count == 1
+    assert summary.robustness_claim_case_count == 0
+    assert summary.non_smoke_claim_case_count == 1
     assert summary.smoke_only_case_count == 1

@@ -90,6 +90,7 @@ class BenchmarkCaseResult(BaseModel):
     case_id: str
     task_kind: TaskKind
     baseline_id: str
+    claim_use: Literal["quality_claim", "robustness_claim", "smoke_only"] = "quality_claim"
     artifact_path: str
     metrics: dict[str, Any]
     threshold_results: dict[str, bool] = Field(default_factory=dict)
@@ -100,6 +101,10 @@ class BenchmarkRunSummary(BaseModel):
     manifest_id: str
     result_count: int
     quality_claim_case_count: int
+    robustness_claim_case_count: int = 0
+    non_smoke_claim_case_count: int = 0
     smoke_only_case_count: int
     accepted_quality_claim_count: int
+    accepted_robustness_claim_count: int = 0
+    accepted_non_smoke_claim_count: int = 0
     results: list[BenchmarkCaseResult]

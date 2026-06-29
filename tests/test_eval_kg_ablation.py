@@ -141,7 +141,10 @@ def test_main_reads_object_rows_and_writes_json_and_markdown(tmp_path: Path, cap
     assert saved["variants"][1]["case_count"] == 1
 
     markdown = output_markdown.read_text(encoding="utf-8")
-    assert "| A1 | KG retrieval context without fail-closed validation | evaluated | 1 | 1.0 | 0.0 | 1.0 | 0.8 |" in markdown
+    assert (
+        "| A1 | KG retrieval context without fail-closed validation | evaluated | 1 | 1.0 | 0.0 | "
+        "1.0 | 0.8 | 0.0 | 0.0 | 1.0 | 0.0 |"
+    ) in markdown
     printed = json.loads(capsys.readouterr().out)
     assert printed["total_input_rows"] == 1
 

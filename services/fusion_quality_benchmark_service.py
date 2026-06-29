@@ -98,13 +98,31 @@ def summarize_benchmark_results(
     results: list[BenchmarkCaseResult],
 ) -> BenchmarkRunSummary:
     quality_cases = [case for case in manifest.cases if case.claim_use == "quality_claim"]
+    robustness_cases = [case for case in manifest.cases if case.claim_use == "robustness_claim"]
+    non_smoke_cases = [case for case in manifest.cases if case.claim_use != "smoke_only"]
     smoke_cases = [case for case in manifest.cases if case.claim_use == "smoke_only"]
     return BenchmarkRunSummary(
         manifest_id=manifest.manifest_id,
         result_count=len(results),
         quality_claim_case_count=len(quality_cases),
+        robustness_claim_case_count=len(robustness_cases),
+        non_smoke_claim_case_count=len(non_smoke_cases),
         smoke_only_case_count=len(smoke_cases),
-        accepted_quality_claim_count=sum(1 for result in results if result.accepted_for_claim),
+        accepted_quality_claim_count=sum(
+            1
+            for result in results
+            if result.claim_use == "quality_claim" and result.accepted_for_claim
+        ),
+        accepted_robustness_claim_count=sum(
+            1
+            for result in results
+            if result.claim_use == "robustness_claim" and result.accepted_for_claim
+        ),
+        accepted_non_smoke_claim_count=sum(
+            1
+            for result in results
+            if result.claim_use != "smoke_only" and result.accepted_for_claim
+        ),
         results=results,
     )
 
