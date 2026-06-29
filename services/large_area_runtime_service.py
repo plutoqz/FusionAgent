@@ -22,6 +22,7 @@ _GEOMETRY_KEY = "_large_area_geometry_wkb"
 _TILE_KEY = "_large_area_tile_id"
 _SLICE_KEY = "_large_area_slice_name"
 _INTERNAL_COLUMNS = (_GEOMETRY_KEY, _TILE_KEY, _SLICE_KEY)
+_GPKG_RESERVED_FIELD_NAMES = {"fid"}
 
 
 def _json_safe(value: Any) -> Any:
@@ -357,6 +358,13 @@ class LargeAreaRuntimeService:
             output = output.set_crs(target_crs)
         else:
             output = output.to_crs(target_crs)
+        reserved_columns = [
+            column
+            for column in output.columns
+            if column != output.geometry.name and column.lower() in _GPKG_RESERVED_FIELD_NAMES
+        ]
+        if reserved_columns:
+            output = output.drop(columns=reserved_columns)
         if output.empty and len([column for column in output.columns if column != output.geometry.name]) == 0:
             output["_empty_schema"] = pd.Series(dtype="object")
         output.to_file(output_path, driver="GPKG")

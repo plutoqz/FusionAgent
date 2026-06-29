@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from pathlib import Path
+from types import SimpleNamespace
 import zipfile
 
 import geopandas as gpd
@@ -183,10 +184,11 @@ def test_raster_paths_for_source_semantics_returns_existing_height_raster(tmp_pa
         version_token="v1",
         selected_source_id="catalog.earthquake.building",
         component_coverage={
-            "raw.google.building_height.raster": {
+            "raw.google.open_buildings_2_5d.height_raster": {
                 "path": str(height_path),
                 "feature_count": None,
                 "source_mode": "local_raster",
+                "source_form": "raster",
             }
         },
     )
@@ -196,7 +198,7 @@ def test_raster_paths_for_source_semantics_returns_existing_height_raster(tmp_pa
     finally:
         service.shutdown()
 
-    assert rasters == {"raw.google.building_height.raster": height_path}
+    assert rasters == {"raw.google.open_buildings_2_5d.height_raster": height_path}
 
 
 def test_source_semantics_keeps_raster_out_of_vector_component_paths(
@@ -238,10 +240,11 @@ def test_source_semantics_keeps_raster_out_of_vector_component_paths(
         selected_source_id="catalog.earthquake.building",
         component_coverage={
             "raw.microsoft.building": {"path": str(vector_path), "feature_count": 1},
-            "raw.google.building_height.raster": {
+            "raw.google.open_buildings_2_5d.height_raster": {
                 "path": str(height_path),
                 "feature_count": None,
                 "source_mode": "local_raster",
+                "source_form": "raster",
             },
         },
     )
@@ -281,10 +284,39 @@ def test_source_semantics_keeps_raster_out_of_vector_component_paths(
     assert component_paths == {"raw.microsoft.building": vector_path}
     assert contract is not None
     assert "raw.microsoft.building" in contract.sources
-    assert "raw.google.building_height.raster" not in contract.sources
+    assert "raw.google.open_buildings_2_5d.height_raster" not in contract.sources
     assert contract.height_policy["raster_height_sources"] == {
-        "raw.google.building_height.raster": str(height_path)
+        "raw.google.open_buildings_2_5d.height_raster": str(height_path)
     }
+
+
+def test_building_sources_from_semantic_contract_selects_preferred_height_raster(tmp_path: Path) -> None:
+    open_buildings_height = tmp_path / "open_buildings_2_5d.tif"
+    globfp_height = tmp_path / "3d_globfp.tif"
+    legacy_google_height = tmp_path / "legacy_google.tif"
+    for path in [open_buildings_height, globfp_height, legacy_google_height]:
+        path.write_bytes(b"fake-raster")
+    contract = SimpleNamespace(
+        sources={
+            "raw.microsoft.building": SimpleNamespace(artifact_path=str(tmp_path / "ms.gpkg")),
+            "raw.osm.building": SimpleNamespace(artifact_path=str(tmp_path / "osm.gpkg")),
+        },
+        height_policy={
+            "raster_height_sources": {
+                "raw.google.building_height.raster": str(legacy_google_height),
+                "raw.3d_globfp.building_height.raster": str(globfp_height),
+                "raw.google.open_buildings_2_5d.height_raster": str(open_buildings_height),
+            }
+        },
+    )
+
+    vectors, rasters = AgentRunService._building_sources_from_semantic_contract(contract)
+
+    assert vectors == {
+        "MS": tmp_path / "ms.gpkg",
+        "OSM": tmp_path / "osm.gpkg",
+    }
+    assert rasters == {"building_height": open_buildings_height}
 
 
 def test_building_multisource_runner_uses_working_bbox_for_inner_manifest(

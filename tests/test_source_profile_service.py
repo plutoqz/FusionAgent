@@ -41,6 +41,30 @@ def test_profile_vector_source_reads_feature_count_crs_and_fields(tmp_path: Path
     assert profile.height_semantics == "estimated_height"
 
 
+def test_profile_raster_source_degrades_when_gdalinfo_is_unavailable(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+) -> None:
+    raster_path = tmp_path / "height_8c2a4_2023_06_30_tile.tif"
+    raster_path.write_bytes(b"fake-height")
+    monkeypatch.setattr(
+        "services.source_profile_service.gdalinfo_json",
+        lambda _path: (_ for _ in ()).throw(FileNotFoundError("gdalinfo executable not found on PATH")),
+    )
+
+    profile = SourceProfileService().profile_raster_source(
+        source_id="raw.google.open_buildings_2_5d.height_raster",
+        source_name="Open Buildings 2.5D Height Raster",
+        path=raster_path,
+        runtime_status="runtime_candidate",
+        selectable_now=True,
+    )
+
+    assert profile.source_form == "raster"
+    assert profile.height_semantics == "estimated_height"
+    assert profile.metadata["profile_degraded"] is True
+
+
 def test_profile_benin_root_prefers_non_empty_microsoft_candidate(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
     _write_frame(
         tmp_path / "final_shp" / "openstreetmap" / "openstreetmap_benin.shp",

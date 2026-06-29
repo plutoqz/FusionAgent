@@ -10,6 +10,7 @@ from shapely.geometry import LineString, Polygon
 
 from services.artifact_registry import ArtifactRegistry
 from services.local_bundle_catalog import LocalBundleCatalogProvider
+from services.raster_height_source_service import RasterHeightSourceService
 from services.raw_vector_source_service import RawVectorSourceService
 
 
@@ -252,6 +253,115 @@ def test_local_bundle_catalog_records_task6_building_candidate_attempts(tmp_path
         "raw.openbuildingmap.building",
     }
     assert [attempt["attempt_no"] for attempt in materialized.provider_attempts] == [1, 2, 3, 4, 5]
+
+
+def test_local_bundle_catalog_adds_optional_preferred_building_height_raster(tmp_path: Path) -> None:
+    _seed_local_catalog_tree(tmp_path)
+    height_raster = tmp_path / "Data" / "buildings" / "height" / "OpenBuildings2_5D" / "height.tif"
+    height_raster.parent.mkdir(parents=True, exist_ok=True)
+    height_raster.write_bytes(b"fake-height-raster")
+    provider = LocalBundleCatalogProvider(
+        tmp_path,
+        raw_source_service=RawVectorSourceService(
+            root_dir=tmp_path,
+            registry=ArtifactRegistry(index_path=tmp_path / "artifact_registry.json"),
+            cache_dir=tmp_path / "raw-cache",
+            source_asset_service=_NoRemoteSourceAssetService(),
+        ),
+        raster_height_source_service=RasterHeightSourceService(
+            repo_root=tmp_path,
+            cache_dir=tmp_path / "height-cache",
+        ),
+    )
+
+    materialized = provider.materialize_with_fallback(
+        source_id="catalog.flood.building",
+        request_bbox=None,
+        target_dir=tmp_path / "task6_building_bundle_with_height",
+        target_crs="EPSG:4326",
+    )
+
+    coverage = materialized.component_coverage["raw.google.open_buildings_2_5d.height_raster"]
+    assert coverage["coverage_status"] == "available"
+    assert coverage["path"] == str(height_raster)
+    height_attempts = [
+        attempt
+        for attempt in materialized.provider_attempts
+        if attempt["source_id"] == "raw.google.open_buildings_2_5d.height_raster"
+    ]
+    assert height_attempts[0]["attempt_type"] == "skill"
+    assert height_attempts[0]["skill_id"] == "skill.source_acquisition.building_height_raster"
+    assert height_attempts[0]["selected_for_fusion"] is True
+    assert [attempt["attempt_no"] for attempt in materialized.provider_attempts] == [1, 2, 3, 4, 5, 6]
+
+
+def test_local_bundle_catalog_discovers_open_buildings_height_next_to_runtime_view(tmp_path: Path) -> None:
+    runtime_view = tmp_path / "fusionagent_runtime_view"
+    _seed_local_catalog_tree(runtime_view)
+    height_raster = (
+        tmp_path
+        / "data"
+        / "open_buildings_2_5d_2023_caracas_urban_height"
+        / "height_8c2a4_2023_06_30_tile_Cqgsefqaijg.tif"
+    )
+    height_raster.parent.mkdir(parents=True, exist_ok=True)
+    height_raster.write_bytes(b"fake-height-raster")
+    provider = LocalBundleCatalogProvider(
+        runtime_view,
+        raw_source_service=RawVectorSourceService(
+            root_dir=runtime_view,
+            registry=ArtifactRegistry(index_path=tmp_path / "artifact_registry.json"),
+            cache_dir=tmp_path / "raw-cache",
+            source_asset_service=_NoRemoteSourceAssetService(),
+        ),
+        raster_height_source_service=RasterHeightSourceService(
+            repo_root=runtime_view,
+            cache_dir=tmp_path / "height-cache",
+        ),
+    )
+
+    materialized = provider.materialize_with_fallback(
+        source_id="catalog.earthquake.building",
+        request_bbox=None,
+        target_dir=tmp_path / "task6_building_bundle_with_caracas_height",
+        target_crs="EPSG:4326",
+    )
+
+    coverage = materialized.component_coverage["raw.google.open_buildings_2_5d.height_raster"]
+    assert coverage["coverage_status"] == "available"
+    assert coverage["path"] == str(height_raster)
+
+
+def test_local_bundle_catalog_records_height_raster_degradation_without_blocking_building_bundle(tmp_path: Path) -> None:
+    _seed_local_catalog_tree(tmp_path)
+    provider = LocalBundleCatalogProvider(
+        tmp_path,
+        raw_source_service=RawVectorSourceService(
+            root_dir=tmp_path,
+            registry=ArtifactRegistry(index_path=tmp_path / "artifact_registry.json"),
+            cache_dir=tmp_path / "raw-cache",
+            source_asset_service=_NoRemoteSourceAssetService(),
+        ),
+        raster_height_source_service=RasterHeightSourceService(
+            repo_root=tmp_path,
+            cache_dir=tmp_path / "height-cache",
+        ),
+    )
+
+    materialized = provider.materialize_with_fallback(
+        source_id="catalog.flood.building",
+        request_bbox=None,
+        target_dir=tmp_path / "task6_building_bundle_without_height",
+        target_crs="EPSG:4326",
+    )
+
+    assert materialized.osm_zip_path.exists()
+    assert materialized.ref_zip_path.exists()
+    assert materialized.component_coverage["raw.google.open_buildings_2_5d.height_raster"]["coverage_status"] == "missing"
+    attempts = {attempt["source_id"]: attempt for attempt in materialized.provider_attempts}
+    assert attempts["raw.google.open_buildings_2_5d.height_raster"]["attempt_type"] == "skill"
+    assert attempts["raw.google.open_buildings_2_5d.height_raster"]["status"] == "no_coverage"
+    assert attempts["raw.3d_globfp.building_height.raster"]["status"] == "no_coverage"
 
 
 def test_local_bundle_catalog_uses_microsoft_reference_layer_for_default_building_pairs(tmp_path: Path) -> None:

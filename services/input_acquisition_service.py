@@ -48,13 +48,7 @@ def _safe_cache_component(value: str) -> str:
     text = str(value or "").strip()
     if not text:
         return "empty"
-    normalized = re.sub(r"[^A-Za-z0-9._-]+", "_", text).strip("._-")
-    if normalized and normalized == text:
-        return normalized
-    digest = hashlib.sha1(text.encode("utf-8")).hexdigest()[:12]
-    if normalized:
-        return f"{normalized[:48]}_{digest}"
-    return digest
+    return f"v_{hashlib.sha1(text.encode('utf-8')).hexdigest()[:16]}"
 
 
 def _tile_meta(request_bbox: Optional[BBox]) -> dict[str, object]:
@@ -230,7 +224,7 @@ class InputAcquisitionService:
             self.cache_dir
             / source_id.replace(".", "_")
             / _safe_cache_component(version_token)
-            / uuid.uuid4().hex
+            / uuid.uuid4().hex[:12]
         )
         try:
             materialized = self._provider_materialize(
@@ -612,6 +606,10 @@ def _source_attempts_for_evidence(
                     if "external_uncontrollable" in attempt
                     else None
                 ),
+                skill_id=str(attempt.get("skill_id")) if attempt.get("skill_id") is not None else None,
+                skill_name=str(attempt.get("skill_name")) if attempt.get("skill_name") is not None else None,
+                capability=str(attempt.get("capability")) if attempt.get("capability") is not None else None,
+                metadata=dict(attempt.get("metadata") or {}) if isinstance(attempt.get("metadata"), dict) else None,
             )
         )
     return attempts

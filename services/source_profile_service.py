@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+import subprocess
 from dataclasses import asdict, dataclass, field
 from pathlib import Path
 from typing import Any, Iterable
@@ -166,7 +168,31 @@ class SourceProfileService:
         metadata: dict[str, Any] | None = None,
     ) -> SourceProfile:
         raster_path = Path(path)
-        info = gdalinfo_json(raster_path)
+        try:
+            info = gdalinfo_json(raster_path)
+        except (FileNotFoundError, subprocess.SubprocessError, json.JSONDecodeError) as exc:
+            source_label = f"{source_name or source_id} {raster_path.name}"
+            return SourceProfile(
+                source_id=source_id,
+                canonical_path=str(raster_path),
+                source_form="raster",
+                runtime_status=runtime_status,
+                selectable_now=selectable_now,
+                crs=None,
+                feature_count=None,
+                field_names=[],
+                height_fields=[],
+                height_semantics=classify_height_semantics(
+                    source_name=source_label,
+                    field_names=[],
+                    raster_band_description=None,
+                ),
+                metadata={
+                    "profile_degraded": True,
+                    "profile_error": f"{type(exc).__name__}: {exc}",
+                    **dict(metadata or {}),
+                },
+            )
         bands = list(info.get("bands") or [])
         band_description = None
         if bands:

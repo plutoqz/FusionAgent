@@ -122,6 +122,10 @@ def build_source_attempt(
     feature_count: int | None = None,
     selected_for_fusion: bool = False,
     external_uncontrollable: bool | None = None,
+    skill_id: str | None = None,
+    skill_name: str | None = None,
+    capability: str | None = None,
+    metadata: dict[str, object] | None = None,
     normalize_status: bool = True,
 ) -> dict[str, object]:
     normalized_fault_class = str(fault_class or "") if fault_class else None
@@ -134,7 +138,7 @@ def build_source_attempt(
     )
     if next_retry_after_seconds is None and is_recoverable:
         next_retry_after_seconds = retry_schedule_seconds(attempt_no=attempt_no)
-    return SourceAcquisitionAttempt(
+    payload = SourceAcquisitionAttempt(
         source_id=source_id,
         status=normalized_status,
         attempt_type=attempt_type,
@@ -148,7 +152,17 @@ def build_source_attempt(
         feature_count=feature_count,
         selected_for_fusion=selected_for_fusion,
         external_uncontrollable=is_external_uncontrollable,
+        skill_id=skill_id,
+        skill_name=skill_name,
+        capability=capability,
+        metadata=dict(metadata or {}),
     ).model_dump(mode="json")
+    for optional_key in ("skill_id", "skill_name", "capability"):
+        if payload.get(optional_key) is None:
+            payload.pop(optional_key, None)
+    if not payload.get("metadata"):
+        payload.pop("metadata", None)
+    return payload
 
 
 def _normalize_attempt_status(*, status: str, fault_class: str | None) -> str:

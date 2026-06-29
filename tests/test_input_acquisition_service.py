@@ -126,6 +126,69 @@ class _PoiSourceAttemptsBundleProvider(_StubBundleProvider):
         )
 
 
+class _HeightRasterSkillAttemptsBundleProvider(_StubBundleProvider):
+    def materialize(self, *, source_id: str, request_bbox, target_dir: Path, target_crs: str):
+        bundle = super().materialize(
+            source_id=source_id,
+            request_bbox=request_bbox,
+            target_dir=target_dir,
+            target_crs=target_crs,
+        )
+        from services.input_acquisition_service import MaterializedInputBundle
+
+        raster_path = target_dir / "height_rasters" / "height.tif"
+        raster_path.parent.mkdir(parents=True, exist_ok=True)
+        raster_path.write_bytes(b"fake-height-raster")
+
+        return MaterializedInputBundle(
+            osm_zip_path=bundle.osm_zip_path,
+            ref_zip_path=bundle.ref_zip_path,
+            bbox=bundle.bbox,
+            target_crs=bundle.target_crs,
+            source_id=source_id,
+            component_coverage={
+                "raw.osm.building": {
+                    "source_id": "raw.osm.building",
+                    "source_mode": "downloaded",
+                    "feature_count": 1,
+                    "coverage_status": "available",
+                },
+                "raw.google.open_buildings_2_5d.height_raster": {
+                    "source_id": "raw.google.open_buildings_2_5d.height_raster",
+                    "source_mode": "local_raster",
+                    "feature_count": None,
+                    "coverage_status": "available",
+                    "path": str(raster_path),
+                    "source_form": "raster",
+                    "source_acquisition_skill": {
+                        "skill_id": "skill.source_acquisition.building_height_raster",
+                    },
+                },
+            },
+            provider_attempts=[
+                {
+                    "source_id": "raw.osm.building",
+                    "status": "available",
+                    "coverage_status": "available",
+                    "feature_count": 1,
+                    "selected_for_fusion": True,
+                },
+                {
+                    "source_id": "raw.google.open_buildings_2_5d.height_raster",
+                    "status": "available",
+                    "attempt_type": "skill",
+                    "channel": "source_acquisition_skill",
+                    "coverage_status": "available",
+                    "selected_for_fusion": True,
+                    "skill_id": "skill.source_acquisition.building_height_raster",
+                    "skill_name": "Building Height Raster Acquisition",
+                    "capability": "building_height_raster_materialization",
+                    "metadata": {"rapid_response_policy": {"fallback": "footprint_fusion_without_height"}},
+                },
+            ],
+        )
+
+
 class _CoverageOnlyPoiBundleProvider(_StubBundleProvider):
     def materialize(self, *, source_id: str, request_bbox, target_dir: Path, target_crs: str):
         bundle = super().materialize(
@@ -658,6 +721,47 @@ def test_input_acquisition_writes_structured_source_attempts_evidence(tmp_path: 
         "degraded_source_ids": [],
         "external_uncontrollable_source_ids": [],
     }
+
+
+def test_input_acquisition_preserves_source_acquisition_skill_attempt_metadata(tmp_path: Path) -> None:
+    from services.input_acquisition_service import InputAcquisitionService
+
+    registry = ArtifactRegistry(index_path=tmp_path / "artifact_registry.json")
+    provider = _HeightRasterSkillAttemptsBundleProvider(
+        version_token="building-height-v1",
+        supported_source_ids={"catalog.flood.building"},
+    )
+    service = InputAcquisitionService(registry=registry, providers=[provider], cache_dir=tmp_path / "cache")
+
+    resolved = service.resolve_task_driven_inputs(
+        request=_build_request(job_type=JobType.building, content="need buildings with height"),
+        source_id="catalog.flood.building",
+        required_output_type="dt.building.bundle",
+        input_dir=tmp_path / "run-building",
+        request_bbox=(0, 0, 1, 1),
+    )
+
+    assert resolved.manifest_path is not None
+    manifest = json.loads(resolved.manifest_path.read_text(encoding="utf-8"))
+    height_attempt = next(
+        attempt
+        for attempt in manifest["provider_attempts"]
+        if attempt["source_id"] == "raw.google.open_buildings_2_5d.height_raster"
+    )
+    assert height_attempt["attempt_type"] == "skill"
+    assert height_attempt["skill_id"] == "skill.source_acquisition.building_height_raster"
+
+    payload = json.loads((resolved.manifest_path.parent / "source_attempts.json").read_text(encoding="utf-8"))
+    source_attempt = next(
+        attempt
+        for attempt in payload["attempts"]
+        if attempt["source_id"] == "raw.google.open_buildings_2_5d.height_raster"
+    )
+    assert source_attempt["attempt_type"] == "skill"
+    assert source_attempt["skill_name"] == "Building Height Raster Acquisition"
+    assert source_attempt["capability"] == "building_height_raster_materialization"
+    assert source_attempt["metadata"]["rapid_response_policy"]["fallback"] == "footprint_fusion_without_height"
+    assert payload["component_coverage"]["raw.google.open_buildings_2_5d.height_raster"]["source_form"] == "raster"
 
 
 def test_input_acquisition_synthesizes_source_attempts_from_component_coverage(tmp_path: Path) -> None:

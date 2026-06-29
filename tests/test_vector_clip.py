@@ -47,6 +47,26 @@ def test_clip_zip_to_request_bbox_drops_boundary_lines_for_polygon_bundle(tmp_pa
     assert clipped.empty
 
 
+def test_clip_zip_to_request_bbox_creates_missing_output_parent(tmp_path: Path) -> None:
+    bundle_zip = _write_bundle_zip(
+        tmp_path / "source.zip",
+        gpd.GeoDataFrame(
+            {"feature_id": [1]},
+            geometry=[Point(0.5, 0.5)],
+            crs="EPSG:4326",
+        ),
+    )
+
+    clipped_zip = clip_zip_to_request_bbox(
+        bundle_zip,
+        tmp_path / "new" / "nested" / "clipped.zip",
+        request_bbox=(0.0, 0.0, 1.0, 1.0),
+    )
+
+    assert clipped_zip.exists()
+    assert len(_read_bundle(clipped_zip)) == 1
+
+
 def test_clip_frame_to_request_bbox_repairs_invalid_polygon_and_keeps_polygon_family() -> None:
     invalid_bowtie = Polygon([(0, 0), (2, 2), (0, 2), (2, 0), (0, 0)])
     frame = gpd.GeoDataFrame(
@@ -75,3 +95,21 @@ def test_clip_frame_to_request_bbox_repairs_mixed_source_families_without_geomet
     clipped = clip_frame_to_request_bbox(frame, (0.0, 0.0, 1.0, 1.0))
 
     assert set(clipped.geometry.geom_type) == {"LineString", "Point"}
+
+
+def test_clip_frame_to_request_bbox_accepts_crs84_wkt_source_crs() -> None:
+    crs84_wkt = (
+        'GEOGCS["GCS_WGS_84_CRS84",DATUM["WGS_1984",'
+        'SPHEROID["WGS 84",6378137,298.257223563,AUTHORITY["EPSG","7030"]],'
+        'AUTHORITY["EPSG","6326"]],PRIMEM["Greenwich",0],'
+        'UNIT["Degree",0.0174532925199433],AXIS["Longitude",EAST],AXIS["Latitude",NORTH]]'
+    )
+    frame = gpd.GeoDataFrame(
+        {"source_id": ["raw.osm.road"]},
+        geometry=[LineString([(-67.1, 10.4), (-67.0, 10.5)])],
+        crs=crs84_wkt,
+    )
+
+    clipped = clip_frame_to_request_bbox(frame, (-67.17, 10.38, -66.86, 10.57))
+
+    assert len(clipped) == 1

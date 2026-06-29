@@ -21,6 +21,13 @@ BUILDING_SOURCE_PRIORITY_ORDER: tuple[str, ...] = (
     "OSM",
 )
 
+BUILDING_HEIGHT_RASTER_PRIORITY_ORDER: tuple[str, ...] = (
+    "raw.google.open_buildings_2_5d.height_raster",
+    "raw.3d_globfp.building_height.raster",
+    "raw.google.building_height.raster",
+    "raw.local.building_height.raster",
+)
+
 POI_SOURCE_ALIASES: dict[str, str] = {
     "raw.osm.poi": "OSM",
     "raw.gns.poi": "GNG",

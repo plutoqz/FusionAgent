@@ -4,8 +4,14 @@ import math
 import re
 from typing import Sequence
 
+from pyproj import CRS
+from pyproj.exceptions import CRSError
+
 
 DEFAULT_TARGET_CRS = "EPSG:32643"
+_EPSG_RE = re.compile(r"^EPSG:\d+$")
+_BARE_EPSG_RE = re.compile(r"^\d+$")
+_WGS84 = CRS.from_epsg(4326)
 
 
 def normalize_explicit_target_crs(crs: str | None) -> str | None:
@@ -16,9 +22,23 @@ def normalize_explicit_target_crs(crs: str | None) -> str | None:
     if not value:
         return None
 
-    if not re.match(r"^EPSG:\d+$", value):
+    if _EPSG_RE.match(value):
+        return value
+    if _BARE_EPSG_RE.match(value):
         raise ValueError(f"Invalid CRS format: {crs}. Expected like EPSG:32643.")
-    return value
+
+    try:
+        parsed = CRS.from_user_input(crs)
+    except CRSError as exc:
+        raise ValueError(f"Invalid CRS format: {crs}. Expected like EPSG:32643.") from exc
+
+    epsg = parsed.to_epsg()
+    if epsg is not None:
+        return f"EPSG:{epsg}"
+    if parsed.to_authority() == ("OGC", "CRS84") or parsed.equals(_WGS84, ignore_axis_order=True):
+        return "EPSG:4326"
+
+    raise ValueError(f"Invalid CRS format: {crs}. Expected like EPSG:32643.")
 
 
 def derive_default_target_crs(bbox: Sequence[float] | None) -> str:

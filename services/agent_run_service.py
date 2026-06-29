@@ -45,17 +45,22 @@ from services.artifact_registry import ArtifactRecord, ArtifactRegistry
 from services.artifact_reuse_policy import get_artifact_reuse_max_age_seconds
 from services.artifact_reuse_service import ArtifactReuseService, ReuseResult
 from services.artifact_evaluation_service import evaluate_vector_artifact
-from services.aoi_resolution_service import AOIResolutionService, NominatimGeocoder, ResolvedAOI
+from services.agent_source_infrastructure import (
+    AgentSourceInfrastructure,
+    SourceProviderContract,
+    build_default_geocoder,
+    build_default_input_bundle_providers,
+    source_required_external_config,
+)
+from services.aoi_resolution_service import NominatimGeocoder, ResolvedAOI
 from services.data_requirement_resolver_service import DataRequirementResolverService
-from services.input_acquisition_service import InputAcquisitionService, ResolvedRunInputs
-from services.local_bundle_catalog import LocalBundleCatalogProvider
+from services.input_acquisition_service import ResolvedRunInputs
 from services.output_contract_service import get_domain_output_contract
 from services.plan_grounding_service import ensure_plan_grounding_report, evaluate_plan_grounding_gate
 from services.quality_gate_service import QualityGateService
-from services.raw_vector_input_bundle_provider import RawVectorInputBundleProvider
 from services.raw_vector_source_service import RawVectorSourceService
 from services.runtime_settings_service import RuntimeSettingsService
-from services.runtime_source_contract_service import RuntimeSourceContractService
+from services.runtime_paths import resolve_data_repository_root, resolve_download_root, resolve_runs_root
 from services.run_recovery_service import collect_recoverable_runs
 from services.runtime_contract_service import RuntimeContractService
 from services.run_report_service import build_run_report_summary, render_run_reports
@@ -338,13 +343,29 @@ class RuntimeSnapshotUnavailableError(RuntimeError):
 class AgentRunService:
     def __init__(
         self,
-        base_dir: Path,
+        base_dir: Path | None = None,
         max_workers: int = 2,
         kg_repo: Optional[KGRepository] = None,
         runtime_settings_service: RuntimeSettingsService | None = None,
+        source_infrastructure: AgentSourceInfrastructure | None = None,
+        source_provider_contract: SourceProviderContract | None = None,
+        data_repository_root: Path | None = None,
+        download_root: Path | None = None,
     ) -> None:
-        self.base_dir = base_dir
+        using_default_storage = base_dir is None
+        self.base_dir = Path(base_dir) if base_dir is not None else resolve_runs_root()
         self.base_dir.mkdir(parents=True, exist_ok=True)
+        self.data_repository_root = self._resolve_agent_data_repository_root(
+            requested_root=data_repository_root,
+            using_default_storage=using_default_storage,
+        )
+        self.download_root = self._resolve_agent_download_root(
+            requested_root=download_root,
+            data_repository_root=self.data_repository_root,
+            using_default_storage=using_default_storage,
+        )
+        self.data_repository_root.mkdir(parents=True, exist_ok=True)
+        self.download_root.mkdir(parents=True, exist_ok=True)
         self._runs: Dict[str, RunStatus] = {}
         self._lock = Lock()
         self._pool = ThreadPoolExecutor(max_workers=max_workers, thread_name_prefix="agent-run")
@@ -353,18 +374,12 @@ class AgentRunService:
         self.kg_repo = kg_repo or self._create_kg_repo()
         self.llm_provider = create_llm_provider()
         self.artifact_registry = ArtifactRegistry(index_path=self.base_dir / "artifact_registry.json")
-        self.aoi_resolution_service = AOIResolutionService(geocoder=self._build_geocoder())
-        self.raw_vector_source_service = self._build_raw_vector_source_service()
-        self.input_acquisition_service = InputAcquisitionService(
-            registry=self.artifact_registry,
-            providers=self._build_input_bundle_providers(),
-            cache_dir=self.base_dir / "input_bundle_cache",
-        )
-        self.runtime_source_contract_service = RuntimeSourceContractService(
-            raw_source_service=self.raw_vector_source_service,
-            input_bundle_providers=self.input_acquisition_service.providers,
-            external_config_provider=self._source_required_external_config,
-        )
+        source_infra = source_infrastructure or self._build_source_infrastructure(source_provider_contract)
+        self.source_provider_contract = source_infra.provider_contract or source_provider_contract
+        self.aoi_resolution_service = source_infra.aoi_resolution_service
+        self.raw_vector_source_service = source_infra.raw_vector_source_service
+        self.input_acquisition_service = source_infra.input_acquisition_service
+        self.runtime_source_contract_service = source_infra.runtime_source_contract_service
         self.tile_partition_service = TilePartitionService()
         self.tiled_building_runtime_service = TiledBuildingRuntimeService(max_workers=max_workers)
         self.source_semantic_contract_service = SourceSemanticContractService(kg_repo=self.kg_repo)
@@ -1862,7 +1877,7 @@ class AgentRunService:
         paths: dict[str, Path] = {}
         coverage = dict(resolved_inputs.component_coverage or {})
         for source_id, payload in coverage.items():
-            if str(source_id).endswith(".raster"):
+            if self._is_raster_component(source_id, payload):
                 continue
             path = self._component_path_from_payload(payload)
             if path is not None and path.exists():
@@ -1934,12 +1949,25 @@ class AgentRunService:
     def _raster_paths_for_source_semantics(resolved_inputs: ResolvedRunInputs) -> dict[str, Path]:
         rasters: dict[str, Path] = {}
         for source_id, payload in dict(resolved_inputs.component_coverage or {}).items():
-            if not str(source_id).endswith(".raster"):
+            if not AgentRunService._is_raster_component(source_id, payload):
                 continue
             path = AgentRunService._component_path_from_payload(payload)
             if path is not None and path.exists():
                 rasters[str(source_id)] = path
         return rasters
+
+    @staticmethod
+    def _is_raster_component(source_id: object, payload: object | None = None) -> bool:
+        from services.runtime_source_aliases import BUILDING_HEIGHT_RASTER_PRIORITY_ORDER
+
+        source_text = str(source_id)
+        if source_text in BUILDING_HEIGHT_RASTER_PRIORITY_ORDER:
+            return True
+        if source_text.endswith(".raster") or "height_raster" in source_text:
+            return True
+        if isinstance(payload, dict):
+            return str(payload.get("source_form") or "").casefold() == "raster"
+        return str(getattr(payload, "source_form", "") or "").casefold() == "raster"
 
     @staticmethod
     def _degradation_context_from_component_coverage(component_coverage: dict[str, object] | None):
@@ -2641,17 +2669,26 @@ class AgentRunService:
     @staticmethod
     def _building_sources_from_semantic_contract(contract) -> tuple[dict[str, Path], dict[str, Path]]:
         from services.runtime_source_aliases import BUILDING_SOURCE_ALIASES
+        from services.runtime_source_aliases import BUILDING_HEIGHT_RASTER_PRIORITY_ORDER
 
         vectors: dict[str, Path] = {}
         for source_id, entry in contract.sources.items():
             alias = BUILDING_SOURCE_ALIASES.get(source_id)
             if alias:
                 vectors[alias] = Path(entry.artifact_path)
-        rasters = {
-            "building_height": Path(path)
-            for path in contract.height_policy.get("raster_height_sources", {}).values()
-            if Path(path).exists()
-        }
+        rasters = {}
+        raster_height_sources = dict(contract.height_policy.get("raster_height_sources", {}) or {})
+        priority_order = list(
+            contract.height_policy.get("raster_height_priority_order") or BUILDING_HEIGHT_RASTER_PRIORITY_ORDER
+        )
+        for source_id in [*priority_order, *raster_height_sources]:
+            path_text = raster_height_sources.get(source_id)
+            if path_text is None:
+                continue
+            path = Path(path_text)
+            if path.exists():
+                rasters["building_height"] = path
+                break
         return vectors, rasters
 
     @staticmethod
@@ -4189,44 +4226,71 @@ class AgentRunService:
 
     @staticmethod
     def _build_geocoder() -> NominatimGeocoder:
-        return NominatimGeocoder(
-            user_agent=os.getenv("GEOFUSION_GEOCODER_USER_AGENT", "GeoFusion/1.0 (+https://openai.com/codex)"),
-            max_retries=_as_int(os.getenv("GEOFUSION_GEOCODER_RETRIES"), default=3),
-            timeout_seconds=_as_int(os.getenv("GEOFUSION_GEOCODER_TIMEOUT"), default=30),
-        )
+        return build_default_geocoder()
 
     def _build_raw_vector_source_service(self) -> RawVectorSourceService:
-        project_root = Path(__file__).resolve().parents[1]
         return RawVectorSourceService(
-            root_dir=project_root,
+            root_dir=self.data_repository_root,
             registry=self.artifact_registry,
-            cache_dir=self.base_dir / "raw_source_cache",
+            cache_dir=self.download_root / "raw_source_cache",
         )
 
     def _build_input_bundle_providers(self) -> list[object]:
-        providers: list[object] = []
-        try:
-            providers.append(
-                LocalBundleCatalogProvider(
-                    Path(__file__).resolve().parents[1],
-                    raw_source_service=self.raw_vector_source_service,
-                )
-            )
-        except Exception as exc:  # noqa: BLE001
-            logging.getLogger("geofusion.run").warning(
-                "Failed to initialize local bundle catalog provider: %s",
-                exc,
-            )
-        providers.append(RawVectorInputBundleProvider(raw_source_service=self.raw_vector_source_service))
-        return providers
+        return build_default_input_bundle_providers(
+            project_root=self.data_repository_root,
+            cache_root=self.download_root,
+            raw_source_service=self.raw_vector_source_service,
+        )
 
     @staticmethod
     def _source_required_external_config(source_id: str) -> list[str]:
-        if source_id == "raw.google.poi":
-            return ["GOOGLE_PLACES_API_KEY", "google_poi_authorization_manifest"]
-        if source_id in {"raw.google.building", "raw.google.open_buildings.vector"}:
-            return ["google_open_buildings_urls"]
-        return []
+        return source_required_external_config(source_id)
+
+    def _build_source_infrastructure(
+        self,
+        source_provider_contract: SourceProviderContract | None = None,
+    ) -> AgentSourceInfrastructure:
+        if source_provider_contract is None:
+            def input_bundle_provider_factory(raw_source_service: object) -> list[object]:
+                self.raw_vector_source_service = raw_source_service
+                return self._build_input_bundle_providers()
+
+            source_provider_contract = SourceProviderContract(
+                geocoder_factory=self._build_geocoder,
+                raw_vector_source_factory=self._build_raw_vector_source_service,
+                input_bundle_provider_factory=input_bundle_provider_factory,
+                external_config_provider=self._source_required_external_config,
+            )
+        return source_provider_contract.build(
+            registry=self.artifact_registry,
+            cache_root=self.download_root,
+        )
+
+    @staticmethod
+    def _resolve_agent_data_repository_root(
+        *,
+        requested_root: Path | None,
+        using_default_storage: bool,
+    ) -> Path:
+        if requested_root is not None or using_default_storage or os.getenv("GEOFUSION_DATA_REPOSITORY_ROOT"):
+            return resolve_data_repository_root(requested_root)
+        return Path(__file__).resolve().parents[1]
+
+    def _resolve_agent_download_root(
+        self,
+        *,
+        requested_root: Path | None,
+        data_repository_root: Path,
+        using_default_storage: bool,
+    ) -> Path:
+        if (
+            requested_root is not None
+            or using_default_storage
+            or os.getenv("GEOFUSION_DOWNLOAD_ROOT")
+            or os.getenv("GEOFUSION_DATA_REPOSITORY_ROOT")
+        ):
+            return resolve_download_root(requested_root, data_repository_root=data_repository_root)
+        return self.base_dir
 
 
-agent_run_service = AgentRunService(base_dir=Path(os.getenv("GEOFUSION_RUNS_ROOT", "runs")))
+agent_run_service = AgentRunService()

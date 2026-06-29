@@ -7,6 +7,7 @@ from typing import Any
 from kg.track_b_source_contract import get_track_b_source_contract
 from services.source_field_profile_registry import SourceFieldProfileRegistry
 from services.source_profile_service import SourceProfile, SourceProfileService
+from services.runtime_source_aliases import BUILDING_HEIGHT_RASTER_PRIORITY_ORDER
 
 
 @dataclass(frozen=True)
@@ -244,6 +245,8 @@ class SourceSemanticContractService:
             "positive_only": True,
             "vector_height_fields": dict(vector_height_fields),
             "raster_height_sources": dict(raster_height_sources),
+            "raster_height_priority_order": list(BUILDING_HEIGHT_RASTER_PRIORITY_ORDER),
+            "rapid_response_fallback": "footprint_fusion_without_height",
         }
 
     @staticmethod

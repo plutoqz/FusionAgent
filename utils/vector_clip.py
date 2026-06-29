@@ -251,6 +251,7 @@ def clip_zip_to_request_bbox(
     request_bbox: BBox,
     request_crs: str = REQUEST_BBOX_CRS,
 ) -> Path:
+    output_zip.parent.mkdir(parents=True, exist_ok=True)
     extract_dir = output_zip.parent / f"_clip_src_{source_zip.stem}_{uuid.uuid4().hex[:8]}"
     shp_path = validate_zip_has_shapefile(source_zip, extract_dir)
     gdf = gpd.read_file(shp_path)

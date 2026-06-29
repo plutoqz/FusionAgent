@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 
 class SourceAcquisitionAttempt(BaseModel):
@@ -17,3 +17,7 @@ class SourceAcquisitionAttempt(BaseModel):
     feature_count: int | None = None
     selected_for_fusion: bool = False
     external_uncontrollable: bool = False
+    skill_id: str | None = None
+    skill_name: str | None = None
+    capability: str | None = None
+    metadata: dict[str, object] = Field(default_factory=dict)

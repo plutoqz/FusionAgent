@@ -100,3 +100,34 @@ def test_runtime_source_contract_service_marks_external_config_requirements() ->
     assert contract.status.value == "requires_external_config"
     assert contract.required_external_config == ["GOOGLE_PLACES_API_KEY"]
     assert contract.reasons == ["source requires external configuration before autonomous materialization"]
+
+
+def test_runtime_source_contract_service_marks_height_rasters_as_skill_ready() -> None:
+    service = RuntimeSourceContractService(
+        raw_source_service=_FakeRawService(set()),
+        input_bundle_providers=[],
+        external_config_provider=lambda source_id: [],
+    )
+
+    contract = service.check_source("raw.google.open_buildings_2_5d.height_raster")
+
+    assert contract.status == RuntimeProviderStatus.runtime_ready
+    assert contract.input_bundle_supported is True
+    assert contract.provider_names == ["RasterHeightSourceService"]
+    assert contract.reasons == ["source is handled by building height raster acquisition skill"]
+
+
+def test_runtime_source_contract_service_deduplicates_sources_deterministically() -> None:
+    service = RuntimeSourceContractService(
+        raw_source_service=_FakeRawService({"raw.known"}),
+        input_bundle_providers=[_FakeProvider({"catalog.ready"})],
+        external_config_provider=lambda source_id: [],
+    )
+
+    contracts = service.check_sources(["catalog.ready", "raw.known", "catalog.ready", "raw.known"])
+
+    assert [contract.source_id for contract in contracts] == ["catalog.ready", "raw.known"]
+    assert [contract.status for contract in contracts] == [
+        RuntimeProviderStatus.runtime_ready,
+        RuntimeProviderStatus.reservation_only,
+    ]

@@ -20,6 +20,8 @@ from services.source_acquisition_policy import (
     source_component_candidates,
     source_fallback_candidates,
 )
+from services.raster_height_source_service import RasterHeightSourceService
+from services.runtime_source_aliases import BUILDING_HEIGHT_RASTER_PRIORITY_ORDER
 from services.source_asset_service import SourceCoverageStatus, coverage_status_for_count
 from utils.crs import normalize_target_crs
 from utils.shp_zip import validate_zip_has_shapefile, zip_shapefile_bundle
@@ -39,9 +41,16 @@ PARTIAL_COVERAGE_ALLOWED_SOURCES = {
 
 
 class LocalBundleCatalogProvider:
-    def __init__(self, root_dir: Path, *, raw_source_service: RawVectorSourceService) -> None:
+    def __init__(
+        self,
+        root_dir: Path,
+        *,
+        raw_source_service: RawVectorSourceService,
+        raster_height_source_service: RasterHeightSourceService | None = None,
+    ) -> None:
         self.root_dir = Path(root_dir)
         self.raw_source_service = raw_source_service
+        self.raster_height_source_service = raster_height_source_service
         self.specs = {bundle_spec.source_id: bundle_spec for bundle_spec in CATALOG_BUNDLE_SPECS}
 
     def can_handle(self, source_id: str) -> bool:
@@ -69,6 +78,10 @@ class LocalBundleCatalogProvider:
                     )
                 except (FileNotFoundError, RuntimeError, PermissionError, KeyError, ValueError):
                     tokens.append(f"missing:{component_source_id}")
+            if self._is_building_catalog(source_id) and self.raster_height_source_service is not None:
+                tokens.extend(
+                    self.raster_height_source_service.current_version_tokens(resolved_aoi=resolved_aoi)
+                )
             return "|".join(tokens)
 
         tokens = [
@@ -339,10 +352,21 @@ class LocalBundleCatalogProvider:
                 )
             )
 
+        if self._is_building_catalog(source_id) and self.raster_height_source_service is not None:
+            raster_coverage, raster_attempts = self.raster_height_source_service.materialize_preferred(
+                target_dir=target_dir / "height_rasters",
+                request_bbox=request_bbox,
+                resolved_aoi=resolved_aoi,
+                source_ids=BUILDING_HEIGHT_RASTER_PRIORITY_ORDER,
+                starting_attempt_no=len(provider_attempts) + 1,
+            )
+            component_coverage.update(raster_coverage)
+            provider_attempts.extend(raster_attempts)
+
         osm = resolved_components.get(spec.osm_source_id)
         ref_source_id = self._candidate_ref_source_id(spec=spec, candidates=candidates)
         ref = resolved_components.get(ref_source_id) if ref_source_id is not None else None
-        has_any_candidate_coverage = any((status.feature_count or 0) > 0 for status in component_coverage.values())
+        has_any_candidate_coverage = any(_coverage_feature_count(status) > 0 for status in component_coverage.values())
         if not has_any_candidate_coverage:
             raise ValueError(f"AOI-scoped bundle has empty source coverage for {source_id}")
 
@@ -411,6 +435,10 @@ class LocalBundleCatalogProvider:
             component_coverage=component_coverage,
             provider_attempts=provider_attempts,
         )
+
+    @staticmethod
+    def _is_building_catalog(source_id: str) -> bool:
+        return source_id in {"catalog.flood.building", "catalog.earthquake.building"}
 
     @staticmethod
     def _candidate_target_paths(
@@ -539,7 +567,7 @@ class LocalBundleCatalogProvider:
             return False
         for component_source_id in spec.component_source_ids:
             status = component_coverage.get(component_source_id)
-            if status is not None and status.feature_count == 0:
+            if status is not None and _coverage_feature_count(status) == 0:
                 return True
         return False
 
@@ -580,3 +608,16 @@ class LocalBundleCatalogProvider:
             version_token=osm.version_token,
             feature_count=0,
         )
+
+
+def _coverage_feature_count(status: object) -> int:
+    if isinstance(status, dict):
+        value = status.get("feature_count")
+    else:
+        value = getattr(status, "feature_count", None)
+    if isinstance(value, bool):
+        return 0
+    try:
+        return int(value or 0)
+    except (TypeError, ValueError):
+        return 0

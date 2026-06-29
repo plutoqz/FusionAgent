@@ -45,6 +45,10 @@ def test_semantic_contract_matches_actual_height_field(tmp_path: Path) -> None:
     assert ms.matched_fields["height_m"].matched_field == "HEIGHT"
     assert ms.height_semantics == "estimated_height"
     assert contract.height_policy["vector_height_fields"]["raw.microsoft.building"] == "HEIGHT"
+    assert contract.height_policy["raster_height_priority_order"][:2] == [
+        "raw.google.open_buildings_2_5d.height_raster",
+        "raw.3d_globfp.building_height.raster",
+    ]
 
 
 def test_semantic_contract_marks_required_missing_fields(tmp_path: Path) -> None:

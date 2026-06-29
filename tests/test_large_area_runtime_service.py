@@ -300,6 +300,41 @@ def test_large_area_runtime_repairs_invalid_tile_source_geometry_before_intersec
     assert fused.geometry.iloc[0].is_valid
 
 
+def test_large_area_runtime_drops_reserved_fid_field_when_writing_tile_inputs(tmp_path: Path) -> None:
+    source = _write(
+        tmp_path / "roads.gpkg",
+        gpd.GeoDataFrame(
+            {"fid": [1], "source_feature_id": ["road-1"]},
+            geometry=[LineString([(0.0, 0.5), (2.0, 0.5)])],
+            crs="EPSG:3857",
+        ),
+    )
+
+    def runner(tile, sources, output_dir, target_crs, parameters):
+        del tile, parameters
+        frame = gpd.read_file(sources["raw.osm.road"])
+        assert "fid" not in {column.lower() for column in frame.columns if column != frame.geometry.name}
+        path = output_dir / "fused.gpkg"
+        gpd.GeoDataFrame(
+            {"source_feature_id": ["road-1"]},
+            geometry=[LineString([(0.0, 0.5), (2.0, 0.5)])],
+            crs=target_crs,
+        ).to_file(path, driver="GPKG")
+        return path, {"algorithm_id": "algo.test.line"}
+
+    result = LargeAreaRuntimeService(max_workers=1).run(
+        run_id="run-reserved-fid",
+        job_type="road",
+        tile_manifest=_manifest(),
+        slices=[LargeAreaSlice(name="road", geometry_family="line", sources={"raw.osm.road": source}, runner=runner)],
+        output_dir=tmp_path / "out-reserved-fid",
+        target_crs="EPSG:3857",
+        parameters={},
+    )
+
+    assert gpd.read_file(result.output_path)["source_feature_id"].tolist() == ["road-1"]
+
+
 def test_domain_line_runners_force_v7_config_target_crs(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
     road_base = _write(
         tmp_path / "osm_road.gpkg",
