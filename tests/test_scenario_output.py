@@ -19,8 +19,9 @@ def test_resolve_scenario_output_root_uses_environment_when_request_missing(monk
 
 def test_resolve_scenario_output_root_uses_project_default_when_unconfigured(monkeypatch):
     monkeypatch.delenv("GEOFUSION_SCENARIO_OUTPUT_ROOT", raising=False)
+    monkeypatch.delenv("GEOFUSION_OUTPUT_ROOT", raising=False)
 
     resolved = resolve_scenario_output_root(None)
 
     assert resolved == DEFAULT_SCENARIO_OUTPUT_ROOT
-    assert str(resolved) == r"E:\fyx\data\fusionagentTEST"
+    assert str(resolved) == r"D:\fyx\data\fusionagent_scenarios"

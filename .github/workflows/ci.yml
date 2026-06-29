@@ -33,4 +33,39 @@ jobs:
             tests/test_worker_orchestration.py \
             tests/test_neo4j_bootstrap.py \
             tests/test_openai_provider_defaults.py \
+            tests/test_agent_source_infrastructure.py \
+            tests/test_runtime_contract_service.py \
+            tests/test_runtime_source_contract_service.py \
+            tests/test_plan_grounding_service.py \
+            tests/test_tool_registry.py \
+            tests/test_unsupported_intent_guard.py \
+            tests/test_thesis_research_spec.py \
+            tests/test_thesis_related_work_matrix.py \
+            tests/test_runtime_boundary_guards.py \
             -q
+
+  frontend-build-test:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install frontend dependencies
+        run: npm ci
+      - name: Build frontend
+        run: npm run build
+      - name: Run frontend tests
+        run: npm test
+
+  docker-compose-smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate Docker Compose config
+        run: docker compose -f docker-compose.yml config
