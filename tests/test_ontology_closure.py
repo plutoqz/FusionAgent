@@ -144,10 +144,8 @@ def test_road_output_schema_policy_lists_name_and_lineage_fields() -> None:
     policy = OUTPUT_SCHEMA_POLICIES["dt.road.fused"]
 
     assert policy.policy_id == "osp.road.fused.v1"
-    assert policy.required_fields == ["geometry"]
-    assert "name" in policy.optional_fields
+    assert policy.required_fields == ["geometry", "name", "road_name"]
     assert "osm_name" in policy.optional_fields
-    assert "road_name" in policy.optional_fields
     assert "fusion_source" in policy.optional_fields
     assert "match_role" in policy.optional_fields
     assert policy.metadata["quality_contract_id"] == "contract.road.fused.v1"
@@ -166,7 +164,7 @@ def test_targets_2_6_default_sources_are_remote_capable() -> None:
     )
     assert get_catalog_bundle_spec("catalog.flood.road").component_source_ids == (
         "raw.osm.road",
-        "raw.overture.transportation",
+        "raw.microsoft.road",
     )
     assert get_catalog_bundle_spec("catalog.flood.water").component_source_ids == (
         "raw.osm.water",

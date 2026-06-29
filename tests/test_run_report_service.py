@@ -189,7 +189,7 @@ def test_run_report_marks_partial_reference_coverage_as_degraded(tmp_path: Path)
                 "selected_source_id": "catalog.flood.road",
                 "component_coverage": {
                     "raw.osm.road": {"feature_count": 12, "coverage_status": "available"},
-                    "raw.overture.transportation": {"feature_count": 0, "coverage_status": "empty"},
+                    "raw.microsoft.road": {"feature_count": 0, "coverage_status": "empty"},
                 },
             },
         )
@@ -205,7 +205,7 @@ def test_run_report_marks_partial_reference_coverage_as_degraded(tmp_path: Path)
     assert summary["degradation"]["state"] == "degraded"
     assert summary["degradation"]["reason_code"] == "PARTIAL_SOURCE_COVERAGE"
     assert summary["source_coverage"][-1]["coverage_state"] == "degraded"
-    assert summary["source_coverage"][-1]["degraded_component_source_ids"] == ["raw.overture.transportation"]
+    assert summary["source_coverage"][-1]["degraded_component_source_ids"] == ["raw.microsoft.road"]
 
 
 def test_run_report_quality_summary_includes_recovery_operator_action(tmp_path: Path) -> None:

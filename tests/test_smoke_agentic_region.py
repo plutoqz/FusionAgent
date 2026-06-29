@@ -138,7 +138,7 @@ def test_smoke_summary_accepts_large_area_evidence_fields() -> None:
         "job_type": "road",
         "phase": "succeeded",
         "large_area_runtime": {"tile_count": 2, "stitched_feature_count": 5},
-        "source_semantic_contract": {"component_source_ids": ["raw.osm.road", "raw.overture.transportation"]},
+        "source_semantic_contract": {"component_source_ids": ["raw.osm.road", "raw.microsoft.road"]},
         "documents": {"summary": "run_report_summary.json"},
     }
 
@@ -152,11 +152,11 @@ def test_smoke_inspection_summary_carries_large_area_evidence_fields() -> None:
         job_type="road",
         source_id="catalog.flood.road",
         pattern_id="wp.road.fusioncode.segment_topology.v1",
-        component_source_ids=["raw.osm.road", "raw.overture.transportation"],
+        component_source_ids=["raw.osm.road", "raw.microsoft.road"],
     )
     inspection["large_area_runtime"] = {"tile_count": 2, "stitched_feature_count": 5}
     inspection["source_semantic_contract"] = {
-        "component_source_ids": ["raw.osm.road", "raw.overture.transportation"]
+        "component_source_ids": ["raw.osm.road", "raw.microsoft.road"]
     }
     inspection["documents"] = {"summary": "documents/run_report_summary.json"}
 
@@ -165,7 +165,7 @@ def test_smoke_inspection_summary_carries_large_area_evidence_fields() -> None:
     assert summary["large_area_runtime"]["tile_count"] == 2
     assert summary["source_semantic_contract"]["component_source_ids"] == [
         "raw.osm.road",
-        "raw.overture.transportation",
+        "raw.microsoft.road",
     ]
     assert summary["documents"]["summary"].endswith("run_report_summary.json")
 
@@ -241,7 +241,7 @@ def _sample_smoke_inspection(
         component_source_ids = ["raw.osm.water", "raw.local.water"]
     source_name = {
         "water": "Flood Water Bundle (OSM + Local Water)",
-        "road": "Typhoon Road Bundle (OSM + Overture)",
+        "road": "Typhoon Road Bundle (OSM + Microsoft)",
         "poi": "Generic POI Bundle (OSM + GNS)",
         "building": "Building Bundle",
     }[job_type]

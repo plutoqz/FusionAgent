@@ -1473,6 +1473,52 @@
         "typhoon"
       ],
       "freshness_category": "sample_snapshot",
+      "freshness_hours": 240,
+      "freshness_score": 0.55,
+      "metadata": {
+        "coverage_scope": "global_tiles_or_national_clip",
+        "height_priority": 20,
+        "height_semantics": "estimated_height",
+        "kind": "raw_raster",
+        "local_path_env": "GEOFUSION_HEIGHT_RASTER_3D_GLOBFP_PATH",
+        "materialization_scope": "source_acquisition_skill",
+        "path_hint": "Data/buildings/height/3D-GloBFP",
+        "provider_family": "3d_globfp",
+        "rapid_response_fallback": "footprint_fusion_without_height",
+        "rapid_response_timeout_env": "GEOFUSION_HEIGHT_RASTER_MAX_SECONDS",
+        "runtime_status": "runtime_candidate",
+        "selectable_now": true,
+        "source_acquisition_skill": "skill.source_acquisition.building_height_raster",
+        "source_form": "raster",
+        "source_role": "secondary_height_enrichment_candidate",
+        "supports_aoi": true,
+        "supports_tiling": true,
+        "theme": "building",
+        "url_env": "GEOFUSION_HEIGHT_RASTER_3D_GLOBFP_URL"
+      },
+      "quality_score": 0.82,
+      "quality_tier": "foundation_model_extracted",
+      "source_id": "raw.3d_globfp.building_height.raster",
+      "source_kind": "open_data",
+      "source_name": "3D-GloBFP Building Height Raster",
+      "supported_geometry_types": [
+        "raster"
+      ],
+      "supported_job_types": [
+        "building"
+      ],
+      "supported_types": [
+        "dt.raster.building_height"
+      ]
+    },
+    {
+      "disaster_types": [
+        "generic",
+        "flood",
+        "earthquake",
+        "typhoon"
+      ],
+      "freshness_category": "sample_snapshot",
       "freshness_hours": 720,
       "freshness_score": 0.42,
       "metadata": {
@@ -1693,6 +1739,52 @@
       ],
       "supported_types": [
         "dt.raw.vector"
+      ]
+    },
+    {
+      "disaster_types": [
+        "generic",
+        "flood",
+        "earthquake",
+        "typhoon"
+      ],
+      "freshness_category": "sample_snapshot",
+      "freshness_hours": 240,
+      "freshness_score": 0.6,
+      "metadata": {
+        "coverage_scope": "global_tiles_or_national_clip",
+        "height_priority": 10,
+        "height_semantics": "estimated_height",
+        "kind": "raw_raster",
+        "local_path_env": "GEOFUSION_HEIGHT_RASTER_OPEN_BUILDINGS_2_5D_PATH",
+        "materialization_scope": "source_acquisition_skill",
+        "path_hint": "Data/buildings/height/OpenBuildings2_5D",
+        "provider_family": "google_open_buildings_2_5d",
+        "rapid_response_fallback": "raw.3d_globfp.building_height.raster",
+        "rapid_response_timeout_env": "GEOFUSION_HEIGHT_RASTER_MAX_SECONDS",
+        "runtime_status": "runtime_candidate",
+        "selectable_now": true,
+        "source_acquisition_skill": "skill.source_acquisition.building_height_raster",
+        "source_form": "raster",
+        "source_role": "preferred_height_enrichment_candidate",
+        "supports_aoi": true,
+        "supports_tiling": true,
+        "theme": "building",
+        "url_env": "GEOFUSION_HEIGHT_RASTER_OPEN_BUILDINGS_2_5D_URL"
+      },
+      "quality_score": 0.88,
+      "quality_tier": "foundation_model_extracted",
+      "source_id": "raw.google.open_buildings_2_5d.height_raster",
+      "source_kind": "open_data",
+      "source_name": "Open Buildings 2.5D Height Raster",
+      "supported_geometry_types": [
+        "raster"
+      ],
+      "supported_job_types": [
+        "building"
+      ],
+      "supported_types": [
+        "dt.raster.building_height"
       ]
     },
     {
@@ -2764,8 +2856,8 @@
     }
   ],
   "metadata": {
-    "content_hash": "sha256:dccb63663b04e19fd1be24ac18f5ac105593dd7dafb8dbc0b42c45039497bd5a",
-    "generated_at": "2026-06-11T16:45:56.840343+00:00",
+    "content_hash": "sha256:8f297356826cebdb5ca3117018a22a9dc8248ba19f82b0df0ee95d05b3d0cc5f",
+    "generated_at": "2026-06-29T04:05:31.183319+00:00",
     "generated_from": "kg.seed",
     "schema_version": "1.0.0",
     "source_modules": [
@@ -2932,7 +3024,16 @@
       "job_type": "building",
       "metadata": {
         "claim_state": "runtime_supported",
-        "notes": "Expose stable fused building columns without changing adapter behavior.",
+        "height_policy": {
+          "preferred_order": [
+            "raw.google.open_buildings_2_5d.height_raster",
+            "raw.3d_globfp.building_height.raster",
+            "raw.google.building_height.raster"
+          ],
+          "rapid_response_fallback": "footprint_fusion_without_height",
+          "required": false
+        },
+        "notes": "Expose stable fused building columns; building height is enriched from raster when the preferred height source is available, otherwise the runtime may degrade to footprint-only fusion.",
         "policy_scope": "current_runtime",
         "runtime_role": "output_schema_policy",
         "runtime_status": "runtime_candidate"
@@ -3007,12 +3108,10 @@
         "source_layer",
         "residual_from_matched",
         "residual_part",
+        "osm_name",
         "osm_id",
         "FID_1",
         "fclass",
-        "name",
-        "osm_name",
-        "road_name",
         "source_feature_id",
         "surface",
         "lanes",
@@ -3022,7 +3121,9 @@
       "policy_id": "osp.road.fused.v1",
       "rename_hints": {},
       "required_fields": [
-        "geometry"
+        "geometry",
+        "name",
+        "road_name"
       ],
       "retention_mode": "preserve_listed"
     },

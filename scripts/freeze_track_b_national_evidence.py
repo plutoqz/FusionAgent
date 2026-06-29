@@ -71,16 +71,16 @@ def _build_runtime_notes(runs: dict[str, dict[str, Any]]) -> list[str]:
 
     road = runs.get("road")
     if road is not None:
-        road_cov = road.get("component_coverage", {}).get("raw.overture.transportation", {})
+        road_cov = road.get("component_coverage", {}).get("raw.microsoft.road", {})
         if road_cov.get("feature_count") == 0:
             notes.append(
-                "road keeps raw.overture.transportation as the promoted second source, "
-                "but the current bounded download still resolves to an empty optional reference bundle, "
+                "road keeps raw.microsoft.road as the current full-closure second source, "
+                "but the current bounded materialization may still resolve to an empty manual-preload reference bundle, "
                 "so the claim stays national_scale_partial_reference."
             )
         else:
             notes.append(
-                "road now materializes raw.overture.transportation with non-empty coverage "
+                "road now materializes raw.microsoft.road with non-empty coverage "
                 "alongside raw.osm.road under the national-scale utility."
             )
 

@@ -48,21 +48,35 @@ def _plan(*, algorithm_id: str, output_type: str) -> WorkflowPlan:
     )
 
 
-def test_resolver_building_without_height_uses_footprint_roles() -> None:
+def test_resolver_building_uses_footprint_roles_and_optional_height_signal() -> None:
     result = DataRequirementResolverService().resolve(
         task_kind=TaskKind.building,
         plan=_plan(algorithm_id="algo.fusion.building.v1", output_type="dt.building.fused"),
         mission_requirements={},
     )
 
-    assert [role.role_id for role in result.roles] == ["primary_footprint", "reference_footprint"]
+    assert [role.role_id for role in result.roles] == [
+        "primary_footprint",
+        "reference_footprint",
+        "height_signal",
+    ]
     primary = result.roles[0]
     assert [candidate.source_id for candidate in primary.candidates] == [
         "raw.osm.building",
         "raw.google.building",
         "raw.microsoft.building",
     ]
-    assert all(role.completeness_policy.value == "required_non_empty" for role in result.roles)
+    assert all(role.completeness_policy.value == "required_non_empty" for role in result.roles[:2])
+    assert result.roles[2].required is False
+    assert [candidate.source_id for candidate in result.roles[2].candidates] == [
+        "raw.google.open_buildings_2_5d.height_raster",
+        "raw.3d_globfp.building_height.raster",
+        "raw.google.building_height.raster",
+        "raw.local.building_height.raster",
+    ]
+    assert result.evidence["building_height_policy"]["degradation_mode"] == (
+        "fallback_to_footprint_fusion_without_height"
+    )
 
 
 def test_resolver_building_height_adds_height_signal_role_only_when_requested() -> None:
@@ -72,12 +86,19 @@ def test_resolver_building_height_adds_height_signal_role_only_when_requested() 
         mission_requirements={"building_height": True},
     )
 
-    assert [role.role_id for role in result.roles] == [
-        "primary_footprint",
-        "reference_footprint",
-        "height_signal",
-    ]
+    assert [role.role_id for role in result.roles] == ["primary_footprint", "reference_footprint", "height_signal"]
     assert result.roles[2].completeness_policy.value == "optional_when_requirement_absent"
+
+
+def test_resolver_road_records_required_name_policy() -> None:
+    result = DataRequirementResolverService().resolve(
+        task_kind=TaskKind.road,
+        plan=_plan(algorithm_id="algo.fusion.road.conflation.v7", output_type="dt.road.fused"),
+        mission_requirements={},
+    )
+
+    assert result.evidence["road_name_policy"]["required"] is True
+    assert result.roles[0].candidates[0].source_id == "raw.osm.road"
 
 
 def test_resolver_distinguishes_water_polygon_and_waterways() -> None:

@@ -862,9 +862,9 @@ def test_agent_run_service_road_task_driven_auto_uses_real_shared_acquisition_ch
         ),
     )
     _write_frame(
-        root_dir / "Data" / "roads" / "Overture" / "overture_roads.shp",
+        root_dir / "Data" / "roads" / "Microsoft" / "microsoft_roads.shp",
         gpd.GeoDataFrame(
-            {"id": ["seg-1"], "class": ["primary"], "surface": ["paved"], "lane_count": [2]},
+            {"ms_road_id": ["seg-1"], "ms_class": ["primary"], "surface": ["paved"], "lane_count": [2]},
             geometry=[box(74.12, 35.82, 74.28, 35.98).boundary],
             crs="EPSG:4326",
         ),
@@ -887,7 +887,7 @@ def test_agent_run_service_road_task_driven_auto_uses_real_shared_acquisition_ch
     _write_frame(
         fused_shp,
         gpd.GeoDataFrame(
-            {"fid": [1]},
+            {"fid": [1], "name": ["Ring Road"], "road_name": ["Ring Road"]},
             geometry=[box(74.10, 35.80, 74.30, 36.00)],
             crs="EPSG:4326",
         ),
@@ -933,7 +933,7 @@ def test_agent_run_service_road_task_driven_auto_uses_real_shared_acquisition_ch
     assert Path(captured["osm_shp"]).exists()
     assert Path(captured["ref_shp"]).exists()
     assert list(captured["osm_frame"].columns)[:1] == ["road_id"]
-    assert list(captured["ref_frame"].columns)[:1] == ["id"]
+    assert list(captured["ref_frame"].columns)[:1] == ["ms_road_id"]
     assert str(captured["osm_frame"].crs) == "EPSG:32643"
     assert str(captured["ref_frame"].crs) == "EPSG:32643"
 

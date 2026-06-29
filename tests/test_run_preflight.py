@@ -69,7 +69,7 @@ def test_preflight_reports_aoi_source_components_and_degradation_for_partial_sou
     assert payload["source_selection"]["selected_source_id"] == "catalog.flood.road"
     assert payload["component_coverage"]["required_source_ids"] == [
         "raw.osm.road",
-        "raw.overture.transportation",
+        "raw.microsoft.road",
     ]
     assert payload["component_coverage"]["partial_coverage_allowed"] is True
     assert payload["degradation"]["state"] == "preflight_partial_allowed"

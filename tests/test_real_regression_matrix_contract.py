@@ -13,7 +13,7 @@ from services.run_report_service import build_run_report_summary
     ("job_type", "selected_source_id", "component_source_ids"),
     [
         (JobType.building, "catalog.flood.building", ["raw.osm.building", "raw.microsoft.building"]),
-        (JobType.road, "catalog.flood.road", ["raw.osm.road", "raw.overture.transportation"]),
+        (JobType.road, "catalog.flood.road", ["raw.osm.road", "raw.microsoft.road"]),
         (JobType.water, "catalog.flood.water", ["raw.osm.water", "raw.hydrolakes.water"]),
         (JobType.poi, "catalog.generic.poi", ["raw.osm.poi", "raw.gns.poi"]),
     ],

@@ -1265,7 +1265,7 @@ class _DegradedSucceededAgentRunService(_FakeAgentRunService):
                     "selected_source_id": "catalog.flood.road",
                     "component_coverage": {
                         "raw.osm.road": {"feature_count": 3, "coverage_status": "available"},
-                        "raw.overture.transportation": {"feature_count": 0, "coverage_status": "empty"},
+                        "raw.microsoft.road": {"feature_count": 0, "coverage_status": "empty"},
                     },
                 },
             ),

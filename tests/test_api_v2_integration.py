@@ -905,7 +905,7 @@ def test_v2_run_inspection_merges_report_quality_fields_from_report_summary(
                     },
                 },
                 "source_semantic_contract": {
-                    "component_source_ids": ["raw.osm.road", "raw.overture.transportation"]
+                    "component_source_ids": ["raw.osm.road", "raw.microsoft.road"]
                 },
                 "quality_summary": {
                     "status": "pass",
@@ -943,7 +943,7 @@ def test_v2_run_inspection_merges_report_quality_fields_from_report_summary(
     assert inspection["large_area_runtime"]["evidence_paths"]["selected_sources"] == "selected_sources.json"
     assert inspection["source_semantic_contract"]["component_source_ids"] == [
         "raw.osm.road",
-        "raw.overture.transportation",
+        "raw.microsoft.road",
     ]
     assert inspection["report_quality_summary"] == {
         "status": "pass",

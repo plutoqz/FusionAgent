@@ -19,17 +19,40 @@ class DataRequirementResolverService:
         output_data_type = _selected_output_type(plan)
         mission_requirements = dict(mission_requirements or {})
         roles = _ROLE_BUILDERS[task_kind](mission_requirements, algorithm_id)
+        evidence = {
+            "resolver_version": "2026-06-29.v2",
+            "basis": "task_kind_and_selected_algorithm",
+            "workflow_id": plan.workflow_id,
+        }
+        if task_kind == TaskKind.building:
+            evidence["building_height_policy"] = {
+                "height_required": False,
+                "preferred_order": [
+                    "raw.google.open_buildings_2_5d.height_raster",
+                    "raw.3d_globfp.building_height.raster",
+                    "raw.google.building_height.raster",
+                    "raw.local.building_height.raster",
+                ],
+                "rapid_response_fallback": [
+                    "raw.osm.building",
+                    "raw.google.building",
+                    "raw.microsoft.building",
+                ],
+                "degradation_mode": "fallback_to_footprint_fusion_without_height",
+            }
+        if task_kind == TaskKind.road:
+            evidence["road_name_policy"] = {
+                "required": True,
+                "primary_source": "raw.osm.road",
+                "preserve_fields": ["name", "osm_name", "road_name", "ref"],
+            }
         return DataRequirementPlan(
             task_kind=task_kind,
             task_family=task_kind_family(task_kind),
             algorithm_id=algorithm_id,
             output_data_type=output_data_type,
             roles=roles,
-            evidence={
-                "resolver_version": "2026-06-04.v1",
-                "basis": "task_kind_and_selected_algorithm",
-                "workflow_id": plan.workflow_id,
-            },
+            evidence=evidence,
         )
 
 
@@ -74,20 +97,23 @@ def _building_roles(requirements: dict[str, Any], algorithm_id: str | None) -> l
             ],
         ),
     ]
-    wants_height = bool(requirements.get("building_height")) or "height" in str(algorithm_id or "").casefold()
-    if wants_height:
-        roles.append(
-            SourceRoleRequirement(
-                role_id="height_signal",
-                required=True,
-                geometry_types=["Raster", "Polygon", "MultiPolygon"],
-                completeness_policy=CompletenessPolicy.optional_when_requirement_absent,
-                candidates=[
-                    _candidate("raw.local.building_height.raster", "local", 10),
-                    _candidate("raw.google.building_3d", "google", 20),
-                ],
-            )
+    height_required = bool(requirements.get("building_height_required"))
+    roles.append(
+        SourceRoleRequirement(
+            role_id="height_signal",
+            required=height_required,
+            geometry_types=["Raster"],
+            completeness_policy=CompletenessPolicy.optional_when_requirement_absent,
+            candidates=[
+                _candidate("raw.google.open_buildings_2_5d.height_raster", "google_open_buildings_2_5d", 10),
+                _candidate("raw.3d_globfp.building_height.raster", "3d_globfp", 20),
+                _candidate("raw.google.building_height.raster", "google_temporal", 30),
+                _candidate("raw.local.building_height.raster", "local", 40),
+            ],
         )
+    )
+    if "height" in str(algorithm_id or "").casefold() and not height_required:
+        roles[-1].fallback_role_ids.append("primary_footprint")
     return roles
 
 

@@ -14,7 +14,7 @@ FusionAgent can now run as a mature no-UI vector data fusion agent: the no-UI op
 
 - The Track A / Track B master plan is complete and archived at `docs/superpowers/plans/done/2026-05-13-fusionagent-master-execution-plan.md`.
 - Track B national-scale evidence is frozen in `docs/superpowers/specs/2026-05-18-track-b-national-scale-evidence-freeze.json`, with `road`, `water`, and `poi` all recorded as `national_scale_supported`.
-- The current road chain fuses `raw.osm.road + raw.overture.transportation`; the freeze records 154 `20km x 20km` tiles and `427849` fused features.
+- The current road full-closure contract targets `raw.osm.road + raw.microsoft.road`. The older `raw.overture.transportation` freeze is retained as historical compatibility evidence only, not as the promoted second source.
 
 ## What This Repository Contains
 

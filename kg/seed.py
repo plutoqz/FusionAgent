@@ -1285,7 +1285,19 @@ OUTPUT_SCHEMA_POLICIES: Dict[str, OutputSchemaPolicy] = {
             claim_state="runtime_supported",
             runtime_role="output_schema_policy",
             policy_scope="current_runtime",
-            notes="Expose stable fused building columns without changing adapter behavior.",
+            notes=(
+                "Expose stable fused building columns; building height is enriched from raster when the "
+                "preferred height source is available, otherwise the runtime may degrade to footprint-only fusion."
+            ),
+            height_policy={
+                "required": False,
+                "preferred_order": [
+                    "raw.google.open_buildings_2_5d.height_raster",
+                    "raw.3d_globfp.building_height.raster",
+                    "raw.google.building_height.raster",
+                ],
+                "rapid_response_fallback": "footprint_fusion_without_height",
+            },
         ),
     ),
     "dt.road.fused": OutputSchemaPolicy(
@@ -1293,7 +1305,7 @@ OUTPUT_SCHEMA_POLICIES: Dict[str, OutputSchemaPolicy] = {
         output_type="dt.road.fused",
         job_type=JobType.road,
         retention_mode="preserve_listed",
-        required_fields=["geometry"],
+        required_fields=["geometry", "name", "road_name"],
         optional_fields=[
             "fusion_source",
             "match_role",
@@ -1303,12 +1315,10 @@ OUTPUT_SCHEMA_POLICIES: Dict[str, OutputSchemaPolicy] = {
             "source_layer",
             "residual_from_matched",
             "residual_part",
+            "osm_name",
             "osm_id",
             "FID_1",
             "fclass",
-            "name",
-            "osm_name",
-            "road_name",
             "source_feature_id",
             "surface",
             "lanes",

@@ -22,7 +22,7 @@ def test_seed_inventory_matches_expected_static_counts() -> None:
     assert len(TASK_BUNDLES) == 4
     assert len(ALGORITHMS) == 33
     assert sum(len(items) for items in PARAMETER_SPECS.values()) == 72
-    assert len(DATA_SOURCES) == 30
+    assert len(DATA_SOURCES) == 34
     assert len(SCENARIO_PROFILES) == 4
     assert len(QOS_POLICIES) == 4
     assert len(OUTPUT_SCHEMA_POLICIES) == 5
@@ -30,6 +30,13 @@ def test_seed_inventory_matches_expected_static_counts() -> None:
     assert len(DATA_NEEDS) == 12
     assert len(REPAIR_STRATEGIES) == 2
     assert len(WORKFLOW_PATTERNS) == 15
+
+
+def test_seed_inventory_includes_preferred_building_height_rasters() -> None:
+    source_ids = {source.source_id for source in DATA_SOURCES}
+
+    assert "raw.google.open_buildings_2_5d.height_raster" in source_ids
+    assert "raw.3d_globfp.building_height.raster" in source_ids
 
 
 def test_default_seed_provider_matches_current_seed_inventory() -> None:
