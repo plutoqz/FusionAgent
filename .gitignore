@@ -34,20 +34,14 @@ jobs/*/
 runs/*/
 !runs/.gitkeep
 !runs/experiments/
-!runs/experiments/exp-ablation-a0-a2/
-!runs/experiments/exp-ablation-a0-a2/*.json
-!runs/experiments/exp-ablation-a0-a2/*.md
-!runs/experiments/exp-quality-freeze-b/
-!runs/experiments/exp-quality-freeze-b/readiness.json
-!runs/experiments/exp-quality-freeze-b/readiness.md
-!runs/experiments/exp-quality-freeze-b-controlled/
-!runs/experiments/exp-quality-freeze-b-controlled/*.json
-!runs/experiments/exp-quality-freeze-b-controlled/*.md
-!runs/experiments/exp-quality-freeze-b-controlled/artifacts/
-!runs/experiments/exp-quality-freeze-b-controlled/artifacts/*.gpkg
+runs/experiments/**
+!runs/experiments/freeze-c-sample/
+!runs/experiments/freeze-c-sample/result.json
 tmp/runtime-settings/
 
 .DS_Store
 Thumbs.db
 .idea/
 .vscode/
+.reasonix/
+reasonix.toml
