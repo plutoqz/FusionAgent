@@ -9,6 +9,7 @@ import pyogrio
 from pyproj import Transformer
 from shapely.validation import explain_validity
 
+from fusion_algorithms.quality import evaluate_feature_alignment
 from services.kg_path_trace_service import build_kg_path_trace
 
 
@@ -21,6 +22,7 @@ def evaluate_vector_artifact(
     *,
     required_fields: list[str],
     requested_bbox: list[float] | tuple[float, float, float, float] | None = None,
+    source_artifact_paths: dict[str, Path | str] | None = None,
     sliver_area_threshold_sq_m: float = _DEFAULT_SLIVER_AREA_THRESHOLD_SQ_M,
     metadata_only_threshold_bytes: int = _DEFAULT_METADATA_ONLY_THRESHOLD_BYTES,
 ) -> dict[str, Any]:
@@ -32,6 +34,7 @@ def evaluate_vector_artifact(
         metadata_only_threshold_bytes=metadata_only_threshold_bytes,
     )
     if metadata_metrics is not None:
+        metadata_metrics["feature_alignment"] = _feature_alignment_not_available("metadata_only_evaluation")
         return metadata_metrics
 
     frame = gpd.read_file(shp_path)
@@ -53,6 +56,7 @@ def evaluate_vector_artifact(
     metrics.update(_geometry_measurements(frame))
     metrics.update(_geometry_quality_metrics(frame, sliver_area_threshold_sq_m=sliver_area_threshold_sq_m))
     metrics.update(_field_quality_metrics(frame))
+    metrics["feature_alignment"] = _feature_alignment_metrics(frame, source_artifact_paths=source_artifact_paths)
     return metrics
 
 
@@ -105,6 +109,41 @@ def _metadata_only_metrics(
     if requested_bbox is not None:
         metrics["aoi_consistency"] = _aoi_consistency(metrics.get("bbox"), requested_bbox)
     return metrics
+
+
+def _feature_alignment_metrics(
+    fused: gpd.GeoDataFrame,
+    *,
+    source_artifact_paths: dict[str, Path | str] | None,
+) -> dict[str, Any]:
+    if not source_artifact_paths:
+        return _feature_alignment_not_available("source_artifact_paths_not_provided")
+    sources: dict[str, gpd.GeoDataFrame] = {}
+    skipped: dict[str, str] = {}
+    for source_id, raw_path in source_artifact_paths.items():
+        path = Path(raw_path)
+        if not path.exists():
+            skipped[source_id] = "path_missing"
+            continue
+        try:
+            sources[source_id] = gpd.read_file(path)
+        except Exception as exc:  # noqa: BLE001
+            skipped[source_id] = f"read_failed:{type(exc).__name__}"
+    if not sources:
+        result = _feature_alignment_not_available("no_readable_source_artifacts")
+        result["skipped_sources"] = skipped
+        return result
+    result = evaluate_feature_alignment(fused, sources)
+    if skipped:
+        result["skipped_sources"] = skipped
+    return result
+
+
+def _feature_alignment_not_available(reason: str) -> dict[str, Any]:
+    return {
+        "status": "not_available",
+        "reason": reason,
+    }
 
 
 def _metadata_feature_count(info: dict[str, Any]) -> int | None:

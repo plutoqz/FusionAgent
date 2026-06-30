@@ -20,3 +20,6 @@ class QualityGateReport(BaseModel):
     degradation_level: str | None = None
     degradation_reason: str | None = None
     degradation_context: dict[str, Any] = Field(default_factory=dict)
+    policy_adaptations: list[dict[str, Any]] = Field(default_factory=list)
+    raw_quality_passed: bool | None = None
+    adapted_quality_passed: bool | None = None

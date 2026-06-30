@@ -1410,6 +1410,93 @@ def test_agent_run_service_passes_contract_and_country_baselines_to_quality_gate
     assert captured["source_expected_null_rates"]["name"] == 0.95
 
 
+def test_agent_writeback_writes_feature_alignment_report(tmp_path: Path) -> None:
+    service = AgentRunService(base_dir=tmp_path / "runs")
+    run_id = "run-feature-alignment-report"
+    request = RunCreateRequest(
+        job_type=JobType.road,
+        trigger=RunTrigger(type=RunTriggerType.user_query, content="road", spatial_extent="bbox(0,0,1,1)"),
+        target_crs="EPSG:32631",
+        field_mapping={},
+        debug=False,
+    )
+    _seed_run_status(service, run_id, request)
+    status = service.get_run(run_id)
+    assert status is not None
+    output_dir = tmp_path / "output-feature-alignment"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    source_path = output_dir / "source.gpkg"
+    supplement_path = output_dir / "supplement.gpkg"
+    fused_gpkg = output_dir / "road.gpkg"
+    gpd.GeoDataFrame(
+        {"source_feature_id": ["road-1"], "name": ["Main"]},
+        geometry=[LineString([(0, 0), (0.01, 0)])],
+        crs="EPSG:4326",
+    ).to_file(source_path, driver="GPKG")
+    gpd.GeoDataFrame(
+        {"source_feature_id": ["road-2"], "name": ["Second"]},
+        geometry=[LineString([(0, 0.01), (0.01, 0.01)])],
+        crs="EPSG:4326",
+    ).to_file(supplement_path, driver="GPKG")
+    gpd.GeoDataFrame(
+        {
+            "source_feature_id": ["road-1", "road-2"],
+            "source_id": ["raw.osm.road", "raw.microsoft.road"],
+            "fusion_source": ["base_road_network", "supplement_road"],
+            "match_role": ["base", "supplement_unmatched"],
+            "road_class": ["primary", "secondary"],
+            "source_layer": ["base", "supplement"],
+            "name": ["Main", "Second"],
+            "osm_name": ["Main", ""],
+            "road_name": ["Main", "Second"],
+        },
+        geometry=[
+            LineString([(0, 0), (0.01, 0)]),
+            LineString([(0, 0.01), (0.01, 0.01)]),
+        ],
+        crs="EPSG:4326",
+    ).to_file(fused_gpkg, driver="GPKG")
+    status.checkpoint = {
+        "stage": "execution",
+        "component_coverage": {
+            "raw.osm.road": {
+                "feature_count": 1,
+                "coverage_status": "available",
+                "path": str(source_path),
+            },
+            "raw.microsoft.road": {
+                "feature_count": 1,
+                "coverage_status": "available",
+                "path": str(supplement_path),
+            },
+        },
+    }
+    service._runs[run_id] = status
+    service._persist_status(status)
+    plan = _build_plan(workflow_id="wf_feature_alignment_report", revision=1, algorithm_id="algo.fusion.road.conflation.v7")
+    plan.context["intent"]["job_type"] = "road"
+    plan.tasks[0].input.data_type_id = "dt.road.bundle"
+    plan.tasks[0].output.data_type_id = "dt.road.fused"
+
+    service.run_writeback_stage(
+        run_id=run_id,
+        request=request,
+        plan=plan,
+        fused_shp=fused_gpkg,
+        repair_records=[],
+        output_dir=output_dir,
+    )
+
+    alignment_path = output_dir / "feature_alignment_report.json"
+    quality_path = output_dir / "quality_report.json"
+    assert alignment_path.exists()
+    alignment = json.loads(alignment_path.read_text(encoding="utf-8"))
+    quality = json.loads(quality_path.read_text(encoding="utf-8"))
+    assert alignment["status"] == "available"
+    assert alignment["match_recall"] == 1.0
+    assert quality["metrics"]["feature_alignment"]["match_precision_proxy"] == 1.0
+
+
 def test_agent_writeback_passes_degradation_context_to_quality_gate(tmp_path: Path, monkeypatch) -> None:
     service = AgentRunService(base_dir=tmp_path / "runs", max_workers=1)
     request = RunCreateRequest(

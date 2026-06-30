@@ -120,6 +120,18 @@ def _component_coverage_from_status(status: RunStatus | None) -> dict[str, objec
     return {}
 
 
+def _source_artifact_paths_from_component_coverage(component_coverage: dict[str, object] | None) -> dict[str, Path]:
+    paths: dict[str, Path] = {}
+    for source_id, payload in (component_coverage or {}).items():
+        raw_path = payload.get("path") if isinstance(payload, dict) else getattr(payload, "path", None)
+        if not raw_path:
+            continue
+        path = Path(str(raw_path))
+        if path.exists() and path.suffix.lower() in {".gpkg", ".shp", ".zip", ".geojson", ".json"}:
+            paths[str(source_id)] = path
+    return paths
+
+
 def _build_durable_learning_condition_metadata(
     *,
     task_kind: str,
@@ -1992,12 +2004,14 @@ class AgentRunService:
         )
         if Path(fused_shp).suffix.lower() == ".gpkg":
             contract_id = self._quality_contract_id_for_request(request)
+            source_artifact_paths = _source_artifact_paths_from_component_coverage(component_coverage)
             quality_report = self.quality_gate_service.evaluate(
                 artifact_path=fused_shp,
                 task_kind=_task_kind_for_request(request),
                 required_fields=self._quality_gate_required_fields_for_plan(plan, contract_id=contract_id),
                 requested_bbox=self._parse_bbox(request.trigger.spatial_extent),
                 component_coverage=component_coverage,
+                source_artifact_paths=source_artifact_paths,
                 degradation_context=self._degradation_context_from_component_coverage(component_coverage),
                 quality_policy_id=self._quality_policy_id_for_plan(plan),
                 contract_id=contract_id,
@@ -2006,6 +2020,11 @@ class AgentRunService:
             quality_report_path = output_dir / "quality_report.json"
             quality_report_path.write_text(
                 json.dumps(quality_report.model_dump(mode="json"), ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+            feature_alignment_path = output_dir / "feature_alignment_report.json"
+            feature_alignment_path.write_text(
+                json.dumps(quality_report.metrics.get("feature_alignment", {}), ensure_ascii=False, indent=2),
                 encoding="utf-8",
             )
             self._update_status(
@@ -2020,7 +2039,9 @@ class AgentRunService:
                     "accepted": quality_report.accepted,
                     "policy_id": quality_report.policy_id,
                     "path": str(quality_report_path),
+                    "feature_alignment_path": str(feature_alignment_path),
                     "failure_reasons": quality_report.failure_reasons,
+                    "policy_adaptations": quality_report.policy_adaptations,
                 },
             )
             if not quality_report.accepted:

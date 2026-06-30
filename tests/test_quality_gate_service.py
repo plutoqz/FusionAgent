@@ -35,6 +35,8 @@ def test_quality_gate_accepts_multisource_building_gpkg(tmp_path: Path) -> None:
     )
 
     assert report.accepted is True
+    assert report.raw_quality_passed is True
+    assert report.adapted_quality_passed is True
     assert report.checks["non_empty"]["passed"] is True
     assert report.checks["multi_source_lineage"]["passed"] is True
 
@@ -378,6 +380,59 @@ def test_quality_gate_accepts_country_expected_high_road_name_null_rate(tmp_path
     assert report.checks["field_null_rate:name"]["threshold"] == 0.95
 
 
+def test_quality_gate_includes_feature_alignment_metrics_when_source_paths_are_available(tmp_path: Path) -> None:
+    source_path = tmp_path / "road_source.gpkg"
+    artifact_path = tmp_path / "road_fused.gpkg"
+    source = gpd.GeoDataFrame(
+        {"source_feature_id": ["road-1"], "name": ["Main"]},
+        geometry=[LineString([(0, 0), (100, 0)])],
+        crs="EPSG:32631",
+    )
+    fused = gpd.GeoDataFrame(
+        {"source_feature_id": ["road-1"], "source_id": ["raw.osm.road"], "road_name": ["Main"]},
+        geometry=[LineString([(0, 0), (100, 0)])],
+        crs="EPSG:32631",
+    )
+    source.to_file(source_path, driver="GPKG")
+    fused.to_file(artifact_path, driver="GPKG")
+
+    report = QualityGateService().evaluate(
+        artifact_path=artifact_path,
+        task_kind=TaskKind.road,
+        required_fields=["geometry", "source_id"],
+        requested_bbox=(-1, -1, 1, 1),
+        component_coverage={"raw.osm.road": {"feature_count": 1, "coverage_status": "available"}},
+        source_artifact_paths={"raw.osm.road": source_path},
+    )
+
+    assert report.metrics["feature_alignment"]["status"] == "available"
+    assert report.metrics["feature_alignment"]["match_recall"] == 1.0
+    assert report.metrics["feature_alignment"]["match_precision_proxy"] == 1.0
+
+
+def test_quality_gate_feature_alignment_gracefully_reports_missing_source_paths(tmp_path: Path) -> None:
+    artifact_path = tmp_path / "road_fused.gpkg"
+    fused = gpd.GeoDataFrame(
+        {"source_feature_id": ["road-1"], "source_id": ["raw.osm.road"]},
+        geometry=[LineString([(0, 0), (100, 0)])],
+        crs="EPSG:32631",
+    )
+    fused.to_file(artifact_path, driver="GPKG")
+
+    report = QualityGateService().evaluate(
+        artifact_path=artifact_path,
+        task_kind=TaskKind.road,
+        required_fields=["geometry", "source_id"],
+        requested_bbox=(-1, -1, 1, 1),
+        component_coverage={"raw.osm.road": {"feature_count": 1, "coverage_status": "available"}},
+        source_artifact_paths={"raw.osm.road": tmp_path / "missing.gpkg"},
+    )
+
+    assert report.metrics["feature_alignment"]["status"] == "not_available"
+    assert report.metrics["feature_alignment"]["reason"] == "no_readable_source_artifacts"
+    assert report.metrics["feature_alignment"]["skipped_sources"] == {"raw.osm.road": "path_missing"}
+
+
 def test_quality_gate_rejects_mismatched_contract_id(tmp_path: Path) -> None:
     path = tmp_path / "road_contract_mismatch.gpkg"
     frame = gpd.GeoDataFrame(
@@ -478,6 +533,8 @@ def test_quality_gate_allows_poi_single_source_when_missing_sources_are_external
     )
 
     assert report.accepted is True
+    assert report.raw_quality_passed is False
+    assert report.adapted_quality_passed is True
     assert report.degraded_mode is True
     assert report.degradation_level == "external_uncontrollable"
     assert report.degradation_context["level"] == "external_uncontrollable"
@@ -486,7 +543,7 @@ def test_quality_gate_allows_poi_single_source_when_missing_sources_are_external
     assert "multi_source_lineage" in report.soft_failure_reasons
 
 
-def test_quality_gate_does_not_downgrade_non_poi_multi_source_lineage(tmp_path: Path) -> None:
+def test_quality_gate_allows_building_single_source_when_missing_source_is_external(tmp_path: Path) -> None:
     path = tmp_path / "building_single_source.gpkg"
     frame = gpd.GeoDataFrame(
         {"source_id": ["raw.osm.building"]},
@@ -515,10 +572,100 @@ def test_quality_gate_does_not_downgrade_non_poi_multi_source_lineage(tmp_path: 
         degradation_context=context,
     )
 
+    assert report.accepted is True
+    assert report.raw_quality_passed is False
+    assert report.adapted_quality_passed is True
+    assert report.checks["multi_source_lineage"]["severity"] == "soft"
+    assert report.checks["source_contribution_balance"]["severity"] == "soft"
+    assert "multi_source_lineage" in report.soft_failure_reasons
+    assert "source_contribution_balance" not in report.failure_reasons
+    assert {item["check_id"] for item in report.policy_adaptations} == {
+        "multi_source_lineage",
+        "source_contribution_balance",
+    }
+
+
+def test_quality_gate_allows_road_single_source_when_missing_source_is_external(tmp_path: Path) -> None:
+    path = tmp_path / "road_single_source.gpkg"
+    frame = gpd.GeoDataFrame(
+        {"source_id": ["raw.osm.road"]},
+        geometry=[LineString([(0, 0), (1, 0)])],
+        crs="EPSG:4326",
+    )
+    frame.to_file(path, driver="GPKG")
+
+    context = DegradationContext(
+        degraded=True,
+        level=DegradationLevel.external_uncontrollable,
+        available_sources=["raw.osm.road"],
+        missing_sources=["raw.microsoft.road"],
+        external_uncontrollable_sources=["raw.microsoft.road"],
+    )
+
+    report = QualityGateService().evaluate(
+        artifact_path=path,
+        task_kind=TaskKind.road,
+        required_fields=["geometry", "source_id"],
+        requested_bbox=(-1, -1, 2, 1),
+        component_coverage={
+            "raw.osm.road": {"feature_count": 1, "coverage_status": "available"},
+            "raw.microsoft.road": {
+                "feature_count": 0,
+                "coverage_status": "missing",
+                "external_uncontrollable": True,
+            },
+        },
+        degradation_context=context,
+    )
+
+    assert report.accepted is True
+    assert report.raw_quality_passed is False
+    assert report.adapted_quality_passed is True
+    assert report.checks["multi_source_lineage"]["severity"] == "soft"
+    assert "multi_source_lineage" in report.soft_failure_reasons
+    assert "source_contribution_balance" not in report.failure_reasons
+    assert report.policy_adaptations
+
+
+def test_quality_gate_keeps_duplicate_geometry_hard_under_external_degradation(tmp_path: Path) -> None:
+    path = tmp_path / "duplicate_degraded.gpkg"
+    polygon = Polygon([(0, 0), (0, 1), (1, 1), (1, 0)])
+    frame = gpd.GeoDataFrame(
+        {"source_id": ["raw.osm.building", "raw.osm.building"]},
+        geometry=[polygon, polygon],
+        crs="EPSG:4326",
+    )
+    frame.to_file(path, driver="GPKG")
+
+    context = DegradationContext(
+        degraded=True,
+        level=DegradationLevel.external_uncontrollable,
+        available_sources=["raw.osm.building"],
+        missing_sources=["raw.google.building"],
+        external_uncontrollable_sources=["raw.google.building"],
+    )
+
+    report = QualityGateService().evaluate(
+        artifact_path=path,
+        task_kind=TaskKind.building,
+        required_fields=["geometry", "source_id"],
+        requested_bbox=(-1, -1, 2, 2),
+        component_coverage={
+            "raw.osm.building": {"feature_count": 2, "coverage_status": "available"},
+            "raw.google.building": {
+                "feature_count": 0,
+                "coverage_status": "missing",
+                "external_uncontrollable": True,
+            },
+        },
+        degradation_context=context,
+    )
+
     assert report.accepted is False
-    assert report.checks["multi_source_lineage"]["severity"] == "hard"
-    assert "multi_source_lineage" in report.failure_reasons
-    assert "multi_source_lineage" not in report.soft_failure_reasons
+    assert report.raw_quality_passed is False
+    assert report.adapted_quality_passed is False
+    assert report.checks["duplicate_geometry_rate"]["severity"] == "hard"
+    assert "duplicate_geometry_rate" in report.failure_reasons
 
 
 def test_quality_gate_does_not_downgrade_geometry_type_under_degradation(tmp_path: Path) -> None:

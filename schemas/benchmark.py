@@ -94,6 +94,7 @@ class BenchmarkCaseResult(BaseModel):
     metrics: dict[str, Any]
     threshold_results: dict[str, bool] = Field(default_factory=dict)
     accepted_for_claim: bool = False
+    feature_alignment_summary: dict[str, Any] = Field(default_factory=dict)
 
 
 class BenchmarkRunSummary(BaseModel):

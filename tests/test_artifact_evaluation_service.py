@@ -2,7 +2,7 @@ from pathlib import Path
 
 import geopandas as gpd
 import numpy as np
-from shapely.geometry import LineString, MultiLineString, MultiPolygon, Polygon
+from shapely.geometry import LineString, MultiLineString, MultiPolygon, Point, Polygon
 
 from schemas.agent import DecisionCandidate, DecisionRecord, RunEvent, RunPhase, RunTrigger, RunTriggerType, WorkflowPlan, WorkflowTask, WorkflowTaskInput, WorkflowTaskOutput
 from services.artifact_evaluation_service import evaluate_agentic_run, evaluate_vector_artifact
@@ -246,6 +246,102 @@ def test_evaluate_vector_artifact_reports_line_topology_quality_metrics(tmp_path
     assert metrics["dangle_endpoint_count"] == 2
     assert metrics["self_intersection_count"] == 0
     assert metrics["sliver_polygon_count"] == 0
+
+
+def test_evaluate_vector_artifact_reports_feature_alignment_from_source_paths(tmp_path):
+    source_path = tmp_path / "source.gpkg"
+    fused_path = tmp_path / "fused.gpkg"
+    source = gpd.GeoDataFrame(
+        {
+            "source_feature_id": ["road-1", "road-2"],
+            "name": ["Main", "Second"],
+        },
+        geometry=[
+            LineString([(0, 0), (100, 0)]),
+            LineString([(0, 100), (100, 100)]),
+        ],
+        crs="EPSG:32631",
+    )
+    fused = gpd.GeoDataFrame(
+        {
+            "source_feature_id": ["road-1", "extra"],
+            "road_name": ["Main", "Extra"],
+        },
+        geometry=[
+            LineString([(0, 0), (100, 0)]),
+            LineString([(0, 200), (100, 200)]),
+        ],
+        crs="EPSG:32631",
+    )
+    source.to_file(source_path, driver="GPKG")
+    fused.to_file(fused_path, driver="GPKG")
+
+    metrics = evaluate_vector_artifact(
+        fused_path,
+        required_fields=["geometry", "source_feature_id"],
+        source_artifact_paths={"raw.osm.road": source_path},
+    )
+
+    alignment = metrics["feature_alignment"]
+    assert alignment["status"] == "available"
+    assert alignment["source_feature_count"] == 2
+    assert alignment["fused_feature_count"] == 2
+    assert alignment["matched_source_count"] == 1
+    assert alignment["matched_fused_count"] == 1
+    assert alignment["unmatched_source_count"] == 1
+    assert alignment["unmatched_fused_count"] == 1
+    assert alignment["match_recall"] == 0.5
+    assert alignment["match_precision_proxy"] == 0.5
+    assert alignment["attribute_agreement"] == 1.0
+    assert alignment["geometry_deviation_p95_m"] == 0.0
+
+
+def test_evaluate_vector_artifact_feature_alignment_uses_spatial_proxy_and_detects_attribute_mismatch(tmp_path):
+    source_path = tmp_path / "poi_source.gpkg"
+    fused_path = tmp_path / "poi_fused.gpkg"
+    source = gpd.GeoDataFrame(
+        {"name": ["Clinic"]},
+        geometry=[Point(0, 0)],
+        crs="EPSG:32631",
+    )
+    fused = gpd.GeoDataFrame(
+        {"canonical_name": ["School"]},
+        geometry=[Point(3, 4)],
+        crs="EPSG:32631",
+    )
+    source.to_file(source_path, driver="GPKG")
+    fused.to_file(fused_path, driver="GPKG")
+
+    metrics = evaluate_vector_artifact(
+        fused_path,
+        required_fields=["geometry"],
+        source_artifact_paths={"raw.gns.poi": source_path},
+    )
+
+    alignment = metrics["feature_alignment"]
+    assert alignment["status"] == "available"
+    assert alignment["matched_source_count"] == 1
+    assert alignment["match_recall"] == 1.0
+    assert alignment["match_precision_proxy"] == 1.0
+    assert alignment["attribute_agreement"] == 0.0
+    assert alignment["geometry_deviation_p50_m"] == 5.0
+
+
+def test_evaluate_vector_artifact_feature_alignment_is_not_available_without_sources(tmp_path):
+    path = tmp_path / "buildings.gpkg"
+    frame = gpd.GeoDataFrame(
+        {"source_id": ["raw.osm.building"]},
+        geometry=[Polygon([(0, 0), (0, 1), (1, 1), (1, 0)])],
+        crs="EPSG:4326",
+    )
+    frame.to_file(path, driver="GPKG")
+
+    metrics = evaluate_vector_artifact(path, required_fields=["geometry", "source_id"])
+
+    assert metrics["feature_alignment"] == {
+        "status": "not_available",
+        "reason": "source_artifact_paths_not_provided",
+    }
 
 
 def test_evaluate_vector_artifact_excludes_zero_length_lines_from_dangle_endpoint_count(tmp_path):
