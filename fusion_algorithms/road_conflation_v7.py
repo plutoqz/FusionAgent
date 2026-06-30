@@ -96,6 +96,8 @@ def _canonicalize_road_output(frame: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     result["osm_name"] = ""
     result.loc[~supplement_mask, "osm_name"] = name_values.loc[~supplement_mask].astype(str)
     result["road_name"] = name_values.astype(str)
+    if "road_name_candidates" not in result.columns:
+        result["road_name_candidates"] = result["road_name"]
     return result
 
 

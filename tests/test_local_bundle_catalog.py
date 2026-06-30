@@ -479,6 +479,42 @@ def test_local_bundle_catalog_road_bundle_uses_microsoft_when_overture_absent(tm
     assert "id" not in ref_columns
 
 
+def test_local_bundle_catalog_road_bundle_uses_overture_when_microsoft_absent(tmp_path: Path) -> None:
+    _seed_local_catalog_tree(tmp_path)
+    microsoft_dir = tmp_path / "Data" / "roads" / "Microsoft"
+    for path in microsoft_dir.glob("*"):
+        path.unlink()
+
+    provider = LocalBundleCatalogProvider(
+        tmp_path,
+        raw_source_service=RawVectorSourceService(
+            root_dir=tmp_path,
+            registry=ArtifactRegistry(index_path=tmp_path / "artifact_registry.json"),
+            cache_dir=tmp_path / "raw-cache",
+            source_asset_service=_NoRemoteSourceAssetService(),
+        ),
+    )
+
+    materialized = provider.materialize_with_fallback(
+        source_id="catalog.flood.road",
+        request_bbox=None,
+        target_dir=tmp_path / "road_bundle_overture_ref",
+        target_crs="EPSG:4326",
+    )
+
+    assert materialized.source_id == "catalog.flood.road"
+    assert materialized.component_coverage["raw.microsoft.road"].feature_count == 0
+    assert materialized.component_coverage["raw.overture.road"].feature_count == 1
+    assert [attempt["source_id"] for attempt in materialized.provider_attempts] == [
+        "raw.osm.road",
+        "raw.microsoft.road",
+        "raw.overture.road",
+    ]
+    ref_columns = _read_columns(materialized.ref_zip_path)
+    assert "id" in ref_columns
+    assert "ms_road_id" not in ref_columns
+
+
 def test_local_bundle_catalog_uses_policy_fallback_for_waterways(tmp_path: Path) -> None:
     provider = LocalBundleCatalogProvider(
         root_dir=tmp_path,

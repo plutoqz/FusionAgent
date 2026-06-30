@@ -64,7 +64,12 @@ class LocalBundleCatalogProvider:
         resolved_aoi: ResolvedAOI | None = None,
     ) -> str:
         spec = self._spec_for(source_id)
-        policy_candidates = source_component_candidates(source_id, ())
+        policy_candidates = self._materialization_candidates(
+            source_id=source_id,
+            candidates=source_component_candidates(source_id, ()),
+            request_bbox=request_bbox,
+            resolved_aoi=resolved_aoi,
+        )
         if policy_candidates:
             tokens = []
             for component_source_id in policy_candidates:
@@ -211,7 +216,12 @@ class LocalBundleCatalogProvider:
         spec = self._spec_for(source_id)
         target_dir.mkdir(parents=True, exist_ok=True)
 
-        policy_candidates = source_component_candidates(source_id, ())
+        policy_candidates = self._materialization_candidates(
+            source_id=source_id,
+            candidates=source_component_candidates(source_id, ()),
+            request_bbox=request_bbox,
+            resolved_aoi=resolved_aoi,
+        )
         if policy_candidates:
             return self._materialize_policy_candidate_bundle(
                 spec=spec,
@@ -439,6 +449,28 @@ class LocalBundleCatalogProvider:
     @staticmethod
     def _is_building_catalog(source_id: str) -> bool:
         return source_id in {"catalog.flood.building", "catalog.earthquake.building"}
+
+    def _materialization_candidates(
+        self,
+        *,
+        source_id: str,
+        candidates: list[str],
+        request_bbox: Optional[BBox],
+        resolved_aoi: ResolvedAOI | None,
+    ) -> list[str]:
+        materialization_candidates = list(candidates)
+        if source_id not in {"catalog.flood.road", "catalog.earthquake.road", "catalog.typhoon.road"}:
+            return materialization_candidates
+        if "raw.overture.road" in materialization_candidates:
+            return materialization_candidates
+        resolve_local_source_path = getattr(self.raw_source_service, "resolve_local_source_path", None)
+        if not callable(resolve_local_source_path):
+            return materialization_candidates
+        try:
+            resolve_local_source_path("raw.overture.road", resolved_aoi=resolved_aoi)
+        except (FileNotFoundError, RuntimeError, PermissionError, KeyError, ValueError):
+            return materialization_candidates
+        return [*materialization_candidates, "raw.overture.road"]
 
     @staticmethod
     def _candidate_target_paths(

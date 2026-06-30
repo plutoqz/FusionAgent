@@ -166,8 +166,9 @@ def test_repository_exposes_richer_data_source_signals_for_current_themes() -> N
     assert typhoon_road.freshness_hours == 48
     assert typhoon_road.supported_job_types == ["road"]
     assert typhoon_road.supported_geometry_types == ["line"]
-    assert typhoon_road.metadata["component_source_ids"] == ["raw.osm.road", "raw.overture.transportation"]
-    assert earthquake_road.metadata["component_source_ids"] == ["raw.osm.road", "raw.overture.transportation"]
+    assert typhoon_road.metadata["component_source_ids"] == ["raw.osm.road", "raw.microsoft.road"]
+    assert earthquake_road.metadata["component_source_ids"] == ["raw.osm.road", "raw.microsoft.road"]
+    assert "raw.overture.road" in typhoon_road.metadata["track_b_manual_preload_source_ids"]
 
 
 def test_repository_exposes_bundle_and_raw_sources_for_catalog_expansion() -> None:
@@ -223,7 +224,8 @@ def test_repository_exposes_bundle_and_raw_sources_for_catalog_expansion() -> No
     assert flood_bundle.metadata["component_source_ids"] == ["raw.osm.building", "raw.microsoft.building"]
     assert flood_bundle.metadata["bundle_strategy"] == "osm_ref_pair"
     road_bundle = next(source for source in road_bundle_sources if source.source_id == "catalog.flood.road")
-    assert road_bundle.metadata["component_source_ids"] == ["raw.osm.road", "raw.overture.transportation"]
+    assert road_bundle.metadata["component_source_ids"] == ["raw.osm.road", "raw.microsoft.road"]
+    assert "raw.overture.road" in road_bundle.metadata["track_b_manual_preload_source_ids"]
     assert road_bundle.metadata["bundle_strategy"] == "osm_ref_pair"
     water_bundle = next(source for source in water_bundle_sources if source.source_id == "catalog.flood.water")
     assert water_bundle.metadata["component_source_ids"] == ["raw.osm.water", "raw.hydrolakes.water"]

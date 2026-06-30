@@ -146,6 +146,36 @@ def test_run_road_conflation_v7_preserves_uppercase_fid_supplement_id() -> None:
     assert supplement_rows.iloc[0]["supplement_segment_id"] == "12345"
 
 
+def test_run_road_conflation_v7_preserves_supplement_road_name_without_polluting_osm_name() -> None:
+    base = gpd.GeoDataFrame(
+        {"osm_id": [1], "fclass": ["primary"], "name": ["Main Road"]},
+        geometry=[LineString([(0, 0), (10, 0)])],
+        crs="EPSG:3857",
+    )
+    supplement = gpd.GeoDataFrame(
+        {"id": [2], "road_class": ["secondary"], "name": ["Relief Bypass"]},
+        geometry=[LineString([(0, 30), (10, 30)])],
+        crs="EPSG:3857",
+    )
+
+    result = run_road_conflation_v7(
+        base,
+        supplement,
+        config=RoadConflationV7Config(
+            target_crs="EPSG:3857",
+            do_split_by_angle=False,
+            max_segment_length=None,
+            enable_dangle_cleanup=False,
+        ),
+    )
+
+    supplement_rows = result.frame[result.frame["source_layer"] == "supplement"]
+    assert supplement_rows.iloc[0]["name"] == "Relief Bypass"
+    assert supplement_rows.iloc[0]["road_name"] == "Relief Bypass"
+    assert supplement_rows.iloc[0]["road_name_candidates"] == "Relief Bypass"
+    assert supplement_rows.iloc[0]["osm_name"] == ""
+
+
 def test_run_road_conflation_v7_cleans_pseudo_empty_name_values() -> None:
     base = gpd.GeoDataFrame(
         {"osm_id": [1], "fclass": ["primary"], "name": ["<NA>"]},

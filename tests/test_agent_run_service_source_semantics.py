@@ -92,4 +92,6 @@ def test_agent_run_service_persists_source_semantic_contract(tmp_path: Path) -> 
     assert contract_path.exists()
     payload = json.loads(contract_path.read_text(encoding="utf-8"))
     assert payload["height_policy"]["height_output_field"] == "height_raster"
-    assert updated.tasks[0].input.parameters == {}
+    params = updated.tasks[0].input.parameters
+    assert params["match_similarity_threshold"] == 0.7
+    assert params["parameter_provenance"]["match_similarity_threshold"]["source"] == "static_seed"

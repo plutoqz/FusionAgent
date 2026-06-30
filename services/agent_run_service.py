@@ -45,6 +45,7 @@ from services.artifact_registry import ArtifactRecord, ArtifactRegistry
 from services.artifact_reuse_policy import get_artifact_reuse_max_age_seconds
 from services.artifact_reuse_service import ArtifactReuseService, ReuseResult
 from services.artifact_evaluation_service import evaluate_vector_artifact
+from services.artifact_repair_service import ArtifactRepairService
 from services.agent_source_infrastructure import (
     AgentSourceInfrastructure,
     SourceProviderContract,
@@ -64,6 +65,9 @@ from services.runtime_paths import resolve_data_repository_root, resolve_downloa
 from services.run_recovery_service import collect_recoverable_runs
 from services.runtime_contract_service import RuntimeContractService
 from services.run_report_service import build_run_report_summary, render_run_reports
+from services.run_execution_router import RunExecutionRouter
+from services.run_state_store import RunStateStore
+from services.run_writeback_service import RunWritebackService
 from services.source_field_profile_registry import SourceFieldProfileRegistry
 from services.source_acquisition_policy import classify_component_degradation
 from services.source_semantic_contract_service import SourceSemanticContractService
@@ -367,6 +371,7 @@ class AgentRunService:
         using_default_storage = base_dir is None
         self.base_dir = Path(base_dir) if base_dir is not None else resolve_runs_root()
         self.base_dir.mkdir(parents=True, exist_ok=True)
+        self.run_state_store = RunStateStore(self.base_dir)
         self.data_repository_root = self._resolve_agent_data_repository_root(
             requested_root=data_repository_root,
             using_default_storage=using_default_storage,
@@ -398,6 +403,9 @@ class AgentRunService:
         self.data_requirement_resolver = DataRequirementResolverService()
         self.artifact_reuse_service = ArtifactReuseService(self.artifact_registry)
         self.quality_gate_service = QualityGateService()
+        self.artifact_repair_service = ArtifactRepairService()
+        self.run_writeback_service = RunWritebackService(self)
+        self.run_execution_router = RunExecutionRouter(self)
         self.validator = WorkflowValidator(self.kg_repo)
         self._apply_default_runtime(
             self._build_runtime_dependencies(
@@ -720,58 +728,22 @@ class AgentRunService:
 
             while True:
                 try:
-                    if (
-                        multisource_building_sources is not None
-                        and self._should_use_multisource_building_runtime(runtime_request, plan)
-                        and len(multisource_building_sources[0]) >= 2
-                    ):
-                        fused_shp, repair_records = self.run_multisource_building_execution_stage(
-                            run_id=run_id,
-                            request=runtime_request,
-                            plan=plan,
-                            intermediate_dir=intermediate_dir,
-                            output_dir=output_dir,
-                            vector_sources=multisource_building_sources[0],
-                            raster_sources=multisource_building_sources[1],
-                            resolved_aoi=resolved_aoi,
-                            repair_records=repair_records,
-                        )
-                    elif should_tile:
-                        fused_shp, repair_records = self.run_tiled_execution_stage(
-                            run_id=run_id,
-                            request=runtime_request,
-                            plan=plan,
-                            osm_zip_path=osm_zip_path,
-                            ref_zip_path=ref_zip_path,
-                            intermediate_dir=intermediate_dir,
-                            output_dir=output_dir,
-                            repair_records=repair_records,
-                            resolved_inputs=resolved_inputs,
-                            resolved_aoi=resolved_aoi,
-                        )
-                    elif should_use_large_area_runtime and resolved_inputs is not None:
-                        fused_shp, repair_records = self.run_large_area_execution_stage(
-                            run_id=run_id,
-                            request=runtime_request,
-                            plan=plan,
-                            intermediate_dir=intermediate_dir,
-                            output_dir=output_dir,
-                            resolved_inputs=resolved_inputs,
-                            resolved_aoi=resolved_aoi,
-                            repair_records=repair_records,
-                        )
-                    else:
-                        fused_shp, repair_records = self.run_execution_stage(
-                            run_id=run_id,
-                            request=runtime_request,
-                            plan=plan,
-                            osm_zip_path=osm_zip_path,
-                            ref_zip_path=ref_zip_path,
-                            intermediate_dir=intermediate_dir,
-                            output_dir=output_dir,
-                            repair_records=repair_records,
-                            runtime_dependencies=runtime_dependencies,
-                        )
+                    fused_shp, repair_records = self.run_execution_router.run_selected_execution_stage(
+                        run_id=run_id,
+                        request=runtime_request,
+                        plan=plan,
+                        osm_zip_path=osm_zip_path,
+                        ref_zip_path=ref_zip_path,
+                        intermediate_dir=intermediate_dir,
+                        output_dir=output_dir,
+                        repair_records=repair_records,
+                        runtime_dependencies=runtime_dependencies,
+                        resolved_inputs=resolved_inputs,
+                        resolved_aoi=resolved_aoi,
+                        multisource_building_sources=multisource_building_sources,
+                        should_tile=should_tile,
+                        should_use_large_area_runtime=should_use_large_area_runtime,
+                    )
                     break
                 except Exception as exec_error:  # noqa: BLE001
                     failed_step = self._infer_failed_step(repair_records)
@@ -1994,77 +1966,14 @@ class AgentRunService:
         repair_records: List[RepairRecord],
         output_dir: Path,
     ) -> RunArtifactMeta:
-        output_dir.mkdir(parents=True, exist_ok=True)
-        component_coverage = _component_coverage_from_status(self.get_run(run_id))
-        self._validate_output_artifact_against_schema_policy(
+        return self.run_writeback_service.run_writeback_stage(
             run_id=run_id,
             request=request,
             plan=plan,
             fused_shp=fused_shp,
-        )
-        if Path(fused_shp).suffix.lower() == ".gpkg":
-            contract_id = self._quality_contract_id_for_request(request)
-            source_artifact_paths = _source_artifact_paths_from_component_coverage(component_coverage)
-            quality_report = self.quality_gate_service.evaluate(
-                artifact_path=fused_shp,
-                task_kind=_task_kind_for_request(request),
-                required_fields=self._quality_gate_required_fields_for_plan(plan, contract_id=contract_id),
-                requested_bbox=self._parse_bbox(request.trigger.spatial_extent),
-                component_coverage=component_coverage,
-                source_artifact_paths=source_artifact_paths,
-                degradation_context=self._degradation_context_from_component_coverage(component_coverage),
-                quality_policy_id=self._quality_policy_id_for_plan(plan),
-                contract_id=contract_id,
-                source_expected_null_rates=self._source_expected_null_rates_for_request(request, plan),
-            )
-            quality_report_path = output_dir / "quality_report.json"
-            quality_report_path.write_text(
-                json.dumps(quality_report.model_dump(mode="json"), ensure_ascii=False, indent=2),
-                encoding="utf-8",
-            )
-            feature_alignment_path = output_dir / "feature_alignment_report.json"
-            feature_alignment_path.write_text(
-                json.dumps(quality_report.metrics.get("feature_alignment", {}), ensure_ascii=False, indent=2),
-                encoding="utf-8",
-            )
-            self._update_status(
-                run_id,
-                RunPhase.running,
-                progress=92,
-                plan_revision=self._extract_plan_revision(plan),
-                checkpoint=self._checkpoint(stage="quality_gate", plan_revision=self._extract_plan_revision(plan)),
-                event_kind="quality_gate_evaluated",
-                event_message="Fusion output evaluated by quality gate.",
-                event_details={
-                    "accepted": quality_report.accepted,
-                    "policy_id": quality_report.policy_id,
-                    "path": str(quality_report_path),
-                    "feature_alignment_path": str(feature_alignment_path),
-                    "failure_reasons": quality_report.failure_reasons,
-                    "policy_adaptations": quality_report.policy_adaptations,
-                },
-            )
-            if not quality_report.accepted:
-                raise RuntimeError("Quality gate rejected fusion output")
-        artifact_zip = self._zip_output_artifact(
-            fused_shp,
-            output_dir / f"{request.job_type.value}_fusion_result.zip",
-        )
-        artifact = RunArtifactMeta(
-            filename=artifact_zip.name,
-            path=str(artifact_zip),
-            size_bytes=artifact_zip.stat().st_size,
-        )
-        self._record_feedback(
-            run_id=run_id,
-            request=request,
-            plan=plan,
             repair_records=repair_records,
-            success=True,
-            failure_reason=None,
+            output_dir=output_dir,
         )
-        self._register_artifact(run_id=run_id, request=request, plan=plan, artifact=artifact, repair_records=repair_records)
-        return artifact
 
     @staticmethod
     def _zip_output_artifact(artifact_path: Path, output_zip: Path) -> Path:
@@ -3289,47 +3198,33 @@ class AgentRunService:
             self._persist_status(current)
 
     def _persist_status(self, status: RunStatus) -> None:
-        run_dir = self.base_dir / status.run_id
-        run_dir.mkdir(parents=True, exist_ok=True)
-        data = status.model_dump(mode="json")
-        (run_dir / "run.json").write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+        self.run_state_store.persist_status(status)
 
     def _load_status(self, run_id: str) -> Optional[RunStatus]:
-        path = self.base_dir / run_id / "run.json"
-        if not path.exists():
+        status = self.run_state_store.load_status(run_id)
+        if status is None:
             return None
-        payload = json.loads(path.read_text(encoding="utf-8"))
-        status = RunStatus.model_validate(payload)
         with self._lock:
             self._runs[run_id] = status
         return status
 
-    @staticmethod
-    def _persist_request(path: Path, request: RunCreateRequest) -> None:
-        path.write_text(json.dumps(request.model_dump(mode="json"), ensure_ascii=False, indent=2), encoding="utf-8")
+    def _persist_request(self, path: Path, request: RunCreateRequest) -> None:
+        self.run_state_store.persist_request(path, request)
 
-    @staticmethod
-    def _persist_plan(path: Path, plan: WorkflowPlan) -> None:
-        ensure_plan_grounding_report(plan)
-        payload = json.dumps(plan.model_dump(mode="json"), ensure_ascii=False, indent=2)
-        path.write_text(payload, encoding="utf-8")
-        revision = AgentRunService._extract_plan_revision(plan)
-        if revision > 0:
-            path.with_name(f"plan-revision-{revision}.json").write_text(payload, encoding="utf-8")
+    def _persist_plan(self, path: Path, plan: WorkflowPlan) -> None:
+        self.run_state_store.persist_plan(path, plan, revision=self._extract_plan_revision(plan))
 
-    @staticmethod
-    def _persist_validation(path: Path, plan: WorkflowPlan) -> None:
-        payload = plan.validation.model_dump(mode="json") if plan.validation is not None else {}
-        path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+    def _persist_validation(self, path: Path, plan: WorkflowPlan) -> None:
+        self.run_state_store.persist_validation(path, plan)
 
     def _plan_path(self, run_id: str) -> Path:
-        return self.base_dir / run_id / "plan.json"
+        return self.run_state_store.plan_path(run_id)
 
     def _validation_path(self, run_id: str) -> Path:
-        return self.base_dir / run_id / "validation.json"
+        return self.run_state_store.validation_path(run_id)
 
     def _audit_path(self, run_id: str) -> Path:
-        return self.base_dir / run_id / "audit.jsonl"
+        return self.run_state_store.audit_path(run_id)
 
     @staticmethod
     def _checkpoint(
@@ -3391,14 +3286,7 @@ class AgentRunService:
         }
 
     def _append_audit_event(self, status: RunStatus, event: RunEvent) -> None:
-        path = Path(status.audit_path) if status.audit_path else self._audit_path(status.run_id)
-        path.parent.mkdir(parents=True, exist_ok=True)
-        with path.open("a", encoding="utf-8") as handle:
-            handle.write(json.dumps(event.model_dump(mode="json"), ensure_ascii=False))
-            handle.write("\n")
-        status.audit_path = str(path)
-        status.event_count += 1
-        status.last_event = event
+        self.run_state_store.append_audit_event(status, event)
 
     @staticmethod
     def _extract_plan_revision(plan: Optional[WorkflowPlan]) -> int:

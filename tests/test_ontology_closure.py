@@ -166,7 +166,7 @@ def test_targets_2_6_default_sources_are_remote_capable() -> None:
     )
     assert get_catalog_bundle_spec("catalog.flood.road").component_source_ids == (
         "raw.osm.road",
-        "raw.overture.transportation",
+        "raw.microsoft.road",
     )
     assert get_catalog_bundle_spec("catalog.flood.water").component_source_ids == (
         "raw.osm.water",

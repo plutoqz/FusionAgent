@@ -1497,6 +1497,77 @@ def test_agent_writeback_writes_feature_alignment_report(tmp_path: Path) -> None
     assert quality["metrics"]["feature_alignment"]["match_precision_proxy"] == 1.0
 
 
+def test_agent_writeback_repairs_quality_gate_failures_before_zip(tmp_path: Path) -> None:
+    service = AgentRunService(base_dir=tmp_path / "runs")
+    run_id = "run-artifact-repair"
+    request = RunCreateRequest(
+        job_type=JobType.road,
+        trigger=RunTrigger(type=RunTriggerType.user_query, content="road", spatial_extent=None),
+        target_crs="EPSG:32631",
+        field_mapping={},
+        debug=False,
+    )
+    _seed_run_status(service, run_id, request)
+    output_dir = tmp_path / "output-artifact-repair"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    fused_gpkg = output_dir / "road_bad.gpkg"
+    gpd.GeoDataFrame(
+        {
+            "source_layer": ["base", "supplement"],
+            "name": ["Main Road", ""],
+            "ref": ["MR-1", "Side Road"],
+        },
+        geometry=[
+            LineString([(0, 0), (100000, 0)]),
+            LineString([(10, 10), (10, 10)]),
+        ],
+        crs="EPSG:32631",
+    ).to_file(fused_gpkg, driver="GPKG")
+    status = service.get_run(run_id)
+    assert status is not None
+    status.checkpoint = {
+        "stage": "execution",
+        "component_coverage": {
+            "raw.osm.road": {"feature_count": 1, "coverage_status": "available", "path": str(fused_gpkg)},
+            "raw.microsoft.road": {"feature_count": 1, "coverage_status": "available", "path": str(fused_gpkg)},
+        },
+    }
+    service._runs[run_id] = status
+    service._persist_status(status)
+    plan = _build_plan(workflow_id="wf_artifact_repair", revision=1, algorithm_id="algo.fusion.road.conflation.v7")
+    plan.context["intent"]["job_type"] = "road"
+    plan.tasks[0].input.data_type_id = "dt.road.bundle"
+    plan.tasks[0].output.data_type_id = "dt.road.fused"
+    repairs: list[RepairRecord] = []
+
+    artifact = service.run_writeback_stage(
+        run_id=run_id,
+        request=request,
+        plan=plan,
+        fused_shp=fused_gpkg,
+        repair_records=repairs,
+        output_dir=output_dir,
+    )
+
+    quality_report = json.loads((output_dir / "quality_report.json").read_text(encoding="utf-8"))
+    repair_report = json.loads((output_dir / "artifact_repair_report.json").read_text(encoding="utf-8"))
+    audit_kinds = [event.kind for event in service.get_audit_events(run_id)]
+    repaired_path = Path(repair_report["output_path"])
+    repaired = gpd.read_file(repaired_path)
+    assert artifact.filename == "road_fusion_result.zip"
+    assert quality_report["accepted"] is True
+    assert (output_dir / "quality_report.before_repair.json").exists()
+    assert repair_report["changed"] is True
+    assert {"schema_attribute_backfill", "road_name_preservation", "line_topology_cleanup"} <= set(
+        repair_report["applied_strategies"]
+    )
+    assert "artifact_repair_started" in audit_kinds
+    assert "artifact_repair_applied" in audit_kinds
+    assert repairs
+    assert repaired["road_name"].iloc[0] == "Main Road"
+    assert len(repaired) == 1
+
+
 def test_agent_writeback_passes_degradation_context_to_quality_gate(tmp_path: Path, monkeypatch) -> None:
     service = AgentRunService(base_dir=tmp_path / "runs", max_workers=1)
     request = RunCreateRequest(
