@@ -17,7 +17,15 @@ from services.artifact_registry import ArtifactLookupRequest, ArtifactRecord, Ar
 from services.source_asset_service import SourceAssetResolution, SourceAssetService, coverage_status_for_count
 from utils.crs import normalize_target_crs
 from utils.shp_zip import collect_bundle_files, validate_zip_has_shapefile, zip_shapefile_bundle
-from utils.vector_clip import BBox, REQUEST_BBOX_CRS, clip_frame_to_request_bbox, clip_zip_to_request_bbox, frame_bbox_in_crs
+from utils.vector_clip import (
+    BBox,
+    REQUEST_BBOX_CRS,
+    clip_frame_to_boundary_path,
+    clip_frame_to_request_bbox,
+    clip_zip_to_boundary_path,
+    clip_zip_to_request_bbox,
+    frame_bbox_in_crs,
+)
 
 
 def _utc_now() -> str:
@@ -77,6 +85,30 @@ def _tile_meta(request_bbox: Optional[BBox]) -> dict[str, object]:
         "tile_bbox": [float(value) for value in request_bbox],
         "tile_key": key,
     }
+
+
+def _clip_meta(resolved_aoi: ResolvedAOI | None) -> dict[str, object]:
+    if resolved_aoi is None:
+        return {
+            "clip_boundary_source_id": None,
+            "clip_boundary_artifact_path": None,
+            "clip_geometry_hash": None,
+            "degraded_bbox_clip": False,
+        }
+    return {
+        "clip_boundary_source_id": resolved_aoi.boundary_source_id,
+        "clip_boundary_artifact_path": resolved_aoi.boundary_artifact_path,
+        "clip_geometry_hash": resolved_aoi.clip_geometry_hash,
+        "degraded_bbox_clip": bool(resolved_aoi.degraded_bbox_clip),
+    }
+
+
+def _has_boundary_clip(resolved_aoi: ResolvedAOI | None) -> bool:
+    return bool(resolved_aoi is not None and resolved_aoi.boundary_artifact_path)
+
+
+def _clip_geometry_hash(resolved_aoi: ResolvedAOI | None) -> str | None:
+    return str(resolved_aoi.clip_geometry_hash) if resolved_aoi is not None and resolved_aoi.clip_geometry_hash else None
 
 
 def _project_source_frame_for_bundle(source_id: str, frame: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
@@ -184,15 +216,41 @@ class RawVectorSourceService:
             ArtifactLookupRequest(
                 required_output_type="dt.raw.vector",
                 required_target_crs=normalized_target_crs,
-                bbox=request_bbox,
+                bbox=None if _has_boundary_clip(resolved_aoi) else request_bbox,
                 required_artifact_role="raw_source",
-                required_meta={"source_id": source_id},
+                required_meta={
+                    "source_id": source_id,
+                    **(
+                        {"clip_geometry_hash": _clip_geometry_hash(resolved_aoi)}
+                        if _has_boundary_clip(resolved_aoi)
+                        else {}
+                    ),
+                },
             )
         )
         if candidate is not None and candidate.meta.get("source_version") == version_token:
             cache_zip = Path(candidate.artifact_path)
-            if request_bbox is not None and candidate.bbox is not None and tuple(candidate.bbox) != request_bbox:
-                clipped = self._clip_cached_zip(cache_zip=cache_zip, request_bbox=request_bbox, target_path=target_path)
+            if _has_boundary_clip(resolved_aoi) and candidate.meta.get("clip_geometry_hash") == _clip_geometry_hash(resolved_aoi):
+                copied = self._copy_cached_zip(cache_zip=cache_zip, target_path=target_path)
+                feature_count = self._bundle_feature_count(copied)
+                return MaterializedRawVectorSource(
+                    zip_path=copied,
+                    bbox=tuple(candidate.bbox) if candidate.bbox is not None else None,
+                    target_crs=normalized_target_crs,
+                    source_id=source_id,
+                    source_mode="cache_reused",
+                    cache_hit=True,
+                    version_token=version_token,
+                    feature_count=feature_count,
+                    coverage_status=coverage_status_for_count(feature_count),
+                )
+            elif request_bbox is not None and candidate.bbox is not None and tuple(candidate.bbox) != request_bbox:
+                clipped = self._clip_cached_zip(
+                    cache_zip=cache_zip,
+                    request_bbox=request_bbox,
+                    target_path=target_path,
+                    resolved_aoi=resolved_aoi,
+                )
                 feature_count = self._bundle_feature_count(clipped)
                 return MaterializedRawVectorSource(
                     zip_path=clipped,
@@ -227,6 +285,7 @@ class RawVectorSourceService:
             target_path=cache_zip,
             target_crs=normalized_target_crs,
             version_token=version_token,
+            resolved_aoi=resolved_aoi,
         )
         self.registry.register(
             ArtifactRecord(
@@ -245,6 +304,7 @@ class RawVectorSourceService:
                     "source_version": version_token,
                     "source_mode": source_resolution.source_mode,
                     **_tile_meta(request_bbox),
+                    **_clip_meta(resolved_aoi),
                 },
             )
         )
@@ -270,9 +330,18 @@ class RawVectorSourceService:
         target_path: Path,
         target_crs: str,
         version_token: str,
+        resolved_aoi: ResolvedAOI | None = None,
     ) -> MaterializedRawVectorSource:
         gdf = gpd.read_file(source_path)
-        clipped = clip_frame_to_request_bbox(gdf, request_bbox, request_crs=REQUEST_BBOX_CRS)
+        if _has_boundary_clip(resolved_aoi):
+            clipped = clip_frame_to_boundary_path(
+                gdf,
+                Path(str(resolved_aoi.boundary_artifact_path)),
+                request_bbox=request_bbox,
+                request_crs=REQUEST_BBOX_CRS,
+            )
+        else:
+            clipped = clip_frame_to_request_bbox(gdf, request_bbox, request_crs=REQUEST_BBOX_CRS)
         request_space_bbox = frame_bbox_in_crs(clipped, bbox_crs=REQUEST_BBOX_CRS)
         feature_count = len(clipped.index)
 
@@ -433,8 +502,21 @@ class RawVectorSourceService:
         return target_path
 
     @staticmethod
-    def _clip_cached_zip(*, cache_zip: Path, request_bbox: BBox, target_path: Path) -> Path:
+    def _clip_cached_zip(
+        *,
+        cache_zip: Path,
+        request_bbox: BBox,
+        target_path: Path,
+        resolved_aoi: ResolvedAOI | None = None,
+    ) -> Path:
         target_path.parent.mkdir(parents=True, exist_ok=True)
+        if _has_boundary_clip(resolved_aoi):
+            return clip_zip_to_boundary_path(
+                cache_zip,
+                target_path,
+                boundary_path=Path(str(resolved_aoi.boundary_artifact_path)),
+                request_bbox=request_bbox,
+            )
         return clip_zip_to_request_bbox(cache_zip, target_path, request_bbox=request_bbox)
 
     @staticmethod

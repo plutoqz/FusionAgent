@@ -28,6 +28,7 @@ def test_recovery_tick_delegates_to_executor(monkeypatch, tmp_path: Path) -> Non
 
     assert result["enabled"] is True
     assert result["recovered"] == 1
+    assert result["scenario_source_reruns"]["scanned"] == 0
     assert calls == [{"run_id": "run-1", "recovery_action": "redispatch_full_run"}]
 
 

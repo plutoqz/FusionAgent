@@ -13,7 +13,11 @@ from schemas.scenario_checkpoint import ScenarioCheckpoint, ScenarioCheckpointCh
 from schemas.task_kind import TaskKind
 from services.scenario_checkpoint_service import checkpoint_path, write_scenario_checkpoint
 from services.scenario_registry_service import ScenarioRegistryService
-from services.scenario_run_service import ScenarioRunService, build_child_run_specs
+from services.scenario_run_service import (
+    ScenarioRunService,
+    build_child_run_specs,
+    process_due_source_acquisition_reruns,
+)
 
 
 def test_build_child_run_specs_expands_building_and_road_tasks(tmp_path):
@@ -141,6 +145,38 @@ def test_scenario_run_service_writes_checkpoint_with_request_specs_and_runs(tmp_
     assert checkpoint["resume_count"] == 0
 
 
+def test_chinese_trigger_utf8_roundtrip(tmp_path):
+    service = ScenarioRunService(agent_run_service=_FakeAgentRunService(tmp_path))
+    trigger = "科特迪瓦阿比让强降雨致12死5伤，请执行灾害地理空间矢量数据融合。"
+
+    response = service.create_scenario_run(
+        ScenarioRunRequest(
+            scenario_name="科特迪瓦阿比让强降雨",
+            trigger_content=trigger,
+            spatial_extent="Abidjan, Cote d'Ivoire",
+            output_root=str(tmp_path / "scenarios"),
+        )
+    )
+
+    scenario_dir = Path(response.output_dir)
+    for filename in [
+        "request.json",
+        "preflight.json",
+        "scenario_summary.json",
+        "scenario_checkpoint.json",
+        "workflow_trace.json",
+        "failed_children.json",
+        "runtime.json",
+    ]:
+        assert (scenario_dir / filename).exists(), filename
+
+    request_payload = json.loads((scenario_dir / "request.json").read_text(encoding="utf-8"))
+    summary = json.loads((scenario_dir / "scenario_summary.json").read_text(encoding="utf-8"))
+    assert request_payload["trigger_content"] == trigger
+    assert summary["trigger_content"] == trigger
+    assert "????" not in (scenario_dir / "scenario_summary.json").read_text(encoding="utf-8")
+
+
 def test_scenario_run_service_final_checkpoint_matches_response_and_order(tmp_path):
     service = ScenarioRunService(agent_run_service=_FakeAgentRunService(tmp_path))
 
@@ -162,7 +198,7 @@ def test_scenario_run_service_final_checkpoint_matches_response_and_order(tmp_pa
     assert [item["phase"] for item in checkpoint["child_runs"]] == [RunPhase.succeeded.value] * 5
 
 
-def test_scenario_checkpoint_phase_stays_running_until_summary_files_are_written(tmp_path, monkeypatch):
+def test_scenario_checkpoint_phase_is_terminal_before_summary_write_interruption(tmp_path, monkeypatch):
     service = ScenarioRunService(agent_run_service=_FakeAgentRunService(tmp_path))
 
     def fail_summary_write(output_dir, summary):
@@ -184,7 +220,7 @@ def test_scenario_checkpoint_phase_stays_running_until_summary_files_are_written
     scenario_dirs = list((tmp_path / "scenarios").glob("scenario_*"))
     checkpoint = json.loads((scenario_dirs[0] / "scenario_checkpoint.json").read_text(encoding="utf-8"))
 
-    assert checkpoint["phase"] == ScenarioPhase.running.value
+    assert checkpoint["phase"] == ScenarioPhase.succeeded.value
     assert checkpoint["children_phase"] == ScenarioPhase.succeeded.value
     assert [item["phase"] for item in checkpoint["child_runs"]] == [RunPhase.succeeded.value] * 5
 
@@ -636,8 +672,16 @@ def test_scenario_run_service_uses_one_global_child_wait_deadline(tmp_path, monk
         "run-waterways",
         "run-poi",
     ]
-    assert response.phase == ScenarioPhase.running
-    assert [item["phase"] for item in summary["child_runs"]] == [RunPhase.queued.value] * 5
+    checkpoint = json.loads((scenario_dir / "scenario_checkpoint.json").read_text(encoding="utf-8"))
+    failed_children = json.loads((scenario_dir / "failed_children.json").read_text(encoding="utf-8"))
+
+    assert response.phase == ScenarioPhase.failed
+    assert summary["phase"] == ScenarioPhase.failed.value
+    assert checkpoint["phase"] == ScenarioPhase.failed.value
+    assert [item["phase"] for item in summary["child_runs"]] == [RunPhase.failed.value] * 5
+    assert {item["error_code"] for item in summary["child_runs"]} == {"CHILD_RUN_TIMEOUT"}
+    assert [item["phase"] for item in checkpoint["child_runs"]] == [RunPhase.failed.value] * 5
+    assert {item["error_code"] for item in failed_children} == {"CHILD_RUN_TIMEOUT"}
 
 
 def test_scenario_run_service_marks_succeeded_degraded_child_as_partial(tmp_path):
@@ -660,6 +704,150 @@ def test_scenario_run_service_marks_succeeded_degraded_child_as_partial(tmp_path
     assert summary["phase"] == ScenarioPhase.partial.value
     assert summary["child_runs"][0]["phase"] == RunPhase.succeeded.value
     assert summary["child_runs"][0]["degradation"]["state"] == "degraded"
+
+
+def test_microsoft_empty_marks_partial_provisional(tmp_path):
+    service = ScenarioRunService(agent_run_service=_BuildingDegradedAgentRunService(tmp_path))
+
+    response = service.create_scenario_run(
+        ScenarioRunRequest(
+            scenario_name="Abidjan flood building",
+            trigger_content="run building fusion for Abidjan flood",
+            disaster_type="flood",
+            job_types=[JobType.building],
+            spatial_extent="Abidjan, Cote d'Ivoire",
+            output_root=str(tmp_path / "scenarios"),
+        )
+    )
+
+    summary = json.loads((Path(response.output_dir) / "scenario_summary.json").read_text(encoding="utf-8"))
+    child = summary["child_runs"][0]
+
+    assert response.phase == ScenarioPhase.partial_provisional
+    assert summary["phase"] == ScenarioPhase.partial_provisional.value
+    assert child["phase"] == ScenarioPhase.partial_provisional.value
+    assert child["provisional"] is True
+    assert child["fusion_mode"] == "single_source_degraded"
+    assert child["retry_status"] == "awaiting_external_config"
+    assert child["missing_sources"] == ["raw.google.building", "raw.microsoft.building"]
+    assert child["degradation"]["awaiting_external_config_source_ids"] == ["raw.google.building"]
+    assert child["degradation"]["coverage_empty_source_ids"] == ["raw.google.building", "raw.microsoft.building"]
+
+
+def test_source_retry_triggers_full_rerun(tmp_path):
+    service = ScenarioRunService(agent_run_service=_BuildingNetworkRetryAgentRunService(tmp_path))
+
+    response = service.create_scenario_run(
+        ScenarioRunRequest(
+            scenario_name="Abidjan flood building",
+            trigger_content="run building fusion for Abidjan flood",
+            disaster_type="flood",
+            job_types=[JobType.building],
+            spatial_extent="Abidjan, Cote d'Ivoire",
+            output_root=str(tmp_path / "scenarios"),
+        )
+    )
+
+    summary = json.loads((Path(response.output_dir) / "scenario_summary.json").read_text(encoding="utf-8"))
+    jobs = {job["source_id"]: job for job in summary["source_acquisition_jobs"]}
+
+    assert response.phase == ScenarioPhase.partial_provisional
+    assert summary["rerun_status"]["state"] == "source_retrying"
+    assert jobs["raw.microsoft.building"]["status"] == "source_retrying"
+    assert jobs["raw.microsoft.building"]["attempt"] == 1
+    assert jobs["raw.microsoft.building"]["next_retry_at"]
+    assert jobs["raw.microsoft.building"]["retry_window_expires_at"]
+
+
+def test_source_retry_background_tick_triggers_full_rerun(tmp_path, monkeypatch):
+    monkeypatch.setenv("GEOFUSION_SCENARIO_OUTPUT_ROOT", str(tmp_path / "scenarios"))
+    agent = _BuildingNetworkRetryAgentRunService(tmp_path)
+    service = ScenarioRunService(agent_run_service=agent)
+
+    response = service.create_scenario_run(
+        ScenarioRunRequest(
+            scenario_name="Abidjan flood building",
+            trigger_content="run building fusion for Abidjan flood",
+            disaster_type="flood",
+            job_types=[JobType.building],
+            spatial_extent="Abidjan, Cote d'Ivoire",
+            output_root=str(tmp_path / "scenarios"),
+        )
+    )
+    scenario_dir = Path(response.output_dir)
+    jobs_path = scenario_dir / "source_acquisition_jobs.json"
+    jobs = json.loads(jobs_path.read_text(encoding="utf-8"))
+    for job in jobs:
+        if job["status"] == "source_retrying":
+            job["next_retry_at"] = "2026-01-01T00:00:00+00:00"
+            job["retry_window_expires_at"] = "2026-12-31T00:00:00+00:00"
+    jobs_path.write_text(json.dumps(jobs, ensure_ascii=False, indent=2), encoding="utf-8")
+
+    # Reuse a service that returns a full-success building result during resume.
+    full_agent = _RetryBuildingFullSuccessAgentRunService(tmp_path)
+    full_service = ScenarioRunService(agent_run_service=full_agent)
+
+    result = process_due_source_acquisition_reruns(
+        output_root=tmp_path / "scenarios",
+        service=full_service,
+        limit=5,
+    )
+
+    summary = json.loads((scenario_dir / "scenario_summary.json").read_text(encoding="utf-8"))
+
+    assert result["rerun"] == 1
+    assert result["records"][0]["scenario_id"] == response.scenario_id
+    assert result["records"][0]["phase"] == ScenarioPhase.succeeded.value
+    assert summary["phase"] == ScenarioPhase.succeeded.value
+    assert summary["child_runs"][0]["run_id"] == "run-full-building"
+    assert summary["superseded_outputs"][0]["superseded_by"] == "run-full-building"
+
+
+def test_supersede_provisional_after_full_success(tmp_path, monkeypatch):
+    monkeypatch.setenv("GEOFUSION_SCENARIO_OUTPUT_ROOT", str(tmp_path / "scenarios"))
+    agent = _RetryBuildingFullSuccessAgentRunService(tmp_path)
+    service = ScenarioRunService(agent_run_service=agent)
+    request = ScenarioRunRequest(
+        scenario_name="Abidjan flood building",
+        trigger_content="run building fusion for Abidjan flood",
+        disaster_type="flood",
+        job_types=[JobType.building],
+        spatial_extent="Abidjan, Cote d'Ivoire",
+        output_root=str(tmp_path / "scenarios"),
+    )
+    old_artifact = tmp_path / "old-provisional-building.zip"
+    old_artifact.write_bytes(b"zip")
+    scenario_id, output_dir = _write_resume_checkpoint(
+        request=request,
+        scenario_id="scenario-provisional-rerun",
+        child_runs=[
+            ScenarioCheckpointChildRun(
+                run_id="run-old-building",
+                job_type=JobType.building.value,
+                task_kind=TaskKind.building.value,
+                task_family="building",
+                phase=ScenarioPhase.partial_provisional.value,
+                artifact_path=str(old_artifact),
+            )
+        ],
+    )
+
+    response = service.resume_scenario_run(scenario_id)
+
+    summary = json.loads((output_dir / "scenario_summary.json").read_text(encoding="utf-8"))
+
+    assert response.phase == ScenarioPhase.succeeded
+    assert response.child_run_ids == ["run-full-building"]
+    assert summary["superseded_outputs"] == [
+        {
+            "run_id": "run-old-building",
+            "task_kind": "building",
+            "artifact_path": str(old_artifact),
+            "phase": ScenarioPhase.superseded.value,
+            "superseded_by": "run-full-building",
+        }
+    ]
+    assert summary["child_runs"][0]["supersedes"][0]["superseded_by"] == "run-full-building"
 
 
 def test_scenario_run_service_keeps_all_failed_children_failed_even_with_degraded_evidence(tmp_path):
@@ -1276,6 +1464,160 @@ class _DegradedSucceededAgentRunService(_FakeAgentRunService):
                 message="succeeded with degraded evidence",
             ),
         ]
+
+
+class _BuildingDegradedAgentRunService(_FakeAgentRunService):
+    def get_run(self, run_id: str):
+        return self.statuses.get(run_id)
+
+    def get_audit_events(self, run_id: str):
+        return [
+            RunEvent(
+                timestamp="2026-06-03T00:00:01+00:00",
+                kind="task_inputs_resolved",
+                phase=RunPhase.running,
+                message="degraded building inputs",
+                details={
+                    "source_id": "catalog.flood.building",
+                    "selected_source_id": "catalog.flood.building",
+                    "component_coverage": {
+                        "raw.osm.building": {"feature_count": 12, "coverage_status": "available"},
+                        "raw.microsoft.building": {"feature_count": 0, "coverage_status": "coverage_empty"},
+                        "raw.google.building": {
+                            "feature_count": 0,
+                            "coverage_status": "awaiting_external_config",
+                            "fault_class": "CONFIG_MISSING",
+                        },
+                    },
+                    "source_attempts": [
+                        {
+                            "source_id": "raw.osm.building",
+                            "status": "available",
+                            "attempt_no": 1,
+                            "feature_count": 12,
+                        },
+                        {
+                            "source_id": "raw.microsoft.building",
+                            "status": "empty",
+                            "coverage_status": "coverage_empty",
+                            "attempt_no": 1,
+                            "feature_count": 0,
+                        },
+                        {
+                            "source_id": "raw.google.building",
+                            "status": "awaiting_external_config",
+                            "fault_class": "CONFIG_MISSING",
+                            "attempt_no": 0,
+                            "recoverable": False,
+                        },
+                    ],
+                },
+            ),
+            RunEvent(
+                timestamp="2026-06-03T00:00:02+00:00",
+                kind="run_succeeded",
+                phase=RunPhase.succeeded,
+                message="succeeded with provisional building output",
+            ),
+        ]
+
+
+class _BuildingNetworkRetryAgentRunService(_FakeAgentRunService):
+    def get_run(self, run_id: str):
+        return self.statuses.get(run_id)
+
+    def get_audit_events(self, run_id: str):
+        return [
+            RunEvent(
+                timestamp="2026-06-03T00:00:01+00:00",
+                kind="task_inputs_resolved",
+                phase=RunPhase.running,
+                message="building inputs need source retry",
+                details={
+                    "source_id": "catalog.flood.building",
+                    "selected_source_id": "catalog.flood.building",
+                    "component_coverage": {
+                        "raw.osm.building": {"feature_count": 12, "coverage_status": "available"},
+                        "raw.microsoft.building": {
+                            "feature_count": 0,
+                            "coverage_status": "missing",
+                            "fault_class": "SOURCE_DOWNLOAD_FAILED",
+                        },
+                    },
+                    "source_attempts": [
+                        {
+                            "source_id": "raw.osm.building",
+                            "status": "available",
+                            "attempt_no": 1,
+                            "feature_count": 12,
+                        },
+                        {
+                            "source_id": "raw.microsoft.building",
+                            "status": "network_failed",
+                            "fault_class": "SOURCE_DOWNLOAD_FAILED",
+                            "fault_message": "timeout",
+                            "attempt_no": 1,
+                            "recoverable": True,
+                            "next_retry_after_seconds": 300,
+                        },
+                    ],
+                },
+            ),
+            RunEvent(
+                timestamp="2026-06-03T00:00:02+00:00",
+                kind="run_succeeded",
+                phase=RunPhase.succeeded,
+                message="succeeded with provisional building output",
+            ),
+        ]
+
+
+class _RetryBuildingFullSuccessAgentRunService(_TrackingResumeAgentRunService):
+    def create_run(self, *, request, osm_zip_name, osm_zip_bytes, ref_zip_name, ref_zip_bytes):
+        self.create_run_requests.append(request)
+        self.created_task_keys.append(_task_key_from_request(request))
+        run_id = "run-full-building"
+        status = RunStatus(
+            run_id=run_id,
+            job_type=request.job_type,
+            trigger=request.trigger,
+            phase=RunPhase.succeeded,
+            progress=100,
+            target_crs=request.target_crs or "EPSG:32631",
+            debug=False,
+            created_at="2026-04-21T00:00:00+00:00",
+            finished_at="2026-04-21T00:00:01+00:00",
+        )
+        self.statuses[run_id] = status
+        self.plans[run_id] = _make_plan(request.job_type)
+        self.events[run_id] = [
+            RunEvent(
+                timestamp="2026-06-03T00:00:01+00:00",
+                kind="task_inputs_resolved",
+                phase=RunPhase.running,
+                message="full building inputs resolved",
+                details={
+                    "source_id": "catalog.flood.building",
+                    "selected_source_id": "catalog.flood.building",
+                    "component_coverage": {
+                        "raw.osm.building": {"feature_count": 12, "coverage_status": "available"},
+                        "raw.microsoft.building": {"feature_count": 8, "coverage_status": "available"},
+                        "raw.google.building": {"feature_count": 5, "coverage_status": "available"},
+                    },
+                },
+            ),
+            RunEvent(
+                timestamp="2026-06-03T00:00:02+00:00",
+                kind="run_succeeded",
+                phase=RunPhase.succeeded,
+                message="full building rerun succeeded",
+            ),
+        ]
+        artifact = self.tmp_path / f"{run_id}.zip"
+        artifact.write_bytes(b"zip")
+        _write_quality_report(artifact, run_id=run_id, task_key="building")
+        self.artifacts[run_id] = artifact
+        return status
 
 
 class _FailedDegradedAgentRunService(_DegradedSucceededAgentRunService):

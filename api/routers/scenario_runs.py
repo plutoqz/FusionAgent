@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import os
+from concurrent.futures import ThreadPoolExecutor, TimeoutError
 from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query
@@ -9,10 +11,12 @@ from schemas.agent import RunCreateRequest, RunInputStrategy, RunTrigger, RunTri
 from schemas.scenario import ScenarioRunInspectionResponse, ScenarioRunListResponse, ScenarioRunRequest, ScenarioRunResponse
 from schemas.ui_assets import MarkdownDocumentResponse, ScenarioDocumentListResponse
 from api.routers.runs_v2 import _build_preflight_details
+from services.aoi_resolution_service import AOIResolutionService, NominatimGeocoder
 from services.scenario_document_service import ScenarioDocumentService
 from services.scenario_output import resolve_scenario_output_root
 from services.scenario_registry_service import ScenarioRegistryService
 from services.scenario_run_service import build_child_run_specs, classify_scenario_request, scenario_run_service
+from services.scenario_trigger_normalizer import normalize_scenario_trigger_text
 
 
 router = APIRouter(tags=["scenario-runs"])
@@ -74,10 +78,126 @@ async def preflight_scenario_run(request: ScenarioRunRequest) -> dict[str, objec
                 **_build_preflight_details(run_request),
             }
         )
+    normalized_trigger = normalize_scenario_trigger_text(request.trigger_content)
+    effective_spatial_extent = str(request.spatial_extent or normalized_trigger.normalized_location or "").strip()
+    bbox = _parse_preflight_bbox(effective_spatial_extent)
+    aoi_needs_resolution = bbox is None and bool(str(effective_spatial_extent or request.trigger_content).strip())
+    resolved_aoi, aoi_error = _resolve_preflight_aoi(
+        effective_spatial_extent or request.trigger_content,
+        required=aoi_needs_resolution,
+        skip=bool(bbox),
+    )
+    source_readiness = _scenario_source_readiness(child_preflights)
+    aoi_blocked = bool(aoi_error and aoi_needs_resolution)
+    allowed = decision["decision"] == "allow" and not aoi_blocked and not source_readiness["blocked_required_source"]
     return {
-        "allowed": decision["decision"] == "allow",
+        "allowed": allowed,
         "decision": decision,
+        "normalized_trigger": normalized_trigger.to_dict(),
+        "normalized_location": normalized_trigger.normalized_location,
+        "expected_child_count": 5 if str(normalized_trigger.disaster_type or request.disaster_type or "").strip().lower() in {"flood", "heavy_rainfall", "rainstorm"} else len(child_specs),
+        "resolved_aoi": resolved_aoi,
+        "aoi_confidence": resolved_aoi.get("confidence") if isinstance(resolved_aoi, dict) else None,
+        "aoi_error": aoi_error,
+        "source_readiness": source_readiness,
         "child_preflights": child_preflights,
+    }
+
+
+def _parse_preflight_bbox(spatial_extent: str | None) -> list[float] | None:
+    from api.routers.runs_v2 import _parse_preflight_bbox as parse_bbox
+
+    return parse_bbox(spatial_extent)
+
+
+def _preflight_aoi_timeout_seconds() -> float:
+    try:
+        return max(0.1, float(os.getenv("GEOFUSION_PREFLIGHT_AOI_TIMEOUT_SECONDS", "3")))
+    except ValueError:
+        return 3.0
+
+
+def _resolve_preflight_aoi(
+    query: str,
+    *,
+    required: bool,
+    skip: bool,
+) -> tuple[dict[str, object] | None, dict[str, object] | None]:
+    if skip:
+        return None, None
+    cleaned = str(query or "").strip()
+    if not cleaned:
+        if required:
+            return None, {
+                "code": "AOI_RESOLUTION_REQUIRED",
+                "message": "No spatial_extent or resolvable location text was provided.",
+                "next_action": "Provide spatial_extent=bbox(minx,miny,maxx,maxy) or a resolvable location.",
+            }
+        return None, None
+
+    service = AOIResolutionService(
+        geocoder=NominatimGeocoder(
+            timeout_seconds=max(1, int(_preflight_aoi_timeout_seconds())),
+            max_retries=1,
+        )
+    )
+    executor = ThreadPoolExecutor(max_workers=1)
+    future = executor.submit(service.resolve, cleaned)
+    try:
+        resolved = future.result(timeout=_preflight_aoi_timeout_seconds())
+        return resolved.to_dict(), None
+    except TimeoutError:
+        future.cancel()
+        return None, {
+            "code": "GEOCODER_TIMEOUT",
+            "message": f"AOI geocoder did not respond within {_preflight_aoi_timeout_seconds()} seconds.",
+            "next_action": "Retry later, use a cached/fake geocoder, or provide spatial_extent=bbox(...).",
+        }
+    except Exception as exc:  # noqa: BLE001
+        code = "AOI_RESOLUTION_REQUIRED" if required else "AOI_RESOLUTION_FAILED"
+        return None, {
+            "code": code,
+            "message": str(exc),
+            "next_action": "Provide spatial_extent=bbox(minx,miny,maxx,maxy) or a more specific location.",
+        }
+    finally:
+        executor.shutdown(wait=False, cancel_futures=True)
+
+
+def _scenario_source_readiness(child_preflights: list[dict[str, object]]) -> dict[str, object]:
+    blocked_required_source = False
+    blocked_children: list[dict[str, object]] = []
+    for child in child_preflights:
+        degradation = child.get("degradation") if isinstance(child, dict) else {}
+        coverage = child.get("component_coverage") if isinstance(child, dict) else {}
+        if not isinstance(degradation, dict) or not isinstance(coverage, dict):
+            continue
+        partial_allowed = bool(coverage.get("partial_coverage_allowed"))
+        components = coverage.get("components") if isinstance(coverage.get("components"), list) else []
+        required_source_ids = list(coverage.get("required_source_ids") or [])
+        missing_required = [
+            str(item.get("source_id"))
+            for item in components
+            if isinstance(item, dict)
+            and item.get("source_id") in required_source_ids
+            and not bool(item.get("local_cache_available"))
+            and not bool(item.get("auto_materializable"))
+        ]
+        complete_pair_required = degradation.get("state") == "preflight_complete_pair_required"
+        if complete_pair_required and missing_required and not partial_allowed:
+            blocked_required_source = True
+            blocked_children.append(
+                {
+                    "task_kind": child.get("task_kind"),
+                    "job_type": child.get("job_type"),
+                    "reason_code": "MISSING_REQUIRED_SOURCE",
+                    "missing_required_source_ids": missing_required,
+                    "next_action": "Run scripts/materialize_source_assets.py for these sources or provide local Data files.",
+                }
+            )
+    return {
+        "blocked_required_source": blocked_required_source,
+        "blocked_children": blocked_children,
     }
 
 
@@ -94,8 +214,11 @@ async def resume_scenario_run(scenario_id: str, retry_failed: bool = False) -> S
 
 
 @router.get("/scenario-runs/{scenario_id}", response_model=ScenarioRunInspectionResponse)
-async def inspect_scenario_run(scenario_id: str) -> ScenarioRunInspectionResponse:
-    registry = ScenarioRegistryService(output_root=resolve_scenario_output_root(None))
+async def inspect_scenario_run(
+    scenario_id: str,
+    output_root: Optional[str] = Query(default=None),
+) -> ScenarioRunInspectionResponse:
+    registry = ScenarioRegistryService(output_root=resolve_scenario_output_root(output_root))
     try:
         return ScenarioRunInspectionResponse(summary=registry.get_summary(scenario_id))
     except FileNotFoundError as exc:

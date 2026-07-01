@@ -162,10 +162,44 @@ def test_building_catalog_records_google_attempt_but_keeps_missing_microsoft_deg
     assert "raw.microsoft.building" in provider.raw_source_service.resolved_source_ids
     assert bundle.component_coverage["raw.google.building"].feature_count == 8
     assert bundle.component_coverage["raw.microsoft.building"].feature_count == 0
+    assert bundle.component_coverage["raw.microsoft.building"].coverage_status == "coverage_empty"
     assert any(
         attempt["source_id"] == "raw.microsoft.building" and attempt["status"] == "empty"
         for attempt in bundle.provider_attempts
     )
+
+
+def test_google_unconfigured_is_awaiting_config(tmp_path):
+    provider = _make_provider_with_component_counts(
+        tmp_path,
+        counts={
+            "raw.osm.building": 10,
+            "raw.microsoft.building": 0,
+        },
+        errors={
+            "raw.google.building": FileNotFoundError(
+                "Google Open Buildings URL index is not configured for raw.google.building"
+            )
+        },
+    )
+
+    bundle = provider.materialize_with_fallback(
+        source_id="catalog.flood.building",
+        request_bbox=(2.48, 9.23, 2.77, 9.44),
+        resolved_aoi=_make_resolved_aoi("Parakou, Benin"),
+        target_dir=tmp_path / "building-google-unconfigured",
+        target_crs="EPSG:32631",
+    )
+
+    google = bundle.component_coverage["raw.google.building"]
+    attempts = {attempt["source_id"]: attempt for attempt in bundle.provider_attempts}
+
+    assert google.coverage_status == "awaiting_external_config"
+    assert google.source_mode == "awaiting_external_config"
+    assert google.fault_class == "CONFIG_MISSING"
+    assert attempts["raw.google.building"]["status"] == "awaiting_external_config"
+    assert attempts["raw.google.building"]["fault_class"] == "CONFIG_MISSING"
+    assert attempts["raw.google.building"]["recoverable"] is False
 
 
 def test_building_catalog_records_full_task6_candidate_attempts_without_task7_routing(tmp_path):

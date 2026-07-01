@@ -495,9 +495,8 @@ class TiledBuildingRuntimeService:
             return self._write_empty_building_output(output_shp, target_crs=target_crs)
 
         combined = gpd.GeoDataFrame(pd.concat(frames, ignore_index=True), geometry="geometry", crs=target_crs)
-        combined["_geometry_wkb"] = combined.geometry.apply(lambda geom: geom.wkb_hex if geom is not None else None)
-        combined = combined.drop_duplicates(subset=["_geometry_wkb"], keep="first").copy()
-        combined = combined.drop(columns=["_geometry_wkb", "_tile_id"], errors="ignore")
+        combined = self._deduplicate_stitched_features(combined)
+        combined = combined.drop(columns=["_dedup_key", "_geometry_wkb", "_tile_id"], errors="ignore")
         combined.to_file(output_shp)
         return output_shp
 
@@ -536,6 +535,21 @@ class TiledBuildingRuntimeService:
             return self._write_empty_multisource_output(output_path, target_crs=target_crs)
 
         return output_path
+
+    @staticmethod
+    def _deduplicate_stitched_features(frame: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
+        output = frame.copy()
+        if {"source_id", "source_feature_id"}.issubset(output.columns):
+            source_id = output["source_id"].fillna("").astype(str).str.strip()
+            feature_id = output["source_feature_id"].fillna("").astype(str).str.strip()
+            semantic_key = source_id + "|" + feature_id
+            has_semantic_key = source_id.ne("") & feature_id.ne("")
+            output["_geometry_wkb"] = output.geometry.apply(lambda geom: geom.wkb_hex if geom is not None else None)
+            output["_dedup_key"] = output["_geometry_wkb"]
+            output.loc[has_semantic_key, "_dedup_key"] = semantic_key[has_semantic_key]
+            return output.drop_duplicates(subset=["_dedup_key"], keep="first").copy()
+        output["_geometry_wkb"] = output.geometry.apply(lambda geom: geom.wkb_hex if geom is not None else None)
+        return output.drop_duplicates(subset=["_geometry_wkb"], keep="first").copy()
 
     @staticmethod
     def _ordered_sources(

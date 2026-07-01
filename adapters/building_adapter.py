@@ -191,7 +191,19 @@ def _should_use_safe_building_algorithm(osm_shp: Path, ref_shp: Path) -> tuple[b
     return max(osm_count, ref_count) > limit, osm_count, ref_count, limit
 
 
-def _finalize_building_output(frame: gpd.GeoDataFrame, target_crs: str) -> gpd.GeoDataFrame:
+DEGRADATION_FIELDS = ["fusion_mode", "provisional", "primary_source", "missing_sources", "retry_status"]
+
+
+def _finalize_building_output(
+    frame: gpd.GeoDataFrame,
+    target_crs: str,
+    *,
+    fusion_mode: str = "multi_source",
+    provisional: bool = False,
+    primary_source: str = "mixed",
+    missing_sources: str = "",
+    retry_status: str = "not_required",
+) -> gpd.GeoDataFrame:
     output = frame.copy()
     if output.crs is None:
         output = output.set_crs(target_crs)
@@ -201,30 +213,88 @@ def _finalize_building_output(frame: gpd.GeoDataFrame, target_crs: str) -> gpd.G
     for column in ["osm_id", "fclass", "name", "type", "longitude", "latitude", "area_in_me", "confidence"]:
         if column not in output.columns:
             output[column] = np.nan
+    defaults = {
+        "fusion_mode": fusion_mode,
+        "provisional": bool(provisional),
+        "primary_source": primary_source,
+        "missing_sources": missing_sources,
+        "retry_status": retry_status,
+    }
+    for column, default in defaults.items():
+        if column not in output.columns:
+            output[column] = default
+        else:
+            output[column] = output[column].where(output[column].notna(), default)
     return gpd.GeoDataFrame(
-        output[["osm_id", "fclass", "name", "type", "longitude", "latitude", "area_in_me", "confidence", "geometry"]],
+        output[
+            [
+                "osm_id",
+                "fclass",
+                "name",
+                "type",
+                "longitude",
+                "latitude",
+                "area_in_me",
+                "confidence",
+                *DEGRADATION_FIELDS,
+                "geometry",
+            ]
+        ],
         geometry="geometry",
         crs=target_crs,
     )
 
 
-def _build_unmatched_osm_frame(osm_data: gpd.GeoDataFrame, target_crs: str) -> gpd.GeoDataFrame:
+def _build_unmatched_osm_frame(
+    osm_data: gpd.GeoDataFrame,
+    target_crs: str,
+    *,
+    fusion_mode: str = "multi_source",
+    provisional: bool = False,
+    missing_sources: str = "",
+    retry_status: str = "not_required",
+) -> gpd.GeoDataFrame:
     fallback = osm_data.copy()
     centroid_ll = gpd.GeoSeries(fallback.geometry.centroid, crs=target_crs).to_crs("EPSG:4326")
     fallback["longitude"] = centroid_ll.x
     fallback["latitude"] = centroid_ll.y
     fallback["area_in_me"] = fallback.geometry.area
     fallback["confidence"] = 1.0
-    return _finalize_building_output(fallback, target_crs)
+    return _finalize_building_output(
+        fallback,
+        target_crs,
+        fusion_mode=fusion_mode,
+        provisional=provisional,
+        primary_source="raw.osm.building",
+        missing_sources=missing_sources,
+        retry_status=retry_status,
+    )
 
 
-def _build_unmatched_ref_frame(ref_data: gpd.GeoDataFrame, target_crs: str) -> gpd.GeoDataFrame:
+def _build_unmatched_ref_frame(
+    ref_data: gpd.GeoDataFrame,
+    target_crs: str,
+    *,
+    fusion_mode: str = "multi_source",
+    provisional: bool = False,
+    primary_source: str = "reference",
+    missing_sources: str = "",
+    retry_status: str = "not_required",
+) -> gpd.GeoDataFrame:
     fallback = ref_data.copy()
     fallback["osm_id"] = np.nan
     fallback["fclass"] = "ref_building"
     fallback["name"] = np.nan
     fallback["type"] = np.nan
-    return _finalize_building_output(fallback, target_crs)
+    return _finalize_building_output(
+        fallback,
+        target_crs,
+        fusion_mode=fusion_mode,
+        provisional=provisional,
+        primary_source=primary_source,
+        missing_sources=missing_sources,
+        retry_status=retry_status,
+    )
 
 
 def run_building_fusion_safe(
@@ -252,11 +322,25 @@ def run_building_fusion_safe(
     output_shp = output_dir / "fused_buildings.shp"
 
     if osm_data.empty:
-        _build_unmatched_ref_frame(ref_data, target_crs).to_file(output_shp)
+        _build_unmatched_ref_frame(
+            ref_data,
+            target_crs,
+            fusion_mode="single_source_degraded",
+            provisional=True,
+            missing_sources="raw.osm.building",
+            retry_status="source_retrying",
+        ).to_file(output_shp)
         return output_shp
 
     if ref_data.empty:
-        _build_unmatched_osm_frame(osm_data, target_crs).to_file(output_shp)
+        _build_unmatched_osm_frame(
+            osm_data,
+            target_crs,
+            fusion_mode="single_source_degraded",
+            provisional=True,
+            missing_sources="raw.microsoft.building;raw.google.building",
+            retry_status="source_retrying",
+        ).to_file(output_shp)
         return output_shp
 
     osm = osm_data.reset_index(drop=True).copy()
@@ -363,21 +447,25 @@ def run_building_fusion(
     output_shp = output_dir / "fused_buildings.shp"
 
     if osm_data.empty:
-        fallback = ref_data.copy()
-        fallback["fclass"] = fallback.get("fclass", "ref_building")
-        fallback["type"] = fallback.get("type", np.nan)
-        fallback["name"] = fallback.get("name", np.nan)
-        fallback.to_file(output_shp)
+        _build_unmatched_ref_frame(
+            ref_data,
+            target_crs,
+            fusion_mode="single_source_degraded",
+            provisional=True,
+            missing_sources="raw.osm.building",
+            retry_status="source_retrying",
+        ).to_file(output_shp)
         return output_shp
 
     if ref_data.empty:
-        fallback = osm_data.copy()
-        centroid_ll = gpd.GeoSeries(fallback.geometry.centroid, crs=target_crs).to_crs("EPSG:4326")
-        fallback["longitude"] = centroid_ll.x
-        fallback["latitude"] = centroid_ll.y
-        fallback["area_in_me"] = fallback.geometry.area
-        fallback["confidence"] = 1.0
-        fallback.to_file(output_shp)
+        _build_unmatched_osm_frame(
+            osm_data,
+            target_crs,
+            fusion_mode="single_source_degraded",
+            provisional=True,
+            missing_sources="raw.microsoft.building;raw.google.building",
+            retry_status="source_retrying",
+        ).to_file(output_shp)
         return output_shp
 
     gdf1_idx = legacy_build.add_index_column(osm_data.copy())
@@ -467,8 +555,7 @@ def run_building_fusion(
     )
 
     if not frames:
-        fallback = ref_data.copy()
-        fallback.to_file(output_shp)
+        _build_unmatched_ref_frame(ref_data, target_crs).to_file(output_shp)
         return output_shp
 
     combined = gpd.GeoDataFrame(pd.concat(frames, ignore_index=True), geometry="geometry", crs=target_crs)
@@ -477,5 +564,5 @@ def run_building_fusion(
         if col in combined.columns:
             combined = combined.drop(columns=[col])
 
-    combined.to_file(output_shp)
+    _finalize_building_output(combined, target_crs).to_file(output_shp)
     return output_shp

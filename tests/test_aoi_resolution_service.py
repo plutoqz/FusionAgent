@@ -1,8 +1,12 @@
 from __future__ import annotations
 
-import pytest
+from pathlib import Path
 
-from services.aoi_resolution_service import AOIAmbiguityError, AOIResolutionService
+import geopandas as gpd
+import pytest
+from shapely.geometry import Polygon
+
+from services.aoi_resolution_service import AOIAmbiguityError, AOIResolutionService, AdminBoundaryResolver
 
 
 class FakeGeocoder:
@@ -67,6 +71,82 @@ def test_aoi_resolution_service_supports_deterministic_fake_geocoder_maturity_pa
     assert resolved.bbox == (36.65, -1.45, 37.05, -1.15)
     assert resolved.selection_reason == "single_candidate"
     assert resolved.confidence == pytest.approx(0.91)
+
+
+def test_admin_boundary_required_for_disaster_aoi() -> None:
+    geocoder = FakeGeocoder(
+        [
+            {
+                "display_name": "Abidjan, Abidjan Autonomous District, Cote d'Ivoire",
+                "boundingbox": ["5.20", "5.50", "-4.15", "-3.85"],
+                "address": {"city": "Abidjan", "country": "Cote d'Ivoire", "country_code": "ci"},
+                "importance": 0.94,
+                "type": "administrative",
+            }
+        ]
+    )
+    service = AOIResolutionService(geocoder=geocoder)
+
+    resolved = service.resolve("科特迪瓦阿比让强降雨致12死5伤，请执行灾害地理空间数据融合。")
+
+    assert geocoder.queries == ["Abidjan, Cote d'Ivoire"]
+    assert resolved.display_name == "Abidjan, Abidjan Autonomous District, Cote d'Ivoire"
+    assert resolved.admin_level == "city"
+    assert resolved.boundary_source_id == "bbox_fallback"
+    assert resolved.boundary_artifact_path is None
+    assert resolved.clip_geometry_hash
+    assert resolved.degraded_bbox_clip is True
+    payload = resolved.to_dict()
+    assert payload["clip_geometry_hash"] == resolved.clip_geometry_hash
+    assert payload["degraded_bbox_clip"] is True
+
+
+def test_aoi_resolution_service_uses_local_admin_boundary_artifact(tmp_path: Path) -> None:
+    boundary_path = tmp_path / "Data" / "admin" / "OSM" / "abidjan_boundary.gpkg"
+    boundary_path.parent.mkdir(parents=True, exist_ok=True)
+    gpd.GeoDataFrame(
+        {"name": ["Abidjan"]},
+        geometry=[
+            Polygon(
+                [
+                    (-4.15, 5.20),
+                    (-4.15, 5.50),
+                    (-4.00, 5.50),
+                    (-4.00, 5.35),
+                    (-3.85, 5.35),
+                    (-3.85, 5.20),
+                    (-4.15, 5.20),
+                ]
+            )
+        ],
+        crs="EPSG:4326",
+    ).to_file(boundary_path, driver="GPKG")
+    geocoder = FakeGeocoder(
+        [
+            {
+                "display_name": "Abidjan, Abidjan Autonomous District, Cote d'Ivoire",
+                "boundingbox": ["5.20", "5.50", "-4.15", "-3.85"],
+                "address": {"city": "Abidjan", "country": "Cote d'Ivoire", "country_code": "ci"},
+                "importance": 0.94,
+                "type": "administrative",
+            }
+        ]
+    )
+    service = AOIResolutionService(
+        geocoder=geocoder,
+        admin_boundary_resolver=AdminBoundaryResolver(
+            repo_root=tmp_path,
+            cache_dir=tmp_path / "cache",
+        ),
+    )
+
+    resolved = service.resolve("flood in Abidjan, Cote d'Ivoire")
+
+    assert resolved.boundary_source_id == "raw.osm.admin_boundary"
+    assert resolved.boundary_artifact_path is not None
+    assert Path(resolved.boundary_artifact_path).exists()
+    assert resolved.clip_geometry_hash
+    assert resolved.degraded_bbox_clip is False
 
 
 def test_aoi_resolution_service_rejects_ambiguous_place_names() -> None:
@@ -197,3 +277,9 @@ def test_extract_location_query_supports_disaster_prefix() -> None:
         )
         == "Parakou, Benin"
     )
+
+
+def test_extract_location_query_normalizes_chinese_abidjan_event() -> None:
+    query = "科特迪瓦阿比让强降雨致12死5伤，请执行灾害地理空间数据融合。"
+
+    assert AOIResolutionService.extract_location_query(query) == "Abidjan, Cote d'Ivoire"

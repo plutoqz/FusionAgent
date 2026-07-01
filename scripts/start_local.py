@@ -1,12 +1,15 @@
 from __future__ import annotations
 
 import argparse
+import json
 import os
+import socket
 import subprocess
 import sys
 import time
 from pathlib import Path
 from urllib.parse import urlsplit, urlunsplit
+from urllib.request import Request, urlopen
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
@@ -14,12 +17,19 @@ if str(REPO_ROOT) not in sys.path:
     sys.path.insert(0, str(REPO_ROOT))
 
 from kg.bootstrap import prepare_local_neo4j
-from utils.local_runtime import apply_local_dependency_defaults, find_missing_runtime_dependencies
+from utils.local_runtime import (
+    DEFAULT_DEPENDENCY_FILE,
+    DependencyConfigError,
+    build_local_runtime_env_defaults,
+    find_missing_runtime_dependencies,
+)
 
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Start FusionAgent locally with Redis/Neo4j/LLM defaults.")
+    parser.add_argument("--mode", choices=["fast", "full"], default="full", help="Runtime profile to validate/start.")
     parser.add_argument("--port", type=int, default=8000, help="API port.")
+    parser.add_argument("--auto-port", action="store_true", help="Switch to the next free port if the requested port is occupied.")
     parser.add_argument("--install-deps", action="store_true", help="Install missing Python dependencies automatically.")
     parser.add_argument("--check-only", action="store_true", help="Only validate dependencies and bootstrap Neo4j.")
     parser.add_argument("--runs-root", type=Path, default=None, help="Use a custom runs root for this runtime.")
@@ -45,25 +55,28 @@ def _install_dependencies() -> None:
 
 def _redis_url_with_db(url: str, redis_db: int) -> str:
     parsed = urlsplit(url)
+    if parsed.scheme not in {"redis", "rediss"}:
+        return url
     return urlunsplit((parsed.scheme, parsed.netloc, f"/{int(redis_db)}", parsed.query, parsed.fragment))
 
 
 def _build_env(
     port: int,
     *,
+    mode: str = "full",
     runs_root: Path | None = None,
     redis_db: int | None = None,
     disable_recovery: bool = False,
     disable_scheduler: bool = False,
 ) -> dict[str, str]:
-    applied = apply_local_dependency_defaults(required=True)
+    applied = build_local_runtime_env_defaults(
+        mode=mode,
+        require_dependency_file=str(mode).strip().lower() == "full",
+    )
     env = os.environ.copy()
     for key, value in applied.items():
         env.setdefault(key, value)
-    env.setdefault("GEOFUSION_CELERY_EAGER", "0")
     env.setdefault("GEOFUSION_TIMEZONE", env.get("TZ", "Asia/Shanghai"))
-    env.setdefault("GEOFUSION_KG_BACKEND", "neo4j")
-    env.setdefault("GEOFUSION_LLM_PROVIDER", "openai")
     env.setdefault("GEOFUSION_LLM_MODEL", applied.get("GEOFUSION_LLM_MODEL", "qwen3.5-397b-a17b"))
     if runs_root is not None:
         env["GEOFUSION_RUNS_ROOT"] = str(Path(runs_root))
@@ -77,8 +90,72 @@ def _build_env(
     if disable_scheduler:
         env["GEOFUSION_SCHEDULER_ENABLED"] = "0"
     env["GEOFUSION_API_PORT"] = str(port)
+    env["PYTHONUTF8"] = "1"
+    env["PYTHONIOENCODING"] = "utf-8"
     env["PYTHONUNBUFFERED"] = "1"
     return env
+
+
+def _diagnostic_error(code: str, message: str, **details: object) -> dict[str, object]:
+    payload: dict[str, object] = {
+        "ok": False,
+        "code": code,
+        "message": message,
+    }
+    payload.update(details)
+    return payload
+
+
+def _print_diagnostic(payload: dict[str, object]) -> None:
+    print(json.dumps(payload, ensure_ascii=False, indent=2))
+
+
+def _port_is_open(port: int, *, host: str = "127.0.0.1") -> bool:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.settimeout(0.35)
+        return sock.connect_ex((host, int(port))) == 0
+
+
+def _probe_runtime_identity(port: int) -> dict[str, object]:
+    if not _port_is_open(port):
+        return {"state": "free", "port": port}
+    url = f"http://127.0.0.1:{port}/api/v2/runtime"
+    try:
+        request = Request(url, headers={"Accept": "application/json"}, method="GET")
+        with urlopen(request, timeout=1.0) as response:
+            body = response.read().decode("utf-8", errors="replace")
+            payload = json.loads(body) if body.strip() else {}
+            if response.status == 200 and isinstance(payload, dict) and "kg_backend" in payload:
+                return {"state": "fusionagent", "port": port, "url": url, "runtime": payload}
+            return {"state": "conflict", "port": port, "url": url, "status": response.status, "body": body[:500]}
+    except Exception as exc:  # noqa: BLE001
+        return {"state": "conflict", "port": port, "url": url, "error": f"{type(exc).__name__}: {exc}"}
+
+
+def _next_available_port(start_port: int) -> int:
+    port = int(start_port)
+    while _port_is_open(port):
+        port += 1
+    return port
+
+
+def _resolve_start_port(requested_port: int, *, auto_port: bool) -> int:
+    identity = _probe_runtime_identity(requested_port)
+    if identity["state"] == "free":
+        return requested_port
+    if identity["state"] == "fusionagent":
+        raise RuntimeError(
+            "PORT_CONFLICT: FusionAgent already appears to be running on "
+            f"http://127.0.0.1:{requested_port}. Stop it or pass --port/--auto-port."
+        )
+    if auto_port:
+        port = _next_available_port(requested_port + 1)
+        print(f"Port {requested_port} is occupied by a non-FusionAgent service; using {port}.")
+        return port
+    raise RuntimeError(
+        "PORT_CONFLICT: requested port is occupied by a non-FusionAgent service. "
+        f"Probe={identity}. Pass --auto-port or choose --port {requested_port + 1}."
+    )
 
 
 def _isolated_runs_root(run_id: str) -> Path:
@@ -160,6 +237,7 @@ def _worker_command() -> list[str]:
 
 def main(argv: list[str] | None = None) -> int:
     args = _parser().parse_args(argv)
+    mode = str(args.mode or "full").strip().lower()
 
     missing = find_missing_runtime_dependencies()
     if missing:
@@ -179,14 +257,57 @@ def main(argv: list[str] | None = None) -> int:
         disable_scheduler = True if not args.disable_scheduler else args.disable_scheduler
         redis_db = 7 if redis_db is None else redis_db
 
-    env = _build_env(
-        args.port,
-        runs_root=runs_root,
-        redis_db=redis_db,
-        disable_recovery=disable_recovery,
-        disable_scheduler=disable_scheduler,
-    )
-    neo4j_summary = _prepare_neo4j(env, reset_managed_graph=args.reset_managed_graph)
+    try:
+        env = _build_env(
+            args.port,
+            mode=mode,
+            runs_root=runs_root,
+            redis_db=redis_db,
+            disable_recovery=disable_recovery,
+            disable_scheduler=disable_scheduler,
+        )
+    except DependencyConfigError as exc:
+        _print_diagnostic(
+            _diagnostic_error(
+                "CONFIG_MISSING",
+                str(exc),
+                mode=mode,
+                missing_file=str(DEFAULT_DEPENDENCY_FILE),
+                example_file=str(REPO_ROOT / "依赖.txt.example"),
+                next_action=(
+                    "Copy 依赖.txt.example to 依赖.txt and fill Redis/Neo4j/LLM values, "
+                    "or use --mode fast for memory/mock/eager local checks."
+                ),
+            )
+        )
+        return 1
+
+    try:
+        port = _resolve_start_port(args.port, auto_port=args.auto_port or mode == "fast")
+    except RuntimeError as exc:
+        _print_diagnostic(
+            _diagnostic_error(
+                "PORT_CONFLICT",
+                str(exc),
+                requested_port=args.port,
+                next_action=f"Stop the service on port {args.port}, pass --auto-port, or choose --port {args.port + 1}.",
+            )
+        )
+        return 1
+    env["GEOFUSION_API_PORT"] = str(port)
+
+    try:
+        neo4j_summary = _prepare_neo4j(env, reset_managed_graph=args.reset_managed_graph)
+    except Exception as exc:  # noqa: BLE001
+        _print_diagnostic(
+            _diagnostic_error(
+                "CONFIG_MISSING" if mode == "full" else "RUNTIME_PRECHECK_FAILED",
+                f"{type(exc).__name__}: {exc}",
+                mode=mode,
+                next_action="Run scripts/windows_runtime_doctor.py or switch to --mode fast for local mock execution.",
+            )
+        )
+        return 1
     if neo4j_summary["isolation_mode"] != "memory":
         print(f"Neo4j edition: {neo4j_summary['edition']}")
         print(f"Neo4j isolation: {neo4j_summary['isolation_mode']}")
@@ -212,7 +333,7 @@ def main(argv: list[str] | None = None) -> int:
             raise RuntimeError("Neo4j managed graph does not satisfy the FusionAgent KG contract.")
 
     if args.check_only:
-        print("Local runtime check passed.")
+        print(f"Local runtime check passed. mode={mode} port={port}")
         return 0
 
     runtime_runs_root = Path(env.get("GEOFUSION_RUNS_ROOT", REPO_ROOT / "runs"))
@@ -220,7 +341,7 @@ def main(argv: list[str] | None = None) -> int:
     processes = {
         "api": _start_process(
             "api",
-            [sys.executable, "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", str(args.port)],
+            [sys.executable, "-m", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", str(port)],
             env,
             log_dir,
         ),
@@ -240,7 +361,7 @@ def main(argv: list[str] | None = None) -> int:
         )
     _assert_processes_started(processes, log_dir)
 
-    print(f"API: http://127.0.0.1:{args.port}")
+    print(f"API: http://127.0.0.1:{port}")
     print(f"runs root: {runtime_runs_root}")
     print(f"celery broker: {env.get('GEOFUSION_CELERY_BROKER')}")
     if env.get("GEOFUSION_RECOVERY_ENABLED") == "0":

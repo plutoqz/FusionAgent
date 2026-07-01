@@ -10,12 +10,15 @@ from schemas.evidence_lifecycle import EvidenceArtifactRef, EvidenceBundleManife
 RUN_SOURCE_OF_TRUTH = ["request.json", "run.json", "plan.json", "validation.json", "audit.jsonl"]
 SCENARIO_SOURCE_OF_TRUTH = [
     "request.json",
+    "preflight.json",
     "scenario_summary.json",
+    "scenario_checkpoint.json",
     "evaluation.json",
     "kg_path_trace.json",
     "workflow_trace.json",
     "source_coverage.json",
     "failed_children.json",
+    "runtime.json",
 ]
 
 
@@ -54,12 +57,15 @@ def build_scenario_evidence_manifest(scenario_dir: Path) -> EvidenceBundleManife
 
     artifacts = [
         _ref(scenario_dir, "request", "request.json", required=False, retention_class="durable_evidence"),
+        _ref(scenario_dir, "preflight", "preflight.json", required=False, retention_class="durable_evidence"),
         _ref(scenario_dir, "scenario_summary", "scenario_summary.json", retention_class="durable_evidence"),
+        _ref(scenario_dir, "scenario_checkpoint", "scenario_checkpoint.json", retention_class="durable_evidence"),
         _ref(scenario_dir, "evaluation", "evaluation.json", retention_class="durable_evidence"),
         _ref(scenario_dir, "kg_path_trace", "kg_path_trace.json", retention_class="durable_evidence"),
         _ref(scenario_dir, "workflow_trace", "workflow_trace.json", retention_class="durable_evidence"),
         _ref(scenario_dir, "source_coverage", "source_coverage.json", retention_class="durable_evidence"),
         _ref(scenario_dir, "failed_children", "failed_children.json", required=False, retention_class="durable_evidence"),
+        _ref(scenario_dir, "runtime", "runtime.json", required=False, retention_class="durable_evidence"),
     ]
     final_outputs = summary.get("final_outputs") if isinstance(summary, dict) else []
     if isinstance(final_outputs, list):

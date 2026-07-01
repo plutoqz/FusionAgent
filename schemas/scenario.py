@@ -15,6 +15,12 @@ class ScenarioPhase(str, Enum):
     succeeded = "succeeded"
     partial = "partial"
     failed = "failed"
+    partial_provisional = "partial_provisional"
+    source_retrying = "source_retrying"
+    awaiting_external_config = "awaiting_external_config"
+    full_rerun_queued = "full_rerun_queued"
+    superseded = "superseded"
+    retry_exhausted = "retry_exhausted"
 
 
 class ScenarioRunRequest(BaseModel):

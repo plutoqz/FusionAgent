@@ -27,7 +27,7 @@ from kg.source_catalog import get_raw_vector_source_spec
 from services.aoi_resolution_service import ResolvedAOI
 from utils.raster_cli import gdalinfo_json
 from utils.shp_zip import collect_bundle_files, safe_extract_zip
-from utils.vector_clip import BBox, clip_frame_to_request_bbox, frame_bbox_in_crs
+from utils.vector_clip import BBox, clip_frame_to_boundary_path, clip_frame_to_request_bbox, frame_bbox_in_crs
 
 
 GEOFABRIK_BURUNDI_SHP_URL = "https://download.geofabrik.de/africa/burundi-latest-free.shp.zip"
@@ -395,6 +395,13 @@ def _bbox_cache_key(request_bbox: Optional[BBox]) -> str:
     return hashlib.sha1(repr(tuple(request_bbox)).encode("utf-8")).hexdigest()[:12]
 
 
+def _aoi_clip_cache_key(request_bbox: Optional[BBox], aoi: ResolvedAOI | None) -> str:
+    bbox_key = _bbox_cache_key(request_bbox)
+    if aoi is not None and aoi.clip_geometry_hash and aoi.boundary_artifact_path:
+        return f"{bbox_key}_{str(aoi.clip_geometry_hash)[:12]}"
+    return bbox_key
+
+
 def _url_list_cache_key(urls: Iterable[str]) -> str:
     normalized = "\n".join(sorted(str(url).strip() for url in urls if str(url).strip()))
     return hashlib.sha1(normalized.encode("utf-8")).hexdigest()[:12]
@@ -421,6 +428,16 @@ def _filter_polygonal_frame(frame: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     if filtered.empty:
         return frame.iloc[0:0].copy()
     return filtered
+
+
+def _clip_frame_to_aoi(frame: gpd.GeoDataFrame, request_bbox: Optional[BBox], aoi: ResolvedAOI | None) -> gpd.GeoDataFrame:
+    if frame.empty:
+        return frame
+    if aoi is not None and aoi.boundary_artifact_path:
+        return clip_frame_to_boundary_path(frame, Path(str(aoi.boundary_artifact_path)), request_bbox=request_bbox)
+    if request_bbox is not None:
+        return clip_frame_to_request_bbox(frame, request_bbox)
+    return frame
 
 
 class SourceAssetService:
@@ -508,6 +525,7 @@ class SourceAssetService:
                     source_id,
                     local_path=local_path,
                     request_bbox=effective_bbox,
+                    aoi=aoi,
                 )
                 if local_resolution.feature_count != 0 or source_id not in _REMOTELY_MATERIALIZABLE_SOURCE_IDS:
                     return local_resolution
@@ -518,11 +536,11 @@ class SourceAssetService:
         if source_id == "raw.microsoft.building":
             return self._resolve_msft_buildings(request_bbox=effective_bbox, aoi=aoi)
         if source_id in {"raw.google.building", "raw.google.open_buildings.vector"}:
-            return self._resolve_google_open_buildings(source_id, request_bbox=effective_bbox)
+            return self._resolve_google_open_buildings(source_id, request_bbox=effective_bbox, aoi=aoi)
         if source_id in {"raw.overture.transportation", "raw.overture.road"}:
-            return self._resolve_overture_transportation(source_id=source_id, request_bbox=effective_bbox)
+            return self._resolve_overture_transportation(source_id=source_id, request_bbox=effective_bbox, aoi=aoi)
         if source_id in {"raw.hydrorivers.water", "raw.hydrolakes.water"}:
-            return self._resolve_hydrosheds_water(source_id, request_bbox=effective_bbox)
+            return self._resolve_hydrosheds_water(source_id, request_bbox=effective_bbox, aoi=aoi)
         if source_id == "raw.gns.poi":
             return self._resolve_gns_poi(request_bbox=effective_bbox, aoi=aoi)
 
@@ -546,6 +564,7 @@ class SourceAssetService:
         *,
         local_path: Path,
         request_bbox: Optional[BBox],
+        aoi: ResolvedAOI | None = None,
     ) -> SourceAssetResolution:
         if request_bbox is None:
             bbox, feature_count = self._inspect_vector_path(local_path)
@@ -559,11 +578,12 @@ class SourceAssetService:
                 feature_count=feature_count,
             )
 
-        target_dir = self.cache_dir / "local_clips" / source_id.replace(".", "_") / _bbox_cache_key(request_bbox)
+        target_dir = self.cache_dir / "local_clips" / source_id.replace(".", "_") / _aoi_clip_cache_key(request_bbox, aoi)
         clipped_path, cache_hit, bbox, feature_count = self._materialize_clipped_vector(
             source_path=local_path,
             target_dir=target_dir,
             request_bbox=request_bbox,
+            aoi=aoi,
         )
         return SourceAssetResolution(
             source_id=source_id,
@@ -697,11 +717,12 @@ class SourceAssetService:
                 feature_count=feature_count,
             )
 
-        target_dir = self.cache_dir / "geofabrik_clips" / bundle.slug / source_id.replace(".", "_") / _bbox_cache_key(request_bbox)
+        target_dir = self.cache_dir / "geofabrik_clips" / bundle.slug / source_id.replace(".", "_") / _aoi_clip_cache_key(request_bbox, aoi)
         clipped_path, clip_cache_hit, bbox, feature_count = self._materialize_clipped_vector(
             source_path=layer_path,
             target_dir=target_dir,
             request_bbox=request_bbox,
+            aoi=aoi,
         )
         return SourceAssetResolution(
             source_id=source_id,
@@ -903,7 +924,7 @@ class SourceAssetService:
     ) -> SourceAssetResolution:
         location = (aoi.country_name if aoi is not None else None) or "Burundi"
         location_slug = _slugify(location)
-        cache_key = _bbox_cache_key(request_bbox)
+        cache_key = _aoi_clip_cache_key(request_bbox, aoi)
         target_dir = self.cache_dir / "msft_buildings" / location_slug / cache_key
         output_shp = target_dir / "microsoft_buildings.shp"
         if _is_usable_local_vector_path(output_shp):
@@ -925,8 +946,7 @@ class SourceAssetService:
             ]
 
         frame = self._load_msft_building_frame(rows)
-        if request_bbox is not None and not frame.empty:
-            frame = clip_frame_to_request_bbox(frame, request_bbox)
+        frame = _clip_frame_to_aoi(frame, request_bbox, aoi)
         frame = _filter_polygonal_frame(frame)
 
         target_dir.mkdir(parents=True, exist_ok=True)
@@ -948,11 +968,12 @@ class SourceAssetService:
         source_id: str,
         *,
         request_bbox: Optional[BBox],
+        aoi: ResolvedAOI | None = None,
     ) -> SourceAssetResolution:
         if not self.google_open_buildings_urls:
             raise FileNotFoundError(f"Google Open Buildings URL index is not configured for {source_id}")
 
-        cache_key = _bbox_cache_key(request_bbox)
+        cache_key = _aoi_clip_cache_key(request_bbox, aoi)
         urls_key = _url_list_cache_key(self.google_open_buildings_urls)
         target_dir = self.cache_dir / "google_open_buildings" / cache_key / urls_key
         output_gpkg = target_dir / "google_open_buildings.gpkg"
@@ -979,8 +1000,7 @@ class SourceAssetService:
         else:
             combined = self._empty_google_open_buildings_frame()
 
-        if request_bbox is not None and not combined.empty:
-            combined = clip_frame_to_request_bbox(combined, request_bbox)
+        combined = _clip_frame_to_aoi(combined, request_bbox, aoi)
         combined = _filter_polygonal_frame(combined)
 
         target_dir.mkdir(parents=True, exist_ok=True)
@@ -1028,6 +1048,7 @@ class SourceAssetService:
                     "raw.google.poi",
                     local_path=local_path,
                     request_bbox=request_bbox,
+                    aoi=aoi,
                 )
 
         if not self.google_places_api_key:
@@ -1040,7 +1061,7 @@ class SourceAssetService:
             raise PermissionError("Google POI persistence authorization manifest is required.")
         authorization_digest = hashlib.sha1(authorization_path.read_bytes()).hexdigest()[:12]
         fetcher_config_digest = self._google_places_fetcher_config_digest()
-        target_dir = self.cache_dir / "google_poi" / _bbox_cache_key(request_bbox) / authorization_digest / fetcher_config_digest
+        target_dir = self.cache_dir / "google_poi" / _aoi_clip_cache_key(request_bbox, aoi) / authorization_digest / fetcher_config_digest
         output_gpkg = target_dir / "google_poi.gpkg"
         if _is_usable_local_vector_path(output_gpkg):
             self._write_google_poi_authorization_evidence(target_dir, authorization_payload=authorization_payload)
@@ -1057,8 +1078,7 @@ class SourceAssetService:
 
         rows = list(self.google_places_fetcher(request_bbox, self.google_places_api_key))
         frame = self._google_poi_rows_to_frame(rows)
-        if request_bbox is not None and not frame.empty:
-            frame = clip_frame_to_request_bbox(frame, request_bbox)
+        frame = _clip_frame_to_aoi(frame, request_bbox, aoi)
 
         target_dir.mkdir(parents=True, exist_ok=True)
         frame.to_file(output_gpkg, driver="GPKG")
@@ -1124,6 +1144,7 @@ class SourceAssetService:
         source_id: str,
         *,
         request_bbox: Optional[BBox],
+        aoi: ResolvedAOI | None = None,
     ) -> SourceAssetResolution:
         archive_url = (
             self.hydrorivers_global_zip_url
@@ -1170,11 +1191,12 @@ class SourceAssetService:
                 feature_count=feature_count,
             )
 
-        target_dir = self.cache_dir / "hydrosheds_clips" / source_id.replace(".", "_") / _bbox_cache_key(request_bbox)
+        target_dir = self.cache_dir / "hydrosheds_clips" / source_id.replace(".", "_") / _aoi_clip_cache_key(request_bbox, aoi)
         clipped_path, clip_cache_hit, bbox, feature_count = self._materialize_clipped_vector(
             source_path=shp_path,
             target_dir=target_dir,
             request_bbox=request_bbox,
+            aoi=aoi,
         )
         return SourceAssetResolution(
             source_id=source_id,
@@ -1203,14 +1225,13 @@ class SourceAssetService:
             / "gns_country_clips"
             / _slugify(entry.country_name)
             / version_token
-            / _bbox_cache_key(request_bbox)
+            / _aoi_clip_cache_key(request_bbox, aoi)
         )
         output_gpkg = target_dir / "gns_points.gpkg"
         cache_hit = output_gpkg.exists()
         if not cache_hit:
             frame = self._load_gns_country_frame(archive_path)
-            if request_bbox is not None and not frame.empty:
-                frame = clip_frame_to_request_bbox(frame, request_bbox)
+            frame = _clip_frame_to_aoi(frame, request_bbox, aoi)
             target_dir.mkdir(parents=True, exist_ok=True)
             frame.to_file(output_gpkg, driver="GPKG")
 
@@ -1230,8 +1251,9 @@ class SourceAssetService:
         *,
         source_id: str = "raw.overture.transportation",
         request_bbox: Optional[BBox],
+        aoi: ResolvedAOI | None = None,
     ) -> SourceAssetResolution:
-        cache_key = _bbox_cache_key(request_bbox)
+        cache_key = _aoi_clip_cache_key(request_bbox, aoi)
         asset_dir = self.cache_dir / source_id.replace(".", "_") / cache_key
         raw_path = asset_dir / "segment.geojson"
         filtered_path = asset_dir / "road_segments.geojson"
@@ -1260,8 +1282,7 @@ class SourceAssetService:
                     self._download_overture_transportation_segment(output_path=raw_path, request_bbox=request_bbox)
                 frame = self._load_overture_transportation_frame(raw_path)
 
-            if request_bbox is not None and not frame.empty:
-                frame = clip_frame_to_request_bbox(frame, request_bbox)
+            frame = _clip_frame_to_aoi(frame, request_bbox, aoi)
             frame.to_file(filtered_path, driver="GeoJSON")
             marker_path.write_text("ready\n", encoding="utf-8")
 
@@ -1549,6 +1570,7 @@ class SourceAssetService:
         source_path: Path,
         target_dir: Path,
         request_bbox: BBox,
+        aoi: ResolvedAOI | None = None,
     ) -> tuple[Path, bool, Optional[BBox], int]:
         output_shp = target_dir / source_path.name
         if _is_usable_local_vector_path(output_shp):
@@ -1556,7 +1578,10 @@ class SourceAssetService:
             return output_shp, True, bbox, feature_count
 
         frame = gpd.read_file(source_path)
-        clipped = clip_frame_to_request_bbox(frame, request_bbox)
+        if aoi is not None and aoi.boundary_artifact_path:
+            clipped = clip_frame_to_boundary_path(frame, Path(str(aoi.boundary_artifact_path)), request_bbox=request_bbox)
+        else:
+            clipped = clip_frame_to_request_bbox(frame, request_bbox)
         target_dir.mkdir(parents=True, exist_ok=True)
         clipped.to_file(output_shp)
         bbox = frame_bbox_in_crs(clipped)

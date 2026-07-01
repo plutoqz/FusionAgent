@@ -10,6 +10,7 @@ from typing import Iterable
 
 
 DEFAULT_DEPENDENCY_FILE = Path(__file__).resolve().parents[1] / "依赖.txt"
+DEFAULT_DOTENV_FILE = Path(__file__).resolve().parents[1] / ".env"
 DEFAULT_LLM_MODEL = "qwen3.5-397b-a17b"
 DEFAULT_NEO4J_URI = "bolt://localhost:7687"
 DEFAULT_GRAPH_NAMESPACE = "fusionagent"
@@ -170,6 +171,66 @@ def apply_local_dependency_defaults(
             value = default_value
         applied[key] = value
     return applied
+
+
+def read_dotenv_defaults(path: str | os.PathLike[str] | Path | None = None) -> dict[str, str]:
+    dotenv_path = Path(path) if path is not None else DEFAULT_DOTENV_FILE
+    if not dotenv_path.exists():
+        return {}
+    defaults: dict[str, str] = {}
+    for raw_line in dotenv_path.read_text(encoding="utf-8-sig").splitlines():
+        line = raw_line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        if not key:
+            continue
+        value = value.strip().strip('"').strip("'")
+        defaults[key] = value
+    return defaults
+
+
+def runtime_mode_defaults(mode: str) -> dict[str, str]:
+    normalized = str(mode or "full").strip().lower()
+    if normalized == "fast":
+        return {
+            "GEOFUSION_KG_BACKEND": "memory",
+            "GEOFUSION_LLM_PROVIDER": "mock",
+            "GEOFUSION_CELERY_EAGER": "1",
+            "GEOFUSION_CELERY_BROKER": "memory://",
+            "GEOFUSION_CELERY_BACKEND": "rpc://",
+            "GEOFUSION_GRAPH_NAMESPACE": DEFAULT_GRAPH_NAMESPACE,
+        }
+    return {
+        "GEOFUSION_KG_BACKEND": "neo4j",
+        "GEOFUSION_LLM_PROVIDER": "openai",
+        "GEOFUSION_CELERY_EAGER": "0",
+        "GEOFUSION_NEO4J_URI": DEFAULT_NEO4J_URI,
+        "GEOFUSION_GRAPH_NAMESPACE": DEFAULT_GRAPH_NAMESPACE,
+        "GEOFUSION_LLM_MODEL": DEFAULT_LLM_MODEL,
+    }
+
+
+def build_local_runtime_env_defaults(
+    *,
+    mode: str = "full",
+    dependency_path: str | os.PathLike[str] | Path | None = None,
+    dotenv_path: str | os.PathLike[str] | Path | None = None,
+    require_dependency_file: bool = False,
+) -> dict[str, str]:
+    """Return defaults with precedence: dependency file > .env > mode defaults.
+
+    Callers still apply these via env.setdefault, so real process environment
+    variables stay highest priority.
+    """
+
+    defaults = runtime_mode_defaults(mode)
+    defaults.update({key: value for key, value in read_dotenv_defaults(dotenv_path).items() if value != ""})
+    config = read_local_dependency_config(dependency_path, required=require_dependency_file)
+    if config is not None:
+        defaults.update(config.as_env_defaults())
+    return defaults
 
 
 def apply_runtime_entrypoint_defaults(

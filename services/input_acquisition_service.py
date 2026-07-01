@@ -20,7 +20,7 @@ from services.source_materialization_manifest_service import (
 )
 from services.source_acquisition_policy import build_failed_attempt, build_source_attempt
 from utils.crs import normalize_target_crs
-from utils.vector_clip import BBox, bundle_bbox_from_zip, clip_zip_to_request_bbox
+from utils.vector_clip import BBox, bundle_bbox_from_zip, clip_zip_to_boundary_path, clip_zip_to_request_bbox
 
 
 def _as_bbox(value: Sequence[float] | None) -> Optional[BBox]:
@@ -63,6 +63,30 @@ def _tile_meta(request_bbox: Optional[BBox]) -> dict[str, object]:
         "tile_scope": "request_bbox",
         "tile_bbox": [float(value) for value in request_bbox],
         "tile_key": key,
+    }
+
+
+def _has_boundary_clip(resolved_aoi: ResolvedAOI | None) -> bool:
+    return bool(resolved_aoi is not None and resolved_aoi.boundary_artifact_path)
+
+
+def _clip_geometry_hash(resolved_aoi: ResolvedAOI | None) -> str | None:
+    return str(resolved_aoi.clip_geometry_hash) if resolved_aoi is not None and resolved_aoi.clip_geometry_hash else None
+
+
+def _clip_meta(resolved_aoi: ResolvedAOI | None) -> dict[str, object]:
+    if resolved_aoi is None:
+        return {
+            "clip_boundary_source_id": None,
+            "clip_boundary_artifact_path": None,
+            "clip_geometry_hash": None,
+            "degraded_bbox_clip": False,
+        }
+    return {
+        "clip_boundary_source_id": resolved_aoi.boundary_source_id,
+        "clip_boundary_artifact_path": resolved_aoi.boundary_artifact_path,
+        "clip_geometry_hash": resolved_aoi.clip_geometry_hash,
+        "degraded_bbox_clip": bool(resolved_aoi.degraded_bbox_clip),
     }
 
 class InputBundleProvider(Protocol):
@@ -148,8 +172,16 @@ class InputAcquisitionService:
                 job_type=request.job_type.value,
                 required_output_type=required_output_type,
                 required_target_crs=target_crs,
-                bbox=effective_request_bbox,
-                required_meta={"artifact_role": "input_bundle", "source_id": source_id},
+                bbox=None if _has_boundary_clip(resolved_aoi) else effective_request_bbox,
+                required_meta={
+                    "artifact_role": "input_bundle",
+                    "source_id": source_id,
+                    **(
+                        {"clip_geometry_hash": _clip_geometry_hash(resolved_aoi)}
+                        if _has_boundary_clip(resolved_aoi)
+                        else {}
+                    ),
+                },
             )
         )
 
@@ -160,11 +192,41 @@ class InputAcquisitionService:
                 source_id=source_id,
                 attempts=candidate.meta.get("source_attempts"),
             )
+            if _has_boundary_clip(resolved_aoi) and candidate.meta.get("clip_geometry_hash") == _clip_geometry_hash(resolved_aoi):
+                copied = self._copy_cached_bundle(bundle_dir=bundle_dir, input_dir=input_dir)
+                return ResolvedRunInputs(
+                    osm_zip_path=copied.osm_zip_path,
+                    ref_zip_path=copied.ref_zip_path,
+                    source_mode="cache_reused",
+                    source_id=source_id,
+                    cache_hit=True,
+                    version_token=version_token,
+                    selected_source_id=str(candidate.meta.get("selected_source_id") or source_id),
+                    fallback_from_source_id=candidate.meta.get("fallback_from_source_id"),
+                    component_coverage=cached_component_coverage,
+                    manifest_path=self._write_manifest(
+                        path=manifest_path,
+                        source_id=source_id,
+                        selected_source_id=str(candidate.meta.get("selected_source_id") or source_id),
+                        source_mode="cache_reused",
+                        cache_hit=True,
+                        version_token=version_token,
+                        target_crs=target_crs,
+                        requested_bbox=effective_request_bbox,
+                        materialized_bbox=copied.bbox or candidate.bbox,
+                        clipped_to_aoi=True,
+                        component_coverage=cached_component_coverage,
+                        provider_attempts=_manifest_provider_attempts_for_reuse(cached_provider_attempts),
+                        source_attempts=cached_provider_attempts,
+                        resolved_aoi=resolved_aoi,
+                    ),
+                )
             if effective_request_bbox is not None and candidate.bbox is not None and tuple(candidate.bbox) != effective_request_bbox:
                 clipped = self._clip_cached_bundle(
                     bundle_dir=bundle_dir,
                     request_bbox=effective_request_bbox,
                     input_dir=input_dir,
+                    resolved_aoi=resolved_aoi,
                 )
                 return ResolvedRunInputs(
                     osm_zip_path=clipped.osm_zip_path,
@@ -190,6 +252,7 @@ class InputAcquisitionService:
                         component_coverage=cached_component_coverage,
                         provider_attempts=_manifest_provider_attempts_for_reuse(cached_provider_attempts),
                         source_attempts=cached_provider_attempts,
+                        resolved_aoi=resolved_aoi,
                     ),
                 )
             copied = self._copy_cached_bundle(bundle_dir=bundle_dir, input_dir=input_dir)
@@ -217,6 +280,7 @@ class InputAcquisitionService:
                     component_coverage=cached_component_coverage,
                     provider_attempts=_manifest_provider_attempts_for_reuse(cached_provider_attempts),
                     source_attempts=cached_provider_attempts,
+                    resolved_aoi=resolved_aoi,
                 ),
             )
 
@@ -263,6 +327,7 @@ class InputAcquisitionService:
                     )
                 ],
                 fault={"fault_class": fault, "fault_message": str(exc), "recoverable": True},
+                resolved_aoi=resolved_aoi,
             )
             raise ValueError(
                 f"task-driven input materialization failed for {source_id}: fault={fault}; error={exc}"
@@ -270,11 +335,14 @@ class InputAcquisitionService:
         bundle_bbox = materialized.bbox
         if bundle_bbox is None:
             bundle_bbox = bundle_bbox_from_zip(materialized.osm_zip_path)
-        if effective_request_bbox is not None and (bundle_bbox is None or tuple(bundle_bbox) != effective_request_bbox):
+        if effective_request_bbox is not None and (
+            _has_boundary_clip(resolved_aoi) or bundle_bbox is None or tuple(bundle_bbox) != effective_request_bbox
+        ):
             original_materialized = materialized
             clipped_materialized = self._clip_materialized_bundle(
                 bundle_dir=cache_bundle_dir,
                 request_bbox=effective_request_bbox,
+                resolved_aoi=resolved_aoi,
             )
             materialized = MaterializedInputBundle(
                 osm_zip_path=clipped_materialized.osm_zip_path,
@@ -313,6 +381,7 @@ class InputAcquisitionService:
                     "source_version": version_token,
                     "planning_mode": "task_driven",
                     **_tile_meta(effective_request_bbox),
+                    **_clip_meta(resolved_aoi),
                 },
             )
         )
@@ -341,6 +410,7 @@ class InputAcquisitionService:
                 component_coverage=component_coverage,
                 provider_attempts=provider_attempts,
                 source_attempts=source_provider_attempts,
+                resolved_aoi=resolved_aoi,
             ),
         )
 
@@ -416,30 +486,71 @@ class InputAcquisitionService:
             target_crs="",
         )
 
-    def _clip_cached_bundle(self, *, bundle_dir: Path, request_bbox: BBox, input_dir: Path) -> MaterializedInputBundle:
+    def _clip_cached_bundle(
+        self,
+        *,
+        bundle_dir: Path,
+        request_bbox: BBox,
+        input_dir: Path,
+        resolved_aoi: ResolvedAOI | None = None,
+    ) -> MaterializedInputBundle:
         input_dir.mkdir(parents=True, exist_ok=True)
-        osm_zip = self._clip_single_zip(bundle_dir / "osm.zip", input_dir / "osm.zip", request_bbox=request_bbox)
-        ref_zip = self._clip_single_zip(bundle_dir / "ref.zip", input_dir / "ref.zip", request_bbox=request_bbox)
+        osm_zip = self._clip_single_zip(
+            bundle_dir / "osm.zip",
+            input_dir / "osm.zip",
+            request_bbox=request_bbox,
+            resolved_aoi=resolved_aoi,
+        )
+        ref_zip = self._clip_single_zip(
+            bundle_dir / "ref.zip",
+            input_dir / "ref.zip",
+            request_bbox=request_bbox,
+            resolved_aoi=resolved_aoi,
+        )
         return MaterializedInputBundle(
             osm_zip_path=osm_zip,
             ref_zip_path=ref_zip,
-            bbox=request_bbox,
+            bbox=bundle_bbox_from_zip(osm_zip),
             target_crs="",
         )
 
     @staticmethod
-    def _clip_single_zip(source_zip: Path, output_zip: Path, *, request_bbox: BBox) -> Path:
+    def _clip_single_zip(
+        source_zip: Path,
+        output_zip: Path,
+        *,
+        request_bbox: BBox,
+        resolved_aoi: ResolvedAOI | None = None,
+    ) -> Path:
+        if _has_boundary_clip(resolved_aoi):
+            return clip_zip_to_boundary_path(
+                source_zip,
+                output_zip,
+                boundary_path=Path(str(resolved_aoi.boundary_artifact_path)),
+                request_bbox=request_bbox,
+            )
         return clip_zip_to_request_bbox(source_zip, output_zip, request_bbox=request_bbox)
 
-    def _clip_materialized_bundle(self, *, bundle_dir: Path, request_bbox: BBox) -> MaterializedInputBundle:
+    def _clip_materialized_bundle(
+        self,
+        *,
+        bundle_dir: Path,
+        request_bbox: BBox,
+        resolved_aoi: ResolvedAOI | None = None,
+    ) -> MaterializedInputBundle:
         clipped_dir = bundle_dir / "_clipped"
-        clipped = self._clip_cached_bundle(bundle_dir=bundle_dir, request_bbox=request_bbox, input_dir=clipped_dir)
+        clipped = self._clip_cached_bundle(
+            bundle_dir=bundle_dir,
+            request_bbox=request_bbox,
+            input_dir=clipped_dir,
+            resolved_aoi=resolved_aoi,
+        )
         shutil.copyfile(clipped.osm_zip_path, bundle_dir / "osm.zip")
         shutil.copyfile(clipped.ref_zip_path, bundle_dir / "ref.zip")
         return MaterializedInputBundle(
             osm_zip_path=bundle_dir / "osm.zip",
             ref_zip_path=bundle_dir / "ref.zip",
-            bbox=request_bbox,
+            bbox=clipped.bbox,
             target_crs=clipped.target_crs,
         )
 
@@ -460,6 +571,7 @@ class InputAcquisitionService:
         provider_attempts: list[dict[str, object]],
         source_attempts: list[dict[str, object]] | None = None,
         fault: dict[str, object] | None = None,
+        resolved_aoi: ResolvedAOI | None = None,
     ) -> Path:
         evidence_attempts = source_attempts if source_attempts is not None else provider_attempts
         source_attempts_path = _write_source_attempts(
@@ -471,26 +583,25 @@ class InputAcquisitionService:
         source_attempts = _source_attempts_for_evidence(evidence_attempts, jsonable_coverage)
         coverage_state = _coverage_state(jsonable_coverage)
         degradation = _degradation_payload(jsonable_coverage, source_attempts)
-        return write_source_materialization_manifest(
-            path,
-            build_source_materialization_manifest(
-                source_id=source_id,
-                selected_source_id=selected_source_id,
-                source_mode=source_mode,
-                cache_hit=cache_hit,
-                version_token=version_token,
-                target_crs=target_crs,
-                requested_bbox=requested_bbox,
-                materialized_bbox=materialized_bbox,
-                clipped_to_aoi=clipped_to_aoi,
-                component_coverage=component_coverage,
-                provider_attempts=provider_attempts,
-                source_attempts_path=source_attempts_path.name,
-                coverage_state=coverage_state,
-                degradation=degradation,
-                fault=fault,
-            ),
+        manifest = build_source_materialization_manifest(
+            source_id=source_id,
+            selected_source_id=selected_source_id,
+            source_mode=source_mode,
+            cache_hit=cache_hit,
+            version_token=version_token,
+            target_crs=target_crs,
+            requested_bbox=requested_bbox,
+            materialized_bbox=materialized_bbox,
+            clipped_to_aoi=clipped_to_aoi,
+            component_coverage=component_coverage,
+            provider_attempts=provider_attempts,
+            source_attempts_path=source_attempts_path.name,
+            coverage_state=coverage_state,
+            degradation=degradation,
+            fault=fault,
         )
+        manifest.update(_clip_meta(resolved_aoi))
+        return write_source_materialization_manifest(path, manifest)
 
 
 def _write_source_attempts(path: Path, attempts: list[dict[str, object]], component_coverage: dict[str, object]) -> Path:
@@ -507,6 +618,17 @@ def _write_source_attempts(path: Path, attempts: list[dict[str, object]], compon
     }
     path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
     return path
+
+
+def read_source_attempts(path: Path | None) -> list[dict[str, object]]:
+    if path is None or not Path(path).exists():
+        return []
+    try:
+        payload = json.loads(Path(path).read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError, UnicodeDecodeError):
+        return []
+    attempts = payload.get("attempts") if isinstance(payload, dict) else None
+    return [dict(item) for item in attempts if isinstance(item, dict)] if isinstance(attempts, list) else []
 
 
 def _jsonable_component_coverage(component_coverage: dict[str, object]) -> dict[str, dict[str, object]]:
@@ -540,8 +662,10 @@ def _coverage_state(component_coverage: dict[str, object]) -> str:
         return "complete"
     if any(status == "available" for status in statuses):
         return "partial"
-    if any(status == "empty" for status in statuses):
+    if any(status in {"empty", "coverage_empty"} for status in statuses):
         return "empty"
+    if any(status == "awaiting_external_config" for status in statuses):
+        return "awaiting_external_config"
     return "missing"
 
 
@@ -549,6 +673,8 @@ def _degradation_payload(component_coverage: dict[str, object], attempts: list[d
     coverage = _jsonable_component_coverage(component_coverage)
     degraded_statuses = {
         "empty",
+        "coverage_empty",
+        "awaiting_external_config",
         "no_coverage",
         "network_failed",
         "provider_failed",
@@ -623,9 +749,9 @@ def _coverage_status_for_attempt(attempt: dict[str, object], coverage_item: dict
     status = str(attempt.get("status") or "").lower()
     if status in {"available", "materialized", "cache_reused"}:
         return "available"
-    if status in {"empty"}:
+    if status in {"empty", "coverage_empty"}:
         return "empty"
-    if status in {"failed", "provider_failed", "network_failed", "missing", "no_official_coverage", "no_coverage", "unauthorized", "internal_failed"}:
+    if status in {"failed", "provider_failed", "network_failed", "missing", "no_official_coverage", "no_coverage", "unauthorized", "internal_failed", "awaiting_external_config"}:
         return "missing"
     return None
 

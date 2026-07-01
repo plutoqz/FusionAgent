@@ -7,7 +7,7 @@ import geopandas as gpd
 from shapely.geometry import Polygon
 
 from services.tile_partition_service import TilePartitionService
-from services.tiled_building_runtime_service import TiledBuildingRuntimeService
+from services.tiled_building_runtime_service import TileRunArtifact, TiledBuildingRuntimeService
 from utils.shp_zip import zip_shapefile_bundle
 from utils.vector_clip import clip_zip_to_request_bbox
 
@@ -80,3 +80,45 @@ def test_tiled_runtime_runs_tiles_and_stitches_outputs(tmp_path: Path) -> None:
 
     with zipfile.ZipFile(osm_zip, "r") as archive:
         assert "artifact.shp" in archive.namelist()
+
+
+def test_tile_stitch_dedup_by_source_feature_id(tmp_path: Path) -> None:
+    tile_a = tmp_path / "tile-a.gpkg"
+    tile_b = tmp_path / "tile-b.gpkg"
+    gpd.GeoDataFrame(
+        {"source_id": ["raw.osm.building"], "source_feature_id": ["b-1"]},
+        geometry=[Polygon([(0, 0), (0, 10), (10, 10), (10, 0)])],
+        crs="EPSG:3857",
+    ).to_file(tile_a, driver="GPKG")
+    gpd.GeoDataFrame(
+        {"source_id": ["raw.osm.building"], "source_feature_id": ["b-1"]},
+        geometry=[Polygon([(0, 0), (0, 11), (11, 11), (11, 0)])],
+        crs="EPSG:3857",
+    ).to_file(tile_b, driver="GPKG")
+
+    output_shp = TiledBuildingRuntimeService()._stitch_tile_outputs(
+        tile_results=[
+            TileRunArtifact(
+                tile_id="tile-a",
+                output_shp=tile_a,
+                feature_count=1,
+                bbox=(0, 0, 10, 10),
+                buffered_bbox=(0, 0, 10, 10),
+            ),
+            TileRunArtifact(
+                tile_id="tile-b",
+                output_shp=tile_b,
+                feature_count=1,
+                bbox=(0, 0, 10, 10),
+                buffered_bbox=(0, 0, 10, 10),
+            ),
+        ],
+        output_shp=tmp_path / "stitched.gpkg",
+        target_crs="EPSG:3857",
+    )
+
+    stitched = gpd.read_file(output_shp)
+
+    assert len(stitched) == 1
+    assert stitched.iloc[0]["source_id"] == "raw.osm.building"
+    assert stitched.iloc[0]["source_feature_id"] == "b-1"

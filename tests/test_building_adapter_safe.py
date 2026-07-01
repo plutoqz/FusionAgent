@@ -69,7 +69,7 @@ def test_run_building_fusion_safe_merges_matched_and_unmatched_buildings(tmp_pat
 
     assert output_shp.exists()
     assert len(result) == 3
-    assert result.columns.tolist() == [
+    assert result.columns.tolist()[:8] == [
         "osm_id",
         "fclass",
         "name",
@@ -78,8 +78,9 @@ def test_run_building_fusion_safe_merges_matched_and_unmatched_buildings(tmp_pat
         "latitude",
         "area_in_me",
         "confidence",
-        "geometry",
     ]
+    # ESRI Shapefile truncates long field names to 10 chars.
+    assert {"fusion_mod", "provisiona", "primary_so", "missing_so", "retry_stat"}.issubset(result.columns)
     assert int(result.geometry.is_empty.sum()) == 0
     assert int(result.geometry.isna().sum()) == 0
 
@@ -95,6 +96,41 @@ def test_run_building_fusion_safe_merges_matched_and_unmatched_buildings(tmp_pat
     unmatched_ref = result.loc[result["osm_id"].isna()].iloc[0]
     assert unmatched_ref["fclass"] == "ref_building"
     assert unmatched_ref["confidence"] == pytest.approx(0.8)
+
+
+def test_single_source_output_has_degradation_fields(tmp_path: Path) -> None:
+    from adapters.building_adapter import run_building_fusion_safe
+
+    osm = gpd.GeoDataFrame(
+        {"osm_id": [1], "fclass": ["building"], "name": ["A"], "type": ["residential"]},
+        geometry=[Polygon([(0, 0), (0, 10), (10, 10), (10, 0)])],
+        crs="EPSG:3857",
+    )
+    ref = gpd.GeoDataFrame(
+        {"confidence": [], "area_in_me": [], "longitude": [], "latitude": []},
+        geometry=[],
+        crs="EPSG:3857",
+    )
+    osm_path = _write_shapefile(tmp_path / "single-osm" / "osm.shp", osm)
+    ref_path = _write_shapefile(tmp_path / "empty-ref" / "ref.shp", ref)
+
+    output_shp = run_building_fusion_safe(
+        osm_shp=osm_path,
+        ref_shp=ref_path,
+        output_dir=tmp_path / "single-source-output",
+        target_crs="EPSG:3857",
+    )
+
+    result = gpd.read_file(output_shp)
+    row = result.iloc[0]
+
+    assert {"fusion_mod", "provisiona", "primary_so", "missing_so", "retry_stat"}.issubset(result.columns)
+    assert row["fusion_mod"] == "single_source_degraded"
+    assert bool(row["provisiona"]) is True
+    assert row["primary_so"] == "raw.osm.building"
+    assert "raw.microsoft.building" in row["missing_so"]
+    assert "raw.google.building" in row["missing_so"]
+    assert row["retry_stat"] == "source_retrying"
 
 
 def test_workflow_executor_falls_back_to_safe_building_algorithm_for_large_inputs(

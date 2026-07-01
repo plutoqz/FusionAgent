@@ -15,9 +15,13 @@ from schemas.task_kind import (
     task_kind_preferred_pattern_id,
     task_kind_to_job_type,
 )
+from services.scenario_trigger_normalizer import normalize_scenario_trigger_text
 
 _ENGLISH_DISASTER_KEYWORDS = (
     "flood",
+    "heavy rainfall",
+    "heavy_rainfall",
+    "rainstorm",
     "earthquake",
     "typhoon",
     "disaster",
@@ -28,11 +32,16 @@ _CHINESE_DISASTER_KEYWORDS = (
     "洪涝",
     "洪水",
     "内涝",
+    "强降雨",
+    "暴雨",
+    "降雨",
     "地震",
     "台风",
     "灾害",
     "应急",
 )
+
+_FLOOD_ALIASES = {"flood", "heavy_rainfall", "heavy rainfall", "rainstorm", "洪涝", "洪水", "内涝", "强降雨", "暴雨"}
 
 
 def partition_requested_task_kinds(raw_layers: Any) -> tuple[list[TaskKind], list[str]]:
@@ -53,6 +62,7 @@ def partition_requested_task_kinds(raw_layers: Any) -> tuple[list[TaskKind], lis
 
 
 def compile_scenario_mission(request: ScenarioRunRequest) -> MissionSpec:
+    request = _request_with_normalized_trigger(request)
     task_kinds, scope_source, unsupported_requested_layers = _resolve_task_kinds(request)
     child_tasks = [_build_task_spec(request, task_kind) for task_kind in task_kinds]
     task_families = _dedupe(task.task_family for task in child_tasks)
@@ -72,6 +82,21 @@ def compile_scenario_mission(request: ScenarioRunRequest) -> MissionSpec:
         task_families=task_families,
         unsupported_layers=unsupported,
     )
+
+
+def _request_with_normalized_trigger(request: ScenarioRunRequest) -> ScenarioRunRequest:
+    normalized = normalize_scenario_trigger_text(request.trigger_content)
+    updates: dict[str, Any] = {}
+    metadata = dict(request.metadata or {})
+    if normalized.confidence > 0:
+        metadata.setdefault("normalized_trigger", normalized.to_dict())
+        updates["metadata"] = metadata
+    disaster_type = _normalize_disaster_type(request.disaster_type or normalized.disaster_type)
+    if disaster_type and disaster_type != request.disaster_type:
+        updates["disaster_type"] = disaster_type
+    if not str(request.spatial_extent or "").strip() and normalized.normalized_location:
+        updates["spatial_extent"] = normalized.normalized_location
+    return request.model_copy(update=updates) if updates else request
 
 
 def _resolve_task_kinds(request: ScenarioRunRequest) -> tuple[list[TaskKind], str, list[str]]:
@@ -107,6 +132,16 @@ def _is_disaster_scenario(request: ScenarioRunRequest) -> bool:
     if any(keyword in text for keyword in _CHINESE_DISASTER_KEYWORDS):
         return True
     return any(_contains_english_token(text, keyword) for keyword in _ENGLISH_DISASTER_KEYWORDS)
+
+
+def _normalize_disaster_type(value: str | None) -> str | None:
+    text = str(value or "").strip()
+    if not text:
+        return None
+    normalized = text.casefold().replace("-", "_")
+    if normalized in _FLOOD_ALIASES or text in _FLOOD_ALIASES:
+        return "flood"
+    return normalized
 
 
 def _task_kinds_from_text(text: str) -> list[TaskKind]:

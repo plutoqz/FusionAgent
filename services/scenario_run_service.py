@@ -6,6 +6,7 @@ import time
 import uuid
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
+from datetime import timedelta
 from pathlib import Path
 from threading import Lock
 from typing import Any
@@ -31,6 +32,24 @@ from services.scenario_output import resolve_scenario_output_root
 from services.scenario_registry_service import ScenarioRegistryService
 from services.scenario_report_service import render_scenario_reports
 from services.workflow_trace_service import build_workflow_trace
+
+
+TERMINAL_CHILD_PHASES = {
+    RunPhase.succeeded.value,
+    RunPhase.failed.value,
+    ScenarioPhase.failed.value,
+    ScenarioPhase.partial_provisional.value,
+    ScenarioPhase.source_retrying.value,
+    ScenarioPhase.awaiting_external_config.value,
+    ScenarioPhase.full_rerun_queued.value,
+    ScenarioPhase.superseded.value,
+    ScenarioPhase.retry_exhausted.value,
+    "skipped",
+    "cancelled",
+}
+
+FLOOD_EXPECTED_CHILD_COUNT = 5
+SCENARIO_SOURCE_RETRY_STATUS = "source_retrying"
 
 
 def create_scenario_id() -> str:
@@ -59,6 +78,24 @@ def build_child_run_specs(request: ScenarioRunRequest) -> list[ScenarioChildRunS
         )
         for task in mission.child_tasks
     ]
+
+
+def validate_mission_child_specs(request: ScenarioRunRequest, child_specs: list[ScenarioChildRunSpec]) -> None:
+    mission = compile_scenario_mission(request)
+    if (
+        _is_flood_request(request)
+        and mission.scope_source == "default_disaster_bundle"
+        and len(child_specs) < FLOOD_EXPECTED_CHILD_COUNT
+    ):
+        raise ValueError(
+            "MISSION_CHILD_MISSING: flood scenario expected "
+            f"{FLOOD_EXPECTED_CHILD_COUNT} child tasks, got {len(child_specs)}"
+        )
+    if mission.scope_source == "default_disaster_bundle" and len(child_specs) < len(mission.child_tasks):
+        raise ValueError(
+            "MISSION_CHILD_MISSING: scenario mission expected "
+            f"{len(mission.child_tasks)} child tasks, got {len(child_specs)}"
+        )
 
 
 def classify_scenario_request(
@@ -179,7 +216,7 @@ def classify_scenario_request(
 
 
 class ScenarioRunService:
-    TERMINAL_RUN_PHASES = {RunPhase.succeeded.value, RunPhase.failed.value}
+    TERMINAL_RUN_PHASES = TERMINAL_CHILD_PHASES
     CHILD_RUN_POLL_INTERVAL_SECONDS = 1.0
     CHILD_RUN_TERMINAL_WAIT_SECONDS = 900.0
 
@@ -189,6 +226,8 @@ class ScenarioRunService:
         self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="scenario-run")
 
     def create_scenario_run(self, request: ScenarioRunRequest) -> ScenarioRunResponse:
+        child_specs = build_child_run_specs(request)
+        validate_mission_child_specs(request, child_specs)
         scenario_id = create_scenario_id()
         output_dir = scenario_output_dir(request, scenario_id)
         return self._execute_scenario_run(request=request, scenario_id=scenario_id, output_dir=output_dir)
@@ -202,14 +241,15 @@ class ScenarioRunService:
         )
         if decision["decision"] != "allow":
             raise ValueError(f'{decision["reason_code"]}: {decision["message"]}')
+        child_specs = build_child_run_specs(request)
+        validate_mission_child_specs(request, child_specs)
 
         scenario_id = create_scenario_id()
         output_dir = scenario_output_dir(request, scenario_id)
         output_dir.mkdir(parents=True, exist_ok=True)
-        (output_dir / "request.json").write_text(
-            json.dumps(request.model_dump(mode="json"), ensure_ascii=False, indent=2),
-            encoding="utf-8",
-        )
+        _write_json_roundtrip(output_dir / "request.json", request.model_dump(mode="json"))
+        _write_runtime_snapshot(output_dir)
+        _write_preflight_snapshot(output_dir, request)
         _write_checkpoint(
             output_dir,
             _initial_checkpoint(
@@ -229,6 +269,8 @@ class ScenarioRunService:
             "kg_path_traces": [],
             "workflow_traces": [],
             "source_coverage": [],
+            "source_acquisition_jobs": [],
+            "rerun_status": {"state": "not_required"},
             "evaluation": {"agentic_metrics": {"manual_intervention_count": 0}, "data_fusion_metrics": []},
             "manual_interventions": 0,
             "final_outputs": [],
@@ -248,12 +290,63 @@ class ScenarioRunService:
                 "trigger_event": request.metadata.get("trigger_event"),
             }
         )
-        self._executor.submit(self._execute_scenario_run, request=request, scenario_id=scenario_id, output_dir=output_dir)
+        future = self._executor.submit(
+            self._execute_scenario_run,
+            request=request,
+            scenario_id=scenario_id,
+            output_dir=output_dir,
+        )
+        future.add_done_callback(
+            lambda completed: self._record_background_failure(
+                completed,
+                request=request,
+                scenario_id=scenario_id,
+                output_dir=output_dir,
+            )
+        )
         return ScenarioRunResponse(
             scenario_id=scenario_id,
             phase=ScenarioPhase.running,
             output_dir=str(output_dir),
             child_run_ids=[],
+        )
+
+    def _record_background_failure(
+        self,
+        future,
+        *,
+        request: ScenarioRunRequest,
+        scenario_id: str,
+        output_dir: Path,
+    ) -> None:
+        try:
+            future.result()
+            return
+        except Exception as exc:  # noqa: BLE001
+            error = f"SCENARIO_BACKGROUND_ERROR: {type(exc).__name__}: {exc}"
+
+        try:
+            checkpoint = load_scenario_checkpoint(checkpoint_path(output_dir))
+        except Exception:  # noqa: BLE001
+            checkpoint = _initial_checkpoint(request=request, scenario_id=scenario_id, phase=ScenarioPhase.running)
+
+        child_specs = _child_specs_from_checkpoint(checkpoint)
+        child_results = _child_results_from_checkpoint(checkpoint, child_specs) if checkpoint.child_runs else []
+        if not child_results:
+            child_results = [_failed_child_run_for_spec(spec, error=error) for spec in child_specs]
+        child_results = [_terminalize_background_child_result(result, error=error) for result in child_results]
+        phase = _phase_from_child_results(child_results)
+        summary = self._build_summary(request, scenario_id, output_dir, child_results)
+        summary["phase"] = phase.value
+        summary["terminal_error"] = {
+            "code": "SCENARIO_BACKGROUND_ERROR",
+            "message": error,
+            "next_action": "Inspect workflow_trace.json, failed_children.json, and child run logs.",
+        }
+        self._write_summary_files(output_dir, summary)
+        _write_checkpoint(
+            output_dir,
+            _checkpoint_with_child_runs(checkpoint, child_results, phase=phase, children_phase=phase),
         )
 
     def resume_scenario_run(self, scenario_id: str, *, retry_failed: bool = False) -> ScenarioRunResponse:
@@ -266,6 +359,7 @@ class ScenarioRunService:
             child_specs = build_child_run_specs(request)
 
         child_results = _child_results_from_checkpoint(checkpoint, child_specs)
+        previous_child_results = [dict(result) for result in child_results]
         while len(child_results) < len(child_specs):
             child_results.append(_queued_child_run_for_spec(child_specs[len(child_results)]))
 
@@ -322,9 +416,25 @@ class ScenarioRunService:
                 on_child_result=record_launched_child_result,
             )
             launched_results = self._wait_for_started_child_results(launched_results)
+            launched_results = self._mark_nonterminal_children_timed_out(launched_results)
             for index, result in zip(launch_indexes, launched_results):
                 child_results[index] = result
 
+        superseded_outputs = _superseded_outputs(previous_child_results, child_results)
+        if superseded_outputs:
+            for result in child_results:
+                matching = next(
+                    (
+                        item
+                        for item in superseded_outputs
+                        if item.get("superseded_by") == result.get("run_id")
+                    ),
+                    None,
+                )
+                if matching is not None:
+                    result.setdefault("supersedes", []).append(matching)
+
+        child_results = self._mark_nonterminal_children_timed_out(child_results)
         checkpoint = _checkpoint_with_child_runs(
             checkpoint,
             child_results,
@@ -357,10 +467,9 @@ class ScenarioRunService:
             raise ValueError(f'{decision["reason_code"]}: {decision["message"]}')
 
         output_dir.mkdir(parents=True, exist_ok=True)
-        (output_dir / "request.json").write_text(
-            json.dumps(request.model_dump(mode="json"), ensure_ascii=False, indent=2),
-            encoding="utf-8",
-        )
+        _write_json_roundtrip(output_dir / "request.json", request.model_dump(mode="json"))
+        _write_runtime_snapshot(output_dir)
+        _write_preflight_snapshot(output_dir, request)
         checkpoint = _initial_checkpoint(
             request=request,
             scenario_id=scenario_id,
@@ -369,6 +478,7 @@ class ScenarioRunService:
         _write_checkpoint(output_dir, checkpoint)
 
         child_specs = build_child_run_specs(request)
+        validate_mission_child_specs(request, child_specs)
         checkpoint = _checkpoint_with_specs(checkpoint, child_specs)
         _write_checkpoint(output_dir, checkpoint)
         child_run_slots = [_queued_child_run_for_spec(spec) for spec in child_specs]
@@ -390,6 +500,7 @@ class ScenarioRunService:
 
         started_child_results = self._start_child_runs(output_dir, child_specs, on_child_result=record_child_result)
         child_results = self._wait_for_started_child_results(started_child_results)
+        child_results = self._mark_nonterminal_children_timed_out(child_results)
         checkpoint = _checkpoint_with_child_runs(
             checkpoint,
             child_results,
@@ -516,7 +627,8 @@ class ScenarioRunService:
             task_kind=spec.task_kind,
             task_family=spec.task_family,
         )
-        return {
+        audit_events = self.agent_run_service.get_audit_events(run_id)
+        result = {
             "run_id": run_id,
             "job_type": spec.job_type.value,
             "task_kind": task_key,
@@ -524,10 +636,11 @@ class ScenarioRunService:
             "phase": phase,
             "status": status,
             "plan": self.agent_run_service.get_plan(run_id),
-            "audit_events": self.agent_run_service.get_audit_events(run_id),
+            "audit_events": audit_events,
             "artifact_path": self.agent_run_service.get_artifact_path(run_id),
             "error": getattr(status, "error", None) if status is not None else None,
         }
+        return _mark_child_result_provisional_if_degraded(result)
 
     def _wait_for_child_result(self, *, run_id: str, spec: ScenarioChildRunSpec, fallback_status=None) -> dict[str, Any]:
         deadline = time.monotonic() + self._child_run_terminal_wait_seconds()
@@ -569,6 +682,14 @@ class ScenarioRunService:
             current_results = [self._refresh_started_child_result(result) for result in current_results]
         return current_results
 
+    def _mark_nonterminal_children_timed_out(self, child_results: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        return [
+            result
+            if str(result.get("phase")) in self.TERMINAL_RUN_PHASES
+            else _timed_out_child_result(result, timeout_seconds=self._child_run_terminal_wait_seconds())
+            for result in child_results
+        ]
+
     def _child_run_poll_interval_seconds(self) -> float:
         return _float_env("GEOFUSION_SCENARIO_CHILD_POLL_INTERVAL_SECONDS", self.CHILD_RUN_POLL_INTERVAL_SECONDS)
 
@@ -584,12 +705,14 @@ class ScenarioRunService:
         child_results: list[dict[str, Any]],
         checkpoint: ScenarioCheckpoint,
     ) -> ScenarioRunResponse:
+        phase = _phase_from_child_results(child_results)
+        checkpoint = _checkpoint_with_child_runs(checkpoint, child_results, phase=phase, children_phase=phase)
+        _write_checkpoint(output_dir, checkpoint)
         summary = self._build_summary(request, scenario_id, output_dir, child_results)
         document_paths = render_scenario_reports(summary=summary, documents_dir=output_dir / "documents")
         summary["document_paths"] = document_paths
-        summary["phase"] = _phase_from_child_results(child_results).value
+        summary["phase"] = phase.value
         self._write_summary_files(output_dir, summary)
-        phase = _phase_from_child_results(child_results)
         child_run_ids = [str(result["run_id"]) for result in child_results if result.get("run_id")]
         ScenarioRegistryService(output_root=resolve_scenario_output_root(request.output_root)).record(
             {
@@ -604,8 +727,6 @@ class ScenarioRunService:
                 "trigger_event": request.metadata.get("trigger_event"),
             }
         )
-        checkpoint = _checkpoint_with_child_runs(checkpoint, child_results, phase=phase, children_phase=phase)
-        _write_checkpoint(output_dir, checkpoint)
 
         return ScenarioRunResponse(
             scenario_id=scenario_id,
@@ -622,6 +743,7 @@ class ScenarioRunService:
         child_results: list[dict[str, Any]],
     ) -> dict[str, Any]:
         mission = compile_scenario_mission(request)
+        expected_child_count = _expected_child_count_for_request(request, mission_child_count=len(mission.child_tasks))
         kg_path_traces = [
             build_kg_path_trace(result["plan"])
             for result in child_results
@@ -632,6 +754,10 @@ class ScenarioRunService:
             for result in child_results
         ]
         source_coverage = _source_coverage_from_children(child_results)
+        source_acquisition_jobs = _source_acquisition_jobs_from_children(
+            scenario_id=scenario_id,
+            child_results=child_results,
+        )
         data_fusion_metrics = [_data_fusion_metrics_for_child(result) for result in child_results]
         quality = _quality_summary_from_children(child_results)
         failed_children = [
@@ -657,14 +783,22 @@ class ScenarioRunService:
             ]
         )
         final_outputs = [str(result["artifact_path"]) for result in child_results if result.get("artifact_path")]
+        superseded_outputs = [
+            item
+            for result in child_results
+            for item in (result.get("supersedes") or [])
+            if isinstance(item, dict)
+        ]
         return {
             "scenario_id": scenario_id,
             "scenario_name": request.scenario_name,
             "trigger_content": request.trigger_content,
             "disaster_type": request.disaster_type,
             "output_dir": str(output_dir),
+            "expected_child_count": expected_child_count,
             "mission": {
                 "scope_source": mission.scope_source,
+                "expected_child_count": expected_child_count,
                 "task_kinds": [task.task_kind.value for task in mission.child_tasks],
                 "task_families": mission.task_families,
                 "unsupported_layers": mission.unsupported_layers,
@@ -673,6 +807,8 @@ class ScenarioRunService:
             "kg_path_traces": kg_path_traces,
             "workflow_traces": workflow_traces,
             "source_coverage": source_coverage,
+            "source_acquisition_jobs": source_acquisition_jobs,
+            "rerun_status": _rerun_status_from_source_jobs(source_acquisition_jobs),
             "quality": quality,
             "failed_children": failed_children,
             "evaluation": {
@@ -688,6 +824,7 @@ class ScenarioRunService:
             },
             "manual_interventions": 0,
             "final_outputs": final_outputs,
+            "superseded_outputs": superseded_outputs,
             "document_paths": {},
         }
 
@@ -699,15 +836,13 @@ class ScenarioRunService:
             "kg_path_trace.json": summary["kg_path_traces"],
             "workflow_trace.json": summary["workflow_traces"],
             "source_coverage.json": summary["source_coverage"],
+            "source_acquisition_jobs.json": summary.get("source_acquisition_jobs", []),
             "failed_children.json": summary.get("failed_children", []),
         }
         for filename, payload in files.items():
-            (output_dir / filename).write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+            _write_json_roundtrip(output_dir / filename, payload)
         manifest = build_scenario_evidence_manifest(output_dir)
-        (output_dir / "scenario_artifact_manifest.json").write_text(
-            json.dumps(manifest.model_dump(mode="json"), ensure_ascii=False, indent=2),
-            encoding="utf-8",
-        )
+        _write_json_roundtrip(output_dir / "scenario_artifact_manifest.json", manifest.model_dump(mode="json"))
 
 
 def _float_env(name: str, default: float) -> float:
@@ -719,6 +854,181 @@ def _float_env(name: str, default: float) -> float:
 
 def _utc_now_iso() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _write_runtime_snapshot(output_dir: Path) -> None:
+    payload = {
+        "timestamp": _utc_now_iso(),
+        "kg_backend": os.getenv("GEOFUSION_KG_BACKEND"),
+        "llm_provider": os.getenv("GEOFUSION_LLM_PROVIDER"),
+        "celery_eager": os.getenv("GEOFUSION_CELERY_EAGER"),
+        "api_port": os.getenv("GEOFUSION_API_PORT"),
+        "scenario_child_max_workers": os.getenv("GEOFUSION_SCENARIO_CHILD_MAX_WORKERS"),
+        "scenario_child_terminal_wait_seconds": os.getenv("GEOFUSION_SCENARIO_CHILD_TERMINAL_WAIT_SECONDS"),
+    }
+    output_dir.mkdir(parents=True, exist_ok=True)
+    _write_json_roundtrip(output_dir / "runtime.json", payload)
+
+
+def _write_preflight_snapshot(output_dir: Path, request: ScenarioRunRequest) -> None:
+    child_specs = build_child_run_specs(request)
+    expected_child_count = _expected_child_count_for_request(request, mission_child_count=len(child_specs))
+    payload = {
+        "timestamp": _utc_now_iso(),
+        "allowed": True,
+        "scenario_name": request.scenario_name,
+        "trigger_content": request.trigger_content,
+        "disaster_type": request.disaster_type,
+        "spatial_extent": request.spatial_extent,
+        "expected_child_count": expected_child_count,
+        "child_specs": [_checkpoint_child_spec(spec).model_dump(mode="json") for spec in child_specs],
+    }
+    output_dir.mkdir(parents=True, exist_ok=True)
+    _write_json_roundtrip(output_dir / "preflight.json", payload)
+
+
+def _write_json_roundtrip(path: Path, payload: Any) -> None:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    text = json.dumps(payload, ensure_ascii=False, indent=2)
+    path.write_text(text, encoding="utf-8")
+    loaded = json.loads(path.read_text(encoding="utf-8"))
+    if loaded != payload:
+        raise RuntimeError(f"UTF8_JSON_ROUNDTRIP_FAILED: {path}")
+
+
+def process_due_source_acquisition_reruns(
+    *,
+    output_root: str | Path | None = None,
+    service: ScenarioRunService | None = None,
+    limit: int = 20,
+) -> dict[str, Any]:
+    """Resume scenarios whose missing-source retry window has a due retry.
+
+    Configuration-missing jobs intentionally do not enter this path: they are
+    waiting for an external URL/path/key change and should not consume attempts.
+    """
+
+    root = resolve_scenario_output_root(str(output_root) if output_root is not None else None)
+    runner = service or scenario_run_service
+    now = datetime.now(timezone.utc)
+    summary: dict[str, Any] = {
+        "scanned": 0,
+        "queued": 0,
+        "rerun": 0,
+        "retry_exhausted": 0,
+        "skipped": 0,
+        "failed": 0,
+        "records": [],
+    }
+    if not root.exists():
+        return summary
+
+    for scenario_dir in sorted(root.glob("scenario*")):
+        if summary["queued"] >= max(0, int(limit)):
+            break
+        if not scenario_dir.is_dir():
+            continue
+        jobs_path = scenario_dir / "source_acquisition_jobs.json"
+        scenario_summary_path = scenario_dir / "scenario_summary.json"
+        if not jobs_path.exists() or not scenario_summary_path.exists():
+            continue
+        summary["scanned"] += 1
+        try:
+            jobs = json.loads(jobs_path.read_text(encoding="utf-8"))
+            scenario_summary = json.loads(scenario_summary_path.read_text(encoding="utf-8"))
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError) as exc:
+            summary["failed"] += 1
+            summary["records"].append(
+                {"scenario_id": scenario_dir.name, "status": "failed", "error": f"{type(exc).__name__}: {exc}"}
+            )
+            continue
+        if not isinstance(jobs, list):
+            summary["skipped"] += 1
+            continue
+
+        due_jobs, expired_jobs = _due_source_retry_jobs(jobs, now=now)
+        scenario_id = str(scenario_summary.get("scenario_id") or scenario_dir.name)
+        if expired_jobs and not due_jobs:
+            updated_jobs = _mark_retry_exhausted_jobs(jobs, expired_jobs)
+            scenario_summary["source_acquisition_jobs"] = updated_jobs
+            scenario_summary["rerun_status"] = {"state": ScenarioPhase.retry_exhausted.value}
+            _write_json_roundtrip(jobs_path, updated_jobs)
+            _write_json_roundtrip(scenario_summary_path, scenario_summary)
+            summary["retry_exhausted"] += 1
+            summary["records"].append({"scenario_id": scenario_id, "status": ScenarioPhase.retry_exhausted.value})
+            continue
+        if not due_jobs:
+            summary["skipped"] += 1
+            continue
+
+        scenario_summary["rerun_status"] = {
+            "state": ScenarioPhase.full_rerun_queued.value,
+            "queued_at": now.isoformat(),
+            "due_source_ids": [str(job.get("source_id") or "") for job in due_jobs],
+        }
+        _write_json_roundtrip(scenario_summary_path, scenario_summary)
+        summary["queued"] += 1
+        try:
+            response = runner.resume_scenario_run(scenario_id, retry_failed=True)
+        except Exception as exc:  # noqa: BLE001
+            summary["failed"] += 1
+            summary["records"].append(
+                {"scenario_id": scenario_id, "status": "failed", "error": f"{type(exc).__name__}: {exc}"}
+            )
+            continue
+        summary["rerun"] += 1
+        summary["records"].append(
+            {
+                "scenario_id": scenario_id,
+                "status": "rerun_started",
+                "phase": response.phase.value,
+                "child_run_ids": response.child_run_ids,
+            }
+        )
+    return summary
+
+
+def _due_source_retry_jobs(jobs: list[Any], *, now: datetime) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    due: list[dict[str, Any]] = []
+    expired: list[dict[str, Any]] = []
+    for raw_job in jobs:
+        if not isinstance(raw_job, dict):
+            continue
+        if str(raw_job.get("status") or "").strip().lower() != SCENARIO_SOURCE_RETRY_STATUS:
+            continue
+        expires_at = _parse_iso_time(raw_job.get("retry_window_expires_at"))
+        if expires_at is not None and expires_at <= now:
+            expired.append(raw_job)
+            continue
+        next_retry_at = _parse_iso_time(raw_job.get("next_retry_at"))
+        if next_retry_at is None or next_retry_at <= now:
+            due.append(raw_job)
+    return due, expired
+
+
+def _mark_retry_exhausted_jobs(jobs: list[Any], expired_jobs: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    expired_ids = {str(job.get("job_id") or "") for job in expired_jobs}
+    updated: list[dict[str, Any]] = []
+    for raw_job in jobs:
+        if not isinstance(raw_job, dict):
+            continue
+        job = dict(raw_job)
+        if str(job.get("job_id") or "") in expired_ids:
+            job["status"] = ScenarioPhase.retry_exhausted.value
+        updated.append(job)
+    return updated
+
+
+def _parse_iso_time(value: Any) -> datetime | None:
+    if not isinstance(value, str) or not value.strip():
+        return None
+    try:
+        parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
 
 
 def _initial_checkpoint(
@@ -828,6 +1138,8 @@ def _resume_result_is_failed(result: dict[str, Any]) -> bool:
 
 
 def _resume_result_should_launch(result: dict[str, Any], *, retry_failed: bool) -> bool:
+    if str(result.get("phase")) == ScenarioPhase.partial_provisional.value:
+        return True
     if _resume_result_is_failed(result):
         return retry_failed
     if not result.get("run_id"):
@@ -914,6 +1226,39 @@ def _queued_child_run_for_spec(spec: ScenarioChildRunSpec) -> dict[str, Any]:
     }
 
 
+def _failed_child_run_for_spec(spec: ScenarioChildRunSpec, *, error: str) -> dict[str, Any]:
+    result = _queued_child_run_for_spec(spec)
+    result.update(
+        {
+            "phase": ScenarioPhase.failed.value,
+            "error": error,
+            "failure_code": _classify_error_code(error),
+            "next_action": _next_action_for_error(error),
+        }
+    )
+    return result
+
+
+def _timed_out_child_result(result: dict[str, Any], *, timeout_seconds: float) -> dict[str, Any]:
+    timed_out = dict(result)
+    timed_out["phase"] = RunPhase.failed.value
+    timed_out["error"] = f"CHILD_RUN_TIMEOUT: child run exceeded {timeout_seconds:g}s without terminal status"
+    timed_out["failure_code"] = "CHILD_RUN_TIMEOUT"
+    timed_out["next_action"] = "Inspect child run logs, source materialization attempts, and worker health."
+    return timed_out
+
+
+def _terminalize_background_child_result(result: dict[str, Any], *, error: str) -> dict[str, Any]:
+    if str(result.get("phase")) in TERMINAL_CHILD_PHASES:
+        return result
+    terminal = dict(result)
+    terminal["phase"] = ScenarioPhase.failed.value
+    terminal["error"] = error
+    terminal["failure_code"] = "SCENARIO_BACKGROUND_ERROR"
+    terminal["next_action"] = "Inspect scenario logs and retry after fixing the background exception."
+    return terminal
+
+
 def _scenario_child_max_workers() -> int:
     try:
         return max(1, int(os.getenv("GEOFUSION_SCENARIO_CHILD_MAX_WORKERS", "1")))
@@ -925,15 +1270,41 @@ def _phase_from_child_results(child_results: list[dict[str, Any]]) -> ScenarioPh
     if not child_results:
         return ScenarioPhase.failed
     phases = [str(result.get("phase")) for result in child_results]
-    if any(phase not in {RunPhase.succeeded.value, RunPhase.failed.value, ScenarioPhase.failed.value} for phase in phases):
+    if any(phase not in TERMINAL_CHILD_PHASES for phase in phases):
         return ScenarioPhase.running
+    if any(phase == ScenarioPhase.awaiting_external_config.value for phase in phases):
+        return ScenarioPhase.awaiting_external_config
+    if any(phase == ScenarioPhase.source_retrying.value for phase in phases):
+        return ScenarioPhase.source_retrying
+    if any(phase == ScenarioPhase.full_rerun_queued.value for phase in phases):
+        return ScenarioPhase.full_rerun_queued
+    if any(phase == ScenarioPhase.partial_provisional.value for phase in phases):
+        return ScenarioPhase.partial_provisional
+    if all(phase == ScenarioPhase.superseded.value for phase in phases):
+        return ScenarioPhase.superseded
+    if any(phase == ScenarioPhase.retry_exhausted.value for phase in phases):
+        return ScenarioPhase.retry_exhausted
     if all(phase == RunPhase.succeeded.value for phase in phases):
         if any(_child_degradation(result).get("state") == "degraded" for result in child_results):
             return ScenarioPhase.partial
         return ScenarioPhase.succeeded
-    if all(phase == RunPhase.failed.value or phase == ScenarioPhase.failed.value for phase in phases):
+    if all(phase in {RunPhase.failed.value, ScenarioPhase.failed.value, "cancelled", "skipped"} for phase in phases):
         return ScenarioPhase.failed
     return ScenarioPhase.partial
+
+
+def _is_flood_request(request: ScenarioRunRequest) -> bool:
+    disaster_type = str(request.disaster_type or "").strip().casefold().replace("-", "_")
+    if disaster_type in {"flood", "heavy_rainfall", "rainstorm"}:
+        return True
+    text = " ".join([request.scenario_name, request.trigger_content]).casefold()
+    return any(token in text for token in ("flood", "heavy rainfall", "heavy_rainfall", "rainstorm", "洪涝", "洪水", "内涝", "强降雨", "暴雨"))
+
+
+def _expected_child_count_for_request(request: ScenarioRunRequest, *, mission_child_count: int) -> int:
+    if _is_flood_request(request):
+        return FLOOD_EXPECTED_CHILD_COUNT
+    return mission_child_count
 
 
 def _source_coverage_from_children(child_results: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -962,6 +1333,135 @@ def _source_coverage_from_children(child_results: list[dict[str, Any]]) -> list[
     return items
 
 
+def _source_acquisition_jobs_from_children(
+    *,
+    scenario_id: str,
+    child_results: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    jobs: list[dict[str, Any]] = []
+    now = datetime.now(timezone.utc)
+    for result in child_results:
+        run_id = str(result.get("run_id") or "")
+        task_kind = result.get("task_kind") or result.get("job_type")
+        for attempt in _source_attempts_for_child(result):
+            source_id = str(attempt.get("source_id") or "").strip()
+            if not source_id:
+                continue
+            status = _source_job_status(attempt)
+            if status == "available":
+                continue
+            retry_after = _safe_int(attempt.get("next_retry_after_seconds"), default=None)
+            next_retry_at = (now + timedelta(seconds=retry_after)).isoformat() if retry_after is not None else None
+            job = {
+                "job_id": f"{scenario_id}:{run_id or task_kind}:{source_id}",
+                "scenario_id": scenario_id,
+                "run_id": run_id or None,
+                "task_kind": task_kind,
+                "source_id": source_id,
+                "status": status,
+                "attempt": _safe_int(attempt.get("attempt_no"), default=0) or 0,
+                "next_retry_at": next_retry_at,
+                "retry_window_expires_at": (now + timedelta(hours=24)).isoformat(),
+                "fault_class": attempt.get("fault_class"),
+                "fault_message": attempt.get("fault_message"),
+                "missing_config": _missing_config_for_source(source_id) if status == "awaiting_external_config" else [],
+                "metadata": dict(attempt.get("metadata") or {}) if isinstance(attempt.get("metadata"), dict) else {},
+            }
+            jobs.append(job)
+    return jobs
+
+
+def _source_attempts_for_child(result: dict[str, Any]) -> list[dict[str, Any]]:
+    attempts: list[dict[str, Any]] = []
+    for event in result.get("audit_events") or []:
+        details = getattr(event, "details", {}) or {}
+        if not isinstance(details, dict):
+            continue
+        raw_attempts = details.get("source_attempts") or details.get("provider_attempts")
+        explicit_source_ids: set[str] = set()
+        if isinstance(raw_attempts, list):
+            for item in raw_attempts:
+                if not isinstance(item, dict):
+                    continue
+                attempt = dict(item)
+                source_id = str(attempt.get("source_id") or "").strip()
+                if source_id:
+                    explicit_source_ids.add(source_id)
+                attempt["_explicit_attempt"] = True
+                attempts.append(attempt)
+        coverage = details.get("component_coverage")
+        if isinstance(coverage, dict):
+            for source_id, payload in coverage.items():
+                if not isinstance(payload, dict):
+                    continue
+                if str(source_id) in explicit_source_ids:
+                    continue
+                status = str(payload.get("coverage_status") or "").strip().lower()
+                if status in {"", "available"}:
+                    continue
+                attempts.append(
+                    {
+                        "source_id": source_id,
+                        "status": status,
+                        "attempt_no": 0,
+                        "fault_class": payload.get("fault_class"),
+                        "fault_message": payload.get("error"),
+                        "coverage_status": status,
+                    }
+                )
+    deduped: dict[tuple[str, str], dict[str, Any]] = {}
+    for attempt in attempts:
+        key = (str(attempt.get("source_id") or ""), str(attempt.get("status") or attempt.get("coverage_status") or ""))
+        attempt.pop("_explicit_attempt", None)
+        deduped[key] = attempt
+    return list(deduped.values())
+
+
+def _source_job_status(attempt: dict[str, Any]) -> str:
+    status = str(attempt.get("status") or attempt.get("coverage_status") or "").strip().lower()
+    fault_class = str(attempt.get("fault_class") or "").strip().upper()
+    if status == "awaiting_external_config" or fault_class == "CONFIG_MISSING":
+        return "awaiting_external_config"
+    if status in {"coverage_empty", "empty"}:
+        return "coverage_empty"
+    if status in {"network_failed", "failed"} and bool(attempt.get("recoverable", True)):
+        return "source_retrying"
+    if status in {"provider_failed", "missing", "no_coverage", "unauthorized", "internal_failed"}:
+        return status
+    return status or "unknown"
+
+
+def _rerun_status_from_source_jobs(jobs: list[dict[str, Any]]) -> dict[str, Any]:
+    if not jobs:
+        return {"state": "not_required"}
+    if any(job.get("status") == "awaiting_external_config" for job in jobs):
+        return {"state": "awaiting_external_config"}
+    if any(job.get("status") == "source_retrying" for job in jobs):
+        return {"state": "source_retrying"}
+    if any(job.get("status") == "coverage_empty" for job in jobs):
+        return {"state": "partial_provisional"}
+    return {"state": "source_retrying"}
+
+
+def _missing_config_for_source(source_id: str) -> list[str]:
+    if source_id in {"raw.google.building", "raw.google.open_buildings.vector"}:
+        return ["google_open_buildings_urls"]
+    if source_id == "raw.google.poi":
+        return ["GOOGLE_PLACES_API_KEY", "google_poi_authorization_manifest"]
+    if "raster" in source_id:
+        return ["GEOFUSION_HEIGHT_RASTER_PATHS", "GEOFUSION_HEIGHT_RASTER_URLS"]
+    return []
+
+
+def _safe_int(value: Any, *, default: int | None) -> int | None:
+    if value is None:
+        return default
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return default
+
+
 def _component_coverage_state(component_coverage: Any) -> tuple[str, list[str]]:
     if not isinstance(component_coverage, dict) or not component_coverage:
         return "unknown", []
@@ -976,25 +1476,94 @@ def _component_coverage_state(component_coverage: Any) -> tuple[str, list[str]]:
                 feature_count = int(raw_count) if raw_count is not None else None
             except (TypeError, ValueError):
                 feature_count = None
-        if coverage_status in {"empty", "missing", "missing_optional_ref", "coverage_empty"} or feature_count == 0:
+        if coverage_status in {"empty", "missing", "missing_optional_ref", "coverage_empty", "awaiting_external_config"} or feature_count == 0:
             degraded.append(str(source_id))
     return ("degraded" if degraded else "available", sorted(degraded))
 
 
 def _child_degradation(result: dict[str, Any]) -> dict[str, Any]:
     degraded_components: set[str] = set()
+    awaiting_config: set[str] = set()
+    coverage_empty: set[str] = set()
     for event in result.get("audit_events") or []:
         if event.kind != "task_inputs_resolved":
             continue
-        _state, components = _component_coverage_state(event.details.get("component_coverage", {}))
+        coverage = event.details.get("component_coverage", {})
+        _state, components = _component_coverage_state(coverage)
         degraded_components.update(components)
+        if isinstance(coverage, dict):
+            for source_id, payload in coverage.items():
+                if not isinstance(payload, dict):
+                    continue
+                status = str(payload.get("coverage_status") or "").strip().lower()
+                if status == "awaiting_external_config":
+                    awaiting_config.add(str(source_id))
+                if status == "coverage_empty" or int(payload.get("feature_count") or 0) == 0:
+                    coverage_empty.add(str(source_id))
     if not degraded_components:
         return {"state": "none", "reason_code": None, "degraded_component_source_ids": []}
     return {
         "state": "degraded",
         "reason_code": "PARTIAL_SOURCE_COVERAGE",
         "degraded_component_source_ids": sorted(degraded_components),
+        "awaiting_external_config_source_ids": sorted(awaiting_config),
+        "coverage_empty_source_ids": sorted(coverage_empty),
     }
+
+
+def _mark_child_result_provisional_if_degraded(result: dict[str, Any]) -> dict[str, Any]:
+    if str(result.get("phase")) != RunPhase.succeeded.value or not result.get("artifact_path"):
+        return result
+    degradation = _child_degradation(result)
+    if degradation.get("state") != "degraded":
+        return result
+    if str(result.get("task_family") or result.get("task_kind") or "") != "building":
+        return result
+    provisional = dict(result)
+    provisional["phase"] = ScenarioPhase.partial_provisional.value
+    provisional["provisional"] = True
+    provisional["fusion_mode"] = "single_source_degraded"
+    provisional["missing_sources"] = degradation.get("degraded_component_source_ids", [])
+    provisional["retry_status"] = (
+        "awaiting_external_config"
+        if degradation.get("awaiting_external_config_source_ids")
+        else "source_retrying"
+    )
+    return provisional
+
+
+def _superseded_outputs(
+    previous_child_results: list[dict[str, Any]],
+    current_child_results: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    superseded: list[dict[str, Any]] = []
+    for old in previous_child_results:
+        if str(old.get("phase")) != ScenarioPhase.partial_provisional.value:
+            continue
+        task_key = old.get("task_kind") or old.get("job_type")
+        replacement = next(
+            (
+                result
+                for result in current_child_results
+                if (result.get("task_kind") or result.get("job_type")) == task_key
+                and result.get("run_id")
+                and result.get("run_id") != old.get("run_id")
+                and str(result.get("phase")) == RunPhase.succeeded.value
+            ),
+            None,
+        )
+        if replacement is None:
+            continue
+        superseded.append(
+            {
+                "run_id": old.get("run_id"),
+                "task_kind": task_key,
+                "artifact_path": old.get("artifact_path"),
+                "phase": ScenarioPhase.superseded.value,
+                "superseded_by": replacement.get("run_id"),
+            }
+        )
+    return superseded
 
 
 def _data_fusion_metrics_for_child(result: dict[str, Any]) -> dict[str, Any]:
@@ -1102,16 +1671,67 @@ def _durable_learning_summary(plan) -> dict[str, Any]:
 
 
 def _child_summary(result: dict[str, Any]) -> dict[str, Any]:
-    return {
+    error = result.get("error")
+    code = str(result.get("failure_code") or _classify_error_code(error))
+    summary = {
         "run_id": result.get("run_id"),
         "job_type": result.get("job_type"),
         "task_kind": result.get("task_kind") or result.get("job_type"),
         "task_family": result.get("task_family") or result.get("job_type"),
         "phase": result.get("phase"),
         "artifact_path": str(result.get("artifact_path")) if result.get("artifact_path") else None,
-        "error": result.get("error"),
+        "error": error,
+        "error_code": code if error else None,
+        "next_action": result.get("next_action") or (_next_action_for_error(error) if error else None),
         "degradation": _child_degradation(result),
     }
+    for key in ("provisional", "fusion_mode", "missing_sources", "retry_status", "supersedes"):
+        if key in result:
+            summary[key] = result[key]
+    return summary
+
+
+def _classify_error_code(error: Any) -> str:
+    text = str(error or "").strip()
+    lowered = text.casefold()
+    if not text:
+        return ""
+    if "config_missing" in lowered or "dependency file" in lowered or "依赖.txt" in lowered:
+        return "CONFIG_MISSING"
+    if "port_conflict" in lowered or "port" in lowered and "occupied" in lowered:
+        return "PORT_CONFLICT"
+    if "aoi_resolution_required" in lowered:
+        return "AOI_RESOLUTION_REQUIRED"
+    if "aoi_resolution_failed" in lowered or "no aoi candidates" in lowered:
+        return "AOI_RESOLUTION_FAILED"
+    if "geocoder" in lowered and ("timeout" in lowered or "timed out" in lowered):
+        return "GEOCODER_TIMEOUT"
+    if "child_run_timeout" in lowered:
+        return "CHILD_RUN_TIMEOUT"
+    if "missing_required_source" in lowered:
+        return "MISSING_REQUIRED_SOURCE"
+    if "source_fetch_timeout" in lowered:
+        return "SOURCE_FETCH_TIMEOUT"
+    if "source_download_failed" in lowered and ("timeout" in lowered or "timed out" in lowered):
+        return "SOURCE_FETCH_TIMEOUT"
+    if "source_missing" in lowered or "source_missing" in text or "missing" in lowered and "source" in lowered:
+        return "MISSING_REQUIRED_SOURCE"
+    return text.split(":", 1)[0] if ":" in text and text.split(":", 1)[0].isupper() else "ALGO_RUNTIME_ERROR"
+
+
+def _next_action_for_error(error: Any) -> str:
+    code = _classify_error_code(error)
+    actions = {
+        "CONFIG_MISSING": "Fill 依赖.txt or switch to --mode fast for memory/mock/eager execution.",
+        "PORT_CONFLICT": "Stop the conflicting service, pass --auto-port, or choose another --port.",
+        "AOI_RESOLUTION_REQUIRED": "Provide spatial_extent=bbox(minx,miny,maxx,maxy) or a resolvable location.",
+        "AOI_RESOLUTION_FAILED": "Use a more specific location, cached geocoder, or explicit spatial_extent.",
+        "GEOCODER_TIMEOUT": "Retry later, use fake/cached geocoding, or provide explicit spatial_extent.",
+        "SOURCE_FETCH_TIMEOUT": "Prefetch sources with scripts/materialize_source_assets.py or retry with a larger source timeout.",
+        "MISSING_REQUIRED_SOURCE": "Materialize or configure the required raw source before rerunning.",
+        "CHILD_RUN_TIMEOUT": "Inspect child run logs, source provider attempts, and worker health before retrying.",
+    }
+    return actions.get(code, "Inspect workflow_trace.json and child run logs, then rerun after fixing the root cause.")
 
 
 def _task_identity(

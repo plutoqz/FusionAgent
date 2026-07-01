@@ -135,13 +135,14 @@ class RasterHeightSourceService:
                 attempts.append(attempt)
                 continue
             except FileNotFoundError as exc:
+                missing_config = "No configured local path or URL" in str(exc)
                 coverage, attempt = self._failed_evidence(
                     source_id,
                     attempt_no=attempt_no,
-                    fault_class="SOURCE_MISSING",
+                    fault_class="CONFIG_MISSING" if missing_config else "SOURCE_MISSING",
                     fault_message=str(exc),
-                    source_mode="missing_optional_height_raster",
-                    status="no_coverage",
+                    source_mode="awaiting_external_config" if missing_config else "missing_optional_height_raster",
+                    status="awaiting_external_config" if missing_config else "no_coverage",
                 )
                 component_coverage[source_id] = coverage
                 attempts.append(attempt)
@@ -330,11 +331,12 @@ class RasterHeightSourceService:
             "UNAUTHORIZED",
             "SOURCE_MISSING",
         }
+        coverage_status = "awaiting_external_config" if fault_class == "CONFIG_MISSING" else "missing"
         coverage = {
             "source_id": source_id,
             "source_mode": source_mode,
             "feature_count": 0,
-            "coverage_status": "missing",
+            "coverage_status": coverage_status,
             "path": None,
             "error": fault_message,
             "fault_class": fault_class,
@@ -350,7 +352,7 @@ class RasterHeightSourceService:
             attempt_no=attempt_no,
             fault_class=fault_class,
             fault_message=fault_message,
-            coverage_status="missing",
+            coverage_status=coverage_status,
             feature_count=0,
             selected_for_fusion=False,
             external_uncontrollable=external,

@@ -362,6 +362,24 @@ def _resolved_nairobi_aoi() -> ResolvedAOI:
     )
 
 
+def _resolved_aoi_with_boundary(boundary_path: Path) -> ResolvedAOI:
+    return ResolvedAOI(
+        query="Fixture City",
+        display_name="Fixture City, Testland",
+        country_name="Testland",
+        country_code="tl",
+        bbox=(0.0, 0.0, 10.0, 10.0),
+        confidence=0.99,
+        selection_reason="test_fixture",
+        candidates=(),
+        admin_level="city",
+        boundary_source_id="raw.osm.admin_boundary",
+        boundary_artifact_path=str(boundary_path),
+        clip_geometry_hash="fixture-boundary-hash",
+        degraded_bbox_clip=False,
+    )
+
+
 def _extract_bounds(bundle_zip: Path, *, output_crs: str = "EPSG:4326") -> list[float]:
     extract_dir = bundle_zip.parent / f"extract_{bundle_zip.stem}"
     with zipfile.ZipFile(bundle_zip, "r") as zf:
@@ -441,6 +459,64 @@ def test_input_acquisition_reuses_cached_bundle_when_version_matches_and_clips_t
     )
     assert records
     assert records[0].artifact_role == "input_bundle"
+
+
+def test_input_acquisition_clips_cached_bundle_to_admin_boundary_polygon(tmp_path: Path) -> None:
+    from services.input_acquisition_service import InputAcquisitionService
+
+    boundary_path = tmp_path / "boundary.gpkg"
+    gpd.GeoDataFrame(
+        {"name": ["Fixture City"]},
+        geometry=[
+            Polygon(
+                [
+                    (0, 0),
+                    (0, 10),
+                    (5, 10),
+                    (5, 5),
+                    (10, 5),
+                    (10, 0),
+                    (0, 0),
+                ]
+            )
+        ],
+        crs="EPSG:4326",
+    ).to_file(boundary_path, driver="GPKG")
+    resolved_aoi = _resolved_aoi_with_boundary(boundary_path)
+    registry = ArtifactRegistry(index_path=tmp_path / "artifact_registry.json")
+    provider = _StubBundleProvider(version_token="v-admin")
+    service = InputAcquisitionService(registry=registry, providers=[provider], cache_dir=tmp_path / "cache")
+
+    initial = service.resolve_task_driven_inputs(
+        request=_build_request(),
+        source_id="catalog.task.building.default",
+        required_output_type="dt.building.bundle",
+        input_dir=tmp_path / "run1",
+        request_bbox=resolved_aoi.bbox,
+        resolved_aoi=resolved_aoi,
+    )
+    reused = service.resolve_task_driven_inputs(
+        request=_build_request(),
+        source_id="catalog.task.building.default",
+        required_output_type="dt.building.bundle",
+        input_dir=tmp_path / "run2",
+        request_bbox=resolved_aoi.bbox,
+        resolved_aoi=resolved_aoi,
+    )
+
+    assert initial.source_mode == "downloaded"
+    assert reused.source_mode == "cache_reused"
+    assert provider.download_calls == 1
+    assert _extract_bounds(initial.osm_zip_path) == [0.0, 0.0, 10.0, 10.0]
+    assert initial.manifest_path is not None
+    assert reused.manifest_path is not None
+    initial_manifest = json.loads(initial.manifest_path.read_text(encoding="utf-8"))
+    reused_manifest = json.loads(reused.manifest_path.read_text(encoding="utf-8"))
+    assert initial_manifest["clip_geometry_hash"] == "fixture-boundary-hash"
+    assert initial_manifest["clip_boundary_source_id"] == "raw.osm.admin_boundary"
+    assert initial_manifest["degraded_bbox_clip"] is False
+    assert reused_manifest["clipped_to_aoi"] is True
+    assert reused_manifest["clip_geometry_hash"] == "fixture-boundary-hash"
 
 
 def test_input_acquisition_redownloads_bundle_when_cached_version_is_stale(tmp_path: Path) -> None:

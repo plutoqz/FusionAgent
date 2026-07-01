@@ -49,6 +49,8 @@ broker_url = os.getenv("GEOFUSION_CELERY_BROKER", "redis://localhost:6379/0")
 result_backend = os.getenv("GEOFUSION_CELERY_BACKEND", broker_url)
 always_eager = _as_bool(os.getenv("GEOFUSION_CELERY_EAGER", "1"))
 scheduler_enabled = _as_bool(os.getenv("GEOFUSION_SCHEDULER_ENABLED", "1"))
+if always_eager and str(result_backend).strip().lower() == "cache+memory://":
+    result_backend = "rpc://"
 
 try:
     from celery import Celery as _Celery  # type: ignore

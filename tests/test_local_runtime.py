@@ -12,7 +12,9 @@ from utils.local_runtime import (
     DependencyConfigError,
     apply_local_dependency_defaults,
     apply_runtime_entrypoint_defaults,
+    build_local_runtime_env_defaults,
     find_missing_runtime_dependencies,
+    read_dotenv_defaults,
     read_local_dependency_config,
 )
 from scripts.start_local import _build_env, _prepare_neo4j
@@ -198,8 +200,8 @@ def test_build_env_supports_isolated_runtime_roots_and_redis_db(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setattr(
-        "scripts.start_local.apply_local_dependency_defaults",
-        lambda required=True: {
+        "scripts.start_local.build_local_runtime_env_defaults",
+        lambda mode="full", require_dependency_file=True: {
             "GEOFUSION_CELERY_BROKER": "redis://localhost:6380/0",
             "GEOFUSION_CELERY_BACKEND": "redis://localhost:6380/0",
             "GEOFUSION_LLM_MODEL": "qwen-test",
@@ -219,6 +221,64 @@ def test_build_env_supports_isolated_runtime_roots_and_redis_db(
     assert env["GEOFUSION_CELERY_BACKEND"] == "redis://localhost:6380/7"
     assert env["GEOFUSION_RECOVERY_ENABLED"] == "0"
     assert env["GEOFUSION_SCHEDULER_ENABLED"] == "0"
+
+
+def test_fast_mode_env_defaults_do_not_require_dependency_file(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("GEOFUSION_DEPENDENCY_FILE", str(Path("missing-dependency-file.txt").resolve()))
+
+    env = _build_env(8021, mode="fast")
+
+    assert env["GEOFUSION_KG_BACKEND"] == "memory"
+    assert env["GEOFUSION_LLM_PROVIDER"] == "mock"
+    assert env["GEOFUSION_CELERY_EAGER"] == "1"
+    assert env["PYTHONUTF8"] == "1"
+    assert env["PYTHONIOENCODING"] == "utf-8"
+
+
+def test_runtime_defaults_precedence_env_dependency_dotenv_mode(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    dependency_file = tmp_path / "依赖.txt"
+    dependency_file.write_text(
+        "\n".join(
+            [
+                "Redis端口:6388",
+                "Neo4j用户名:neo4j",
+                "Neo4j密码:from-dependency",
+                "api-key:sk-dependency",
+                'base_url="https://dependency.example/v1"',
+            ]
+        ),
+        encoding="utf-8",
+    )
+    dotenv_file = tmp_path / ".env"
+    dotenv_file.write_text(
+        "\n".join(
+            [
+                "GEOFUSION_LLM_PROVIDER=mock",
+                "GEOFUSION_NEO4J_PASSWORD=from-dotenv",
+                "GEOFUSION_CELERY_EAGER=1",
+            ]
+        ),
+        encoding="utf-8",
+    )
+    monkeypatch.setenv("GEOFUSION_LLM_PROVIDER", "env-provider")
+
+    defaults = build_local_runtime_env_defaults(
+        mode="full",
+        dependency_path=dependency_file,
+        dotenv_path=dotenv_file,
+        require_dependency_file=True,
+    )
+    env = os.environ.copy()
+    for key, value in defaults.items():
+        env.setdefault(key, value)
+
+    assert defaults["GEOFUSION_NEO4J_PASSWORD"] == "from-dependency"
+    assert defaults["GEOFUSION_CELERY_EAGER"] == "1"
+    assert env["GEOFUSION_LLM_PROVIDER"] == "env-provider"
+    assert read_dotenv_defaults(dotenv_file)["GEOFUSION_NEO4J_PASSWORD"] == "from-dotenv"
 
 
 def test_celery_beat_schedule_can_be_disabled_for_isolated_runtime(tmp_path: Path) -> None:

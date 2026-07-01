@@ -105,6 +105,24 @@ def _resolved_nairobi_aoi() -> ResolvedAOI:
     )
 
 
+def _resolved_aoi_with_boundary(boundary_path: Path) -> ResolvedAOI:
+    return ResolvedAOI(
+        query="Fixture City",
+        display_name="Fixture City, Testland",
+        country_name="Testland",
+        country_code="tl",
+        bbox=(0.0, 0.0, 10.0, 10.0),
+        confidence=0.99,
+        selection_reason="test_fixture",
+        candidates=(),
+        admin_level="city",
+        boundary_source_id="raw.osm.admin_boundary",
+        boundary_artifact_path=str(boundary_path),
+        clip_geometry_hash="fixture-boundary-hash",
+        degraded_bbox_clip=False,
+    )
+
+
 def test_raw_vector_source_service_supports_directory_exact_and_recursive_locators() -> None:
     script = textwrap.dedent(
         """
@@ -238,6 +256,61 @@ def test_raw_vector_source_service_reuses_cached_sources_when_version_matches_an
     assert len(raw_records) == 1
     assert raw_records[0].get("artifact_role") == "raw_source"
     assert raw_records[0]["meta"]["legacy_artifact_role"] == "raw_vector"
+
+
+def test_raw_vector_source_service_clips_to_admin_boundary_polygon(tmp_path: Path) -> None:
+    source_path = tmp_path / "Data" / "buildings" / "OSM" / "osm_buildings.shp"
+    _write_frame(
+        source_path,
+        gpd.GeoDataFrame(
+            {"osm_id": [1, 2]},
+            geometry=[
+                Polygon([(1, 1), (1, 2), (2, 2), (2, 1)]),
+                Polygon([(8, 8), (8, 9), (9, 9), (9, 8)]),
+            ],
+            crs="EPSG:4326",
+        ),
+    )
+    boundary_path = tmp_path / "boundary.gpkg"
+    _write_frame(
+        boundary_path,
+        gpd.GeoDataFrame(
+            {"name": ["Fixture City"]},
+            geometry=[
+                Polygon(
+                    [
+                        (0, 0),
+                        (0, 10),
+                        (5, 10),
+                        (5, 5),
+                        (10, 5),
+                        (10, 0),
+                        (0, 0),
+                    ]
+                )
+            ],
+            crs="EPSG:4326",
+        ),
+    )
+    resolved_aoi = _resolved_aoi_with_boundary(boundary_path)
+    registry = ArtifactRegistry(index_path=tmp_path / "artifact_registry.json")
+    service = RawVectorSourceService(root_dir=tmp_path, registry=registry, cache_dir=tmp_path / "cache")
+
+    resolved = service.resolve(
+        source_id="raw.osm.building",
+        request_bbox=resolved_aoi.bbox,
+        target_path=tmp_path / "run" / "osm.zip",
+        target_crs="EPSG:4326",
+        resolved_aoi=resolved_aoi,
+    )
+
+    assert resolved.feature_count == 1
+    assert _extract_bounds(resolved.zip_path) == [1.0, 1.0, 2.0, 2.0]
+    payload = json.loads((tmp_path / "artifact_registry.json").read_text(encoding="utf-8"))
+    record = payload["records"][0]
+    assert record["meta"]["clip_geometry_hash"] == "fixture-boundary-hash"
+    assert record["meta"]["clip_boundary_source_id"] == "raw.osm.admin_boundary"
+    assert record["meta"]["degraded_bbox_clip"] is False
 
 
 def test_raw_vector_source_service_falls_back_to_source_asset_service_when_local_data_is_missing(tmp_path: Path) -> None:

@@ -55,7 +55,7 @@ from services.agent_source_infrastructure import (
 )
 from services.aoi_resolution_service import NominatimGeocoder, ResolvedAOI
 from services.data_requirement_resolver_service import DataRequirementResolverService
-from services.input_acquisition_service import ResolvedRunInputs
+from services.input_acquisition_service import ResolvedRunInputs, read_source_attempts
 from services.output_contract_service import get_domain_output_contract
 from services.plan_grounding_service import ensure_plan_grounding_report, evaluate_plan_grounding_gate
 from services.quality_gate_service import QualityGateService
@@ -1686,6 +1686,15 @@ class AgentRunService:
                 str(resolved_inputs.manifest_path) if resolved_inputs.manifest_path is not None else None
             ),
         }
+        source_attempts_path = (
+            resolved_inputs.manifest_path.parent / "source_attempts.json"
+            if resolved_inputs.manifest_path is not None
+            else None
+        )
+        source_attempts = read_source_attempts(source_attempts_path)
+        if source_attempts:
+            event_details["source_attempts"] = source_attempts
+            event_details["source_attempts_path"] = str(source_attempts_path)
         if resolved_aoi is not None:
             event_details["resolved_aoi"] = {
                 "display_name": resolved_aoi.display_name,

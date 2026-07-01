@@ -255,6 +255,7 @@ def recovery_tick() -> Dict[str, Any]:
 
     from services.agent_run_service import agent_run_service
     from services.run_recovery_executor import RunRecoveryExecutor
+    from services.scenario_run_service import process_due_source_acquisition_reruns
 
     executor = RunRecoveryExecutor(
         runs_root=agent_run_service.base_dir,
@@ -265,4 +266,8 @@ def recovery_tick() -> Dict[str, Any]:
         stale_after_seconds=_as_int_env("GEOFUSION_RECOVERY_STALE_SECONDS", "300"),
         limit=_as_int_env("GEOFUSION_RECOVERY_LIMIT", "20"),
     )
-    return {"enabled": True, **result}
+    scenario_result = process_due_source_acquisition_reruns(
+        output_root=os.getenv("GEOFUSION_SCENARIO_OUTPUT_ROOT"),
+        limit=_as_int_env("GEOFUSION_SCENARIO_RECOVERY_LIMIT", "20"),
+    )
+    return {"enabled": True, **result, "scenario_source_reruns": scenario_result}

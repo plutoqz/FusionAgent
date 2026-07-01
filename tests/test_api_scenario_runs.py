@@ -85,6 +85,7 @@ def test_scenario_preflight_expands_flood_children_and_reports_sources() -> None
     payload = response.json()
     assert response.status_code == 200
     assert payload["allowed"] is True
+    assert payload["source_readiness"]["blocked_required_source"] is False
     assert payload["decision"]["job_types"] == ["building", "road", "water", "poi"]
     assert [item["job_type"] for item in payload["child_preflights"]] == [
         "building",
@@ -108,6 +109,114 @@ def test_scenario_preflight_expands_flood_children_and_reports_sources() -> None
         "raw.osm.waterways",
         "raw.local.pakistan.waterways",
     ]
+
+
+def test_scenario_preflight_normalizes_chinese_abidjan_event_and_resolves_aoi(monkeypatch) -> None:
+    class _Resolved:
+        confidence = 0.93
+
+        def to_dict(self):
+            return {
+                "query": "Abidjan, Cote d'Ivoire",
+                "display_name": "Abidjan, Cote d'Ivoire",
+                "country_name": "Cote d'Ivoire",
+                "country_code": "ci",
+                "bbox": [-4.17, 5.18, -3.76, 5.49],
+                "confidence": 0.93,
+                "selection_reason": "single_candidate",
+                "candidates": [],
+            }
+
+    class _FakeAOIService:
+        def __init__(self, geocoder):
+            self.geocoder = geocoder
+
+        def resolve(self, query):
+            assert query == "Abidjan, Cote d'Ivoire"
+            return _Resolved()
+
+    monkeypatch.setattr(scenario_runs_router, "AOIResolutionService", _FakeAOIService)
+    client = TestClient(create_app())
+
+    response = client.post(
+        "/api/v2/scenario-runs/preflight",
+        json={
+            "scenario_name": "科特迪瓦阿比让强降雨",
+            "trigger_content": "科特迪瓦阿比让强降雨致12死5伤，请执行灾害地理空间矢量数据融合。",
+            "force_aoi_resolution": True,
+        },
+    )
+
+    payload = response.json()
+    assert response.status_code == 200
+    assert payload["allowed"] is True
+    assert payload["normalized_location"] == "Abidjan, Cote d'Ivoire"
+    assert payload["resolved_aoi"]["bbox"] == [-4.17, 5.18, -3.76, 5.49]
+    assert payload["normalized_trigger"]["disaster_type"] == "flood"
+    assert [item["task_kind"] for item in payload["child_preflights"]] == [
+        "building",
+        "road",
+        "water_polygon",
+        "waterways",
+        "poi",
+    ]
+
+
+def test_scenario_preflight_blocks_forced_unresolved_aoi(monkeypatch) -> None:
+    class _FakeAOIService:
+        def __init__(self, geocoder):
+            self.geocoder = geocoder
+
+        def resolve(self, query):
+            raise ValueError("No AOI candidates")
+
+    monkeypatch.setattr(scenario_runs_router, "AOIResolutionService", _FakeAOIService)
+    client = TestClient(create_app())
+
+    response = client.post(
+        "/api/v2/scenario-runs/preflight",
+        json={
+            "scenario_name": "unknown flood",
+            "trigger_content": "无法解析地点的洪涝灾害",
+        },
+    )
+
+    payload = response.json()
+    assert response.status_code == 200
+    assert payload["allowed"] is False
+    assert payload["aoi_error"]["code"] == "AOI_RESOLUTION_REQUIRED"
+
+
+def test_scenario_source_readiness_blocks_non_materializable_required_component() -> None:
+    child_preflights = [
+        {
+            "job_type": "building",
+            "task_kind": "building",
+            "degradation": {"state": "preflight_complete_pair_required"},
+            "component_coverage": {
+                "required_source_ids": ["raw.osm.building", "raw.microsoft.building"],
+                "partial_coverage_allowed": False,
+                "components": [
+                    {
+                        "source_id": "raw.osm.building",
+                        "local_cache_available": False,
+                        "auto_materializable": True,
+                    },
+                    {
+                        "source_id": "raw.microsoft.building",
+                        "local_cache_available": False,
+                        "auto_materializable": False,
+                    },
+                ],
+            },
+        }
+    ]
+
+    readiness = scenario_runs_router._scenario_source_readiness(child_preflights)
+
+    assert readiness["blocked_required_source"] is True
+    assert readiness["blocked_children"][0]["reason_code"] == "MISSING_REQUIRED_SOURCE"
+    assert readiness["blocked_children"][0]["missing_required_source_ids"] == ["raw.microsoft.building"]
 
 
 def test_create_scenario_run_returns_422_for_out_of_scope_request(monkeypatch):

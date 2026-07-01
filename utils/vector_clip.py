@@ -8,6 +8,7 @@ import geopandas as gpd
 from shapely.errors import GEOSException
 from shapely.geometry import LineString, MultiLineString, MultiPoint, MultiPolygon
 from shapely.geometry import box
+from shapely.ops import unary_union
 from shapely.validation import make_valid
 
 from utils.crs import normalize_target_crs
@@ -232,6 +233,39 @@ def clip_frame_to_request_bbox(
     return clipped
 
 
+def clip_frame_to_boundary_path(
+    gdf: gpd.GeoDataFrame,
+    boundary_path: Path,
+    *,
+    request_bbox: Optional[BBox] = None,
+    request_crs: str = REQUEST_BBOX_CRS,
+) -> gpd.GeoDataFrame:
+    frame = repair_frame_geometries(ensure_frame_crs(gdf, default_crs=request_crs))
+    if request_bbox is not None:
+        frame = clip_frame_to_request_bbox(frame, request_bbox, request_crs=request_crs)
+    if frame.empty:
+        return frame
+
+    boundary = gpd.read_file(boundary_path)
+    boundary = repair_frame_geometries(ensure_frame_crs(boundary, default_crs=request_crs))
+    if boundary.empty:
+        return frame.iloc[0:0].copy()
+    source_geometry_family = _infer_single_geometry_family(frame)
+    if normalize_target_crs(str(boundary.crs)) != normalize_target_crs(str(frame.crs)):
+        boundary = boundary.to_crs(frame.crs)
+    mask_geometry = _repair_geometry(unary_union([geometry for geometry in boundary.geometry if geometry is not None and not geometry.is_empty]))
+    if mask_geometry is None:
+        return frame.iloc[0:0].copy()
+
+    clipped = intersect_frame_with_geometry(frame, mask_geometry)
+    if source_geometry_family is not None:
+        clipped = _coerce_frame_to_geometry_family(clipped, source_geometry_family)
+    clipped = clipped[~clipped.geometry.is_empty & clipped.geometry.notna()].copy()
+    if clipped.empty:
+        return frame.iloc[0:0].copy()
+    return clipped
+
+
 def frame_bbox_in_crs(gdf: gpd.GeoDataFrame, *, bbox_crs: str = REQUEST_BBOX_CRS) -> Optional[BBox]:
     if gdf.empty:
         return None
@@ -256,6 +290,32 @@ def clip_zip_to_request_bbox(
     shp_path = validate_zip_has_shapefile(source_zip, extract_dir)
     gdf = gpd.read_file(shp_path)
     clipped = clip_frame_to_request_bbox(gdf, request_bbox, request_crs=request_crs)
+
+    out_dir = output_zip.parent / f"_clip_dst_{source_zip.stem}_{uuid.uuid4().hex[:8]}"
+    out_dir.mkdir(parents=True, exist_ok=True)
+    clipped_shp = out_dir / shp_path.name
+    clipped.to_file(clipped_shp)
+    return zip_shapefile_bundle(clipped_shp, output_zip)
+
+
+def clip_zip_to_boundary_path(
+    source_zip: Path,
+    output_zip: Path,
+    *,
+    boundary_path: Path,
+    request_bbox: Optional[BBox] = None,
+    request_crs: str = REQUEST_BBOX_CRS,
+) -> Path:
+    output_zip.parent.mkdir(parents=True, exist_ok=True)
+    extract_dir = output_zip.parent / f"_clip_src_{source_zip.stem}_{uuid.uuid4().hex[:8]}"
+    shp_path = validate_zip_has_shapefile(source_zip, extract_dir)
+    gdf = gpd.read_file(shp_path)
+    clipped = clip_frame_to_boundary_path(
+        gdf,
+        boundary_path,
+        request_bbox=request_bbox,
+        request_crs=request_crs,
+    )
 
     out_dir = output_zip.parent / f"_clip_dst_{source_zip.stem}_{uuid.uuid4().hex[:8]}"
     out_dir.mkdir(parents=True, exist_ok=True)

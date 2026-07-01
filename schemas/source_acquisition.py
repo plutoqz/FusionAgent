@@ -21,3 +21,19 @@ class SourceAcquisitionAttempt(BaseModel):
     skill_name: str | None = None
     capability: str | None = None
     metadata: dict[str, object] = Field(default_factory=dict)
+
+
+class SourceAcquisitionJob(BaseModel):
+    job_id: str
+    scenario_id: str | None = None
+    run_id: str | None = None
+    source_id: str
+    status: str
+    attempt: int = 0
+    next_retry_at: str | None = None
+    retry_window_expires_at: str | None = None
+    fault_class: str | None = None
+    fault_message: str | None = None
+    missing_config: list[str] = Field(default_factory=list)
+    superseded_by: str | None = None
+    metadata: dict[str, object] = Field(default_factory=dict)

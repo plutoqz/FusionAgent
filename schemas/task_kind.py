@@ -47,9 +47,12 @@ _TASK_KIND_OUTPUT_TYPES: dict[TaskKind, str] = {
 
 # Compatibility bridge for the current KG vocabulary: water split task kinds still
 # target the existing flood/generic water patterns until KG pattern ids are generalized.
-_WATER_PATTERN_HINTS: dict[TaskKind, str] = {
+_FLOOD_PATTERN_HINTS: dict[TaskKind, str] = {
+    TaskKind.building: "wp.flood.building.default",
+    TaskKind.road: "wp.flood.road.default",
     TaskKind.water_polygon: "wp.flood.water_polygon.default",
     TaskKind.waterways: "wp.flood.waterways.default",
+    TaskKind.poi: "wp.generic.poi.default",
 }
 
 _JOB_TYPE_TASK_KINDS: dict[JobType, tuple[TaskKind, ...]] = {
@@ -97,9 +100,12 @@ def task_kind_output_type(task_kind: TaskKind) -> str:
 
 
 def task_kind_preferred_pattern_id(task_kind: TaskKind, disaster_type: str | None) -> str | None:
-    if task_kind not in _WATER_PATTERN_HINTS:
-        return None
-    return _WATER_PATTERN_HINTS[task_kind]
+    normalized = str(disaster_type or "").strip().casefold()
+    if normalized in {"flood", "heavy_rainfall", "heavy rainfall", "rainstorm"}:
+        return _FLOOD_PATTERN_HINTS.get(task_kind)
+    if task_kind in {TaskKind.water_polygon, TaskKind.waterways}:
+        return _FLOOD_PATTERN_HINTS[task_kind]
+    return None
 
 
 def expand_job_type_to_task_kinds(job_type: JobType) -> list[TaskKind]:

@@ -320,12 +320,13 @@ class LocalBundleCatalogProvider:
                     resolved_aoi=resolved_aoi,
                 )
             except (FileNotFoundError, RuntimeError, PermissionError, KeyError, ValueError) as exc:
-                source_mode, fault_class = self._source_attempt_fault(exc)
+                source_mode, fault_class = self._source_attempt_fault(component_source_id, exc)
+                coverage_status = "awaiting_external_config" if fault_class == "CONFIG_MISSING" else "missing"
                 component_coverage[component_source_id] = SourceCoverageStatus(
                     source_id=component_source_id,
                     source_mode=source_mode,
                     feature_count=0,
-                    coverage_status="missing",
+                    coverage_status=coverage_status,
                     path=None,
                     error=str(exc),
                     fault_class=fault_class,
@@ -334,16 +335,19 @@ class LocalBundleCatalogProvider:
                 provider_attempts.append(
                     build_source_attempt(
                         source_id=component_source_id,
-                        status="failed",
+                        status=coverage_status if fault_class == "CONFIG_MISSING" else "failed",
                         fault_class=fault_class,
                         fault_message=str(exc),
                         attempt_no=len(provider_attempts) + 1,
+                        recoverable=False if fault_class == "CONFIG_MISSING" else None,
                     )
                 )
                 continue
 
             resolved_components[component_source_id] = resolved
             coverage_status = coverage_status_for_count(resolved.feature_count)
+            if coverage_status == "empty" and component_source_id == "raw.microsoft.building":
+                coverage_status = "coverage_empty"
             component_coverage[component_source_id] = SourceCoverageStatus(
                 source_id=component_source_id,
                 source_mode=resolved.source_mode,
@@ -516,7 +520,16 @@ class LocalBundleCatalogProvider:
         )
 
     @staticmethod
-    def _source_attempt_fault(exc: Exception) -> tuple[str, str]:
+    def _source_attempt_fault(source_id: str, exc: Exception) -> tuple[str, str]:
+        text = str(exc).casefold()
+        if source_id in {"raw.google.building", "raw.google.open_buildings.vector"} and (
+            "not configured" in text
+            or "url index is not configured" in text
+            or "cache key" in text
+        ):
+            return "awaiting_external_config", "CONFIG_MISSING"
+        if source_id == "raw.google.poi" and "google_places_api_key" in text:
+            return "awaiting_external_config", "CONFIG_MISSING"
         if isinstance(exc, PermissionError):
             return "unauthorized", "UNAUTHORIZED"
         if isinstance(exc, (FileNotFoundError, KeyError)):

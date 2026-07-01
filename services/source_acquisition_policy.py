@@ -14,7 +14,9 @@ SOURCE_ATTEMPT_STATUSES = {
     "attempted",
     "available",
     "empty",
+    "coverage_empty",
     "no_coverage",
+    "awaiting_external_config",
     "network_failed",
     "provider_failed",
     "unauthorized",
@@ -39,6 +41,7 @@ _FAULT_STATUS_NORMALIZATION = {
     "PROVIDER_UNAVAILABLE": "provider_failed",
     "NO_OFFICIAL_COVERAGE": "no_coverage",
     "UNAUTHORIZED": "unauthorized",
+    "CONFIG_MISSING": "awaiting_external_config",
 }
 
 _FAULT_NORMALIZED_FROM_STATUSES = {

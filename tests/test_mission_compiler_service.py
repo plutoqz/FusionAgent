@@ -35,6 +35,47 @@ def test_disaster_scenario_without_explicit_layers_expands_to_full_bundle() -> N
     assert mission.scope_source == "default_disaster_bundle"
 
 
+def test_flood_mission_expands_to_five_tasks() -> None:
+    request = ScenarioRunRequest(
+        scenario_name="Abidjan heavy rainfall",
+        trigger_content="Abidjan, Cote d'Ivoire heavy rainfall disaster response.",
+        disaster_type="heavy_rainfall",
+    )
+
+    mission = compile_scenario_mission(request)
+
+    assert mission.scope_source == "default_disaster_bundle"
+    assert [task.task_kind for task in mission.child_tasks] == [
+        TaskKind.building,
+        TaskKind.road,
+        TaskKind.water_polygon,
+        TaskKind.waterways,
+        TaskKind.poi,
+    ]
+    assert all(task.disaster_type == "flood" for task in mission.child_tasks)
+    assert all(not str(task.preferred_pattern_id or "").startswith("catalog.earthquake") for task in mission.child_tasks)
+
+
+def test_chinese_abidjan_flood_trigger_normalizes_location_and_disaster_bundle() -> None:
+    request = ScenarioRunRequest(
+        scenario_name="科特迪瓦阿比让强降雨",
+        trigger_content="科特迪瓦阿比让强降雨致12死5伤，请执行灾害地理空间矢量数据融合。",
+    )
+
+    mission = compile_scenario_mission(request)
+
+    assert mission.scope_source == "default_disaster_bundle"
+    assert [task.task_kind for task in mission.child_tasks] == [
+        TaskKind.building,
+        TaskKind.road,
+        TaskKind.water_polygon,
+        TaskKind.waterways,
+        TaskKind.poi,
+    ]
+    assert all(task.disaster_type == "flood" for task in mission.child_tasks)
+    assert all(task.spatial_extent == "Abidjan, Cote d'Ivoire" for task in mission.child_tasks)
+
+
 def test_explicit_building_scope_stays_single_task() -> None:
     request = ScenarioRunRequest(
         scenario_name="Nairobi building",

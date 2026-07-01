@@ -6,7 +6,7 @@ from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from pathlib import Path
 
-from services.aoi_resolution_service import AOIResolutionService, NominatimGeocoder
+from services.aoi_resolution_service import AOIResolutionService, AdminBoundaryResolver, NominatimGeocoder
 from services.artifact_registry import ArtifactRegistry
 from services.input_acquisition_service import InputAcquisitionService
 from services.local_bundle_catalog import LocalBundleCatalogProvider
@@ -28,13 +28,20 @@ class SourceProviderContract:
     def build(self, *, registry: ArtifactRegistry, cache_root: Path) -> AgentSourceInfrastructure:
         raw_source_service = self.raw_vector_source_factory()
         providers = list(self.input_bundle_provider_factory(raw_source_service))
+        repo_root = Path(getattr(raw_source_service, "root_dir", cache_root))
         input_acquisition_service = InputAcquisitionService(
             registry=registry,
             providers=providers,
             cache_dir=cache_root / "input_bundle_cache",
         )
         return AgentSourceInfrastructure(
-            aoi_resolution_service=AOIResolutionService(geocoder=self.geocoder_factory()),
+            aoi_resolution_service=AOIResolutionService(
+                geocoder=self.geocoder_factory(),
+                admin_boundary_resolver=AdminBoundaryResolver(
+                    repo_root=repo_root,
+                    cache_dir=cache_root / "aoi_resolution_cache",
+                ),
+            ),
             raw_vector_source_service=raw_source_service,
             input_acquisition_service=input_acquisition_service,
             runtime_source_contract_service=RuntimeSourceContractService(

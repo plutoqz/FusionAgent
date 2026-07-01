@@ -41,6 +41,18 @@ class RawVectorSourceSpec:
 
 RAW_VECTOR_SOURCE_SPECS: Tuple[RawVectorSourceSpec, ...] = (
     RawVectorSourceSpec(
+        source_id="raw.osm.admin_boundary",
+        locator_kind="recursive_glob",
+        relative_path=("Data", "admin", "OSM"),
+        glob_pattern="**/*.shp",
+    ),
+    RawVectorSourceSpec(
+        source_id="raw.geoboundaries.admin",
+        locator_kind="recursive_glob",
+        relative_path=("Data", "admin", "GeoBoundaries"),
+        glob_pattern="**/*.shp",
+    ),
+    RawVectorSourceSpec(
         source_id="raw.osm.building",
         locator_kind="first_shp_in_dir",
         relative_path=("Data", "buildings", "OSM"),

@@ -12,6 +12,7 @@ class ScenarioChildFailureRecord(BaseModel):
     task_kind: str
     task_family: str
     error: str | None = None
+    error_code: str | None = None
     recoverable: bool = False
     recovery_state: str
     next_action: str
