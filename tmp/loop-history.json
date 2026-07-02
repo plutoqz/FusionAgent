@@ -259,5 +259,32 @@
     "files_changed": [],
     "commit_hashes": [],
     "notes": "Exact Nominatim query returned no candidates; alias fallback returned a Dhaka North City Corporation office POI, and common Ward 18 aliases returned no ward-level area. The numbered administrative-unit guard correctly failed early instead of broadening to Dhaka city. Treat AS-03 as blocked for this loop candidate pool."
+  },
+  {
+    "round": 10,
+    "timestamp": "2026-07-03T01:05:30+08:00",
+    "area_id": "AF-07",
+    "area_name": "Arrondissement de Abomey-Calavi, Benin",
+    "query": "fuse poi data for flood response in Arrondissement de Abomey-Calavi, Benin",
+    "task_type": "poi",
+    "disaster_type": "flood",
+    "run_id": "4ffe3e27faac48bbb76aac806cd3b3a8",
+    "original_anomalous_run_id": "e205b5b3823d4bb29fde4a44e1676940",
+    "status": "succeeded",
+    "admin_level": "county",
+    "clip_mode": "bbox",
+    "degraded_bbox_clip": true,
+    "duration_seconds": 49,
+    "issues_found": [
+      "Administrative AOI query selected a higher-importance place node over an available administrative boundary relation"
+    ],
+    "files_changed": [
+      "services/aoi_resolution_service.py",
+      "tests/test_aoi_resolution_service.py"
+    ],
+    "commit_hashes": [
+      "3fc3e8d"
+    ],
+    "notes": "Original run succeeded but selected the place/city node bbox. Fixed verification selected the boundary/administrative relation with admin_level=county and succeeded. Artifact integrity OK: SHP/SHX/DBF/PRJ present, 3,167 non-empty POI geometries, CRS EPSG:32631. Boundary matching still used bbox fallback, so this is not a boundary-clip success sample."
   }
 ]

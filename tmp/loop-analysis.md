@@ -262,3 +262,29 @@
 - **Similar Scope**: `Ward 1, Port Moresby, Papua New Guinea`; `Ward 26, Kathmandu Metropolitan City, Nepal`; numeric barangay/sector/district labels when OSM/Nominatim only indexes a parent city or an amenity with the administrative name.
 - **Why Guards Worked**: the Round 7 numbered-unit guard requires the selected candidate to preserve both the requested administrative kind and number. That prevented silent broadening to Dhaka city or a municipal-office POI and failed before source acquisition.
 - **Disposition**: treat `AS-03` as blocked for the current loop candidate pool; no code fix is required unless future evidence shows a stable ward-level alias that should be generated generically.
+
+## Round 10 analysis - 2026-07-03T01:05:30+08:00
+
+- **Area ID**: AF-07
+- **Query**: fuse poi data for flood response in Arrondissement de Abomey-Calavi, Benin
+- **Job Type**: poi | **Disaster**: flood
+- **Original Run ID**: e205b5b3823d4bb29fde4a44e1676940
+- **Fixed Verification Run ID**: 4ffe3e27faac48bbb76aac806cd3b3a8
+- **Status**: succeeded after fix | **Verification Duration**: 49s
+- **Admin Level**: county
+- **Clip Mode**: degraded bbox (`degraded_bbox_clip=true`)
+
+### Issue 1: Administrative boundary relation lost to a higher-importance place node
+
+- **Stage**: task parsing / AOI resolution
+- **Direct Cause**: `services/aoi_resolution_service.py:470` filtered administrative queries to area-like candidates, but then `services/aoi_resolution_service.py:507` still selected by Nominatim importance margin. For Abomey-Calavi, the higher-importance `place/city` node beat the lower-importance `boundary/administrative` relation even though the user asked for an administrative unit.
+- **Trigger Conditions**: administrative-unit queries where Nominatim returns both a place node and a boundary relation for the same area name, and the place node has a higher importance score.
+- **Similar Scope**: communes with both city nodes and administrative relations; districts with a named place node plus relation; townships, freguesias, quartiers, or wards where Nominatim indexes both a settlement node and an administrative boundary.
+- **Why Guards Failed**: previous guards separated POIs from places and protected numbered wards from parent areas, but did not rank boundary relations above place nodes once both candidates were considered valid areas.
+- **Fix**: administrative-area queries now prefer `boundary/administrative` candidates before applying the existing single-candidate, confidence-margin, and nested-specificity selection rules. Regression coverage is in `tests/test_aoi_resolution_service.py`.
+
+### Evidence Note: Boundary Relation Preferred, Local Boundary Still Degraded
+
+- **Observation**: fixed verification selected the Nominatim relation candidate (`admin_level=county`, bbox `[2.2296377, 6.3438819, 2.445889, 6.6805346]`) instead of the original place node bbox `[2.194245, 6.2938637, 2.514245, 6.6138637]`.
+- **Artifact Integrity**: `poi_fusion_result.zip` contains `.shp/.shx/.dbf/.prj` plus `.cpg`; 3,167 POI geometries are non-empty; CRS is `EPSG:32631`.
+- **Impact**: this removes a generic AOI ranking failure, but the run still does not count as a boundary-clip success sample because local administrative boundary matching fell back to bbox.
