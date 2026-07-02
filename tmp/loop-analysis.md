@@ -243,3 +243,22 @@
 - **Similar Scope**: localized or unofficial district labels absent from OSM; translated administrative labels not used by Nominatim; city-centre labels that resolve only to amenities.
 - **Why Guards Worked**: after Round 7, the resolver does not silently broaden unsafe administrative queries; this run failed before source acquisition or execution.
 - **Disposition**: treat `EU-05` as blocked for the current loop candidate pool; no code fix is required unless future evidence shows a resolvable administrative alias should have been generated.
+
+## Round 9 analysis - 2026-07-03T00:46:30+08:00
+
+- **Area ID**: AS-03
+- **Query**: fuse poi data for flood response in Ward 18, Dhaka North City Corporation, Bangladesh
+- **Job Type**: poi | **Disaster**: flood
+- **Run ID**: 07d44d1e1f8c4578a522f1d098e73150
+- **Status**: blocked (`AOIAmbiguityError`) | **Duration**: 2s
+- **Admin Level**: N/A
+- **Clip Mode**: unknown
+
+### Blocked Candidate: Nominatim has no ward-level administrative AOI for Ward 18
+
+- **Stage**: task parsing / AOI resolution
+- **Direct Cause**: the exact geocoder query `Ward 18, Dhaka North City Corporation, Bangladesh` returned zero candidates; the generated alias `Dhaka North City Corporation, Bangladesh` returned only an `office/government` POI, so `services/aoi_resolution_service.py:481` raised `AOIAmbiguityError` after the administrative-area filter found no acceptable ward-level area candidate.
+- **Trigger Conditions**: numbered administrative-unit queries where the geocoder lacks the requested unit geometry/name and either returns no result or returns a parent-city / municipal-office substitute.
+- **Similar Scope**: `Ward 1, Port Moresby, Papua New Guinea`; `Ward 26, Kathmandu Metropolitan City, Nepal`; numeric barangay/sector/district labels when OSM/Nominatim only indexes a parent city or an amenity with the administrative name.
+- **Why Guards Worked**: the Round 7 numbered-unit guard requires the selected candidate to preserve both the requested administrative kind and number. That prevented silent broadening to Dhaka city or a municipal-office POI and failed before source acquisition.
+- **Disposition**: treat `AS-03` as blocked for the current loop candidate pool; no code fix is required unless future evidence shows a stable ward-level alias that should be generated generically.

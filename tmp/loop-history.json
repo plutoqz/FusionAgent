@@ -238,5 +238,26 @@
     "files_changed": [],
     "commit_hashes": [],
     "notes": "Nominatim returned no candidates for Deelgemeente Leuven Centrum; Leuven Centrum aliases return POIs or no admin area, and Leuven alone is the broader city. Treat EU-05 as blocked for this loop candidate pool."
+  },
+  {
+    "round": 9,
+    "timestamp": "2026-07-03T00:46:30+08:00",
+    "area_id": "AS-03",
+    "area_name": "Ward 18, Dhaka North City Corporation, Bangladesh",
+    "query": "fuse poi data for flood response in Ward 18, Dhaka North City Corporation, Bangladesh",
+    "task_type": "poi",
+    "disaster_type": "flood",
+    "run_id": "07d44d1e1f8c4578a522f1d098e73150",
+    "status": "blocked",
+    "admin_level": null,
+    "clip_mode": "unknown",
+    "degraded_bbox_clip": null,
+    "duration_seconds": 2,
+    "issues_found": [
+      "Candidate pool lacks a ward-level administrative AOI for the numbered Ward 18 query"
+    ],
+    "files_changed": [],
+    "commit_hashes": [],
+    "notes": "Exact Nominatim query returned no candidates; alias fallback returned a Dhaka North City Corporation office POI, and common Ward 18 aliases returned no ward-level area. The numbered administrative-unit guard correctly failed early instead of broadening to Dhaka city. Treat AS-03 as blocked for this loop candidate pool."
   }
 ]
