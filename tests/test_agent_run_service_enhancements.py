@@ -31,7 +31,7 @@ from schemas.quality_gate import QualityGateReport
 from schemas.settings import EffectiveLLMSettings
 from schemas.task_kind import TaskKind
 from services.artifact_registry import ArtifactLookupRequest, ArtifactRecord
-from services.agent_run_service import AgentRunService
+from services.agent_run_service import AgentRunService, SourceAcquisitionTimeoutError
 from services.aoi_resolution_service import ResolvedAOI
 from services.input_acquisition_service import InputAcquisitionService
 from services.local_bundle_catalog import LocalBundleCatalogProvider
@@ -40,6 +40,112 @@ from services.source_asset_service import SourceAssetResolution
 from services.input_acquisition_service import ResolvedRunInputs
 from services.source_materialization_manifest_service import build_source_materialization_manifest
 from services.tiled_building_runtime_service import TiledBuildingRunResult
+
+
+def test_task_driven_source_candidates_filter_alternatives_by_disaster_type() -> None:
+    plan = WorkflowPlan(
+        workflow_id="wf-road",
+        trigger=RunTrigger(
+            type=RunTriggerType.user_query,
+            content="road flood response",
+            disaster_type="flood",
+        ),
+        context={
+            "intent": {"request_input_strategy": RunInputStrategy.task_driven_auto.value},
+            "retrieval": {
+                "data_sources": [
+                    {
+                        "source_id": "catalog.flood.road",
+                        "supported_types": ["dt.road.bundle"],
+                        "disaster_types": ["flood", "generic"],
+                        "metadata": {"selectable_now": True, "runtime_status": "runtime_candidate"},
+                    },
+                    {
+                        "source_id": "catalog.earthquake.road",
+                        "supported_types": ["dt.road.bundle"],
+                        "disaster_types": ["earthquake", "generic"],
+                        "metadata": {"selectable_now": True, "runtime_status": "runtime_candidate"},
+                    },
+                    {
+                        "source_id": "catalog.typhoon.road",
+                        "supported_types": ["dt.road.bundle"],
+                        "disaster_types": ["typhoon", "generic"],
+                        "metadata": {"selectable_now": True, "runtime_status": "runtime_candidate"},
+                    },
+                ]
+            },
+        },
+        tasks=[
+            WorkflowTask(
+                step=1,
+                name="road_fusion",
+                description="road fusion",
+                algorithm_id="algo.fusion.road.conflation.v7",
+                input=WorkflowTaskInput(
+                    data_type_id="dt.road.bundle",
+                    data_source_id="catalog.flood.road",
+                    parameters={},
+                ),
+                output=WorkflowTaskOutput(data_type_id="dt.road.fused", description=""),
+            )
+        ],
+        expected_output="road",
+        estimated_time="5m",
+    )
+
+    assert AgentRunService._task_driven_source_candidates(plan) == ["catalog.flood.road"]
+
+
+def test_task_driven_source_candidates_infer_disaster_type_from_trigger_content() -> None:
+    plan = WorkflowPlan(
+        workflow_id="wf-building",
+        trigger=RunTrigger(
+            type=RunTriggerType.user_query,
+            content="fuse building data for flood response in Distrito de Arequipa Cercado, Peru",
+        ),
+        context={
+            "intent": {
+                "request_input_strategy": RunInputStrategy.task_driven_auto.value,
+                "trigger": {
+                    "content": "fuse building data for flood response in Distrito de Arequipa Cercado, Peru",
+                },
+            },
+            "retrieval": {
+                "candidate_patterns": [{"pattern_id": "wp.generic.building.default", "success_rate": 0.8}],
+                "data_sources": [
+                    {
+                        "source_id": "catalog.earthquake.building",
+                        "supported_types": ["dt.building.bundle"],
+                        "metadata": {"selectable_now": True, "runtime_status": "runtime_candidate"},
+                    },
+                    {
+                        "source_id": "catalog.flood.building",
+                        "supported_types": ["dt.building.bundle"],
+                        "metadata": {"selectable_now": True, "runtime_status": "runtime_candidate"},
+                    },
+                ],
+            },
+        },
+        tasks=[
+            WorkflowTask(
+                step=1,
+                name="building_fusion",
+                description="building fusion",
+                algorithm_id="algo.fusion.building.v1",
+                input=WorkflowTaskInput(
+                    data_type_id="dt.building.bundle",
+                    data_source_id="catalog.earthquake.building",
+                    parameters={},
+                ),
+                output=WorkflowTaskOutput(data_type_id="dt.building.fused", description=""),
+            )
+        ],
+        expected_output="building",
+    )
+
+    assert plan.trigger.disaster_type is None
+    assert AgentRunService._plan_disaster_type(plan) == "flood"
+    assert AgentRunService._task_driven_source_candidates(plan) == ["catalog.flood.building"]
 
 
 def _write_dummy_zip(path: Path) -> bytes:
@@ -799,6 +905,116 @@ def test_agent_run_service_water_task_driven_auto_fails_at_materialization_time_
     assert audit_events[-1].kind == "run_failed"
     assert audit_events[-1].details["failure_category"] == "SOURCE_MISSING"
     assert audit_events[-1].details["suggested_action"] == "replan"
+
+
+@pytest.mark.parametrize(
+    "first_candidate_error",
+    [
+        SourceAcquisitionTimeoutError(
+            "SOURCE_DOWNLOAD_FAILED: input acquisition timed out after 600s "
+            "for source_id=catalog.earthquake.building"
+        ),
+        ValueError(
+            "task-driven input materialization failed for catalog.earthquake.building: "
+            "fault=SOURCE_DOWNLOAD_FAILED; error=provider download failed"
+        ),
+    ],
+    ids=["timeout", "download-failure"],
+)
+def test_agent_run_service_retries_next_source_candidate_after_acquisition_failure(
+    tmp_path: Path,
+    monkeypatch,
+    first_candidate_error: BaseException,
+) -> None:
+    service = AgentRunService(base_dir=tmp_path / "runs")
+    request = _build_auto_request(
+        spatial_extent="bbox(-71.56,-16.43,-71.51,-16.37)",
+        job_type=JobType.building,
+        content="fuse building data for flood response",
+    )
+    run_id = "run-source-acquisition-fallback"
+    _seed_run_status(service, run_id, request)
+
+    plan = _build_plan(workflow_id="wf_source_acquisition_fallback", revision=1)
+    plan.tasks[0].input.data_source_id = "catalog.earthquake.building"
+    plan.context["intent"]["request_input_strategy"] = RunInputStrategy.task_driven_auto.value
+    plan.context["retrieval"]["candidate_patterns"] = [
+        {"pattern_id": "wp.generic.building.default", "success_rate": 0.8}
+    ]
+    plan.context["retrieval"]["data_sources"] = [
+        {
+            "source_id": "catalog.earthquake.building",
+            "supported_types": ["dt.building.bundle"],
+            "metadata": {"selectable_now": True, "runtime_status": "runtime_candidate"},
+        },
+        {
+            "source_id": "catalog.flood.building",
+            "supported_types": ["dt.building.bundle"],
+            "metadata": {"selectable_now": True, "runtime_status": "runtime_candidate"},
+        },
+    ]
+
+    prepared_dir = tmp_path / "prepared_source_acquisition_fallback"
+    prepared_dir.mkdir(parents=True, exist_ok=True)
+    resolved_inputs = ResolvedRunInputs(
+        osm_zip_path=prepared_dir / "osm.zip",
+        ref_zip_path=prepared_dir / "ref.zip",
+        source_mode="downloaded",
+        source_id="catalog.flood.building",
+        cache_hit=False,
+        version_token="flood-v1",
+    )
+    resolved_inputs.osm_zip_path.write_bytes(b"osm")
+    resolved_inputs.ref_zip_path.write_bytes(b"ref")
+    attempted: list[str] = []
+
+    def fake_resolve_task_driven_inputs_with_progress(**kwargs):
+        attempted.append(kwargs["source_id"])
+        if kwargs["source_id"] == "catalog.earthquake.building":
+            raise first_candidate_error
+        return resolved_inputs
+
+    monkeypatch.setattr(
+        service,
+        "_resolve_task_driven_inputs_with_progress",
+        fake_resolve_task_driven_inputs_with_progress,
+    )
+
+    osm_zip_path, ref_zip_path, resolved = service._resolve_execution_inputs(
+        run_id=run_id,
+        request=request,
+        plan=plan,
+        input_dir=tmp_path / "runs" / run_id / "input",
+        osm_zip_path=None,
+        ref_zip_path=None,
+    )
+
+    assert osm_zip_path == resolved_inputs.osm_zip_path
+    assert ref_zip_path == resolved_inputs.ref_zip_path
+    assert resolved is not None
+    assert resolved.source_id == "catalog.flood.building"
+    assert resolved.selected_source_id == "catalog.flood.building"
+    assert resolved.fallback_from_source_id == "catalog.earthquake.building"
+    assert attempted == ["catalog.earthquake.building", "catalog.flood.building"]
+
+    latest = service.get_run(run_id)
+    assert latest is not None
+    assert latest.phase != RunPhase.failed
+    audit_events = service.get_audit_events(run_id)
+    assert not any(event.kind == "run_failed" for event in audit_events)
+    started_sources = [
+        event.details["source_id"]
+        for event in audit_events
+        if event.kind == "source_acquisition_started"
+    ]
+    assert started_sources == ["catalog.earthquake.building", "catalog.flood.building"]
+    failed = next(event for event in audit_events if event.kind == "source_acquisition_failed")
+    assert failed.details["source_id"] == "catalog.earthquake.building"
+    assert failed.details["candidate_index"] == 1
+    assert failed.details["candidate_count"] == 2
+    assert failed.details["fault_class"] == "SOURCE_DOWNLOAD_FAILED"
+    assert failed.details["will_try_next_candidate"] is True
+    assert any(event.kind == "source_materialized" for event in audit_events)
 
 
 def test_agent_run_service_retries_task_driven_source_alternative_after_source_missing(

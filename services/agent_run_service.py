@@ -1538,9 +1538,10 @@ class AgentRunService:
             plan=plan,
             input_dir=input_dir,
         )
-        last_error: ValueError | None = None
+        last_error: BaseException | None = None
         source_id = source_candidates[0]
         for candidate_index, candidate_source_id in enumerate(source_candidates, start=1):
+            has_next_candidate = candidate_index < len(source_candidates)
             self._record_source_acquisition_started(
                 run_id=run_id,
                 plan=plan,
@@ -1583,6 +1584,7 @@ class AgentRunService:
                 )
                 return resolved.osm_zip_path, resolved.ref_zip_path, resolved
             except SourceAcquisitionTimeoutError as exc:
+                last_error = exc
                 if not exc.already_recorded:
                     self._record_source_acquisition_failed(
                         run_id=run_id,
@@ -1592,16 +1594,14 @@ class AgentRunService:
                         candidate_count=len(source_candidates),
                         error=exc,
                         elapsed_seconds=time.monotonic() - candidate_started_at,
-                        will_try_next=False,
+                        will_try_next=has_next_candidate,
                     )
+                if has_next_candidate:
+                    continue
                 raise
             except ValueError as exc:
                 last_error = exc
-                message = str(exc)
-                will_try_next = (
-                    candidate_source_id != source_candidates[-1]
-                    and ("SOURCE_MISSING" in message or "empty source coverage" in message)
-                )
+                will_try_next = has_next_candidate and self._is_source_candidate_fallback_error(exc)
                 self._record_source_acquisition_failed(
                     run_id=run_id,
                     plan=plan,
@@ -1612,11 +1612,12 @@ class AgentRunService:
                     elapsed_seconds=time.monotonic() - candidate_started_at,
                     will_try_next=will_try_next,
                 )
-                if "SOURCE_MISSING" not in message and "empty source coverage" not in message:
-                    raise
-                if candidate_source_id == source_candidates[-1]:
-                    raise
+                if will_try_next:
+                    continue
+                raise
             except Exception as exc:  # noqa: BLE001
+                last_error = exc
+                will_try_next = has_next_candidate and self._is_source_candidate_fallback_error(exc)
                 self._record_source_acquisition_failed(
                     run_id=run_id,
                     plan=plan,
@@ -1625,8 +1626,10 @@ class AgentRunService:
                     candidate_count=len(source_candidates),
                     error=exc,
                     elapsed_seconds=time.monotonic() - candidate_started_at,
-                    will_try_next=False,
+                    will_try_next=will_try_next,
                 )
+                if will_try_next:
+                    continue
                 raise
 
         if last_error is not None:
@@ -1705,11 +1708,11 @@ class AgentRunService:
                         "SOURCE_DOWNLOAD_FAILED: input acquisition timed out "
                         f"after {timeout_seconds:g}s for source_id={source_id}"
                     )
-                    self._record_source_acquisition_timeout_direct(
+                    already_recorded = self._record_source_acquisition_timeout_direct(
                         watchdog,
                         elapsed_seconds=elapsed_seconds,
                     )
-                    raise SourceAcquisitionTimeoutError(error_message, already_recorded=True)
+                    raise SourceAcquisitionTimeoutError(error_message, already_recorded=already_recorded)
                 wait_seconds = min(remaining_seconds, heartbeat_seconds) if heartbeat_seconds > 0 else remaining_seconds
                 try:
                     status, payload = result_queue.get(timeout=wait_seconds)
@@ -1723,11 +1726,11 @@ class AgentRunService:
                             "SOURCE_DOWNLOAD_FAILED: input acquisition timed out "
                             f"after {timeout_seconds:g}s for source_id={source_id}"
                         )
-                        self._record_source_acquisition_timeout_direct(
+                        already_recorded = self._record_source_acquisition_timeout_direct(
                             watchdog,
                             elapsed_seconds=elapsed_seconds,
                         )
-                        raise SourceAcquisitionTimeoutError(error_message, already_recorded=True)
+                        raise SourceAcquisitionTimeoutError(error_message, already_recorded=already_recorded)
                     if heartbeat_seconds > 0:
                         self._record_source_acquisition_heartbeat_direct(
                             watchdog,
@@ -1847,11 +1850,13 @@ class AgentRunService:
         watchdog: dict[str, object],
         *,
         elapsed_seconds: float,
-    ) -> None:
+    ) -> bool:
+        recorded = False
         try:
             from services.source_acquisition_watchdog import mark_timed_out
 
             mark_timed_out(watchdog, elapsed_seconds=elapsed_seconds)
+            recorded = True
         except Exception:  # noqa: BLE001
             pass
         marker_path = Path(str(watchdog.get("marker_path") or ""))
@@ -1876,6 +1881,7 @@ class AgentRunService:
                 )
             except Exception:  # noqa: BLE001
                 pass
+        return recorded
 
     def _record_source_acquisition_started(
         self,
@@ -2017,6 +2023,29 @@ class AgentRunService:
         if "corrupt" in text or "badzipfile" in text:
             return "SOURCE_CORRUPTED"
         return "PROVIDER_UNAVAILABLE"
+
+    @staticmethod
+    def _is_source_candidate_fallback_error(error: BaseException) -> bool:
+        if isinstance(error, TimeoutError):
+            return True
+        text = str(error or "").strip().lower()
+        if not text:
+            return False
+        fallback_tokens = (
+            "task-driven input materialization failed",
+            "source_download_failed",
+            "network_failed",
+            "source_missing",
+            "empty source coverage",
+            "no official coverage",
+            "outside coverage",
+            "source_corrupted",
+            "provider_unavailable",
+            "provider unavailable",
+            "download",
+            "timeout",
+        )
+        return any(token in text for token in fallback_tokens)
 
     def _write_data_requirement_evidence(
         self,
@@ -3945,9 +3974,18 @@ class AgentRunService:
     @staticmethod
     def _task_driven_source_candidates(plan: WorkflowPlan) -> list[str]:
         ordered: list[str] = []
+        compatible_alternatives = AgentRunService._filter_disaster_compatible_sources(
+            AgentRunService._extract_task_driven_compatible_sources(plan),
+            plan,
+        )
+        alternative_source_ids = (
+            [item["source_id"] for item in compatible_alternatives]
+            if compatible_alternatives
+            else AgentRunService._extract_alternative_sources(plan)
+        )
         for source_id in [
             AgentRunService._resolve_task_driven_source_id(plan),
-            *AgentRunService._extract_alternative_sources(plan),
+            *alternative_source_ids,
         ]:
             if source_id and source_id != "upload.bundle" and source_id not in ordered:
                 ordered.append(source_id)
@@ -4018,7 +4056,7 @@ class AgentRunService:
         sources: list[Dict[str, Any]],
         plan: WorkflowPlan,
     ) -> list[Dict[str, Any]]:
-        disaster_type = str(getattr(plan.trigger, "disaster_type", None) or "").strip().casefold()
+        disaster_type = AgentRunService._plan_disaster_type(plan)
         if not disaster_type or not sources:
             return sources
 
@@ -4028,7 +4066,13 @@ class AgentRunService:
             if disaster_type in AgentRunService._source_disaster_types(source)
         ]
         if exact:
-            return exact
+            pure_generic = [
+                source
+                for source in sources
+                if AgentRunService._source_disaster_types(source) == {"generic"}
+                and source not in exact
+            ]
+            return [*exact, *pure_generic]
 
         generic = [
             source
@@ -4043,6 +4087,62 @@ class AgentRunService:
         return pure_generic or generic or sources
 
     @staticmethod
+    def _plan_disaster_type(plan: WorkflowPlan) -> str | None:
+        explicit = AgentRunService._infer_disaster_type_from_texts(
+            getattr(plan.trigger, "disaster_type", None),
+        )
+        if explicit:
+            return explicit
+
+        context = plan.context if isinstance(plan.context, dict) else {}
+        intent = context.get("intent")
+        intent = intent if isinstance(intent, dict) else {}
+        intent_trigger = intent.get("trigger")
+        intent_trigger = intent_trigger if isinstance(intent_trigger, dict) else {}
+        context_trigger = context.get("trigger")
+        context_trigger = context_trigger if isinstance(context_trigger, dict) else {}
+
+        for value in (
+            intent.get("disaster_type"),
+            intent_trigger.get("disaster_type"),
+            context_trigger.get("disaster_type"),
+        ):
+            inferred = AgentRunService._infer_disaster_type_from_texts(value)
+            if inferred:
+                return inferred
+
+        return AgentRunService._infer_disaster_type_from_texts(
+            getattr(plan.trigger, "content", None),
+            intent_trigger.get("content"),
+            intent.get("trigger_content"),
+            context_trigger.get("content"),
+            plan.workflow_id,
+            context.get("selected_pattern_id"),
+            context.get("selected_pattern"),
+            context.get("pattern_id"),
+            AgentRunService._extract_pattern_id(plan),
+        )
+
+    @staticmethod
+    def _infer_disaster_type_from_texts(*values: object) -> str | None:
+        patterns = (
+            ("flood", r"\b(flood|floods|flooding|flooded|inundation)\b"),
+            ("earthquake", r"\b(earthquake|earthquakes|quake|quakes|seismic)\b"),
+            ("hurricane", r"\b(hurricane|hurricanes)\b"),
+            ("wildfire", r"\b(wildfire|wildfires|wild[-\s]?fire|wild[-\s]?fires|bushfire|bushfires)\b"),
+            ("conflict", r"\b(conflict|conflicts|war|wars|armed\s+conflict)\b"),
+            ("typhoon", r"\b(typhoon|typhoons)\b"),
+        )
+        for value in values:
+            text = str(value or "").strip().casefold()
+            if not text:
+                continue
+            for disaster_type, pattern in patterns:
+                if re.search(pattern, text):
+                    return disaster_type
+        return None
+
+    @staticmethod
     def _source_disaster_types(source: Dict[str, Any]) -> set[str]:
         values: list[object] = []
         values.append(source.get("disaster_types"))
@@ -4051,7 +4151,7 @@ class AgentRunService:
             values.append(metadata.get("disaster_types"))
             values.append(metadata.get("scenario_focus"))
         source_id = str(source.get("source_id") or "").casefold()
-        for token in ("flood", "earthquake", "typhoon", "generic"):
+        for token in ("flood", "earthquake", "hurricane", "wildfire", "conflict", "typhoon", "generic"):
             if f".{token}." in source_id or source_id.startswith(f"{token}.") or source_id.endswith(f".{token}"):
                 values.append(token)
 
@@ -4245,7 +4345,7 @@ class AgentRunService:
                 )
             )
         evidence_refs = ["context.retrieval.data_sources", "policy:deterministic_weighted_sum"]
-        if str(getattr(plan.trigger, "disaster_type", None) or "").strip():
+        if self._plan_disaster_type(plan):
             evidence_refs.append("policy:disaster_source_compatibility")
         decision = self.policy_engine.select("data_source_selection", candidates).model_copy(
             update={"evidence_refs": evidence_refs}

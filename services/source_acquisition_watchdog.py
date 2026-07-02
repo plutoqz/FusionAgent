@@ -23,25 +23,31 @@ def load_control(path: Path) -> dict[str, Any]:
 def mark_timed_out(control: dict[str, Any], *, elapsed_seconds: float) -> None:
     timeout_seconds = float(control.get("timeout_seconds") or 0.0)
     source_id = str(control.get("source_id") or "")
+    candidate_index = int(control.get("candidate_index") or 1)
+    candidate_count = int(control.get("candidate_count") or 1)
+    will_try_next = candidate_index < candidate_count
     message = (
         "SOURCE_DOWNLOAD_FAILED: input acquisition timed out "
         f"after {timeout_seconds:g}s for source_id={source_id}"
     )
+    details = {
+        **_base_details(control),
+        "elapsed_seconds": round(float(elapsed_seconds), 3),
+        "error": f"TimeoutError: {message}",
+        "fault_class": "SOURCE_DOWNLOAD_FAILED",
+        "will_try_next_candidate": will_try_next,
+        "watchdog": "process",
+    }
+    if will_try_next:
+        details["next_candidate_index"] = candidate_index + 1
     write_acquisition_event(
         control,
         kind="source_acquisition_failed",
-        phase="failed",
-        progress=100,
+        phase="running" if will_try_next else "failed",
+        progress=40 if will_try_next else 100,
         message="Source acquisition timed out during task-driven input materialization.",
-        details={
-            **_base_details(control),
-            "elapsed_seconds": round(float(elapsed_seconds), 3),
-            "error": f"TimeoutError: {message}",
-            "fault_class": "SOURCE_DOWNLOAD_FAILED",
-            "will_try_next_candidate": False,
-            "watchdog": "process",
-        },
-        terminal_error=message,
+        details=details,
+        terminal_error=None if will_try_next else message,
     )
     marker_path = Path(str(control["marker_path"]))
     marker_path.parent.mkdir(parents=True, exist_ok=True)
@@ -53,6 +59,7 @@ def mark_timed_out(control: dict[str, Any], *, elapsed_seconds: float) -> None:
             "elapsed_seconds": round(float(elapsed_seconds), 3),
             "timeout_seconds": timeout_seconds,
             "error": message,
+            "will_try_next_candidate": will_try_next,
             "updated_at": utc_now(),
         },
     )
@@ -86,9 +93,18 @@ def write_acquisition_event(
 ) -> None:
     status_path = Path(str(control["status_path"]))
     audit_path = Path(str(control["audit_path"]))
-    try:
-        status = json.loads(status_path.read_text(encoding="utf-8"))
-    except Exception:
+    status: dict[str, Any] | None = None
+    for attempt in range(5):
+        try:
+            loaded = json.loads(status_path.read_text(encoding="utf-8"))
+            if isinstance(loaded, dict):
+                status = loaded
+                break
+        except Exception:
+            if attempt < 4:
+                time.sleep(0.05)
+    status_loaded = status is not None
+    if status is None:
         status = {
             "run_id": control.get("run_id"),
             "phase": phase,
@@ -117,6 +133,9 @@ def write_acquisition_event(
     with audit_path.open("a", encoding="utf-8") as handle:
         handle.write(json.dumps(event, ensure_ascii=False))
         handle.write("\n")
+
+    if not status_loaded:
+        return
 
     status["phase"] = phase
     status["progress"] = progress
