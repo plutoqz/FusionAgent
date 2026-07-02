@@ -445,6 +445,52 @@ def test_aoi_resolution_service_falls_back_past_single_poi_for_admin_query() -> 
     assert resolved.selection_reason == "administrative_place_preference"
 
 
+def test_aoi_resolution_service_prefers_boundary_relation_for_admin_query() -> None:
+    service = AOIResolutionService(
+        geocoder=FakeGeocoder(
+            [
+                {
+                    "display_name": "Abomey-Calavi, Atlantique, Benin",
+                    "boundingbox": ["6.2938637", "6.6138637", "2.1942450", "2.5142450"],
+                    "importance": 0.45,
+                    "category": "place",
+                    "type": "city",
+                    "addresstype": "city",
+                    "osm_type": "node",
+                    "address": {
+                        "city": "Abomey-Calavi",
+                        "county": "Abomey-Calavi",
+                        "country": "Benin",
+                        "country_code": "bj",
+                    },
+                },
+                {
+                    "display_name": "Abomey-Calavi, Atlantique, Benin",
+                    "boundingbox": ["6.3438819", "6.6805346", "2.2296377", "2.4458890"],
+                    "importance": 0.24,
+                    "category": "boundary",
+                    "type": "administrative",
+                    "addresstype": "county",
+                    "osm_type": "relation",
+                    "address": {
+                        "county": "Abomey-Calavi",
+                        "country": "Benin",
+                        "country_code": "bj",
+                    },
+                },
+            ]
+        )
+    )
+
+    resolved = service.resolve(
+        "fuse poi data for flood response in Arrondissement de Abomey-Calavi, Benin"
+    )
+
+    assert resolved.admin_level == "county"
+    assert resolved.selection_reason == "administrative_place_preference"
+    assert resolved.bbox == pytest.approx((2.2296377, 6.3438819, 2.4458890, 6.6805346))
+
+
 def test_aoi_resolution_service_rejects_parent_city_for_numbered_admin_query() -> None:
     city_candidate = {
         "display_name": "Port Moresby, National Capital District, Papua New Guinea",

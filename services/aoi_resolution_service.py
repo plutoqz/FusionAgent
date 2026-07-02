@@ -475,6 +475,13 @@ class AOIResolutionService:
                     if _candidate_matches_numbered_admin_unit(query, candidate)
                 )
             if area_candidates:
+                boundary_candidates = tuple(
+                    candidate
+                    for candidate in area_candidates
+                    if _is_administrative_boundary_candidate(candidate)
+                )
+                if boundary_candidates:
+                    area_candidates = boundary_candidates
                 selection_ordered = area_candidates
                 selection_reason_override = "administrative_place_preference"
             else:
@@ -756,6 +763,13 @@ def _candidate_matches_numbered_admin_unit(query: str, candidate: ResolvedAOICan
 
 def _is_area_candidate(candidate: ResolvedAOICandidate) -> bool:
     return _raw_candidate_is_area(candidate.raw) and candidate.admin_level is not None
+
+
+def _is_administrative_boundary_candidate(candidate: ResolvedAOICandidate) -> bool:
+    raw = candidate.raw or {}
+    category = _location_match_key(raw.get("category") or raw.get("class"))
+    candidate_type = _location_match_key(raw.get("type"))
+    return category == "boundary" or candidate_type == "administrative"
 
 
 def _raw_candidate_is_area(raw: dict[str, Any]) -> bool:
