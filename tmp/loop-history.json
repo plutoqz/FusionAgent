@@ -156,5 +156,39 @@
       "7dce246"
     ],
     "notes": "Final verification selected Gitega place/city instead of the townhall POI. Artifact integrity OK: SHP/SHX/DBF/PRJ present, 966 non-empty geometries, CRS EPSG:32735. Boundary matching still used bbox fallback, so this is not a boundary-clip success sample."
+  },
+  {
+    "round": 6,
+    "timestamp": "2026-07-02T23:54:30+08:00",
+    "area_id": "EU-01",
+    "area_name": "Quartier Centre, Rennes, France",
+    "query": "fuse building data for flood response in Quartier Centre, Rennes, France",
+    "task_type": "building",
+    "disaster_type": "flood",
+    "run_id": "5b0f484ebb9f45acbada06a31edade9c",
+    "original_failed_run_id": "0d19311b59aa4683bb45df86cb580a95",
+    "intermediate_failed_run_ids": [
+      "73ceb5b36e024fbd8de1f18ec0bc12de"
+    ],
+    "status": "succeeded",
+    "admin_level": "suburb",
+    "clip_mode": "bbox",
+    "degraded_bbox_clip": true,
+    "duration_seconds": 55,
+    "issues_found": [
+      "Local runtime did not expose the server-side source acquisition timeout override",
+      "Artifact registry cache hit reused an incomplete physical input bundle without validating osm.zip/ref.zip"
+    ],
+    "files_changed": [
+      "scripts/start_local.py",
+      "tests/test_local_runtime.py",
+      "services/input_acquisition_service.py",
+      "tests/test_input_acquisition_service.py"
+    ],
+    "commit_hashes": [
+      "731c78a",
+      "4539555"
+    ],
+    "notes": "Final verification used source acquisition timeout 1800s, skipped the stale cache, materialized downloaded inputs with cache_hit=false, and succeeded. Artifact integrity OK: SHP/SHX/DBF/PRJ present, 3,916 non-empty geometries, CRS EPSG:32630. Boundary matching still used bbox fallback, so this is not a boundary-clip success sample."
   }
 ]

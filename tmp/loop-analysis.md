@@ -160,3 +160,40 @@
 
 - **Observation**: final verification selected `Gitega, Burundi` (`place/city`) instead of the townhall POI, and artifact integrity passed with `.shp/.shx/.dbf/.prj`, 966 non-empty geometries, and CRS `EPSG:32735`.
 - **Impact**: this round verifies the alias-chain fallback for single-POI administrative hits, but still does not count as a boundary-clip success sample because local administrative boundary matching fell back to bbox.
+
+## Round 6 analysis - 2026-07-02T23:35:12+08:00
+
+- **Area ID**: EU-01
+- **Query**: fuse building data for flood response in Quartier Centre, Rennes, France
+- **Job Type**: building | **Disaster**: flood
+- **Original Run ID**: 0d19311b59aa4683bb45df86cb580a95
+- **Intermediate Run ID**: 73ceb5b36e024fbd8de1f18ec0bc12de
+- **Fixed Verification Run ID**: 5b0f484ebb9f45acbada06a31edade9c
+- **Status**: succeeded after fixes | **Verification Duration**: 55s
+- **Admin Level**: suburb
+- **Clip Mode**: degraded bbox (`degraded_bbox_clip=true`)
+
+### Issue 1: Local runtime kept the internal source acquisition timeout at 600s
+
+- **Stage**: data download / input acquisition
+- **Direct Cause**: `services/agent_run_service.py:2005` reads `GEOFUSION_INPUT_ACQUISITION_TIMEOUT_SECONDS` and falls back to `DEFAULT_INPUT_ACQUISITION_TIMEOUT_SECONDS=600`, while `scripts/start_local.py` had no CLI argument to set that env var for long loop runs. The smoke command used `--timeout 1800`, but the server-side watchdog still emitted `source_acquisition_failed` at 600s.
+- **Trigger Conditions**: task-driven source materialization for a slow but still-running source download, especially building bundles whose external provider fetch can exceed 600s while the operator has intentionally allowed a longer end-to-end run budget.
+- **Similar Scope**: large/slow building downloads; cold Geofabrik/OSM source cache; any remote catalog materialization where the outer smoke/API timeout is larger than the internal source acquisition watchdog.
+- **Why Guards Failed**: heartbeat/watchdog observability worked, but the runtime startup path did not expose the supported timeout knob, so operator intent to allow longer runs was not propagated into the API/worker environment.
+- **Fix**: `scripts/start_local.py` now accepts `--input-acquisition-timeout` and writes `GEOFUSION_INPUT_ACQUISITION_TIMEOUT_SECONDS` into the local runtime environment. Regression coverage is in `tests/test_local_runtime.py`.
+
+### Issue 2: Registry cache hit reused an incomplete physical bundle
+
+- **Stage**: data download / input acquisition
+- **Direct Cause**: `services/input_acquisition_service.py:196` and related cache-hit branches call `_copy_cached_bundle(...)` after the artifact registry reports a reusable source version, but `_copy_cached_bundle` at `services/input_acquisition_service.py:486` blindly copies `osm.zip` and `ref.zip`. The stale cache entry for `catalog.flood.building` pointed at `input_bundle_cache/catalog_flood_building/v_469c590b2ef48bba/bae15f071e05`, where `osm.zip` was missing, so the run failed with `FileNotFoundError`.
+- **Trigger Conditions**: a previous source acquisition times out or is cleaned after registry metadata has been written, leaving a bundle directory or registry record without both physical ZIP members.
+- **Similar Scope**: any cached task-driven source bundle for building/road/water/poi; clipped cached bundle reuse; provider fallback bundles whose registry entry survives but one ZIP file is deleted, zero-byte, or corrupt.
+- **Why Guards Failed**: source version matching verified only metadata freshness. The cache reuse path had no physical completeness or ZIP validity check before copying/clipping cached inputs, so a recoverable stale cache became a terminal source acquisition failure.
+- **Fix Direction**: treat incomplete or invalid cached bundles as cache misses before copy/clip reuse, then materialize a fresh bundle from the provider and cover the path with a regression test.
+- **Fix**: cache reuse now requires both `osm.zip` and `ref.zip` to exist, be non-empty, and be readable ZIP archives before copy/clip reuse; incomplete bundles are treated as cache misses and refreshed. Regression coverage is in `tests/test_input_acquisition_service.py`.
+
+### Evidence Note: Boundary Still Degraded
+
+- **Observation**: final verification selected `Centre, Quartiers Centre, Rennes, Ille-et-Vilaine, Bretagne, France metropolitaine, France` with `admin_level=suburb`; source acquisition used `timeout_seconds=1800.0`, materialized fresh inputs with `source_mode=downloaded` and `cache_hit=false`, and completed in 22.6s.
+- **Artifact Integrity**: `building_fusion_result.zip` contains `.shp/.shx/.dbf/.prj` plus `.cpg`; 3,916 building geometries are non-empty; CRS is `EPSG:32630`.
+- **Impact**: this round verifies long acquisition timeout propagation and stale cache invalidation, but still does not count as a boundary-clip success sample because local administrative boundary matching fell back to bbox.
