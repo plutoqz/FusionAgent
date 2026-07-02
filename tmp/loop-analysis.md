@@ -224,3 +224,22 @@
 - **Observation**: fixed verification run `6c4e31f3ae2542e1ac5c38667e544c8e` fails at AOI resolution with `AOIAmbiguityError: Ambiguous AOI query: Ward 1, Port Moresby, Papua New Guinea` instead of running against the parent Port Moresby city bbox.
 - **Artifact Integrity**: original anomalous run produced a valid POI Shapefile bundle with 366 non-empty geometries and CRS `EPSG:32755`, but the AOI was too broad and should not count as a valid loop success.
 - **Impact**: this fixes the silent broadening class for numbered wards/districts/barangays. `OC-02` should be treated as blocked for the current candidate pool unless a ward-level geocoder result becomes available.
+
+## Round 8 analysis - 2026-07-03T00:35:10+08:00
+
+- **Area ID**: EU-05
+- **Query**: fuse poi data for flood response in Deelgemeente Leuven Centrum, Belgium
+- **Job Type**: poi | **Disaster**: flood
+- **Run ID**: 0d9a874e60fd4818bfc8783814a50322
+- **Status**: blocked (`AOI_RESOLUTION_FAILED`) | **Duration**: 4s
+- **Admin Level**: N/A
+- **Clip Mode**: unknown
+
+### Blocked Candidate: Nominatim has no administrative AOI for the provided name
+
+- **Stage**: task parsing / AOI resolution
+- **Direct Cause**: the geocoder returned no candidates for `Deelgemeente Leuven Centrum, Belgium`, so `services/aoi_resolution_service.py:391` raised `AOI_RESOLUTION_FAILED`.
+- **Trigger Conditions**: candidate-pool area names that are not resolvable as OSM/Nominatim administrative areas and whose reasonable aliases either return no result or only POIs / broader city results.
+- **Similar Scope**: localized or unofficial district labels absent from OSM; translated administrative labels not used by Nominatim; city-centre labels that resolve only to amenities.
+- **Why Guards Worked**: after Round 7, the resolver does not silently broaden unsafe administrative queries; this run failed before source acquisition or execution.
+- **Disposition**: treat `EU-05` as blocked for the current loop candidate pool; no code fix is required unless future evidence shows a resolvable administrative alias should have been generated.

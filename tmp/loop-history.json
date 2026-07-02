@@ -217,5 +217,26 @@
       "784da2a"
     ],
     "notes": "Original run succeeded technically and artifact integrity was OK (366 non-empty POI geometries, CRS EPSG:32755), but the AOI widened from Ward 1 to Port Moresby city. Fixed verification now fails early with AOIAmbiguityError instead of running the oversized parent bbox. Treat OC-02 as blocked unless a ward-level geocoder result becomes available."
+  },
+  {
+    "round": 8,
+    "timestamp": "2026-07-03T00:35:10+08:00",
+    "area_id": "EU-05",
+    "area_name": "Deelgemeente Leuven Centrum, Belgium",
+    "query": "fuse poi data for flood response in Deelgemeente Leuven Centrum, Belgium",
+    "task_type": "poi",
+    "disaster_type": "flood",
+    "run_id": "0d9a874e60fd4818bfc8783814a50322",
+    "status": "blocked",
+    "admin_level": null,
+    "clip_mode": "unknown",
+    "degraded_bbox_clip": null,
+    "duration_seconds": 4,
+    "issues_found": [
+      "Candidate pool area name was not resolvable as an administrative AOI"
+    ],
+    "files_changed": [],
+    "commit_hashes": [],
+    "notes": "Nominatim returned no candidates for Deelgemeente Leuven Centrum; Leuven Centrum aliases return POIs or no admin area, and Leuven alone is the broader city. Treat EU-05 as blocked for this loop candidate pool."
   }
 ]
