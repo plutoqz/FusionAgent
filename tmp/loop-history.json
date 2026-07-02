@@ -190,5 +190,32 @@
       "4539555"
     ],
     "notes": "Final verification used source acquisition timeout 1800s, skipped the stale cache, materialized downloaded inputs with cache_hit=false, and succeeded. Artifact integrity OK: SHP/SHX/DBF/PRJ present, 3,916 non-empty geometries, CRS EPSG:32630. Boundary matching still used bbox fallback, so this is not a boundary-clip success sample."
+  },
+  {
+    "round": 7,
+    "timestamp": "2026-07-03T00:30:20+08:00",
+    "area_id": "OC-02",
+    "area_name": "Ward 1, Port Moresby, Papua New Guinea",
+    "query": "fuse poi data for flood response in Ward 1, Port Moresby, Papua New Guinea",
+    "task_type": "poi",
+    "disaster_type": "flood",
+    "run_id": "f0ebad14283a4bf2adaa38fa15c94fe1",
+    "fixed_verification_run_id": "6c4e31f3ae2542e1ac5c38667e544c8e",
+    "status": "blocked_after_fix",
+    "admin_level": "city",
+    "clip_mode": "bbox",
+    "degraded_bbox_clip": true,
+    "duration_seconds": 157,
+    "issues_found": [
+      "Numbered administrative unit query widened to parent city instead of preserving the requested ward"
+    ],
+    "files_changed": [
+      "services/aoi_resolution_service.py",
+      "tests/test_aoi_resolution_service.py"
+    ],
+    "commit_hashes": [
+      "784da2a"
+    ],
+    "notes": "Original run succeeded technically and artifact integrity was OK (366 non-empty POI geometries, CRS EPSG:32755), but the AOI widened from Ward 1 to Port Moresby city. Fixed verification now fails early with AOIAmbiguityError instead of running the oversized parent bbox. Treat OC-02 as blocked unless a ward-level geocoder result becomes available."
   }
 ]

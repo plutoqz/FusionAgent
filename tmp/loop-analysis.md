@@ -197,3 +197,30 @@
 - **Observation**: final verification selected `Centre, Quartiers Centre, Rennes, Ille-et-Vilaine, Bretagne, France metropolitaine, France` with `admin_level=suburb`; source acquisition used `timeout_seconds=1800.0`, materialized fresh inputs with `source_mode=downloaded` and `cache_hit=false`, and completed in 22.6s.
 - **Artifact Integrity**: `building_fusion_result.zip` contains `.shp/.shx/.dbf/.prj` plus `.cpg`; 3,916 building geometries are non-empty; CRS is `EPSG:32630`.
 - **Impact**: this round verifies long acquisition timeout propagation and stale cache invalidation, but still does not count as a boundary-clip success sample because local administrative boundary matching fell back to bbox.
+
+## Round 7 analysis - 2026-07-03T00:22:10+08:00
+
+- **Area ID**: OC-02
+- **Query**: fuse poi data for flood response in Ward 1, Port Moresby, Papua New Guinea
+- **Job Type**: poi | **Disaster**: flood
+- **Original Run ID**: f0ebad14283a4bf2adaa38fa15c94fe1
+- **Fixed Verification Run ID**: 6c4e31f3ae2542e1ac5c38667e544c8e
+- **Status**: blocked after fix (`AOIAmbiguityError`) | **Original Duration**: 157s
+- **Admin Level**: city
+- **Clip Mode**: degraded bbox (`degraded_bbox_clip=true`)
+
+### Issue 1: Numbered administrative unit query was widened to the parent city
+
+- **Stage**: task parsing / AOI resolution
+- **Direct Cause**: `services/aoi_resolution_service.py:468` treats any area-like candidate as acceptable for an administrative query; `_is_area_candidate` accepts `place/city`, and the single-candidate branch at `services/aoi_resolution_service.py:480` returned Port Moresby even though the requested primary unit was `Ward 1`.
+- **Trigger Conditions**: administrative-unit queries with a numbered unit name, such as `Ward 1, ...`, where Nominatim returns only the parent city/place candidate instead of a ward-level candidate.
+- **Similar Scope**: `Ward 26, Kathmandu, Nepal`; `District 1, ...`; `Barangay 656, ...`; numeric sectors/zones where the geocoder falls back to a parent city.
+- **Why Guards Failed**: prior POI-vs-area guards checked candidate type, but not whether an administrative prefix query preserved the requested numbered unit. A parent city is an area, so it passed the administrative preference filter and the loop ran against an oversized bbox.
+- **Fix Direction**: for numbered administrative-unit queries, require the selected area candidate to preserve both the administrative kind and number (for example `ward` + `1`) in its own name/type/address evidence; otherwise treat the result as unresolved/ambiguous and continue aliases or fail early.
+- **Fix**: numbered administrative-unit queries now reject parent area candidates unless the candidate evidence preserves the requested kind and number; candidate admin-level derivation also prefers the candidate's own `type/addresstype` over parent address context. Regression coverage is in `tests/test_aoi_resolution_service.py`.
+
+### Evidence Note: Correctly Blocked Invalid AOI
+
+- **Observation**: fixed verification run `6c4e31f3ae2542e1ac5c38667e544c8e` fails at AOI resolution with `AOIAmbiguityError: Ambiguous AOI query: Ward 1, Port Moresby, Papua New Guinea` instead of running against the parent Port Moresby city bbox.
+- **Artifact Integrity**: original anomalous run produced a valid POI Shapefile bundle with 366 non-empty geometries and CRS `EPSG:32755`, but the AOI was too broad and should not count as a valid loop success.
+- **Impact**: this fixes the silent broadening class for numbered wards/districts/barangays. `OC-02` should be treated as blocked for the current candidate pool unless a ward-level geocoder result becomes available.
