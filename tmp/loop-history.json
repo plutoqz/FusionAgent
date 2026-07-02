@@ -54,7 +54,46 @@
       "services/aoi_resolution_service.py",
       "tests/test_aoi_resolution_service.py"
     ],
-    "commit_hashes": [],
+    "commit_hashes": [
+      "a5e6058"
+    ],
     "notes": "Verification run succeeded and artifact integrity OK; AOI stayed specific to Saddar Town but boundary matching still used bbox fallback."
+  },
+  {
+    "round": 3,
+    "timestamp": "2026-07-02T22:07:12+08:00",
+    "area_id": "AM-04",
+    "area_name": "Distrito de Arequipa Cercado, Peru",
+    "query": "fuse building data for flood response in Distrito de Arequipa Cercado, Peru",
+    "task_type": "building",
+    "disaster_type": "flood",
+    "run_id": "43ea545db82e4865a57a6c07551f7e7c",
+    "original_failed_run_id": "bf45ae67485d46d0a6e767f0e87c1c1c",
+    "intermediate_failed_run_ids": [
+      "70368c72cbec4e56b4bd6533675469f5",
+      "6e31b34a184a43d7a63ebd12847150b5"
+    ],
+    "status": "succeeded",
+    "admin_level": "city",
+    "clip_mode": "bbox",
+    "degraded_bbox_clip": true,
+    "duration_seconds": 28,
+    "issues_found": [
+      "Localized administrative AOI prefixes lacked geocoder alias fallback",
+      "AOI alias ambiguity stopped resolution before trying later aliases",
+      "Task-driven source selection ignored disaster text and acquisition timeout did not fall back to the next source candidate"
+    ],
+    "files_changed": [
+      "services/aoi_resolution_service.py",
+      "services/agent_run_service.py",
+      "services/source_acquisition_watchdog.py",
+      "tests/test_aoi_resolution_service.py",
+      "tests/test_agent_run_service_enhancements.py"
+    ],
+    "commit_hashes": [
+      "83a2351",
+      "568502d"
+    ],
+    "notes": "Verification run succeeded with artifact integrity OK and 19,823 non-empty geometries; boundary matching still used bbox fallback, so this is not a boundary-clip success sample."
   }
 ]
