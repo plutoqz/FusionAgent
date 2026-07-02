@@ -76,6 +76,42 @@ _NEED_SUFFIX_RE = re.compile(
     flags=re.IGNORECASE,
 )
 
+_ADMIN_UNIT_PREFIXES = (
+    "arrondissement",
+    "municipality",
+    "freguesia",
+    "municipio",
+    "parroquia",
+    "district",
+    "distrito",
+    "quartier",
+    "commune",
+    "comuna",
+    "bairro",
+    "sector",
+    "ward",
+)
+_ADMIN_UNIT_PREFIX_RE = re.compile(
+    r"^\s*(?P<kind>"
+    + "|".join(re.escape(term) for term in sorted(set(_ADMIN_UNIT_PREFIXES), key=len, reverse=True))
+    + r")\s+(?:(?:de|do|da|del|das|dos|du|des|d')\s+)?(?P<name>.+?)\s*$",
+    flags=re.IGNORECASE,
+)
+_ADMIN_TRAILING_QUALIFIER_KEYS = {
+    "cercado",
+    "centro",
+    "central",
+    "historico",
+    "historica",
+    "historical",
+    "historic",
+    "urbano",
+    "urbana",
+}
+_ADMIN_KIND_SUFFIX_ALIASES = {
+    "quartier": "Quarter",
+}
+
 
 def _clean_location_phrase(value: str) -> str:
     cleaned = str(value or "").strip(" .,:;")
@@ -117,6 +153,69 @@ def _normalized_location_is_less_specific(location: str, normalized_location: st
         re.search(rf"(?<![a-z0-9]){re.escape(part)}(?![a-z0-9])", location_key) is not None
         for part in normalized_parts
     )
+
+
+def _geocoder_query_candidates(location_query: str) -> tuple[str, ...]:
+    query = str(location_query or "").strip()
+    candidates = [query]
+    candidates.extend(_administrative_location_aliases(query))
+    return tuple(_unique_nonempty(candidates))
+
+
+def _administrative_location_aliases(location_query: str) -> list[str]:
+    parts = [part.strip(" .,:;") for part in str(location_query or "").split(",") if part.strip(" .,:;")]
+    if not parts:
+        return []
+
+    primary = parts[0]
+    suffix_parts = parts[1:]
+    match = _ADMIN_UNIT_PREFIX_RE.match(primary)
+    if not match:
+        return []
+
+    kind_key = _location_match_key(match.group("kind"))
+    name = match.group("name").strip(" .,:;")
+    aliases: list[str] = []
+    name_tokens = name.split()
+    parent_name = ""
+    if len(name_tokens) >= 2 and _location_match_key(name_tokens[-1]) in _ADMIN_TRAILING_QUALIFIER_KEYS:
+        parent_name = " ".join(name_tokens[:-1]).strip()
+        aliases.append(_join_location_parts(f"{name_tokens[-1]} de {parent_name}", suffix_parts))
+
+    if _contains_letter(name):
+        aliases.append(_join_location_parts(name, suffix_parts))
+        kind_suffix = _ADMIN_KIND_SUFFIX_ALIASES.get(kind_key)
+        if kind_suffix:
+            aliases.append(_join_location_parts(f"{name} {kind_suffix}", suffix_parts))
+
+    if parent_name:
+        aliases.append(_join_location_parts(parent_name, suffix_parts))
+
+    if len(suffix_parts) >= 2:
+        aliases.append(_join_location_parts(suffix_parts[0], suffix_parts[1:]))
+
+    return list(_unique_nonempty(aliases))
+
+
+def _join_location_parts(primary: str, suffix_parts: list[str]) -> str:
+    return ", ".join(part for part in (primary.strip(" .,:;"), *suffix_parts) if part)
+
+
+def _contains_letter(value: str) -> bool:
+    return re.search(r"[^\W\d_]", str(value or ""), flags=re.UNICODE) is not None
+
+
+def _unique_nonempty(values: Iterable[str]) -> tuple[str, ...]:
+    seen: set[str] = set()
+    unique: list[str] = []
+    for value in values:
+        text = str(value or "").strip()
+        key = text.casefold()
+        if not text or key in seen:
+            continue
+        seen.add(key)
+        unique.append(text)
+    return tuple(unique)
 
 
 class Geocoder(Protocol):
@@ -237,18 +336,28 @@ class AOIResolutionService:
 
     def resolve(self, user_query: str) -> ResolvedAOI:
         location_query = self.extract_location_query(user_query)
-        raw_candidates = list(self.geocoder.search(location_query))
-        if not raw_candidates:
-            raise ValueError(f"AOI_RESOLUTION_FAILED: No AOI candidates found for query: {location_query}")
-
-        candidates = tuple(self._deduplicate_candidates(self._normalize_candidate(location_query, raw) for raw in raw_candidates))
-        resolved = self._select_candidate(location_query, candidates)
-        if self.admin_boundary_resolver is None:
-            return resolved
-        boundary = self.admin_boundary_resolver.resolve(resolved)
-        if boundary is None:
-            return resolved
-        return _resolved_aoi_with_boundary(resolved, boundary)
+        last_ambiguity: AOIAmbiguityError | None = None
+        for geocoder_query in _geocoder_query_candidates(location_query):
+            raw_candidates = list(self.geocoder.search(geocoder_query))
+            if not raw_candidates:
+                continue
+            candidates = tuple(
+                self._deduplicate_candidates(self._normalize_candidate(location_query, raw) for raw in raw_candidates)
+            )
+            try:
+                resolved = self._select_candidate(location_query, candidates)
+            except AOIAmbiguityError as exc:
+                last_ambiguity = exc
+                continue
+            if self.admin_boundary_resolver is None:
+                return resolved
+            boundary = self.admin_boundary_resolver.resolve(resolved)
+            if boundary is None:
+                return resolved
+            return _resolved_aoi_with_boundary(resolved, boundary)
+        if last_ambiguity is not None:
+            raise last_ambiguity
+        raise ValueError(f"AOI_RESOLUTION_FAILED: No AOI candidates found for query: {location_query}")
 
     @staticmethod
     def extract_location_query(user_query: str) -> str:

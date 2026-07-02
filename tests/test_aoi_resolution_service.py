@@ -19,6 +19,16 @@ class FakeGeocoder:
         return list(self.results)
 
 
+class QueryMappedGeocoder:
+    def __init__(self, results_by_query):
+        self.results_by_query = results_by_query
+        self.queries: list[str] = []
+
+    def search(self, query: str):
+        self.queries.append(query)
+        return list(self.results_by_query.get(query, []))
+
+
 def test_aoi_resolution_service_selects_nairobi_when_query_mentions_kenya() -> None:
     service = AOIResolutionService(
         geocoder=FakeGeocoder(
@@ -261,6 +271,87 @@ def test_aoi_resolution_service_prefers_city_over_broader_admin_candidate_with_s
     assert resolved.bbox == pytest.approx((29.7649718, -3.5884953, 30.0849718, -3.2684953))
 
 
+def test_aoi_resolution_service_falls_back_past_ambiguous_spanish_admin_alias() -> None:
+    geocoder = QueryMappedGeocoder(
+        {
+            "Cercado de Arequipa, Peru": [
+                {
+                    "display_name": "Universidad Tecnologica del Peru, Arequipa, Peru",
+                    "boundingbox": ["-16.4094", "-16.4085", "-71.5411", "-71.5399"],
+                    "importance": 0.38,
+                    "type": "university",
+                    "address": {"city": "Arequipa", "country": "Peru", "country_code": "pe"},
+                },
+                {
+                    "display_name": "Universidad Tecnologica del Peru, Calle La Merced, Arequipa, Peru",
+                    "boundingbox": ["-16.4012", "-16.4007", "-71.5388", "-71.5382"],
+                    "importance": 0.38,
+                    "type": "university",
+                    "address": {"city": "Arequipa", "country": "Peru", "country_code": "pe"},
+                },
+            ],
+            "Arequipa Cercado, Peru": [
+                {
+                    "display_name": "Arequipa, Arequipa, Peru",
+                    "boundingbox": ["-16.43", "-16.37", "-71.57", "-71.50"],
+                    "importance": 0.31,
+                    "type": "administrative",
+                    "address": {
+                        "city": "Arequipa",
+                        "state": "Arequipa",
+                        "country": "Peru",
+                        "country_code": "pe",
+                    },
+                }
+            ],
+        }
+    )
+    service = AOIResolutionService(geocoder=geocoder)
+
+    resolved = service.resolve("fuse building data for flood response in Distrito de Arequipa Cercado, Peru")
+
+    assert geocoder.queries == [
+        "Distrito de Arequipa Cercado, Peru",
+        "Cercado de Arequipa, Peru",
+        "Arequipa Cercado, Peru",
+    ]
+    assert resolved.query == "Distrito de Arequipa Cercado, Peru"
+    assert resolved.display_name == "Arequipa, Arequipa, Peru"
+    assert resolved.country_code == "pe"
+
+
+def test_aoi_resolution_service_falls_back_for_portuguese_admin_prefix_when_exact_query_misses() -> None:
+    geocoder = QueryMappedGeocoder(
+        {
+            "Se, Sao Paulo, Brazil": [
+                {
+                    "display_name": "Se, Sao Paulo, Brazil",
+                    "boundingbox": ["-23.56", "-23.53", "-46.65", "-46.62"],
+                    "importance": 0.69,
+                    "type": "administrative",
+                    "address": {
+                        "suburb": "Se",
+                        "city": "Sao Paulo",
+                        "country": "Brazil",
+                        "country_code": "br",
+                    },
+                }
+            ],
+        }
+    )
+    service = AOIResolutionService(geocoder=geocoder)
+
+    resolved = service.resolve("fuse poi data for emergency operations around Freguesia de Se, Sao Paulo, Brazil")
+
+    assert geocoder.queries == [
+        "Freguesia de Se, Sao Paulo, Brazil",
+        "Se, Sao Paulo, Brazil",
+    ]
+    assert resolved.query == "Freguesia de Se, Sao Paulo, Brazil"
+    assert resolved.display_name == "Se, Sao Paulo, Brazil"
+    assert resolved.country_code == "br"
+
+
 def test_extract_location_query_removes_disaster_suffix() -> None:
     assert (
         AOIResolutionService.extract_location_query(
@@ -309,6 +400,10 @@ def test_extract_location_query_removes_humanitarian_response_prefix(query: str,
         (
             "fuse building data for emergency operations around Barangay 656, Intramuros, Manila, Philippines",
             "Barangay 656, Intramuros, Manila, Philippines",
+        ),
+        (
+            "fuse building data for flood response in Distrito de Arequipa Cercado, Peru",
+            "Distrito de Arequipa Cercado, Peru",
         ),
     ],
 )
