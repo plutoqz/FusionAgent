@@ -135,3 +135,28 @@
 
 - **Observation**: final verification selected `Ouando, Porto-Novo, Porto Novo, Oueme, Benin` with `admin_level=neighbourhood`, not the POI library, and artifact integrity passed with `.shp/.shx/.dbf/.prj`, 600 non-empty geometries, and CRS `EPSG:32631`.
 - **Impact**: this round verifies AOI candidate preference and artifact packaging, but still does not count as a boundary-clip success sample because local administrative boundary matching fell back to bbox.
+
+## Round 5 analysis - 2026-07-02T23:10:42+08:00
+
+- **Area ID**: AF-01
+- **Query**: fuse poi data for earthquake response in Commune de Gitega, Burundi
+- **Job Type**: poi | **Disaster**: earthquake
+- **Original Run ID**: c5bf58e9fd044976b3d745bf70d89711
+- **Fixed Verification Run ID**: 672849e9026b478d9f485c1740122722
+- **Status**: succeeded after fix | **Verification Duration**: 44s
+- **Admin Level**: city
+- **Clip Mode**: degraded bbox (`degraded_bbox_clip=true`)
+
+### Issue 1: Administrative alias chain stopped on a single POI candidate
+
+- **Stage**: task parsing / AOI resolution
+- **Direct Cause**: `services/aoi_resolution_service.py:468` filters area candidates only when they exist, but `services/aoi_resolution_service.py:474` still accepts a single non-area `amenity/townhall` candidate with `selection_reason=single_candidate`; this prevents `_geocoder_query_candidates` at `services/aoi_resolution_service.py:189` from trying the generated alias `Gitega, Burundi`.
+- **Trigger Conditions**: administrative-unit queries such as `Commune de ...`, `District ...`, or `Ward ...` where the exact prefixed form returns one POI/amenity and a later alias would resolve to the actual place or boundary.
+- **Similar Scope**: town halls for communes; schools for wards; churches for freguesias; municipal offices for districts.
+- **Why Guards Failed**: Round 4 added a preference when area candidates are present, but there was no rejection path when an administrative query returns only unsuitable POI candidates.
+- **Fix**: administrative-unit queries now reject all-POI candidate sets so `resolve` continues through later geocoder aliases; regression coverage is in `tests/test_aoi_resolution_service.py`.
+
+### Evidence Note: Boundary Still Degraded
+
+- **Observation**: final verification selected `Gitega, Burundi` (`place/city`) instead of the townhall POI, and artifact integrity passed with `.shp/.shx/.dbf/.prj`, 966 non-empty geometries, and CRS `EPSG:32735`.
+- **Impact**: this round verifies the alias-chain fallback for single-POI administrative hits, but still does not count as a boundary-clip success sample because local administrative boundary matching fell back to bbox.

@@ -129,5 +129,32 @@
       "e0f72bf"
     ],
     "notes": "Final verification selected Ouando place/neighbourhood instead of the POI library. Artifact integrity OK: SHP/SHX/DBF/PRJ present, 600 non-empty geometries, CRS EPSG:32631. Boundary matching still used bbox fallback, so this is not a boundary-clip success sample."
+  },
+  {
+    "round": 5,
+    "timestamp": "2026-07-02T23:12:47+08:00",
+    "area_id": "AF-01",
+    "area_name": "Commune de Gitega, Burundi",
+    "query": "fuse poi data for earthquake response in Commune de Gitega, Burundi",
+    "task_type": "poi",
+    "disaster_type": "earthquake",
+    "run_id": "672849e9026b478d9f485c1740122722",
+    "original_anomalous_run_id": "c5bf58e9fd044976b3d745bf70d89711",
+    "status": "succeeded",
+    "admin_level": "city",
+    "clip_mode": "bbox",
+    "degraded_bbox_clip": true,
+    "duration_seconds": 44,
+    "issues_found": [
+      "Administrative alias chain stopped on a single POI/townhall candidate before trying the generated place alias"
+    ],
+    "files_changed": [
+      "services/aoi_resolution_service.py",
+      "tests/test_aoi_resolution_service.py"
+    ],
+    "commit_hashes": [
+      "7dce246"
+    ],
+    "notes": "Final verification selected Gitega place/city instead of the townhall POI. Artifact integrity OK: SHP/SHX/DBF/PRJ present, 966 non-empty geometries, CRS EPSG:32735. Boundary matching still used bbox fallback, so this is not a boundary-clip success sample."
   }
 ]
