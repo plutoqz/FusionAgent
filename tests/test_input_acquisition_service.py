@@ -583,6 +583,62 @@ def test_input_acquisition_redownloads_bundle_when_cached_version_is_stale(tmp_p
     assert provider.download_calls == 1
 
 
+@pytest.mark.parametrize("missing_filename", ["osm.zip", "ref.zip"])
+def test_input_acquisition_treats_incomplete_cached_bundle_as_cache_miss(
+    tmp_path: Path,
+    missing_filename: str,
+) -> None:
+    from services.input_acquisition_service import InputAcquisitionService
+
+    registry = ArtifactRegistry(index_path=tmp_path / "artifact_registry.json")
+    provider = _StubBundleProvider(version_token="v1")
+    service = InputAcquisitionService(registry=registry, providers=[provider], cache_dir=tmp_path / "cache")
+
+    broken_dir = tmp_path / "broken_bundle"
+    cached_initial = _StubBundleProvider(version_token="v1").materialize(
+        source_id="catalog.task.building.default",
+        request_bbox=None,
+        target_dir=broken_dir,
+        target_crs="EPSG:4326",
+    )
+    (broken_dir / missing_filename).unlink()
+    registry.register(
+        ArtifactRecord(
+            artifact_id=f"cached-incomplete-{missing_filename}",
+            artifact_path=str(broken_dir),
+            job_type="building",
+            created_at="2026-04-11T00:00:00+00:00",
+            output_data_type="dt.building.bundle",
+            target_crs="EPSG:4326",
+            bbox=cached_initial.bbox,
+            meta={
+                "artifact_role": "input_bundle",
+                "source_id": "catalog.task.building.default",
+                "source_version": "v1",
+            },
+        )
+    )
+
+    resolved = service.resolve_task_driven_inputs(
+        request=_build_request(),
+        source_id="catalog.task.building.default",
+        required_output_type="dt.building.bundle",
+        input_dir=tmp_path / "run",
+    )
+
+    assert resolved.source_mode == "downloaded"
+    assert resolved.cache_hit is False
+    assert provider.download_calls == 1
+    assert resolved.osm_zip_path.exists()
+    assert resolved.ref_zip_path.exists()
+    assert zipfile.is_zipfile(resolved.osm_zip_path)
+    assert zipfile.is_zipfile(resolved.ref_zip_path)
+    assert resolved.manifest_path is not None
+    manifest = json.loads(resolved.manifest_path.read_text(encoding="utf-8"))
+    assert manifest["source_mode"] == "downloaded"
+    assert manifest["cache_hit"] is False
+
+
 def test_input_acquisition_supports_catalog_earthquake_building_source(tmp_path: Path) -> None:
     from services.input_acquisition_service import InputAcquisitionService
 

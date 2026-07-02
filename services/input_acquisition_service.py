@@ -5,6 +5,7 @@ import json
 import re
 import shutil
 import uuid
+import zipfile
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from pathlib import Path
@@ -88,6 +89,23 @@ def _clip_meta(resolved_aoi: ResolvedAOI | None) -> dict[str, object]:
         "clip_geometry_hash": resolved_aoi.clip_geometry_hash,
         "degraded_bbox_clip": bool(resolved_aoi.degraded_bbox_clip),
     }
+
+def _cached_bundle_is_complete(bundle_dir: Path) -> bool:
+    bundle_dir = Path(bundle_dir)
+    for filename in ("osm.zip", "ref.zip"):
+        zip_path = bundle_dir / filename
+        try:
+            if not zip_path.is_file() or zip_path.stat().st_size <= 0:
+                return False
+            if not zipfile.is_zipfile(zip_path):
+                return False
+            with zipfile.ZipFile(zip_path, "r") as archive:
+                if not archive.namelist():
+                    return False
+        except (OSError, zipfile.BadZipFile):
+            return False
+    return True
+
 
 class InputBundleProvider(Protocol):
     def can_handle(self, source_id: str) -> bool: ...
@@ -184,6 +202,11 @@ class InputAcquisitionService:
                 },
             )
         )
+
+        if candidate is not None and candidate.meta.get("source_version") == version_token:
+            bundle_dir = Path(candidate.artifact_path)
+            if not _cached_bundle_is_complete(bundle_dir):
+                candidate = None
 
         if candidate is not None and candidate.meta.get("source_version") == version_token:
             bundle_dir = Path(candidate.artifact_path)
