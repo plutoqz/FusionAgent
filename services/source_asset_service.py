@@ -37,6 +37,7 @@ GNS_DATA_INDEX_URL = "https://geonames.nga.mil/geonames/GNSData/data/data.json"
 HYDRORIVERS_GLOBAL_ZIP_URL = "https://data.hydrosheds.org/file/HydroRIVERS/HydroRIVERS_v10_shp.zip"
 HYDROLAKES_GLOBAL_ZIP_URL = "https://data.hydrosheds.org/file/hydrolakes/HydroLAKES_polys_v10_shp.zip"
 OVERTURE_DOWNLOAD_TIMEOUT_SECONDS = 600
+HTTP_DOWNLOAD_TIMEOUT_SECONDS = 120
 
 
 _GEOFABRIK_LAYER_NAMES = {
@@ -1721,13 +1722,32 @@ class SourceAssetService:
         curl_bin = shutil.which("curl.exe") or shutil.which("curl")
         if not curl_bin:
             raise RuntimeError("curl binary is not available for HTTPS download fallback")
-        completed = subprocess.run(
-            [curl_bin, "-L", "--fail", "--output", str(target_path), url],
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-            check=False,
-            text=True,
-        )
+        command = [
+            curl_bin,
+            "-L",
+            "--fail",
+            "--connect-timeout",
+            str(HTTP_DOWNLOAD_TIMEOUT_SECONDS),
+            "--max-time",
+            str(HTTP_DOWNLOAD_TIMEOUT_SECONDS),
+            "--output",
+            str(target_path),
+            url,
+        ]
+        try:
+            completed = subprocess.run(
+                command,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
+                check=False,
+                text=True,
+                timeout=HTTP_DOWNLOAD_TIMEOUT_SECONDS + 5,
+            )
+        except subprocess.TimeoutExpired as exc:
+            raise TimeoutError(
+                "curl download timed out: "
+                f"timeout={HTTP_DOWNLOAD_TIMEOUT_SECONDS}s url={url}"
+            ) from exc
         if completed.returncode != 0:
             stderr = (completed.stderr or "").strip()
             stdout = (completed.stdout or "").strip()

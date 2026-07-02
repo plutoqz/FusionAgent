@@ -279,6 +279,22 @@ def test_extract_location_query_supports_disaster_prefix() -> None:
     )
 
 
+@pytest.mark.parametrize(
+    ("query", "expected"),
+    [
+        ("fuse building data for conflict response in Gitega, Burundi", "Gitega, Burundi"),
+        ("fuse road data for wildfire relief near Valparaiso, Chile", "Valparaiso, Chile"),
+        ("fuse poi data for drought recovery within Garissa, Kenya", "Garissa, Kenya"),
+        (
+            "fuse water data for emergency operations around Tacloban, Philippines",
+            "Tacloban, Philippines",
+        ),
+    ],
+)
+def test_extract_location_query_removes_humanitarian_response_prefix(query: str, expected: str) -> None:
+    assert AOIResolutionService.extract_location_query(query) == expected
+
+
 def test_extract_location_query_normalizes_chinese_abidjan_event() -> None:
     query = "科特迪瓦阿比让强降雨致12死5伤，请执行灾害地理空间数据融合。"
 

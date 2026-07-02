@@ -3,7 +3,11 @@ from __future__ import annotations
 import json
 import logging
 import os
+import queue
 import re
+import subprocess
+import sys
+import time
 import traceback
 import uuid
 import zipfile
@@ -11,7 +15,7 @@ from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass
 from datetime import datetime, timezone
 from pathlib import Path
-from threading import Lock
+from threading import Lock, Thread
 from typing import Any, Dict, List, Optional
 
 from agent.semantic_parameter_binding import bind_source_semantic_parameters
@@ -76,11 +80,22 @@ from services.tiled_building_runtime_service import TiledBuildingRuntimeService
 from services.unsupported_intent_guard import classify_unsupported_intent
 from utils.crs import normalize_target_crs, resolve_target_crs
 from utils.shp_zip import validate_zip_has_shapefile, zip_shapefile_bundle
-from utils.vector_clip import clip_zip_to_request_bbox
+from utils.vector_clip import BBox, clip_zip_to_request_bbox
 
 
 def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+
+DEFAULT_INPUT_ACQUISITION_TIMEOUT_SECONDS = 600.0
+DEFAULT_INPUT_ACQUISITION_HEARTBEAT_SECONDS = 30.0
+
+
+class SourceAcquisitionTimeoutError(TimeoutError):
+    def __init__(self, message: str, *, already_recorded: bool = False) -> None:
+        super().__init__(message)
+        self.already_recorded = already_recorded
 
 
 def _as_bool(value: str | None, default: bool = False) -> bool:
@@ -1525,11 +1540,23 @@ class AgentRunService:
         )
         last_error: ValueError | None = None
         source_id = source_candidates[0]
-        for candidate_source_id in source_candidates:
+        for candidate_index, candidate_source_id in enumerate(source_candidates, start=1):
+            self._record_source_acquisition_started(
+                run_id=run_id,
+                plan=plan,
+                source_id=candidate_source_id,
+                candidate_index=candidate_index,
+                candidate_count=len(source_candidates),
+            )
+            candidate_started_at = time.monotonic()
             try:
-                resolved = self.input_acquisition_service.resolve_task_driven_inputs(
-                    request=request,
+                resolved = self._resolve_task_driven_inputs_with_progress(
+                    run_id=run_id,
+                    plan=plan,
                     source_id=candidate_source_id,
+                    candidate_index=candidate_index,
+                    candidate_count=len(source_candidates),
+                    request=request,
                     required_output_type=required_output_type,
                     input_dir=input_dir,
                     request_bbox=request_bbox,
@@ -1548,18 +1575,448 @@ class AgentRunService:
                         component_coverage=resolved.component_coverage,
                         manifest_path=resolved.manifest_path,
                     )
+                self._record_source_acquisition_materialized(
+                    run_id=run_id,
+                    plan=plan,
+                    resolved_inputs=resolved,
+                    elapsed_seconds=time.monotonic() - candidate_started_at,
+                )
                 return resolved.osm_zip_path, resolved.ref_zip_path, resolved
+            except SourceAcquisitionTimeoutError as exc:
+                if not exc.already_recorded:
+                    self._record_source_acquisition_failed(
+                        run_id=run_id,
+                        plan=plan,
+                        source_id=candidate_source_id,
+                        candidate_index=candidate_index,
+                        candidate_count=len(source_candidates),
+                        error=exc,
+                        elapsed_seconds=time.monotonic() - candidate_started_at,
+                        will_try_next=False,
+                    )
+                raise
             except ValueError as exc:
                 last_error = exc
                 message = str(exc)
+                will_try_next = (
+                    candidate_source_id != source_candidates[-1]
+                    and ("SOURCE_MISSING" in message or "empty source coverage" in message)
+                )
+                self._record_source_acquisition_failed(
+                    run_id=run_id,
+                    plan=plan,
+                    source_id=candidate_source_id,
+                    candidate_index=candidate_index,
+                    candidate_count=len(source_candidates),
+                    error=exc,
+                    elapsed_seconds=time.monotonic() - candidate_started_at,
+                    will_try_next=will_try_next,
+                )
                 if "SOURCE_MISSING" not in message and "empty source coverage" not in message:
                     raise
                 if candidate_source_id == source_candidates[-1]:
                     raise
+            except Exception as exc:  # noqa: BLE001
+                self._record_source_acquisition_failed(
+                    run_id=run_id,
+                    plan=plan,
+                    source_id=candidate_source_id,
+                    candidate_index=candidate_index,
+                    candidate_count=len(source_candidates),
+                    error=exc,
+                    elapsed_seconds=time.monotonic() - candidate_started_at,
+                    will_try_next=False,
+                )
+                raise
 
         if last_error is not None:
             raise last_error
         raise ValueError("task-driven input strategy could not materialize any candidate source")
+
+    def _resolve_task_driven_inputs_with_progress(
+        self,
+        *,
+        run_id: str,
+        plan: WorkflowPlan,
+        source_id: str,
+        candidate_index: int,
+        candidate_count: int,
+        request: RunCreateRequest,
+        required_output_type: str,
+        input_dir: Path,
+        request_bbox: BBox | None,
+        resolved_aoi: ResolvedAOI | None,
+    ) -> ResolvedRunInputs:
+        timeout_seconds = self._input_acquisition_timeout_seconds()
+        heartbeat_seconds = self._input_acquisition_heartbeat_seconds()
+        if timeout_seconds <= 0:
+            return self.input_acquisition_service.resolve_task_driven_inputs(
+                request=request,
+                source_id=source_id,
+                required_output_type=required_output_type,
+                input_dir=input_dir,
+                request_bbox=request_bbox,
+                resolved_aoi=resolved_aoi,
+            )
+
+        result_queue: queue.Queue[tuple[str, object]] = queue.Queue(maxsize=1)
+        watchdog = self._start_source_acquisition_watchdog(
+            run_id=run_id,
+            plan=plan,
+            source_id=source_id,
+            candidate_index=candidate_index,
+            candidate_count=candidate_count,
+            input_dir=input_dir,
+            timeout_seconds=timeout_seconds,
+            heartbeat_seconds=heartbeat_seconds,
+        )
+
+        def _target() -> None:
+            try:
+                result_queue.put(
+                    (
+                        "ok",
+                        self.input_acquisition_service.resolve_task_driven_inputs(
+                            request=request,
+                            source_id=source_id,
+                            required_output_type=required_output_type,
+                            input_dir=input_dir,
+                            request_bbox=request_bbox,
+                            resolved_aoi=resolved_aoi,
+                        ),
+                    )
+                )
+            except BaseException as exc:  # noqa: BLE001
+                result_queue.put(("error", exc))
+
+        try:
+            started_at = time.monotonic()
+            worker = Thread(target=_target, name=f"input-acquisition-{source_id}", daemon=True)
+            worker.start()
+
+            while True:
+                elapsed_seconds = time.monotonic() - started_at
+                timeout_marker = self._read_source_acquisition_watchdog_marker(watchdog)
+                if timeout_marker is not None:
+                    raise SourceAcquisitionTimeoutError(str(timeout_marker["error"]), already_recorded=True)
+                remaining_seconds = timeout_seconds - elapsed_seconds
+                if remaining_seconds <= 0:
+                    error_message = (
+                        "SOURCE_DOWNLOAD_FAILED: input acquisition timed out "
+                        f"after {timeout_seconds:g}s for source_id={source_id}"
+                    )
+                    self._record_source_acquisition_timeout_direct(
+                        watchdog,
+                        elapsed_seconds=elapsed_seconds,
+                    )
+                    raise SourceAcquisitionTimeoutError(error_message, already_recorded=True)
+                wait_seconds = min(remaining_seconds, heartbeat_seconds) if heartbeat_seconds > 0 else remaining_seconds
+                try:
+                    status, payload = result_queue.get(timeout=wait_seconds)
+                except queue.Empty:
+                    elapsed_seconds = time.monotonic() - started_at
+                    timeout_marker = self._read_source_acquisition_watchdog_marker(watchdog)
+                    if timeout_marker is not None:
+                        raise SourceAcquisitionTimeoutError(str(timeout_marker["error"]), already_recorded=True)
+                    if elapsed_seconds >= timeout_seconds:
+                        error_message = (
+                            "SOURCE_DOWNLOAD_FAILED: input acquisition timed out "
+                            f"after {timeout_seconds:g}s for source_id={source_id}"
+                        )
+                        self._record_source_acquisition_timeout_direct(
+                            watchdog,
+                            elapsed_seconds=elapsed_seconds,
+                        )
+                        raise SourceAcquisitionTimeoutError(error_message, already_recorded=True)
+                    if heartbeat_seconds > 0:
+                        self._record_source_acquisition_heartbeat_direct(
+                            watchdog,
+                            elapsed_seconds=elapsed_seconds,
+                        )
+                    continue
+                if status == "error":
+                    raise payload  # type: ignore[misc]
+                timeout_marker = self._read_source_acquisition_watchdog_marker(watchdog)
+                if timeout_marker is not None:
+                    raise SourceAcquisitionTimeoutError(str(timeout_marker["error"]), already_recorded=True)
+                return payload  # type: ignore[return-value]
+        finally:
+            self._stop_source_acquisition_watchdog(watchdog)
+
+    def _start_source_acquisition_watchdog(
+        self,
+        *,
+        run_id: str,
+        plan: WorkflowPlan,
+        source_id: str,
+        candidate_index: int,
+        candidate_count: int,
+        input_dir: Path,
+        timeout_seconds: float,
+        heartbeat_seconds: float,
+    ) -> dict[str, object]:
+        watchdog_dir = input_dir / "_watchdog"
+        watchdog_dir.mkdir(parents=True, exist_ok=True)
+        token = uuid.uuid4().hex[:12]
+        control_path = watchdog_dir / f"source_acquisition_{token}.json"
+        marker_path = watchdog_dir / f"source_acquisition_{token}.marker.json"
+        stop_path = watchdog_dir / f"source_acquisition_{token}.stop"
+        control = {
+            "run_id": run_id,
+            "status_path": str(self.base_dir / run_id / "run.json"),
+            "audit_path": str(self._audit_path(run_id)),
+            "marker_path": str(marker_path),
+            "stop_path": str(stop_path),
+            "source_id": source_id,
+            "candidate_index": candidate_index,
+            "candidate_count": candidate_count,
+            "plan_revision": self._extract_plan_revision(plan),
+            "timeout_seconds": float(timeout_seconds),
+            "heartbeat_seconds": float(heartbeat_seconds),
+            "control_path": str(control_path),
+            "process": None,
+        }
+        control_path.write_text(json.dumps({key: value for key, value in control.items() if key != "process"}), encoding="utf-8")
+        try:
+            creationflags = getattr(subprocess, "CREATE_NO_WINDOW", 0)
+            process = subprocess.Popen(
+                [
+                    sys.executable,
+                    str(Path(__file__).with_name("source_acquisition_watchdog.py")),
+                    str(control_path),
+                ],
+                stdin=subprocess.DEVNULL,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                cwd=str(Path(__file__).resolve().parents[1]),
+                creationflags=creationflags,
+            )
+            control["process"] = process
+        except Exception:  # noqa: BLE001
+            control["process"] = None
+        return control
+
+    @staticmethod
+    def _stop_source_acquisition_watchdog(watchdog: dict[str, object]) -> None:
+        stop_path = Path(str(watchdog.get("stop_path") or ""))
+        try:
+            stop_path.parent.mkdir(parents=True, exist_ok=True)
+            stop_path.write_text("stop\n", encoding="utf-8")
+        except Exception:  # noqa: BLE001
+            pass
+        process = watchdog.get("process")
+        if process is None:
+            return
+        try:
+            if process.poll() is None:
+                process.wait(timeout=1.0)
+        except Exception:  # noqa: BLE001
+            try:
+                process.terminate()
+            except Exception:  # noqa: BLE001
+                pass
+
+    @staticmethod
+    def _read_source_acquisition_watchdog_marker(watchdog: dict[str, object]) -> dict[str, object] | None:
+        marker_path = Path(str(watchdog.get("marker_path") or ""))
+        if not marker_path.exists():
+            return None
+        try:
+            payload = json.loads(marker_path.read_text(encoding="utf-8"))
+        except Exception:  # noqa: BLE001
+            return None
+        if str(payload.get("status") or "") != "timed_out":
+            return None
+        return payload
+
+    @staticmethod
+    def _record_source_acquisition_heartbeat_direct(
+        watchdog: dict[str, object],
+        *,
+        elapsed_seconds: float,
+    ) -> None:
+        try:
+            from services.source_acquisition_watchdog import write_heartbeat
+
+            write_heartbeat(watchdog, elapsed_seconds=elapsed_seconds)
+        except Exception:  # noqa: BLE001
+            pass
+
+    @staticmethod
+    def _record_source_acquisition_timeout_direct(
+        watchdog: dict[str, object],
+        *,
+        elapsed_seconds: float,
+    ) -> None:
+        try:
+            from services.source_acquisition_watchdog import mark_timed_out
+
+            mark_timed_out(watchdog, elapsed_seconds=elapsed_seconds)
+        except Exception:  # noqa: BLE001
+            pass
+        marker_path = Path(str(watchdog.get("marker_path") or ""))
+        if not marker_path.exists():
+            try:
+                marker_path.parent.mkdir(parents=True, exist_ok=True)
+                marker_path.write_text(
+                    json.dumps(
+                        {
+                            "status": "timed_out",
+                            "source_id": str(watchdog.get("source_id") or ""),
+                            "elapsed_seconds": round(float(elapsed_seconds), 3),
+                            "timeout_seconds": float(watchdog.get("timeout_seconds") or 0.0),
+                            "error": (
+                                "SOURCE_DOWNLOAD_FAILED: input acquisition timed out "
+                                f"after {float(watchdog.get('timeout_seconds') or 0.0):g}s "
+                                f"for source_id={watchdog.get('source_id')}"
+                            ),
+                        }
+                    ),
+                    encoding="utf-8",
+                )
+            except Exception:  # noqa: BLE001
+                pass
+
+    def _record_source_acquisition_started(
+        self,
+        *,
+        run_id: str,
+        plan: WorkflowPlan,
+        source_id: str,
+        candidate_index: int,
+        candidate_count: int,
+    ) -> None:
+        self._update_status(
+            run_id,
+            RunPhase.running,
+            progress=38,
+            plan_revision=self._extract_plan_revision(plan),
+            checkpoint=self._checkpoint(stage="input_resolution", plan_revision=self._extract_plan_revision(plan)),
+            event_kind="source_acquisition_started",
+            event_message="Source acquisition started for task-driven input materialization.",
+            event_details={
+                "source_id": source_id,
+                "candidate_index": candidate_index,
+                "candidate_count": candidate_count,
+                "timeout_seconds": self._input_acquisition_timeout_seconds(),
+            },
+        )
+
+    def _record_source_acquisition_heartbeat(
+        self,
+        *,
+        run_id: str,
+        plan: WorkflowPlan,
+        source_id: str,
+        candidate_index: int,
+        candidate_count: int,
+        elapsed_seconds: float,
+        timeout_seconds: float,
+    ) -> None:
+        self._update_status(
+            run_id,
+            RunPhase.running,
+            progress=39,
+            plan_revision=self._extract_plan_revision(plan),
+            checkpoint=self._checkpoint(stage="input_resolution", plan_revision=self._extract_plan_revision(plan)),
+            event_kind="source_acquisition_heartbeat",
+            event_message="Source acquisition is still running.",
+            event_details={
+                "source_id": source_id,
+                "candidate_index": candidate_index,
+                "candidate_count": candidate_count,
+                "elapsed_seconds": round(float(elapsed_seconds), 3),
+                "timeout_seconds": timeout_seconds,
+            },
+        )
+
+    def _record_source_acquisition_failed(
+        self,
+        *,
+        run_id: str,
+        plan: WorkflowPlan,
+        source_id: str,
+        candidate_index: int,
+        candidate_count: int,
+        error: BaseException,
+        elapsed_seconds: float,
+        will_try_next: bool,
+    ) -> None:
+        error_text = f"{type(error).__name__}: {error}"
+        self._update_status(
+            run_id,
+            RunPhase.running,
+            progress=40,
+            failure_summary=error_text if not will_try_next else None,
+            plan_revision=self._extract_plan_revision(plan),
+            checkpoint=self._checkpoint(stage="input_resolution", plan_revision=self._extract_plan_revision(plan)),
+            event_kind="source_acquisition_failed",
+            event_message="Source acquisition failed during task-driven input materialization.",
+            event_details={
+                "source_id": source_id,
+                "candidate_index": candidate_index,
+                "candidate_count": candidate_count,
+                "elapsed_seconds": round(float(elapsed_seconds), 3),
+                "error": error_text,
+                "fault_class": self._source_acquisition_fault_class(error),
+                "will_try_next_candidate": will_try_next,
+            },
+        )
+
+    def _record_source_acquisition_materialized(
+        self,
+        *,
+        run_id: str,
+        plan: WorkflowPlan,
+        resolved_inputs: ResolvedRunInputs,
+        elapsed_seconds: float,
+    ) -> None:
+        self._update_status(
+            run_id,
+            RunPhase.running,
+            progress=45,
+            plan_revision=self._extract_plan_revision(plan),
+            checkpoint=self._checkpoint(stage="input_resolution", plan_revision=self._extract_plan_revision(plan)),
+            event_kind="source_materialized",
+            event_message="Source acquisition materialized task-driven input bundles.",
+            event_details={
+                "source_id": resolved_inputs.source_id,
+                "selected_source_id": resolved_inputs.selected_source_id or resolved_inputs.source_id,
+                "source_mode": resolved_inputs.source_mode,
+                "cache_hit": resolved_inputs.cache_hit,
+                "elapsed_seconds": round(float(elapsed_seconds), 3),
+                "source_materialization_manifest_path": (
+                    str(resolved_inputs.manifest_path) if resolved_inputs.manifest_path is not None else None
+                ),
+            },
+        )
+
+    def _input_acquisition_timeout_seconds(self) -> float:
+        configured = self._read_env_float("GEOFUSION_INPUT_ACQUISITION_TIMEOUT_SECONDS")
+        if configured is None:
+            return DEFAULT_INPUT_ACQUISITION_TIMEOUT_SECONDS
+        return max(0.0, float(configured))
+
+    def _input_acquisition_heartbeat_seconds(self) -> float:
+        configured = self._read_env_float("GEOFUSION_INPUT_ACQUISITION_HEARTBEAT_SECONDS")
+        if configured is None:
+            return DEFAULT_INPUT_ACQUISITION_HEARTBEAT_SECONDS
+        return max(0.0, float(configured))
+
+    @staticmethod
+    def _source_acquisition_fault_class(error: BaseException) -> str:
+        text = str(error or "").strip().lower()
+        if isinstance(error, TimeoutError) or "source_download_failed" in text or "download" in text or "timeout" in text:
+            return "SOURCE_DOWNLOAD_FAILED"
+        if "source_missing" in text or "missing" in text or "not found" in text:
+            return "SOURCE_MISSING"
+        if "unauthorized" in text or "permission" in text or "api key" in text or "credential" in text:
+            return "UNAUTHORIZED"
+        if "empty source coverage" in text or "no official coverage" in text or "outside coverage" in text:
+            return "NO_OFFICIAL_COVERAGE"
+        if "corrupt" in text or "badzipfile" in text:
+            return "SOURCE_CORRUPTED"
+        return "PROVIDER_UNAVAILABLE"
 
     def _write_data_requirement_evidence(
         self,
@@ -2818,6 +3275,16 @@ class AgentRunService:
             return None
         try:
             return int(value)
+        except ValueError:
+            return None
+
+    @classmethod
+    def _read_env_float(cls, name: str) -> float | None:
+        value = cls._read_env_value(name)
+        if value is None:
+            return None
+        try:
+            return float(value)
         except ValueError:
             return None
 

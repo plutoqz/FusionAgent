@@ -19,14 +19,54 @@ from services.scenario_trigger_normalizer import normalize_scenario_trigger_text
 from utils.vector_clip import REQUEST_BBOX_CRS, filter_frame_to_intersecting_geometry, frame_bbox_in_crs
 
 
+_DISASTER_TERMS = (
+    "volcanic eruption",
+    "civil unrest",
+    "flash flood",
+    "heat wave",
+    "earthquake",
+    "hurricane",
+    "landslide",
+    "emergency",
+    "aftershock",
+    "pandemic",
+    "violence",
+    "wildfire",
+    "epidemic",
+    "outbreak",
+    "conflict",
+    "disaster",
+    "cyclone",
+    "typhoon",
+    "drought",
+    "tsunami",
+    "mudslide",
+    "heatwave",
+    "crisis",
+    "storm",
+    "flood",
+    "fire",
+    "war",
+)
+_DISASTER_TERM_PATTERN = "|".join(
+    re.escape(term).replace(r"\ ", r"\s+") for term in _DISASTER_TERMS
+)
+
 _DISASTER_PREFIX_RE = re.compile(
-    r"^\s*(earthquake|flood|typhoon|disaster|emergency)\s+(in|at|near|around)\s+",
+    rf"^\s*({_DISASTER_TERM_PATTERN})\s+(in|at|near|around)\s+",
     flags=re.IGNORECASE,
 )
 
 _DISASTER_SUFFIX_RE = re.compile(
     r"\s+(after|following|during|because of|due to)\s+(an?\s+)?"
-    r"(earthquake|flood|typhoon|disaster|emergency)\b.*$",
+    rf"({_DISASTER_TERM_PATTERN})\b.*$",
+    flags=re.IGNORECASE,
+)
+
+_RESPONSE_PREFIX_RE = re.compile(
+    r"^\s*(?:(?:[a-z0-9][a-z0-9'_-]*)\s+){0,6}"
+    r"(response|relief|recovery|operations?|support|coordination)\s+"
+    r"(in|at|near|around|within|for)\s+",
     flags=re.IGNORECASE,
 )
 
@@ -38,9 +78,15 @@ _NEED_SUFFIX_RE = re.compile(
 
 
 def _clean_location_phrase(value: str) -> str:
-    cleaned = _DISASTER_PREFIX_RE.sub("", value).strip(" .,:;")
-    cleaned = _DISASTER_SUFFIX_RE.sub("", cleaned).strip(" .,:;")
-    cleaned = _NEED_SUFFIX_RE.sub("", cleaned).strip(" .,:;")
+    cleaned = str(value or "").strip(" .,:;")
+    for _ in range(3):
+        previous = cleaned
+        cleaned = _DISASTER_PREFIX_RE.sub("", cleaned).strip(" .,:;")
+        cleaned = _RESPONSE_PREFIX_RE.sub("", cleaned).strip(" .,:;")
+        cleaned = _DISASTER_SUFFIX_RE.sub("", cleaned).strip(" .,:;")
+        cleaned = _NEED_SUFFIX_RE.sub("", cleaned).strip(" .,:;")
+        if cleaned == previous:
+            break
     return cleaned
 
 

@@ -1,4 +1,5 @@
 import json
+import threading
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
@@ -432,6 +433,128 @@ def test_agent_run_service_writes_data_requirements_before_materialization(tmp_p
     assert latest is not None
     assert latest.phase == RunPhase.failed
     assert captured["exists_before_materialization"] is True
+
+
+def test_agent_run_service_input_acquisition_timeout_records_readable_events(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    service = AgentRunService(base_dir=tmp_path / "runs")
+    request = _build_auto_request(
+        spatial_extent="bbox(0,0,1,1)",
+        job_type=JobType.building,
+        content="need building data for timeout visibility",
+    )
+    run_id = "run-input-acquisition-timeout"
+    _seed_run_status(service, run_id, request)
+    plan = _build_plan(workflow_id="wf_input_timeout", revision=1)
+    plan.tasks[0].input.data_source_id = "catalog.flood.building"
+    blocker = threading.Event()
+
+    def slow_resolve_task_driven_inputs(**_kwargs):
+        blocker.wait(timeout=10)
+        raise RuntimeError("released after timeout")
+
+    monkeypatch.setenv("GEOFUSION_INPUT_ACQUISITION_TIMEOUT_SECONDS", "0.05")
+    monkeypatch.setenv("GEOFUSION_INPUT_ACQUISITION_HEARTBEAT_SECONDS", "0.01")
+    monkeypatch.setattr(service.input_acquisition_service, "resolve_task_driven_inputs", slow_resolve_task_driven_inputs)
+
+    try:
+        with pytest.raises(TimeoutError, match="SOURCE_DOWNLOAD_FAILED: input acquisition timed out"):
+            service._resolve_execution_inputs(
+                run_id=run_id,
+                request=request,
+                plan=plan,
+                input_dir=tmp_path / "runs" / run_id / "input",
+                osm_zip_path=None,
+                ref_zip_path=None,
+            )
+    finally:
+        blocker.set()
+
+    events = service.get_audit_events(run_id)
+    event_kinds = [event.kind for event in events]
+    assert "data_requirements_resolved" in event_kinds
+    assert "source_acquisition_started" in event_kinds
+    assert "source_acquisition_heartbeat" in event_kinds
+    failed = next(event for event in events if event.kind == "source_acquisition_failed")
+    assert failed.details["source_id"] == "catalog.flood.building"
+    assert failed.details["fault_class"] == "SOURCE_DOWNLOAD_FAILED"
+    assert failed.details["will_try_next_candidate"] is False
+    latest = service.get_run(run_id)
+    assert latest is not None
+    assert latest.checkpoint["stage"] == "input_resolution"
+    assert "SOURCE_DOWNLOAD_FAILED" in (latest.failure_summary or "")
+
+
+def test_agent_run_service_input_acquisition_watchdog_does_not_need_service_lock(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    service = AgentRunService(base_dir=tmp_path / "runs")
+    request = _build_auto_request(
+        spatial_extent="bbox(0,0,1,1)",
+        job_type=JobType.building,
+        content="need building data while acquisition blocks the run lock",
+    )
+    run_id = "run-input-acquisition-lock-timeout"
+    _seed_run_status(service, run_id, request)
+    plan = _build_plan(workflow_id="wf_input_lock_timeout", revision=1)
+    plan.tasks[0].input.data_source_id = "catalog.flood.building"
+    acquired = threading.Event()
+    release = threading.Event()
+
+    def lock_holding_resolve_task_driven_inputs(**_kwargs):
+        service._lock.acquire()
+        try:
+            acquired.set()
+            release.wait(timeout=10)
+        finally:
+            service._lock.release()
+        raise RuntimeError("released after watchdog timeout")
+
+    monkeypatch.setenv("GEOFUSION_INPUT_ACQUISITION_TIMEOUT_SECONDS", "0.8")
+    monkeypatch.setenv("GEOFUSION_INPUT_ACQUISITION_HEARTBEAT_SECONDS", "0.2")
+    monkeypatch.setattr(service.input_acquisition_service, "resolve_task_driven_inputs", lock_holding_resolve_task_driven_inputs)
+
+    outcome: dict[str, object] = {}
+
+    def run_resolution() -> None:
+        try:
+            service._resolve_execution_inputs(
+                run_id=run_id,
+                request=request,
+                plan=plan,
+                input_dir=tmp_path / "runs" / run_id / "input",
+                osm_zip_path=None,
+                ref_zip_path=None,
+            )
+        except BaseException as exc:  # noqa: BLE001
+            outcome["exception"] = exc
+
+    worker = threading.Thread(target=run_resolution, daemon=True)
+    worker.start()
+    assert acquired.wait(timeout=2), "acquisition did not enter the lock-held section"
+    worker.join(timeout=5)
+    release.set()
+    worker.join(timeout=2)
+
+    assert not worker.is_alive(), "input acquisition watchdog blocked on AgentRunService._lock"
+    assert isinstance(outcome.get("exception"), TimeoutError)
+
+    events = service.get_audit_events(run_id)
+    event_kinds = [event.kind for event in events]
+    assert "source_acquisition_started" in event_kinds
+    assert "source_acquisition_heartbeat" in event_kinds
+    failed = next(event for event in events if event.kind == "source_acquisition_failed")
+    assert failed.details["fault_class"] == "SOURCE_DOWNLOAD_FAILED"
+    assert failed.details["source_id"] == "catalog.flood.building"
+    latest = service.get_run(run_id)
+    assert latest is not None
+    assert latest.phase == RunPhase.failed
+    assert "SOURCE_DOWNLOAD_FAILED" in (latest.failure_summary or "")
+
+
 
 
 def test_agent_run_service_rejects_unsupported_intent_before_creating_run_dirs(tmp_path: Path) -> None:

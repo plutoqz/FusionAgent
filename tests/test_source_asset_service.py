@@ -4,6 +4,7 @@ import gzip
 import hashlib
 import json
 import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -446,6 +447,58 @@ def test_source_asset_service_water_prefers_local_source_and_clips_request_bbox(
     assert resolved.bbox == pytest.approx((0.5, 0.5, 1.5, 1.5))
     assert resolved.path.parent.name != "burundi-260127-free.shp"
     assert len(frame) == 1
+
+
+def test_source_asset_service_curl_download_has_hard_timeout(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    target_path = tmp_path / "download.bin"
+    captured: dict[str, object] = {}
+
+    monkeypatch.setattr("services.source_asset_service.shutil.which", lambda _name: "curl")
+
+    def fake_run(command, **kwargs):
+        captured["command"] = command
+        captured["timeout"] = kwargs.get("timeout")
+        raise subprocess.TimeoutExpired(command, kwargs.get("timeout"))
+
+    monkeypatch.setattr("services.source_asset_service.subprocess.run", fake_run)
+
+    with pytest.raises(TimeoutError, match="curl download timed out"):
+        SourceAssetService._download_http_via_curl("https://example.com/data.zip", target_path)
+
+    command = captured["command"]
+    assert "--max-time" in command
+    assert captured["timeout"] == 125
+
+
+def test_source_asset_service_water_prefers_local_source_and_clips_request_bbox(tmp_path: Path) -> None:
+    local_shp = tmp_path / "Data" / "burundi-260127-free.shp" / "gis_osm_water_a_free_1.shp"
+    _write_frame(
+        local_shp,
+        geopandas.GeoDataFrame(
+            {"water_id": [1, 2]},
+            geometry=[
+                Polygon([(0.0, 0.0), (0.0, 2.0), (2.0, 2.0), (2.0, 0.0)]),
+                Polygon([(5.0, 5.0), (5.0, 6.0), (6.0, 6.0), (6.0, 5.0)]),
+            ],
+            crs="EPSG:4326",
+        ),
+    )
+    service = SourceAssetService(repo_root=tmp_path, cache_dir=tmp_path / "cache")
+
+    resolved = service.resolve_raw_source_path("raw.osm.water", request_bbox=(0.5, 0.5, 1.5, 1.5))
+    frame = geopandas.read_file(resolved.path)
+
+    assert resolved.source_mode == "local_data_clipped"
+    assert resolved.cache_hit is False
+    assert resolved.feature_count == 1
+    assert resolved.bbox == pytest.approx((0.5, 0.5, 1.5, 1.5))
+    assert resolved.path.parent.name != "burundi-260127-free.shp"
+    assert len(frame) == 1
+
+
 
 
 def test_source_asset_service_water_empty_local_clip_falls_back_to_geofabrik_asset(
