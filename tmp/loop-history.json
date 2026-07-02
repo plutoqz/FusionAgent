@@ -27,7 +27,34 @@
       "tests/test_agent_run_service_enhancements.py",
       "tests/test_source_asset_service.py"
     ],
-    "commit_hashes": [],
+    "commit_hashes": [
+      "bcf39c2"
+    ],
     "notes": "Verification run succeeded with artifact integrity OK, but Nominatim resolved the area through bbox fallback, so this is not a boundary-clip success sample."
+  },
+  {
+    "round": 2,
+    "timestamp": "2026-07-02T20:10:30+08:00",
+    "area_id": "AS-01",
+    "area_name": "Saddar Town, Karachi, Pakistan",
+    "query": "fuse building data for flood response in Saddar Town, Karachi, Pakistan",
+    "task_type": "building",
+    "disaster_type": "flood",
+    "run_id": "eac4b961985d41c6a1978890a484457c",
+    "original_failed_run_id": "eb567ec0434849f2ae2ad00a4444d950",
+    "status": "succeeded",
+    "admin_level": "city",
+    "clip_mode": "bbox",
+    "degraded_bbox_clip": true,
+    "duration_seconds": 465,
+    "issues_found": [
+      "AOI normalizer discarded specific administrative qualifier before explicit location phrase cleanup"
+    ],
+    "files_changed": [
+      "services/aoi_resolution_service.py",
+      "tests/test_aoi_resolution_service.py"
+    ],
+    "commit_hashes": [],
+    "notes": "Verification run succeeded and artifact integrity OK; AOI stayed specific to Saddar Town but boundary matching still used bbox fallback."
   }
 ]

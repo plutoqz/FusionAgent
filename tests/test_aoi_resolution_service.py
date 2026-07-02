@@ -295,6 +295,27 @@ def test_extract_location_query_removes_humanitarian_response_prefix(query: str,
     assert AOIResolutionService.extract_location_query(query) == expected
 
 
+@pytest.mark.parametrize(
+    ("query", "expected"),
+    [
+        (
+            "fuse building data for flood response in Saddar Town, Karachi, Pakistan",
+            "Saddar Town, Karachi, Pakistan",
+        ),
+        (
+            "fuse road data for conflict response in Ward 26, Kathmandu, Nepal",
+            "Ward 26, Kathmandu, Nepal",
+        ),
+        (
+            "fuse building data for emergency operations around Barangay 656, Intramuros, Manila, Philippines",
+            "Barangay 656, Intramuros, Manila, Philippines",
+        ),
+    ],
+)
+def test_extract_location_query_preserves_administrative_qualifiers(query: str, expected: str) -> None:
+    assert AOIResolutionService.extract_location_query(query) == expected
+
+
 def test_extract_location_query_normalizes_chinese_abidjan_event() -> None:
     query = "科特迪瓦阿比让强降雨致12死5伤，请执行灾害地理空间数据融合。"
 

@@ -32,3 +32,28 @@
 - **Observation**: the successful verification run resolved `Mahalle Fatih, Istanbul, Turkey` to a node/suburb result in Tuzla with `admin_level=country` and `degraded_bbox_clip=true`.
 - **Impact**: this round verifies the system fixes and artifact generation, but it does not count as a successful administrative boundary clip sample for the first-stage completion criteria.
 - **Follow-up**: avoid reusing AS-10 as a boundary-success candidate unless the query is refined to a Nominatim administrative boundary result.
+
+## Round 2 analysis - 2026-07-02T20:10:30+08:00
+
+- **Area ID**: AS-01
+- **Query**: fuse building data for flood response in Saddar Town, Karachi, Pakistan
+- **Job Type**: building | **Disaster**: flood
+- **Original Run ID**: eb567ec0434849f2ae2ad00a4444d950
+- **Fixed Verification Run ID**: eac4b961985d41c6a1978890a484457c
+- **Status**: succeeded after fix | **Duration**: 465s
+- **Admin Level**: city
+- **Clip Mode**: degraded bbox (`degraded_bbox_clip=true`)
+
+### Issue 1: Normalizer overrode a more specific administrative AOI phrase
+
+- **Stage**: task parsing / AOI resolution
+- **Direct Cause**: `services/aoi_resolution_service.py:259` returned `normalize_scenario_trigger_text(...).normalized_location` before parsing and cleaning explicit `for/in/near/around` location phrases. `services/scenario_trigger_normalizer.py:96` recognized only the broader city/country alias (`Karachi, Pakistan`), so the more specific `Saddar Town` qualifier was dropped.
+- **Trigger Conditions**: `task_driven_auto` user query where a humanitarian response prefix is followed by a specific administrative unit containing a known broader city/country alias.
+- **Similar Scope**: `Saddar Town, Karachi, Pakistan`; `Ward 26, Kathmandu, Nepal`; `Barangay 656, Intramuros, Manila, Philippines`; `Kariakoo Ward, Ilala, Dar es Salaam, Tanzania`.
+- **Why Guards Failed**: `_clean_location_phrase` could correctly remove `flood response in`, but it was bypassed by the normalizer early return whenever the normalizer found a broader alias.
+- **Fix**: `extract_location_query` now compares explicit cleaned phrases against normalized aliases and preserves the more specific administrative phrase when the normalized location is only a subset; tests cover Town/Ward/Barangay qualifiers.
+
+### Evidence Note: Area Boundary Degraded
+
+- **Observation**: the successful verification run resolved `Saddar Town, Karachi, Pakistan`, but boundary matching still fell back to bbox (`degraded_bbox_clip=true`).
+- **Impact**: artifact integrity and geometry checks passed, but this round does not count as a boundary-clip success sample for the first-stage completion criteria.

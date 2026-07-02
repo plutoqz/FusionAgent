@@ -90,6 +90,35 @@ def _clean_location_phrase(value: str) -> str:
     return cleaned
 
 
+def _location_match_key(value: str) -> str:
+    return re.sub(r"[^a-z0-9]+", " ", str(value or "").casefold()).strip()
+
+
+def _normalized_location_is_less_specific(location: str, normalized_location: str | None) -> bool:
+    normalized = str(normalized_location or "").strip()
+    if not normalized:
+        return False
+
+    location_key = _location_match_key(location)
+    normalized_key = _location_match_key(normalized)
+    if not location_key or not normalized_key or location_key == normalized_key:
+        return False
+    if len(location_key) <= len(normalized_key):
+        return False
+
+    normalized_parts = [
+        _location_match_key(part)
+        for part in normalized.split(",")
+        if _location_match_key(part)
+    ]
+    if not normalized_parts:
+        normalized_parts = [normalized_key]
+    return all(
+        re.search(rf"(?<![a-z0-9]){re.escape(part)}(?![a-z0-9])", location_key) is not None
+        for part in normalized_parts
+    )
+
+
 class Geocoder(Protocol):
     def search(self, query: str) -> Iterable[dict[str, Any]]: ...
 
@@ -228,9 +257,6 @@ class AOIResolutionService:
             raise ValueError("AOI query must not be empty.")
 
         normalized = normalize_scenario_trigger_text(query)
-        if normalized.normalized_location:
-            return normalized.normalized_location
-
         patterns = [
             r"\bfor\s+(?P<location>.+)$",
             r"\bin\s+(?P<location>.+)$",
@@ -242,7 +268,13 @@ class AOIResolutionService:
             if match:
                 location = _clean_location_phrase(match.group("location"))
                 if location:
+                    if _normalized_location_is_less_specific(location, normalized.normalized_location):
+                        return location
+                    if normalized.normalized_location:
+                        return normalized.normalized_location
                     return location
+        if normalized.normalized_location:
+            return normalized.normalized_location
         return _clean_location_phrase(query)
 
     @staticmethod
