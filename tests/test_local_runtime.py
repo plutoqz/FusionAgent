@@ -235,6 +235,12 @@ def test_fast_mode_env_defaults_do_not_require_dependency_file(monkeypatch: pyte
     assert env["PYTHONIOENCODING"] == "utf-8"
 
 
+def test_build_env_supports_input_acquisition_timeout_override() -> None:
+    env = _build_env(8022, mode="fast", input_acquisition_timeout=1800)
+
+    assert env["GEOFUSION_INPUT_ACQUISITION_TIMEOUT_SECONDS"] == "1800.0"
+
+
 def test_runtime_defaults_precedence_env_dependency_dotenv_mode(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,

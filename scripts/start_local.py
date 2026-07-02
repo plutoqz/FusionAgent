@@ -42,6 +42,12 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--disable-recovery", action="store_true", help="Disable recovery_tick for this runtime.")
     parser.add_argument("--disable-scheduler", action="store_true", help="Do not start Celery beat for this runtime.")
     parser.add_argument(
+        "--input-acquisition-timeout",
+        type=float,
+        default=None,
+        help="Override GEOFUSION_INPUT_ACQUISITION_TIMEOUT_SECONDS for long source downloads.",
+    )
+    parser.add_argument(
         "--reset-managed-graph",
         action="store_true",
         help="Delete only FusionAgent-managed Neo4j nodes before reseeding.",
@@ -68,6 +74,7 @@ def _build_env(
     redis_db: int | None = None,
     disable_recovery: bool = False,
     disable_scheduler: bool = False,
+    input_acquisition_timeout: float | None = None,
 ) -> dict[str, str]:
     applied = build_local_runtime_env_defaults(
         mode=mode,
@@ -89,6 +96,8 @@ def _build_env(
         env["GEOFUSION_RECOVERY_ENABLED"] = "0"
     if disable_scheduler:
         env["GEOFUSION_SCHEDULER_ENABLED"] = "0"
+    if input_acquisition_timeout is not None:
+        env["GEOFUSION_INPUT_ACQUISITION_TIMEOUT_SECONDS"] = str(max(0.0, float(input_acquisition_timeout)))
     env["GEOFUSION_API_PORT"] = str(port)
     env["PYTHONUTF8"] = "1"
     env["PYTHONIOENCODING"] = "utf-8"
@@ -265,6 +274,7 @@ def main(argv: list[str] | None = None) -> int:
             redis_db=redis_db,
             disable_recovery=disable_recovery,
             disable_scheduler=disable_scheduler,
+            input_acquisition_timeout=args.input_acquisition_timeout,
         )
     except DependencyConfigError as exc:
         _print_diagnostic(
