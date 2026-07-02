@@ -399,6 +399,52 @@ def test_aoi_resolution_service_prefers_place_over_poi_for_admin_query() -> None
     assert resolved.bbox == pytest.approx((2.5977187, 6.4947687, 2.6177187, 6.5147687))
 
 
+def test_aoi_resolution_service_falls_back_past_single_poi_for_admin_query() -> None:
+    geocoder = QueryMappedGeocoder(
+        {
+            "Commune de Gitega, Burundi": [
+                {
+                    "display_name": "Commune de Gitega, Boulevard du Triomphe, Gitega, Burundi",
+                    "boundingbox": ["-3.4264048", "-3.4263048", "29.9337212", "29.9338212"],
+                    "importance": 0.00005,
+                    "category": "amenity",
+                    "type": "townhall",
+                    "addresstype": "amenity",
+                    "address": {
+                        "amenity": "Commune de Gitega",
+                        "city": "Gitega",
+                        "country": "Burundi",
+                        "country_code": "bi",
+                    },
+                }
+            ],
+            "Gitega, Burundi": [
+                {
+                    "display_name": "Gitega, Burundi",
+                    "boundingbox": ["-3.5884953", "-3.2684953", "29.7649718", "30.0849718"],
+                    "importance": 0.51,
+                    "category": "place",
+                    "type": "city",
+                    "addresstype": "city",
+                    "address": {
+                        "city": "Gitega",
+                        "country": "Burundi",
+                        "country_code": "bi",
+                    },
+                }
+            ],
+        }
+    )
+    service = AOIResolutionService(geocoder=geocoder)
+
+    resolved = service.resolve("fuse poi data for earthquake response in Commune de Gitega, Burundi")
+
+    assert geocoder.queries == ["Commune de Gitega, Burundi", "Gitega, Burundi"]
+    assert resolved.display_name == "Gitega, Burundi"
+    assert resolved.admin_level == "city"
+    assert resolved.selection_reason == "administrative_place_preference"
+
+
 def test_extract_location_query_removes_disaster_suffix() -> None:
     assert (
         AOIResolutionService.extract_location_query(

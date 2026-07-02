@@ -470,6 +470,8 @@ class AOIResolutionService:
             if area_candidates:
                 selection_ordered = area_candidates
                 selection_reason_override = "administrative_place_preference"
+            else:
+                raise AOIAmbiguityError(query, ordered)
 
         if len(selection_ordered) == 1:
             chosen = selection_ordered[0]
