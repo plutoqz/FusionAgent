@@ -445,6 +445,66 @@ def test_aoi_resolution_service_falls_back_past_single_poi_for_admin_query() -> 
     assert resolved.selection_reason == "administrative_place_preference"
 
 
+def test_aoi_resolution_service_rejects_parent_city_for_numbered_admin_query() -> None:
+    city_candidate = {
+        "display_name": "Port Moresby, National Capital District, Papua New Guinea",
+        "boundingbox": ["-9.6343301", "-9.3143301", "146.9999504", "147.3199504"],
+        "importance": 0.58,
+        "category": "place",
+        "type": "city",
+        "addresstype": "city",
+        "address": {
+            "city": "Port Moresby",
+            "country": "Papua New Guinea",
+            "country_code": "pg",
+        },
+    }
+    geocoder = QueryMappedGeocoder(
+        {
+            "Ward 1, Port Moresby, Papua New Guinea": [city_candidate],
+            "Port Moresby, Papua New Guinea": [city_candidate],
+        }
+    )
+    service = AOIResolutionService(geocoder=geocoder)
+
+    with pytest.raises(AOIAmbiguityError):
+        service.resolve("fuse poi data for flood response in Ward 1, Port Moresby, Papua New Guinea")
+
+    assert geocoder.queries == [
+        "Ward 1, Port Moresby, Papua New Guinea",
+        "Port Moresby, Papua New Guinea",
+    ]
+
+
+def test_aoi_resolution_service_accepts_numbered_admin_candidate_with_matching_evidence() -> None:
+    service = AOIResolutionService(
+        geocoder=FakeGeocoder(
+            [
+                {
+                    "display_name": "Ward 1, Port Moresby, Papua New Guinea",
+                    "boundingbox": ["-9.52", "-9.50", "147.14", "147.16"],
+                    "importance": 0.42,
+                    "category": "place",
+                    "type": "ward",
+                    "addresstype": "ward",
+                    "address": {
+                        "ward": "Ward 1",
+                        "city": "Port Moresby",
+                        "country": "Papua New Guinea",
+                        "country_code": "pg",
+                    },
+                }
+            ]
+        )
+    )
+
+    resolved = service.resolve("fuse poi data for flood response in Ward 1, Port Moresby, Papua New Guinea")
+
+    assert resolved.display_name == "Ward 1, Port Moresby, Papua New Guinea"
+    assert resolved.admin_level == "ward"
+    assert resolved.selection_reason == "administrative_place_preference"
+
+
 def test_extract_location_query_removes_disaster_suffix() -> None:
     assert (
         AOIResolutionService.extract_location_query(

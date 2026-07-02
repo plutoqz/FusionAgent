@@ -88,6 +88,7 @@ _ADMIN_UNIT_PREFIXES = (
     "commune",
     "comuna",
     "bairro",
+    "barangay",
     "sector",
     "ward",
 )
@@ -467,6 +468,12 @@ class AOIResolutionService:
         selection_reason_override: str | None = None
         if _query_requests_administrative_area(query):
             area_candidates = tuple(candidate for candidate in ordered if _is_area_candidate(candidate))
+            if area_candidates and _admin_query_has_numbered_unit_name(query):
+                area_candidates = tuple(
+                    candidate
+                    for candidate in area_candidates
+                    if _candidate_matches_numbered_admin_unit(query, candidate)
+                )
             if area_candidates:
                 selection_ordered = area_candidates
                 selection_reason_override = "administrative_place_preference"
@@ -693,6 +700,11 @@ def _extract_bbox(raw: dict[str, Any]) -> tuple[float, float, float, float]:
 def _derive_admin_level(address: dict[str, Any], raw: dict[str, Any]) -> str | None:
     if not _raw_candidate_is_area(raw):
         return None
+    candidate_type = _location_match_key(raw.get("type"))
+    address_type = _location_match_key(raw.get("addresstype"))
+    for direct_type in (address_type, candidate_type):
+        if direct_type in _AREA_CANDIDATE_TYPES and direct_type != "administrative":
+            return direct_type
     for key in _AREA_ADDRESS_KEYS:
         value = address.get(key)
         if value:
@@ -701,8 +713,45 @@ def _derive_admin_level(address: dict[str, Any], raw: dict[str, Any]) -> str | N
 
 
 def _query_requests_administrative_area(query: str) -> bool:
+    return _admin_unit_prefix_match(query) is not None
+
+
+def _admin_unit_prefix_match(query: str) -> re.Match[str] | None:
     primary = str(query or "").split(",", maxsplit=1)[0]
-    return _ADMIN_UNIT_PREFIX_RE.match(primary) is not None
+    return _ADMIN_UNIT_PREFIX_RE.match(primary)
+
+
+def _admin_query_has_numbered_unit_name(query: str) -> bool:
+    match = _admin_unit_prefix_match(query)
+    if match is None:
+        return False
+    name_key = _location_match_key(match.group("name"))
+    tokens = name_key.split()
+    return bool(tokens) and all(re.fullmatch(r"\d+[a-z]?", token) is not None for token in tokens)
+
+
+def _candidate_matches_numbered_admin_unit(query: str, candidate: ResolvedAOICandidate) -> bool:
+    match = _admin_unit_prefix_match(query)
+    if match is None:
+        return True
+    kind_key = _location_match_key(match.group("kind"))
+    unit_tokens = _location_match_key(match.group("name")).split()
+    if not unit_tokens:
+        return True
+
+    raw = candidate.raw or {}
+    address = raw.get("address") if isinstance(raw.get("address"), dict) else {}
+    text_values = [
+        candidate.display_name,
+        raw.get("name"),
+        raw.get("type"),
+        raw.get("addresstype"),
+        *(address.get(key) for key in _AREA_ADDRESS_KEYS),
+    ]
+    token_set: set[str] = set()
+    for value in text_values:
+        token_set.update(_location_match_key(value).split())
+    return kind_key in token_set and all(token in token_set for token in unit_tokens)
 
 
 def _is_area_candidate(candidate: ResolvedAOICandidate) -> bool:
