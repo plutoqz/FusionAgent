@@ -101,3 +101,37 @@
 
 - **Observation**: the successful verification run resolved to `Arequipa, Peru` with `admin_level=city` and `degraded_bbox_clip=true`.
 - **Impact**: artifact integrity and geometry checks passed with 19,823 non-empty building geometries, but this round does not count as a boundary-clip success sample for the first-stage completion criteria.
+
+## Round 4 analysis - 2026-07-02T22:42:31+08:00
+
+- **Area ID**: AF-06
+- **Query**: fuse road data for flood response in Arrondissement de Ouando, Porto-Novo, Benin
+- **Job Type**: road | **Disaster**: flood
+- **Original Run ID**: efdd2a5bacd14e348a64d3b578b8044d
+- **Fixed Verification Run ID**: 6bb9aadfcdb04311ac1b31e5c6874cbf
+- **Status**: succeeded after fixes | **Verification Duration**: 12s
+- **Admin Level**: neighbourhood
+- **Clip Mode**: degraded bbox (`degraded_bbox_clip=true`)
+
+### Issue 1: AOI selection preferred a POI over the requested administrative place
+
+- **Stage**: task parsing / AOI resolution
+- **Direct Cause**: `services/aoi_resolution_service.py:652` derived `admin_level=city` from the POI's address context instead of the candidate's own Nominatim category/type, and `services/aoi_resolution_service.py:453` accepted the higher-importance `amenity/library` result via `top_confidence_margin` before considering the lower-importance `place/neighbourhood` candidate.
+- **Trigger Conditions**: task-driven queries with an administrative prefix such as `Arrondissement de ...` where Nominatim returns a named amenity inside the requested place with higher importance than the actual place/neighbourhood result.
+- **Similar Scope**: `District ...` queries returning hospitals or universities; `Ward ...` queries returning schools; `Quartier ...` queries returning museums or public buildings; `Freguesia ...` queries returning churches inside the parish.
+- **Why Guards Failed**: alias expansion preserved the administrative phrase, but candidate ranking had no POI-vs-place guard and the admin-level normalizer treated containment address fields as if they described the candidate itself.
+- **Fix**: AOI candidate normalization now distinguishes area candidates (`boundary`/`place` and administrative-like types) from POIs, avoids deriving admin level from POI containment addresses, and prefers area candidates when the query uses an administrative unit prefix. Regression coverage is in `tests/test_aoi_resolution_service.py`.
+
+### Issue 2: Successful GPKG writeback produced a non-standard artifact ZIP
+
+- **Stage**: writeback / artifact packaging
+- **Direct Cause**: `services/agent_run_service.py:2480` bypassed `zip_shapefile_bundle` for `.gpkg` outputs and wrote the GeoPackage as the only ZIP member.
+- **Trigger Conditions**: shared large-area runtime or repaired output produces a `.gpkg` final artifact, especially road/building/water/poi large-area writeback paths.
+- **Similar Scope**: repaired road GeoPackage outputs; tiled building stitched GeoPackages; water or POI runners that emit GeoPackage; any future domain runner using the common `_write(..., driver="GPKG")` path.
+- **Why Guards Failed**: schema and quality validation read the GeoPackage successfully, but artifact integrity validation in the loop expects a Shapefile bundle; no writeback guard converted GPKG results to the public Shapefile ZIP contract.
+- **Fix**: `.gpkg` writeback now converts to a Shapefile bundle before zipping, with sanitized stems for repaired filenames such as `.repair-1.gpkg`. Regression coverage is in `tests/test_agent_run_service_multisource_building_runtime.py`.
+
+### Evidence Note: Boundary Still Degraded
+
+- **Observation**: final verification selected `Ouando, Porto-Novo, Porto Novo, Oueme, Benin` with `admin_level=neighbourhood`, not the POI library, and artifact integrity passed with `.shp/.shx/.dbf/.prj`, 600 non-empty geometries, and CRS `EPSG:32631`.
+- **Impact**: this round verifies AOI candidate preference and artifact packaging, but still does not count as a boundary-clip success sample because local administrative boundary matching fell back to bbox.

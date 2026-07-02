@@ -95,5 +95,39 @@
       "568502d"
     ],
     "notes": "Verification run succeeded with artifact integrity OK and 19,823 non-empty geometries; boundary matching still used bbox fallback, so this is not a boundary-clip success sample."
+  },
+  {
+    "round": 4,
+    "timestamp": "2026-07-02T22:51:56+08:00",
+    "area_id": "AF-06",
+    "area_name": "Arrondissement de Ouando, Porto-Novo, Benin",
+    "query": "fuse road data for flood response in Arrondissement de Ouando, Porto-Novo, Benin",
+    "task_type": "road",
+    "disaster_type": "flood",
+    "run_id": "6bb9aadfcdb04311ac1b31e5c6874cbf",
+    "original_anomalous_run_id": "efdd2a5bacd14e348a64d3b578b8044d",
+    "intermediate_verification_run_ids": [
+      "f130db2a78324d8a896300ecf7b51ff9"
+    ],
+    "status": "succeeded",
+    "admin_level": "neighbourhood",
+    "clip_mode": "bbox",
+    "degraded_bbox_clip": true,
+    "duration_seconds": 12,
+    "issues_found": [
+      "Administrative AOI query selected a higher-importance POI candidate over the requested place/neighbourhood candidate",
+      "GPKG writeback zipped a single GeoPackage member instead of the required Shapefile bundle"
+    ],
+    "files_changed": [
+      "services/aoi_resolution_service.py",
+      "services/agent_run_service.py",
+      "tests/test_aoi_resolution_service.py",
+      "tests/test_agent_run_service_multisource_building_runtime.py"
+    ],
+    "commit_hashes": [
+      "7805b33",
+      "e0f72bf"
+    ],
+    "notes": "Final verification selected Ouando place/neighbourhood instead of the POI library. Artifact integrity OK: SHP/SHX/DBF/PRJ present, 600 non-empty geometries, CRS EPSG:32631. Boundary matching still used bbox fallback, so this is not a boundary-clip success sample."
   }
 ]
