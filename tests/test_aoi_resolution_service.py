@@ -352,6 +352,53 @@ def test_aoi_resolution_service_falls_back_for_portuguese_admin_prefix_when_exac
     assert resolved.country_code == "br"
 
 
+def test_aoi_resolution_service_prefers_place_over_poi_for_admin_query() -> None:
+    service = AOIResolutionService(
+        geocoder=FakeGeocoder(
+            [
+                {
+                    "display_name": "Bibliotheque Nationale du Benin, RNIE 1, Ouando, Porto-Novo, Benin",
+                    "boundingbox": ["6.5111098", "6.5130512", "2.6050539", "2.6066418"],
+                    "importance": 0.28,
+                    "category": "amenity",
+                    "type": "library",
+                    "addresstype": "amenity",
+                    "address": {
+                        "amenity": "Bibliotheque Nationale du Benin",
+                        "neighbourhood": "Ouando",
+                        "city": "Porto-Novo",
+                        "country": "Benin",
+                        "country_code": "bj",
+                    },
+                },
+                {
+                    "display_name": "Ouando, Porto-Novo, Benin",
+                    "boundingbox": ["6.4947687", "6.5147687", "2.5977187", "2.6177187"],
+                    "importance": 0.08,
+                    "category": "place",
+                    "type": "neighbourhood",
+                    "addresstype": "neighbourhood",
+                    "address": {
+                        "neighbourhood": "Ouando",
+                        "city": "Porto-Novo",
+                        "country": "Benin",
+                        "country_code": "bj",
+                    },
+                },
+            ]
+        )
+    )
+
+    resolved = service.resolve(
+        "fuse road data for flood response in Arrondissement de Ouando, Porto-Novo, Benin"
+    )
+
+    assert resolved.display_name == "Ouando, Porto-Novo, Benin"
+    assert resolved.selection_reason == "administrative_place_preference"
+    assert resolved.admin_level == "neighbourhood"
+    assert resolved.bbox == pytest.approx((2.5977187, 6.4947687, 2.6177187, 6.5147687))
+
+
 def test_extract_location_query_removes_disaster_suffix() -> None:
     assert (
         AOIResolutionService.extract_location_query(

@@ -111,6 +111,37 @@ _ADMIN_TRAILING_QUALIFIER_KEYS = {
 _ADMIN_KIND_SUFFIX_ALIASES = {
     "quartier": "Quarter",
 }
+_AREA_CANDIDATE_CATEGORIES = {"boundary", "place"}
+_AREA_CANDIDATE_TYPES = {
+    "administrative",
+    "borough",
+    "city",
+    "city_district",
+    "commune",
+    "county",
+    "district",
+    "hamlet",
+    "municipality",
+    "neighbourhood",
+    "quarter",
+    "state",
+    "suburb",
+    "town",
+    "village",
+    "ward",
+}
+_AREA_ADDRESS_KEYS = (
+    "neighbourhood",
+    "suburb",
+    "city_district",
+    "district",
+    "borough",
+    "quarter",
+    "city",
+    "county",
+    "state",
+    "country",
+)
 
 
 def _clean_location_phrase(value: str) -> str:
@@ -432,8 +463,16 @@ class AOIResolutionService:
         if not candidates:
             raise ValueError(f"No AOI candidates found for query: {query}")
         ordered = tuple(sorted(candidates, key=lambda item: item.confidence, reverse=True))
-        if len(ordered) == 1:
-            chosen = ordered[0]
+        selection_ordered = ordered
+        selection_reason_override: str | None = None
+        if _query_requests_administrative_area(query):
+            area_candidates = tuple(candidate for candidate in ordered if _is_area_candidate(candidate))
+            if area_candidates:
+                selection_ordered = area_candidates
+                selection_reason_override = "administrative_place_preference"
+
+        if len(selection_ordered) == 1:
+            chosen = selection_ordered[0]
             return ResolvedAOI(
                 query=query,
                 display_name=chosen.display_name,
@@ -441,7 +480,7 @@ class AOIResolutionService:
                 country_code=chosen.country_code,
                 bbox=chosen.bbox,
                 confidence=chosen.confidence,
-                selection_reason="single_candidate",
+                selection_reason=selection_reason_override or "single_candidate",
                 candidates=ordered,
                 admin_level=chosen.admin_level,
                 boundary_source_id="bbox_fallback",
@@ -449,7 +488,7 @@ class AOIResolutionService:
                 degraded_bbox_clip=True,
             )
 
-        top, second = ordered[0], ordered[1]
+        top, second = selection_ordered[0], selection_ordered[1]
         if top.confidence - second.confidence >= 0.10:
             return ResolvedAOI(
                 query=query,
@@ -458,7 +497,7 @@ class AOIResolutionService:
                 country_code=top.country_code,
                 bbox=top.bbox,
                 confidence=top.confidence,
-                selection_reason="top_confidence_margin",
+                selection_reason=selection_reason_override or "top_confidence_margin",
                 candidates=ordered,
                 admin_level=top.admin_level,
                 boundary_source_id="bbox_fallback",
@@ -466,7 +505,7 @@ class AOIResolutionService:
                 degraded_bbox_clip=True,
             )
 
-        nested_specific = AOIResolutionService._select_nested_specific_candidate(ordered)
+        nested_specific = AOIResolutionService._select_nested_specific_candidate(selection_ordered)
         if nested_specific is not None:
             return ResolvedAOI(
                 query=query,
@@ -483,7 +522,7 @@ class AOIResolutionService:
                 degraded_bbox_clip=True,
             )
 
-        raise AOIAmbiguityError(query, ordered)
+        raise AOIAmbiguityError(query, selection_ordered)
 
     @staticmethod
     def _select_nested_specific_candidate(
@@ -650,15 +689,37 @@ def _extract_bbox(raw: dict[str, Any]) -> tuple[float, float, float, float]:
 
 
 def _derive_admin_level(address: dict[str, Any], raw: dict[str, Any]) -> str | None:
-    for key, value in (
-        ("city", address.get("city")),
-        ("county", address.get("county")),
-        ("state", address.get("state")),
-        ("country", address.get("country")),
-    ):
+    if not _raw_candidate_is_area(raw):
+        return None
+    for key in _AREA_ADDRESS_KEYS:
+        value = address.get(key)
         if value:
             return key
     return _as_optional_text(raw.get("type") or raw.get("class"))
+
+
+def _query_requests_administrative_area(query: str) -> bool:
+    primary = str(query or "").split(",", maxsplit=1)[0]
+    return _ADMIN_UNIT_PREFIX_RE.match(primary) is not None
+
+
+def _is_area_candidate(candidate: ResolvedAOICandidate) -> bool:
+    return _raw_candidate_is_area(candidate.raw) and candidate.admin_level is not None
+
+
+def _raw_candidate_is_area(raw: dict[str, Any]) -> bool:
+    category = _location_match_key(raw.get("category") or raw.get("class"))
+    candidate_type = _location_match_key(raw.get("type"))
+    address_type = _location_match_key(raw.get("addresstype"))
+    if category in _AREA_CANDIDATE_CATEGORIES:
+        return True
+    if candidate_type in _AREA_CANDIDATE_TYPES:
+        return True
+    if address_type in _AREA_ADDRESS_KEYS:
+        return True
+    if not category and not address_type:
+        return True
+    return False
 
 
 def _as_optional_text(value: Any) -> str | None:
