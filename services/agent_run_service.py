@@ -5,6 +5,7 @@ import logging
 import os
 import queue
 import re
+import shutil
 import subprocess
 import sys
 import time
@@ -2476,10 +2477,18 @@ class AgentRunService:
         if artifact_path.suffix.lower() != ".gpkg":
             return zip_shapefile_bundle(artifact_path, output_zip)
 
+        import geopandas as gpd
+
         output_zip.parent.mkdir(parents=True, exist_ok=True)
-        with zipfile.ZipFile(output_zip, "w", compression=zipfile.ZIP_DEFLATED) as archive:
-            archive.write(artifact_path, arcname=artifact_path.name)
-        return output_zip
+        shapefile_dir = output_zip.parent / f"{artifact_path.stem}_shapefile"
+        if shapefile_dir.exists():
+            shutil.rmtree(shapefile_dir)
+        shapefile_dir.mkdir(parents=True, exist_ok=True)
+        shapefile_stem = re.sub(r"[^A-Za-z0-9_]+", "_", artifact_path.stem).strip("_") or "artifact"
+        shp_path = shapefile_dir / f"{shapefile_stem}.shp"
+        frame = gpd.read_file(artifact_path)
+        frame.to_file(shp_path, driver="ESRI Shapefile")
+        return zip_shapefile_bundle(shp_path, output_zip)
 
     def _validate_output_artifact_against_schema_policy(
         self,

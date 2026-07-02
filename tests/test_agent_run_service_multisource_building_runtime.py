@@ -381,10 +381,10 @@ def test_building_multisource_runner_uses_working_bbox_for_inner_manifest(
     assert inner_tile.working_buffered_bbox == outer_tile.working_buffered_bbox
 
 
-def test_writeback_stage_zips_gpkg_artifact_as_single_gpkg_member(tmp_path: Path, monkeypatch) -> None:
+def test_writeback_stage_converts_gpkg_artifact_to_shapefile_bundle(tmp_path: Path) -> None:
     service = AgentRunService(base_dir=tmp_path / "runs")
     run_id = "run-writeback-gpkg"
-    gpkg_path = tmp_path / "fused_buildings.gpkg"
+    gpkg_path = tmp_path / "fused_buildings.repair-1.gpkg"
     _write_building(gpkg_path)
     request = RunCreateRequest(
         job_type=JobType.building,
@@ -409,10 +409,6 @@ def test_writeback_stage_zips_gpkg_artifact_as_single_gpkg_member(tmp_path: Path
         updated_at="2026-05-20T00:00:00+00:00",
     )
     service._persist_status(status)
-    monkeypatch.setattr(
-        "services.agent_run_service.zip_shapefile_bundle",
-        lambda *_args, **_kwargs: (_ for _ in ()).throw(AssertionError("GPKG writeback must not use shapefile bundling")),
-    )
 
     try:
         artifact = service.run_writeback_stage(
@@ -430,5 +426,11 @@ def test_writeback_stage_zips_gpkg_artifact_as_single_gpkg_member(tmp_path: Path
     assert artifact.filename == "building_fusion_result.zip"
     assert archive_path.exists()
     with zipfile.ZipFile(archive_path) as archive:
-        names = archive.namelist()
-    assert names == ["fused_buildings.gpkg"]
+        names = set(archive.namelist())
+    assert {
+        "fused_buildings_repair_1.shp",
+        "fused_buildings_repair_1.shx",
+        "fused_buildings_repair_1.dbf",
+        "fused_buildings_repair_1.prj",
+    }.issubset(names)
+    assert "fused_buildings.repair-1.gpkg" not in names
