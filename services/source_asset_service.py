@@ -5,6 +5,7 @@ import gzip
 import hashlib
 import json
 import math
+import os
 import re
 import shutil
 import subprocess
@@ -132,6 +133,10 @@ _SOURCE_ID_ALIASES = {
     "raw.geonames.poi": "raw.gns.poi",
 }
 _LOCAL_VECTOR_GLOB_PATTERNS = ("*.shp", "*.gpkg")
+
+
+def _env_flag(name: str) -> bool:
+    return os.getenv(name, "").strip().lower() in {"1", "true", "yes", "on"}
 
 
 def _canonical_source_id(source_id: str) -> str:
@@ -515,7 +520,8 @@ class SourceAssetService:
         effective_bbox = request_bbox or (tuple(aoi.bbox) if aoi is not None else None)
 
         if source_id == "raw.google.poi":
-            return self._resolve_google_poi(request_bbox=effective_bbox, aoi=aoi)
+            effective_aoi = self._effective_country_aoi(source_id=source_id, request_bbox=effective_bbox, aoi=aoi)
+            return self._resolve_google_poi(request_bbox=effective_bbox, aoi=effective_aoi)
 
         if self.prefer_local_data:
             local_path = self._try_local_path(source_id)
@@ -528,24 +534,53 @@ class SourceAssetService:
                     request_bbox=effective_bbox,
                     aoi=aoi,
                 )
-                if local_resolution.feature_count != 0 or source_id not in _REMOTELY_MATERIALIZABLE_SOURCE_IDS:
+                if (
+                    _env_flag("GEOFUSION_LOCAL_ONLY")
+                    or local_resolution.feature_count != 0
+                    or source_id not in _REMOTELY_MATERIALIZABLE_SOURCE_IDS
+                ):
                     return local_resolution
 
+        effective_aoi = self._effective_country_aoi(source_id=source_id, request_bbox=effective_bbox, aoi=aoi)
+        if _env_flag("GEOFUSION_LOCAL_ONLY"):
+            raise FileNotFoundError(f"No local source asset path available for {source_id} (GEOFUSION_LOCAL_ONLY=1)")
+
         if source_id in _GEOFABRIK_LAYER_NAMES:
-            return self._resolve_geofabrik_source(source_id, request_bbox=effective_bbox, aoi=aoi)
+            return self._resolve_geofabrik_source(source_id, request_bbox=effective_bbox, aoi=effective_aoi)
 
         if source_id == "raw.microsoft.building":
-            return self._resolve_msft_buildings(request_bbox=effective_bbox, aoi=aoi)
+            return self._resolve_msft_buildings(request_bbox=effective_bbox, aoi=effective_aoi)
         if source_id in {"raw.google.building", "raw.google.open_buildings.vector"}:
-            return self._resolve_google_open_buildings(source_id, request_bbox=effective_bbox, aoi=aoi)
+            return self._resolve_google_open_buildings(source_id, request_bbox=effective_bbox, aoi=effective_aoi)
         if source_id in {"raw.overture.transportation", "raw.overture.road"}:
-            return self._resolve_overture_transportation(source_id=source_id, request_bbox=effective_bbox, aoi=aoi)
+            return self._resolve_overture_transportation(source_id=source_id, request_bbox=effective_bbox, aoi=effective_aoi)
         if source_id in {"raw.hydrorivers.water", "raw.hydrolakes.water"}:
-            return self._resolve_hydrosheds_water(source_id, request_bbox=effective_bbox, aoi=aoi)
+            return self._resolve_hydrosheds_water(source_id, request_bbox=effective_bbox, aoi=effective_aoi)
         if source_id == "raw.gns.poi":
-            return self._resolve_gns_poi(request_bbox=effective_bbox, aoi=aoi)
+            return self._resolve_gns_poi(request_bbox=effective_bbox, aoi=effective_aoi)
 
         raise FileNotFoundError(f"No local or remote source asset path available for {source_id}")
+
+    def _effective_country_aoi(
+        self,
+        *,
+        source_id: str,
+        request_bbox: Optional[BBox],
+        aoi: ResolvedAOI | None,
+    ) -> ResolvedAOI | None:
+        if aoi is not None:
+            return aoi
+        if request_bbox is None:
+            return None
+        if source_id not in {*_GEOFABRIK_LAYER_NAMES, "raw.microsoft.building", "raw.gns.poi"}:
+            return None
+        inferred = self._infer_aoi_from_bbox(request_bbox)
+        if inferred is None:
+            raise FileNotFoundError(
+                "No country-scoped source bundle covers request bbox "
+                f"{tuple(float(value) for value in request_bbox)} for {source_id}"
+            )
+        return inferred
 
     def resolve_country_boundary(self, aoi: ResolvedAOI | None) -> gpd.GeoDataFrame | None:
         if aoi is None or (aoi.country_name is None and aoi.country_code is None):
@@ -737,6 +772,11 @@ class SourceAssetService:
 
     def _select_geofabrik_bundle(self, aoi: ResolvedAOI | None) -> _GeofabrikBundle:
         if aoi is None or (aoi.country_name is None and aoi.country_code is None):
+            if aoi is not None:
+                bundle = self._match_geofabrik_by_bbox(aoi)
+                if bundle is not None:
+                    return bundle
+                raise FileNotFoundError(f"No Geofabrik country bundle covers AOI bbox={aoi.bbox!r}")
             return _GeofabrikBundle(slug="burundi", download_url=self.geofabrik_burundi_url)
 
         for matcher in (
@@ -826,6 +866,12 @@ class SourceAssetService:
         return self._geofabrik_bundle_from_feature(min(containing, key=_geofabrik_candidate_area))
 
     def _match_geofabrik_by_bbox(self, aoi: ResolvedAOI) -> _GeofabrikBundle | None:
+        feature = self._match_geofabrik_feature_by_bbox(aoi)
+        if feature is None:
+            return None
+        return self._geofabrik_bundle_from_feature(feature)
+
+    def _match_geofabrik_feature_by_bbox(self, aoi: ResolvedAOI) -> dict[str, Any] | None:
         aoi_polygon = _aoi_bbox_polygon(aoi)
         if aoi_polygon is None:
             return None
@@ -838,7 +884,44 @@ class SourceAssetService:
         ]
         if not matches:
             return None
-        return self._geofabrik_bundle_from_feature(min(matches, key=_geofabrik_candidate_area))
+        return min(matches, key=_geofabrik_candidate_area)
+
+    def _infer_aoi_from_bbox(self, request_bbox: BBox) -> ResolvedAOI | None:
+        bbox = tuple(float(value) for value in request_bbox)
+        query = "bbox(" + ",".join(str(value) for value in bbox) + ")"
+        probe = ResolvedAOI(
+            query=query,
+            display_name=query,
+            country_name=None,
+            country_code=None,
+            bbox=bbox,
+            confidence=0.0,
+            selection_reason="bbox_country_probe",
+            candidates=(),
+            boundary_source_id="bbox_fallback",
+            degraded_bbox_clip=True,
+        )
+        feature = self._match_geofabrik_feature_by_bbox(probe)
+        if feature is None:
+            return None
+        properties = feature.get("properties") or {}
+        iso_codes = properties.get("iso3166-1:alpha2") or []
+        if isinstance(iso_codes, str):
+            iso_codes = [iso_codes]
+        country_code = str(iso_codes[0]).strip().lower() if iso_codes else None
+        country_name = str(properties.get("name") or self._geofabrik_slug(properties, "") or "").strip() or None
+        return ResolvedAOI(
+            query=query,
+            display_name=country_name or query,
+            country_name=country_name,
+            country_code=country_code,
+            bbox=bbox,
+            confidence=0.75,
+            selection_reason="bbox_geofabrik_country_inference",
+            candidates=(),
+            boundary_source_id="bbox_fallback",
+            degraded_bbox_clip=True,
+        )
 
     def _geofabrik_bundle_from_feature(self, feature: dict[str, Any]) -> _GeofabrikBundle:
         properties = feature.get("properties") or {}
@@ -923,7 +1006,13 @@ class SourceAssetService:
         request_bbox: Optional[BBox],
         aoi: ResolvedAOI | None,
     ) -> SourceAssetResolution:
-        location = (aoi.country_name if aoi is not None else None) or "Burundi"
+        location = aoi.country_name if aoi is not None else None
+        if not location:
+            if request_bbox is not None:
+                raise FileNotFoundError(
+                    "raw.microsoft.building remote materialization requires a resolved AOI with country hints"
+                )
+            location = "Burundi"
         location_slug = _slugify(location)
         cache_key = _aoi_clip_cache_key(request_bbox, aoi)
         target_dir = self.cache_dir / "msft_buildings" / location_slug / cache_key

@@ -1,6 +1,6 @@
 # Product Contract Specification
 
-Status: initial working draft, 2026-07-10.
+Status: water product semantics frozen, 2026-07-20.
 
 This document freezes the first implementation target for the research-oriented branch. It defines the data products, quality gates, gap declarations, and output artifacts that both the research and application branches should share.
 
@@ -10,8 +10,8 @@ The current product scope is fixed-source, multi-source vector fusion data for:
 
 - building
 - road
-- water_type_1
-- water_type_2
+- water_polygon
+- waterways
 - poi
 
 The system delivers fused vector data itself. It does not decide the downstream emergency use. The fused data should be richer or more reliable than raw single-source data through geometry enrichment, attribute enrichment, and bounded topology-conflict handling.
@@ -40,11 +40,11 @@ evidence_contract
 | --- | --- | --- | --- | --- | --- |
 | building | Multi-source building footprint fusion | Deduplicate and merge complementary footprints | Preserve/source-normalize available attributes | Resolve obvious overlaps and invalid geometries | source provenance, coverage, quality result |
 | road | Multi-source road network fusion | Merge complementary road segments | Preserve/source-normalize road attributes when available | Basic snapping/deduplication/conflict reporting | source provenance, coverage, quality result |
-| water_type_1 | To be named | To be defined | To be defined | To be defined | source provenance, coverage, quality result |
-| water_type_2 | To be named | To be defined | To be defined | To be defined | source provenance, coverage, quality result |
+| water_polygon | Polygonal surface-water fusion for lakes, reservoirs, ponds, and other bounded water bodies | Deduplicate and merge complementary polygon coverage while preserving valid boundaries | Normalize water-body class, name, area, and source lineage where available | Repair invalid rings, report overlaps/slivers, and preserve polygon geometry | source provenance, AOI coverage, geometry validity, duplicate/sliver checks, quality result |
+| waterways | Linear hydrography fusion for rivers, streams, canals, drains, and other watercourse lines | Conflate complementary line networks without converting lines into water-body polygons | Normalize waterway class, name, hierarchy, and source lineage where available | Check zero-length segments, endpoint dangles, duplicate lines, and connectivity conflicts | source provenance, AOI coverage, line topology metrics, quality result |
 | poi | Multi-source POI fusion | Deduplicate nearby/duplicate POIs | Merge names/categories/source fields | Detect duplicate or conflicting POI candidates | source provenance, coverage, quality result |
 
-Open item: define the two water types precisely before implementation. Avoid continuing with a single vague `water` concept.
+`water_polygon` and `waterways` are separate product contracts even though both use the legacy `water` job family internally. Evidence and delivery manifests must retain the concrete task kind so polygon and line results cannot be conflated.
 
 ## Quality Gate Levels
 
@@ -112,4 +112,3 @@ run_report.md / run_report.html / run_report.pdf
 ```
 
 Application branch may generate these artifacts with fixed rules first. Research branch should later generate the planning decision with KG-constrained LLM orchestration.
-

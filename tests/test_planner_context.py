@@ -706,6 +706,23 @@ def test_planner_context_selects_effective_disaster_scenario_profile() -> None:
     assert plan.context["intent"]["effective_scenario_profile_id"] == "scenario.flood.default"
 
 
+def test_planner_context_uses_effective_profile_task_bundle_for_flood_road() -> None:
+    provider = CapturingProvider()
+    planner = WorkflowPlanner(InMemoryKGRepository(), provider)
+    trigger = RunTrigger(
+        type=RunTriggerType.disaster_event,
+        content="flood road fusion with active profile",
+        disaster_type="flood",
+    )
+
+    plan = planner.create_plan(run_id="run-flood-road-bundle", job_type=JobType.road, trigger=trigger)
+
+    assert provider.last_context is not None
+    assert provider.last_context["intent"]["effective_scenario_profile_id"] == "scenario.flood.default"
+    assert provider.last_context["intent"]["task_bundle"]["bundle_id"] == "task_bundle.flood.building_road"
+    assert plan.context["intent"]["task_bundle"]["bundle_id"] == "task_bundle.flood.building_road"
+
+
 def test_planner_context_exposes_durable_learning_summaries() -> None:
     repo = InMemoryKGRepository()
     repo.record_durable_learning_record(

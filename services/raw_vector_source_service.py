@@ -378,14 +378,17 @@ class RawVectorSourceService:
         request_bbox: Optional[BBox],
         resolved_aoi: ResolvedAOI | None,
     ) -> SourceAssetResolution:
-        if self.source_asset_service.can_materialize(source_id):
+        spec = get_raw_vector_source_spec(source_id)
+        try:
+            shp_path = self._resolve_source_path(spec, resolved_aoi=resolved_aoi)
+        except FileNotFoundError:
+            if not self.source_asset_service.can_materialize(source_id):
+                raise
             return self.source_asset_service.resolve_raw_source_path(
                 source_id,
                 request_bbox=request_bbox,
                 aoi=resolved_aoi,
             )
-        spec = get_raw_vector_source_spec(source_id)
-        shp_path = self._resolve_source_path(spec, resolved_aoi=resolved_aoi)
         return SourceAssetResolution(
             source_id=source_id,
             path=shp_path,

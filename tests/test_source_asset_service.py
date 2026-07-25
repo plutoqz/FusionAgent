@@ -7,6 +7,7 @@ import shutil
 import subprocess
 from pathlib import Path
 
+import httpx
 import pytest
 
 geopandas = pytest.importorskip("geopandas")
@@ -148,6 +149,19 @@ def _resolved_nairobi_aoi() -> ResolvedAOI:
     )
 
 
+def _resolved_burundi_aoi() -> ResolvedAOI:
+    return ResolvedAOI(
+        query="Burundi",
+        display_name="Burundi",
+        country_name="Burundi",
+        country_code="bi",
+        bbox=(28.9, -3.1, 29.2, -2.8),
+        confidence=0.95,
+        selection_reason="fixture",
+        candidates=(),
+    )
+
+
 @pytest.mark.parametrize(
     ("error", "expected"),
     [
@@ -272,6 +286,79 @@ def test_source_asset_service_materializes_kenya_osm_and_clips_to_nairobi(tmp_pa
     assert resolved.source_mode == "asset_downloaded"
     assert resolved.feature_count == 1
     assert resolved.bbox == pytest.approx((36.8, -1.35, 36.9, -1.25))
+    assert len(frame) == 1
+    assert frame.iloc[0]["road_id"] == 1
+
+
+def test_source_asset_service_infers_geofabrik_country_from_bbox_without_aoi(tmp_path: Path) -> None:
+    kenya_archive = tmp_path / "fixtures" / "kenya" / "kenya-latest-free.shp.zip"
+    burundi_archive = tmp_path / "fixtures" / "burundi" / "burundi-latest-free.shp.zip"
+    kenya_roads = geopandas.GeoDataFrame(
+        {"road_id": [1, 2]},
+        geometry=[
+            LineString([(36.80, -1.35), (36.90, -1.25)]),
+            LineString([(39.60, -4.10), (39.70, -4.00)]),
+        ],
+        crs="EPSG:4326",
+    )
+    burundi_roads = geopandas.GeoDataFrame(
+        {"road_id": [99]},
+        geometry=[LineString([(29.0, -3.5), (29.1, -3.4)])],
+        crs="EPSG:4326",
+    )
+    _write_geofabrik_zip_with_layers(kenya_archive, roads=kenya_roads)
+    _write_geofabrik_zip_with_layers(burundi_archive, roads=burundi_roads)
+    index_path = tmp_path / "fixtures" / "geofabrik-index.json"
+    index_path.write_text(
+        json.dumps(
+            {
+                "type": "FeatureCollection",
+                "features": [
+                    {
+                        "type": "Feature",
+                        "properties": {
+                            "id": "africa/burundi",
+                            "parent": "africa",
+                            "name": "Burundi",
+                            "iso3166-1:alpha2": ["BI"],
+                            "urls": {"shp": burundi_archive.resolve().as_uri()},
+                        },
+                        "geometry": mapping(box(28.8, -4.5, 30.9, -2.2)),
+                    },
+                    {
+                        "type": "Feature",
+                        "properties": {
+                            "id": "africa/kenya",
+                            "parent": "africa",
+                            "name": "Kenya",
+                            "iso3166-1:alpha2": ["KE"],
+                            "urls": {"shp": kenya_archive.resolve().as_uri()},
+                        },
+                        "geometry": mapping(box(33.5, -5.0, 42.5, 5.5)),
+                    },
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    service = SourceAssetService(
+        repo_root=tmp_path,
+        cache_dir=tmp_path / "cache",
+        geofabrik_index_url=index_path.resolve().as_uri(),
+        geofabrik_burundi_url=burundi_archive.resolve().as_uri(),
+        prefer_local_data=False,
+    )
+
+    resolved = service.resolve_raw_source_path(
+        "raw.osm.road",
+        request_bbox=(36.65, -1.45, 37.10, -1.10),
+    )
+    frame = geopandas.read_file(resolved.path)
+
+    assert "kenya" in str(resolved.path).lower()
+    assert "burundi" not in str(resolved.path).lower()
+    assert resolved.feature_count == 1
     assert len(frame) == 1
     assert frame.iloc[0]["road_id"] == 1
 
@@ -423,32 +510,6 @@ def test_source_asset_service_falls_back_to_urllib_when_curl_https_download_fail
     ]
 
 
-def test_source_asset_service_water_prefers_local_source_and_clips_request_bbox(tmp_path: Path) -> None:
-    local_shp = tmp_path / "Data" / "burundi-260127-free.shp" / "gis_osm_water_a_free_1.shp"
-    _write_frame(
-        local_shp,
-        geopandas.GeoDataFrame(
-            {"water_id": [1, 2]},
-            geometry=[
-                Polygon([(0.0, 0.0), (0.0, 2.0), (2.0, 2.0), (2.0, 0.0)]),
-                Polygon([(5.0, 5.0), (5.0, 6.0), (6.0, 6.0), (6.0, 5.0)]),
-            ],
-            crs="EPSG:4326",
-        ),
-    )
-    service = SourceAssetService(repo_root=tmp_path, cache_dir=tmp_path / "cache")
-
-    resolved = service.resolve_raw_source_path("raw.osm.water", request_bbox=(0.5, 0.5, 1.5, 1.5))
-    frame = geopandas.read_file(resolved.path)
-
-    assert resolved.source_mode == "local_data_clipped"
-    assert resolved.cache_hit is False
-    assert resolved.feature_count == 1
-    assert resolved.bbox == pytest.approx((0.5, 0.5, 1.5, 1.5))
-    assert resolved.path.parent.name != "burundi-260127-free.shp"
-    assert len(frame) == 1
-
-
 def test_source_asset_service_curl_download_has_hard_timeout(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -499,8 +560,6 @@ def test_source_asset_service_water_prefers_local_source_and_clips_request_bbox(
     assert len(frame) == 1
 
 
-
-
 def test_source_asset_service_water_empty_local_clip_falls_back_to_geofabrik_asset(
     tmp_path: Path,
     monkeypatch: pytest.MonkeyPatch,
@@ -521,11 +580,34 @@ def test_source_asset_service_water_empty_local_clip_falls_back_to_geofabrik_ass
         crs="EPSG:4326",
     )
     _write_geofabrik_zip_with_layers(archive_path, waters=waters)
+    index_path = tmp_path / "fixtures" / "geofabrik-index.json"
+    index_path.write_text(
+        json.dumps(
+            {
+                "type": "FeatureCollection",
+                "features": [
+                    {
+                        "type": "Feature",
+                        "properties": {
+                            "id": "africa/burundi",
+                            "parent": "africa",
+                            "name": "Burundi",
+                            "iso3166-1:alpha2": ["BI"],
+                            "urls": {"shp": archive_path.resolve().as_uri()},
+                        },
+                        "geometry": mapping(box(9.0, 9.0, 12.0, 12.0)),
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
 
     service = SourceAssetService(
         repo_root=tmp_path,
         cache_dir=tmp_path / "cache",
         geofabrik_burundi_url=archive_path.resolve().as_uri(),
+        geofabrik_index_url=index_path.resolve().as_uri(),
     )
     download_calls: list[str] = []
     original_download = service._download_file
@@ -936,7 +1018,11 @@ def test_source_asset_service_skips_incomplete_local_shapefile_and_uses_remote_a
         msft_dataset_links_url=index_path.resolve().as_uri(),
     )
 
-    resolved = service.resolve_raw_source_path("raw.microsoft.building", request_bbox=(28.9, -3.1, 29.2, -2.8))
+    resolved = service.resolve_raw_source_path(
+        "raw.microsoft.building",
+        request_bbox=(28.9, -3.1, 29.2, -2.8),
+        aoi=_resolved_burundi_aoi(),
+    )
 
     assert resolved.source_mode == "asset_downloaded"
     assert resolved.path.exists()
@@ -984,7 +1070,11 @@ def test_source_asset_service_builds_msft_burundi_clip_from_geojsonl_parts(tmp_p
         prefer_local_data=False,
     )
 
-    resolved = service.resolve_raw_source_path("raw.microsoft.building", request_bbox=(28.9, -3.1, 29.2, -2.8))
+    resolved = service.resolve_raw_source_path(
+        "raw.microsoft.building",
+        request_bbox=(28.9, -3.1, 29.2, -2.8),
+        aoi=_resolved_burundi_aoi(),
+    )
     frame = geopandas.read_file(resolved.path)
 
     assert resolved.path.exists()

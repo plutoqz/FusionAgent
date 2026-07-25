@@ -52,6 +52,18 @@ def adapt_policy_for_degradation(
                 missing_sources=missing_sources,
                 adaptations=adaptations,
             )
+        elif (
+            check.check_id == "dangle_endpoint_rate_per_100km"
+            and available_source_count < 2
+            and task_kind in {TaskKind.road, TaskKind.waterways}
+        ):
+            adapted = _adapt_check_severity(
+                adapted,
+                severity="soft",
+                reason="single_source_external_topology_unverifiable",
+                missing_sources=missing_sources,
+                adaptations=adaptations,
+            )
         elif check.check_id == "source_contribution_balance" and available_source_count == 2:
             original_threshold = adapted.threshold
             widened = _widen_balance_threshold(original_threshold)

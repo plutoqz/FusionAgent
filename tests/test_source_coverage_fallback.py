@@ -4,7 +4,7 @@ import pytest
 
 from schemas.degradation import DegradationLevel
 from services.aoi_resolution_service import ResolvedAOI
-from services.local_bundle_catalog import LocalBundleCatalogProvider
+from services.local_bundle_catalog import BundleMaterializationError, LocalBundleCatalogProvider
 from services.raw_vector_source_service import MaterializedRawVectorSource
 from services.source_asset_service import SourceCoverageStatus
 from services.source_acquisition_policy import (
@@ -495,13 +495,14 @@ def test_policy_candidate_value_error_is_recorded_and_later_candidates_continue(
         "raw.google.building",
         "raw.microsoft.building",
         "raw.osm.building",
-        "raw.osm.road",
-        "raw.openbuildingmap.building",
     ]
     attempts = {attempt["source_id"]: attempt for attempt in bundle.provider_attempts}
     assert attempts["raw.google.building"]["status"] == "provider_failed"
     assert attempts["raw.google.building"]["fault_class"] == "PROVIDER_UNAVAILABLE"
     assert attempts["raw.microsoft.building"]["status"] == "available"
+    assert attempts["raw.osm.building"]["status"] == "available"
+    assert attempts["raw.osm.road"]["coverage_status"] == "not_attempted"
+    assert attempts["raw.openbuildingmap.building"]["coverage_status"] == "not_attempted"
     assert [attempt["attempt_no"] for attempt in bundle.provider_attempts] == [1, 2, 3, 4, 5]
 
 
@@ -526,6 +527,31 @@ def test_road_catalog_accepts_missing_microsoft_reference_when_osm_has_coverage(
     assert bundle.fallback_from is None
     assert bundle.component_coverage["raw.osm.road"].feature_count == 25
     assert bundle.component_coverage["raw.microsoft.road"].feature_count == 0
+
+
+def test_policy_candidate_empty_coverage_error_preserves_component_evidence(tmp_path):
+    provider = _make_provider_with_component_counts(
+        tmp_path,
+        counts={
+            "raw.osm.road": 0,
+            "raw.microsoft.road": 0,
+        },
+    )
+
+    with pytest.raises(BundleMaterializationError) as exc_info:
+        provider.materialize_with_fallback(
+            source_id="catalog.flood.road",
+            request_bbox=(36.66, -1.44, 37.10, -1.16),
+            resolved_aoi=_make_resolved_aoi("Nairobi, Kenya", country_name="Kenya", country_code="ke"),
+            target_dir=tmp_path / "empty-road-bundle",
+            target_crs="EPSG:32737",
+        )
+
+    assert set(exc_info.value.component_coverage) == {"raw.osm.road", "raw.microsoft.road"}
+    assert [attempt["source_id"] for attempt in exc_info.value.provider_attempts] == [
+        "raw.osm.road",
+        "raw.microsoft.road",
+    ]
 
 
 def _make_provider_with_component_counts(

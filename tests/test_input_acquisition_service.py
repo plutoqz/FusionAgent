@@ -328,6 +328,48 @@ class _FaultingBundleProvider:
         raise self.exc
 
 
+class _ComponentEvidenceError(ValueError):
+    def __init__(self) -> None:
+        super().__init__("AOI-scoped bundle has empty source coverage for catalog.flood.water")
+        self.component_coverage = {
+            "raw.osm.water": {
+                "source_id": "raw.osm.water",
+                "source_mode": "coverage_empty",
+                "feature_count": 0,
+                "coverage_status": "empty",
+                "path": None,
+            },
+            "raw.hydrolakes.water": {
+                "source_id": "raw.hydrolakes.water",
+                "source_mode": "provider_failed",
+                "feature_count": 0,
+                "coverage_status": "missing",
+                "path": None,
+                "fault_class": "PROVIDER_UNAVAILABLE",
+                "external_uncontrollable": True,
+            },
+        }
+        self.provider_attempts = [
+            {
+                "source_id": "raw.osm.water",
+                "status": "empty",
+                "coverage_status": "empty",
+                "feature_count": 0,
+                "selected_for_fusion": False,
+            },
+            {
+                "source_id": "raw.hydrolakes.water",
+                "status": "provider_failed",
+                "fault_class": "PROVIDER_UNAVAILABLE",
+                "fault_message": "upstream unavailable",
+                "coverage_status": "missing",
+                "feature_count": 0,
+                "external_uncontrollable": True,
+                "selected_for_fusion": False,
+            },
+        ]
+
+
 def _build_request(
     *,
     spatial_extent: str = "bbox(0,0,10,10)",
@@ -1026,6 +1068,32 @@ def test_input_acquisition_writes_manifest_for_failed_provider(tmp_path: Path) -
     assert attempt["recoverable"] is True
     assert attempt["next_retry_after_seconds"] == 30
     assert attempt["channel"] == "provider"
+
+
+def test_input_acquisition_failed_provider_preserves_component_evidence(tmp_path: Path) -> None:
+    from services.input_acquisition_service import InputAcquisitionService
+
+    service = InputAcquisitionService(
+        registry=ArtifactRegistry(index_path=tmp_path / "artifact_registry.json"),
+        providers=[_FaultingBundleProvider(_ComponentEvidenceError())],
+        cache_dir=tmp_path / "cache",
+    )
+
+    with pytest.raises(ValueError, match="SOURCE_MISSING"):
+        service.resolve_task_driven_inputs(
+            request=_build_request(job_type=JobType.water, content="need water data"),
+            source_id="catalog.flood.water",
+            required_output_type="dt.water.bundle",
+            input_dir=tmp_path / "run",
+        )
+
+    manifest = json.loads((tmp_path / "run" / "source_materialization_manifest.json").read_text(encoding="utf-8"))
+    attempts = json.loads((tmp_path / "run" / "source_attempts.json").read_text(encoding="utf-8"))
+
+    assert set(manifest["component_coverage"]) == {"raw.osm.water", "raw.hydrolakes.water"}
+    assert manifest["component_coverage"]["raw.hydrolakes.water"]["fault_class"] == "PROVIDER_UNAVAILABLE"
+    assert {attempt["source_id"] for attempt in attempts["attempts"]} == {"raw.osm.water", "raw.hydrolakes.water"}
+    assert attempts["degradation"]["external_uncontrollable_source_ids"] == ["raw.hydrolakes.water"]
 
 
 def test_input_acquisition_failed_provider_records_external_normalized_source_attempt(

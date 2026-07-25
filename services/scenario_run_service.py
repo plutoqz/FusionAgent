@@ -60,8 +60,41 @@ def scenario_output_dir(request: ScenarioRunRequest, scenario_id: str) -> Path:
     return resolve_scenario_output_root(request.output_root) / scenario_id
 
 
+def _validate_scenario_child_run_root(agent_service: Any, request: ScenarioRunRequest) -> None:
+    expected_runs_root = _expected_child_runs_root_for_scenario_output_root(
+        resolve_scenario_output_root(request.output_root)
+    )
+    if expected_runs_root is None:
+        return
+    actual_runs_root = getattr(agent_service, "base_dir", None)
+    if actual_runs_root is None:
+        return
+    actual = Path(actual_runs_root).expanduser().resolve()
+    expected = expected_runs_root.expanduser().resolve()
+    if actual == expected:
+        return
+    raise ValueError(
+        "SCENARIO_RUNTIME_ROOT_MISMATCH: explicit scenario output root "
+        f"{resolve_scenario_output_root(request.output_root)} requires child runs root {expected}, "
+        f"but the active AgentRunService base_dir is {actual}. Restart the runtime with "
+        f"GEOFUSION_RUNS_ROOT={expected} or use a scenario output root that matches the active runtime."
+    )
+
+
+def _expected_child_runs_root_for_scenario_output_root(output_root: Path) -> Path | None:
+    root = Path(output_root)
+    if root.name == "scenario_outputs":
+        return root.parent / "runs"
+    return None
+
+
 def build_child_run_specs(request: ScenarioRunRequest) -> list[ScenarioChildRunSpec]:
     mission = compile_scenario_mission(request)
+    provisional_task_kinds = {
+        str(item).strip()
+        for item in (request.metadata.get("provisional_task_kinds") or [])
+        if str(item).strip()
+    }
     return [
         ScenarioChildRunSpec(
             job_type=task.job_type,
@@ -75,6 +108,7 @@ def build_child_run_specs(request: ScenarioRunRequest) -> list[ScenarioChildRunS
             task_family=task.task_family,
             preferred_pattern_id=task.preferred_pattern_id,
             output_data_type=task.output_data_type,
+            provisional_when_degraded=task.task_kind.value in provisional_task_kinds,
         )
         for task in mission.child_tasks
     ]
@@ -230,6 +264,7 @@ class ScenarioRunService:
         validate_mission_child_specs(request, child_specs)
         scenario_id = create_scenario_id()
         output_dir = scenario_output_dir(request, scenario_id)
+        _validate_scenario_child_run_root(self.agent_run_service, request)
         return self._execute_scenario_run(request=request, scenario_id=scenario_id, output_dir=output_dir)
 
     def submit_scenario_run(self, request: ScenarioRunRequest) -> ScenarioRunResponse:
@@ -246,6 +281,7 @@ class ScenarioRunService:
 
         scenario_id = create_scenario_id()
         output_dir = scenario_output_dir(request, scenario_id)
+        _validate_scenario_child_run_root(self.agent_run_service, request)
         output_dir.mkdir(parents=True, exist_ok=True)
         _write_json_roundtrip(output_dir / "request.json", request.model_dump(mode="json"))
         _write_runtime_snapshot(output_dir)
@@ -639,8 +675,12 @@ class ScenarioRunService:
             "audit_events": audit_events,
             "artifact_path": self.agent_run_service.get_artifact_path(run_id),
             "error": getattr(status, "error", None) if status is not None else None,
+            "provisional_when_degraded": spec.provisional_when_degraded,
         }
-        return _mark_child_result_provisional_if_degraded(result)
+        return _mark_child_result_provisional_if_degraded(
+            result,
+            allow_nonbuilding=spec.provisional_when_degraded,
+        )
 
     def _wait_for_child_result(self, *, run_id: str, spec: ScenarioChildRunSpec, fallback_status=None) -> dict[str, Any]:
         deadline = time.monotonic() + self._child_run_terminal_wait_seconds()
@@ -668,6 +708,7 @@ class ScenarioRunService:
             trigger_content="",
             task_kind=task_kind,
             task_family=str(result.get("task_family") or (task_kind_family(task_kind) if task_kind else job_type.value)),
+            provisional_when_degraded=bool(result.get("provisional_when_degraded") or result.get("provisional")),
         )
         return self._inspect_child_result(run_id=str(run_id), spec=spec, fallback_status=result.get("status"))
 
@@ -1082,6 +1123,7 @@ def _child_specs_from_checkpoint(checkpoint: ScenarioCheckpoint) -> list[Scenari
                     task_family=item.task_family,
                     preferred_pattern_id=item.preferred_pattern_id,
                     output_data_type=item.output_data_type,
+                    provisional_when_degraded=item.provisional_when_degraded,
                 )
             )
         except ValueError as exc:
@@ -1194,6 +1236,7 @@ def _checkpoint_child_spec(spec: ScenarioChildRunSpec) -> ScenarioCheckpointChil
         task_family=spec.task_family,
         preferred_pattern_id=spec.preferred_pattern_id,
         output_data_type=spec.output_data_type,
+        provisional_when_degraded=spec.provisional_when_degraded,
     )
 
 
@@ -1485,14 +1528,16 @@ def _child_degradation(result: dict[str, Any]) -> dict[str, Any]:
     degraded_components: set[str] = set()
     awaiting_config: set[str] = set()
     coverage_empty: set[str] = set()
+    task_kind = str(result.get("task_kind") or "")
     for event in result.get("audit_events") or []:
         if event.kind != "task_inputs_resolved":
             continue
         coverage = event.details.get("component_coverage", {})
-        _state, components = _component_coverage_state(coverage)
+        relevant_coverage = _task_relevant_component_coverage(task_kind, coverage)
+        _state, components = _component_coverage_state(relevant_coverage)
         degraded_components.update(components)
-        if isinstance(coverage, dict):
-            for source_id, payload in coverage.items():
+        if isinstance(relevant_coverage, dict):
+            for source_id, payload in relevant_coverage.items():
                 if not isinstance(payload, dict):
                     continue
                 status = str(payload.get("coverage_status") or "").strip().lower()
@@ -1511,13 +1556,36 @@ def _child_degradation(result: dict[str, Any]) -> dict[str, Any]:
     }
 
 
-def _mark_child_result_provisional_if_degraded(result: dict[str, Any]) -> dict[str, Any]:
+def _task_relevant_component_coverage(task_kind: str, coverage: Any) -> dict[str, Any]:
+    if not isinstance(coverage, dict):
+        return {}
+    relevant_source_ids = {
+        "water_polygon": {"raw.osm.water", "raw.hydrolakes.water", "raw.local.water"},
+        "waterways": {"raw.osm.waterways", "raw.hydrorivers.water", "raw.local.pakistan.waterways"},
+    }.get(str(task_kind))
+    if relevant_source_ids is None:
+        return dict(coverage)
+    return {
+        str(source_id): payload
+        for source_id, payload in coverage.items()
+        if str(source_id) in relevant_source_ids
+    }
+
+
+def _mark_child_result_provisional_if_degraded(
+    result: dict[str, Any],
+    *,
+    allow_nonbuilding: bool = False,
+) -> dict[str, Any]:
     if str(result.get("phase")) != RunPhase.succeeded.value or not result.get("artifact_path"):
         return result
     degradation = _child_degradation(result)
     if degradation.get("state") != "degraded":
         return result
-    if str(result.get("task_family") or result.get("task_kind") or "") != "building":
+    if (
+        str(result.get("task_family") or result.get("task_kind") or "") != "building"
+        and not allow_nonbuilding
+    ):
         return result
     provisional = dict(result)
     provisional["phase"] = ScenarioPhase.partial_provisional.value

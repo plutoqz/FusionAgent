@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import uuid
 from pathlib import Path
 
 from schemas.agent import RunCreateRequest, RunEvent, RunStatus, WorkflowPlan
@@ -27,7 +28,7 @@ class RunStateStore:
         run_dir = self.run_dir(status.run_id)
         run_dir.mkdir(parents=True, exist_ok=True)
         data = status.model_dump(mode="json")
-        (run_dir / "run.json").write_text(json.dumps(data, ensure_ascii=False, indent=2), encoding="utf-8")
+        _atomic_write_text(run_dir / "run.json", json.dumps(data, ensure_ascii=False, indent=2))
 
     def load_status(self, run_id: str) -> RunStatus | None:
         path = self.run_dir(run_id) / "run.json"
@@ -38,20 +39,20 @@ class RunStateStore:
 
     @staticmethod
     def persist_request(path: Path, request: RunCreateRequest) -> None:
-        path.write_text(json.dumps(request.model_dump(mode="json"), ensure_ascii=False, indent=2), encoding="utf-8")
+        _atomic_write_text(path, json.dumps(request.model_dump(mode="json"), ensure_ascii=False, indent=2))
 
     @staticmethod
     def persist_plan(path: Path, plan: WorkflowPlan, *, revision: int) -> None:
         ensure_plan_grounding_report(plan)
         payload = json.dumps(plan.model_dump(mode="json"), ensure_ascii=False, indent=2)
-        path.write_text(payload, encoding="utf-8")
+        _atomic_write_text(path, payload)
         if revision > 0:
-            path.with_name(f"plan-revision-{revision}.json").write_text(payload, encoding="utf-8")
+            _atomic_write_text(path.with_name(f"plan-revision-{revision}.json"), payload)
 
     @staticmethod
     def persist_validation(path: Path, plan: WorkflowPlan) -> None:
         payload = plan.validation.model_dump(mode="json") if plan.validation is not None else {}
-        path.write_text(json.dumps(payload, ensure_ascii=False, indent=2), encoding="utf-8")
+        _atomic_write_text(path, json.dumps(payload, ensure_ascii=False, indent=2))
 
     def append_audit_event(self, status: RunStatus, event: RunEvent) -> None:
         path = Path(status.audit_path) if status.audit_path else self.audit_path(status.run_id)
@@ -62,3 +63,15 @@ class RunStateStore:
         status.audit_path = str(path)
         status.event_count += 1
         status.last_event = event
+
+
+def _atomic_write_text(path: Path, payload: str) -> None:
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    tmp_path = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
+    try:
+        tmp_path.write_text(payload, encoding="utf-8")
+        tmp_path.replace(path)
+    finally:
+        if tmp_path.exists():
+            tmp_path.unlink()

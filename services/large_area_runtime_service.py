@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import uuid
 from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any, Callable, Literal
@@ -154,6 +155,7 @@ class LargeAreaRuntimeService:
                     tile=tile,
                     output_dir=tile_dir / "inputs",
                     target_crs=target_crs,
+                    geometry_family=slice_spec.geometry_family,
                 )
                 output_path, stats = slice_spec.runner(
                     tile,
@@ -328,6 +330,7 @@ class LargeAreaRuntimeService:
         tile: TileSpec,
         output_dir: Path,
         target_crs: str,
+        geometry_family: GeometryFamily,
     ) -> dict[str, Path]:
         output_dir.mkdir(parents=True, exist_ok=True)
         clipped: dict[str, Path] = {}
@@ -337,7 +340,12 @@ class LargeAreaRuntimeService:
             try:
                 frame = gpd.read_file(source_path)
             except Exception:  # noqa: BLE001
-                clipped[source_id] = source_path
+                output_path = output_dir / f"{self._safe_source_name(source_id)}.gpkg"
+                clipped[source_id] = self._write_frame(
+                    self._empty_source_frame(target_crs, geometry_family=geometry_family),
+                    output_path,
+                    target_crs=target_crs,
+                )
                 continue
             if frame.crs is None:
                 frame = frame.set_crs(target_crs)
@@ -386,10 +394,29 @@ class LargeAreaRuntimeService:
         )
 
     @staticmethod
+    def _empty_source_frame(target_crs: str, *, geometry_family: GeometryFamily) -> gpd.GeoDataFrame:
+        data: dict[str, pd.Series] = {"source_id": pd.Series(dtype="object")}
+        if geometry_family in {"polygon", "line"}:
+            data["feature_kind"] = pd.Series(dtype="object")
+        return gpd.GeoDataFrame(
+            data,
+            geometry=gpd.GeoSeries([], dtype="geometry", crs=target_crs),
+            crs=target_crs,
+        )
+
+    @staticmethod
     def _safe_source_name(source_id: str) -> str:
         safe = "".join(char if char.isalnum() else "_" for char in source_id)
         return safe.strip("_") or "source"
 
     @staticmethod
     def _write_json(path: Path, payload: dict[str, Any]) -> None:
-        path.write_text(json.dumps(_json_safe(payload), ensure_ascii=False, indent=2), encoding="utf-8")
+        path = Path(path)
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp_path = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
+        try:
+            tmp_path.write_text(json.dumps(_json_safe(payload), ensure_ascii=False, indent=2), encoding="utf-8")
+            tmp_path.replace(path)
+        finally:
+            if tmp_path.exists():
+                tmp_path.unlink()

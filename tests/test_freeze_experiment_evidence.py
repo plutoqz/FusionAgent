@@ -25,3 +25,25 @@ def test_freeze_experiment_writes_manifest(tmp_path: Path) -> None:
     payload = json.loads(manifest_path.read_text(encoding="utf-8"))
     assert manifest.experiment_id == "exp-001"
     assert payload["files"][0]["relative_path"] == "result.json"
+
+
+def test_freeze_experiment_replaces_existing_manifest_without_self_hash(tmp_path: Path) -> None:
+    output_dir = tmp_path / "exp"
+    output_dir.mkdir()
+    (output_dir / "result.json").write_text('{"metric": 1}', encoding="utf-8")
+    manifest_path = output_dir / "experiment_evidence_manifest.json"
+    arguments = {
+        "experiment_id": "exp-repeat",
+        "output_dir": output_dir,
+        "output_json": manifest_path,
+        "commit_sha": "abc123",
+        "seed_hash": "seed",
+        "runtime_settings_hash": "settings",
+        "metric_definition_hash": "metrics",
+    }
+
+    first = freeze_experiment(**arguments)
+    second = freeze_experiment(**arguments)
+
+    assert first.files == second.files
+    assert all(item.relative_path != manifest_path.name for item in second.files)

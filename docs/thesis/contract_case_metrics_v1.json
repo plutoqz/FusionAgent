@@ -1,0 +1,36 @@
+{
+  "schema_version": "1.0.0",
+  "metric_set_id": "contract-case-metrics-v1",
+  "metrics": [
+    {
+      "metric_id": "task_order_matches",
+      "definition": "The persisted scenario mission task_kinds equal the declarative expected order.",
+      "evidence": "scenario_summary.json:mission.task_kinds"
+    },
+    {
+      "metric_id": "phase_allowed",
+      "definition": "The persisted terminal scenario phase belongs to the stage allow-list.",
+      "evidence": "scenario_summary.json:phase"
+    },
+    {
+      "metric_id": "quality_failure_observed",
+      "definition": "At least one child quality report is rejected or one child terminates failed.",
+      "evidence": "scenario_summary.json:quality and child_runs"
+    },
+    {
+      "metric_id": "degraded_or_provisional_observed",
+      "definition": "A child records degraded source coverage, a provisional delivery, or an explicit source/quality gap.",
+      "evidence": "scenario_summary.json:child_runs and gap_declaration.json"
+    },
+    {
+      "metric_id": "supersede_observed",
+      "definition": "A final child output records the provisional artifact it supersedes.",
+      "evidence": "scenario_summary.json:superseded_outputs or child_runs.supersedes"
+    },
+    {
+      "metric_id": "hash_freeze_complete",
+      "definition": "Every persisted experiment file and every declared original external input file has SHA-256 evidence.",
+      "evidence": "experiment_evidence_manifest.json"
+    }
+  ]
+}

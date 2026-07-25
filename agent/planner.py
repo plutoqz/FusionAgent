@@ -91,6 +91,28 @@ class WorkflowPlanner:
             )
             plan = self._build_skeleton_plan(top_pattern, trigger=trigger)
             planning_source = "kg_fallback"
+        if preferred_pattern_id:
+            preferred_pattern = next(
+                (
+                    pattern
+                    for pattern in self.kg_repo.get_candidate_patterns(
+                        job_type=job_type,
+                        disaster_type=trigger.disaster_type,
+                        limit=20,
+                    )
+                    if pattern.pattern_id == preferred_pattern_id
+                ),
+                None,
+            )
+            if preferred_pattern is not None:
+                preferred_decision = self.runtime_contract.evaluate_pattern(
+                    preferred_pattern,
+                    surface="planner_explicit_preference",
+                )
+                selected_pattern_id = self._infer_selected_pattern_id(plan, candidate_patterns)
+                if preferred_decision.allowed and selected_pattern_id != preferred_pattern_id:
+                    plan = self._build_skeleton_plan(preferred_pattern, trigger=trigger)
+                    planning_source = "kg_preferred_override"
         if planning_telemetry is None:
             planning_telemetry = self._build_planning_telemetry(
                 planning_context=planning_context,
@@ -141,6 +163,24 @@ class WorkflowPlanner:
     ) -> WorkflowPatternNode:
         retrieval = planning_context.get("retrieval", {})
         candidates = retrieval.get("candidate_patterns", [])
+        preferred = str(preferred_pattern_id or "").strip()
+        if preferred:
+            by_id = {
+                pattern.pattern_id: pattern
+                for pattern in self.kg_repo.get_candidate_patterns(
+                    job_type=job_type,
+                    disaster_type=disaster_type,
+                    limit=20,
+                )
+            }
+            preferred_pattern = by_id.get(preferred)
+            if preferred_pattern is not None:
+                decision = self.runtime_contract.evaluate_pattern(
+                    preferred_pattern,
+                    surface="planner_fallback",
+                )
+                if decision.allowed:
+                    return self._pattern_with_runtime_contract_metadata(preferred_pattern, [])
         ranked_ids = [
             str(item.get("pattern_id") or "").strip()
             for item in candidates

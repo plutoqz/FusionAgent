@@ -97,6 +97,7 @@ class PlanningContextBuilder:
             job_type=job_type,
             trigger=trigger,
             resolved_mode=resolved_mode,
+            effective_profile=effective_profile,
             bundles=kg_context.task_bundles,
         )
         output_requirement = self._select_output_requirement(
@@ -332,16 +333,36 @@ class PlanningContextBuilder:
         job_type: JobType,
         trigger: RunTrigger,
         resolved_mode: Dict[str, object],
+        effective_profile: ScenarioProfileNode | None,
         bundles: List[TaskBundleNode],
     ) -> TaskBundleNode | None:
         requested_task = f"task.{job_type.value}.fusion"
         if resolved_mode["planning_mode"] == "task_driven":
             preferred_ids = ["task_bundle.direct_request"]
         else:
-            preferred_ids = [f"task_bundle.{trigger.disaster_type or 'default'}.{job_type.value}_road"]
+            default_bundle_id = None
+            if effective_profile is not None:
+                default_bundle_id = str((effective_profile.metadata or {}).get("default_task_bundle_id") or "").strip()
+            preferred_ids = [
+                item
+                for item in [
+                    default_bundle_id,
+                    f"task_bundle.{trigger.disaster_type or 'default'}.building_road",
+                ]
+                if item
+            ]
         for bundle_id in preferred_ids:
             for bundle in bundles:
                 if bundle.bundle_id == bundle_id and requested_task in bundle.requested_tasks:
+                    return bundle
+        if resolved_mode["planning_mode"] != "task_driven" and effective_profile is not None:
+            for bundle in bundles:
+                metadata = bundle.metadata or {}
+                if (
+                    requested_task in bundle.requested_tasks
+                    and bundle.requires_disaster_profile
+                    and metadata.get("scenario_profile_id") == effective_profile.profile_id
+                ):
                     return bundle
         for bundle in bundles:
             if requested_task in bundle.requested_tasks and bundle.requires_disaster_profile == (

@@ -89,9 +89,14 @@ def test_adapt_policy_for_external_single_source_degradation_softens_lineage_and
     assert adapted.policy_id == "quality.default.road.v1.adapted"
     assert checks["multi_source_lineage"].severity == "soft"
     assert checks["source_contribution_balance"].severity == "soft"
+    assert checks["dangle_endpoint_rate_per_100km"].severity == "soft"
     assert checks["duplicate_geometry_rate"].severity == "hard"
     assert checks["invalid_geometry_rate"].severity == "hard"
-    assert {item["check_id"] for item in adaptations} == {"multi_source_lineage", "source_contribution_balance"}
+    assert {item["check_id"] for item in adaptations} == {
+        "multi_source_lineage",
+        "source_contribution_balance",
+        "dangle_endpoint_rate_per_100km",
+    }
 
 
 def test_adapt_policy_for_external_two_source_degradation_widens_balance_only() -> None:

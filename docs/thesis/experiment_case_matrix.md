@@ -64,7 +64,7 @@ must_not_do: spend critical budget on skipped water layers; mark provisional out
 scenario: flood
 resource_regime: moderate network, tight time
 input_sources_status: water sources partially stale or semantically mismatched; roads available
-expected_layer_priority: water_type_1/water_type_2 and road critical; building important
+expected_layer_priority: water_polygon/waterways and road critical; building important
 expected_delivery_strategy: prioritize water/road fusion and evidence; building can be delayed or degraded
 expected_gap_declaration: source freshness or source mismatch declared where applicable
 must_not_do: use generic building-first ordering
@@ -117,4 +117,3 @@ expected_delivery_strategy: degraded delivery with failed quality evidence; retr
 expected_gap_declaration: quality_failed and degraded_but_usable
 must_not_do: mark failed fusion as fully_satisfied
 ```
-
