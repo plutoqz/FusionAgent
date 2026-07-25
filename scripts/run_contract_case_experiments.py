@@ -523,7 +523,7 @@ def main(argv: list[str] | None = None) -> int:
         timeout_seconds=args.timeout_seconds,
     )
     print(json.dumps(result, ensure_ascii=False, indent=2))
-    return 0
+    return 0 if result.get("all_cases_passed") is True else 1
 
 
 if __name__ == "__main__":

@@ -258,6 +258,42 @@ def test_raw_vector_source_service_reuses_cached_sources_when_version_matches_an
     assert raw_records[0]["meta"]["legacy_artifact_role"] == "raw_vector"
 
 
+def test_raw_vector_materialization_uses_short_paths_inside_deep_cache(tmp_path: Path) -> None:
+    source_path = tmp_path / "microsoft_roads_capital.gpkg"
+    _write_frame(
+        source_path,
+        gpd.GeoDataFrame(
+            {"road_id": [1]},
+            geometry=[LineString([(-67.1, 10.4), (-67.0, 10.5)])],
+            crs="EPSG:4326",
+        ),
+    )
+    filler_length = max(1, 235 - len(str(tmp_path)) - 1)
+    target_dir = tmp_path / ("x" * filler_length)
+    target_path = target_dir / "source.zip"
+    old_style_path = target_dir / "bundle_12345678" / f"{source_path.stem}.shp"
+    assert len(str(old_style_path)) >= 260
+
+    service = RawVectorSourceService(
+        root_dir=tmp_path,
+        registry=ArtifactRegistry(index_path=tmp_path / "artifact_registry.json"),
+        cache_dir=tmp_path / "cache",
+    )
+    result = service._materialize_from_source(
+        source_id="raw.microsoft.road",
+        source_path=source_path,
+        request_bbox=(-67.2, 10.3, -66.9, 10.6),
+        target_path=target_path,
+        target_crs="EPSG:32619",
+        version_token="fixture",
+    )
+
+    assert result.feature_count == 1
+    assert target_path.exists()
+    with zipfile.ZipFile(target_path, "r") as archive:
+        assert "source.shp" in archive.namelist()
+
+
 def test_raw_vector_source_service_clips_to_admin_boundary_polygon(tmp_path: Path) -> None:
     source_path = tmp_path / "Data" / "buildings" / "OSM" / "osm_buildings.shp"
     _write_frame(

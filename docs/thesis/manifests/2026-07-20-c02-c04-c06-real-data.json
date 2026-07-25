@@ -1,6 +1,6 @@
 {
   "schema_version": "1.0.0",
-  "experiment_id": "exp-c02-c04-c06-caracas-real-20260725-clean",
+  "experiment_id": "exp-c02-c04-c06-caracas-real-20260725-final",
   "title": "C02/C04/C06 declarative real external data Scenario API experiment",
   "data_boundary": {
     "real_external_data": true,

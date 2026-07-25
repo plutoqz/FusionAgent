@@ -39,3 +39,11 @@ def test_git_worktree_state_treats_untracked_files_as_dirty(monkeypatch) -> None
     assert state["dirty"] is True
     assert state["diff_sha256"]
     assert state["status_porcelain"] == ["?? untracked.txt"]
+
+
+def test_main_returns_nonzero_when_contract_cases_fail(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setattr(runner, "run_manifest", lambda **_kwargs: {"all_cases_passed": False})
+
+    exit_code = runner.main(["--experiment-dir", str(tmp_path)])
+
+    assert exit_code == 1
