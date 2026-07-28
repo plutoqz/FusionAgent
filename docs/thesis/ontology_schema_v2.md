@@ -1,7 +1,7 @@
 # FusionAgent 知识图谱本体模式层设计 v2
 
-状态: draft  
-分支定位: `research/product-contract`  
+状态: draft
+分支定位: `research/product-contract`
 用途: 论文表述、知识图谱建模、LLM 规划上下文组织、后续实现对齐
 
 ## 1. 设计目标

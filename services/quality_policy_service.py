@@ -102,16 +102,50 @@ _DEFAULT_POLICY_BY_TASK_KIND = {
 
 
 def _default_policies() -> dict[str, QualityPolicy]:
+    default_policies = [
+        _policy(TaskKind.building, "quality.default.building.v1", duplicate_threshold=0.0, balance_threshold=0.75),
+        _policy(TaskKind.road, "quality.default.road.v1", duplicate_threshold=0.05, balance_threshold=0.85),
+        _policy(TaskKind.water_polygon, "quality.default.water_polygon.v1", duplicate_threshold=0.05, balance_threshold=0.90),
+        _policy(TaskKind.waterways, "quality.default.waterways.v1", duplicate_threshold=0.05, balance_threshold=0.90),
+        _policy(TaskKind.poi, "quality.default.poi.v1", duplicate_threshold=0.10, balance_threshold=0.95),
+    ]
+    single_source_policies = [
+        _single_source_product_contract_policy(policy)
+        for policy in default_policies
+    ]
     return {
         policy.policy_id: policy
-        for policy in [
-            _policy(TaskKind.building, "quality.default.building.v1", duplicate_threshold=0.0, balance_threshold=0.75),
-            _policy(TaskKind.road, "quality.default.road.v1", duplicate_threshold=0.05, balance_threshold=0.85),
-            _policy(TaskKind.water_polygon, "quality.default.water_polygon.v1", duplicate_threshold=0.05, balance_threshold=0.90),
-            _policy(TaskKind.waterways, "quality.default.waterways.v1", duplicate_threshold=0.05, balance_threshold=0.90),
-            _policy(TaskKind.poi, "quality.default.poi.v1", duplicate_threshold=0.10, balance_threshold=0.95),
-        ]
+        for policy in [*default_policies, *single_source_policies]
     }
+
+
+def _single_source_product_contract_policy(policy: QualityPolicy) -> QualityPolicy:
+    adapted_checks: list[QualityPolicyCheck] = []
+    for check in policy.checks:
+        adapted = check.model_copy(deep=True)
+        if check.check_id in {"multi_source_lineage", "source_contribution_balance"}:
+            adapted.severity = "soft"
+            adapted.metadata = {
+                **adapted.metadata,
+                "adaptation_reason": "explicit_product_contract_single_source_delivery",
+                "original_severity": check.severity,
+            }
+        adapted_checks.append(adapted)
+    return policy.model_copy(
+        deep=True,
+        update={
+            "policy_id": f"quality.product_contract.single_source.{policy.task_kind.value}.v1",
+            "description": (
+                f"Product-contract single-source {policy.task_kind.value} quality policy."
+            ),
+            "checks": adapted_checks,
+            "metadata": {
+                **policy.metadata,
+                "adapted_from_policy_id": policy.policy_id,
+                "scope": "product_contract_end_to_end",
+            },
+        },
+    )
 
 
 def _policy(

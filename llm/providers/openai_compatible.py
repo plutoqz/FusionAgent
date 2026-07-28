@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import re
+import time
 import urllib.error
 import urllib.request
 from typing import Any, Dict
@@ -47,6 +48,7 @@ class OpenAICompatibleProvider(LLMProvider):
     def generate_workflow_plan(self, system_prompt: str, context: Dict[str, Any]) -> Dict[str, Any]:
         self.last_usage = None
         self.last_model = self.model
+        self.last_latency_ms = None
         endpoint = f"{self.base_url}/chat/completions"
         payload = {
             "model": self.model,
@@ -65,18 +67,23 @@ class OpenAICompatibleProvider(LLMProvider):
             headers={
                 "Authorization": f"Bearer {self.api_key}",
                 "Content-Type": "application/json",
+                "User-Agent": "FusionAgent/1.0",
             },
             method="POST",
         )
 
+        started = time.perf_counter()
         try:
             with urllib.request.urlopen(req, timeout=self.timeout_sec) as resp:
                 body = resp.read().decode("utf-8")
         except urllib.error.HTTPError as exc:
+            self.last_latency_ms = (time.perf_counter() - started) * 1000
             detail = exc.read().decode("utf-8", errors="ignore")
             raise RuntimeError(f"LLM request failed: HTTP {exc.code} {detail}") from exc
         except Exception as exc:  # noqa: BLE001
+            self.last_latency_ms = (time.perf_counter() - started) * 1000
             raise RuntimeError(f"LLM request failed: {exc}") from exc
+        self.last_latency_ms = (time.perf_counter() - started) * 1000
 
         payload_resp = json.loads(body)
         self.last_usage = payload_resp.get("usage")

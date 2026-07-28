@@ -11,4 +11,3 @@
 - 不得提交或输出 `.env.local` 中的密钥。
 - 历史 plan、freeze、maturity 和 scenario 文档不能覆盖 `PROJECT.md`。
 - 开始实现前应明确任务服务于 `PROJECT.md` 中的哪个 Phase。
-
