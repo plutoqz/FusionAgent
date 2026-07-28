@@ -1,6 +1,6 @@
 # Product Contract Specification
 
-Status: initial working draft, 2026-07-10.
+Status: Phase 1 decision protocol implemented, 2026-07-20.
 
 This document freezes the first implementation target for the research-oriented branch. It defines the data products, quality gates, gap declarations, and output artifacts that both the research and application branches should share.
 
@@ -46,6 +46,32 @@ evidence_contract
 
 Open item: define the two water types precisely before implementation. Avoid continuing with a single vague `water` concept.
 
+## Structured Planning Decision
+
+The planner output is machine-readable and uses this protocol:
+
+```text
+strategy_id
+priority_tiers
+initial_delivery_layers
+background_completion_layers
+not_delivered_layers
+layer_decisions
+planner_gap_proposal
+supersession_plan
+rationale
+```
+
+Every required layer must appear exactly once across `priority_tiers` and once
+in `layer_decisions`. Layers inside one tier are unordered. Initial and
+not-delivered sets are disjoint. Background completion may overlap initial
+delivery only for provisional or degraded products. Supersession entries must
+refer to background-completion layers.
+
+Algorithms, sources, layers, strategy identifiers, delivery modes, gap types,
+and supersession triggers are grounded against the planner-visible context.
+Natural-language rationale is retained for audit but is not the primary score.
+
 ## Quality Gate Levels
 
 ### Layer-Level Gates
@@ -81,7 +107,6 @@ source_mismatch
 ## Gap Types
 
 ```text
-skip
 data_absent
 source_unavailable
 quality_failed
@@ -89,7 +114,20 @@ source_mismatch
 contract_not_satisfied
 ```
 
-Gap declarations are product outputs, not error logs.
+Gap handling is split into three artifacts:
+
+```text
+planner_gap_proposal.json
+gap_verification.json
+gap_declaration.json
+```
+
+`planner_gap_proposal.json` contains only gaps proposed by the planner.
+`gap_verification.json` checks those proposals against grounded facts and may
+report observable omissions. `gap_declaration.json` is the final deterministic
+product declaration generated from source and quality evidence. Planner scoring
+uses the proposal, never the final declaration. Gap declarations are product
+outputs, not error logs.
 
 ## Shared Output Artifacts
 
@@ -97,13 +135,54 @@ Machine-readable artifacts:
 
 ```text
 product_contract.json
+planning_context.json
 planning_decision.json
 resource_regime.json
+planner_gap_proposal.json
 quality_gate_result.json
+gap_verification.json
 gap_declaration.json
 evidence_trace.json
 delivery_manifest.json
+experiment_summary.json
+evaluation_result.json
 ```
+
+End-to-end runs additionally emit:
+
+```text
+runtime_execution.json
+runtime_artifact_index.json
+runtime/<layer>/quality_report.json
+runtime/<layer>/algorithm/*.gpkg
+```
+
+Every summary, quality result, evidence trace, and delivery manifest records
+its execution mode. Planning-only quality evidence is labeled
+`controlled_status_simulation`; end-to-end quality evidence is labeled
+`real_runtime`. These artifacts must not be pooled as if they measured the same
+execution surface.
+
+Failed LLM planning attempts emit `planning_failure.json` with non-sensitive
+provider metadata, raw model responses when available, grounding errors, and a
+failure reason. A failed run does not emit a deterministic planning decision as
+an LLM result.
+
+Repeated experiment batches additionally emit:
+
+```text
+audit_ledger.jsonl
+stability_summary.json
+audit_manifest.json
+protocol_snapshot.json
+schedule.json
+implementation_manifest.json
+```
+
+The audit ledger is hash chained and contains both successful and failed runs.
+Each record includes model and endpoint metadata, prompt/context hashes, token
+usage, latency, retry count, evaluation metrics or failure details, normalized
+semantic decision fields, and SHA-256 hashes of every run artifact.
 
 User-facing artifact:
 
@@ -111,5 +190,11 @@ User-facing artifact:
 run_report.md / run_report.html / run_report.pdf
 ```
 
-Application branch may generate these artifacts with fixed rules first. Research branch should later generate the planning decision with KG-constrained LLM orchestration.
+The research runner generates planning decisions with five formal baselines:
+`fixed`, `kg_only`, `llm_only`, `llm_capability_kg`, and
+`llm_full_contract_kg`. The three LLM baselines share one prompt, schema,
+provider interface, temperature, JSON response mode, and repair policy; only
+their declared knowledge layers differ. Real LLM schema or grounding failures
+are explicit, one repair retry may be recorded, and no deterministic result may
+masquerade as a successful LLM plan.
 

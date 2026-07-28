@@ -1,120 +1,148 @@
 # Experiment Case Matrix
 
-Status: initial working draft, 2026-07-10.
+Status: Phase 1 protocol aligned, 2026-07-20.
 
-This document defines the first research experiment cases. The cases should test product-contract satisfaction under complex combinations, not just demonstrate that the pipeline can run.
+This document defines the first research experiment cases. The cases test
+product-contract satisfaction under combined disaster, resource, source, and
+quality conditions. They are not demonstrations that merely prove the pipeline
+can run.
+
+Machine-readable planner inputs:
+
+```text
+docs/thesis/experiment_cases.json
+```
+
+Held-out structured evaluation labels:
+
+```text
+docs/thesis/experiment_gold.json
+```
+
+The planner may receive case inputs but must never receive gold fields. Exact
+priority tiers, acceptable strategy identifiers, delivery expectations, and
+expected gap proposals exist only in the held-out file and post-planning
+evaluator.
 
 ## Baselines
 
-Evaluate each case against:
+The formal comparison target remains:
 
-1. Fixed priority strategy.
-2. KG-only deterministic strategy.
-3. LLM-only strategy.
-4. LLM + capability KG.
-5. LLM + full product-contract KG.
+1. `fixed`
+2. `kg_only`
+3. `llm_only`
+4. `llm_capability_kg`
+5. `llm_full_contract_kg`
 
-## Scoring Rubric
+The minimum runner implements all five modes. The three LLM knowledge
+conditions are:
 
-Each case should score:
+- `llm_only`: common task observations, candidate IDs, and output protocol; no
+  KG relations;
+- `llm_capability_kg`: the same common context plus L3/L4 data-need, source,
+  and algorithm capability relations;
+- `llm_full_contract_kg`: the identical capability KG plus L1/L2/L6 disaster,
+  product-contract, quality, degradation, evidence, and gap-rule knowledge.
 
-- product contract satisfaction
-- critical layer prioritization
-- delivery strategy correctness
-- gap declaration correctness
-- evidence completeness
-- invalid or prohibited behavior
-- acceptable alternative handling
+All three LLM conditions use the same model, prompt, output schema,
+temperature, JSON response mode, provider interface, and one explicit repair
+retry. Exact capability KG content is identical between the capability and
+full-contract conditions.
 
-Case standard answers are allowed for evaluation. They must not be converted into global fixed rules used by the system at runtime.
+## Scoring Protocol
+
+Machine-readable planner scoring includes:
+
+- pairwise precedence accuracy across gold priority tiers;
+- strategy ID match against an acceptable set;
+- required initial, background, and not-delivered recall;
+- invalid initial, background, and not-delivered rates;
+- allowed delivery-mode accuracy;
+- required supersession recall;
+- planner gap proposal precision, recall, and F1;
+- grounding validity;
+- internal consistency;
+- an aggregate score derived from these components.
+
+Layers inside one priority tier are unordered. The final deterministic gap
+declaration is a product-correctness artifact and is not substituted for the
+planner's own gap proposal during scoring.
+
+## Input-Order Variants
+
+`--input-variant <int>` deterministically permutes all planner-visible repeated
+collections, including required layers, data needs, sources, algorithms, and
+quality gates. Semantic conclusions should remain stable across variants even
+when serialized order changes.
+
+## Formal Repetition Design
+
+The frozen Phase 3 design uses five repetitions per case-planner pair and
+assigns input variants `0, 1, 2, 3, 4` exactly once. The resulting 150-run
+schedule is shuffled with a fixed seed before execution. Failed runs remain in
+the denominator for success and failure rates; successful-score statistics do
+not impute failed values.
+
+The machine-readable protocol and audit rules are defined in:
+
+```text
+docs/thesis/stability_protocol.json
+docs/thesis/stability_and_audit_protocol.md
+```
 
 ## Case Template
 
+Planner-visible case files contain only:
+
 ```text
-case_id:
-scenario:
-aoi:
-resource_regime:
-input_sources_status:
-expected_layer_priority:
-expected_delivery_strategy:
-expected_gap_declaration:
-must_not_do:
-acceptable_alternatives:
-scoring_rubric:
+case_id
+title
+scenario
+aoi
+resource_regime
+required_layers
+input_sources_status
+```
+
+Held-out gold files contain only post-planning labels:
+
+```text
+case_id
+priority_tiers
+acceptable_strategy_ids
+delivery_expectations
+expected_gap_proposals
 ```
 
 ## Initial Case Set
 
 ### C01 Earthquake: tight time, partial source availability
 
-```text
-scenario: earthquake
-resource_regime: limited network, tight time
-input_sources_status: OSM available; high-resolution building source incomplete or delayed
-expected_layer_priority: building and road critical; water layers skip or low priority; POI important/optional depending contract
-expected_delivery_strategy: deliver provisional usable vector product first, continue full fusion in background
-expected_gap_declaration: delayed source or degraded completeness explicitly declared
-must_not_do: spend critical budget on skipped water layers; mark provisional output as final
-```
+Tests progressive delivery when a usable building source is available but a
+second higher-resolution source is delayed. Building, road, and optional POI
+are in contract scope.
 
 ### C02 Flood: water and road dominate
 
-```text
-scenario: flood
-resource_regime: moderate network, tight time
-input_sources_status: water sources partially stale or semantically mismatched; roads available
-expected_layer_priority: water_type_1/water_type_2 and road critical; building important
-expected_delivery_strategy: prioritize water/road fusion and evidence; building can be delayed or degraded
-expected_gap_declaration: source freshness or source mismatch declared where applicable
-must_not_do: use generic building-first ordering
-```
+Tests disaster-specific prioritization under stale or semantically mismatched
+water sources, available roads, tight time, and an important building layer.
 
 ### C03 Wildfire: sparse built environment
 
-```text
-scenario: wildfire
-resource_regime: limited network, tight time
-input_sources_status: building/POI likely absent in AOI; road source available
-expected_layer_priority: road critical; building/POI may be data_absent; water depends contract
-expected_delivery_strategy: focus budget on road product; declare absent layers
-expected_gap_declaration: data_absent for layers with no baseline features, not system error
-must_not_do: repeatedly retry absent layers without new evidence
-```
+Tests absence-aware planning when road data is available but optional building
+and POI baselines are absent in the AOI.
 
 ### C04 Typhoon or storm: large AOI, coverage pressure
 
-```text
-scenario: typhoon_or_storm
-resource_regime: large AOI, tight time
-input_sources_status: multiple sources available but slow to fully materialize
-expected_layer_priority: coverage and progressive delivery dominate
-expected_delivery_strategy: chunked or staged delivery; final fusion supersedes provisional products
-expected_gap_declaration: partial coverage and pending completion visible
-must_not_do: wait indefinitely for full fusion before any usable delivery
-```
+Tests progressive coverage when one road source is available and another is
+delayed while compute and time remain constrained.
 
-### C05 Source conflict: geometry-rich vs attribute-rich
+### C05 Source conflict: geometry-rich versus attribute-rich
 
-```text
-scenario: generic_disaster_response
-resource_regime: moderate
-input_sources_status: one source has better geometry; another has richer attributes
-expected_layer_priority: depends product contract, but fusion rationale must state tradeoff
-expected_delivery_strategy: produce fused product with provenance and conflict report
-expected_gap_declaration: quality risk or unresolved conflict declared when not fully resolved
-must_not_do: silently overwrite richer attributes or geometry without evidence
-```
+Tests conflict-aware fusion and explicit quality risk when two building sources
+offer incompatible strengths.
 
 ### C06 Fusion quality gate failure
 
-```text
-scenario: any
-resource_regime: tight
-input_sources_status: full fusion attempted, quality gate fails; single-source product usable
-expected_layer_priority: critical layer still delivered as degraded product if acceptable
-expected_delivery_strategy: degraded delivery with failed quality evidence; retry or supersede if possible
-expected_gap_declaration: quality_failed and degraded_but_usable
-must_not_do: mark failed fusion as fully_satisfied
-```
-
+Tests degraded fallback delivery when a usable road source exists but a second
+reference source has failed quality checks.

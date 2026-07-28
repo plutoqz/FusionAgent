@@ -1,0 +1,81 @@
+{
+  "protocol_version": "2026-07-20.phase3.v1",
+  "status": "frozen_before_formal_runs",
+  "frozen_at": "2026-07-20T00:00:00Z",
+  "case_ids": ["C01", "C02", "C03", "C04", "C05", "C06"],
+  "planners": [
+    "fixed",
+    "kg_only",
+    "llm_only",
+    "llm_capability_kg",
+    "llm_full_contract_kg"
+  ],
+  "llm_planners": [
+    "llm_only",
+    "llm_capability_kg",
+    "llm_full_contract_kg"
+  ],
+  "formal_repetitions_per_case_planner": 5,
+  "input_variants": [0, 1, 2, 3, 4],
+  "variant_assignment": "input_variants[(repetition_index-1)%len(input_variants)]",
+  "schedule_seed": "fusionagent-phase3-stability-2026-07-20-v1",
+  "schedule_policy": "deterministic_seeded_shuffle",
+  "gold_access_policy": "post_planning_evaluation_only",
+  "llm_calling_policy": {
+    "expected_model": "gpt-5.4-mini",
+    "temperature": 0.1,
+    "response_format": "json_object",
+    "grounding_repair_retries": 1,
+    "same_prompt_for_all_llm_baselines": true,
+    "same_provider_interface_for_all_llm_baselines": true
+  },
+  "statistics": {
+    "primary_metric": "overall_score",
+    "descriptive_statistics": [
+      "count",
+      "mean",
+      "median",
+      "sample_sd",
+      "minimum",
+      "maximum"
+    ],
+    "validity_statistics": [
+      "success_rate",
+      "failure_rate",
+      "repair_rate",
+      "mean_retry_count"
+    ],
+    "semantic_stability_statistics": [
+      "strategy_mode_agreement",
+      "priority_pairwise_jaccard",
+      "initial_delivery_jaccard",
+      "background_completion_jaccard",
+      "not_delivered_jaccard",
+      "planner_gap_jaccard",
+      "exact_decision_signature_agreement"
+    ],
+    "failed_run_policy": "no_imputation_report_success_metrics_with_failure_rate",
+    "comparison_unit": "case_planner_repetition",
+    "claim_boundary": "formal_runs_required_for_research_claims"
+  },
+  "required_audit_fields": [
+    "run_id",
+    "case_id",
+    "planner",
+    "repetition_index",
+    "input_variant",
+    "outcome",
+    "planning_model",
+    "base_url_host",
+    "prompt_hash",
+    "context_hash",
+    "token_usage",
+    "planning_latency_ms",
+    "planning_retry_count",
+    "code_commit",
+    "code_dirty",
+    "artifacts",
+    "previous_record_hash",
+    "record_hash"
+  ]
+}

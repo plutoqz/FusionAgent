@@ -8,13 +8,15 @@ FusionAgent is a bounded geospatial vector-fusion agent runtime for disaster-res
 
 The project is not positioned as an unbounded general-purpose agent. Its goal is to turn task understanding, input acquisition, constrained planning, fusion execution, failure healing, and evidence preservation into a testable and auditable engineering system.
 
-FusionAgent can now run as a mature no-UI vector data fusion agent: the no-UI operator surface, scenario regression, maturity freeze, and shared evidence contract are aligned behind one regression-tested execution path.
+The current project direction is defined by `docs/CURRENT.md`. Older Track A /
+Track B plans, paper freezes, no-UI maturity checks, scenario harnesses, and
+evidence ledgers are retained as historical material, but they are no longer the
+active research or application route.
 
-## Current Evidence Snapshot
-
-- The Track A / Track B master plan is complete and archived at `docs/superpowers/plans/done/2026-05-13-fusionagent-master-execution-plan.md`.
-- Track B national-scale evidence is frozen in `docs/superpowers/specs/2026-05-18-track-b-national-scale-evidence-freeze.json`, with `road`, `water`, and `poi` all recorded as `national_scale_supported`.
-- The current road chain fuses `raw.osm.road + raw.overture.transportation`; the freeze records 154 `20km x 20km` tiles and `427849` fused features.
+The active research focus is a product-contract knowledge graph for
+disaster-response data product delivery: data-algorithm-task capability remains
+the executable core, while disaster context, product contracts, quality gates,
+evidence traces, and gap declarations define the decision and validation space.
 
 ## What This Repository Contains
 

@@ -14,6 +14,7 @@ env/
 .env
 .env.*
 !.env.example
+.env.local
 依赖.txt
 !依赖.txt.example
 文档/Proposal.pdf
@@ -34,6 +35,7 @@ jobs/*/
 runs/*/
 !runs/.gitkeep
 tmp/runtime-settings/
+tmp/product-contract-live/
 
 .DS_Store
 Thumbs.db

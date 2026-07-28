@@ -1,0 +1,149 @@
+{
+  "version": "2026-07-20.v2",
+  "description": "Held-out structured gold labels for offline planner evaluation. This file must never be included in planner context.",
+  "gold": [
+    {
+      "case_id": "C01",
+      "priority_tiers": [
+        ["building", "road"],
+        ["poi"]
+      ],
+      "acceptable_strategy_ids": ["progressive_delivery"],
+      "delivery_expectations": {
+        "required_initial": ["building", "road"],
+        "allowed_initial": ["building", "road", "poi"],
+        "required_background": ["building"],
+        "allowed_background": ["building", "road", "poi"],
+        "required_not_delivered": [],
+        "allowed_not_delivered": ["poi"],
+        "required_supersession": ["building"],
+        "allowed_delivery_modes": {
+          "building": ["provisional", "degraded"],
+          "road": ["final", "provisional"],
+          "poi": ["final", "provisional", "not_delivered"]
+        }
+      },
+      "expected_gap_proposals": [
+        {"layer": "building", "gap_type": "source_unavailable"}
+      ]
+    },
+    {
+      "case_id": "C02",
+      "priority_tiers": [
+        ["water_type_1", "water_type_2", "road"],
+        ["building"]
+      ],
+      "acceptable_strategy_ids": ["critical_first_degraded_delivery"],
+      "delivery_expectations": {
+        "required_initial": ["water_type_1", "water_type_2", "road"],
+        "allowed_initial": ["water_type_1", "water_type_2", "road", "building"],
+        "required_background": [],
+        "allowed_background": ["water_type_1", "water_type_2", "road", "building"],
+        "required_not_delivered": [],
+        "allowed_not_delivered": ["building"],
+        "required_supersession": [],
+        "allowed_delivery_modes": {
+          "water_type_1": ["provisional", "degraded"],
+          "water_type_2": ["provisional", "degraded"],
+          "road": ["final", "provisional"],
+          "building": ["final", "provisional", "degraded", "not_delivered"]
+        }
+      },
+      "expected_gap_proposals": [
+        {"layer": "water_type_1", "gap_type": "source_mismatch"},
+        {"layer": "water_type_2", "gap_type": "source_mismatch"}
+      ]
+    },
+    {
+      "case_id": "C03",
+      "priority_tiers": [
+        ["road"],
+        ["building", "poi"]
+      ],
+      "acceptable_strategy_ids": ["absence_aware_triage"],
+      "delivery_expectations": {
+        "required_initial": ["road"],
+        "allowed_initial": ["road"],
+        "required_background": [],
+        "allowed_background": [],
+        "required_not_delivered": ["building", "poi"],
+        "allowed_not_delivered": ["building", "poi"],
+        "required_supersession": [],
+        "allowed_delivery_modes": {
+          "road": ["final", "provisional"],
+          "building": ["not_delivered"],
+          "poi": ["not_delivered"]
+        }
+      },
+      "expected_gap_proposals": [
+        {"layer": "building", "gap_type": "data_absent"},
+        {"layer": "poi", "gap_type": "data_absent"}
+      ]
+    },
+    {
+      "case_id": "C04",
+      "priority_tiers": [
+        ["road"],
+        ["building", "water_type_2"]
+      ],
+      "acceptable_strategy_ids": ["coverage_first_progressive"],
+      "delivery_expectations": {
+        "required_initial": ["road", "building", "water_type_2"],
+        "allowed_initial": ["road", "building", "water_type_2"],
+        "required_background": ["road"],
+        "allowed_background": ["road"],
+        "required_not_delivered": [],
+        "allowed_not_delivered": [],
+        "required_supersession": ["road"],
+        "allowed_delivery_modes": {
+          "road": ["provisional", "degraded"],
+          "building": ["final", "provisional"],
+          "water_type_2": ["final", "provisional"]
+        }
+      },
+      "expected_gap_proposals": [
+        {"layer": "road", "gap_type": "source_unavailable"}
+      ]
+    },
+    {
+      "case_id": "C05",
+      "priority_tiers": [["building"]],
+      "acceptable_strategy_ids": ["conflict_aware_fusion"],
+      "delivery_expectations": {
+        "required_initial": ["building"],
+        "allowed_initial": ["building"],
+        "required_background": ["building"],
+        "allowed_background": ["building"],
+        "required_not_delivered": [],
+        "allowed_not_delivered": [],
+        "required_supersession": ["building"],
+        "allowed_delivery_modes": {
+          "building": ["degraded"]
+        }
+      },
+      "expected_gap_proposals": [
+        {"layer": "building", "gap_type": "quality_failed"}
+      ]
+    },
+    {
+      "case_id": "C06",
+      "priority_tiers": [["road"]],
+      "acceptable_strategy_ids": ["quality_fallback_delivery"],
+      "delivery_expectations": {
+        "required_initial": ["road"],
+        "allowed_initial": ["road"],
+        "required_background": ["road"],
+        "allowed_background": ["road"],
+        "required_not_delivered": [],
+        "allowed_not_delivered": [],
+        "required_supersession": ["road"],
+        "allowed_delivery_modes": {
+          "road": ["degraded"]
+        }
+      },
+      "expected_gap_proposals": [
+        {"layer": "road", "gap_type": "quality_failed"}
+      ]
+    }
+  ]
+}

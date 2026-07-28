@@ -4,9 +4,16 @@ This folder stores historical, superseded, or conversation-handoff documents tha
 
 Current authoritative research guidance lives in:
 
+- `docs/CURRENT.md`
+- `docs/research-runtime-minimum.md`
+- `docs/thesis/ontology_schema_v2.md`
 - `docs/thesis/research_direction_guide_2026-07-09.md`
 - `docs/thesis/product_contract_spec.md`
 - `docs/thesis/experiment_case_matrix.md`
+
+Historical materials outside this folder, especially `docs/superpowers/plans/**`
+and `docs/superpowers/specs/**`, should also be treated as archived context
+unless `docs/CURRENT.md` explicitly reactivates a file for a bounded purpose.
 
 ## Folder Policy
 

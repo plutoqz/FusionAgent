@@ -57,17 +57,15 @@ FusionAgent 是一个面向有界灾害响应场景的地理空间矢量数据�
 - 输入准备、artifact reuse 与证据写回
 - 面向 operator 的 Web 工作台
 
+当前项目方向以 `docs/CURRENT.md` 为准。旧的 Track A/Track B、paper freeze、
+no-UI maturity、scenario harness 和 evidence-ledger 文档保留为历史材料, 不再作为
+当前研究或应用工程的默认路线。
+
 它的目标不是成为一个无边界通用 Agent，而是在明确任务范围内，把**任务理解、数据获取、约束规划、融合执行、失败修复、证据沉淀**组织成一个可测试、可审计、可复现实验的工程系统。
 
-FusionAgent 当前可以作为无界面的成熟矢量数据融合智能体运行：无界面 operator 读模型、scenario regression、maturity freeze 与共享证据契约已经收口到同一条可回归的执行链。
+当前研究重点已经转向“面向灾害应急数据产品交付的契约化知识图谱”：以数据-算法-任务为执行核心, 将灾害情景、数据产品契约、质量门、证据链和缺口声明组织成可验证的本体与实验规格。
 
-> 当前定位更接近“有界、可验证、可回归的地理空间 Agent Runtime”，而不是最终产品化平台。
-
-### 当前证据快照
-
-- Track A / Track B 主计划已完成并归档到 `docs/superpowers/plans/done/2026-05-13-fusionagent-master-execution-plan.md`。
-- Track B 国家级证据已刷新到 `docs/superpowers/specs/2026-05-18-track-b-national-scale-evidence-freeze.json`：`road`、`water`、`poi` 均为 `national_scale_supported`。
-- `road` 当前 full-closure source contract 已由 2026-06-11 autonomous contract 更新为 `raw.osm.road + raw.microsoft.road`；MS road 仍是 local/manual/preload 边界。旧 `raw.overture.transportation` freeze 仅作为历史 compatibility evidence 保留，不再是 promoted second source。
+> 当前仓库应被理解为研究资料库、旧系统供体和可运行实验基座, 而不是最终应用工程。应用工程后续可以另起轻量仓库, 从近线性的意图理解、区域获取、数据下载、算法调用和结果检查流程开始。
 
 ## 核心亮点
 

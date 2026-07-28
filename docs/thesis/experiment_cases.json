@@ -1,0 +1,358 @@
+{
+  "version": "2026-07-10.v1",
+  "description": "Machine-readable companion to experiment_case_matrix.md for product-contract KG experiments.",
+  "cases": [
+    {
+      "case_id": "C01",
+      "title": "Earthquake with tight time and partial source availability",
+      "scenario": "earthquake",
+      "aoi": {
+        "name": "earthquake_demo_aoi",
+        "bbox": [
+          36.79,
+          -1.31,
+          36.82,
+          -1.28
+        ]
+      },
+      "resource_regime": {
+        "network": "limited",
+        "time_budget": "tight",
+        "compute": "standard",
+        "priority": "latency_first"
+      },
+      "required_layers": [
+        {
+          "layer": "building",
+          "criticality": "critical",
+          "min_satisfaction": "degraded_but_usable"
+        },
+        {
+          "layer": "road",
+          "criticality": "critical",
+          "min_satisfaction": "degraded_but_usable"
+        },
+        {
+          "layer": "poi",
+          "criticality": "optional",
+          "min_satisfaction": "partially_satisfied"
+        }
+      ],
+      "input_sources_status": [
+        {
+          "source_id": "raw.osm.building",
+          "layer": "building",
+          "status": "available",
+          "coverage": 0.78,
+          "freshness": "moderate"
+        },
+        {
+          "source_id": "raw.microsoft.building",
+          "layer": "building",
+          "status": "delayed",
+          "coverage": 0.42,
+          "freshness": "fresh"
+        },
+        {
+          "source_id": "raw.osm.road",
+          "layer": "road",
+          "status": "available",
+          "coverage": 0.86,
+          "freshness": "moderate"
+        },
+        {
+          "source_id": "raw.osm.poi",
+          "layer": "poi",
+          "status": "available",
+          "coverage": 0.52,
+          "freshness": "moderate"
+        }
+      ]
+    },
+    {
+      "case_id": "C02",
+      "title": "Flood where water and road dominate",
+      "scenario": "flood",
+      "aoi": {
+        "name": "flood_demo_aoi",
+        "bbox": [
+          67,
+          24.8,
+          67.12,
+          24.92
+        ]
+      },
+      "resource_regime": {
+        "network": "moderate",
+        "time_budget": "tight",
+        "compute": "standard",
+        "priority": "latency_first"
+      },
+      "required_layers": [
+        {
+          "layer": "water_type_1",
+          "criticality": "critical",
+          "min_satisfaction": "partially_satisfied"
+        },
+        {
+          "layer": "water_type_2",
+          "criticality": "critical",
+          "min_satisfaction": "partially_satisfied"
+        },
+        {
+          "layer": "road",
+          "criticality": "critical",
+          "min_satisfaction": "degraded_but_usable"
+        },
+        {
+          "layer": "building",
+          "criticality": "important",
+          "min_satisfaction": "partially_satisfied"
+        }
+      ],
+      "input_sources_status": [
+        {
+          "source_id": "raw.hydrolakes.water",
+          "layer": "water_type_1",
+          "status": "source_mismatch",
+          "coverage": 0.61,
+          "freshness": "stale"
+        },
+        {
+          "source_id": "raw.hydrorivers.water",
+          "layer": "water_type_2",
+          "status": "stale",
+          "coverage": 0.66,
+          "freshness": "stale"
+        },
+        {
+          "source_id": "raw.osm.road",
+          "layer": "road",
+          "status": "available",
+          "coverage": 0.87,
+          "freshness": "moderate"
+        },
+        {
+          "source_id": "raw.osm.building",
+          "layer": "building",
+          "status": "available",
+          "coverage": 0.58,
+          "freshness": "moderate"
+        }
+      ]
+    },
+    {
+      "case_id": "C03",
+      "title": "Wildfire in sparse built environment",
+      "scenario": "wildfire",
+      "aoi": {
+        "name": "wildfire_sparse_aoi",
+        "bbox": [
+          -121.9,
+          38.55,
+          -121.75,
+          38.7
+        ]
+      },
+      "resource_regime": {
+        "network": "limited",
+        "time_budget": "tight",
+        "compute": "standard",
+        "priority": "latency_first"
+      },
+      "required_layers": [
+        {
+          "layer": "road",
+          "criticality": "critical",
+          "min_satisfaction": "degraded_but_usable"
+        },
+        {
+          "layer": "building",
+          "criticality": "optional",
+          "min_satisfaction": "not_applicable"
+        },
+        {
+          "layer": "poi",
+          "criticality": "optional",
+          "min_satisfaction": "not_applicable"
+        }
+      ],
+      "input_sources_status": [
+        {
+          "source_id": "raw.osm.road",
+          "layer": "road",
+          "status": "available",
+          "coverage": 0.74,
+          "freshness": "moderate"
+        },
+        {
+          "source_id": "raw.osm.building",
+          "layer": "building",
+          "status": "data_absent",
+          "coverage": 0,
+          "freshness": "unknown"
+        },
+        {
+          "source_id": "raw.osm.poi",
+          "layer": "poi",
+          "status": "data_absent",
+          "coverage": 0,
+          "freshness": "unknown"
+        }
+      ]
+    },
+    {
+      "case_id": "C04",
+      "title": "Typhoon or storm with large AOI coverage pressure",
+      "scenario": "typhoon_or_storm",
+      "aoi": {
+        "name": "storm_large_aoi",
+        "bbox": [
+          120.7,
+          14.4,
+          121.3,
+          15.2
+        ]
+      },
+      "resource_regime": {
+        "network": "moderate",
+        "time_budget": "tight",
+        "compute": "limited",
+        "priority": "coverage_first"
+      },
+      "required_layers": [
+        {
+          "layer": "road",
+          "criticality": "critical",
+          "min_satisfaction": "partially_satisfied"
+        },
+        {
+          "layer": "building",
+          "criticality": "important",
+          "min_satisfaction": "partially_satisfied"
+        },
+        {
+          "layer": "water_type_2",
+          "criticality": "important",
+          "min_satisfaction": "partially_satisfied"
+        }
+      ],
+      "input_sources_status": [
+        {
+          "source_id": "raw.osm.road",
+          "layer": "road",
+          "status": "available",
+          "coverage": 0.69,
+          "freshness": "moderate"
+        },
+        {
+          "source_id": "raw.microsoft.road",
+          "layer": "road",
+          "status": "delayed",
+          "coverage": 0.72,
+          "freshness": "fresh"
+        },
+        {
+          "source_id": "raw.osm.building",
+          "layer": "building",
+          "status": "available",
+          "coverage": 0.62,
+          "freshness": "moderate"
+        },
+        {
+          "source_id": "raw.hydrorivers.water",
+          "layer": "water_type_2",
+          "status": "available",
+          "coverage": 0.57,
+          "freshness": "moderate"
+        }
+      ]
+    },
+    {
+      "case_id": "C05",
+      "title": "Source conflict between geometry-rich and attribute-rich inputs",
+      "scenario": "generic_disaster_response",
+      "aoi": {
+        "name": "source_conflict_aoi",
+        "bbox": [
+          2.3,
+          6.3,
+          2.45,
+          6.45
+        ]
+      },
+      "resource_regime": {
+        "network": "moderate",
+        "time_budget": "moderate",
+        "compute": "standard",
+        "priority": "balanced"
+      },
+      "required_layers": [
+        {
+          "layer": "building",
+          "criticality": "critical",
+          "min_satisfaction": "partially_satisfied"
+        }
+      ],
+      "input_sources_status": [
+        {
+          "source_id": "raw.geometry_rich.building",
+          "layer": "building",
+          "status": "conflicting",
+          "coverage": 0.8,
+          "freshness": "moderate"
+        },
+        {
+          "source_id": "raw.attribute_rich.building",
+          "layer": "building",
+          "status": "conflicting",
+          "coverage": 0.72,
+          "freshness": "moderate"
+        }
+      ]
+    },
+    {
+      "case_id": "C06",
+      "title": "Fusion quality gate failure with usable single-source fallback",
+      "scenario": "any",
+      "aoi": {
+        "name": "quality_failure_aoi",
+        "bbox": [
+          29.3,
+          -3.45,
+          29.4,
+          -3.35
+        ]
+      },
+      "resource_regime": {
+        "network": "limited",
+        "time_budget": "tight",
+        "compute": "standard",
+        "priority": "latency_first"
+      },
+      "required_layers": [
+        {
+          "layer": "road",
+          "criticality": "critical",
+          "min_satisfaction": "degraded_but_usable"
+        }
+      ],
+      "input_sources_status": [
+        {
+          "source_id": "raw.osm.road",
+          "layer": "road",
+          "status": "available",
+          "coverage": 0.76,
+          "freshness": "moderate"
+        },
+        {
+          "source_id": "raw.reference.road",
+          "layer": "road",
+          "status": "quality_failed",
+          "coverage": 0.65,
+          "freshness": "moderate"
+        }
+      ]
+    }
+  ]
+}

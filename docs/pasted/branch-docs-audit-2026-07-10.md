@@ -1,5 +1,14 @@
 # Branch Documentation Audit - 2026-07-10
 
+Supersession note, 2026-07-10:
+
+This audit records the first cleanup pass. It has been superseded by
+`docs/CURRENT.md` for active project navigation. In particular, the earlier
+"Documents Kept In Place" section should not be read as granting current
+authority to old operations, scenario harness, maturity freeze, or evidence
+freeze documents. They remain available as historical material unless a current
+entry point explicitly reactivates them.
+
 ## Current Local State
 
 Current checked-out branch: `main`.
