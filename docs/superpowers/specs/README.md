@@ -1,47 +1,32 @@
-# Superpowers Specs: Historical Evidence
+# Superpowers Specs 目录说明
 
-Status: historical root, superseded 2026-07-10.
+> 状态：兼容与历史集合，非当前研究总入口
+> 更新日期：2026-07-28
 
-`docs/superpowers/specs/` contains prior-stage specs, manifests, freezes,
-evidence ledgers, matrices, reviews, and staged summaries. These files are kept
-for provenance and may still be referenced by legacy scripts or tests, but they
-are not the current research or application entrypoint.
+本目录混合保存仍被脚本/测试读取的兼容规格、旧 evidence freeze、历史能力清单和阶段性研究材料。文件存在于 `specs/` 不代表它仍能定义当前论文主张。
 
-The current project direction is defined by:
+共享项目状态、论文主张和治理规则以以下文档为准：
 
+- [`docs/current/project-status.md`](../../current/project-status.md)
+- [`docs/current/claims-and-priorities.md`](../../current/claims-and-priorities.md)
+- [`docs/README.md`](../../README.md)
+
+在 `research/product-contract` 分支上，研究问题、实验约束和 Phase 顺序还必须遵循：
+
+- `PROJECT.md`
 - `docs/CURRENT.md`
 - `docs/thesis/ontology_schema_v2.md`
 - `docs/thesis/product_contract_spec.md`
 - `docs/thesis/experiment_case_matrix.md`
-- `docs/thesis/research_direction_guide_2026-07-09.md`
 - `docs/research-runtime-minimum.md`
 
-## Interpretation Rules
+## 目录规则
 
-- Files in this directory are historical unless a current document explicitly
-  reactivates one for a bounded purpose.
-- Freeze reports, maturity checks, scenario evidence bundles, capability
-  ledgers, paper evidence packages, and staged summaries should not be treated
-  as current project goals.
-- Legacy tests and scripts may still read these paths while the repository is
-  being simplified. That compatibility does not make the documents
-  authoritative.
-- New research work should not add more long-lived freeze/maturity/ledger files
-  here.
+- `specs/`：保留仍被代码、测试或复现流程按路径消费的文件，以及尚未迁移的历史材料。
+- `specs/done/`：只保留没有活跃副本或内容确实不同的历史快照。
+- `specs/` 与 `specs/done/` 中同名且 SHA-256 完全相同的副本不重复保存。
+- Freeze、maturity、scenario harness 和 evidence ledger 默认是历史证据，不能覆盖当前研究章程。
+- 新的论文方向、主张账本或长期执行计划不得只写入本目录。
+- 历史 freeze 只证明对应日期、commit、输入和协议下的状态，不自动代表当前分支。
 
-## Why This Changed
-
-The earlier project direction accumulated too much proof machinery around
-scenario harnesses, no-UI maturity checks, evidence freezes, and staged
-capability ledgers. That machinery is useful as historical context, but it now
-obscures the current research goal: product-contract KG design, quality gates,
-evidence traces, gap declarations, and constrained LLM planning.
-
-Future application work should start from a simple near-linear pipeline and
-should not inherit this directory as a mandatory framework.
-
-## Archive Notes
-
-`docs/superpowers/specs/done/` remains an archive for snapshots that had already
-been moved out of the former live root. The distinction between this directory
-and `done/` is now historical rather than authoritative.
+当旧规格仍被自动化消费时，应在代码或测试中保留明确引用；依赖解除后，再按 `docs/current/document-governance.md` 迁移或归档。

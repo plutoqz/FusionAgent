@@ -142,7 +142,9 @@ def test_kg_overview_endpoint_returns_graph(client: TestClient) -> None:
     payload = resp.json()
     assert payload["meta"]["graph_type"] == "overview_closure_graph"
     assert any(node["kind"] == "workflow_pattern" for node in payload["nodes"])
+    assert any(node["kind"] == "product_contract" for node in payload["nodes"])
     assert any(edge["relationship"] == "uses_algorithm" for edge in payload["edges"])
+    assert any(edge["relationship"] == "requires_output_requirement" for edge in payload["edges"])
 
 
 def test_run_kg_graph_endpoint_returns_per_run_graph(client: TestClient) -> None:

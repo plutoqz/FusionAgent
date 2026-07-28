@@ -7,9 +7,10 @@ def test_expected_seed_inventory_exposes_static_kg_contract() -> None:
     assert inventory["DataType"] == 27
     assert inventory["Task"] == 11
     assert inventory["TaskBundle"] == 4
+    assert inventory["ProductContract"] == 6
     assert inventory["Algorithm"] == 33
     assert inventory["AlgorithmParameterSpec"] == 72
-    assert inventory["DataSource"] == 30
+    assert inventory["DataSource"] == 32
     assert inventory["ScenarioProfile"] == 4
     assert inventory["QoSPolicy"] == 4
     assert inventory["OutputSchemaPolicy"] == 5

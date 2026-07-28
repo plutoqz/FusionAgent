@@ -31,13 +31,36 @@ BUILDING_SOURCE_FALLBACKS = {
     "catalog.earthquake.building": source_fallback_candidates("catalog.earthquake.building"),
 }
 
+BUILDING_OSM_SOURCE_ID = "raw.osm.building"
+BUILDING_REFERENCE_COMPONENTS = (
+    "raw.google.building",
+    "raw.microsoft.building",
+    "raw.openbuildingmap.building",
+    "raw.local.microsoft.building",
+    "raw.google.open_buildings.vector",
+)
+
 PARTIAL_COVERAGE_ALLOWED_SOURCES = {
     "catalog.flood.road",
     "catalog.earthquake.road",
     "catalog.typhoon.road",
     "catalog.flood.water",
+    "catalog.flood.water_polygon",
     "catalog.generic.poi",
 }
+
+
+class BundleMaterializationError(ValueError):
+    def __init__(
+        self,
+        message: str,
+        *,
+        component_coverage: dict[str, SourceCoverageStatus] | None = None,
+        provider_attempts: list[dict[str, object]] | None = None,
+    ) -> None:
+        super().__init__(message)
+        self.component_coverage = dict(component_coverage or {})
+        self.provider_attempts = [dict(attempt) for attempt in (provider_attempts or [])]
 
 
 class LocalBundleCatalogProvider:
@@ -151,6 +174,11 @@ class LocalBundleCatalogProvider:
                 target_crs=target_crs,
                 require_non_empty_pair=False,
             )
+        except BundleMaterializationError as exc:
+            if "empty source coverage" not in str(exc):
+                raise
+            combined_coverage.update(exc.component_coverage)
+            combined_provider_attempts.extend(exc.provider_attempts)
         except ValueError as exc:
             if "empty source coverage" not in str(exc):
                 raise
@@ -164,14 +192,21 @@ class LocalBundleCatalogProvider:
             attempted_sources.append(fallback_source_id)
             if target_dir.exists():
                 shutil.rmtree(target_dir)
-            fallback = self._materialize_bundle(
-                source_id=fallback_source_id,
-                request_bbox=request_bbox,
-                resolved_aoi=resolved_aoi,
-                target_dir=target_dir,
-                target_crs=target_crs,
-                require_non_empty_pair=False,
-            )
+            try:
+                fallback = self._materialize_bundle(
+                    source_id=fallback_source_id,
+                    request_bbox=request_bbox,
+                    resolved_aoi=resolved_aoi,
+                    target_dir=target_dir,
+                    target_crs=target_crs,
+                    require_non_empty_pair=False,
+                )
+            except BundleMaterializationError as exc:
+                if "empty source coverage" not in str(exc):
+                    raise
+                combined_coverage.update(exc.component_coverage)
+                combined_provider_attempts.extend(exc.provider_attempts)
+                continue
             combined_coverage.update(fallback.component_coverage)
             combined_provider_attempts.extend(fallback.provider_attempts)
             if self._has_empty_required_component(fallback_source_id, fallback.component_coverage):
@@ -201,7 +236,11 @@ class LocalBundleCatalogProvider:
                 provider_attempts=self._renumber_provider_attempts(combined_provider_attempts),
             )
 
-        raise ValueError(f"AOI-scoped bundle has empty source coverage for {source_id}")
+        raise BundleMaterializationError(
+            f"AOI-scoped bundle has empty source coverage for {source_id}",
+            component_coverage=combined_coverage,
+            provider_attempts=self._renumber_provider_attempts(combined_provider_attempts),
+        )
 
     def _materialize_bundle(
         self,
@@ -304,12 +343,17 @@ class LocalBundleCatalogProvider:
         component_coverage: dict[str, SourceCoverageStatus] = {}
         provider_attempts: list[dict[str, object]] = []
 
+        materialization_order = self._policy_candidate_materialization_order(
+            source_id=source_id,
+            candidates=candidates,
+            resolved_aoi=resolved_aoi,
+        )
         target_paths = self._candidate_target_paths(
             spec=spec,
             candidates=candidates,
             target_dir=target_dir,
         )
-        for component_source_id in candidates:
+        for index, component_source_id in enumerate(materialization_order):
             target_path = target_paths.get(component_source_id, target_dir / f"{component_source_id.replace('.', '_')}.zip")
             try:
                 resolved = self.raw_source_service.resolve(
@@ -365,6 +409,17 @@ class LocalBundleCatalogProvider:
                     selected_for_fusion=coverage_status == "available",
                 )
             )
+            if self._building_resolution_can_stop(
+                source_id=source_id,
+                spec=spec,
+                resolved_components=resolved_components,
+            ):
+                self._record_skipped_policy_candidates(
+                    skipped_candidates=materialization_order[index + 1 :],
+                    component_coverage=component_coverage,
+                    provider_attempts=provider_attempts,
+                )
+                break
 
         if self._is_building_catalog(source_id) and self.raster_height_source_service is not None:
             raster_coverage, raster_attempts = self.raster_height_source_service.materialize_preferred(
@@ -382,7 +437,11 @@ class LocalBundleCatalogProvider:
         ref = resolved_components.get(ref_source_id) if ref_source_id is not None else None
         has_any_candidate_coverage = any(_coverage_feature_count(status) > 0 for status in component_coverage.values())
         if not has_any_candidate_coverage:
-            raise ValueError(f"AOI-scoped bundle has empty source coverage for {source_id}")
+            raise BundleMaterializationError(
+                f"AOI-scoped bundle has empty source coverage for {source_id}",
+                component_coverage=component_coverage,
+                provider_attempts=provider_attempts,
+            )
 
         if ref is None:
             first_available_ref = next(
@@ -409,7 +468,11 @@ class LocalBundleCatalogProvider:
 
         if osm is None:
             if ref is None:
-                raise ValueError(f"AOI-scoped bundle has empty source coverage for {source_id}")
+                raise BundleMaterializationError(
+                    f"AOI-scoped bundle has empty source coverage for {source_id}",
+                    component_coverage=component_coverage,
+                    provider_attempts=provider_attempts,
+                )
             osm = self._create_empty_reference_bundle(
                 osm=ref,
                 output_zip=target_dir / "osm.zip",
@@ -449,6 +512,95 @@ class LocalBundleCatalogProvider:
             component_coverage=component_coverage,
             provider_attempts=provider_attempts,
         )
+
+    def _policy_candidate_materialization_order(
+        self,
+        *,
+        source_id: str,
+        candidates: list[str],
+        resolved_aoi: ResolvedAOI | None,
+    ) -> list[str]:
+        if not self._is_building_catalog(source_id):
+            return list(candidates)
+        if not callable(getattr(self.raw_source_service, "resolve_local_source_path", None)):
+            return list(candidates)
+
+        local_reference_candidates: list[str] = []
+        osm_candidates: list[str] = []
+        remote_reference_candidates: list[str] = []
+        supplemental_candidates: list[str] = []
+        for candidate in candidates:
+            if candidate == BUILDING_OSM_SOURCE_ID:
+                osm_candidates.append(candidate)
+            elif candidate in BUILDING_REFERENCE_COMPONENTS:
+                if self._candidate_has_local_source_path(candidate, resolved_aoi=resolved_aoi):
+                    local_reference_candidates.append(candidate)
+                else:
+                    remote_reference_candidates.append(candidate)
+            else:
+                supplemental_candidates.append(candidate)
+        return _unique_preserving_order(
+            [*local_reference_candidates, *osm_candidates, *remote_reference_candidates, *supplemental_candidates]
+        )
+
+    def _candidate_has_local_source_path(
+        self,
+        source_id: str,
+        *,
+        resolved_aoi: ResolvedAOI | None,
+    ) -> bool:
+        resolve_local_source_path = getattr(self.raw_source_service, "resolve_local_source_path", None)
+        if not callable(resolve_local_source_path):
+            return False
+        try:
+            resolve_local_source_path(source_id, resolved_aoi=resolved_aoi)
+        except (FileNotFoundError, RuntimeError, PermissionError, KeyError, ValueError):
+            return False
+        return True
+
+    def _building_resolution_can_stop(
+        self,
+        *,
+        source_id: str,
+        spec: CatalogBundleSpec,
+        resolved_components: dict[str, MaterializedRawVectorSource],
+    ) -> bool:
+        if not self._is_building_catalog(source_id):
+            return False
+        osm = resolved_components.get(spec.osm_source_id)
+        if osm is None or (osm.feature_count or 0) <= 0:
+            return False
+        return True
+
+    @staticmethod
+    def _record_skipped_policy_candidates(
+        *,
+        skipped_candidates: list[str],
+        component_coverage: dict[str, SourceCoverageStatus],
+        provider_attempts: list[dict[str, object]],
+    ) -> None:
+        for component_source_id in skipped_candidates:
+            if component_source_id in component_coverage:
+                continue
+            component_coverage[component_source_id] = SourceCoverageStatus(
+                source_id=component_source_id,
+                source_mode="skipped_after_usable_building_pair",
+                feature_count=0,
+                coverage_status="not_attempted",
+                path=None,
+            )
+            provider_attempts.append(
+                build_source_attempt(
+                    source_id=component_source_id,
+                    status="no_coverage",
+                    attempt_no=len(provider_attempts) + 1,
+                    coverage_status="not_attempted",
+                    feature_count=0,
+                    selected_for_fusion=False,
+                    recoverable=False,
+                    metadata={"reason": "skipped_after_usable_building_pair"},
+                )
+            )
 
     @staticmethod
     def _is_building_catalog(source_id: str) -> bool:
@@ -522,6 +674,8 @@ class LocalBundleCatalogProvider:
     @staticmethod
     def _source_attempt_fault(source_id: str, exc: Exception) -> tuple[str, str]:
         text = str(exc).casefold()
+        if "geofusion_local_only=1" in text:
+            return "no_coverage", "NO_OFFICIAL_COVERAGE"
         if source_id in {"raw.google.building", "raw.google.open_buildings.vector"} and (
             "not configured" in text
             or "url index is not configured" in text
@@ -610,11 +764,25 @@ class LocalBundleCatalogProvider:
             return False
         if not self._requires_complete_pair_coverage(source_id):
             return False
+        if self._building_coverage_can_proceed(source_id=source_id, spec=spec, component_coverage=component_coverage):
+            return False
         for component_source_id in spec.component_source_ids:
             status = component_coverage.get(component_source_id)
             if status is not None and _coverage_feature_count(status) == 0:
                 return True
         return False
+
+    def _building_coverage_can_proceed(
+        self,
+        *,
+        source_id: str,
+        spec: CatalogBundleSpec,
+        component_coverage: dict[str, SourceCoverageStatus],
+    ) -> bool:
+        if not self._is_building_catalog(source_id):
+            return False
+        osm_status = component_coverage.get(spec.osm_source_id)
+        return _coverage_feature_count(osm_status) > 0
 
     @staticmethod
     def _requires_complete_pair_coverage(source_id: str) -> bool:
@@ -666,3 +834,15 @@ def _coverage_feature_count(status: object) -> int:
         return int(value or 0)
     except (TypeError, ValueError):
         return 0
+
+
+def _unique_preserving_order(values) -> list[str]:
+    seen: set[str] = set()
+    result: list[str] = []
+    for value in values:
+        text = str(value)
+        if text in seen:
+            continue
+        seen.add(text)
+        result.append(text)
+    return result

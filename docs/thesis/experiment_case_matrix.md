@@ -127,6 +127,16 @@ are in contract scope.
 Tests disaster-specific prioritization under stale or semantically mismatched
 water sources, available roads, tight time, and an important building layer.
 
+```text
+scenario: flood
+resource_regime: moderate network, tight time
+input_sources_status: water sources partially stale or semantically mismatched; roads available
+expected_layer_priority: water_polygon/waterways and road critical; building important
+expected_delivery_strategy: prioritize water/road fusion and evidence; building can be delayed or degraded
+expected_gap_declaration: source freshness or source mismatch declared where applicable
+must_not_do: use generic building-first ordering
+```
+
 ### C03 Wildfire: sparse built environment
 
 Tests absence-aware planning when road data is available but optional building
@@ -146,3 +156,13 @@ offer incompatible strengths.
 
 Tests degraded fallback delivery when a usable road source exists but a second
 reference source has failed quality checks.
+
+```text
+scenario: any
+resource_regime: tight
+input_sources_status: full fusion attempted, quality gate fails; single-source product usable
+expected_layer_priority: critical layer still delivered as degraded product if acceptable
+expected_delivery_strategy: degraded delivery with failed quality evidence; retry or supersede if possible
+expected_gap_declaration: quality_failed and degraded_but_usable
+must_not_do: mark failed fusion as fully_satisfied
+```

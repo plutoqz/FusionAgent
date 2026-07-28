@@ -17,6 +17,7 @@ from schemas.agent import RunTrigger, WorkflowPlan, WorkflowTask
 from schemas.agent import (
     DataNeedRef,
     OutputRequirementRef,
+    ProductContractRef,
     QoSPolicyRef,
     RepairStrategyRef,
     TaskBundleRef,
@@ -91,6 +92,28 @@ class WorkflowPlanner:
             )
             plan = self._build_skeleton_plan(top_pattern, trigger=trigger)
             planning_source = "kg_fallback"
+        if preferred_pattern_id:
+            preferred_pattern = next(
+                (
+                    pattern
+                    for pattern in self.kg_repo.get_candidate_patterns(
+                        job_type=job_type,
+                        disaster_type=trigger.disaster_type,
+                        limit=20,
+                    )
+                    if pattern.pattern_id == preferred_pattern_id
+                ),
+                None,
+            )
+            if preferred_pattern is not None:
+                preferred_decision = self.runtime_contract.evaluate_pattern(
+                    preferred_pattern,
+                    surface="planner_explicit_preference",
+                )
+                selected_pattern_id = self._infer_selected_pattern_id(plan, candidate_patterns)
+                if preferred_decision.allowed and selected_pattern_id != preferred_pattern_id:
+                    plan = self._build_skeleton_plan(preferred_pattern, trigger=trigger)
+                    planning_source = "kg_preferred_override"
         if planning_telemetry is None:
             planning_telemetry = self._build_planning_telemetry(
                 planning_context=planning_context,
@@ -141,6 +164,24 @@ class WorkflowPlanner:
     ) -> WorkflowPatternNode:
         retrieval = planning_context.get("retrieval", {})
         candidates = retrieval.get("candidate_patterns", [])
+        preferred = str(preferred_pattern_id or "").strip()
+        if preferred:
+            by_id = {
+                pattern.pattern_id: pattern
+                for pattern in self.kg_repo.get_candidate_patterns(
+                    job_type=job_type,
+                    disaster_type=disaster_type,
+                    limit=20,
+                )
+            }
+            preferred_pattern = by_id.get(preferred)
+            if preferred_pattern is not None:
+                decision = self.runtime_contract.evaluate_pattern(
+                    preferred_pattern,
+                    surface="planner_fallback",
+                )
+                if decision.allowed:
+                    return self._pattern_with_runtime_contract_metadata(preferred_pattern, [])
         ranked_ids = [
             str(item.get("pattern_id") or "").strip()
             for item in candidates
@@ -340,6 +381,7 @@ class WorkflowPlanner:
             "expected_output": f"{pattern.job_type.value} fusion result",
             "estimated_time": "unknown",
             "task_bundle": self._task_bundle_from_context({}),
+            "product_contract": self._product_contract_from_context({}),
             "output_requirement": self._output_requirement_from_context({}),
             "qos_policy": self._qos_policy_from_context({}),
             "data_needs": [],
@@ -373,6 +415,10 @@ class WorkflowPlanner:
             raw = self._task_bundle_from_context(plan.context)
             if isinstance(raw, dict):
                 plan.task_bundle = TaskBundleRef.model_validate(raw)
+        if plan.product_contract is None:
+            raw = self._product_contract_from_context(plan.context)
+            if isinstance(raw, dict):
+                plan.product_contract = ProductContractRef.model_validate(raw)
         if plan.output_requirement is None:
             raw = self._output_requirement_from_context(plan.context)
             if isinstance(raw, dict):
@@ -471,6 +517,10 @@ class WorkflowPlanner:
             raw = self._task_bundle_from_context(plan.context)
             if isinstance(raw, dict):
                 plan.task_bundle = TaskBundleRef.model_validate(raw)
+        if plan.product_contract is None:
+            raw = self._product_contract_from_context(plan.context)
+            if isinstance(raw, dict):
+                plan.product_contract = ProductContractRef.model_validate(raw)
         if plan.output_requirement is None:
             raw = self._output_requirement_from_context(plan.context)
             if isinstance(raw, dict):
@@ -509,6 +559,15 @@ class WorkflowPlanner:
         if not isinstance(intent, dict):
             return None
         return intent.get("output_requirement")
+
+    @staticmethod
+    def _product_contract_from_context(context: Dict[str, Any] | None):
+        if not isinstance(context, dict):
+            return None
+        intent = context.get("intent")
+        if not isinstance(intent, dict):
+            return None
+        return intent.get("product_contract")
 
     @staticmethod
     def _qos_policy_from_context(context: Dict[str, Any] | None):

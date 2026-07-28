@@ -1,0 +1,28 @@
+﻿relationship_id,label,description,source_kinds,target_kinds,instance_count
+activates_task,激活任务,场景处境激活需要进入规划空间的任务。,scenario_profile,task,12
+applies_to_output_type,适用于输出类型,输出模式策略适用于指定的数据输出类型。,output_schema_policy,data_type,5
+applies_to_scenario,适用于场景,产品契约适用于指定灾害场景处境。,product_contract,scenario_profile,19
+applies_to_task,适用于任务,修复策略适用于指定任务。,repair_strategy,task,8
+can_transform_to,可转换为,一种数据类型可通过已注册能力转换为另一种数据类型。,data_type,data_type,6
+composed_of,由产品契约组成,组合产品契约由一个或多个图层产品契约组成。,product_contract,product_contract,5
+consumes_data_type,消费数据类型,算法消费指定输入数据类型。,algorithm,data_type,45
+declares_data_need,声明数据需求,任务编排包显式声明需要满足的数据需求。,task_bundle,data_need,11
+defaults_to_qos,默认服务质量策略,场景处境默认使用指定 QoS 策略。,scenario_profile,qos_policy,4
+emits_output_type,输出数据类型,工作流模式在一个或多个步骤中产生指定输出数据类型。,workflow_pattern,data_type,23
+enforces_schema_policy,执行输出模式策略,输出要求通过指定模式策略约束字段结构。,output_requirement,output_schema_policy,5
+has_data_need,具有数据需求,任务具有指定数据需求。,task,data_need,12
+has_parameter_spec,具有参数规范,算法具有指定参数规范。,algorithm,parameter_spec,72
+orchestrated_by,由任务包编排,产品契约由指定任务编排包组织执行。,product_contract,task_bundle,12
+produces_data_type,产出数据类型,算法能够产出指定数据类型。,algorithm,data_type,33
+refers_to_data_type,指向数据类型,数据需求引用指定数据类型。,data_need,data_type,12
+requests_task,请求任务,任务编排包请求执行指定任务。,task_bundle,task,11
+requires_input_type,需要输入类型,工作流模式的步骤需要指定输入数据类型。,workflow_pattern,data_type,23
+requires_output_requirement,需要输出要求,产品契约必须满足指定输出要求。,product_contract,output_requirement,10
+requires_task,需要任务,产品契约要求执行指定任务。,product_contract,task,10
+solves_task,解决任务,工作流模式能够解决指定任务。,workflow_pattern,task,15
+supports_data_type,支持数据类型,数据源能够提供指定数据类型。,data_source,data_type,47
+targets_output_requirement,目标输出要求,工作流模式或任务编排包以指定输出要求为交付目标。,task_bundle;workflow_pattern,output_requirement,17
+uses_algorithm,使用算法,工作流模式在一个或多个步骤中使用指定算法。,workflow_pattern,algorithm,27
+uses_data_source,使用数据源,工作流模式在一个或多个步骤中使用指定数据源。,workflow_pattern,data_source,15
+uses_qos_policy,使用服务质量策略,产品契约或任务编排包使用指定 QoS 策略。,product_contract;task_bundle,qos_policy,20
+uses_repair_strategy,使用修复策略,产品契约或任务编排包允许使用指定修复策略。,product_contract;task_bundle,repair_strategy,18

@@ -19,6 +19,7 @@ class KgSeedManifest(BaseModel):
     data_types: list[dict[str, Any]] = Field(default_factory=list)
     tasks: list[dict[str, Any]] = Field(default_factory=list)
     scenario_profiles: list[dict[str, Any]] = Field(default_factory=list)
+    product_contracts: list[dict[str, Any]] = Field(default_factory=list)
     task_bundles: list[dict[str, Any]] = Field(default_factory=list)
     output_requirements: list[dict[str, Any]] = Field(default_factory=list)
     qos_policies: list[dict[str, Any]] = Field(default_factory=list)

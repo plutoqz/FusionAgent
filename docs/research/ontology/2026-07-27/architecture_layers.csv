@@ -1,0 +1,10 @@
+﻿view,layer_id,layer_name,description,ontology_kinds,module_refs,evidence_refs
+conceptual,context_and_situation,灾害场景与资源处境,回答当前是什么灾种、处于什么响应阶段、需要激活哪些任务以及采用何种质量优先级。,scenario_profile;task_bundle,,
+conceptual,product_contract_and_delivery,产品契约与产品组成,回答要交付什么产品、包含哪些图层、满足什么质量门、允许怎样降级以及如何声明缺口。,product_contract;output_requirement;output_schema_policy;qos_policy,,
+conceptual,data_algorithm_task_capability,数据、算法与任务能力,回答需要什么数据、从哪里获得、采用什么算法和参数、以何种工作流完成任务。,task;data_need;data_type;data_source;algorithm;parameter_spec;workflow_pattern,,
+conceptual,validation_repair_and_evidence,验收、修复与运行证据,回答如何验收输出、失败后怎样恢复、如何记录证据以及怎样用运行结果反哺规划。,product_contract;output_requirement;output_schema_policy;qos_policy;repair_strategy;durable_learning_summary,,
+agent_runtime,perception,Perception,Agent 运行架构层。,scenario_profile;product_contract;task_bundle,schemas/agent.py::RunTrigger;services/scenario_trigger_service.py::normalize_trigger_event;services/unsupported_intent_guard.py::classify_unsupported_intent,tests/test_scenario_trigger_service.py;tests/test_task_bundle_context.py
+agent_runtime,reasoning_planning,Reasoning and Planning,Agent 运行架构层。,task;workflow_pattern;algorithm;task_bundle,agent/retriever.py::PlanningContextBuilder;agent/planner.py::WorkflowPlanner,tests/test_planner_context.py;tests/test_kg_path_trace_service.py
+agent_runtime,validation_policy,Validation and Policy,Agent 运行架构层。,product_contract;data_need;qos_policy;output_requirement;output_schema_policy;parameter_spec,agent/validator.py::WorkflowValidator;agent/policy.py::PolicyEngine,tests/test_workflow_validator.py;tests/test_policy_engine.py
+agent_runtime,action_healing,Action and Healing,Agent 运行架构层。,repair_strategy;data_source;data_type,agent/executor.py::WorkflowExecutor;services/input_acquisition_service.py::InputAcquisitionService,tests/test_repair_strategy.py;tests/test_repair_audit.py
+agent_runtime,audit_evolution,Audit and Evolution,Agent 运行架构层。,workflow_pattern;algorithm;data_source;durable_learning_summary,services/agent_run_service.py::AgentRunService;services/kg_path_trace_service.py::build_kg_path_trace,tests/test_agent_run_service_enhancements.py;tests/test_kg_path_trace_service.py

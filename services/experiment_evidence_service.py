@@ -3,7 +3,7 @@ from __future__ import annotations
 import hashlib
 from pathlib import Path
 
-from schemas.experiment_evidence import ExperimentEvidenceManifest, FrozenFileHash
+from schemas.experiment_evidence import ExperimentEvidenceManifest, FrozenExternalInput, FrozenFileHash
 
 
 def build_experiment_manifest(
@@ -14,6 +14,7 @@ def build_experiment_manifest(
     seed_hash: str,
     runtime_settings_hash: str,
     metric_definition_hash: str,
+    external_inputs: list[dict[str, object]] | None = None,
 ) -> ExperimentEvidenceManifest:
     output_dir = Path(output_dir)
     files = [
@@ -33,6 +34,7 @@ def build_experiment_manifest(
         runtime_settings_hash=runtime_settings_hash,
         metric_definition_hash=metric_definition_hash,
         files=files,
+        external_inputs=[FrozenExternalInput.model_validate(item) for item in (external_inputs or [])],
     )
 
 
@@ -49,6 +51,17 @@ def verify_experiment_manifest(manifest: ExperimentEvidenceManifest) -> list[str
             failures.append(f"{item.relative_path}: hash changed")
         if path.stat().st_size != item.size_bytes:
             failures.append(f"{item.relative_path}: size changed")
+    for source in manifest.external_inputs:
+        for item in source.files:
+            path = Path(item.path)
+            label = f"{source.source_id}:{item.path}"
+            if not path.exists():
+                failures.append(f"{label}: missing")
+                continue
+            if _sha256_file(path) != item.sha256:
+                failures.append(f"{label}: hash changed")
+            if path.stat().st_size != item.size_bytes:
+                failures.append(f"{label}: size changed")
     return failures
 
 

@@ -15,6 +15,7 @@ from services.scenario_checkpoint_service import checkpoint_path, write_scenario
 from services.scenario_registry_service import ScenarioRegistryService
 from services.scenario_run_service import (
     ScenarioRunService,
+    _child_degradation,
     build_child_run_specs,
     process_due_source_acquisition_reruns,
 )
@@ -81,6 +82,32 @@ def test_build_child_run_specs_expands_implicit_flood_bundle_for_chinese_scenari
     assert all(spec.spatial_extent == "Karachi, Pakistan" for spec in specs)
 
 
+def test_build_child_run_specs_normalizes_heavy_rainfall_to_flood_contract(tmp_path):
+    request = ScenarioRunRequest(
+        scenario_name="Haiphong extreme rainfall",
+        trigger_content="越南海防市遭遇特大暴雨，已淹没城市内多个区域。",
+        disaster_type="heavy_rainfall",
+        spatial_extent="Haiphong, Vietnam",
+        output_root=str(tmp_path),
+    )
+
+    specs = build_child_run_specs(request)
+
+    assert [spec.task_kind for spec in specs] == [
+        TaskKind.building,
+        TaskKind.road,
+        TaskKind.water_polygon,
+        TaskKind.waterways,
+        TaskKind.poi,
+    ]
+    assert all(spec.disaster_type == "flood" for spec in specs)
+    assert specs[0].preferred_pattern_id == "wp.flood.building.default"
+    assert specs[1].preferred_pattern_id == "wp.flood.road.default"
+    assert specs[2].preferred_pattern_id == "wp.flood.water_polygon.default"
+    assert specs[3].preferred_pattern_id == "wp.flood.waterways.default"
+    assert specs[4].preferred_pattern_id == "wp.generic.poi.default"
+
+
 def test_scenario_run_service_writes_summary_and_reports(tmp_path):
     service = ScenarioRunService(agent_run_service=_FakeAgentRunService(tmp_path))
 
@@ -104,6 +131,22 @@ def test_scenario_run_service_writes_summary_and_reports(tmp_path):
     assert (scenario_dir / "scenario_artifact_manifest.json").exists()
     assert (scenario_dir / "documents" / "scenario_report.zh.md").exists()
     assert (scenario_dir / "documents" / "scenario_report.en.md").exists()
+
+
+def test_scenario_run_service_rejects_mismatched_isolated_runs_root(tmp_path):
+    fake_agent = _FakeAgentRunService(tmp_path)
+    fake_agent.base_dir = tmp_path / "old-runtime" / "runs"
+    service = ScenarioRunService(agent_run_service=fake_agent)
+
+    with pytest.raises(ValueError, match="SCENARIO_RUNTIME_ROOT_MISMATCH"):
+        service.create_scenario_run(
+            ScenarioRunRequest(
+                scenario_name="Haiphong flood",
+                trigger_content="越南海防市遭遇特大暴雨，已淹没城市内多个区域。",
+                disaster_type="flood",
+                output_root=str(tmp_path / "haiphong-runtime" / "scenario_outputs"),
+            )
+        )
 
 
 def test_scenario_run_service_writes_checkpoint_with_request_specs_and_runs(tmp_path):
@@ -646,6 +689,50 @@ def test_scenario_run_service_refresh_preserves_result_with_invalid_task_kind(tm
     refreshed = service._refresh_started_child_result(result)
 
     assert refreshed == result
+
+
+def test_scenario_run_service_refresh_preserves_provisional_degradation_policy(tmp_path, monkeypatch):
+    service = ScenarioRunService(agent_run_service=_FakeAgentRunService(tmp_path))
+    captured = {}
+
+    def inspect(*, run_id, spec, fallback_status=None):
+        captured["provisional_when_degraded"] = spec.provisional_when_degraded
+        return {"run_id": run_id, "phase": RunPhase.succeeded.value}
+
+    monkeypatch.setattr(service, "_inspect_child_result", inspect)
+    refreshed = service._refresh_started_child_result(
+        {
+            "run_id": "run-water",
+            "job_type": JobType.water.value,
+            "task_kind": "water_polygon",
+            "task_family": "water_polygon",
+            "phase": RunPhase.succeeded.value,
+            "provisional_when_degraded": True,
+        }
+    )
+
+    assert captured["provisional_when_degraded"] is True
+    assert refreshed["run_id"] == "run-water"
+
+
+def test_water_task_degradation_uses_task_specific_source_contract() -> None:
+    event = RunEvent(
+        timestamp="2026-07-20T00:00:00+00:00",
+        kind="task_inputs_resolved",
+        phase=RunPhase.running,
+        message="water coverage",
+        details={
+            "component_coverage": {
+                "raw.osm.water": {"feature_count": 3, "coverage_status": "available"},
+                "raw.hydrolakes.water": {"feature_count": 1, "coverage_status": "available"},
+                "raw.osm.waterways": {"feature_count": 0, "coverage_status": "coverage_empty"},
+                "raw.hydrorivers.water": {"feature_count": 0, "coverage_status": "coverage_empty"},
+            }
+        },
+    )
+
+    assert _child_degradation({"task_kind": "water_polygon", "audit_events": [event]})["state"] == "none"
+    assert _child_degradation({"task_kind": "waterways", "audit_events": [event]})["state"] == "degraded"
 
 
 def test_scenario_run_service_uses_one_global_child_wait_deadline(tmp_path, monkeypatch):

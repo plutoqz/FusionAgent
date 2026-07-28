@@ -11,7 +11,7 @@ from shapely.geometry import LineString, Polygon
 from services.artifact_registry import ArtifactRegistry
 from services.local_bundle_catalog import LocalBundleCatalogProvider
 from services.raster_height_source_service import RasterHeightSourceService
-from services.raw_vector_source_service import RawVectorSourceService
+from services.raw_vector_source_service import MaterializedRawVectorSource, RawVectorSourceService
 
 
 def _write_frame(path: Path, gdf) -> None:
@@ -168,6 +168,62 @@ class _RawServiceWithEmptyThenAvailableWater:
         )
 
 
+class _BuildingRawServiceWithRemoteBeforeOsm:
+    local_source_ids = {"raw.osm.building", "raw.osm.road"}
+
+    def __init__(self) -> None:
+        self.resolved_source_ids: list[str] = []
+
+    def resolve_local_source_path(self, source_id: str, *, resolved_aoi=None) -> Path:
+        if source_id not in self.local_source_ids:
+            raise FileNotFoundError(f"{source_id} is remote-only in this fixture")
+        return Path(f"/fixture/{source_id.replace('.', '_')}.shp")
+
+    def resolve(
+        self,
+        *,
+        source_id: str,
+        request_bbox,
+        target_path: Path,
+        target_crs: str,
+        resolved_aoi=None,
+    ):
+        self.resolved_source_ids.append(source_id)
+        if source_id not in self.local_source_ids:
+            raise RuntimeError(f"slow remote source should not be resolved: {source_id}")
+
+        target_path.parent.mkdir(parents=True, exist_ok=True)
+        work_dir = target_path.parent / f"raw_{source_id.replace('.', '_')}"
+        work_dir.mkdir(parents=True, exist_ok=True)
+        shp_path = work_dir / "source.shp"
+        if source_id == "raw.osm.road":
+            frame = geopandas.GeoDataFrame(
+                {"source": [source_id]},
+                geometry=[LineString([(0, 0), (1, 1)])],
+                crs="EPSG:4326",
+            )
+        else:
+            frame = geopandas.GeoDataFrame(
+                {"source": [source_id]},
+                geometry=[Polygon([(0, 0), (0, 1), (1, 1), (1, 0)])],
+                crs="EPSG:4326",
+            )
+        frame.to_file(shp_path)
+        with zipfile.ZipFile(target_path, "w") as archive:
+            for file in work_dir.glob("*"):
+                archive.write(file, arcname=file.name)
+        return MaterializedRawVectorSource(
+            zip_path=target_path,
+            bbox=request_bbox,
+            target_crs=target_crs,
+            source_id=source_id,
+            source_mode="test_local_osm",
+            cache_hit=False,
+            version_token=f"{source_id}:test",
+            feature_count=1,
+        )
+
+
 def test_local_bundle_catalog_supports_expanded_building_and_flood_road_sources(tmp_path: Path) -> None:
     _seed_local_catalog_tree(tmp_path)
     provider = LocalBundleCatalogProvider(
@@ -252,6 +308,40 @@ def test_local_bundle_catalog_records_task6_building_candidate_attempts(tmp_path
         "raw.osm.road",
         "raw.openbuildingmap.building",
     }
+    assert [attempt["attempt_no"] for attempt in materialized.provider_attempts] == [1, 2, 3, 4, 5]
+
+
+def test_local_bundle_catalog_building_bundle_skips_slow_remote_candidates_after_osm(tmp_path: Path) -> None:
+    raw_service = _BuildingRawServiceWithRemoteBeforeOsm()
+    provider = LocalBundleCatalogProvider(tmp_path, raw_source_service=raw_service)
+
+    materialized = provider.materialize_with_fallback(
+        source_id="catalog.flood.building",
+        request_bbox=None,
+        target_dir=tmp_path / "building_bundle_remote_before_osm",
+        target_crs="EPSG:4326",
+    )
+
+    assert raw_service.resolved_source_ids == ["raw.osm.building"]
+    assert materialized.attempted_sources == ["catalog.flood.building"]
+    assert materialized.fallback_from is None
+    assert materialized.osm_zip_path.name == "osm.zip"
+    assert materialized.ref_zip_path.name == "ref.zip"
+    assert set(materialized.component_coverage) >= {
+        "raw.google.building",
+        "raw.microsoft.building",
+        "raw.osm.building",
+        "raw.osm.road",
+        "raw.openbuildingmap.building",
+    }
+
+    attempts = {attempt["source_id"]: attempt for attempt in materialized.provider_attempts}
+    assert attempts["raw.google.building"]["status"] == "no_coverage"
+    assert attempts["raw.google.building"]["coverage_status"] == "not_attempted"
+    assert attempts["raw.google.building"]["metadata"]["reason"] == "skipped_after_usable_building_pair"
+    assert materialized.component_coverage["raw.microsoft.building"].source_mode == "skipped_after_usable_building_pair"
+    assert materialized.component_coverage["raw.microsoft.building"].coverage_status == "not_attempted"
+    assert materialized.component_coverage["raw.osm.road"].coverage_status == "not_attempted"
     assert [attempt["attempt_no"] for attempt in materialized.provider_attempts] == [1, 2, 3, 4, 5]
 
 
@@ -357,11 +447,11 @@ def test_local_bundle_catalog_records_height_raster_degradation_without_blocking
 
     assert materialized.osm_zip_path.exists()
     assert materialized.ref_zip_path.exists()
-    assert materialized.component_coverage["raw.google.open_buildings_2_5d.height_raster"]["coverage_status"] == "missing"
+    assert materialized.component_coverage["raw.google.open_buildings_2_5d.height_raster"]["coverage_status"] == "awaiting_external_config"
     attempts = {attempt["source_id"]: attempt for attempt in materialized.provider_attempts}
     assert attempts["raw.google.open_buildings_2_5d.height_raster"]["attempt_type"] == "skill"
-    assert attempts["raw.google.open_buildings_2_5d.height_raster"]["status"] == "no_coverage"
-    assert attempts["raw.3d_globfp.building_height.raster"]["status"] == "no_coverage"
+    assert attempts["raw.google.open_buildings_2_5d.height_raster"]["status"] == "awaiting_external_config"
+    assert attempts["raw.3d_globfp.building_height.raster"]["status"] == "awaiting_external_config"
 
 
 def test_local_bundle_catalog_uses_microsoft_reference_layer_for_default_building_pairs(tmp_path: Path) -> None:

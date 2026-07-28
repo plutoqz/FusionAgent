@@ -35,7 +35,9 @@ jobs/*/
 runs/*/
 !runs/.gitkeep
 tmp/runtime-settings/
-tmp/product-contract-live/
+tmp/*
+!tmp/loop-analysis.md
+!tmp/loop-history.json
 
 .DS_Store
 Thumbs.db

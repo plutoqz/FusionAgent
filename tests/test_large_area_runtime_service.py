@@ -90,6 +90,88 @@ def test_large_area_runtime_stitches_owner_bbox_without_overlap_duplicates(tmp_p
     assert evidence["stitched_feature_count"] == 2
 
 
+def test_road_tile_emits_osm_single_source_fallback_when_supplement_is_missing(tmp_path: Path) -> None:
+    osm_road = _write(
+        tmp_path / "osm_road.gpkg",
+        gpd.GeoDataFrame(
+            {"osm_id": [1], "fclass": ["primary"], "name": ["Main Road"]},
+            geometry=[LineString([(0.0, 0.0), (1.0, 0.0)])],
+            crs="EPSG:3857",
+        ),
+    )
+
+    output_path, stats = domain_runners.run_road_tile(
+        _manifest().tiles[0],
+        {"raw.osm.road": osm_road},
+        tmp_path / "road-single-source",
+        "EPSG:3857",
+        {},
+    )
+    output = gpd.read_file(output_path)
+
+    assert len(output) == 1
+    assert output["source_id"].iloc[0] == "raw.osm.road"
+    assert output["fusion_source"].iloc[0] == "base_road_network"
+    assert output["match_role"].iloc[0] == "base_single_source"
+    assert stats["stats"]["mode"] == "single_source_fallback"
+    assert stats["warnings"] == ["missing supplement road source; emitted base road network"]
+
+
+def test_poi_tile_marks_single_source_fallback_in_stats(tmp_path: Path) -> None:
+    osm_poi = _write(
+        tmp_path / "osm_poi.gpkg",
+        gpd.GeoDataFrame(
+            {"osm_id": [1], "name": ["Hospital"], "fclass": ["hospital"]},
+            geometry=[Point(0.5, 0.5)],
+            crs="EPSG:3857",
+        ),
+    )
+
+    output_path, stats = domain_runners.run_poi_tile(
+        _manifest().tiles[0],
+        {"raw.osm.poi": osm_poi},
+        tmp_path / "poi-single-source",
+        "EPSG:3857",
+        {},
+    )
+    output = gpd.read_file(output_path)
+
+    assert len(output) == 1
+    assert output["source_id"].iloc[0] == "raw.osm.poi"
+    assert stats["stats"]["mode"] == "single_source_fallback"
+    assert stats["warnings"] == ["missing supplement POI source; emitted available POI source"]
+
+
+def test_large_area_runtime_turns_unreadable_tile_source_into_empty_clipped_source(tmp_path: Path) -> None:
+    bad_source = tmp_path / "bad_source.gpkg"
+    bad_source.write_text("not a geopackage", encoding="utf-8")
+
+    def runner(tile, sources, output_dir, target_crs, parameters):
+        del tile, parameters
+        clipped = gpd.read_file(sources["raw.bad"])
+        assert clipped.empty
+        path = output_dir / "empty.gpkg"
+        gpd.GeoDataFrame(
+            {"source_id": []},
+            geometry=gpd.GeoSeries([], dtype="geometry", crs=target_crs),
+            crs=target_crs,
+        ).to_file(path, driver="GPKG")
+        return path, {"algorithm_id": "algo.test.empty"}
+
+    result = LargeAreaRuntimeService(max_workers=1).run(
+        run_id="run-unreadable-source",
+        job_type="road",
+        tile_manifest=_manifest(),
+        slices=[LargeAreaSlice(name="road", geometry_family="line", sources={"raw.bad": bad_source}, runner=runner)],
+        output_dir=tmp_path / "out",
+        target_crs="EPSG:3857",
+        parameters={},
+    )
+
+    assert result.output_path.exists()
+    assert gpd.read_file(result.output_path).empty
+
+
 def test_large_area_runtime_clips_final_polygon_output_to_boundary(tmp_path: Path) -> None:
     source = _write(
         tmp_path / "water.gpkg",

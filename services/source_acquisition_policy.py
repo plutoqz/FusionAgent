@@ -72,6 +72,7 @@ _SOURCE_COMPONENT_CANDIDATES = {
     ],
     "catalog.generic.poi": ["raw.gns.poi", "raw.google.poi", "raw.osm.poi"],
     "catalog.flood.water": ["raw.osm.water", "raw.hydrolakes.water", "raw.osm.waterways", "raw.hydrorivers.water"],
+    "catalog.flood.water_polygon": ["raw.osm.water", "raw.hydrolakes.water"],
     "catalog.flood.waterways": ["raw.osm.waterways", "raw.hydrorivers.water", "raw.osm.water", "raw.hydrolakes.water"],
     "catalog.flood.road": ["raw.osm.road", "raw.microsoft.road"],
     "catalog.earthquake.road": ["raw.osm.road", "raw.microsoft.road"],
@@ -327,6 +328,7 @@ _PARTIAL_COVERAGE_ALLOWED_SOURCES = {
     "catalog.earthquake.road",
     "catalog.typhoon.road",
     "catalog.flood.water",
+    "catalog.flood.water_polygon",
     "catalog.generic.poi",
 }
 

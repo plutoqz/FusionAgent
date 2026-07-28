@@ -627,6 +627,43 @@ def test_quality_gate_allows_road_single_source_when_missing_source_is_external(
     assert report.policy_adaptations
 
 
+def test_quality_gate_softens_road_dangle_rate_for_external_single_source_degradation(tmp_path: Path) -> None:
+    path = tmp_path / "road_single_source_many_dangles.gpkg"
+    frame = gpd.GeoDataFrame(
+        {"source_id": ["raw.osm.road"] * 20},
+        geometry=[LineString([(i * 10.0, 0.0), (i * 10.0 + 1.0, 0.0)]) for i in range(20)],
+        crs="EPSG:3857",
+    )
+    frame.to_file(path, driver="GPKG")
+    context = DegradationContext(
+        degraded=True,
+        level=DegradationLevel.external_uncontrollable,
+        available_sources=["raw.osm.road"],
+        missing_sources=["raw.microsoft.road"],
+        external_uncontrollable_sources=["raw.microsoft.road"],
+    )
+
+    report = QualityGateService().evaluate(
+        artifact_path=path,
+        task_kind=TaskKind.road,
+        required_fields=["geometry", "source_id"],
+        component_coverage={
+            "raw.osm.road": {"feature_count": 20, "coverage_status": "available"},
+            "raw.microsoft.road": {
+                "feature_count": 0,
+                "coverage_status": "missing",
+                "external_uncontrollable": True,
+            },
+        },
+        degradation_context=context,
+    )
+
+    assert report.metrics["dangle_endpoint_rate_per_100km"] > 500.0
+    assert report.accepted is True
+    assert report.checks["dangle_endpoint_rate_per_100km"]["severity"] == "soft"
+    assert "dangle_endpoint_rate_per_100km" in report.soft_failure_reasons
+
+
 def test_quality_gate_keeps_duplicate_geometry_hard_under_external_degradation(tmp_path: Path) -> None:
     path = tmp_path / "duplicate_degraded.gpkg"
     polygon = Polygon([(0, 0), (0, 1), (1, 1), (1, 0)])

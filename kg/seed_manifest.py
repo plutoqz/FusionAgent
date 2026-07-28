@@ -17,6 +17,7 @@ from kg.models import (
     OutputRequirementNode,
     OutputSchemaPolicy,
     PatternStep,
+    ProductContractNode,
     QoSPolicyNode,
     RepairStrategyNode,
     ScenarioProfileNode,
@@ -43,6 +44,7 @@ def build_seed_manifest_payload() -> dict[str, Any]:
         "data_types": _sorted_dict_values(seed.DATA_TYPES, "type_id"),
         "tasks": _sorted_dict_values(seed.TASKS, "task_id"),
         "scenario_profiles": _sorted_list(seed.SCENARIO_PROFILES, "profile_id"),
+        "product_contracts": _sorted_dict_values(getattr(seed, "PRODUCT_CONTRACTS", {}), "contract_id"),
         "task_bundles": _sorted_dict_values(getattr(seed, "TASK_BUNDLES", {}), "bundle_id"),
         "output_requirements": _sorted_dict_values(getattr(seed, "OUTPUT_REQUIREMENTS", {}), "requirement_id"),
         "qos_policies": _sorted_dict_values(getattr(seed, "QOS_POLICIES", {}), "policy_id"),
@@ -66,6 +68,9 @@ def load_seed_manifest_payload(payload: dict[str, Any]) -> dict[str, Any]:
         "scenario_profiles": [
             ScenarioProfileNode(**item) for item in payload.get("scenario_profiles", [])
         ],
+        "product_contracts": {
+            item["contract_id"]: ProductContractNode(**item) for item in payload.get("product_contracts", [])
+        },
         "task_bundles": {
             item["bundle_id"]: TaskBundleNode(**item) for item in payload.get("task_bundles", [])
         },

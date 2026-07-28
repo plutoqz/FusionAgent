@@ -42,6 +42,26 @@ from services.source_materialization_manifest_service import build_source_materi
 from services.tiled_building_runtime_service import TiledBuildingRunResult
 
 
+def test_agent_run_service_can_disable_artifact_reuse_for_isolated_experiments(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    class UnexpectedReuseService:
+        def try_reuse(self, **_kwargs):
+            raise AssertionError("artifact reuse should be disabled before candidate evaluation")
+
+    service = object.__new__(AgentRunService)
+    service.artifact_reuse_service = UnexpectedReuseService()
+    monkeypatch.setenv("GEOFUSION_DISABLE_ARTIFACT_REUSE", "1")
+
+    assert service._attempt_artifact_reuse(
+        run_id="isolated-experiment",
+        request=None,
+        plan=None,
+        output_dir=tmp_path,
+    ) is None
+
+
 def test_task_driven_source_candidates_filter_alternatives_by_disaster_type() -> None:
     plan = WorkflowPlan(
         workflow_id="wf-road",
@@ -593,6 +613,74 @@ def test_agent_run_service_input_acquisition_timeout_records_readable_events(
     assert "SOURCE_DOWNLOAD_FAILED" in (latest.failure_summary or "")
 
 
+def test_agent_run_service_input_acquisition_timeout_isolates_late_writes(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    service = AgentRunService(base_dir=tmp_path / "runs")
+    request = _build_auto_request(
+        spatial_extent="bbox(0,0,1,1)",
+        job_type=JobType.building,
+        content="need building data without late timeout writes",
+    )
+    run_id = "run-input-acquisition-timeout-late-write"
+    _seed_run_status(service, run_id, request)
+    plan = _build_plan(workflow_id="wf_input_timeout_late_write", revision=1)
+    plan.tasks[0].input.data_source_id = "catalog.flood.building"
+    release = threading.Event()
+    wrote_late_files = threading.Event()
+    called_input_dirs: list[Path] = []
+
+    def slow_resolve_task_driven_inputs(**kwargs):
+        attempt_input_dir = Path(kwargs["input_dir"])
+        called_input_dirs.append(attempt_input_dir)
+        release.wait(timeout=10)
+        attempt_input_dir.mkdir(parents=True, exist_ok=True)
+        osm_path = attempt_input_dir / "osm.zip"
+        ref_path = attempt_input_dir / "ref.zip"
+        manifest_path = attempt_input_dir / "source_materialization_manifest.json"
+        osm_path.write_bytes(b"late-osm")
+        ref_path.write_bytes(b"late-ref")
+        manifest_path.write_text("{}", encoding="utf-8")
+        wrote_late_files.set()
+        return ResolvedRunInputs(
+            osm_zip_path=osm_path,
+            ref_zip_path=ref_path,
+            source_mode="downloaded",
+            source_id="catalog.flood.building",
+            cache_hit=False,
+            version_token="late-v1",
+            manifest_path=manifest_path,
+        )
+
+    monkeypatch.setenv("GEOFUSION_INPUT_ACQUISITION_TIMEOUT_SECONDS", "0.05")
+    monkeypatch.setenv("GEOFUSION_INPUT_ACQUISITION_HEARTBEAT_SECONDS", "0.01")
+    monkeypatch.setattr(service.input_acquisition_service, "resolve_task_driven_inputs", slow_resolve_task_driven_inputs)
+
+    input_dir = tmp_path / "runs" / run_id / "input"
+    try:
+        with pytest.raises(TimeoutError, match="SOURCE_DOWNLOAD_FAILED: input acquisition timed out"):
+            service._resolve_execution_inputs(
+                run_id=run_id,
+                request=request,
+                plan=plan,
+                input_dir=input_dir,
+                osm_zip_path=None,
+                ref_zip_path=None,
+            )
+    finally:
+        release.set()
+
+    assert wrote_late_files.wait(timeout=2), "timed-out acquisition did not reach the late write section"
+    assert called_input_dirs
+    assert called_input_dirs[0] != input_dir
+    assert input_dir / "_source_attempts" in called_input_dirs[0].parents
+    assert not (input_dir / "osm.zip").exists()
+    assert not (input_dir / "ref.zip").exists()
+    assert not (input_dir / "source_materialization_manifest.json").exists()
+    assert (called_input_dirs[0] / "osm.zip").exists()
+
+
 def test_agent_run_service_input_acquisition_watchdog_does_not_need_service_lock(
     tmp_path: Path,
     monkeypatch,
@@ -659,8 +747,6 @@ def test_agent_run_service_input_acquisition_watchdog_does_not_need_service_lock
     assert latest is not None
     assert latest.phase == RunPhase.failed
     assert "SOURCE_DOWNLOAD_FAILED" in (latest.failure_summary or "")
-
-
 
 
 def test_agent_run_service_rejects_unsupported_intent_before_creating_run_dirs(tmp_path: Path) -> None:
@@ -1977,6 +2063,77 @@ def test_agent_writeback_passes_degradation_context_to_quality_gate(tmp_path: Pa
     assert captured["degradation_context"].system_failure_sources == []
 
 
+def test_agent_writeback_infers_missing_quality_source_closure_for_poi(tmp_path: Path, monkeypatch) -> None:
+    service = AgentRunService(base_dir=tmp_path / "runs", max_workers=1)
+    request = RunCreateRequest(
+        job_type=JobType.poi,
+        trigger=RunTrigger(type=RunTriggerType.user_query, content="Fuse POI", spatial_extent="bbox(0,0,1,1)"),
+        target_crs="EPSG:4326",
+        field_mapping={},
+        debug=False,
+    )
+    run_id = "run-poi-inferred-source-closure"
+    _seed_run_status(service, run_id, request)
+    status = service.get_run(run_id)
+    assert status is not None
+    status.checkpoint = {
+        "stage": "execution",
+        "component_coverage": {
+            "raw.osm.poi": {"feature_count": 3217, "coverage_status": "available", "path": None},
+        },
+    }
+    service._runs[run_id] = status
+    service._persist_status(status)
+
+    plan = _build_plan(workflow_id="wf_poi_source_closure", revision=1, algorithm_id="algo.fusion.poi.v1")
+    plan.context["intent"]["job_type"] = "poi"
+    output_dir = tmp_path / "output-poi-source-closure"
+    output_dir.mkdir(parents=True, exist_ok=True)
+    fused_gpkg = output_dir / "poi_fusion_result.gpkg"
+    gpd.GeoDataFrame(
+        {"source_id": ["raw.osm.poi"], "canonical_name": ["Hospital"]},
+        geometry=[box(0.1, 0.1, 0.2, 0.2).centroid],
+        crs="EPSG:4326",
+    ).to_file(fused_gpkg, driver="GPKG")
+    captured: dict[str, object] = {}
+
+    def fake_evaluate(**kwargs):
+        captured["component_coverage"] = kwargs.get("component_coverage")
+        captured["degradation_context"] = kwargs.get("degradation_context")
+        return QualityGateReport(
+            accepted=True,
+            task_kind=kwargs["task_kind"],
+            artifact_path=str(kwargs["artifact_path"]),
+            checks={},
+            metrics={},
+            degraded_mode=True,
+            degradation_level="external_uncontrollable",
+        )
+
+    monkeypatch.setattr(service.quality_gate_service, "evaluate", fake_evaluate)
+
+    service.run_writeback_stage(
+        run_id=run_id,
+        request=request,
+        plan=plan,
+        fused_shp=fused_gpkg,
+        repair_records=[],
+        output_dir=output_dir,
+    )
+
+    coverage = captured["component_coverage"]
+    assert isinstance(coverage, dict)
+    assert set(coverage) == {"raw.gns.poi", "raw.google.poi", "raw.osm.poi"}
+    assert coverage["raw.osm.poi"]["feature_count"] == 3217
+    assert coverage["raw.gns.poi"]["external_uncontrollable"] is True
+    assert coverage["raw.google.poi"]["external_uncontrollable"] is True
+    context = captured["degradation_context"]
+    assert isinstance(context, DegradationContext)
+    assert context.level == DegradationLevel.external_uncontrollable
+    assert context.available_sources == ["raw.osm.poi"]
+    assert context.external_uncontrollable_sources == ["raw.gns.poi", "raw.google.poi"]
+
+
 def test_source_materialization_manifest_includes_runtime_source_contracts() -> None:
     manifest = build_source_materialization_manifest(
         source_id="raw.poi.bundle",
@@ -2105,7 +2262,9 @@ def test_agent_run_service_task_driven_auto_prepares_inputs_before_execution(tmp
     assert latest.phase == RunPhase.succeeded
     assert captured["source_id"] == "catalog.flood.building"
     assert captured["required_output_type"] == "dt.building.bundle"
-    assert Path(captured["input_dir"]).name == "input"
+    attempt_dir = Path(captured["input_dir"])
+    assert attempt_dir.parent.name == "_source_attempts"
+    assert attempt_dir.name.startswith("catalog_flood_building_")
 
     audit_events = service.get_audit_events(status.run_id)
     created = next(event for event in audit_events if event.kind == "run_created")
@@ -2438,7 +2597,7 @@ def test_agent_run_service_resolves_named_spatial_extent_before_input_materializ
     assert resolved_event.details["resolved_aoi"]["country_code"] == "pk"
 
 
-def test_agent_run_service_prefers_explicit_spatial_extent_but_still_records_aoi_resolution(
+def test_agent_run_service_explicit_bbox_is_authoritative_even_when_force_aoi_resolution_is_true(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
@@ -2475,9 +2634,12 @@ def test_agent_run_service_prefers_explicit_spatial_extent_but_still_records_aoi
     resolved_inputs.ref_zip_path.write_bytes(b"ref")
 
     captured: dict[str, object] = {}
-    resolved_aoi = _resolved_nairobi_aoi()
 
-    monkeypatch.setattr(service.aoi_resolution_service, "resolve", lambda query: resolved_aoi)
+    monkeypatch.setattr(
+        service.aoi_resolution_service,
+        "resolve",
+        lambda _query: pytest.fail("explicit bbox must not trigger text AOI resolution"),
+    )
     monkeypatch.setattr(service.planner, "create_plan", lambda **_kwargs: plan.model_copy(deep=True))
     monkeypatch.setattr(service.validator, "validate_and_repair", lambda input_plan: input_plan)
 
@@ -2516,14 +2678,13 @@ def test_agent_run_service_prefers_explicit_spatial_extent_but_still_records_aoi
     latest = service.get_run(status.run_id)
     assert latest is not None
     assert latest.phase == RunPhase.succeeded
-    assert captured["resolved_aoi"] == resolved_aoi
+    assert captured["resolved_aoi"] is None
     assert captured["request_bbox"] == (36.79, -1.31, 36.81, -1.29)
 
     audit_events = service.get_audit_events(status.run_id)
-    aoi_event = next(event for event in audit_events if event.kind == "aoi_resolved")
-    assert aoi_event.details["display_name"] == "Nairobi, Nairobi County, Kenya"
+    assert not any(event.kind == "aoi_resolved" for event in audit_events)
     resolved_event = next(event for event in audit_events if event.kind == "task_inputs_resolved")
-    assert resolved_event.details["resolved_aoi"]["country_code"] == "ke"
+    assert resolved_event.details.get("resolved_aoi") is None
 
 
 def test_agent_run_service_direct_bbox_run_does_not_force_aoi_resolution(
@@ -2584,6 +2745,137 @@ def test_agent_run_service_direct_bbox_run_does_not_force_aoi_resolution(
     assert latest is not None
     assert latest.phase == RunPhase.succeeded
     assert not any(event.kind == "aoi_resolved" for event in service.get_audit_events(status.run_id))
+
+
+def test_agent_run_service_direct_bbox_run_derives_target_crs_when_omitted(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    service = AgentRunService(base_dir=tmp_path / "runs")
+    fused_shp = tmp_path / "fused_haiphong_bbox.shp"
+    artifact_zip = tmp_path / "artifact_haiphong_bbox.zip"
+    _write_minimal_polygon_shapefile(fused_shp)
+    artifact_zip.write_bytes(b"zip")
+
+    plan = _build_road_task_driven_plan()
+    monkeypatch.setattr(service.planner, "create_plan", lambda **_kwargs: plan.model_copy(deep=True))
+    monkeypatch.setattr(service.validator, "validate_and_repair", lambda input_plan: input_plan)
+    monkeypatch.setattr(service, "_should_use_large_area_runtime", lambda **_kwargs: False)
+    monkeypatch.setattr(service.executor, "execute_plan", lambda **_kwargs: fused_shp)
+    monkeypatch.setattr("services.agent_run_service.zip_shapefile_bundle", lambda *_args, **_kwargs: artifact_zip)
+    monkeypatch.setattr(
+        service.aoi_resolution_service,
+        "resolve",
+        lambda _query: pytest.fail("direct bbox run should not force AOI resolution"),
+    )
+
+    captured: dict[str, object] = {}
+
+    def fake_resolve_task_driven_inputs(**kwargs):
+        captured.update(kwargs)
+        osm_zip = tmp_path / "haiphong_bbox_osm.zip"
+        ref_zip = tmp_path / "haiphong_bbox_ref.zip"
+        _write_dummy_zip(osm_zip)
+        _write_dummy_zip(ref_zip)
+        return ResolvedRunInputs(
+            osm_zip_path=osm_zip,
+            ref_zip_path=ref_zip,
+            source_mode="generated",
+            source_id=kwargs["source_id"],
+            cache_hit=False,
+            version_token="road-v1",
+        )
+
+    monkeypatch.setattr(service.input_acquisition_service, "resolve_task_driven_inputs", fake_resolve_task_driven_inputs)
+    monkeypatch.setattr(
+        "services.agent_run_service.validate_zip_has_shapefile",
+        lambda zip_path, *_args, **_kwargs: Path(str(zip_path) + ".shp"),
+    )
+
+    status = service.create_run(
+        request=RunCreateRequest(
+            job_type=JobType.road,
+            trigger=RunTrigger(
+                type=RunTriggerType.user_query,
+                content="need road data for Haiphong, Vietnam",
+                spatial_extent="bbox(106.60,20.78,106.78,20.92)",
+            ),
+            target_crs=None,
+            field_mapping={},
+            debug=False,
+            input_strategy=RunInputStrategy.task_driven_auto,
+        ),
+        osm_zip_name=None,
+        osm_zip_bytes=None,
+        ref_zip_name=None,
+        ref_zip_bytes=None,
+    )
+
+    latest = service.get_run(status.run_id)
+    assert latest is not None
+    assert latest.phase == RunPhase.succeeded
+    assert latest.target_crs == "EPSG:32648"
+    assert captured["request"].target_crs == "EPSG:32648"
+    target_crs_event = next(event for event in service.get_audit_events(status.run_id) if event.kind == "target_crs_resolved")
+    assert target_crs_event.details["source"] == "request_bbox_default"
+
+
+def test_agent_run_service_building_tiling_ignores_non_building_component_counts(tmp_path: Path) -> None:
+    service = AgentRunService(base_dir=tmp_path / "runs")
+    plan = _build_plan(workflow_id="wf_building_tiling_scope", revision=1)
+    resolved_inputs = ResolvedRunInputs(
+        osm_zip_path=tmp_path / "osm.zip",
+        ref_zip_path=tmp_path / "ref.zip",
+        source_mode="downloaded",
+        source_id="catalog.flood.building",
+        selected_source_id="catalog.flood.building",
+        cache_hit=False,
+        version_token="v1",
+        component_coverage={
+            "raw.osm.building": {"feature_count": 25_272, "coverage_status": "available"},
+            "raw.osm.road": {"feature_count": 257_684, "coverage_status": "available"},
+            "raw.google.building_height.raster": {"feature_count": 999_999, "coverage_status": "awaiting_external_config"},
+        },
+    )
+    request = RunCreateRequest(
+        job_type=JobType.building,
+        trigger=RunTrigger(
+            type=RunTriggerType.user_query,
+            content="need building data for Haiphong, Vietnam",
+            spatial_extent="bbox(106.1242265,19.9177567,107.9518577,21.2369932)",
+        ),
+        target_crs="EPSG:32648",
+        field_mapping={},
+        debug=False,
+        input_strategy=RunInputStrategy.task_driven_auto,
+    )
+
+    assert not service._should_use_tiled_building_runtime(
+        request=request,
+        plan=plan,
+        resolved_inputs=resolved_inputs,
+        resolved_aoi=None,
+    )
+
+    larger_building_inputs = ResolvedRunInputs(
+        osm_zip_path=resolved_inputs.osm_zip_path,
+        ref_zip_path=resolved_inputs.ref_zip_path,
+        source_mode=resolved_inputs.source_mode,
+        source_id=resolved_inputs.source_id,
+        selected_source_id=resolved_inputs.selected_source_id,
+        cache_hit=resolved_inputs.cache_hit,
+        version_token=resolved_inputs.version_token,
+        component_coverage={
+            **resolved_inputs.component_coverage,
+            "raw.osm.building": {"feature_count": 300_000, "coverage_status": "available"},
+        },
+    )
+    assert service._should_use_tiled_building_runtime(
+        request=request,
+        plan=plan,
+        resolved_inputs=larger_building_inputs,
+        resolved_aoi=None,
+    )
 
 
 def test_agent_run_service_auto_selects_target_crs_from_nairobi_aoi_when_omitted(tmp_path: Path, monkeypatch) -> None:

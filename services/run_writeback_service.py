@@ -8,6 +8,30 @@ from schemas.agent import RepairRecord, RunArtifactMeta, RunCreateRequest, RunPh
 from services.output_contract_service import get_domain_output_contract
 from schemas.task_kind import TaskKind, expand_job_type_to_task_kinds
 
+_EXPECTED_QUALITY_COMPONENTS_BY_TASK_KIND = {
+    TaskKind.building: ("raw.microsoft.building", "raw.osm.building"),
+    TaskKind.road: ("raw.osm.road", "raw.microsoft.road"),
+    TaskKind.water_polygon: ("raw.osm.water", "raw.hydrolakes.water"),
+    TaskKind.waterways: ("raw.osm.waterways", "raw.hydrorivers.water"),
+    TaskKind.poi: ("raw.gns.poi", "raw.google.poi", "raw.osm.poi"),
+}
+
+_OPTIONAL_EXTERNAL_QUALITY_COMPONENTS = {
+    "raw.google.building",
+    "raw.microsoft.building",
+    "raw.google.poi",
+    "raw.gns.poi",
+    "raw.geonames.poi",
+    "raw.microsoft.road",
+    "raw.overture.transportation",
+    "raw.overture.road",
+    "raw.hydrolakes.water",
+    "raw.hydrorivers.water",
+    "raw.local.pakistan.waterways",
+}
+
+_SYSTEM_FAULT_CLASSES = {"MISSING_PROVIDER", "ALGO_RUNTIME_ERROR", "PARAM_OUT_OF_RANGE", "CRS_MISMATCH"}
+
 
 class RunWritebackService:
     def __init__(self, coordinator: Any) -> None:
@@ -75,15 +99,19 @@ class RunWritebackService:
     ) -> Path:
         service = self.coordinator
         contract_id = service._quality_contract_id_for_request(request)
-        source_artifact_paths = _source_artifact_paths_from_component_coverage(component_coverage)
         task_kind = _task_kind_for_request(request)
+        quality_component_coverage = _quality_component_coverage_for_task(
+            task_kind=task_kind,
+            component_coverage=component_coverage,
+        )
+        source_artifact_paths = _source_artifact_paths_from_component_coverage(quality_component_coverage)
         required_fields = service._quality_gate_required_fields_for_plan(plan, contract_id=contract_id)
         repair_required_fields = _merge_required_fields(
             required_fields,
             get_domain_output_contract(task_kind).required_fields,
         )
         requested_bbox = service._parse_bbox(request.trigger.spatial_extent)
-        degradation_context = service._degradation_context_from_component_coverage(component_coverage)
+        degradation_context = service._degradation_context_from_component_coverage(quality_component_coverage)
         quality_policy_id = service._quality_policy_id_for_plan(plan)
         source_expected_null_rates = service._source_expected_null_rates_for_request(request, plan)
         quality_report = service.quality_gate_service.evaluate(
@@ -91,7 +119,7 @@ class RunWritebackService:
             task_kind=task_kind,
             required_fields=required_fields,
             requested_bbox=requested_bbox,
-            component_coverage=component_coverage,
+            component_coverage=quality_component_coverage,
             source_artifact_paths=source_artifact_paths,
             degradation_context=degradation_context,
             quality_policy_id=quality_policy_id,
@@ -115,6 +143,7 @@ class RunWritebackService:
                 "feature_alignment_path": str(feature_alignment_path),
                 "failure_reasons": quality_report.failure_reasons,
                 "policy_adaptations": quality_report.policy_adaptations,
+                "component_coverage": quality_component_coverage,
             },
         )
         if not quality_report.accepted:
@@ -184,7 +213,7 @@ class RunWritebackService:
                     task_kind=task_kind,
                     required_fields=required_fields,
                     requested_bbox=requested_bbox,
-                    component_coverage=component_coverage,
+                    component_coverage=quality_component_coverage,
                     source_artifact_paths=source_artifact_paths,
                     degradation_context=degradation_context,
                     quality_policy_id=quality_policy_id,
@@ -261,6 +290,99 @@ def _source_artifact_paths_from_component_coverage(component_coverage: dict[str,
         if path.exists() and path.suffix.lower() in {".gpkg", ".shp", ".zip", ".geojson", ".json"}:
             paths[str(source_id)] = path
     return paths
+
+
+def _quality_component_coverage_for_task(
+    *,
+    task_kind: TaskKind,
+    component_coverage: dict[str, object],
+) -> dict[str, object]:
+    normalized = _normalize_quality_component_coverage(component_coverage or {})
+    if task_kind == TaskKind.poi and "raw.gns.poi" not in normalized and "raw.geonames.poi" in normalized:
+        normalized["raw.gns.poi"] = {
+            **_coverage_as_dict(normalized["raw.geonames.poi"], "raw.gns.poi"),
+            "source_id": "raw.gns.poi",
+        }
+
+    expected = _EXPECTED_QUALITY_COMPONENTS_BY_TASK_KIND.get(task_kind)
+    if task_kind == TaskKind.poi and {"raw.gns.poi", "raw.google.poi"}.intersection(normalized):
+        expected = ("raw.gns.poi", "raw.google.poi")
+    if not expected:
+        return dict(normalized)
+
+    result: dict[str, object] = {}
+    for source_id in expected:
+        payload = normalized.get(source_id)
+        if payload is None:
+            result[source_id] = _inferred_missing_quality_source(source_id)
+            continue
+        result[source_id] = _mark_optional_missing_source_as_external(source_id, payload)
+    return result
+
+
+def _normalize_quality_component_coverage(component_coverage: dict[str, object]) -> dict[str, object]:
+    return {
+        str(source_id): _coverage_as_dict(payload, str(source_id))
+        for source_id, payload in (component_coverage or {}).items()
+    }
+
+
+def _coverage_as_dict(payload: object, source_id: str) -> dict[str, object]:
+    if isinstance(payload, dict):
+        result = dict(payload)
+    elif hasattr(payload, "model_dump"):
+        dumped = payload.model_dump(mode="json")
+        result = dict(dumped) if isinstance(dumped, dict) else {"value": payload}
+    else:
+        result = {
+            "source_id": getattr(payload, "source_id", source_id),
+            "source_mode": getattr(payload, "source_mode", None),
+            "feature_count": getattr(payload, "feature_count", None),
+            "coverage_status": getattr(payload, "coverage_status", None),
+            "path": str(getattr(payload, "path", "")) if getattr(payload, "path", None) else None,
+            "error": getattr(payload, "error", None),
+            "fault_class": getattr(payload, "fault_class", None),
+            "external_uncontrollable": bool(getattr(payload, "external_uncontrollable", False)),
+        }
+    result.setdefault("source_id", source_id)
+    return result
+
+
+def _mark_optional_missing_source_as_external(source_id: str, payload: object) -> dict[str, object]:
+    result = _coverage_as_dict(payload, source_id)
+    if source_id not in _OPTIONAL_EXTERNAL_QUALITY_COMPONENTS:
+        return result
+    status = str(result.get("coverage_status") or "").strip().lower()
+    fault_class = str(result.get("fault_class") or "").strip().upper()
+    if status == "available" or _coverage_feature_count(result) > 0 or fault_class in _SYSTEM_FAULT_CLASSES:
+        return result
+    result["external_uncontrollable"] = True
+    result.setdefault("fault_class", "PROVIDER_UNAVAILABLE")
+    result.setdefault("coverage_status", status or "missing")
+    return result
+
+
+def _inferred_missing_quality_source(source_id: str) -> dict[str, object]:
+    external = source_id in _OPTIONAL_EXTERNAL_QUALITY_COMPONENTS
+    return {
+        "source_id": source_id,
+        "feature_count": 0,
+        "coverage_status": "missing",
+        "path": None,
+        "fault_class": "PROVIDER_UNAVAILABLE" if external else "SOURCE_MISSING",
+        "external_uncontrollable": external,
+        "inferred_missing_for_quality": True,
+    }
+
+
+def _coverage_feature_count(payload: dict[str, object]) -> int:
+    value = payload.get("feature_count")
+    if isinstance(value, bool):
+        return 0
+    try:
+        return int(float(value or 0))
+    except (OverflowError, TypeError, ValueError):
+        return 0
 
 
 def _merge_required_fields(primary: list[str], secondary: list[str]) -> list[str]:

@@ -894,9 +894,86 @@ def test_road_large_area_runtime_allows_partial_component_paths_without_keyerror
         service.shutdown()
 
     fused = gpd.read_file(path)
+    stats = json.loads((run_dir / "output" / "fusion_stats.json").read_text(encoding="utf-8"))
     assert repairs == []
     assert path.exists()
-    assert fused.empty
+    assert len(fused) == 1
+    assert fused["source_id"].iloc[0] == "raw.osm.road"
+    assert fused["match_role"].iloc[0] == "base_single_source"
+    assert stats["tile_stats"][0]["stats"]["stats"]["mode"] == "single_source_fallback"
+
+
+def test_large_area_runtime_uses_single_city_tile_when_feature_volume_is_bounded(tmp_path: Path) -> None:
+    service = AgentRunService(base_dir=tmp_path / "runs")
+    resolved = ResolvedRunInputs(
+        osm_zip_path=tmp_path / "road_osm.zip",
+        ref_zip_path=tmp_path / "road_ref.zip",
+        source_mode="downloaded",
+        source_id="catalog.flood.road",
+        cache_hit=False,
+        version_token="v1",
+        selected_source_id="catalog.flood.road",
+        component_coverage={
+            "raw.osm.road": {"feature_count": 257_684, "coverage_status": "available"},
+            "raw.microsoft.road": {"feature_count": 0, "coverage_status": "missing"},
+        },
+    )
+
+    try:
+        default_manifest = service.tile_partition_service.partition_bbox(
+            bbox=(106.55, 20.65, 107.05, 20.95),
+            bbox_crs="EPSG:4326",
+            working_crs="EPSG:32648",
+        )
+        manifest = service._partition_large_area_runtime_bbox(
+            bbox=(106.55, 20.65, 107.05, 20.95),
+            bbox_crs="EPSG:4326",
+            working_crs="EPSG:32648",
+            resolved_inputs=resolved,
+            job_type=JobType.road,
+        )
+    finally:
+        service.shutdown()
+
+    assert len(default_manifest.tiles) > 1
+    assert len(manifest.tiles) == 1
+    assert manifest.tile_width_m > default_manifest.tile_width_m
+
+
+def test_large_area_runtime_uses_single_tile_for_broad_city_bbox_when_feature_volume_is_bounded(tmp_path: Path) -> None:
+    service = AgentRunService(base_dir=tmp_path / "runs")
+    resolved = ResolvedRunInputs(
+        osm_zip_path=tmp_path / "road_osm.zip",
+        ref_zip_path=tmp_path / "road_ref.zip",
+        source_mode="downloaded",
+        source_id="catalog.flood.road",
+        cache_hit=False,
+        version_token="v1",
+        selected_source_id="catalog.flood.road",
+        component_coverage={
+            "raw.osm.road": {"feature_count": 257_694, "coverage_status": "available"},
+            "raw.microsoft.road": {"feature_count": 0, "coverage_status": "missing"},
+        },
+    )
+
+    try:
+        default_manifest = service.tile_partition_service.partition_bbox(
+            bbox=(106.1242265, 19.9177567, 107.9518577, 21.2369932),
+            bbox_crs="EPSG:4326",
+            working_crs="EPSG:32648",
+        )
+        manifest = service._partition_large_area_runtime_bbox(
+            bbox=(106.1242265, 19.9177567, 107.9518577, 21.2369932),
+            bbox_crs="EPSG:4326",
+            working_crs="EPSG:32648",
+            resolved_inputs=resolved,
+            job_type=JobType.road,
+        )
+    finally:
+        service.shutdown()
+
+    assert len(default_manifest.tiles) > 1
+    assert len(manifest.tiles) == 1
 
 
 def test_large_area_runtime_failure_records_repair_context(

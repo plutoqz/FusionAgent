@@ -353,9 +353,9 @@ class RawVectorSourceService:
         projected = _project_source_frame_for_bundle(source_id, projected)
 
         target_path.parent.mkdir(parents=True, exist_ok=True)
-        out_dir = target_path.parent / f"bundle_{uuid.uuid4().hex[:8]}"
+        out_dir = target_path.parent / f"b_{uuid.uuid4().hex[:8]}"
         out_dir.mkdir(parents=True, exist_ok=True)
-        out_shp = out_dir / f"{source_path.stem}.shp"
+        out_shp = out_dir / "source.shp"
         projected.to_file(out_shp)
         zip_shapefile_bundle(out_shp, target_path)
 
@@ -378,14 +378,17 @@ class RawVectorSourceService:
         request_bbox: Optional[BBox],
         resolved_aoi: ResolvedAOI | None,
     ) -> SourceAssetResolution:
-        if self.source_asset_service.can_materialize(source_id):
+        spec = get_raw_vector_source_spec(source_id)
+        try:
+            shp_path = self._resolve_source_path(spec, resolved_aoi=resolved_aoi)
+        except FileNotFoundError:
+            if not self.source_asset_service.can_materialize(source_id):
+                raise
             return self.source_asset_service.resolve_raw_source_path(
                 source_id,
                 request_bbox=request_bbox,
                 aoi=resolved_aoi,
             )
-        spec = get_raw_vector_source_spec(source_id)
-        shp_path = self._resolve_source_path(spec, resolved_aoi=resolved_aoi)
         return SourceAssetResolution(
             source_id=source_id,
             path=shp_path,

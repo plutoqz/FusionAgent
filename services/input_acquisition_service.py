@@ -90,6 +90,7 @@ def _clip_meta(resolved_aoi: ResolvedAOI | None) -> dict[str, object]:
         "degraded_bbox_clip": bool(resolved_aoi.degraded_bbox_clip),
     }
 
+
 def _cached_bundle_is_complete(bundle_dir: Path) -> bool:
     bundle_dir = Path(bundle_dir)
     for filename in ("osm.zip", "ref.zip"):
@@ -328,6 +329,24 @@ class InputAcquisitionService:
                 expected_crs=target_crs,
                 error=exc,
             )
+            failed_component_coverage = _jsonable_component_coverage(
+                getattr(exc, "component_coverage", {}) or {}
+            )
+            failed_provider_attempts = [
+                dict(attempt)
+                for attempt in (getattr(exc, "provider_attempts", None) or [])
+                if isinstance(attempt, dict)
+            ]
+            if not failed_provider_attempts:
+                failed_provider_attempts = [
+                    build_failed_attempt(
+                        source_id=source_id,
+                        fault_class=fault,
+                        fault_message=str(exc),
+                        attempt_no=1,
+                        channel="provider",
+                    )
+                ]
             self._write_manifest(
                 path=manifest_path,
                 source_id=source_id,
@@ -339,16 +358,8 @@ class InputAcquisitionService:
                 requested_bbox=effective_request_bbox,
                 materialized_bbox=None,
                 clipped_to_aoi=False,
-                component_coverage={},
-                provider_attempts=[
-                    build_failed_attempt(
-                        source_id=source_id,
-                        fault_class=fault,
-                        fault_message=str(exc),
-                        attempt_no=1,
-                        channel="provider",
-                    )
-                ],
+                component_coverage=failed_component_coverage,
+                provider_attempts=failed_provider_attempts,
                 fault={"fault_class": fault, "fault_message": str(exc), "recoverable": True},
                 resolved_aoi=resolved_aoi,
             )

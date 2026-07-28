@@ -26,7 +26,10 @@ def freeze_experiment(
     seed_hash: str,
     runtime_settings_hash: str,
     metric_definition_hash: str,
+    external_inputs: list[dict[str, object]] | None = None,
 ) -> ExperimentEvidenceManifest:
+    output_json = Path(output_json)
+    output_json.unlink(missing_ok=True)
     manifest = build_experiment_manifest(
         experiment_id=experiment_id,
         output_dir=output_dir,
@@ -34,11 +37,11 @@ def freeze_experiment(
         seed_hash=seed_hash,
         runtime_settings_hash=runtime_settings_hash,
         metric_definition_hash=metric_definition_hash,
+        external_inputs=external_inputs,
     )
     failures = verify_experiment_manifest(manifest)
     if failures:
         raise RuntimeError("; ".join(failures))
-    output_json = Path(output_json)
     output_json.parent.mkdir(parents=True, exist_ok=True)
     output_json.write_text(manifest.model_dump_json(indent=2), encoding="utf-8")
     return manifest
@@ -62,8 +65,12 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--seed-hash", required=True)
     parser.add_argument("--runtime-settings-hash", required=True)
     parser.add_argument("--metric-definition-hash", required=True)
+    parser.add_argument("--external-inputs-json", default="")
     parser.add_argument("--commit-sha", default="")
     args = parser.parse_args(argv)
+    external_inputs = []
+    if args.external_inputs_json:
+        external_inputs = json.loads(Path(args.external_inputs_json).read_text(encoding="utf-8"))
     manifest = freeze_experiment(
         experiment_id=args.experiment_id,
         output_dir=Path(args.output_dir),
@@ -72,6 +79,7 @@ def main(argv: list[str] | None = None) -> int:
         seed_hash=args.seed_hash,
         runtime_settings_hash=args.runtime_settings_hash,
         metric_definition_hash=args.metric_definition_hash,
+        external_inputs=external_inputs,
     )
     print(json.dumps(manifest.model_dump(mode="json"), ensure_ascii=False, indent=2))
     return 0

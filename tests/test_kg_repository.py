@@ -44,6 +44,9 @@ def test_repository_default_seed_matches_manifest_seed() -> None:
         item.source_id for item in manifest_repo.list_data_sources()
     ]
     assert set(default_repo.output_schema_policies) == set(manifest_repo.output_schema_policies)
+    assert [item.contract_id for item in default_repo.get_product_contracts(None)] == [
+        item.contract_id for item in manifest_repo.get_product_contracts(None)
+    ]
 
 
 def test_repository_manifest_seed_keeps_default_transform_edges() -> None:
@@ -68,6 +71,7 @@ def test_repository_default_init_loads_seed_through_provider(monkeypatch) -> Non
             "output_schema_policies": {},
             "tasks": {},
             "scenario_profiles": [],
+            "product_contracts": {},
             "task_bundles": {},
             "output_requirements": {},
             "qos_policies": {},

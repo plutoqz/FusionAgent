@@ -1,0 +1,275 @@
+{
+  "schema_version": "1.0.0",
+  "experiment_id": "exp-c02-c04-c06-caracas-real-20260725-final",
+  "title": "C02/C04/C06 declarative real external data Scenario API experiment",
+  "data_boundary": {
+    "real_external_data": true,
+    "real_fusion_algorithms": true,
+    "real_llm": false,
+    "real_neo4j": false,
+    "execution_note": "The experiment isolates data/fusion behavior with memory KG, mock LLM, eager execution, and one child worker."
+  },
+  "runtime": {
+    "kg_backend": "memory",
+    "llm_provider": "mock",
+    "celery_eager": true,
+    "scenario_child_max_workers": 1,
+    "local_only": true,
+    "artifact_reuse_disabled": true,
+    "target_crs": "EPSG:32619",
+    "api_path": "/api/v2/scenario-runs"
+  },
+  "metric_definition_path": "docs/thesis/contract_case_metrics_v1.json",
+  "sources": [
+    {
+      "source_id": "raw.osm.road",
+      "product": "road",
+      "original_path": "D:\\fyx\\任务\\委内瑞拉数据整合\\output\\capital\\osm\\roads.shp",
+      "runtime_relative_path": "Data/roads/OSM/roads.shp",
+      "preparation": "copy",
+      "dataset_version": "caracas-osm-capital-2026-06-25",
+      "observed_at": "2026-06-25T16:21:00+08:00",
+      "freshness_status": "event_snapshot_25_days_old",
+      "semantic_status": "road_line_baseline"
+    },
+    {
+      "source_id": "raw.microsoft.road",
+      "product": "road",
+      "original_path": "D:\\fyx\\任务\\委内瑞拉数据整合\\output\\capital\\microsoft_roads\\microsoft_roads_capital.gpkg",
+      "runtime_relative_path": "Data/roads/Microsoft/microsoft_roads_capital.gpkg",
+      "preparation": "copy",
+      "dataset_version": "microsoft-roads-caracas-capital-2026-06-25",
+      "observed_at": "2026-06-25T16:14:00+08:00",
+      "freshness_status": "versioned_external_snapshot",
+      "semantic_status": "road_line_reference"
+    },
+    {
+      "source_id": "raw.osm.water",
+      "product": "water_polygon",
+      "original_path": "D:\\fyx\\任务\\委内瑞拉数据整合\\output\\capital\\osm\\water.shp",
+      "runtime_relative_path": "Data/burundi-260127-free.shp/gis_osm_water_a_free_1.shp",
+      "preparation": "copy",
+      "dataset_version": "caracas-osm-water-polygons-2026-06-25",
+      "observed_at": "2026-06-25T16:21:00+08:00",
+      "freshness_status": "event_snapshot_25_days_old",
+      "semantic_status": "polygonal_surface_water"
+    },
+    {
+      "source_id": "raw.osm.waterways",
+      "product": "waterways",
+      "original_path": "D:\\fyx\\任务\\委内瑞拉数据整合\\output\\capital\\osm\\waterways.shp",
+      "runtime_relative_path": "Data/burundi-260127-free.shp/gis_osm_waterways_free_1.shp",
+      "preparation": "copy",
+      "dataset_version": "caracas-osm-waterways-2026-06-25",
+      "observed_at": "2026-06-25T16:21:00+08:00",
+      "freshness_status": "event_snapshot_25_days_old",
+      "semantic_status": "linear_hydrography"
+    },
+    {
+      "source_id": "raw.hydrorivers.water",
+      "product": "waterways",
+      "original_path": "D:\\fyx\\任务\\委内瑞拉数据整合\\output\\capital\\hydro\\hydrorivers_capital.gpkg",
+      "runtime_relative_path": "Data/water/HydroRIVERS_v10.shp",
+      "preparation": "vector_extract",
+      "clip_bbox": [-67.17, 10.38, -66.86, 10.57],
+      "dataset_version": "HydroRIVERS-v10-caracas-capital-clip",
+      "observed_at": "2026-06-25T16:10:00+08:00",
+      "freshness_status": "static_reference_v10",
+      "semantic_status": "linear_hydrography_reference"
+    },
+    {
+      "source_id": "raw.hydrolakes.water",
+      "product": "water_polygon",
+      "original_path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\hydrosheds\\raw_hydrolakes_water\\extract\\HydroLAKES_polys_v10_shp\\HydroLAKES_polys_v10.shp",
+      "runtime_relative_path": "Data/water/HydroLAKES_polys_v10.shp",
+      "preparation": "vector_extract",
+      "clip_bbox": [-67.17, 10.38, -66.86, 10.57],
+      "dataset_version": "HydroLAKES-polys-v10",
+      "observed_at": "2026-07-01T12:31:00+08:00",
+      "freshness_status": "static_reference_v10",
+      "semantic_status": "polygonal_surface_water_reference"
+    },
+    {
+      "source_id": "raw.osm.building",
+      "product": "building",
+      "original_path": "D:\\fyx\\任务\\委内瑞拉数据整合\\output\\capital\\osm\\buildings.shp",
+      "runtime_relative_path": "Data/buildings/OSM/buildings.shp",
+      "preparation": "copy",
+      "dataset_version": "caracas-osm-buildings-2026-06-25",
+      "observed_at": "2026-06-25T16:21:00+08:00",
+      "freshness_status": "declared_deferred_for_c02",
+      "semantic_status": "building_polygon"
+    },
+    {
+      "source_id": "raw.microsoft.building",
+      "product": "building",
+      "original_path": "D:\\fyx\\任务\\委内瑞拉数据整合\\output\\capital\\Microsoft_capital_district.gpkg",
+      "runtime_relative_path": "Data/buildings/Microsoft/Microsoft_capital_district.gpkg",
+      "preparation": "copy",
+      "dataset_version": "microsoft-buildings-caracas-capital-2026-06-25",
+      "observed_at": "2026-06-25T16:14:00+08:00",
+      "freshness_status": "declared_deferred_for_c02",
+      "semantic_status": "building_polygon_reference"
+    },
+    {
+      "source_id": "aoi.venezuela_capital_district",
+      "product": "aoi_boundary",
+      "original_path": "D:\\fyx\\任务\\委内瑞拉数据整合\\output\\boundaries\\venezuela_capital_district.geojson",
+      "runtime_relative_path": "Data/admin/OSM/venezuela_capital_district.geojson",
+      "preparation": "copy",
+      "dataset_version": "venezuela-capital-district-boundary-2026-06-25",
+      "observed_at": "2026-06-25T16:20:00+08:00",
+      "freshness_status": "static_boundary",
+      "semantic_status": "aoi_boundary"
+    }
+  ],
+  "cases": [
+    {
+      "case_id": "C02",
+      "scenario_name": "C02 Caracas flood water and road priority",
+      "description": "Flood response prioritizes water polygons, waterways, and roads while building is explicitly deferred.",
+      "request": {
+        "scenario_name": "C02 Caracas flood water and road priority",
+        "trigger_content": "Caracas flood response: execute water polygon, waterways, and road fusion in that order; building is deferred.",
+        "disaster_type": "flood",
+        "job_types": [],
+        "spatial_extent": "bbox(-67.17,10.38,-66.86,10.57)",
+        "force_aoi_resolution": false,
+        "target_crs": "EPSG:32619",
+        "debug": false,
+        "metadata": {
+          "requested_task_kinds": ["water_polygon", "waterways", "road"],
+          "requested_layers_present": true,
+          "provisional_task_kinds": ["water_polygon"],
+          "deferred_task_kinds": ["building"]
+        }
+      },
+      "resource_regime": {
+        "network": "moderate",
+        "time": "tight",
+        "aoi_scale": "capital_district",
+        "source_condition": "HydroLAKES deferred; HydroRIVERS and roads available"
+      },
+      "expected_layer_priority": ["water_polygon", "waterways", "road"],
+      "expected_delivery_strategy": "Deliver water/road evidence first; allow provisional water_polygon while declaring the missing HydroLAKES reference.",
+      "expected_gap_types": ["source_unavailable", "quality_failed"],
+      "stages": [
+        {
+          "stage_id": "priority_delivery",
+          "action": "create",
+          "active_source_ids": ["raw.osm.water", "raw.osm.waterways", "raw.hydrorivers.water", "raw.osm.road", "raw.microsoft.road", "aoi.venezuela_capital_district"],
+          "expected_phases": ["partial", "partial_provisional", "succeeded"],
+          "expected_task_order": ["water_polygon", "waterways", "road"],
+          "assertions": {
+            "building_deferred": true,
+            "water_priority": true
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "C04",
+      "scenario_name": "C04 Caracas storm progressive water coverage",
+      "description": "OSM water is delivered provisionally before HydroLAKES activation; the resumed full result supersedes it.",
+      "request": {
+        "scenario_name": "C04 Caracas storm progressive water coverage",
+        "trigger_content": "Caracas storm response: progressively deliver water polygon coverage and supersede provisional output after the reference source arrives.",
+        "disaster_type": "flood",
+        "job_types": [],
+        "spatial_extent": "bbox(-67.17,10.38,-66.86,10.57)",
+        "force_aoi_resolution": false,
+        "target_crs": "EPSG:32619",
+        "debug": false,
+        "metadata": {
+          "requested_task_kinds": ["water_polygon"],
+          "requested_layers_present": true,
+          "provisional_task_kinds": ["water_polygon"]
+        }
+      },
+      "resource_regime": {
+        "network": "staged",
+        "time": "tight",
+        "aoi_scale": "capital_district_full_extent",
+        "source_condition": "HydroLAKES activates after initial OSM delivery"
+      },
+      "expected_layer_priority": ["water_polygon"],
+      "expected_delivery_strategy": "Persist an OSM provisional product, resume after HydroLAKES activation, and record supersession.",
+      "expected_gap_types": ["source_unavailable"],
+      "stages": [
+        {
+          "stage_id": "osm_provisional",
+          "action": "create",
+          "active_source_ids": ["raw.osm.water", "aoi.venezuela_capital_district"],
+          "expected_phases": ["partial_provisional"],
+          "expected_task_order": ["water_polygon"],
+          "assertions": {
+            "provisional_required": true
+          }
+        },
+        {
+          "stage_id": "hydrolakes_resume",
+          "action": "resume",
+          "active_source_ids": ["raw.osm.water", "raw.hydrolakes.water", "aoi.venezuela_capital_district"],
+          "retry_failed": true,
+          "expected_phases": ["succeeded", "partial"],
+          "expected_task_order": ["water_polygon"],
+          "assertions": {
+            "supersede_required": true
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "C06",
+      "scenario_name": "C06 Caracas road quality gate fallback",
+      "description": "The full OSM plus Microsoft road fusion is expected to fail topology quality; OSM-only retry is delivered as degraded and provisional.",
+      "request": {
+        "scenario_name": "C06 Caracas road quality gate fallback",
+        "trigger_content": "Caracas flood response: run road fusion, preserve failed quality evidence, and retry with the usable OSM source if the full fusion fails.",
+        "disaster_type": "flood",
+        "job_types": [],
+        "spatial_extent": "bbox(-67.17,10.38,-66.86,10.57)",
+        "force_aoi_resolution": false,
+        "target_crs": "EPSG:32619",
+        "debug": false,
+        "metadata": {
+          "requested_task_kinds": ["road"],
+          "requested_layers_present": true,
+          "provisional_task_kinds": ["road"]
+        }
+      },
+      "resource_regime": {
+        "network": "tight",
+        "time": "tight",
+        "aoi_scale": "capital_district",
+        "source_condition": "two-source quality failure followed by single-source external degradation"
+      },
+      "expected_layer_priority": ["road"],
+      "expected_delivery_strategy": "Retain the failed full-fusion quality report, deactivate Microsoft, retry, and deliver OSM-only as degraded/provisional.",
+      "expected_gap_types": ["quality_failed", "source_unavailable"],
+      "stages": [
+        {
+          "stage_id": "full_fusion_quality_gate",
+          "action": "create",
+          "active_source_ids": ["raw.osm.road", "raw.microsoft.road", "aoi.venezuela_capital_district"],
+          "expected_phases": ["failed", "partial"],
+          "expected_task_order": ["road"],
+          "assertions": {
+            "quality_failure_required": true
+          }
+        },
+        {
+          "stage_id": "osm_only_retry",
+          "action": "resume",
+          "active_source_ids": ["raw.osm.road", "aoi.venezuela_capital_district"],
+          "retry_failed": true,
+          "expected_phases": ["partial_provisional", "partial", "succeeded"],
+          "expected_task_order": ["road"],
+          "assertions": {
+            "degraded_success_required": true
+          }
+        }
+      ]
+    }
+  ]
+}

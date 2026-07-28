@@ -13,6 +13,7 @@ from kg.models import (
     DataTypeNode,
     OutputRequirementNode,
     OutputSchemaPolicy,
+    ProductContractNode,
     QoSPolicyNode,
     RepairStrategyNode,
     ScenarioProfileNode,
@@ -33,6 +34,7 @@ class RepositorySeedPayload(TypedDict):
     output_schema_policies: dict[str, OutputSchemaPolicy]
     tasks: dict[str, TaskNode]
     scenario_profiles: list[ScenarioProfileNode]
+    product_contracts: dict[str, ProductContractNode]
     task_bundles: dict[str, TaskBundleNode]
     output_requirements: dict[str, OutputRequirementNode]
     qos_policies: dict[str, QoSPolicyNode]
@@ -57,6 +59,7 @@ def load_seed_data(seed_manifest_path: Path | None = None) -> RepositorySeedPayl
             "output_schema_policies": seed.OUTPUT_SCHEMA_POLICIES,
             "tasks": seed.TASKS,
             "scenario_profiles": seed.SCENARIO_PROFILES,
+            "product_contracts": seed.PRODUCT_CONTRACTS,
             "task_bundles": seed.TASK_BUNDLES,
             "output_requirements": seed.OUTPUT_REQUIREMENTS,
             "qos_policies": seed.QOS_POLICIES,
@@ -78,6 +81,7 @@ def _repository_seed_payload(seed_payload: dict[str, Any]) -> RepositorySeedPayl
         "output_schema_policies": seed_payload["output_schema_policies"],
         "tasks": seed_payload["tasks"],
         "scenario_profiles": seed_payload["scenario_profiles"],
+        "product_contracts": seed_payload["product_contracts"],
         "task_bundles": seed_payload["task_bundles"],
         "output_requirements": seed_payload["output_requirements"],
         "qos_policies": seed_payload["qos_policies"],

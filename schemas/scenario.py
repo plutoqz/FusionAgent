@@ -48,6 +48,7 @@ class ScenarioChildRunSpec(BaseModel):
     task_family: Optional[str] = None
     preferred_pattern_id: Optional[str] = None
     output_data_type: Optional[str] = None
+    provisional_when_degraded: bool = False
 
 
 class ScenarioRunResponse(BaseModel):

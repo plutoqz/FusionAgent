@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import math
 import os
 import queue
 import re
@@ -86,7 +87,6 @@ from utils.vector_clip import BBox, clip_zip_to_request_bbox
 
 def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
-
 
 
 DEFAULT_INPUT_ACQUISITION_TIMEOUT_SECONDS = 600.0
@@ -484,6 +484,7 @@ class AgentRunService:
             raise ValueError(f"Unsupported input strategy: {request.input_strategy}")
         self._persist_request(run_dir / "request.json", request)
 
+        request_bbox = self._parse_bbox(request.trigger.spatial_extent)
         created_at = _utc_now()
         status = RunStatus(
             run_id=run_id,
@@ -491,7 +492,7 @@ class AgentRunService:
             trigger=request.trigger,
             phase=RunPhase.queued,
             progress=0,
-            target_crs=resolve_target_crs(request.target_crs),
+            target_crs=resolve_target_crs(request.target_crs, bbox=request_bbox),
             debug=request.debug,
             error=None,
             log_path=str(log_dir / "run.log"),
@@ -1069,14 +1070,17 @@ class AgentRunService:
                 )
                 raise
 
+        request_bbox = self._parse_bbox(request.trigger.spatial_extent)
         effective_target_crs = resolve_target_crs(
             request.target_crs,
-            bbox=(resolved_aoi.bbox if resolved_aoi is not None else None),
+            bbox=(resolved_aoi.bbox if resolved_aoi is not None else request_bbox),
         )
         if request.target_crs:
             target_crs_source = "explicit"
         elif resolved_aoi is not None:
             target_crs_source = "resolved_aoi_default"
+        elif request_bbox is not None:
+            target_crs_source = "request_bbox_default"
         else:
             target_crs_source = "fallback_default"
         self._update_status(
@@ -1663,6 +1667,11 @@ class AgentRunService:
                 resolved_aoi=resolved_aoi,
             )
 
+        attempt_input_dir = self._source_acquisition_attempt_input_dir(input_dir, source_id)
+        self._prepare_source_acquisition_attempt_dir(
+            input_dir=input_dir,
+            attempt_input_dir=attempt_input_dir,
+        )
         result_queue: queue.Queue[tuple[str, object]] = queue.Queue(maxsize=1)
         watchdog = self._start_source_acquisition_watchdog(
             run_id=run_id,
@@ -1684,7 +1693,7 @@ class AgentRunService:
                             request=request,
                             source_id=source_id,
                             required_output_type=required_output_type,
-                            input_dir=input_dir,
+                            input_dir=attempt_input_dir,
                             request_bbox=request_bbox,
                             resolved_aoi=resolved_aoi,
                         ),
@@ -1697,6 +1706,11 @@ class AgentRunService:
             started_at = time.monotonic()
             worker = Thread(target=_target, name=f"input-acquisition-{source_id}", daemon=True)
             worker.start()
+            if heartbeat_seconds > 0:
+                self._record_source_acquisition_heartbeat_direct(
+                    watchdog,
+                    elapsed_seconds=0.0,
+                )
 
             while True:
                 elapsed_seconds = time.monotonic() - started_at
@@ -1743,9 +1757,85 @@ class AgentRunService:
                 timeout_marker = self._read_source_acquisition_watchdog_marker(watchdog)
                 if timeout_marker is not None:
                     raise SourceAcquisitionTimeoutError(str(timeout_marker["error"]), already_recorded=True)
-                return payload  # type: ignore[return-value]
+                return self._promote_source_acquisition_attempt(
+                    payload,  # type: ignore[arg-type]
+                    attempt_input_dir=attempt_input_dir,
+                    input_dir=input_dir,
+                )
         finally:
             self._stop_source_acquisition_watchdog(watchdog)
+
+    @staticmethod
+    def _source_acquisition_attempt_input_dir(input_dir: Path, source_id: str) -> Path:
+        safe_source_id = re.sub(r"[^A-Za-z0-9_.-]+", "_", source_id).replace(".", "_")
+        return Path(input_dir) / "_source_attempts" / f"{safe_source_id}_{uuid.uuid4().hex[:12]}"
+
+    @staticmethod
+    def _prepare_source_acquisition_attempt_dir(*, input_dir: Path, attempt_input_dir: Path) -> None:
+        attempt_input_dir.mkdir(parents=True, exist_ok=True)
+        data_requirements_path = Path(input_dir) / "data_requirements.json"
+        if data_requirements_path.exists():
+            shutil.copyfile(data_requirements_path, attempt_input_dir / data_requirements_path.name)
+
+    @classmethod
+    def _promote_source_acquisition_attempt(
+        cls,
+        resolved_inputs: ResolvedRunInputs,
+        *,
+        attempt_input_dir: Path,
+        input_dir: Path,
+    ) -> ResolvedRunInputs:
+        if not cls._resolved_inputs_reference_attempt_dir(resolved_inputs, attempt_input_dir):
+            return resolved_inputs
+
+        input_dir.mkdir(parents=True, exist_ok=True)
+        osm_zip_path = Path(input_dir) / "osm.zip"
+        ref_zip_path = Path(input_dir) / "ref.zip"
+        shutil.copyfile(resolved_inputs.osm_zip_path, osm_zip_path)
+        shutil.copyfile(resolved_inputs.ref_zip_path, ref_zip_path)
+
+        manifest_path: Path | None = None
+        if resolved_inputs.manifest_path is not None:
+            manifest_path = Path(input_dir) / "source_materialization_manifest.json"
+            shutil.copyfile(resolved_inputs.manifest_path, manifest_path)
+            source_attempts_path = Path(resolved_inputs.manifest_path).parent / "source_attempts.json"
+            if source_attempts_path.exists():
+                shutil.copyfile(source_attempts_path, Path(input_dir) / source_attempts_path.name)
+
+        shutil.rmtree(attempt_input_dir, ignore_errors=True)
+        return ResolvedRunInputs(
+            osm_zip_path=osm_zip_path,
+            ref_zip_path=ref_zip_path,
+            source_mode=resolved_inputs.source_mode,
+            source_id=resolved_inputs.source_id,
+            cache_hit=resolved_inputs.cache_hit,
+            version_token=resolved_inputs.version_token,
+            selected_source_id=resolved_inputs.selected_source_id,
+            fallback_from_source_id=resolved_inputs.fallback_from_source_id,
+            component_coverage=dict(resolved_inputs.component_coverage),
+            manifest_path=manifest_path,
+        )
+
+    @classmethod
+    def _resolved_inputs_reference_attempt_dir(
+        cls,
+        resolved_inputs: ResolvedRunInputs,
+        attempt_input_dir: Path,
+    ) -> bool:
+        paths = [
+            resolved_inputs.osm_zip_path,
+            resolved_inputs.ref_zip_path,
+            resolved_inputs.manifest_path,
+        ]
+        return any(path is not None and cls._path_is_relative_to(Path(path), attempt_input_dir) for path in paths)
+
+    @staticmethod
+    def _path_is_relative_to(path: Path, parent: Path) -> bool:
+        try:
+            path.resolve().relative_to(parent.resolve())
+        except ValueError:
+            return False
+        return True
 
     def _start_source_acquisition_watchdog(
         self,
@@ -2217,7 +2307,7 @@ class AgentRunService:
                 plan_revision=self._extract_plan_revision(plan),
                 checkpoint=self._checkpoint(stage="execution", plan_revision=self._extract_plan_revision(plan)),
                 event_kind="source_fallback_selected",
-                event_message="Selected fallback source after empty AOI coverage.",
+                event_message="Selected fallback source after source acquisition failed.",
                 event_details={
                     "fallback_from_source_id": resolved_inputs.fallback_from_source_id,
                     "selected_source_id": resolved_inputs.selected_source_id or resolved_inputs.source_id,
@@ -2735,7 +2825,7 @@ class AgentRunService:
         if selected_source_id not in {"catalog.flood.building", "catalog.earthquake.building"}:
             return False
         threshold = self._read_env_int("GEOFUSION_BUILDING_TILING_MIN_FEATURES") or 250000
-        return self._max_component_feature_count(resolved_inputs.component_coverage) >= threshold
+        return self._max_building_component_feature_count(resolved_inputs.component_coverage) >= threshold
 
     def _should_use_large_area_runtime(
         self,
@@ -2963,10 +3053,12 @@ class AgentRunService:
             resolved_inputs=resolved_inputs,
         )
         task_kind = _task_kind_for_request(request)
-        tile_manifest = self.tile_partition_service.partition_bbox(
+        tile_manifest = self._partition_large_area_runtime_bbox(
             bbox=request_bbox,
             bbox_crs="EPSG:4326",
             working_crs=target_crs,
+            resolved_inputs=resolved_inputs,
+            job_type=request.job_type,
         )
         if request.job_type == JobType.road:
             road_sources = {
@@ -3125,6 +3217,65 @@ class AgentRunService:
                 break
         return vectors, rasters
 
+    def _partition_large_area_runtime_bbox(
+        self,
+        *,
+        bbox: tuple[float, float, float, float],
+        bbox_crs: str,
+        working_crs: str,
+        resolved_inputs: ResolvedRunInputs,
+        job_type: JobType,
+    ):
+        default_manifest = self.tile_partition_service.partition_bbox(
+            bbox=bbox,
+            bbox_crs=bbox_crs,
+            working_crs=working_crs,
+        )
+        if len(default_manifest.tiles) <= 1:
+            return default_manifest
+
+        width_m, height_m = self._manifest_dimensions(default_manifest)
+        area_km2 = (width_m * height_m) / 1_000_000.0
+        max_features = self._max_large_area_component_feature_count(
+            resolved_inputs.component_coverage,
+            job_type=job_type,
+        )
+
+        single_tile_max_features = self._read_env_int("GEOFUSION_LARGE_AREA_SINGLE_TILE_MAX_FEATURES") or 300000
+        single_tile_max_area_km2 = self._read_env_float("GEOFUSION_LARGE_AREA_SINGLE_TILE_MAX_AREA_KM2") or 50000.0
+        if max_features <= single_tile_max_features and area_km2 <= single_tile_max_area_km2:
+            return TilePartitionService(
+                tile_width_m=max(width_m, 1.0),
+                tile_height_m=max(height_m, 1.0),
+                overlap_m=0.0,
+            ).partition_bbox(bbox=bbox, bbox_crs=bbox_crs, working_crs=working_crs)
+
+        max_tiles = self._read_env_int("GEOFUSION_LARGE_AREA_MAX_TILES") or 64
+        if len(default_manifest.tiles) <= max_tiles:
+            return default_manifest
+
+        side_count = max(1, int(math.sqrt(max_tiles)))
+        tile_edge_m = max(
+            float(default_manifest.tile_width_m),
+            float(default_manifest.tile_height_m),
+            width_m / side_count,
+            height_m / side_count,
+            1.0,
+        )
+        return TilePartitionService(
+            tile_width_m=tile_edge_m,
+            tile_height_m=tile_edge_m,
+            overlap_m=float(default_manifest.overlap_m),
+        ).partition_bbox(bbox=bbox, bbox_crs=bbox_crs, working_crs=working_crs)
+
+    @staticmethod
+    def _manifest_dimensions(manifest) -> tuple[float, float]:
+        minx = min(tile.working_bbox[0] for tile in manifest.tiles)
+        miny = min(tile.working_bbox[1] for tile in manifest.tiles)
+        maxx = max(tile.working_bbox[2] for tile in manifest.tiles)
+        maxy = max(tile.working_bbox[3] for tile in manifest.tiles)
+        return max(0.0, float(maxx - minx)), max(0.0, float(maxy - miny))
+
     @staticmethod
     def _resolve_request_bbox(
         request: RunCreateRequest,
@@ -3159,6 +3310,39 @@ class AgentRunService:
             except Exception:  # noqa: BLE001
                 continue
         return max(counts) if counts else 0
+
+    @staticmethod
+    def _max_building_component_feature_count(component_coverage: Dict[str, object]) -> int:
+        building_coverage: Dict[str, object] = {}
+        for source_id, raw in (component_coverage or {}).items():
+            source_text = str(source_id or "").casefold()
+            if "building" not in source_text:
+                continue
+            if "height" in source_text or "raster" in source_text:
+                continue
+            building_coverage[source_id] = raw
+        return AgentRunService._max_component_feature_count(building_coverage)
+
+    @staticmethod
+    def _max_large_area_component_feature_count(component_coverage: Dict[str, object], *, job_type: JobType) -> int:
+        allowed_source_ids_by_job = {
+            JobType.road: {"raw.osm.road", "raw.microsoft.road", "raw.overture.transportation", "raw.overture.road"},
+            JobType.water: {
+                "raw.osm.water",
+                "raw.hydrolakes.water",
+                "raw.osm.waterways",
+                "raw.hydrorivers.water",
+            },
+            JobType.poi: {"raw.osm.poi", "raw.google.poi", "raw.gns.poi", "raw.geonames.poi"},
+        }
+        allowed_source_ids = allowed_source_ids_by_job.get(job_type, set())
+        filtered = {
+            source_id: raw
+            for source_id, raw in (component_coverage or {}).items()
+            if str(source_id) in allowed_source_ids
+        }
+        return AgentRunService._max_component_feature_count(filtered)
+
 
     @staticmethod
     def _extract_step_parameters(plan: WorkflowPlan) -> Dict[str, object]:
@@ -3944,9 +4128,6 @@ class AgentRunService:
         spatial_extent = (request.trigger.spatial_extent or "").strip()
         if spatial_extent:
             if AgentRunService._parse_bbox(spatial_extent) is not None:
-                if request.trigger.force_aoi_resolution:
-                    content = (request.trigger.content or "").strip()
-                    return content or None
                 return None
             return spatial_extent
 
@@ -4532,6 +4713,8 @@ class AgentRunService:
         plan: WorkflowPlan,
         output_dir: Path,
     ) -> Optional[ReuseResult]:
+        if _as_bool(os.getenv("GEOFUSION_DISABLE_ARTIFACT_REUSE"), default=False):
+            return None
         try:
             reuse_result = self.artifact_reuse_service.try_reuse(request=request, plan=plan, output_dir=output_dir)
         except Exception as exc:  # noqa: BLE001

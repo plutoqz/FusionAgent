@@ -12,6 +12,7 @@ from kg.models import (
     KGContext,
     OutputSchemaPolicy,
     OutputRequirementNode,
+    ProductContractNode,
     QoSPolicyNode,
     ScenarioProfileNode,
     TaskBundleNode,
@@ -97,12 +98,18 @@ class PlanningContextBuilder:
             job_type=job_type,
             trigger=trigger,
             resolved_mode=resolved_mode,
+            effective_profile=effective_profile,
             bundles=kg_context.task_bundles,
         )
         output_requirement = self._select_output_requirement(
             job_type=job_type,
             trigger=trigger,
             output_requirements=kg_context.output_requirements,
+        )
+        product_contract = self._select_product_contract(
+            disaster_type=trigger.disaster_type,
+            output_requirement=output_requirement,
+            contracts=kg_context.product_contracts,
         )
         qos_policy = self._select_qos_policy(
             effective_profile=effective_profile,
@@ -135,6 +142,7 @@ class PlanningContextBuilder:
                 effective_profile=effective_profile,
                 resolved_mode=resolved_mode,
                 task_bundle=task_bundle,
+                product_contract=product_contract,
                 output_requirement=output_requirement,
                 qos_policy=qos_policy,
             ),
@@ -187,6 +195,7 @@ class PlanningContextBuilder:
         effective_profile: ScenarioProfileNode | None,
         resolved_mode: Dict[str, object],
         task_bundle: TaskBundleNode | None,
+        product_contract: ProductContractNode | None,
         output_requirement: OutputRequirementNode | None,
         qos_policy: QoSPolicyNode | None,
     ) -> Dict[str, Any]:
@@ -207,6 +216,11 @@ class PlanningContextBuilder:
             "planning_mode": resolved_mode["planning_mode"],
             "profile_source": resolved_mode["profile_source"],
             "task_bundle": PlanningContextBuilder._task_bundle_to_dict(task_bundle) if task_bundle is not None else None,
+            "product_contract": (
+                PlanningContextBuilder._product_contract_to_dict(product_contract)
+                if product_contract is not None
+                else None
+            ),
             "output_requirement": (
                 PlanningContextBuilder._output_requirement_node_to_dict(output_requirement)
                 if output_requirement is not None
@@ -243,6 +257,33 @@ class PlanningContextBuilder:
             if profile.profile_id == "scenario.default.task":
                 return profile
         return profiles[0]
+
+    @staticmethod
+    def _select_product_contract(
+        *,
+        disaster_type: str | None,
+        output_requirement: OutputRequirementNode | None,
+        contracts: List[ProductContractNode],
+    ) -> ProductContractNode | None:
+        if not contracts:
+            return None
+        requirement_id = output_requirement.requirement_id if output_requirement is not None else None
+        candidates = [
+            contract
+            for contract in contracts
+            if requirement_id is None or requirement_id in contract.output_requirement_ids
+        ]
+        if not candidates:
+            return None
+        dtype = (disaster_type or "generic").lower()
+
+        def _sort_key(contract: ProductContractNode) -> tuple[int, int, str]:
+            disaster_types = {item.lower() for item in contract.disaster_types}
+            exact_disaster = 1 if dtype in disaster_types else 0
+            layer_contract = 1 if contract.metadata.get("ontology_scope") == "layer_product" else 0
+            return (-layer_contract, -exact_disaster, contract.contract_id)
+
+        return sorted(candidates, key=_sort_key)[0]
 
     def _build_retrieval_payload(
         self,
@@ -283,6 +324,7 @@ class PlanningContextBuilder:
             "algorithms": {algo_id: self._algo_to_dict(algo) for algo_id, algo in kg_context.algorithms.items()},
             "task_nodes": [self._task_node_to_dict(task) for task in kg_context.task_nodes],
             "scenario_profiles": [self._scenario_profile_to_dict(item) for item in kg_context.scenario_profiles],
+            "product_contracts": [self._product_contract_to_dict(item) for item in kg_context.product_contracts],
             "task_bundles": [self._task_bundle_to_dict(item) for item in kg_context.task_bundles],
             "parameter_specs": {
                 algo_id: [self._parameter_spec_to_dict(spec) for spec in specs]
@@ -332,16 +374,36 @@ class PlanningContextBuilder:
         job_type: JobType,
         trigger: RunTrigger,
         resolved_mode: Dict[str, object],
+        effective_profile: ScenarioProfileNode | None,
         bundles: List[TaskBundleNode],
     ) -> TaskBundleNode | None:
         requested_task = f"task.{job_type.value}.fusion"
         if resolved_mode["planning_mode"] == "task_driven":
             preferred_ids = ["task_bundle.direct_request"]
         else:
-            preferred_ids = [f"task_bundle.{trigger.disaster_type or 'default'}.{job_type.value}_road"]
+            default_bundle_id = None
+            if effective_profile is not None:
+                default_bundle_id = str((effective_profile.metadata or {}).get("default_task_bundle_id") or "").strip()
+            preferred_ids = [
+                item
+                for item in [
+                    default_bundle_id,
+                    f"task_bundle.{trigger.disaster_type or 'default'}.building_road",
+                ]
+                if item
+            ]
         for bundle_id in preferred_ids:
             for bundle in bundles:
                 if bundle.bundle_id == bundle_id and requested_task in bundle.requested_tasks:
+                    return bundle
+        if resolved_mode["planning_mode"] != "task_driven" and effective_profile is not None:
+            for bundle in bundles:
+                metadata = bundle.metadata or {}
+                if (
+                    requested_task in bundle.requested_tasks
+                    and bundle.requires_disaster_profile
+                    and metadata.get("scenario_profile_id") == effective_profile.profile_id
+                ):
                     return bundle
         for bundle in bundles:
             if requested_task in bundle.requested_tasks and bundle.requires_disaster_profile == (
@@ -790,6 +852,31 @@ class PlanningContextBuilder:
             "repair_strategy_ids": bundle.repair_strategy_ids,
             "requires_disaster_profile": bundle.requires_disaster_profile,
             "metadata": bundle.metadata,
+        }
+
+    @staticmethod
+    def _product_contract_to_dict(contract) -> Dict[str, Any]:
+        return {
+            "contract_id": contract.contract_id,
+            "contract_name": contract.contract_name,
+            "product_type": contract.product_type,
+            "disaster_types": contract.disaster_types,
+            "response_phases": contract.response_phases,
+            "layer_requirements": contract.layer_requirements,
+            "scenario_profile_ids": contract.scenario_profile_ids,
+            "task_bundle_ids": contract.task_bundle_ids,
+            "task_ids": contract.task_ids,
+            "output_requirement_ids": contract.output_requirement_ids,
+            "qos_policy_ids": contract.qos_policy_ids,
+            "repair_strategy_ids": contract.repair_strategy_ids,
+            "component_contract_ids": contract.component_contract_ids,
+            "quality_gates": contract.quality_gates,
+            "evidence_requirements": contract.evidence_requirements,
+            "degradation_policy": contract.degradation_policy,
+            "gap_declaration_policy": contract.gap_declaration_policy,
+            "delivery_policy": contract.delivery_policy,
+            "satisfaction_states": contract.satisfaction_states,
+            "metadata": contract.metadata,
         }
 
     @staticmethod

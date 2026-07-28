@@ -16,6 +16,7 @@ from kg.seed import (
     OUTPUT_SCHEMA_POLICIES,
     OUTPUT_REQUIREMENTS,
     PARAMETER_SPECS,
+    PRODUCT_CONTRACTS,
     QOS_POLICIES,
     REPAIR_STRATEGIES,
     SCENARIO_PROFILES,
@@ -40,6 +41,7 @@ def expected_seed_inventory() -> dict[str, int]:
         "AlgorithmParameterSpec": sum(len(items) for items in PARAMETER_SPECS.values()),
         "DataSource": len(DATA_SOURCES),
         "ScenarioProfile": len(SCENARIO_PROFILES),
+        "ProductContract": len(PRODUCT_CONTRACTS),
         "QoSPolicy": len(QOS_POLICIES),
         "OutputSchemaPolicy": len(OUTPUT_SCHEMA_POLICIES),
         "OutputRequirement": len(OUTPUT_REQUIREMENTS),
@@ -100,6 +102,7 @@ def build_bootstrap_cypher(graph_namespace: str | None = None) -> str:
         _build_output_requirement_section(namespace),
         _build_data_need_section(namespace),
         _build_repair_strategy_section(namespace),
+        _build_product_contract_section(namespace),
         _build_pattern_section(namespace),
         _build_transform_section(),
     ]
@@ -133,6 +136,8 @@ def _build_schema_section() -> str:
             "FOR (tb:TaskBundle) REQUIRE tb.bundleId IS UNIQUE;",
             "CREATE CONSTRAINT scenario_profile_profile_id IF NOT EXISTS",
             "FOR (profile:ScenarioProfile) REQUIRE profile.profileId IS UNIQUE;",
+            "CREATE CONSTRAINT product_contract_contract_id IF NOT EXISTS",
+            "FOR (contract:ProductContract) REQUIRE contract.contractId IS UNIQUE;",
             "CREATE CONSTRAINT qos_policy_policy_id IF NOT EXISTS",
             "FOR (qos:QoSPolicy) REQUIRE qos.policyId IS UNIQUE;",
             "CREATE CONSTRAINT output_requirement_requirement_id IF NOT EXISTS",
@@ -151,6 +156,8 @@ def _build_schema_section() -> str:
             "FOR (algo:Algorithm) ON EACH [algo.algoId, algo.algoName];",
             "CREATE FULLTEXT INDEX ds_search IF NOT EXISTS",
             "FOR (ds:DataSource) ON EACH [ds.sourceId, ds.sourceName];",
+            "CREATE FULLTEXT INDEX product_contract_search IF NOT EXISTS",
+            "FOR (contract:ProductContract) ON EACH [contract.contractId, contract.contractName, contract.productType];",
         ]
     )
 
@@ -492,6 +499,94 @@ def _build_repair_strategy_section(graph_namespace: str) -> str:
                 f"MATCH (tb:TaskBundle:{MANAGED_LABEL} {{bundleId: {_cypher_literal(bundle.bundle_id)}}}), "
                 f"(rs:RepairStrategy:{MANAGED_LABEL} {{strategyId: {_cypher_literal(strategy_id)}}}) "
                 "MERGE (tb)-[:USES_REPAIR_STRATEGY]->(rs);"
+            )
+    return _statement_lines(lines)
+
+
+def _build_product_contract_section(graph_namespace: str) -> str:
+    lines = ["// Seed ProductContract nodes and ontology relationships"]
+    for contract in PRODUCT_CONTRACTS.values():
+        properties = {
+            "contractId": contract.contract_id,
+            "contractName": contract.contract_name,
+            "productType": contract.product_type,
+            "disasterTypes": contract.disaster_types,
+            "responsePhases": contract.response_phases,
+            "layerRequirementsJson": json.dumps(contract.layer_requirements, ensure_ascii=False),
+            "scenarioProfileIds": contract.scenario_profile_ids,
+            "taskBundleIds": contract.task_bundle_ids,
+            "taskIds": contract.task_ids,
+            "outputRequirementIds": contract.output_requirement_ids,
+            "qosPolicyIds": contract.qos_policy_ids,
+            "repairStrategyIds": contract.repair_strategy_ids,
+            "componentContractIds": contract.component_contract_ids,
+            "qualityGates": contract.quality_gates,
+            "evidenceRequirements": contract.evidence_requirements,
+            "degradationPolicyJson": json.dumps(contract.degradation_policy, ensure_ascii=False),
+            "gapDeclarationPolicyJson": json.dumps(contract.gap_declaration_policy, ensure_ascii=False),
+            "deliveryPolicyJson": json.dumps(contract.delivery_policy, ensure_ascii=False),
+            "satisfactionStates": contract.satisfaction_states,
+            "metadataJson": json.dumps(contract.metadata, ensure_ascii=False),
+            "graphNamespace": graph_namespace,
+        }
+        lines.append(
+            f"MERGE (contract:ProductContract {{{_merge_properties({'contractId': contract.contract_id})}}}) "
+            f"SET contract:{MANAGED_LABEL} "
+            f"SET contract += {{{_merge_properties(properties)}}};"
+        )
+
+    for contract in PRODUCT_CONTRACTS.values():
+        for profile_id in contract.scenario_profile_ids:
+            lines.append(
+                f"MATCH (contract:ProductContract:{MANAGED_LABEL} {{contractId: {_cypher_literal(contract.contract_id)}}}), "
+                f"(profile:ScenarioProfile:{MANAGED_LABEL} {{profileId: {_cypher_literal(profile_id)}}}) "
+                "MERGE (contract)-[:APPLIES_TO_SCENARIO]->(profile);"
+            )
+        for bundle_id in contract.task_bundle_ids:
+            lines.append(
+                f"MATCH (contract:ProductContract:{MANAGED_LABEL} {{contractId: {_cypher_literal(contract.contract_id)}}}), "
+                f"(tb:TaskBundle:{MANAGED_LABEL} {{bundleId: {_cypher_literal(bundle_id)}}}) "
+                "MERGE (contract)-[:ORCHESTRATED_BY]->(tb);"
+            )
+        for task_id in contract.task_ids:
+            lines.append(
+                f"MATCH (contract:ProductContract:{MANAGED_LABEL} {{contractId: {_cypher_literal(contract.contract_id)}}}), "
+                f"(task:Task:{MANAGED_LABEL} {{taskId: {_cypher_literal(task_id)}}}) "
+                "MERGE (contract)-[:REQUIRES_TASK]->(task);"
+            )
+        layer_requirement_by_id = {
+            str(item.get("output_requirement_id")): item
+            for item in contract.layer_requirements
+            if item.get("output_requirement_id")
+        }
+        for requirement_id in contract.output_requirement_ids:
+            layer_requirement = layer_requirement_by_id.get(requirement_id, {})
+            relationship_properties = {
+                "layerKind": layer_requirement.get("layer_kind"),
+                "criticality": layer_requirement.get("criticality"),
+            }
+            lines.append(
+                f"MATCH (contract:ProductContract:{MANAGED_LABEL} {{contractId: {_cypher_literal(contract.contract_id)}}}), "
+                f"(orq:OutputRequirement:{MANAGED_LABEL} {{requirementId: {_cypher_literal(requirement_id)}}}) "
+                f"MERGE (contract)-[:REQUIRES_OUTPUT_REQUIREMENT {{{_merge_properties(relationship_properties)}}}]->(orq);"
+            )
+        for policy_id in contract.qos_policy_ids:
+            lines.append(
+                f"MATCH (contract:ProductContract:{MANAGED_LABEL} {{contractId: {_cypher_literal(contract.contract_id)}}}), "
+                f"(qos:QoSPolicy:{MANAGED_LABEL} {{policyId: {_cypher_literal(policy_id)}}}) "
+                "MERGE (contract)-[:USES_QOS_POLICY]->(qos);"
+            )
+        for strategy_id in contract.repair_strategy_ids:
+            lines.append(
+                f"MATCH (contract:ProductContract:{MANAGED_LABEL} {{contractId: {_cypher_literal(contract.contract_id)}}}), "
+                f"(rs:RepairStrategy:{MANAGED_LABEL} {{strategyId: {_cypher_literal(strategy_id)}}}) "
+                "MERGE (contract)-[:USES_REPAIR_STRATEGY]->(rs);"
+            )
+        for component_id in contract.component_contract_ids:
+            lines.append(
+                f"MATCH (contract:ProductContract:{MANAGED_LABEL} {{contractId: {_cypher_literal(contract.contract_id)}}}), "
+                f"(component:ProductContract:{MANAGED_LABEL} {{contractId: {_cypher_literal(component_id)}}}) "
+                "MERGE (contract)-[:COMPOSED_OF]->(component);"
             )
     return _statement_lines(lines)
 

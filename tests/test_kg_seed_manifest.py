@@ -40,6 +40,10 @@ def test_build_seed_manifest_payload_contains_current_seed_ids() -> None:
 
     assert "algo.fusion.building.v1" in algorithm_ids
     assert "raw.osm.building" in data_source_ids
+    assert any(
+        item["contract_id"] == "contract.product.emergency_vector_bundle.v1"
+        for item in payload["product_contracts"]
+    )
     assert payload["metadata"]["schema_version"] == "1.0.0"
     assert payload["metadata"]["source_modules"] == [
         "kg.seed",
@@ -56,6 +60,7 @@ def test_load_seed_manifest_payload_reconstructs_core_dataclasses() -> None:
     assert loaded["algorithms"]["algo.fusion.building.v1"].algo_id == "algo.fusion.building.v1"
     assert loaded["workflow_patterns"]
     assert loaded["output_schema_policies"]
+    assert "contract.product.building.v1" in loaded["product_contracts"]
 
 
 def test_checked_in_seed_manifest_matches_current_seed_id_sets() -> None:
@@ -70,6 +75,11 @@ def test_checked_in_seed_manifest_matches_current_seed_id_sets() -> None:
         current,
         "output_schema_policies",
         "policy_id",
+    )
+    assert _ids(generated, "product_contracts", "contract_id") == _ids(
+        current,
+        "product_contracts",
+        "contract_id",
     )
 
 
@@ -161,6 +171,7 @@ def _seed_stable_inventory(payload: dict[str, object]) -> dict[str, object]:
         "output_schema_policies": _mapping_ids(payload, "output_schema_policies", "policy_id"),
         "tasks": _mapping_ids(payload, "tasks", "task_id"),
         "scenario_profiles": _sequence_ids(payload, "scenario_profiles", "profile_id"),
+        "product_contracts": _mapping_ids(payload, "product_contracts", "contract_id"),
         "task_bundles": _mapping_ids(payload, "task_bundles", "bundle_id"),
         "output_requirements": _mapping_ids(payload, "output_requirements", "requirement_id"),
         "qos_policies": _mapping_ids(payload, "qos_policies", "policy_id"),

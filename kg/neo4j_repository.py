@@ -19,6 +19,7 @@ from kg.models import (
     OutputSchemaPolicy,
     OutputRequirementNode,
     PatternStep,
+    ProductContractNode,
     QoSPolicyNode,
     RepairStrategyNode,
     ScenarioProfileNode,
@@ -291,6 +292,50 @@ class Neo4jKGRepository(KGRepository):
                         str(profile.get("qosPolicyId")) if profile.get("qosPolicyId") is not None else None
                     ),
                     metadata=self._parse_metadata_json(profile.get("metadataJson")),
+                )
+            )
+        return result
+
+    def get_product_contracts(self, disaster_type: Optional[str]) -> List[ProductContractNode]:
+        rows = self._execute(
+            f"""
+            MATCH (contract:ProductContract:{MANAGED_LABEL})
+            WHERE contract.graphNamespace = $graph_namespace
+              AND (
+                $disaster_type IS NULL
+                OR $disaster_type IN contract.disasterTypes
+                OR "generic" IN contract.disasterTypes
+              )
+            RETURN contract
+            ORDER BY contract.contractId ASC
+            """,
+            **self._with_namespace(disaster_type=(disaster_type or None)),
+        )
+        result: List[ProductContractNode] = []
+        for row in rows:
+            contract = row["contract"]
+            result.append(
+                ProductContractNode(
+                    contract_id=str(contract.get("contractId")),
+                    contract_name=str(contract.get("contractName", contract.get("contractId"))),
+                    product_type=str(contract.get("productType", "")),
+                    disaster_types=list(contract.get("disasterTypes", [])),
+                    response_phases=list(contract.get("responsePhases", [])),
+                    layer_requirements=self._parse_json_list(contract.get("layerRequirementsJson")),
+                    scenario_profile_ids=list(contract.get("scenarioProfileIds", [])),
+                    task_bundle_ids=list(contract.get("taskBundleIds", [])),
+                    task_ids=list(contract.get("taskIds", [])),
+                    output_requirement_ids=list(contract.get("outputRequirementIds", [])),
+                    qos_policy_ids=list(contract.get("qosPolicyIds", [])),
+                    repair_strategy_ids=list(contract.get("repairStrategyIds", [])),
+                    component_contract_ids=list(contract.get("componentContractIds", [])),
+                    quality_gates=list(contract.get("qualityGates", [])),
+                    evidence_requirements=list(contract.get("evidenceRequirements", [])),
+                    degradation_policy=self._parse_metadata_json(contract.get("degradationPolicyJson")),
+                    gap_declaration_policy=self._parse_metadata_json(contract.get("gapDeclarationPolicyJson")),
+                    delivery_policy=self._parse_metadata_json(contract.get("deliveryPolicyJson")),
+                    satisfaction_states=list(contract.get("satisfactionStates", [])),
+                    metadata=self._parse_metadata_json(contract.get("metadataJson")),
                 )
             )
         return result
@@ -751,6 +796,10 @@ class Neo4jKGRepository(KGRepository):
               CALL db.index.fulltext.queryNodes("ds_search", $query) YIELD node, score
               WITH node, score WHERE $managed_label IN labels(node) AND node.graphNamespace = $graph_namespace
               RETURN "data_source" AS kind, node.sourceId AS id, node.sourceName AS label, score
+              UNION
+              CALL db.index.fulltext.queryNodes("product_contract_search", $query) YIELD node, score
+              WITH node, score WHERE $managed_label IN labels(node) AND node.graphNamespace = $graph_namespace
+              RETURN "product_contract" AS kind, node.contractId AS id, node.contractName AS label, score
             }}
             RETURN kind, id, label, score
             ORDER BY score DESC
@@ -964,6 +1013,7 @@ class Neo4jKGRepository(KGRepository):
             ),
             task_nodes=self.list_task_nodes(),
             scenario_profiles=self.get_scenario_profiles(disaster_type),
+            product_contracts=self.get_product_contracts(disaster_type),
             task_bundles=task_bundles,
             output_requirements=output_requirements,
             qos_policies={policy.policy_id: policy for policy in self.list_qos_policies()},
@@ -991,3 +1041,17 @@ class Neo4jKGRepository(KGRepository):
             discovered.update(next_frontier)
             frontier = next_frontier
         return discovered
+
+    @staticmethod
+    def _parse_json_list(value: object) -> list[dict[str, object]]:
+        if isinstance(value, list):
+            return [dict(item) for item in value if isinstance(item, dict)]
+        if not isinstance(value, str) or not value:
+            return []
+        try:
+            parsed = json.loads(value)
+        except (TypeError, ValueError, json.JSONDecodeError):
+            return []
+        if not isinstance(parsed, list):
+            return []
+        return [dict(item) for item in parsed if isinstance(item, dict)]

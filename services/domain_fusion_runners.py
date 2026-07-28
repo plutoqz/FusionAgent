@@ -205,12 +205,23 @@ def run_road_tile(
         or paths.get("raw.overture.road")
         or paths.get("OVERTURE")
     )
-    if base_path is None or supplement_path is None:
+    if base_path is None:
         return _empty_output(output_dir, "road_fused", target_crs), {
             "algorithm_id": "algo.fusion.road.conflation.v7",
             "warning": "missing road source",
         }
     base = _read(base_path, target_crs)
+    if supplement_path is None:
+        output = _fill_missing_source_id(base, "raw.osm.road")
+        if "fusion_source" not in output.columns:
+            output["fusion_source"] = "base_road_network"
+        if "match_role" not in output.columns:
+            output["match_role"] = "base_single_source"
+        return _write(output, output_dir, "road_fused", target_crs), {
+            "algorithm_id": "algo.fusion.road.conflation.v7",
+            "stats": {"final_count": int(len(output)), "mode": "single_source_fallback"},
+            "warnings": ["missing supplement road source; emitted base road network"],
+        }
     supplement = _read(supplement_path, target_crs)
     if base.empty and supplement.empty:
         return _empty_output(output_dir, "road_fused", target_crs), {
@@ -238,14 +249,22 @@ def run_water_polygon_tile(
     paths = _polygon_source_paths(sources)
     base_path = paths.get("raw.osm.water") or paths.get("OSM")
     supplement_path = paths.get("raw.hydrolakes.water") or paths.get("raw.local.water") or paths.get("HYDROLAKES") or paths.get("LOCAL_WATER")
-    if base_path is None or supplement_path is None:
+    if base_path is None:
         return _empty_output(output_dir, "water_polygon_fused", target_crs, {"source_id": "object", "feature_kind": "object"}), {
             "algorithm_id": "algo.fusion.water_polygon.priority_merge.v2",
-            "warning": "missing water polygon source",
+            "warning": "missing base water polygon source",
         }
     base_source_id = _source_id_from_path(paths, ("raw.osm.water",))
-    supplement_source_id = _source_id_from_path(paths, ("raw.hydrolakes.water", "raw.local.water"))
     base = _fill_missing_source_id(_read(base_path, target_crs), base_source_id)
+    if supplement_path is None:
+        if not base.empty:
+            base["feature_kind"] = "polygon"
+        return _write(base, output_dir, "water_polygon_fused", target_crs), {
+            "algorithm_id": "algo.fusion.water_polygon.priority_merge.v2",
+            "stats": {"final_count": int(len(base)), "mode": "single_source_fallback"},
+            "warnings": ["missing HydroLAKES reference; emitted OSM water polygon baseline"],
+        }
+    supplement_source_id = _source_id_from_path(paths, ("raw.hydrolakes.water", "raw.local.water"))
     supplement = _fill_missing_source_id(_read(supplement_path, target_crs), supplement_source_id)
     params = params_from_mapping(WaterPolygonFusionParams, parameters)
     fused = fuse_water_polygons(base, supplement, params)
@@ -369,8 +388,16 @@ def run_poi_tile(
     if "canonical_id" not in fused.columns or "canonical_name" not in fused.columns or "canonical_category" not in fused.columns:
         source_id = str(fused["source_id"].iloc[0]) if "source_id" in fused.columns and not fused.empty else "poi"
         fused = _fill_poi_provenance(fused, source_id=source_id)
-    return _write(fused, output_dir, "poi_fused", target_crs), {
+    stats: dict[str, Any] = {"final_count": int(len(fused)), "source_count": len(ordered_sources)}
+    warnings: list[str] = []
+    if len(ordered_sources) == 1:
+        stats["mode"] = "single_source_fallback"
+        warnings.append("missing supplement POI source; emitted available POI source")
+    payload: dict[str, Any] = {
         "algorithm_id": "algo.fusion.poi.geohash_neighbor_match.v1",
-        "stats": {"final_count": int(len(fused)), "source_count": len(ordered_sources)},
+        "stats": stats,
         "source_priority_order": list(params.source_priority_order),
     }
+    if warnings:
+        payload["warnings"] = warnings
+    return _write(fused, output_dir, "poi_fused", target_crs), payload

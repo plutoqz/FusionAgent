@@ -30,6 +30,9 @@ def test_bootstrap_cypher_contains_schema_and_seed_entities() -> None:
     assert "MERGE (ds:DataSource" in cypher
     assert "MERGE (dt:DataType" in cypher
     assert "MERGE (tb:TaskBundle" in cypher
+    assert "MERGE (contract:ProductContract" in cypher
+    assert "REQUIRES_OUTPUT_REQUIREMENT" in cypher
+    assert "COMPOSED_OF" in cypher
     assert "MERGE (qos:QoSPolicy" in cypher
     assert "MERGE (orq:OutputRequirement" in cypher
     assert "MERGE (dn:DataNeed" in cypher
@@ -197,6 +200,7 @@ def test_expected_seed_inventory_matches_static_bootstrap_contract() -> None:
         "DataType": 27,
         "Task": 11,
         "TaskBundle": 4,
+        "ProductContract": 6,
         "Algorithm": 33,
         "AlgorithmParameterSpec": 72,
         "DataSource": 32,

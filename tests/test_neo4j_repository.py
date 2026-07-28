@@ -7,6 +7,7 @@ from kg.models import (
     DurableLearningRecord,
     ExecutionFeedback,
     PatternStep,
+    ProductContractNode,
     WorkflowPatternNode,
 )
 from kg.neo4j_repository import Neo4jKGRepository
@@ -43,6 +44,91 @@ def test_execute_passes_parameters_dict_without_keyword_collision() -> None:
 
     assert rows == [{"ok": True}]
     assert captured == [("RETURN $query AS q, $limit AS n", {"query": "building flood", "limit": 5})]
+
+
+def test_get_product_contracts_maps_structured_policy_fields_from_fake_driver() -> None:
+    captured: list[tuple[str, object]] = []
+
+    class FakeSession:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def run(self, cypher: str, parameters=None, **kwargs):
+            captured.append((cypher, parameters))
+            return [
+                {
+                    "contract": {
+                        "contractId": "contract.product.building.v1",
+                        "contractName": "Fused Building Footprint Product",
+                        "productType": "building_multi_source_vector_fusion",
+                        "disasterTypes": ["generic", "flood"],
+                        "responsePhases": ["rapid_response"],
+                        "layerRequirementsJson": (
+                            '[{"layer_kind":"building","criticality":"required",'
+                            '"output_requirement_id":"or.building.fused.v1"}]'
+                        ),
+                        "scenarioProfileIds": ["scenario.flood.default"],
+                        "taskBundleIds": ["task_bundle.flood.building_road"],
+                        "taskIds": ["task.building.fusion"],
+                        "outputRequirementIds": ["or.building.fused.v1"],
+                        "qosPolicyIds": ["qos.scenario.flood.v1"],
+                        "repairStrategyIds": ["repair.source_fallback.v1"],
+                        "componentContractIds": [],
+                        "qualityGates": ["geometry_validity_checked"],
+                        "evidenceRequirements": ["source_provenance"],
+                        "degradationPolicyJson": '{"provisional_delivery_allowed":true}',
+                        "gapDeclarationPolicyJson": '{"treat_as_product_output":true}',
+                        "deliveryPolicyJson": '{"supersession_must_be_recorded":true}',
+                        "satisfactionStates": ["fully_satisfied", "partially_satisfied"],
+                        "metadataJson": '{"ontology_scope":"layer_product"}',
+                    }
+                }
+            ]
+
+    class FakeDriver:
+        def session(self, database=None):
+            return FakeSession()
+
+    repo = Neo4jKGRepository.__new__(Neo4jKGRepository)
+    repo._driver = FakeDriver()
+    repo.database = None
+    repo.graph_namespace = GRAPH_NAMESPACE
+
+    contracts = repo.get_product_contracts("flood")
+
+    assert contracts == [
+        ProductContractNode(
+            contract_id="contract.product.building.v1",
+            contract_name="Fused Building Footprint Product",
+            product_type="building_multi_source_vector_fusion",
+            disaster_types=["generic", "flood"],
+            response_phases=["rapid_response"],
+            layer_requirements=[
+                {
+                    "layer_kind": "building",
+                    "criticality": "required",
+                    "output_requirement_id": "or.building.fused.v1",
+                }
+            ],
+            scenario_profile_ids=["scenario.flood.default"],
+            task_bundle_ids=["task_bundle.flood.building_road"],
+            task_ids=["task.building.fusion"],
+            output_requirement_ids=["or.building.fused.v1"],
+            qos_policy_ids=["qos.scenario.flood.v1"],
+            repair_strategy_ids=["repair.source_fallback.v1"],
+            quality_gates=["geometry_validity_checked"],
+            evidence_requirements=["source_provenance"],
+            degradation_policy={"provisional_delivery_allowed": True},
+            gap_declaration_policy={"treat_as_product_output": True},
+            delivery_policy={"supersession_must_be_recorded": True},
+            satisfaction_states=["fully_satisfied", "partially_satisfied"],
+            metadata={"ontology_scope": "layer_product"},
+        )
+    ]
+    assert captured[0][1] == {"disaster_type": "flood", "graph_namespace": GRAPH_NAMESPACE}
 
 
 def test_get_parameter_specs_maps_rows_from_fake_driver() -> None:

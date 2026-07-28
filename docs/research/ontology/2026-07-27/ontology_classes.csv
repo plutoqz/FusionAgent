@@ -1,0 +1,16 @@
+﻿ontology_id,label,description,lifecycle,primary_id_field,manifest_section,entity_count,conceptual_layers,agent_layers
+algorithm,算法能力,描述算法可接受的输入、产生的输出、解决的任务、工具实现、可靠性和替代算法。,seed,algo_id,algorithms,33,data_algorithm_task_capability,reasoning_planning;audit_evolution
+data_need,数据需求,明确任务所需或产生的数据类型、方向和必需性，将任务语义连接到数据类型。,seed,need_id,data_needs,12,data_algorithm_task_capability,validation_policy
+data_source,数据源,表示可获取或上传的数据来源，记录支持的数据类型、灾种、作业类型、几何类型、新鲜度和质量。,seed,source_id,data_sources,32,data_algorithm_task_capability,action_healing;audit_evolution
+data_type,数据类型,定义图谱中可被算法、数据源和工作流消费或产生的数据语义、主题和几何类型。,seed,type_id,data_types,27,data_algorithm_task_capability,action_healing
+durable_learning_summary,持久学习摘要,由运行记录聚合得到的动态实体，表达条件化成功率、质量门通过率、时延、趋势和规划调整量。当前 seed 中无静态实例。,runtime-derived,entity_kind + entity_id + condition_key,,0,validation_repair_and_evidence,audit_evolution
+output_requirement,输出要求,规定任务必须交付的输出类型、字段层级和对应模式策略，为产品契约和工作流提供可验证的交付目标。,seed,requirement_id,output_requirements,5,product_contract_and_delivery;validation_repair_and_evidence,validation_policy
+output_schema_policy,输出模式策略,规定输出字段保留、必需字段、可选字段、重命名提示和兼容性判断方式。,seed,policy_id,output_schema_policies,5,product_contract_and_delivery;validation_repair_and_evidence,validation_policy
+parameter_spec,参数规范,规定算法参数的类型、默认值、范围、单位、可选值、可调性和默认值来源。,seed,spec_id,parameter_specs,72,data_algorithm_task_capability,validation_policy
+product_contract,产品契约,把数据产品要求建模为一等图谱实体，统一表达图层要求、质量门、满足状态、证据要求、降级、缺口声明、交付和产品组成策略。,seed,contract_id,product_contracts,6,product_contract_and_delivery;validation_repair_and_evidence,perception;validation_policy
+qos_policy,服务质量策略,表达时延、成功率及质量维度权重，用于场景默认、产品契约和任务编排的质量权衡。,seed,policy_id,qos_policies,4,product_contract_and_delivery;validation_repair_and_evidence,validation_policy
+repair_strategy,修复策略,描述执行失败后的替代数据源、替代算法或其他恢复路径，并绑定原因码和适用任务。,seed,strategy_id,repair_strategies,2,validation_repair_and_evidence,action_healing
+scenario_profile,场景处境,描述灾种、响应阶段和任务处境，给出激活任务、输出字段偏好与默认 QoS，是契约选择和规划检索的上层语境。,seed,profile_id,scenario_profiles,4,context_and_situation,perception
+task,任务,表示规划和执行要完成的业务任务，是场景、契约、数据需求、算法能力和工作流模式之间的枢纽。,seed,task_id,tasks,11,data_algorithm_task_capability,reasoning_planning
+task_bundle,任务编排包,将一组任务、输出要求、QoS、数据需求和修复策略组合成可检索、可规划的编排单元。,seed,bundle_id,task_bundles,4,context_and_situation,perception;reasoning_planning
+workflow_pattern,工作流模式,定义面向作业类型和灾种的多步骤算法执行模式，包含步骤依赖、数据源、参数和成功率。,seed,pattern_id,workflow_patterns,15,data_algorithm_task_capability,reasoning_planning;audit_evolution
