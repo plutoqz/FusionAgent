@@ -1,18 +1,19 @@
-# Pasted / Historical Documents
+# 粘贴与历史材料
 
-This folder stores historical, superseded, or conversation-handoff documents that should remain available for traceability but should not be treated as the current research or engineering plan.
+> 状态：historical，非权威
 
-Current authoritative research guidance lives in:
+本目录保存外部粘贴内容、旧研究笔记、旧论文草稿和会话交接记录，仅用于来源追溯和挖掘历史实现细节。
 
-- `docs/thesis/research_direction_guide_2026-07-09.md`
-- `docs/thesis/product_contract_spec.md`
-- `docs/thesis/experiment_case_matrix.md`
+当前权威入口：
 
-## Folder Policy
+- [`docs/README.md`](../README.md)
+- [`docs/current/project-status.md`](../current/project-status.md)
+- [`docs/current/claims-and-priorities.md`](../current/claims-and-priorities.md)
 
-- `conversation-handoffs/`: prior AI-session handoff records and summaries.
-- `legacy-research-notes/`: older research notes superseded by the current product-contract direction.
-- `legacy-thesis/`: thesis or experiment drafts superseded by the current research framing.
+目录约定：
 
-Do not delete archived files during cleanup. Move documents here when they are useful for provenance but no longer guide current work.
+- `conversation-handoffs/`：历史 AI 会话交接。
+- `legacy-research-notes/`：已被当前产品契约方向替代的研究笔记。
+- `legacy-thesis/`：已被当前论文口径替代的论文或实验草稿。
 
+不要从本目录恢复一个“当前计划”而不先核对 `docs/current/`、代码、测试和冻结证据。历史内容原则上保持原貌；需要纠正时，在当前文档中说明替代关系。

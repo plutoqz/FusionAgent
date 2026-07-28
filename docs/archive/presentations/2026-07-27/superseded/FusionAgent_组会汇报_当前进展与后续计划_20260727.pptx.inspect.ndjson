@@ -1,0 +1,225 @@
+{"kind":"deck","id":"pr/mfm9yo","name":"Deck"}
+{"kind":"layout","layoutId":"1639844f-d0a9-47ca-b061-ddad5e0d01d5","name":"Master","type":"master"}
+{"kind":"layout","layoutId":"e7df035f-6759-4476-8d09-201e6f70c16a","name":"Title Slide","type":"title"}
+{"kind":"slide","id":"sl/uj28lr","slide":1,"title":"硕士课题组会汇报","textShapes":4}
+{"kind":"textbox","id":"sh/725wbi50","slide":1,"name":"eyebrow","text":"硕士课题组会汇报","textPreview":"硕士课题组会汇报","textChars":8,"textLines":1,"bbox":[56,48,420,40]}
+{"kind":"textbox","id":"sh/83exkn65","slide":1,"name":"deck-title","text":"FusionAgent 当前进展\n与后续研究计划","textPreview":"FusionAgent 当前进展 | 与后续研究计划","textChars":24,"textLines":2,"bbox":[56,175,880,220]}
+{"kind":"textbox","id":"sh/t47ed8nq","slide":1,"name":"deck-subtitle","text":"重点：契约化知识图谱、数据产品生成与证据化验收","textPreview":"重点：契约化知识图谱、数据产品生成与证据化验收","textChars":23,"textLines":1,"bbox":[56,445,900,54]}
+{"kind":"shape","id":"sh/ydwveto3","slide":1,"name":"accent-blue","bbox":[1020,165,150,92]}
+{"kind":"shape","id":"sh/je5wny5o","slide":1,"name":"accent-teal","bbox":[1020,277,150,92]}
+{"kind":"shape","id":"sh/kzexg369","slide":1,"name":"accent-orange","bbox":[1020,389,150,92]}
+{"kind":"textbox","id":"sh/l0nep8nu","slide":1,"name":"date","text":"2026 年 7 月","textPreview":"2026 年 7 月","textChars":10,"textLines":1,"bbox":[56,630,260,30]}
+{"kind":"notes","id":"nt/uj28lr","slide":1,"text":"[Sources]\n- D:/code/FusionAgent/docs/thesis/research_direction_guide_2026-07-09.md"}
+{"kind":"slide","id":"sl/6z30pm","slide":2,"title":"研究核心：让知识图谱成为数据产品决策空间","textShapes":12}
+{"kind":"textbox","id":"sh/uh0v61g7","slide":2,"name":"title-2","text":"研究核心：让知识图谱成为数据产品决策空间","textPreview":"研究核心：让知识图谱成为数据产品决策空间","textChars":20,"textLines":1,"bbox":[56,34,1168,62]}
+{"kind":"shape","id":"sh/hkbu1gfi","slide":2,"name":"title-line-2","bbox":[56,106,1168,0]}
+{"kind":"textbox","id":"sh/gj2d8bex","slide":2,"name":"label-研究定位-56-135","text":"研究定位","textPreview":"研究定位","textChars":4,"textLines":1,"bbox":[56,135,180,30]}
+{"kind":"textbox","id":"sh/7u9cvmxg","slide":2,"name":"focus","text":"面向灾害应急数据产品，统一表达任务需求、数据能力、质量要求、降级规则与证据关系，并约束智能规划和执行。","textPreview":"面向灾害应急数据产品，统一表达任务需求、数据能力、质量要求、降级规则与证据关系，并约束智能规划和执行。","textChars":51,"textLines":1,"bbox":[56,180,520,160]}
+{"kind":"shape","id":"sh/6t0v2hgv","slide":2,"name":"rq-bg","bbox":[650,145,555,455]}
+{"kind":"textbox","id":"sh/tgruxwfm","slide":2,"name":"qnum-1","text":"1","textPreview":"1","textChars":1,"textLines":1,"bbox":[680,175,46,46]}
+{"kind":"textbox","id":"sh/svid4ry1","slide":2,"name":"q-1","text":"如何把应急数据需求形式化为可执行、可验收的知识？","textPreview":"如何把应急数据需求形式化为可执行、可验收的知识？","textChars":24,"textLines":1,"bbox":[750,173,415,80]}
+{"kind":"textbox","id":"sh/jqpcrmxk","slide":2,"name":"qnum-2","text":"2","textPreview":"2","textChars":1,"textLines":1,"bbox":[680,307,46,46]}
+{"kind":"textbox","id":"sh/ipgbyhgz","slide":2,"name":"q-2","text":"知识图谱约束下的规划，能否比固定规则或简单排序更合理？","textPreview":"知识图谱约束下的规划，能否比固定规则或简单排序更合理？","textChars":27,"textLines":1,"bbox":[750,305,415,80]}
+{"kind":"textbox","id":"sh/or2pgfip","slide":2,"name":"qnum-3","text":"3","textPreview":"3","textChars":1,"textLines":1,"bbox":[680,439,46,46]}
+{"kind":"textbox","id":"sh/pcb69kza","slide":2,"name":"q-3","text":"系统能否正确判断完整交付、降级交付和不可满足状态？","textPreview":"系统能否正确判断完整交付、降级交付和不可满足状态？","textChars":25,"textLines":1,"bbox":[750,437,415,80]}
+{"kind":"textbox","id":"sh/2pk7e50j","slide":2,"name":"focus-boundary","text":"研究重点不在提出新的融合算法，也不把通用大模型智能或生产级部署作为当前主张。","textPreview":"研究重点不在提出新的融合算法，也不把通用大模型智能或生产级部署作为当前主张。","textChars":38,"textLines":1,"bbox":[56,560,540,72]}
+{"kind":"textbox","id":"sh/nqto7ah4","slide":2,"name":"footer-2","text":"FusionAgent 研究进展 | 2026.07.27","textPreview":"FusionAgent 研究进展 | 2026.07.27","textChars":29,"textLines":1,"bbox":[56,674,400,22]}
+{"kind":"textbox","id":"sh/0nipcvid","slide":2,"name":"page-2","text":"2","textPreview":"2","textChars":1,"textLines":1,"bbox":[1184,674,40,22]}
+{"kind":"notes","id":"nt/6z30pm","slide":2,"text":"[Sources]\n- D:/code/FusionAgent/docs/thesis/research_direction_guide_2026-07-09.md#L28-L37\n- D:/code/FusionAgent/docs/thesis/research_direction_guide_2026-07-09.md#L629-L640"}
+{"kind":"slide","id":"sl/01vkqc","slide":3,"title":"当前已完成可运行基线，研究论证仍需补齐","textShapes":16}
+{"kind":"textbox","id":"sh/eh4ji987","slide":3,"name":"title-3","text":"当前已完成可运行基线，研究论证仍需补齐","textPreview":"当前已完成可运行基线，研究论证仍需补齐","textChars":19,"textLines":1,"bbox":[56,34,1168,62]}
+{"kind":"shape","id":"sh/14v2do7y","slide":3,"name":"title-line-3","bbox":[56,106,1168,0]}
+{"kind":"shape","id":"sh/g3m1kjqd","slide":3,"name":"timeline-line","bbox":[130,260,900,0]}
+{"kind":"shape","id":"sh/retk7upw","slide":3,"name":"timeline-dot-0","bbox":[90,240,40,40]}
+{"kind":"textbox","id":"sh/6dkjep8b","slide":3,"name":"timeline-label-0","text":"能力知识建模","textPreview":"能力知识建模","textChars":6,"textLines":1,"bbox":[65,165,190,46]}
+{"kind":"textbox","id":"sh/tgv29472","slide":3,"name":"timeline-state-0","text":"已完成","textPreview":"已完成","textChars":3,"textLines":1,"bbox":[65,295,170,38]}
+{"kind":"textbox","id":"sh/sf21gzqh","slide":3,"name":"timeline-body-0","text":"算法、数据源、数据类型、参数和工作流已经进入统一知识库。","textPreview":"算法、数据源、数据类型、参数和工作流已经进入统一知识库。","textChars":28,"textLines":1,"bbox":[65,345,220,190]}
+{"kind":"shape","id":"sh/baxkjyp0","slide":3,"name":"timeline-dot-1","bbox":[370,240,40,40]}
+{"kind":"textbox","id":"sh/q9ojqt8f","slide":3,"name":"timeline-label-1","text":"执行闭环","textPreview":"执行闭环","textChars":4,"textLines":1,"bbox":[345,165,190,46]}
+{"kind":"textbox","id":"sh/wfm94r6p","slide":3,"name":"timeline-state-1","text":"已完成","textPreview":"已完成","textChars":3,"textLines":1,"bbox":[345,295,170,38]}
+{"kind":"textbox","id":"sh/xgvadwna","slide":3,"name":"timeline-body-1","text":"检索、规划、校验、执行、质量检查和证据记录已连通。","textPreview":"检索、规划、校验、执行、质量检查和证据记录已连通。","textChars":25,"textLines":1,"bbox":[345,345,220,190]}
+{"kind":"shape","id":"sh/ad4r2hoz","slide":3,"name":"timeline-dot-2","bbox":[650,240,40,40]}
+{"kind":"textbox","id":"sh/vedsbm5k","slide":3,"name":"timeline-label-2","text":"真实数据验证","textPreview":"真实数据验证","textChars":6,"textLines":1,"bbox":[625,165,190,46]}
+{"kind":"textbox","id":"sh/8bm9076t","slide":3,"name":"timeline-state-2","text":"已完成基线","textPreview":"已完成基线","textChars":5,"textLines":1,"bbox":[625,295,170,38]}
+{"kind":"textbox","id":"sh/9cva9c7e","slide":3,"name":"timeline-body-2","text":"C02/C04/C06 使用真实外部矢量数据和真实融合算法跑通。","textPreview":"C02/C04/C06 使用真实外部矢量数据和真实融合算法跑通。","textChars":32,"textLines":1,"bbox":[625,345,220,190]}
+{"kind":"shape","id":"sh/m94ryxon","slide":3,"name":"timeline-dot-3","bbox":[930,240,40,40]}
+{"kind":"textbox","id":"sh/nads72p8","slide":3,"name":"timeline-label-3","text":"对照实验","textPreview":"对照实验","textChars":4,"textLines":1,"bbox":[905,165,190,46]}
+{"kind":"textbox","id":"sh/0729w76x","slide":3,"name":"timeline-state-3","text":"待推进","textPreview":"待推进","textChars":3,"textLines":1,"bbox":[905,295,170,38]}
+{"kind":"textbox","id":"sh/l8ba5s72","slide":3,"name":"timeline-body-3","text":"五类方法的统一运行与系统对比尚未完成","textPreview":"五类方法的统一运行与系统对比尚未完成","textChars":18,"textLines":1,"bbox":[905,345,220,190]}
+{"kind":"textbox","id":"sh/143q9oz6","slide":3,"name":"progress-conclusion","text":"当前关键任务：把“已经能运行”转化为“能够证明知识图谱设计有效”。","textPreview":"当前关键任务：把“已经能运行”转化为“能够证明知识图谱设计有效”。","textChars":33,"textLines":1,"bbox":[56,590,1168,50]}
+{"kind":"textbox","id":"sh/03up0jyl","slide":3,"name":"footer-3","text":"FusionAgent 研究进展 | 2026.07.27","textPreview":"FusionAgent 研究进展 | 2026.07.27","textChars":29,"textLines":1,"bbox":[56,674,400,22]}
+{"kind":"textbox","id":"sh/f2l87eh0","slide":3,"name":"page-3","text":"3","textPreview":"3","textChars":1,"textLines":1,"bbox":[1184,674,40,22]}
+{"kind":"notes","id":"nt/01vkqc","slide":3,"text":"[Sources]\n- D:/code/FusionAgent/docs/superpowers/specs/2026-06-10-research-contribution-ledger.md\n- D:/code/FusionAgent/docs/thesis/manifests/2026-07-20-c02-c04-c06-real-data.json"}
+{"kind":"slide","id":"sl/l8bc8f","slide":4,"title":"现有知识图谱已覆盖主要运行能力","textShapes":6}
+{"kind":"textbox","id":"sh/ps3qdcb2","slide":4,"name":"title-4","text":"现有知识图谱已覆盖主要运行能力","textPreview":"现有知识图谱已覆盖主要运行能力","textChars":15,"textLines":1,"bbox":[56,34,1168,62]}
+{"kind":"shape","id":"sh/2pc72hsb","slide":4,"name":"title-line-4","bbox":[56,106,1168,0]}
+{"kind":"textbox","id":"sh/nql8bmtw","slide":4,"name":"kg-count-intro","text":"当前冻结知识清单不是概念草图，已经作为程序检索、规划和校验的实际输入。","textPreview":"当前冻结知识清单不是概念草图，已经作为程序检索、规划和校验的实际输入。","textChars":35,"textLines":1,"bbox":[56,125,720,52]}
+{"kind":"shape","id":"sh/xwnqhwby","slide":4,"name":"kg-meaning","bbox":[805,190,400,410]}
+{"kind":"textbox","id":"sh/atc76hs7","slide":4,"name":"kg-meaning-title","text":"已经能够支撑","textPreview":"已经能够支撑","textChars":6,"textLines":1,"bbox":[835,220,330,42]}
+{"kind":"textbox","id":"sh/bul8fmts","slide":4,"name":"kg-meaning-body","text":"• 查询可用算法和数据源\n\n• 检查算法输入输出是否匹配\n\n• 提供候选工作流程和参数约束\n\n• 屏蔽保留、废弃或不可执行能力\n\n• 为规划和运行生成可追溯路径","textPreview":"• 查询可用算法和数据源 |  | • 检查算法输入输出是否匹配 |  | • 提供候选工作流程和参数约束 |  | • 屏蔽保留、废弃或不可执行能力 |  | • 为规划和运行生成可追溯路径","textChars":80,"textLines":9,"bbox":[835,285,330,270]}
+{"kind":"textbox","id":"sh/kje9crap","slide":4,"name":"footer-4","text":"FusionAgent 研究进展 | 2026.07.27","textPreview":"FusionAgent 研究进展 | 2026.07.27","textChars":29,"textLines":1,"bbox":[56,674,400,22]}
+{"kind":"textbox","id":"sh/lknqlwbu","slide":4,"name":"page-4","text":"4","textPreview":"4","textChars":1,"textLines":1,"bbox":[1184,674,40,22]}
+{"kind":"chart","id":"ch/cbix4f2d","slide":4,"name":"","chartType":"bar","bbox":[56,200,690,380]}
+{"kind":"notes","id":"nt/l8bc8f","slide":4,"text":"[Sources]\n- D:/code/FusionAgent/kg/seed_manifest.generated.json\n- D:/code/FusionAgent/kg/models.py"}
+{"kind":"slide","id":"sl/ynpyxl","slide":5,"title":"下一步要把能力图谱升级为产品契约图谱","textShapes":16}
+{"kind":"textbox","id":"sh/ixon2543","slide":5,"name":"title-5","text":"下一步要把能力图谱升级为产品契约图谱","textPreview":"下一步要把能力图谱升级为产品契约图谱","textChars":18,"textLines":1,"bbox":[56,34,1168,62]}
+{"kind":"shape","id":"sh/5kf6xknu","slide":5,"name":"title-line-5","bbox":[56,106,1168,0]}
+{"kind":"shape","id":"sh/4z654fm9","slide":5,"name":"layer-0","bbox":[120,155,1040,82]}
+{"kind":"textbox","id":"sh/rmhoza5k","slide":5,"name":"layer-title-0","text":"灾害与任务处境","textPreview":"灾害与任务处境","textChars":7,"textLines":1,"bbox":[144,173,230,45]}
+{"kind":"textbox","id":"sh/ql876p4f","slide":5,"name":"layer-desc-0","text":"灾害类型、响应阶段、区域范围、时间和资源条件","textPreview":"灾害类型、响应阶段、区域范围、时间和资源条件","textChars":22,"textLines":1,"bbox":[410,172,540,48]}
+{"kind":"textbox","id":"sh/doz61knq","slide":5,"name":"layer-status-0","text":"部分完成","textPreview":"部分完成","textChars":4,"textLines":1,"bbox":[970,175,165,42]}
+{"kind":"shape","id":"sh/snqp8fm5","slide":5,"name":"layer-1","bbox":[120,260,1040,82]}
+{"kind":"textbox","id":"sh/7qdonq5g","slide":5,"name":"layer-title-1","text":"数据产品要求","textPreview":"数据产品要求","textChars":6,"textLines":1,"bbox":[144,278,230,45]}
+{"kind":"textbox","id":"sh/6p4nul4v","slide":5,"name":"layer-desc-1","text":"必需图层、质量下限、交付等级、降级与缺口规则","textPreview":"必需图层、质量下限、交付等级、降级与缺口规则","textChars":22,"textLines":1,"bbox":[410,277,540,48]}
+{"kind":"textbox","id":"sh/8bm1gfy9","slide":5,"name":"layer-status-1","text":"当前核心缺口","textPreview":"当前核心缺口","textChars":6,"textLines":1,"bbox":[970,280,165,42]}
+{"kind":"shape","id":"sh/tcvi90ze","slide":5,"name":"layer-2","bbox":[120,365,1040,82]}
+{"kind":"textbox","id":"sh/694je5g3","slide":5,"name":"layer-title-2","text":"算法与数据能力","textPreview":"算法与数据能力","textChars":7,"textLines":1,"bbox":[144,383,230,45]}
+{"kind":"textbox","id":"sh/7ad07aho","slide":5,"name":"layer-desc-2","text":"数据源、数据类型、算法、参数、转换路径和工作流程","textPreview":"数据源、数据类型、算法、参数、转换路径和工作流程","textChars":24,"textLines":1,"bbox":[410,382,540,48]}
+{"kind":"textbox","id":"sh/gz61kfy5","slide":5,"name":"layer-status-2","text":"已较完整","textPreview":"已较完整","textChars":4,"textLines":1,"bbox":[970,385,165,42]}
+{"kind":"shape","id":"sh/h0f2dkzq","slide":5,"name":"layer-3","bbox":[120,470,1040,82]}
+{"kind":"textbox","id":"sh/ud4ji5gz","slide":5,"name":"layer-title-3","text":"执行结果与证据","textPreview":"执行结果与证据","textChars":7,"textLines":1,"bbox":[144,488,230,45]}
+{"kind":"textbox","id":"sh/vedkbahk","slide":5,"name":"layer-desc-3","text":"计划、产物、质量结果、失败原因、替代关系和来源追踪","textPreview":"计划、产物、质量结果、失败原因、替代关系和来源追踪","textChars":25,"textLines":1,"bbox":[410,487,540,48]}
+{"kind":"textbox","id":"sh/c3218vy1","slide":5,"name":"layer-status-3","text":"执行机制已完成，图谱表达不足","textPreview":"执行机制已完成，图谱表达不足","textChars":14,"textLines":1,"bbox":[970,490,165,42]}
+{"kind":"textbox","id":"sh/x4bihgzm","slide":5,"name":"layer-principle","text":"设计原则：知识图谱表达事实、约束和权衡关系，不直接写死每个场景的唯一结论。","textPreview":"设计原则：知识图谱表达事实、约束和权衡关系，不直接写死每个场景的唯一结论。","textChars":37,"textLines":1,"bbox":[56,590,1168,48]}
+{"kind":"textbox","id":"sh/d03y5cra","slide":5,"name":"footer-5","text":"FusionAgent 研究进展 | 2026.07.27","textPreview":"FusionAgent 研究进展 | 2026.07.27","textChars":29,"textLines":1,"bbox":[56,674,400,22]}
+{"kind":"textbox","id":"sh/czuhc7ap","slide":5,"name":"page-5","text":"5","textPreview":"5","textChars":1,"textLines":1,"bbox":[1184,674,40,22]}
+{"kind":"notes","id":"nt/ynpyxl","slide":5,"text":"[Sources]\n- D:/code/FusionAgent/docs/thesis/research_direction_guide_2026-07-09.md#L58-L89\n- D:/code/FusionAgent/docs/thesis/research_direction_guide_2026-07-09.md#L454-L489\n- D:/code/FusionAgent/docs/thesis/product_contract_spec.md"}
+{"kind":"slide","id":"sl/r4qq2j","slide":6,"title":"知识已经进入规划、执行和验收链路","textShapes":13}
+{"kind":"textbox","id":"sh/6dgfa9kv","slide":6,"name":"title-6","text":"知识已经进入规划、执行和验收链路","textPreview":"知识已经进入规划、执行和验收链路","textChars":16,"textLines":1,"bbox":[56,34,1168,62]}
+{"kind":"shape","id":"sh/tgrelo3m","slide":6,"name":"title-line-6","bbox":[56,106,1168,0]}
+{"kind":"shape","id":"sh/8fixcj21","slide":6,"name":"loop-node-0","bbox":[70,230,155,90]}
+{"kind":"shape","id":"sh/v29wnylc","slide":6,"name":"loop-node-1","bbox":[275,230,165,90]}
+{"kind":"shape","id":"sh/uh0fetkr","slide":6,"name":"loop-node-2","bbox":[490,230,165,90]}
+{"kind":"shape","id":"sh/h4repo3i","slide":6,"name":"loop-node-3","bbox":[705,230,165,90]}
+{"kind":"shape","id":"sh/g3ixgj2x","slide":6,"name":"loop-node-4","bbox":[920,230,165,90]}
+{"kind":"shape","id":"sh/369wrylo","slide":6,"name":"loop-node-5","bbox":[1090,230,130,90]}
+{"kind":"shape","id":"sh/i50fitk3","slide":6,"bbox":[225,275,50,0]}
+{"kind":"shape","id":"sh/gbi5wra9","slide":6,"bbox":[440,275,50,0]}
+{"kind":"shape","id":"sh/1cr6pwru","slide":6,"bbox":[655,275,50,0]}
+{"kind":"shape","id":"sh/u9gnuhsj","slide":6,"bbox":[870,275,50,0]}
+{"kind":"shape","id":"sh/fa9onm9o","slide":6,"bbox":[1085,275,5,0]}
+{"kind":"textbox","id":"sh/ofip0ral","slide":6,"name":"loop-label-0","text":"任务需求","textPreview":"任务需求","textChars":4,"textLines":1,"bbox":[78,253,139,48]}
+{"kind":"textbox","id":"sh/pgr6twr6","slide":6,"name":"loop-label-1","text":"知识检索","textPreview":"知识检索","textChars":4,"textLines":1,"bbox":[283,253,149,48]}
+{"kind":"textbox","id":"sh/2d0nyhsf","slide":6,"name":"loop-label-2","text":"计划生成","textPreview":"计划生成","textChars":4,"textLines":1,"bbox":[498,253,149,48]}
+{"kind":"textbox","id":"sh/3e9orm90","slide":6,"name":"loop-label-3","text":"确定性校验","textPreview":"确定性校验","textChars":5,"textLines":1,"bbox":[713,253,149,48]}
+{"kind":"textbox","id":"sh/c32p4bah","slide":6,"name":"loop-label-4","text":"融合执行","textPreview":"融合执行","textChars":4,"textLines":1,"bbox":[928,253,149,48]}
+{"kind":"textbox","id":"sh/d4b6xgr2","slide":6,"name":"loop-label-5","text":"质量与证据","textPreview":"质量与证据","textChars":5,"textLines":1,"bbox":[1098,253,114,48]}
+{"kind":"shape","id":"sh/l076hwj6","slide":6,"name":"loop-done","bbox":[95,405,500,165]}
+{"kind":"textbox","id":"sh/kzy5oril","slide":6,"name":"loop-done-title","text":"已经具备","textPreview":"已经具备","textChars":4,"textLines":1,"bbox":[125,430,180,40]}
+{"kind":"textbox","id":"sh/zypof610","slide":6,"name":"loop-done-body","text":"检索候选、参数约束、运行准入、计划校验、失败修复、质量检查和运行路径记录。","textPreview":"检索候选、参数约束、运行准入、计划校验、失败修复、质量检查和运行路径记录。","textChars":37,"textLines":1,"bbox":[125,485,430,60]}
+{"kind":"shape","id":"sh/yxgnm1kv","slide":6,"name":"loop-gap","bbox":[685,405,500,165]}
+{"kind":"textbox","id":"sh/9or6lgji","slide":6,"name":"loop-gap-title","text":"尚未证明","textPreview":"尚未证明","textChars":4,"textLines":1,"bbox":[715,430,180,40]}
+{"kind":"textbox","id":"sh/8ny5sbix","slide":6,"name":"loop-gap-body","text":"完整产品契约知识能否在复杂处境下显著改善计划合理性，以及能否优于固定规则和简单排序。","textPreview":"完整产品契约知识能否在复杂处境下显著改善计划合理性，以及能否优于固定规则和简单排序。","textChars":42,"textLines":1,"bbox":[715,485,430,60]}
+{"kind":"textbox","id":"sh/7mpoj61c","slide":6,"name":"footer-6","text":"FusionAgent 研究进展 | 2026.07.27","textPreview":"FusionAgent 研究进展 | 2026.07.27","textChars":29,"textLines":1,"bbox":[56,674,400,22]}
+{"kind":"textbox","id":"sh/mlgnq10r","slide":6,"name":"page-6","text":"6","textPreview":"6","textChars":1,"textLines":1,"bbox":[1184,674,40,22]}
+{"kind":"notes","id":"nt/r4qq2j","slide":6,"text":"[Sources]\n- D:/code/FusionAgent/agent/retriever.py\n- D:/code/FusionAgent/agent/planner.py\n- D:/code/FusionAgent/agent/validator.py\n- D:/code/FusionAgent/services/runtime_contract_service.py"}
+{"kind":"slide","id":"sl/o8d5j5","slide":7,"title":"系统侧已经完成三类关键能力","textShapes":10}
+{"kind":"textbox","id":"sh/xori9wbq","slide":7,"name":"title-7","text":"系统侧已经完成三类关键能力","textPreview":"系统侧已经完成三类关键能力","textChars":13,"textLines":1,"bbox":[56,34,1168,62]}
+{"kind":"shape","id":"sh/al0zyhcz","slide":7,"name":"title-line-7","bbox":[56,106,1168,0]}
+{"kind":"shape","id":"sh/vm907mtk","slide":7,"name":"cap-top-0","bbox":[70,165,320,14]}
+{"kind":"textbox","id":"sh/kr214buh","slide":7,"name":"cap-title-0","text":"多源融合","textPreview":"多源融合","textChars":4,"textLines":1,"bbox":[70,205,320,55]}
+{"kind":"textbox","id":"sh/5sbidgbm","slide":7,"name":"cap-body-0","text":"建筑、道路、水体面、水系线和兴趣点\n\n使用真实外部矢量数据\n\n执行真实融合与质量计算","textPreview":"建筑、道路、水体面、水系线和兴趣点 |  | 使用真实外部矢量数据 |  | 执行真实融合与质量计算","textChars":42,"textLines":5,"bbox":[70,285,320,250]}
+{"kind":"shape","id":"sh/ipkj21cb","slide":7,"name":"cap-top-1","bbox":[440,165,320,14]}
+{"kind":"textbox","id":"sh/jqt0b6tw","slide":7,"name":"cap-title-1","text":"渐进式交付","textPreview":"渐进式交付","textChars":5,"textLines":1,"bbox":[440,205,320,55]}
+{"kind":"textbox","id":"sh/sf218bad","slide":7,"name":"cap-body-1","text":"先交付临时可用结果\n\n后续完整结果替代早期结果\n\n保留交付版本关系","textPreview":"先交付临时可用结果 |  | 后续完整结果替代早期结果 |  | 保留交付版本关系","textChars":33,"textLines":5,"bbox":[440,285,320,250]}
+{"kind":"shape","id":"sh/tgvihgby","slide":7,"name":"cap-top-2","bbox":[810,165,320,14]}
+{"kind":"textbox","id":"sh/lsnqdczi","slide":7,"name":"cap-title-2","text":"质量治理","textPreview":"质量治理","textChars":4,"textLines":1,"bbox":[810,205,320,55]}
+{"kind":"textbox","id":"sh/kru9k7yx","slide":7,"name":"cap-body-2","text":"全量融合不合格时显式失败\n\n保存失败质量证据\n\n允许合规的降级恢复","textPreview":"全量融合不合格时显式失败 |  | 保存失败质量证据 |  | 允许合规的降级恢复","textChars":33,"textLines":5,"bbox":[810,285,320,250]}
+{"kind":"textbox","id":"sh/jql8b2hc","slide":7,"name":"cap-result","text":"这些机制已经形成可运行原型，不再停留在方案设计。","textPreview":"这些机制已经形成可运行原型，不再停留在方案设计。","textChars":24,"textLines":1,"bbox":[56,590,1168,44]}
+{"kind":"textbox","id":"sh/ypcrihgr","slide":7,"name":"footer-7","text":"FusionAgent 研究进展 | 2026.07.27","textPreview":"FusionAgent 研究进展 | 2026.07.27","textChars":29,"textLines":1,"bbox":[56,674,400,22]}
+{"kind":"textbox","id":"sh/twnahwze","slide":7,"name":"page-7","text":"7","textPreview":"7","textChars":1,"textLines":1,"bbox":[1184,674,40,22]}
+{"kind":"notes","id":"nt/o8d5j5","slide":7,"text":"[Sources]\n- D:/code/FusionAgent/docs/thesis/product_contract_spec.md\n- D:/code/FusionAgent/docs/thesis/experiment_case_matrix.md\n- D:/code/FusionAgent/services/contract_experiment_service.py"}
+{"kind":"slide","id":"sl/wfk62l","slide":8,"title":"三个真实数据案例验证了契约执行机制","textShapes":13}
+{"kind":"textbox","id":"sh/czul0zap","slide":8,"name":"title-8","text":"三个真实数据案例验证了契约执行机制","textPreview":"三个真实数据案例验证了契约执行机制","textChars":17,"textLines":1,"bbox":[56,34,1168,62]}
+{"kind":"shape","id":"sh/byl4ret4","slide":8,"name":"title-line-8","bbox":[56,106,1168,0]}
+{"kind":"textbox","id":"sh/qxc3y9sj","slide":8,"name":"case-id-C02","text":"C02","textPreview":"C02","textChars":3,"textLines":1,"bbox":[70,170,95,52]}
+{"kind":"textbox","id":"sh/l4nmxob6","slide":8,"name":"case-title-C02","text":"洪水优先级","textPreview":"洪水优先级","textChars":5,"textLines":1,"bbox":[70,245,330,48]}
+{"kind":"textbox","id":"sh/k3el4jal","slide":8,"name":"case-body-C02","text":"水体、水系和道路优先；建筑明确延期，并保留缺口证据。","textPreview":"水体、水系和道路优先；建筑明确延期，并保留缺口证据。","textChars":26,"textLines":1,"bbox":[70,315,330,200]}
+{"kind":"textbox","id":"sh/z254vet0","slide":8,"name":"case-id-C04","text":"C04","textPreview":"C04","textChars":3,"textLines":1,"bbox":[460,170,95,52]}
+{"kind":"textbox","id":"sh/y1c329sv","slide":8,"name":"case-title-C04","text":"渐进式交付","textPreview":"渐进式交付","textChars":5,"textLines":1,"bbox":[460,245,330,48]}
+{"kind":"textbox","id":"sh/98nm1obi","slide":8,"name":"case-body-C04","text":"先生成临时水体产品；参考数据到达后生成最终结果并记录替代关系。","textPreview":"先生成临时水体产品；参考数据到达后生成最终结果并记录替代关系。","textChars":31,"textLines":1,"bbox":[460,315,330,200]}
+{"kind":"textbox","id":"sh/87e58jax","slide":8,"name":"case-id-C06","text":"C06","textPreview":"C06","textChars":3,"textLines":1,"bbox":[850,170,95,52]}
+{"kind":"textbox","id":"sh/yh47qxon","slide":8,"name":"case-title-C06","text":"质量失败恢复","textPreview":"质量失败恢复","textChars":6,"textLines":1,"bbox":[850,245,330,48]}
+{"kind":"textbox","id":"sh/j2x8j258","slide":8,"name":"case-body-C06","text":"双源道路融合未通过质量门；保留失败证据后，单源降级恢复成功。","textPreview":"双源道路融合未通过质量门；保留失败证据后，单源降级恢复成功。","textChars":30,"textLines":1,"bbox":[850,315,330,200]}
+{"kind":"textbox","id":"sh/k369s76t","slide":8,"name":"case-boundary","text":"实验边界：真实数据与真实融合算法；规划决策来自声明式案例配置，尚不是完整契约知识图谱自动推理结果。","textPreview":"实验边界：真实数据与真实融合算法；规划决策来自声明式案例配置，尚不是完整契约知识图谱自动推理结果。","textChars":49,"textLines":1,"bbox":[56,570,1168,70]}
+{"kind":"textbox","id":"sh/l4fqlcne","slide":8,"name":"footer-8","text":"FusionAgent 研究进展 | 2026.07.27","textPreview":"FusionAgent 研究进展 | 2026.07.27","textChars":29,"textLines":1,"bbox":[56,674,400,22]}
+{"kind":"textbox","id":"sh/65oruhoz","slide":8,"name":"page-8","text":"8","textPreview":"8","textChars":1,"textLines":1,"bbox":[1184,674,40,22]}
+{"kind":"notes","id":"nt/wfk62l","slide":8,"text":"[Sources]\n- D:/code/FusionAgent/docs/thesis/manifests/2026-07-20-c02-c04-c06-real-data.json\n- D:/code/FusionAgent/services/contract_experiment_service.py#L178-L223\n- D:/code/freeze-c-evidence/exp-c02-c04-c06-20260725-final-93ebdc5/experiment_result.json"}
+{"kind":"slide","id":"sl/a9jx7w","slide":9,"title":"Freeze C 已达到可正式引用的复现基线","textShapes":12}
+{"kind":"textbox","id":"sh/w7i1cf65","slide":9,"name":"title-9","text":"Freeze C 已达到可正式引用的复现基线","textPreview":"Freeze C 已达到可正式引用的复现基线","textChars":22,"textLines":1,"bbox":[56,34,1168,62]}
+{"kind":"shape","id":"sh/v69kju5k","slide":9,"name":"title-line-9","bbox":[56,106,1168,0]}
+{"kind":"textbox","id":"sh/a50japoz","slide":9,"name":"freeze-intro","text":"最终证据来自干净、已提交的代码版本，并同时冻结数据、输出和运行环境。","textPreview":"最终证据来自干净、已提交的代码版本，并同时冻结数据、输出和运行环境。","textChars":34,"textLines":1,"bbox":[56,130,1168,48]}
+{"kind":"shape","id":"sh/9472hkne","slide":9,"name":"metric-回归测试通过","bbox":[70,235,345,170]}
+{"kind":"textbox","id":"sh/83y18f6t","slide":9,"name":"metric-value-回归测试通过","text":"320","textPreview":"320","textChars":3,"textLines":1,"bbox":[88,260,309,70]}
+{"kind":"textbox","id":"sh/n2pkfa5o","slide":9,"name":"metric-label-回归测试通过","text":"回归测试通过","textPreview":"回归测试通过","textChars":6,"textLines":1,"bbox":[88,340,309,45]}
+{"kind":"shape","id":"sh/m1gj65o3","slide":9,"name":"metric-输出文件完成哈希验证","bbox":[468,235,345,170]}
+{"kind":"textbox","id":"sh/l072d0ni","slide":9,"name":"metric-value-输出文件完成哈希验证","text":"638","textPreview":"638","textChars":3,"textLines":1,"bbox":[486,260,309,70]}
+{"kind":"textbox","id":"sh/0fy14v6x","slide":9,"name":"metric-label-输出文件完成哈希验证","text":"输出文件完成哈希验证","textPreview":"输出文件完成哈希验证","textChars":10,"textLines":1,"bbox":[486,340,309,45]}
+{"kind":"shape","id":"sh/q1gnilwf","slide":9,"name":"metric-外部输入完成版本冻结","bbox":[865,235,345,170]}
+{"kind":"textbox","id":"sh/r2por6d0","slide":9,"name":"metric-value-外部输入完成版本冻结","text":"9","textPreview":"9","textChars":1,"textLines":1,"bbox":[883,260,309,70]}
+{"kind":"textbox","id":"sh/c3y5kbu5","slide":9,"name":"metric-label-外部输入完成版本冻结","text":"外部输入完成版本冻结","textPreview":"外部输入完成版本冻结","textChars":10,"textLines":1,"bbox":[883,340,309,45]}
+{"kind":"textbox","id":"sh/dor6tgvq","slide":9,"name":"freeze-details","text":"代码版本：93ebdc5   |   工作树状态：干净   |   结果：全部案例通过\n环境：Python 3.12.9 · GDAL 3.9.1 · PROJ 9.5.1 · Windows 11","textPreview":"代码版本：93ebdc5   |   工作树状态：干净   |   结果：全部案例通过 | 环境：Python 3.12.9 · GDAL 3.9.1 · PROJ 9.5.1 · Windows 11","textChars":99,"textLines":2,"bbox":[110,465,1060,100]}
+{"kind":"textbox","id":"sh/2xgne1w3","slide":9,"name":"freeze-meaning","text":"意义：当前证据可以准确追溯到运行代码，但它仍主要证明系统机制成立，而不是知识图谱优于基线。","textPreview":"意义：当前证据可以准确追溯到运行代码，但它仍主要证明系统机制成立，而不是知识图谱优于基线。","textChars":45,"textLines":1,"bbox":[56,595,1168,42]}
+{"kind":"textbox","id":"sh/3ypon6do","slide":9,"name":"footer-9","text":"FusionAgent 研究进展 | 2026.07.27","textPreview":"FusionAgent 研究进展 | 2026.07.27","textChars":29,"textLines":1,"bbox":[56,674,400,22]}
+{"kind":"textbox","id":"sh/4zy5gbe9","slide":9,"name":"page-9","text":"9","textPreview":"9","textChars":1,"textLines":1,"bbox":[1184,674,40,22]}
+{"kind":"notes","id":"nt/a9jx7w","slide":9,"text":"[Sources]\n- D:/code/freeze-c-evidence/exp-c02-c04-c06-20260725-final-93ebdc5/experiment_evidence_manifest.json\n- D:/code/freeze-c-evidence/exp-c02-c04-c06-20260725-final-93ebdc5/experiment_result.json"}
+{"kind":"slide","id":"sl/d99y0d","slide":10,"title":"目前的核心缺口集中在“图谱化”和“可证明”","textShapes":15}
+{"kind":"textbox","id":"sh/l8vap8zi","slide":10,"name":"title-10","text":"目前的核心缺口集中在“图谱化”和“可证明”","textPreview":"目前的核心缺口集中在“图谱化”和“可证明”","textChars":21,"textLines":1,"bbox":[56,34,1168,62]}
+{"kind":"shape","id":"sh/y5kbetg7","slide":10,"name":"title-line-10","bbox":[56,106,1168,0]}
+{"kind":"textbox","id":"sh/z6tsnyhs","slide":10,"name":"gap-num-0","text":"1","textPreview":"1","textChars":1,"textLines":1,"bbox":[70,150,48,48]}
+{"kind":"textbox","id":"sh/8vmtkny9","slide":10,"name":"gap-title-0","text":"产品契约尚未成为完整图谱实体","textPreview":"产品契约尚未成为完整图谱实体","textChars":14,"textLines":1,"bbox":[145,145,420,44]}
+{"kind":"textbox","id":"sh/9wvatszu","slide":10,"name":"gap-body-0","text":"质量门、交付策略、降级规则、缺口声明和证据要求仍分散在配置与代码中。","textPreview":"质量门、交付策略、降级规则、缺口声明和证据要求仍分散在配置与代码中。","textChars":34,"textLines":1,"bbox":[580,145,620,72]}
+{"kind":"shape","id":"sh/m94bidg3","slide":10,"name":"gap-line-0","bbox":[145,237,1055,0]}
+{"kind":"textbox","id":"sh/7udsriho","slide":10,"name":"gap-num-1","text":"2","textPreview":"2","textChars":1,"textLines":1,"bbox":[70,270,48,48]}
+{"kind":"textbox","id":"sh/wzmtony5","slide":10,"name":"gap-title-1","text":"复杂处境决策能力不足","textPreview":"复杂处境决策能力不足","textChars":10,"textLines":1,"bbox":[145,265,420,44]}
+{"kind":"textbox","id":"sh/h0fuxszq","slide":10,"name":"gap-body-1","text":"当前候选常被预先排序，智能规划空间接近选择最高分方案。","textPreview":"当前候选常被预先排序，智能规划空间接近选择最高分方案。","textChars":27,"textLines":1,"bbox":[580,265,620,72]}
+{"kind":"shape","id":"sh/d0fmpsrm","slide":10,"name":"gap-line-1","bbox":[145,357,1055,0]}
+{"kind":"textbox","id":"sh/cz6lgna1","slide":10,"name":"gap-num-2","text":"3","textPreview":"3","textChars":1,"textLines":1,"bbox":[70,390,48,48]}
+{"kind":"textbox","id":"sh/ryx4ni9g","slide":10,"name":"gap-title-2","text":"默认模拟规划路径存在接口问题","textPreview":"默认模拟规划路径存在接口问题","textChars":14,"textLines":1,"bbox":[145,385,420,44]}
+{"kind":"textbox","id":"sh/qx43edsv","slide":10,"name":"gap-body-2","text":"模拟规划读取的候选位置与实际上下文不一致，容易直接回落到确定性方案。","textPreview":"模拟规划读取的候选位置与实际上下文不一致，容易直接回落到确定性方案。","textChars":34,"textLines":1,"bbox":[580,385,620,72]}
+{"kind":"shape","id":"sh/1ofmtcri","slide":10,"name":"gap-line-2","bbox":[145,477,1055,0]}
+{"kind":"textbox","id":"sh/0365k7ax","slide":10,"name":"gap-num-3","text":"4","textPreview":"4","textChars":1,"textLines":1,"bbox":[70,510,48,48]}
+{"kind":"textbox","id":"sh/z2x4r29s","slide":10,"name":"gap-title-3","text":"缺少知识图谱增量价值实验","textPreview":"缺少知识图谱增量价值实验","textChars":12,"textLines":1,"bbox":[145,505,420,44]}
+{"kind":"textbox","id":"sh/e1o3ixs7","slide":10,"name":"gap-body-3","text":"已有结果汇总工具，但五类基线尚未完成统一运行和统计比较。","textPreview":"已有结果汇总工具，但五类基线尚未完成统一运行和统计比较。","textChars":28,"textLines":1,"bbox":[580,505,620,72]}
+{"kind":"textbox","id":"sh/hsvmh8re","slide":10,"name":"footer-10","text":"FusionAgent 研究进展 | 2026.07.27","textPreview":"FusionAgent 研究进展 | 2026.07.27","textChars":29,"textLines":1,"bbox":[56,674,400,22]}
+{"kind":"textbox","id":"sh/g7ml83at","slide":10,"name":"page-10","text":"10","textPreview":"10","textChars":2,"textLines":1,"bbox":[1184,674,40,22]}
+{"kind":"notes","id":"nt/d99y0d","slide":10,"text":"[Sources]\n- D:/code/FusionAgent/docs/thesis/product_contract_spec.md#L99-L114\n- D:/code/FusionAgent/docs/thesis/research_direction_guide_2026-07-09.md#L43-L89\n- D:/code/FusionAgent/llm/providers/mock_provider.py\n- D:/code/FusionAgent/scripts/eval_kg_ablation.py"}
+{"kind":"slide","id":"sl/y8tf4v","slide":11,"title":"后续按四个阶段推进知识图谱研究","textShapes":16}
+{"kind":"textbox","id":"sh/t8z6x0fa","slide":11,"name":"title-11","text":"后续按四个阶段推进知识图谱研究","textPreview":"后续按四个阶段推进知识图谱研究","textChars":15,"textLines":1,"bbox":[56,34,1168,62]}
+{"kind":"shape","id":"sh/658n2lgz","slide":11,"name":"title-line-11","bbox":[56,106,1168,0]}
+{"kind":"textbox","id":"sh/r6hovqx4","slide":11,"name":"phase-label-0","text":"阶段 1","textPreview":"阶段 1","textChars":4,"textLines":1,"bbox":[65,155,270,35]}
+{"kind":"shape","id":"sh/43q50byt","slide":11,"name":"phase-line-0","bbox":[65,205,270,10]}
+{"kind":"textbox","id":"sh/54z6tgfe","slide":11,"name":"phase-title-0","text":"完善契约图谱","textPreview":"完善契约图谱","textChars":6,"textLines":1,"bbox":[65,245,270,66]}
+{"kind":"textbox","id":"sh/ihonylgn","slide":11,"name":"phase-body-0","text":"增加产品要求、质量门、降级、缺口、交付和证据关系；明确约束与状态转换。","textPreview":"增加产品要求、质量门、降级、缺口、交付和证据关系；明确约束与状态转换。","textChars":35,"textLines":1,"bbox":[65,330,270,210]}
+{"kind":"textbox","id":"sh/j2xor6x8","slide":11,"name":"phase-label-1","text":"阶段 2","textPreview":"阶段 2","textChars":4,"textLines":1,"bbox":[359,155,270,35]}
+{"kind":"shape","id":"sh/wf65wbyh","slide":11,"name":"phase-line-1","bbox":[359,205,270,10]}
+{"kind":"textbox","id":"sh/hgf6pgf2","slide":11,"name":"phase-title-1","text":"打通图谱驱动规划","textPreview":"打通图谱驱动规划","textChars":8,"textLines":1,"bbox":[359,245,270,66]}
+{"kind":"textbox","id":"sh/l8ry5s3q","slide":11,"name":"phase-body-1","text":"修复模拟规划接口；让计划从完整契约知识中产生，并保留原始计划与回退证据。","textPreview":"修复模拟规划接口；让计划从完整契约知识中产生，并保留原始计划与回退证据。","textChars":36,"textLines":1,"bbox":[359,330,270,210]}
+{"kind":"textbox","id":"sh/07ixcn25","slide":11,"name":"phase-label-2","text":"阶段 3","textPreview":"阶段 3","textChars":4,"textLines":1,"bbox":[653,155,270,35]}
+{"kind":"shape","id":"sh/zm9g3ilk","slide":11,"name":"phase-line-2","bbox":[653,205,270,10]}
+{"kind":"textbox","id":"sh/yl0fadkf","slide":11,"name":"phase-title-2","text":"完成基线与消融","textPreview":"完成基线与消融","textChars":7,"textLines":1,"bbox":[653,245,270,66]}
+{"kind":"textbox","id":"sh/dkry183u","slide":11,"name":"phase-body-2","text":"比较固定规则、纯知识图谱、大模型、能力图谱和完整契约图谱。","textPreview":"比较固定规则、纯知识图谱、大模型、能力图谱和完整契约图谱。","textChars":29,"textLines":1,"bbox":[653,330,270,210]}
+{"kind":"textbox","id":"sh/cjix8329","slide":11,"name":"phase-label-3","text":"阶段 4","textPreview":"阶段 4","textChars":4,"textLines":1,"bbox":[947,155,270,35]}
+{"kind":"shape","id":"sh/bi9gzylo","slide":11,"name":"phase-line-3","bbox":[947,205,270,10]}
+{"kind":"textbox","id":"sh/qhgf6tk3","slide":11,"name":"phase-title-3","text":"扩展与论文材料","textPreview":"扩展与论文材料","textChars":7,"textLines":1,"bbox":[947,245,270,66]}
+{"kind":"textbox","id":"sh/pg7ex83i","slide":11,"name":"phase-body-3","text":"增加复杂案例和多个区域，重复运行并自动生成论文表格与证据索引","textPreview":"增加复杂案例和多个区域，重复运行并自动生成论文表格与证据索引","textChars":30,"textLines":1,"bbox":[947,330,270,210]}
+{"kind":"textbox","id":"sh/ofyx43mx","slide":11,"name":"plan-priority","text":"近期优先级：先完成契约图谱和规划链路，再扩大实验规模；避免继续无边界增加功能。","textPreview":"近期优先级：先完成契约图谱和规划链路，再扩大实验规模；避免继续无边界增加功能。","textChars":39,"textLines":1,"bbox":[56,590,1168,48]}
+{"kind":"textbox","id":"sh/gz2xk3ut","slide":11,"name":"footer-11","text":"FusionAgent 研究进展 | 2026.07.27","textPreview":"FusionAgent 研究进展 | 2026.07.27","textChars":29,"textLines":1,"bbox":[56,674,400,22]}
+{"kind":"textbox","id":"sh/h0byd8be","slide":11,"name":"page-11","text":"11","textPreview":"11","textChars":2,"textLines":1,"bbox":[1184,674,40,22]}
+{"kind":"notes","id":"nt/y8tf4v","slide":11,"text":"[Sources]\n- D:/code/FusionAgent/docs/thesis/research_direction_guide_2026-07-09.md#L831-L898\n- D:/code/FusionAgent/docs/thesis/experiment_case_matrix.md\n- D:/code/FusionAgent/docs/superpowers/specs/2026-06-10-research-contribution-ledger.md"}
+{"kind":"slide","id":"sl/a6pbuc","slide":12,"title":"本次希望重点讨论并确认三个问题","textShapes":10}
+{"kind":"textbox","id":"sh/p8f2pk36","slide":12,"name":"title-12","text":"本次希望重点讨论并确认三个问题","textPreview":"本次希望重点讨论并确认三个问题","textChars":15,"textLines":1,"bbox":[56,34,1168,62]}
+{"kind":"shape","id":"sh/254ju54f","slide":12,"name":"title-line-12","bbox":[56,106,1168,0]}
+{"kind":"textbox","id":"sh/36xknal0","slide":12,"name":"decision-num-0","text":"01","textPreview":"01","textChars":2,"textLines":1,"bbox":[80,160,90,62]}
+{"kind":"textbox","id":"sh/g3m1sfm9","slide":12,"name":"decision-text-0","text":"论文第一创新点是否确定为“契约化灾害应急数据产品知识图谱”？","textPreview":"论文第一创新点是否确定为“契约化灾害应急数据产品知识图谱”？","textChars":30,"textLines":1,"bbox":[210,157,960,78]}
+{"kind":"shape","id":"sh/14v2lk3u","slide":12,"name":"decision-line-0","bbox":[210,254,960,0]}
+{"kind":"textbox","id":"sh/e14jq54j","slide":12,"name":"decision-num-1","text":"02","textPreview":"02","textChars":2,"textLines":1,"bbox":[80,292,90,62]}
+{"kind":"textbox","id":"sh/f2dkjal4","slide":12,"name":"decision-text-1","text":"知识图谱是否需要采用正式本体方法，并加入规范或专家验证？","textPreview":"知识图谱是否需要采用正式本体方法，并加入规范或专家验证？","textChars":28,"textLines":1,"bbox":[210,289,960,78]}
+{"kind":"shape","id":"sh/kzq14z2t","slide":12,"name":"decision-line-1","bbox":[210,386,960,0]}
+{"kind":"textbox","id":"sh/l0z2x43e","slide":12,"name":"decision-num-2","text":"03","textPreview":"03","textChars":2,"textLines":1,"bbox":[80,424,90,62]}
+{"kind":"textbox","id":"sh/10vq58ru","slide":12,"name":"decision-text-2","text":"五类基线、6–8 个复杂案例和多个区域是否足以支撑硕士论文评价？","textPreview":"五类基线、6–8 个复杂案例和多个区域是否足以支撑硕士论文评价？","textChars":32,"textLines":1,"bbox":[210,421,960,78]}
+{"kind":"shape","id":"sh/0zmpw3a9","slide":12,"name":"final-takeaway-bg","bbox":[80,565,1090,70]}
+{"kind":"textbox","id":"sh/fyd83i9o","slide":12,"name":"final-takeaway","text":"当前基础已经足够支撑论文主体，下一阶段的成败取决于：能否把契约知识正式图谱化，并用对照实验说明它确实改善了决策与交付。","textPreview":"当前基础已经足够支撑论文主体，下一阶段的成败取决于：能否把契约知识正式图谱化，并用对照实验说明它确实改善了决策与交付。","textChars":59,"textLines":1,"bbox":[105,580,1040,42]}
+{"kind":"textbox","id":"sh/ex47uds3","slide":12,"name":"footer-12","text":"FusionAgent 研究进展 | 2026.07.27","textPreview":"FusionAgent 研究进展 | 2026.07.27","textChars":29,"textLines":1,"bbox":[56,674,400,22]}
+{"kind":"textbox","id":"sh/dwbq18ri","slide":12,"name":"page-12","text":"12","textPreview":"12","textChars":2,"textLines":1,"bbox":[1184,674,40,22]}
+{"kind":"notes","id":"nt/a6pbuc","slide":12,"text":"[Sources]\n- D:/code/FusionAgent/docs/thesis/research_direction_guide_2026-07-09.md#L956-L1016\n- D:/code/FusionAgent/docs/thesis/research_direction_guide_2026-07-09.md#L1030-L1100"}

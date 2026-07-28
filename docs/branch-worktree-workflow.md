@@ -1,109 +1,22 @@
-# Branch and Worktree Workflow
+# 分支与 Worktree 工作流
 
-Status: active workflow, 2026-07-10.
+> 状态：active，兼容入口
+> 更新日期：2026-07-28
 
-This repository now uses one shared repository with multiple local worktrees:
+当前权威说明已经迁移到 [`docs/current/repository-worktrees.md`](current/repository-worktrees.md)。本文件保留为旧链接兼容入口。
 
-```text
-D:\code\FusionAgent
-  branch: main
-  role: shared integration baseline
+核心规则：
 
-D:\code\FusionAgent-worktrees\app
-  branch: app/autonomous-fusion
-  role: application-oriented autonomous fusion implementation
+1. `D:\code\FusionAgent-freeze-c-93ebdc5` 是 detached `93ebdc5` 的干净只读复现基线，由标签 `freeze-c-20260725` 保持语义，不需要长期冻结分支。
+2. `D:\code\FusionAgent-worktrees\research` 承担产品契约、本体、实验协议和论文研究。
+3. `D:\code\FusionAgent` 当前是一次性仓库/文档交付分支，合并后删除。
+4. 长期分支只保留 `main` 和确有并行研究工作的 `research/product-contract`。
+5. 应用开发按任务从 `main` 创建短期分支，完成后合并并删除，不预留空的长期 app 分支。
+6. 不删除、重置或强制清理任何有未提交修改的 worktree。
 
-D:\code\FusionAgent-worktrees\research
-  branch: research/product-contract
-  role: research-oriented product-contract KG and LLM orchestration work
-```
-
-## Working Rules
-
-### Main Worktree
-
-Use `D:\code\FusionAgent` for shared, stable changes only:
-
-- shared schemas
-- shared output JSON contracts
-- documentation that both branches should follow
-- stable code promoted from app or research branches
-
-Do not use `main` for exploratory app/runtime fixes or research-only prompt/schema experiments.
-
-### App Worktree
-
-Use `D:\code\FusionAgent-worktrees\app` for fast application work:
-
-- fixed-source autonomous fusion flow
-- source acquisition and caching
-- runner stability
-- failure recovery
-- batch execution
-- practical report generation
-
-The app branch may initially use deterministic rules, but it should emit the shared artifacts:
-
-```text
-product_contract.json
-planning_decision.json
-resource_regime.json
-quality_gate_result.json
-gap_declaration.json
-evidence_trace.json
-delivery_manifest.json
-run_report.md/html/pdf
-```
-
-### Research Worktree
-
-Use `D:\code\FusionAgent-worktrees\research` for research work:
-
-- product-contract KG
-- disaster context constraints
-- KG-constrained LLM orchestration
-- planning rationale
-- experiment case matrix
-- baseline comparison and scoring rubric
-- gap declaration semantics
-
-The research branch may use simulated or fixed experiment cases before full runtime integration, but it must stay compatible with the shared JSON contracts.
-
-## Promotion Flow
-
-Do not merge app and research branches directly into each other.
-
-Preferred flow:
-
-```text
-main
-  -> merge/sync into app
-  -> merge/sync into research
-
-app stable runtime capability
-  -> main
-
-research stable contract/evaluation capability
-  -> main
-```
-
-If a branch discovers that a shared schema must change:
-
-1. Pause branch-specific work.
-2. Make the schema/documentation change in `main`.
-3. Commit it on `main`.
-4. Merge `main` into both `app/autonomous-fusion` and `research/product-contract`.
-5. Continue branch work.
-
-## Current Caution
-
-At the time this workflow was created, `main` still had unrelated uncommitted code/test/tmp changes that predated the document cleanup. They were intentionally not included in the shared documentation commit.
-
-Before doing code work in `main`, inspect:
+执行操作前始终检查：
 
 ```powershell
 git status --short --branch
+git worktree list --porcelain
 ```
-
-Prefer doing new implementation work in the clean app/research worktrees.
-

@@ -22,6 +22,7 @@
 
 <p>
   <a href="./README.en.md">English README</a> ·
+  <a href="./docs/README.md">文档入口</a> ·
   <a href="./docs/v2-operations.md">运行文档</a> ·
   <a href="./docs/local-direct-run.md">本机直跑</a> ·
   <a href="./docs/demo/fusionagent-resume-project-brief.md">Resume / Demo Brief</a>
@@ -59,15 +60,14 @@ FusionAgent 是一个面向有界灾害响应场景的地理空间矢量数据�
 
 它的目标不是成为一个无边界通用 Agent，而是在明确任务范围内，把**任务理解、数据获取、约束规划、融合执行、失败修复、证据沉淀**组织成一个可测试、可审计、可复现实验的工程系统。
 
-FusionAgent 当前可以作为无界面的成熟矢量数据融合智能体运行：无界面 operator 读模型、scenario regression、maturity freeze 与共享证据契约已经收口到同一条可回归的执行链。
-
-> 当前定位更接近“有界、可验证、可回归的地理空间 Agent Runtime”，而不是最终产品化平台。
+FusionAgent 当前定位是“有界、可验证、可回归的地理空间 Agent 研究原型”。产品契约、规划、执行、质量门、降级恢复和证据关联已经形成工程闭环，但比较性实验和外部有效性证据仍在补齐，不应表述为生产级平台或已被广泛验证的智能规划系统。
 
 ### 当前证据快照
 
-- Track A / Track B 主计划已完成并归档到 `docs/superpowers/plans/done/2026-05-13-fusionagent-master-execution-plan.md`。
-- Track B 国家级证据已刷新到 `docs/superpowers/specs/2026-05-18-track-b-national-scale-evidence-freeze.json`：`road`、`water`、`poi` 均为 `national_scale_supported`。
-- `road` 当前 full-closure source contract 已由 2026-06-11 autonomous contract 更新为 `raw.osm.road + raw.microsoft.road`；MS road 仍是 local/manual/preload 边界。旧 `raw.overture.transportation` freeze 仅作为历史 compatibility evidence 保留，不再是 promoted second source。
+- Freeze C 在干净 commit `93ebdc51c8732ec466067de760a65f30f3f1155c` 上冻结了 C02、C04、C06 的真实数据案例和复现环境。
+- 产品契约已经作为一等图谱实体接入 seed、仓库、Neo4j、检索、规划结果和 KG API；当前导出包含 15 个本体类、27 种关系、232 个静态实体和 497 条实体关系。
+- C02/C04/C06 支持产品契约治理、渐进式交付和降级恢复的受限案例结论，但尚不能替代基线、消融、重复实验和多 AOI 外部评价。
+- 当前状态、论文主张和优先级统一见 [`docs/README.md`](./docs/README.md)。`docs/superpowers/` 下的旧计划和 freeze 保留用于追溯，不再定义当前研究方向。
 
 ## 核心亮点
 
@@ -104,7 +104,7 @@ FusionAgent 当前可以作为无界面的成熟矢量数据融合智能体运�
 - 场景层面的 live event-feed 编排或 full digital twin 模拟
 - 任意数据源自动接入与任意任务族无限扩展
 
-当前 system-next 收敛重点已经锁定为 `registered tool contracts`、`KG grounding reports`、`unsupported-intent rejection`、token/latency telemetry、`checkpoint recovery inspection` 与 ablation evidence。这些增强项服务于现有有界 runtime 的可验证性与可操作性，不扩张稳定能力边界。
+当前优先级已经从继续扩张系统功能转向 P1 独立审计、P2 三次稳定性重跑、最小基线/消融和多 AOI 量化评价。详见 [`docs/current/claims-and-priorities.md`](./docs/current/claims-and-priorities.md)。
 
 ## 系统架构
 
@@ -432,6 +432,10 @@ python scripts/smoke_agentic_region.py --base-url http://127.0.0.1:8000 --job-ty
 
 ## 参考文档
 
+- [文档总入口](./docs/README.md)
+- [当前项目状态](./docs/current/project-status.md)
+- [论文主张与优先级](./docs/current/claims-and-priorities.md)
+- [仓库与 Worktree](./docs/current/repository-worktrees.md)
 - [docs/v2-operations.md](./docs/v2-operations.md)
 - [docs/local-direct-run.md](./docs/local-direct-run.md)
 - [docs/no-ui-agent-operations.md](./docs/no-ui-agent-operations.md)
