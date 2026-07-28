@@ -112,3 +112,42 @@ run_report.md / run_report.html / run_report.pdf
 ```
 
 Application branch may generate these artifacts with fixed rules first. Research branch should later generate the planning decision with KG-constrained LLM orchestration.
+
+## Knowledge Graph Ontology Mapping
+
+The product contract is a first-class `ProductContract` graph entity rather than a JSON-only runtime artifact.
+
+The initial ontology contains one composite contract and five layer contracts:
+
+```text
+contract.product.emergency_vector_bundle.v1
+contract.product.building.v1
+contract.product.road.v1
+contract.product.water_polygon.v1
+contract.product.waterways.v1
+contract.product.poi.v1
+```
+
+Contract properties retain the policy semantics that must travel together:
+
+- disaster types and response phases
+- layer requirements and criticality
+- quality gates and satisfaction states
+- evidence requirements
+- degradation policy
+- gap declaration policy
+- delivery and supersession policy
+
+Graph relationships make the contract traversable across the existing ontology:
+
+```text
+ProductContract -[:APPLIES_TO_SCENARIO]-> ScenarioProfile
+ProductContract -[:ORCHESTRATED_BY]-> TaskBundle
+ProductContract -[:REQUIRES_TASK]-> Task
+ProductContract -[:REQUIRES_OUTPUT_REQUIREMENT]-> OutputRequirement
+ProductContract -[:USES_QOS_POLICY]-> QoSPolicy
+ProductContract -[:USES_REPAIR_STRATEGY]-> RepairStrategy
+ProductContract -[:COMPOSED_OF]-> ProductContract
+```
+
+The selected layer contract is included in the planner retrieval context and persisted on `WorkflowPlan.product_contract`. This makes contract knowledge available to constrained planning without treating the LLM as the authority for deterministic validation or quality acceptance.

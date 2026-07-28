@@ -17,6 +17,7 @@ from schemas.agent import RunTrigger, WorkflowPlan, WorkflowTask
 from schemas.agent import (
     DataNeedRef,
     OutputRequirementRef,
+    ProductContractRef,
     QoSPolicyRef,
     RepairStrategyRef,
     TaskBundleRef,
@@ -380,6 +381,7 @@ class WorkflowPlanner:
             "expected_output": f"{pattern.job_type.value} fusion result",
             "estimated_time": "unknown",
             "task_bundle": self._task_bundle_from_context({}),
+            "product_contract": self._product_contract_from_context({}),
             "output_requirement": self._output_requirement_from_context({}),
             "qos_policy": self._qos_policy_from_context({}),
             "data_needs": [],
@@ -413,6 +415,10 @@ class WorkflowPlanner:
             raw = self._task_bundle_from_context(plan.context)
             if isinstance(raw, dict):
                 plan.task_bundle = TaskBundleRef.model_validate(raw)
+        if plan.product_contract is None:
+            raw = self._product_contract_from_context(plan.context)
+            if isinstance(raw, dict):
+                plan.product_contract = ProductContractRef.model_validate(raw)
         if plan.output_requirement is None:
             raw = self._output_requirement_from_context(plan.context)
             if isinstance(raw, dict):
@@ -511,6 +517,10 @@ class WorkflowPlanner:
             raw = self._task_bundle_from_context(plan.context)
             if isinstance(raw, dict):
                 plan.task_bundle = TaskBundleRef.model_validate(raw)
+        if plan.product_contract is None:
+            raw = self._product_contract_from_context(plan.context)
+            if isinstance(raw, dict):
+                plan.product_contract = ProductContractRef.model_validate(raw)
         if plan.output_requirement is None:
             raw = self._output_requirement_from_context(plan.context)
             if isinstance(raw, dict):
@@ -549,6 +559,15 @@ class WorkflowPlanner:
         if not isinstance(intent, dict):
             return None
         return intent.get("output_requirement")
+
+    @staticmethod
+    def _product_contract_from_context(context: Dict[str, Any] | None):
+        if not isinstance(context, dict):
+            return None
+        intent = context.get("intent")
+        if not isinstance(intent, dict):
+            return None
+        return intent.get("product_contract")
 
     @staticmethod
     def _qos_policy_from_context(context: Dict[str, Any] | None):

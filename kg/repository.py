@@ -19,6 +19,7 @@ from kg.models import (
     KGContext,
     OutputSchemaPolicy,
     OutputRequirementNode,
+    ProductContractNode,
     QoSPolicyNode,
     RepairStrategyNode,
     ScenarioProfileNode,
@@ -51,6 +52,10 @@ class KGRepository(ABC):
 
     @abstractmethod
     def get_scenario_profiles(self, disaster_type: Optional[str]) -> List[ScenarioProfileNode]:
+        raise NotImplementedError
+
+    @abstractmethod
+    def get_product_contracts(self, disaster_type: Optional[str]) -> List[ProductContractNode]:
         raise NotImplementedError
 
     @abstractmethod

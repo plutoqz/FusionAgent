@@ -8,6 +8,7 @@ from kg.seed import (
     DATA_TYPES,
     OUTPUT_SCHEMA_POLICIES,
     OUTPUT_REQUIREMENTS,
+    PRODUCT_CONTRACTS,
     QOS_POLICIES,
     REPAIR_STRATEGIES,
     TASKS,
@@ -193,12 +194,25 @@ def test_seed_ontology_closure_exposes_task_bundles_and_constraint_objects() -> 
     assert "qos.task.default.v1" in QOS_POLICIES
     assert any(item.need_id == "dn.task.building.fusion.input" for item in DATA_NEEDS)
     assert "repair.source_fallback.v1" in REPAIR_STRATEGIES
+    assert "contract.product.emergency_vector_bundle.v1" in PRODUCT_CONTRACTS
+    assert "contract.product.waterways.v1" in PRODUCT_CONTRACTS
 
     direct = TASK_BUNDLES["task_bundle.direct_request"]
     assert "task.water.fusion" in direct.requested_tasks
     assert "task.waterways.fusion" in direct.requested_tasks
     assert direct.qos_policy_id == "qos.task.default.v1"
     assert "repair.alternative_algorithm.v1" in direct.repair_strategy_ids
+
+    bundle_contract = PRODUCT_CONTRACTS["contract.product.emergency_vector_bundle.v1"]
+    assert bundle_contract.component_contract_ids == [
+        "contract.product.building.v1",
+        "contract.product.road.v1",
+        "contract.product.water_polygon.v1",
+        "contract.product.waterways.v1",
+        "contract.product.poi.v1",
+    ]
+    assert bundle_contract.gap_declaration_policy["treat_as_product_output"] is True
+    assert "evidence_trace_complete" in bundle_contract.quality_gates
 
 
 def test_track_a_closure_gate_covers_graph_api_and_planner_runtime_consumption() -> None:
@@ -214,6 +228,8 @@ def test_track_a_closure_gate_covers_graph_api_and_planner_runtime_consumption()
     runtime_graph = build_run_path_graph(plan)
 
     assert plan.task_bundle is not None
+    assert plan.product_contract is not None
+    assert plan.product_contract.contract_id == "contract.product.building.v1"
     assert plan.output_requirement is not None
     assert plan.qos_policy is not None
     assert plan.data_needs
@@ -224,7 +240,10 @@ def test_track_a_closure_gate_covers_graph_api_and_planner_runtime_consumption()
     assert runtime_graph.meta["graph_type"] == "runtime_path_graph"
     assert any(node.kind == "parameter_spec" for node in overview.nodes)
     assert any(node.kind == "output_schema_policy" for node in overview.nodes)
+    assert any(node.kind == "product_contract" for node in overview.nodes)
     assert any(edge.relationship == "has_parameter_spec" for edge in overview.edges)
+    assert any(edge.relationship == "requires_output_requirement" for edge in overview.edges)
+    assert any(edge.relationship == "composed_of" for edge in overview.edges)
     assert any(edge.relationship == "can_transform_to" for edge in overview.edges)
     assert any(item["layer_id"] == "validation_policy" for item in overview.meta["agent_structure"])
     assert runtime_graph.meta["selected_pattern_id"] == plan.context["selected_pattern_id"]

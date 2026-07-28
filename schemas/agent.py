@@ -108,6 +108,23 @@ class QoSPolicyRef(BaseModel):
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
 
+class ProductContractRef(BaseModel):
+    contract_id: str
+    contract_name: str
+    product_type: str
+    disaster_types: List[str] = Field(default_factory=list)
+    response_phases: List[str] = Field(default_factory=list)
+    layer_requirements: List[Dict[str, Any]] = Field(default_factory=list)
+    output_requirement_ids: List[str] = Field(default_factory=list)
+    quality_gates: List[str] = Field(default_factory=list)
+    evidence_requirements: List[str] = Field(default_factory=list)
+    degradation_policy: Dict[str, Any] = Field(default_factory=dict)
+    gap_declaration_policy: Dict[str, Any] = Field(default_factory=dict)
+    delivery_policy: Dict[str, Any] = Field(default_factory=dict)
+    satisfaction_states: List[str] = Field(default_factory=list)
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+
 class DataNeedRef(BaseModel):
     need_id: str
     task_id: str
@@ -135,6 +152,7 @@ class WorkflowPlan(BaseModel):
     expected_output: str
     estimated_time: str = "unknown"
     task_bundle: Optional[TaskBundleRef] = None
+    product_contract: Optional[ProductContractRef] = None
     output_requirement: Optional[OutputRequirementRef] = None
     qos_policy: Optional[QoSPolicyRef] = None
     data_needs: List[DataNeedRef] = Field(default_factory=list)

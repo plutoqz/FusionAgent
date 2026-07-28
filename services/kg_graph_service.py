@@ -11,6 +11,7 @@ from kg.models import (
     DurableLearningSummary,
     OutputRequirementNode,
     OutputSchemaPolicy,
+    ProductContractNode,
     QoSPolicyNode,
     RepairStrategyNode,
     ScenarioProfileNode,
@@ -32,7 +33,7 @@ AGENT_STRUCTURE = (
             "services/scenario_trigger_service.py::normalize_trigger_event",
             "services/unsupported_intent_guard.py::classify_unsupported_intent",
         ],
-        "ontology_kinds": ["scenario_profile", "task_bundle"],
+        "ontology_kinds": ["scenario_profile", "product_contract", "task_bundle"],
         "evidence_refs": [
             "tests/test_scenario_trigger_service.py",
             "tests/test_task_bundle_context.py",
@@ -58,7 +59,14 @@ AGENT_STRUCTURE = (
             "agent/validator.py::WorkflowValidator",
             "agent/policy.py::PolicyEngine",
         ],
-        "ontology_kinds": ["data_need", "qos_policy", "output_requirement", "output_schema_policy", "parameter_spec"],
+        "ontology_kinds": [
+            "product_contract",
+            "data_need",
+            "qos_policy",
+            "output_requirement",
+            "output_schema_policy",
+            "parameter_spec",
+        ],
         "evidence_refs": [
             "tests/test_workflow_validator.py",
             "tests/test_policy_engine.py",
@@ -100,6 +108,9 @@ def build_overview_graph(repo: KGRepository) -> KgGraphResponse:
     data_sources = {source.source_id: source for source in repo.list_data_sources()}
     task_nodes = {task.task_id: task for task in repo.list_task_nodes()}
     scenario_profiles = {profile.profile_id: profile for profile in repo.get_scenario_profiles(None)}
+    product_contracts = {
+        contract.contract_id: contract for contract in repo.get_product_contracts(None)
+    }
     task_bundles = {bundle.bundle_id: bundle for bundle in repo.list_task_bundles()}
     output_requirements = {
         requirement.requirement_id: requirement for requirement in repo.list_output_requirements()
@@ -126,6 +137,7 @@ def build_overview_graph(repo: KGRepository) -> KgGraphResponse:
     nodes.extend(_data_source_nodes(data_sources.values()))
     nodes.extend(_task_nodes(task_nodes.values()))
     nodes.extend(_scenario_profile_nodes(scenario_profiles.values()))
+    nodes.extend(_product_contract_nodes(product_contracts.values()))
     nodes.extend(_task_bundle_nodes(task_bundles.values()))
     nodes.extend(_output_schema_policy_nodes(output_schema_policies.values()))
     nodes.extend(_output_requirement_nodes(output_requirements.values()))
@@ -217,6 +229,73 @@ def build_overview_graph(repo: KGRepository) -> KgGraphResponse:
                 relationship="defaults_to_qos",
                 meta={},
             )
+
+    for contract in product_contracts.values():
+        for profile_id in contract.scenario_profile_ids:
+            if profile_id in scenario_profiles:
+                edge_map[(contract.contract_id, profile_id, "applies_to_scenario")] = KgGraphEdge(
+                    source=contract.contract_id,
+                    target=profile_id,
+                    relationship="applies_to_scenario",
+                    meta={},
+                )
+        for bundle_id in contract.task_bundle_ids:
+            if bundle_id in task_bundles:
+                edge_map[(contract.contract_id, bundle_id, "orchestrated_by")] = KgGraphEdge(
+                    source=contract.contract_id,
+                    target=bundle_id,
+                    relationship="orchestrated_by",
+                    meta={},
+                )
+        for task_id in contract.task_ids:
+            if task_id in task_nodes:
+                edge_map[(contract.contract_id, task_id, "requires_task")] = KgGraphEdge(
+                    source=contract.contract_id,
+                    target=task_id,
+                    relationship="requires_task",
+                    meta={},
+                )
+        layer_requirement_by_id = {
+            str(item.get("output_requirement_id")): item
+            for item in contract.layer_requirements
+            if item.get("output_requirement_id")
+        }
+        for requirement_id in contract.output_requirement_ids:
+            if requirement_id in output_requirements:
+                layer_requirement = layer_requirement_by_id.get(requirement_id, {})
+                edge_map[(contract.contract_id, requirement_id, "requires_output_requirement")] = KgGraphEdge(
+                    source=contract.contract_id,
+                    target=requirement_id,
+                    relationship="requires_output_requirement",
+                    meta={
+                        "layer_kind": layer_requirement.get("layer_kind"),
+                        "criticality": layer_requirement.get("criticality"),
+                    },
+                )
+        for policy_id in contract.qos_policy_ids:
+            if policy_id in qos_policies:
+                edge_map[(contract.contract_id, policy_id, "uses_qos_policy")] = KgGraphEdge(
+                    source=contract.contract_id,
+                    target=policy_id,
+                    relationship="uses_qos_policy",
+                    meta={},
+                )
+        for strategy_id in contract.repair_strategy_ids:
+            if strategy_id in repair_strategies:
+                edge_map[(contract.contract_id, strategy_id, "uses_repair_strategy")] = KgGraphEdge(
+                    source=contract.contract_id,
+                    target=strategy_id,
+                    relationship="uses_repair_strategy",
+                    meta={},
+                )
+        for component_id in contract.component_contract_ids:
+            if component_id in product_contracts:
+                edge_map[(contract.contract_id, component_id, "composed_of")] = KgGraphEdge(
+                    source=contract.contract_id,
+                    target=component_id,
+                    relationship="composed_of",
+                    meta={},
+                )
 
     for bundle in task_bundles.values():
         for task_id in bundle.requested_tasks:
@@ -372,6 +451,7 @@ def build_overview_graph(repo: KGRepository) -> KgGraphResponse:
             "data_source_count": len(data_sources),
             "task_count": len(task_nodes),
             "scenario_profile_count": len(scenario_profiles),
+            "product_contract_count": len(product_contracts),
             "task_bundle_count": len(task_bundles),
             "output_schema_policy_count": len(output_schema_policies),
             "output_requirement_count": len(output_requirements),
@@ -540,6 +620,30 @@ def _scenario_profile_nodes(profiles: Iterable[ScenarioProfileNode]) -> list[KgG
             },
         )
         for profile in profiles
+    ]
+
+
+def _product_contract_nodes(contracts: Iterable[ProductContractNode]) -> list[KgGraphNode]:
+    return [
+        KgGraphNode(
+            id=contract.contract_id,
+            kind="product_contract",
+            label=contract.contract_name,
+            meta={
+                "product_type": contract.product_type,
+                "disaster_types": list(contract.disaster_types),
+                "response_phases": list(contract.response_phases),
+                "layer_requirements": [dict(item) for item in contract.layer_requirements],
+                "quality_gates": list(contract.quality_gates),
+                "evidence_requirements": list(contract.evidence_requirements),
+                "degradation_policy": dict(contract.degradation_policy),
+                "gap_declaration_policy": dict(contract.gap_declaration_policy),
+                "delivery_policy": dict(contract.delivery_policy),
+                "satisfaction_states": list(contract.satisfaction_states),
+                "metadata": dict(contract.metadata or {}),
+            },
+        )
+        for contract in contracts
     ]
 
 

@@ -17,6 +17,7 @@ from kg.models import (
     KGContext,
     OutputSchemaPolicy,
     OutputRequirementNode,
+    ProductContractNode,
     QoSPolicyNode,
     ScenarioProfileNode,
     RepairStrategyNode,
@@ -40,6 +41,7 @@ class InMemoryKGRepository(KGRepository):
         output_schema_policies: Optional[Dict[str, OutputSchemaPolicy]] = None,
         task_nodes: Optional[Dict[str, TaskNode]] = None,
         scenario_profiles: Optional[List[ScenarioProfileNode]] = None,
+        product_contracts: Optional[Dict[str, ProductContractNode]] = None,
         task_bundles: Optional[Dict[str, TaskBundleNode]] = None,
         output_requirements: Optional[Dict[str, OutputRequirementNode]] = None,
         qos_policies: Optional[Dict[str, QoSPolicyNode]] = None,
@@ -59,6 +61,7 @@ class InMemoryKGRepository(KGRepository):
         )
         self.task_nodes = seed_payload["tasks"] if task_nodes is None else task_nodes
         self.scenario_profiles = seed_payload["scenario_profiles"] if scenario_profiles is None else scenario_profiles
+        self.product_contracts = seed_payload.get("product_contracts", {}) if product_contracts is None else product_contracts
         self.task_bundles = seed_payload["task_bundles"] if task_bundles is None else task_bundles
         self.output_requirements = seed_payload["output_requirements"] if output_requirements is None else output_requirements
         self.qos_policies = seed_payload["qos_policies"] if qos_policies is None else qos_policies
@@ -95,6 +98,18 @@ class InMemoryKGRepository(KGRepository):
         ]
         profiles.sort(key=lambda item: item.profile_id)
         return profiles
+
+    def get_product_contracts(self, disaster_type: Optional[str]) -> List[ProductContractNode]:
+        if disaster_type is None:
+            return [self.product_contracts[item_id] for item_id in sorted(self.product_contracts)]
+        dtype = disaster_type.lower()
+        contracts = [
+            contract
+            for contract in self.product_contracts.values()
+            if dtype in (item.lower() for item in contract.disaster_types)
+            or "generic" in (item.lower() for item in contract.disaster_types)
+        ]
+        return sorted(contracts, key=lambda item: item.contract_id)
 
     def list_task_bundles(self) -> List[TaskBundleNode]:
         return [self.task_bundles[bundle_id] for bundle_id in sorted(self.task_bundles)]
@@ -213,6 +228,18 @@ class InMemoryKGRepository(KGRepository):
             score = sum(token in haystack for token in tokens)
             if score:
                 hits.append({"kind": "data_source", "id": source.source_id, "label": source.source_name, "score": score})
+        for contract in self.product_contracts.values():
+            haystack = f"{contract.contract_id} {contract.contract_name} {contract.product_type}".lower()
+            score = sum(token in haystack for token in tokens)
+            if score:
+                hits.append(
+                    {
+                        "kind": "product_contract",
+                        "id": contract.contract_id,
+                        "label": contract.contract_name,
+                        "score": score,
+                    }
+                )
         hits.sort(key=lambda item: int(item["score"]), reverse=True)
         return hits[:limit]
 
@@ -326,6 +353,7 @@ class InMemoryKGRepository(KGRepository):
             ),
             task_nodes=self.list_task_nodes(),
             scenario_profiles=self.get_scenario_profiles(disaster_type),
+            product_contracts=self.get_product_contracts(disaster_type),
             task_bundles=task_bundles,
             output_requirements=output_requirements,
             qos_policies={policy.policy_id: policy for policy in self.list_qos_policies()},

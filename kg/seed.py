@@ -13,6 +13,7 @@ from kg.models import (
     OutputSchemaPolicy,
     OutputRequirementNode,
     PatternStep,
+    ProductContractNode,
     QoSPolicyNode,
     RepairStrategyNode,
     ScenarioProfileNode,
@@ -1738,6 +1739,323 @@ TASK_BUNDLES: Dict[str, TaskBundleNode] = {
             entry_mode="scenario_driven",
             scenario_profile_id="scenario.typhoon.default",
         ),
+    ),
+}
+
+
+_PRODUCT_SATISFACTION_STATES = [
+    "fully_satisfied",
+    "partially_satisfied",
+    "degraded_but_usable",
+    "not_satisfied",
+    "not_applicable",
+    "source_mismatch",
+]
+
+_COMMON_LAYER_QUALITY_GATES = [
+    "source_materialized",
+    "aoi_coverage_checked",
+    "non_empty_or_justified_empty",
+    "geometry_validity_checked",
+    "minimum_attribute_set_checked",
+    "provenance_recorded",
+]
+
+_COMMON_EVIDENCE_REQUIREMENTS = [
+    "source_provenance",
+    "aoi_coverage",
+    "geometry_validity",
+    "quality_result",
+]
+
+
+def _product_degradation_policy() -> Dict[str, object]:
+    return {
+        "allowed_states": ["partially_satisfied", "degraded_but_usable"],
+        "provisional_delivery_allowed": True,
+        "degraded_layers_must_be_marked": True,
+        "final_output_may_supersede_provisional": True,
+    }
+
+
+def _product_gap_declaration_policy() -> Dict[str, object]:
+    return {
+        "required_for_unmet_requirements": True,
+        "treat_as_product_output": True,
+        "gap_types": [
+            "skip",
+            "data_absent",
+            "source_unavailable",
+            "quality_failed",
+            "source_mismatch",
+            "contract_not_satisfied",
+        ],
+    }
+
+
+def _product_delivery_policy() -> Dict[str, object]:
+    return {
+        "machine_readable_artifacts": [
+            "product_contract.json",
+            "planning_decision.json",
+            "resource_regime.json",
+            "quality_gate_result.json",
+            "gap_declaration.json",
+            "evidence_trace.json",
+            "delivery_manifest.json",
+        ],
+        "provisional_outputs_must_be_marked": True,
+        "supersession_must_be_recorded": True,
+    }
+
+
+def _layer_product_contract(
+    *,
+    contract_id: str,
+    contract_name: str,
+    layer_kind: str,
+    task_id: str,
+    output_requirement_id: str,
+    disaster_types: List[str],
+    scenario_profile_ids: List[str],
+    task_bundle_ids: List[str],
+    qos_policy_ids: List[str],
+    repair_strategy_ids: List[str],
+    extra_quality_gates: List[str],
+    extra_evidence_requirements: List[str],
+    **metadata: object,
+) -> ProductContractNode:
+    return ProductContractNode(
+        contract_id=contract_id,
+        contract_name=contract_name,
+        product_type=f"{layer_kind}_multi_source_vector_fusion",
+        disaster_types=disaster_types,
+        response_phases=["preparedness", "rapid_response", "recovery"],
+        layer_requirements=[
+            {
+                "layer_kind": layer_kind,
+                "criticality": "required",
+                "output_requirement_id": output_requirement_id,
+            }
+        ],
+        scenario_profile_ids=scenario_profile_ids,
+        task_bundle_ids=task_bundle_ids,
+        task_ids=[task_id],
+        output_requirement_ids=[output_requirement_id],
+        qos_policy_ids=qos_policy_ids,
+        repair_strategy_ids=repair_strategy_ids,
+        quality_gates=[*_COMMON_LAYER_QUALITY_GATES, *extra_quality_gates],
+        evidence_requirements=[*_COMMON_EVIDENCE_REQUIREMENTS, *extra_evidence_requirements],
+        degradation_policy=_product_degradation_policy(),
+        gap_declaration_policy=_product_gap_declaration_policy(),
+        delivery_policy=_product_delivery_policy(),
+        satisfaction_states=list(_PRODUCT_SATISFACTION_STATES),
+        metadata=_closure_metadata(
+            claim_state="bounded_supported",
+            runtime_role="product_contract",
+            ontology_scope="layer_product",
+            specification_ref="docs/thesis/product_contract_spec.md",
+            **metadata,
+        ),
+    )
+
+
+PRODUCT_CONTRACTS: Dict[str, ProductContractNode] = {
+    "contract.product.emergency_vector_bundle.v1": ProductContractNode(
+        contract_id="contract.product.emergency_vector_bundle.v1",
+        contract_name="Emergency Multi-Layer Vector Product Bundle",
+        product_type="emergency_multi_layer_vector_fusion_bundle",
+        disaster_types=["generic", "flood", "earthquake", "typhoon"],
+        response_phases=["preparedness", "rapid_response", "recovery"],
+        layer_requirements=[
+            {
+                "layer_kind": "building",
+                "criticality": "scenario_defined",
+                "output_requirement_id": "or.building.fused.v1",
+            },
+            {
+                "layer_kind": "road",
+                "criticality": "scenario_defined",
+                "output_requirement_id": "or.road.fused.v1",
+            },
+            {
+                "layer_kind": "water_polygon",
+                "criticality": "scenario_defined",
+                "output_requirement_id": "or.water.fused.v1",
+            },
+            {
+                "layer_kind": "waterways",
+                "criticality": "scenario_defined",
+                "output_requirement_id": "or.waterways.fused.v1",
+            },
+            {
+                "layer_kind": "poi",
+                "criticality": "scenario_defined",
+                "output_requirement_id": "or.poi.fused.v1",
+            },
+        ],
+        scenario_profile_ids=[
+            "scenario.default.task",
+            "scenario.flood.default",
+            "scenario.earthquake.default",
+            "scenario.typhoon.default",
+        ],
+        task_bundle_ids=["task_bundle.direct_request"],
+        task_ids=[
+            "task.building.fusion",
+            "task.road.fusion",
+            "task.water.fusion",
+            "task.waterways.fusion",
+            "task.poi.fusion",
+        ],
+        output_requirement_ids=[
+            "or.building.fused.v1",
+            "or.road.fused.v1",
+            "or.water.fused.v1",
+            "or.waterways.fused.v1",
+            "or.poi.fused.v1",
+        ],
+        qos_policy_ids=["qos.task.default.v1"],
+        repair_strategy_ids=["repair.source_fallback.v1", "repair.alternative_algorithm.v1"],
+        component_contract_ids=[
+            "contract.product.building.v1",
+            "contract.product.road.v1",
+            "contract.product.water_polygon.v1",
+            "contract.product.waterways.v1",
+            "contract.product.poi.v1",
+        ],
+        quality_gates=[
+            "all_critical_layers_delivered_or_justified",
+            "degraded_layers_explicitly_marked",
+            "provisional_outputs_explicitly_marked",
+            "gap_declarations_generated",
+            "evidence_trace_complete",
+        ],
+        evidence_requirements=[
+            "product_contract",
+            "planning_decision",
+            "resource_regime",
+            "layer_quality_results",
+            "gap_declarations",
+            "evidence_trace",
+            "delivery_manifest",
+        ],
+        degradation_policy=_product_degradation_policy(),
+        gap_declaration_policy=_product_gap_declaration_policy(),
+        delivery_policy=_product_delivery_policy(),
+        satisfaction_states=list(_PRODUCT_SATISFACTION_STATES),
+        metadata=_closure_metadata(
+            claim_state="bounded_supported",
+            runtime_role="product_contract",
+            ontology_scope="composite_product",
+            specification_ref="docs/thesis/product_contract_spec.md",
+            layer_priority_source="scenario_and_resource_context",
+        ),
+    ),
+    "contract.product.building.v1": _layer_product_contract(
+        contract_id="contract.product.building.v1",
+        contract_name="Fused Building Footprint Product",
+        layer_kind="building",
+        task_id="task.building.fusion",
+        output_requirement_id="or.building.fused.v1",
+        disaster_types=["generic", "flood", "earthquake", "typhoon"],
+        scenario_profile_ids=[
+            "scenario.default.task",
+            "scenario.flood.default",
+            "scenario.earthquake.default",
+            "scenario.typhoon.default",
+        ],
+        task_bundle_ids=[
+            "task_bundle.direct_request",
+            "task_bundle.flood.building_road",
+            "task_bundle.earthquake.building_road",
+            "task_bundle.typhoon.building_road",
+        ],
+        qos_policy_ids=[
+            "qos.task.default.v1",
+            "qos.scenario.flood.v1",
+            "qos.scenario.earthquake.v1",
+            "qos.scenario.typhoon.v1",
+        ],
+        repair_strategy_ids=["repair.source_fallback.v1", "repair.alternative_algorithm.v1"],
+        extra_quality_gates=["duplicate_or_overlap_rate_checked"],
+        extra_evidence_requirements=["coverage_result", "duplicate_or_overlap_result"],
+        geometry_semantics="polygon_footprints",
+    ),
+    "contract.product.road.v1": _layer_product_contract(
+        contract_id="contract.product.road.v1",
+        contract_name="Fused Road Network Product",
+        layer_kind="road",
+        task_id="task.road.fusion",
+        output_requirement_id="or.road.fused.v1",
+        disaster_types=["generic", "flood", "earthquake", "typhoon"],
+        scenario_profile_ids=[
+            "scenario.default.task",
+            "scenario.flood.default",
+            "scenario.earthquake.default",
+            "scenario.typhoon.default",
+        ],
+        task_bundle_ids=[
+            "task_bundle.direct_request",
+            "task_bundle.flood.building_road",
+            "task_bundle.earthquake.building_road",
+            "task_bundle.typhoon.building_road",
+        ],
+        qos_policy_ids=[
+            "qos.task.default.v1",
+            "qos.scenario.flood.v1",
+            "qos.scenario.earthquake.v1",
+            "qos.scenario.typhoon.v1",
+        ],
+        repair_strategy_ids=["repair.source_fallback.v1", "repair.alternative_algorithm.v1"],
+        extra_quality_gates=["duplicate_line_rate_checked", "line_topology_checked"],
+        extra_evidence_requirements=["network_topology_result", "duplicate_line_result"],
+        geometry_semantics="road_centerlines",
+    ),
+    "contract.product.water_polygon.v1": _layer_product_contract(
+        contract_id="contract.product.water_polygon.v1",
+        contract_name="Fused Polygonal Surface-Water Product",
+        layer_kind="water_polygon",
+        task_id="task.water.fusion",
+        output_requirement_id="or.water.fused.v1",
+        disaster_types=["generic", "flood", "typhoon"],
+        scenario_profile_ids=["scenario.default.task", "scenario.flood.default", "scenario.typhoon.default"],
+        task_bundle_ids=["task_bundle.direct_request"],
+        qos_policy_ids=["qos.task.default.v1", "qos.scenario.flood.v1", "qos.scenario.typhoon.v1"],
+        repair_strategy_ids=["repair.source_fallback.v1"],
+        extra_quality_gates=["duplicate_or_sliver_rate_checked", "polygon_boundary_validity_checked"],
+        extra_evidence_requirements=["duplicate_or_sliver_result", "polygon_boundary_result"],
+        geometry_semantics="bounded_surface_water_polygons",
+    ),
+    "contract.product.waterways.v1": _layer_product_contract(
+        contract_id="contract.product.waterways.v1",
+        contract_name="Fused Linear Hydrography Product",
+        layer_kind="waterways",
+        task_id="task.waterways.fusion",
+        output_requirement_id="or.waterways.fused.v1",
+        disaster_types=["generic", "flood", "typhoon"],
+        scenario_profile_ids=["scenario.default.task", "scenario.flood.default", "scenario.typhoon.default"],
+        task_bundle_ids=["task_bundle.direct_request"],
+        qos_policy_ids=["qos.task.default.v1", "qos.scenario.flood.v1", "qos.scenario.typhoon.v1"],
+        repair_strategy_ids=["repair.source_fallback.v1", "repair.alternative_algorithm.v1"],
+        extra_quality_gates=["zero_length_segments_checked", "endpoint_dangles_checked", "connectivity_checked"],
+        extra_evidence_requirements=["line_topology_metrics", "connectivity_result"],
+        geometry_semantics="rivers_streams_canals_and_drains",
+    ),
+    "contract.product.poi.v1": _layer_product_contract(
+        contract_id="contract.product.poi.v1",
+        contract_name="Fused Point-of-Interest Product",
+        layer_kind="poi",
+        task_id="task.poi.fusion",
+        output_requirement_id="or.poi.fused.v1",
+        disaster_types=["generic"],
+        scenario_profile_ids=["scenario.default.task"],
+        task_bundle_ids=["task_bundle.direct_request"],
+        qos_policy_ids=["qos.task.default.v1"],
+        repair_strategy_ids=["repair.source_fallback.v1"],
+        extra_quality_gates=["duplicate_candidate_rate_checked", "category_conflicts_checked"],
+        extra_evidence_requirements=["duplicate_candidate_result", "category_conflict_result"],
+        geometry_semantics="points_of_interest",
     ),
 }
 

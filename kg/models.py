@@ -36,6 +36,30 @@ class ScenarioProfileNode:
 
 
 @dataclass
+class ProductContractNode:
+    contract_id: str
+    contract_name: str
+    product_type: str
+    disaster_types: List[str] = field(default_factory=list)
+    response_phases: List[str] = field(default_factory=list)
+    layer_requirements: List[Dict[str, Any]] = field(default_factory=list)
+    scenario_profile_ids: List[str] = field(default_factory=list)
+    task_bundle_ids: List[str] = field(default_factory=list)
+    task_ids: List[str] = field(default_factory=list)
+    output_requirement_ids: List[str] = field(default_factory=list)
+    qos_policy_ids: List[str] = field(default_factory=list)
+    repair_strategy_ids: List[str] = field(default_factory=list)
+    component_contract_ids: List[str] = field(default_factory=list)
+    quality_gates: List[str] = field(default_factory=list)
+    evidence_requirements: List[str] = field(default_factory=list)
+    degradation_policy: Dict[str, Any] = field(default_factory=dict)
+    gap_declaration_policy: Dict[str, Any] = field(default_factory=dict)
+    delivery_policy: Dict[str, Any] = field(default_factory=dict)
+    satisfaction_states: List[str] = field(default_factory=list)
+    metadata: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
 class TaskBundleNode:
     bundle_id: str
     bundle_name: str
@@ -251,6 +275,7 @@ class KGContext:
     durable_learning_summaries: Dict[str, List[DurableLearningSummary]] = field(default_factory=dict)
     task_nodes: List[TaskNode] = field(default_factory=list)
     scenario_profiles: List[ScenarioProfileNode] = field(default_factory=list)
+    product_contracts: List[ProductContractNode] = field(default_factory=list)
     task_bundles: List[TaskBundleNode] = field(default_factory=list)
     output_requirements: Dict[str, OutputRequirementNode] = field(default_factory=dict)
     qos_policies: Dict[str, QoSPolicyNode] = field(default_factory=dict)

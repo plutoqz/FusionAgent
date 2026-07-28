@@ -241,10 +241,13 @@ def test_planner_context_exposes_task_bundle_task_nodes_and_scenario_profiles() 
         content="need building and road data for Gilgit, Pakistan",
     )
 
-    _plan = planner.create_plan(run_id="run-task-bundle", job_type=JobType.building, trigger=trigger)
+    plan = planner.create_plan(run_id="run-task-bundle", job_type=JobType.building, trigger=trigger)
 
     assert provider.last_context is not None
     assert provider.last_context["intent"]["task_bundle"]["bundle_id"] == "task_bundle.direct_request"
+    assert provider.last_context["intent"]["product_contract"]["contract_id"] == "contract.product.building.v1"
+    assert plan.product_contract is not None
+    assert plan.product_contract.contract_id == "contract.product.building.v1"
     assert any(item["task_id"] == "task.building.fusion" for item in provider.last_context["retrieval"]["task_nodes"])
     assert any(
         item["profile_id"] == "scenario.default.task"
@@ -256,6 +259,10 @@ def test_planner_context_exposes_task_bundle_task_nodes_and_scenario_profiles() 
     assert provider.last_context["intent"]["effective_preferred_output_fields"] == ["geometry"]
     assert provider.last_context["intent"]["qos_policy"]["policy_id"] == "qos.task.default.v1"
     assert provider.last_context["retrieval"]["task_bundles"]
+    assert any(
+        item["contract_id"] == "contract.product.emergency_vector_bundle.v1"
+        for item in provider.last_context["retrieval"]["product_contracts"]
+    )
     assert provider.last_context["retrieval"]["output_requirements"]["dt.building.fused"]["requirement_id"] == (
         "or.building.fused.v1"
     )
