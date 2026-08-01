@@ -31,6 +31,11 @@ from kg.models import (
 
 class KGRepository(ABC):
     @abstractmethod
+    def get_knowledge_identity(self) -> Dict[str, str]:
+        """Return the immutable base release and pinned experience identity."""
+        raise NotImplementedError
+
+    @abstractmethod
     def list_algorithms(self) -> List[AlgorithmNode]:
         raise NotImplementedError
 

@@ -134,7 +134,7 @@ def test_build_source_attempt_preserves_contract_status() -> None:
     assert attempt["external_uncontrollable"] is True
 
 
-def test_build_source_attempt_normalizes_other_faults_to_provider_failed() -> None:
+def test_build_source_attempt_normalizes_source_missing_to_no_coverage() -> None:
     from services.source_acquisition_policy import build_source_attempt
 
     attempt = build_source_attempt(
@@ -143,6 +143,6 @@ def test_build_source_attempt_normalizes_other_faults_to_provider_failed() -> No
         fault_class="SOURCE_MISSING",
     )
 
-    assert attempt["status"] == "provider_failed"
+    assert attempt["status"] == "no_coverage"
     assert attempt["external_uncontrollable"] is False
 

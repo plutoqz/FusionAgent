@@ -1,0 +1,39 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "aoi_id": "abidjan",
+        "boundary_type": "derived_request_bbox"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              -3.86,
+              5.23
+            ],
+            [
+              -3.86,
+              5.48
+            ],
+            [
+              -4.17,
+              5.48
+            ],
+            [
+              -4.17,
+              5.23
+            ],
+            [
+              -3.86,
+              5.23
+            ]
+          ]
+        ]
+      }
+    }
+  ]
+}

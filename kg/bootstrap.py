@@ -7,29 +7,52 @@ import re
 from pathlib import Path
 from typing import Any, Iterable, List
 
-from kg.seed import (
-    ALGORITHMS,
-    CAN_TRANSFORM_TO,
-    DATA_NEEDS,
-    DATA_SOURCES,
-    DATA_TYPES,
-    OUTPUT_SCHEMA_POLICIES,
-    OUTPUT_REQUIREMENTS,
-    PARAMETER_SPECS,
-    PRODUCT_CONTRACTS,
-    QOS_POLICIES,
-    REPAIR_STRATEGIES,
-    SCENARIO_PROFILES,
-    TASK_BUNDLES,
-    TASKS,
-    WORKFLOW_PATTERNS,
-)
+from kg.knowledge_release import KnowledgeReleaseError, get_knowledge_identity
+from kg.seed_provider import load_seed_data
 from utils.local_runtime import DEFAULT_GRAPH_NAMESPACE, apply_local_dependency_defaults, get_graph_namespace
 
 
 MANAGED_LABEL = "FusionAgentManaged"
 GRAPH_NAMESPACE = DEFAULT_GRAPH_NAMESPACE
 COMMUNITY_HOME_DATABASE = "neo4j"
+ENTITY_ID_PROPERTIES = (
+    "typeId",
+    "taskId",
+    "bundleId",
+    "algoId",
+    "specId",
+    "sourceId",
+    "profileId",
+    "policyId",
+    "requirementId",
+    "needId",
+    "strategyId",
+    "contractId",
+    "patternId",
+    "stepKey",
+    "releaseId",
+)
+
+_SEED_DATA = load_seed_data()
+ALGORITHMS = _SEED_DATA["algorithms"]
+CAN_TRANSFORM_TO = _SEED_DATA["can_transform_to"]
+DATA_NEEDS = _SEED_DATA["data_needs"]
+DATA_SOURCES = _SEED_DATA["data_sources"]
+DATA_TYPES = _SEED_DATA["data_types"]
+OUTPUT_SCHEMA_POLICIES = _SEED_DATA["output_schema_policies"]
+OUTPUT_REQUIREMENTS = _SEED_DATA["output_requirements"]
+PARAMETER_SPECS = _SEED_DATA["parameter_specs"]
+PRODUCT_CONTRACTS = _SEED_DATA["product_contracts"]
+QOS_POLICIES = _SEED_DATA["qos_policies"]
+REPAIR_STRATEGIES = _SEED_DATA["repair_strategies"]
+SCENARIO_PROFILES = _SEED_DATA["scenario_profiles"]
+TASK_BUNDLES = _SEED_DATA["task_bundles"]
+TASKS = _SEED_DATA["tasks"]
+WORKFLOW_PATTERNS = _SEED_DATA["patterns"]
+
+
+class KnowledgeReleaseStateError(KnowledgeReleaseError):
+    """Raised when a graph namespace does not match the frozen KG release."""
 
 
 def expected_seed_inventory() -> dict[str, int]:
@@ -48,6 +71,7 @@ def expected_seed_inventory() -> dict[str, int]:
         "DataNeed": len(DATA_NEEDS),
         "RepairStrategy": len(REPAIR_STRATEGIES),
         "WorkflowPattern": len(WORKFLOW_PATTERNS),
+        "StepTemplate": sum(len(pattern.steps) for pattern in WORKFLOW_PATTERNS),
     }
 
 
@@ -70,7 +94,21 @@ def _cypher_literal(value: Any) -> str:
 
 
 def _merge_properties(properties: dict[str, Any]) -> str:
-    return ", ".join(f"{key}: {_cypher_literal(value)}" for key, value in properties.items())
+    release_scoped = dict(properties)
+    if "graphNamespace" in release_scoped:
+        identity = get_knowledge_identity()
+        release_scoped.setdefault("releaseId", identity["release_id"])
+        release_scoped.setdefault("ontologyVersion", identity["ontology_version"])
+        release_scoped.setdefault("knowledgeVersion", identity["knowledge_version"])
+        release_scoped.setdefault("semanticHash", identity["semantic_hash"])
+        for id_property in ENTITY_ID_PROPERTIES:
+            if id_property in release_scoped:
+                release_scoped.setdefault(
+                    "entityKey",
+                    f"{id_property}:{release_scoped[id_property]}",
+                )
+                break
+    return ", ".join(f"{key}: {_cypher_literal(value)}" for key, value in release_scoped.items())
 
 
 def _statement_lines(lines: Iterable[str]) -> str:
@@ -90,6 +128,7 @@ def build_bootstrap_cypher(graph_namespace: str | None = None) -> str:
         "// Safe to replay because every statement uses IF NOT EXISTS or MERGE.",
         "",
         _build_schema_section(),
+        _build_knowledge_release_section(namespace),
         _build_datatype_section(namespace),
         _build_task_section(namespace),
         _build_task_bundle_section(namespace),
@@ -105,6 +144,7 @@ def build_bootstrap_cypher(graph_namespace: str | None = None) -> str:
         _build_product_contract_section(namespace),
         _build_pattern_section(namespace),
         _build_transform_section(),
+        build_live_knowledge_manifest_cypher(graph_namespace=namespace, store=True),
     ]
     return "\n\n".join(section for section in sections if section)
 
@@ -150,6 +190,8 @@ def _build_schema_section() -> str:
             "FOR (st:StepTemplate) REQUIRE st.stepKey IS UNIQUE;",
             "CREATE CONSTRAINT workflow_instance_instance_id IF NOT EXISTS",
             "FOR (run:WorkflowInstance) REQUIRE run.instanceId IS UNIQUE;",
+            "CREATE CONSTRAINT knowledge_release_release_id IF NOT EXISTS",
+            "FOR (release:KnowledgeRelease) REQUIRE release.releaseId IS UNIQUE;",
             "CREATE FULLTEXT INDEX wp_search IF NOT EXISTS",
             "FOR (wp:WorkflowPattern) ON EACH [wp.patternId, wp.patternName];",
             "CREATE FULLTEXT INDEX algo_search IF NOT EXISTS",
@@ -162,11 +204,32 @@ def _build_schema_section() -> str:
     )
 
 
+def _build_knowledge_release_section(graph_namespace: str) -> str:
+    identity = get_knowledge_identity()
+    properties = {
+        "releaseId": identity["release_id"],
+        "ontologyVersion": identity["ontology_version"],
+        "knowledgeVersion": identity["knowledge_version"],
+        "semanticHash": identity["semantic_hash"],
+        "experienceSnapshotHash": identity["experience_snapshot_hash"],
+        "graphNamespace": graph_namespace,
+        "status": "frozen",
+    }
+    return _statement_lines(
+        [
+            "// Seed immutable knowledge release identity",
+            f"MERGE (release:KnowledgeRelease {{{_merge_properties({'releaseId': identity['release_id'], 'graphNamespace': graph_namespace})}}})",
+            f"SET release:{MANAGED_LABEL}",
+            f"SET release += {{{_merge_properties(properties)}}};",
+        ]
+    )
+
+
 def _build_datatype_section(graph_namespace: str) -> str:
     lines = ["// Seed DataType nodes"]
     for data_type in DATA_TYPES.values():
         lines.append(
-            f"MERGE (dt:DataType {{{_merge_properties({'typeId': data_type.type_id})}}}) "
+            f"MERGE (dt:DataType {{{_merge_properties({'typeId': data_type.type_id, 'graphNamespace': graph_namespace})}}}) "
             f"SET dt:{MANAGED_LABEL} "
             f"SET dt += {{{_merge_properties({'theme': data_type.theme, 'geometryType': data_type.geometry_type, 'description': data_type.description, 'graphNamespace': graph_namespace})}}};"
         )
@@ -184,7 +247,7 @@ def _build_task_section(graph_namespace: str) -> str:
             "graphNamespace": graph_namespace,
         }
         lines.append(
-            f"MERGE (task:Task {{{_merge_properties({'taskId': task.task_id})}}}) "
+            f"MERGE (task:Task {{{_merge_properties({'taskId': task.task_id, 'graphNamespace': graph_namespace})}}}) "
             f"SET task:{MANAGED_LABEL} "
             f"SET task += {{{_merge_properties(properties)}}};"
         )
@@ -207,7 +270,7 @@ def _build_task_bundle_section(graph_namespace: str) -> str:
             "graphNamespace": graph_namespace,
         }
         lines.append(
-            f"MERGE (tb:TaskBundle {{{_merge_properties({'bundleId': bundle.bundle_id})}}}) "
+            f"MERGE (tb:TaskBundle {{{_merge_properties({'bundleId': bundle.bundle_id, 'graphNamespace': graph_namespace})}}}) "
             f"SET tb:{MANAGED_LABEL} "
             f"SET tb += {{{_merge_properties(properties)}}};"
         )
@@ -238,7 +301,7 @@ def _build_algorithm_section(graph_namespace: str) -> str:
             "graphNamespace": graph_namespace,
         }
         lines.append(
-            f"MERGE (algo:Algorithm {{{_merge_properties({'algoId': algorithm.algo_id})}}}) "
+            f"MERGE (algo:Algorithm {{{_merge_properties({'algoId': algorithm.algo_id, 'graphNamespace': graph_namespace})}}}) "
             f"SET algo:{MANAGED_LABEL} "
             f"SET algo += {{{_merge_properties(properties)}}};"
         )
@@ -277,7 +340,7 @@ def _build_parameter_spec_section(graph_namespace: str) -> str:
                 "graphNamespace": graph_namespace,
             }
             lines.append(
-                f"MERGE (ps:AlgorithmParameterSpec {{{_merge_properties({'specId': spec.spec_id})}}}) "
+                f"MERGE (ps:AlgorithmParameterSpec {{{_merge_properties({'specId': spec.spec_id, 'graphNamespace': graph_namespace})}}}) "
                 f"SET ps:{MANAGED_LABEL} "
                 f"SET ps += {{{_merge_properties(properties)}}};"
             )
@@ -309,7 +372,7 @@ def _build_datasource_section(graph_namespace: str) -> str:
             "graphNamespace": graph_namespace,
         }
         lines.append(
-            f"MERGE (ds:DataSource {{{_merge_properties({'sourceId': source.source_id})}}}) "
+            f"MERGE (ds:DataSource {{{_merge_properties({'sourceId': source.source_id, 'graphNamespace': graph_namespace})}}}) "
             f"SET ds:{MANAGED_LABEL} "
             f"SET ds += {{{_merge_properties(properties)}}};"
         )
@@ -331,7 +394,7 @@ def _build_scenario_profile_section(graph_namespace: str) -> str:
             "graphNamespace": graph_namespace,
         }
         lines.append(
-            f"MERGE (profile:ScenarioProfile {{{_merge_properties({'profileId': profile.profile_id})}}}) "
+            f"MERGE (profile:ScenarioProfile {{{_merge_properties({'profileId': profile.profile_id, 'graphNamespace': graph_namespace})}}}) "
             f"SET profile:{MANAGED_LABEL} "
             f"SET profile += {{{_merge_properties(properties)}}};"
         )
@@ -357,7 +420,7 @@ def _build_qos_policy_section(graph_namespace: str) -> str:
             "graphNamespace": graph_namespace,
         }
         lines.append(
-            f"MERGE (qos:QoSPolicy {{{_merge_properties({'policyId': policy.policy_id})}}}) "
+            f"MERGE (qos:QoSPolicy {{{_merge_properties({'policyId': policy.policy_id, 'graphNamespace': graph_namespace})}}}) "
             f"SET qos:{MANAGED_LABEL} "
             f"SET qos += {{{_merge_properties(properties)}}};"
         )
@@ -387,7 +450,7 @@ def _build_output_schema_policy_section(graph_namespace: str) -> str:
             "graphNamespace": graph_namespace,
         }
         lines.append(
-            f"MERGE (osp:OutputSchemaPolicy {{{_merge_properties({'policyId': policy.policy_id})}}}) "
+            f"MERGE (osp:OutputSchemaPolicy {{{_merge_properties({'policyId': policy.policy_id, 'graphNamespace': graph_namespace})}}}) "
             f"SET osp:{MANAGED_LABEL} "
             f"SET osp += {{{_merge_properties(properties)}}};"
         )
@@ -414,7 +477,7 @@ def _build_output_requirement_section(graph_namespace: str) -> str:
             "graphNamespace": graph_namespace,
         }
         lines.append(
-            f"MERGE (orq:OutputRequirement {{{_merge_properties({'requirementId': requirement.requirement_id})}}}) "
+            f"MERGE (orq:OutputRequirement {{{_merge_properties({'requirementId': requirement.requirement_id, 'graphNamespace': graph_namespace})}}}) "
             f"SET orq:{MANAGED_LABEL} "
             f"SET orq += {{{_merge_properties(properties)}}};"
         )
@@ -452,7 +515,7 @@ def _build_data_need_section(graph_namespace: str) -> str:
             "graphNamespace": graph_namespace,
         }
         lines.append(
-            f"MERGE (dn:DataNeed {{{_merge_properties({'needId': need.need_id})}}}) "
+            f"MERGE (dn:DataNeed {{{_merge_properties({'needId': need.need_id, 'graphNamespace': graph_namespace})}}}) "
             f"SET dn:{MANAGED_LABEL} "
             f"SET dn += {{{_merge_properties(properties)}}};"
         )
@@ -483,7 +546,7 @@ def _build_repair_strategy_section(graph_namespace: str) -> str:
             "graphNamespace": graph_namespace,
         }
         lines.append(
-            f"MERGE (rs:RepairStrategy {{{_merge_properties({'strategyId': strategy.strategy_id})}}}) "
+            f"MERGE (rs:RepairStrategy {{{_merge_properties({'strategyId': strategy.strategy_id, 'graphNamespace': graph_namespace})}}}) "
             f"SET rs:{MANAGED_LABEL} "
             f"SET rs += {{{_merge_properties(properties)}}};"
         )
@@ -530,7 +593,7 @@ def _build_product_contract_section(graph_namespace: str) -> str:
             "graphNamespace": graph_namespace,
         }
         lines.append(
-            f"MERGE (contract:ProductContract {{{_merge_properties({'contractId': contract.contract_id})}}}) "
+            f"MERGE (contract:ProductContract {{{_merge_properties({'contractId': contract.contract_id, 'graphNamespace': graph_namespace})}}}) "
             f"SET contract:{MANAGED_LABEL} "
             f"SET contract += {{{_merge_properties(properties)}}};"
         )
@@ -604,7 +667,7 @@ def _build_pattern_section(graph_namespace: str) -> str:
             "graphNamespace": graph_namespace,
         }
         lines.append(
-            f"MERGE (wp:WorkflowPattern {{{_merge_properties({'patternId': pattern.pattern_id})}}}) "
+            f"MERGE (wp:WorkflowPattern {{{_merge_properties({'patternId': pattern.pattern_id, 'graphNamespace': graph_namespace})}}}) "
             f"SET wp:{MANAGED_LABEL} "
             f"SET wp += {{{_merge_properties(pattern_properties)}}};"
         )
@@ -623,7 +686,7 @@ def _build_pattern_section(graph_namespace: str) -> str:
                 "graphNamespace": graph_namespace,
             }
             lines.append(
-                f"MERGE (st:StepTemplate {{{_merge_properties({'stepKey': step_key})}}}) "
+                f"MERGE (st:StepTemplate {{{_merge_properties({'stepKey': step_key, 'graphNamespace': graph_namespace})}}}) "
                 f"SET st:{MANAGED_LABEL} "
                 f"SET st += {{{_merge_properties(step_properties)}}};"
             )
@@ -645,6 +708,92 @@ def _build_transform_section() -> str:
                 "MERGE (src)-[:CAN_TRANSFORM_TO]->(dst);"
             )
     return _statement_lines(lines)
+
+
+def build_live_knowledge_manifest_cypher(
+    *,
+    graph_namespace: str | None = None,
+    store: bool = False,
+) -> str:
+    namespace_expression = (
+        _cypher_literal(resolve_graph_namespace(graph_namespace))
+        if graph_namespace is not None
+        else "$graph_namespace"
+    )
+    seed_labels_expression = (
+        _cypher_literal(sorted(expected_seed_inventory()))
+        if graph_namespace is not None
+        else "$seed_labels"
+    )
+    ending = (
+        "SET release.entityManifest = liveEntityManifest,\n"
+        "    release.relationshipManifest = liveRelationshipManifest;"
+        if store
+        else (
+            "RETURN release.entityManifest AS stored_entity_manifest,\n"
+            "       liveEntityManifest AS live_entity_manifest,\n"
+            "       release.relationshipManifest AS stored_relationship_manifest,\n"
+            "       liveRelationshipManifest AS live_relationship_manifest"
+        )
+    )
+    node_property_value = _manifest_property_expression("n[propertyKey]")
+    relationship_property_value = _manifest_property_expression(
+        "relationship[propertyKey]"
+    )
+    return f"""
+// Compute deterministic static node-property and relationship-endpoint manifests
+MATCH (release:KnowledgeRelease:{MANAGED_LABEL})
+WHERE release.graphNamespace = {namespace_expression}
+CALL {{
+    MATCH (n:{MANAGED_LABEL})
+    WHERE n.graphNamespace = {namespace_expression}
+      AND any(label IN labels(n) WHERE label IN {seed_labels_expression})
+    UNWIND keys(n) AS propertyKey
+    WITH n,
+         propertyKey,
+         head([label IN labels(n) WHERE label IN {seed_labels_expression}]) AS entityLabel
+    ORDER BY entityLabel, n.entityKey, propertyKey
+    RETURN collect(
+        entityLabel + "|" + n.entityKey + "|" + propertyKey + "|" + {node_property_value}
+    ) AS liveEntityManifest
+}}
+CALL {{
+    MATCH (source:{MANAGED_LABEL})-[relationship]->(target:{MANAGED_LABEL})
+    WHERE source.graphNamespace = {namespace_expression}
+      AND target.graphNamespace = {namespace_expression}
+      AND any(label IN labels(source) WHERE label IN {seed_labels_expression})
+      AND (
+          target:KnowledgeRelease
+          OR any(label IN labels(target) WHERE label IN {seed_labels_expression})
+      )
+    WITH source,
+         relationship,
+         target,
+         head([label IN labels(source) WHERE label IN {seed_labels_expression}]) AS sourceLabel,
+         CASE
+             WHEN target:KnowledgeRelease THEN "KnowledgeRelease"
+             ELSE head([label IN labels(target) WHERE label IN {seed_labels_expression}])
+         END AS targetLabel
+    UNWIND CASE WHEN size(keys(relationship)) = 0 THEN [""] ELSE keys(relationship) END AS propertyKey
+    WITH source, relationship, target, sourceLabel, targetLabel, propertyKey
+    ORDER BY sourceLabel, source.entityKey, type(relationship), targetLabel, target.entityKey, propertyKey
+    RETURN collect(
+        sourceLabel + "|" + source.entityKey + "|" + type(relationship) + "|"
+        + targetLabel + "|" + target.entityKey + "|" + propertyKey + "|"
+        + CASE WHEN propertyKey = "" THEN "" ELSE {relationship_property_value} END
+    ) AS liveRelationshipManifest
+}}
+{ending}
+""".strip()
+
+
+def _manifest_property_expression(expression: str) -> str:
+    return (
+        f'CASE WHEN valueType({expression}) STARTS WITH "LIST" '
+        f'THEN "[" + reduce(value = "", item IN {expression} | '
+        'value + CASE WHEN value = "" THEN "" ELSE "," END + toString(item)) + "]" '
+        f'ELSE toString({expression}) END'
+    )
 
 
 def _split_cypher_statements(cypher: str) -> list[str]:
@@ -924,6 +1073,122 @@ def inspect_graph_state(
         driver.close()
 
 
+def inspect_knowledge_release(
+    *,
+    uri: str,
+    user: str,
+    password: str,
+    database: str | None = None,
+    graph_namespace: str | None = None,
+) -> dict[str, str] | None:
+    namespace = resolve_graph_namespace(graph_namespace)
+    driver = _create_driver(uri=uri, user=user, password=password)
+    try:
+        with driver.session(database=database) as session:
+            rows = list(
+                session.run(
+                    f"""
+                    MATCH (release:KnowledgeRelease:{MANAGED_LABEL})
+                    WHERE release.graphNamespace = $graph_namespace
+                    RETURN release.releaseId AS release_id,
+                           release.ontologyVersion AS ontology_version,
+                           release.knowledgeVersion AS knowledge_version,
+                           release.semanticHash AS semantic_hash,
+                           release.experienceSnapshotHash AS experience_snapshot_hash,
+                           release.status AS status
+                    """,
+                    graph_namespace=namespace,
+                )
+            )
+    finally:
+        driver.close()
+
+    if not rows:
+        return None
+    if len(rows) != 1:
+        raise KnowledgeReleaseStateError(
+            f"Expected exactly one KnowledgeRelease in graph namespace {namespace!r}, found {len(rows)}"
+        )
+    row = dict(rows[0])
+    if row.get("status") != "frozen":
+        raise KnowledgeReleaseStateError(
+            f"KnowledgeRelease in graph namespace {namespace!r} is not frozen"
+        )
+    return {
+        key: str(value)
+        for key, value in row.items()
+        if key != "status"
+    }
+
+
+def inspect_live_knowledge_manifests(
+    *,
+    uri: str,
+    user: str,
+    password: str,
+    database: str | None = None,
+    graph_namespace: str | None = None,
+) -> dict[str, Any]:
+    namespace = resolve_graph_namespace(graph_namespace)
+    driver = _create_driver(uri=uri, user=user, password=password)
+    try:
+        with driver.session(database=database) as session:
+            rows = list(
+                session.run(
+                    build_live_knowledge_manifest_cypher(),
+                    graph_namespace=namespace,
+                    seed_labels=sorted(expected_seed_inventory()),
+                )
+            )
+    finally:
+        driver.close()
+
+    if len(rows) != 1:
+        raise KnowledgeReleaseStateError(
+            f"Expected one knowledge manifest row in graph namespace {namespace!r}, found {len(rows)}"
+        )
+    return dict(rows[0])
+
+
+def _assert_live_knowledge_manifests(manifests: dict[str, Any], *, graph_namespace: str) -> None:
+    entity_matches = manifests.get("stored_entity_manifest") == manifests.get("live_entity_manifest")
+    relationship_matches = (
+        manifests.get("stored_relationship_manifest") == manifests.get("live_relationship_manifest")
+    )
+    if not entity_matches or not relationship_matches:
+        raise KnowledgeReleaseStateError(
+            f"Graph namespace {graph_namespace!r} has static property or relationship drift "
+            f"(entity_manifest_matches={entity_matches}, "
+            f"relationship_manifest_matches={relationship_matches})"
+        )
+
+
+def _assert_expected_knowledge_release(
+    actual: dict[str, str] | None,
+    *,
+    graph_namespace: str,
+    allow_missing: bool,
+) -> None:
+    if actual is None:
+        if allow_missing:
+            return
+        raise KnowledgeReleaseStateError(
+            f"Graph namespace {graph_namespace!r} contains managed data without a KnowledgeRelease identity"
+        )
+
+    expected = get_knowledge_identity()
+    mismatches = {
+        key: {"expected": expected[key], "actual": actual.get(key)}
+        for key in expected
+        if actual.get(key) != expected[key]
+    }
+    if mismatches:
+        raise KnowledgeReleaseStateError(
+            f"Graph namespace {graph_namespace!r} does not match the frozen KG release: "
+            f"{json.dumps(mismatches, ensure_ascii=False, sort_keys=True)}"
+        )
+
+
 def ensure_bootstrap_data(
     *,
     uri: str,
@@ -942,7 +1207,21 @@ def ensure_bootstrap_data(
         managed_only=True,
         graph_namespace=namespace,
     )
-    if not managed_inventory_missing_seed_labels(live_inventory):
+    actual_release = inspect_knowledge_release(
+        uri=uri,
+        user=user,
+        password=password,
+        database=database,
+        graph_namespace=namespace,
+    )
+    missing_seed_labels = managed_inventory_missing_seed_labels(live_inventory)
+    _assert_expected_knowledge_release(
+        actual_release,
+        graph_namespace=namespace,
+        allow_missing=int(live_inventory.get("node_count", 0)) == 0,
+    )
+
+    if actual_release is not None and not missing_seed_labels:
         return False
 
     apply_bootstrap_cypher(
@@ -1014,6 +1293,26 @@ def prepare_local_neo4j(
         if label["label"] not in managed_labels and label["label"] != MANAGED_LABEL
     ]
     missing_seed_labels = managed_inventory_missing_seed_labels(managed_inventory)
+    knowledge_identity = inspect_knowledge_release(
+        uri=uri,
+        user=user,
+        password=password,
+        database=database_used,
+        graph_namespace=namespace,
+    )
+    _assert_expected_knowledge_release(
+        knowledge_identity,
+        graph_namespace=namespace,
+        allow_missing=False,
+    )
+    knowledge_manifests = inspect_live_knowledge_manifests(
+        uri=uri,
+        user=user,
+        password=password,
+        database=database_used,
+        graph_namespace=namespace,
+    )
+    _assert_live_knowledge_manifests(knowledge_manifests, graph_namespace=namespace)
 
     return {
         **resolved,
@@ -1024,7 +1323,9 @@ def prepare_local_neo4j(
         "bootstrap_applied": bootstrap_applied,
         "expected_seed_inventory": expected_seed_inventory(),
         "missing_seed_labels": missing_seed_labels,
-        "kg_contract_ok": not missing_seed_labels,
+        "knowledge_identity": knowledge_identity,
+        "knowledge_manifests_match": True,
+        "kg_contract_ok": not missing_seed_labels and knowledge_identity == get_knowledge_identity(),
         "managed_inventory": managed_inventory,
         "foreign_labels": foreign_labels,
     }

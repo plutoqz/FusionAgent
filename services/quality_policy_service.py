@@ -2,20 +2,34 @@ from __future__ import annotations
 
 from typing import Any
 
+from kg.policy_registry import KnowledgePolicyRegistry, default_policy_registry
 from schemas.degradation import DegradationContext
 from schemas.quality_policy import QualityPolicy, QualityPolicyCheck
 from schemas.task_kind import TaskKind
 
 
-def get_quality_policy(*, task_kind: TaskKind, policy_id: str | None = None) -> QualityPolicy:
-    policies = _default_policies()
-    selected_id = policy_id or _DEFAULT_POLICY_BY_TASK_KIND[task_kind]
-    if selected_id not in policies:
-        raise ValueError(f"Unknown quality policy: {selected_id}")
-    policy = policies[selected_id]
-    if policy.task_kind != task_kind:
-        raise ValueError(f"Quality policy {selected_id} is for {policy.task_kind.value}, not {task_kind.value}")
-    return policy
+def get_quality_policy(
+    *,
+    task_kind: TaskKind,
+    policy_id: str | None = None,
+    policy_registry: KnowledgePolicyRegistry | None = None,
+) -> QualityPolicy:
+    registry = policy_registry or default_policy_registry()
+    record = registry.quality_policy(task_kind.value, policy_id)
+    checks: list[QualityPolicyCheck] = []
+    for template in registry.quality_check_templates(str(record["topology"])):
+        payload = dict(template)
+        threshold_ref = payload.pop("threshold_ref", None)
+        if threshold_ref:
+            payload["threshold"] = record[threshold_ref]
+        checks.append(QualityPolicyCheck.model_validate(payload))
+    return QualityPolicy(
+        policy_id=str(record["policy_id"]),
+        task_kind=task_kind,
+        description=f"KG release quality policy for {task_kind.value}.",
+        checks=checks,
+        metadata={"knowledge_identity": registry.knowledge_identity()},
+    )
 
 
 def adapt_policy_for_degradation(
@@ -24,6 +38,7 @@ def adapt_policy_for_degradation(
     task_kind: TaskKind,
     component_coverage: dict[str, object] | None = None,
     degradation_context: DegradationContext | None = None,
+    policy_registry: KnowledgePolicyRegistry | None = None,
 ) -> tuple[QualityPolicy, list[dict[str, Any]]]:
     """Return a runtime policy adapted to externally degraded source coverage."""
     if degradation_context is None or not degradation_context.external_only:
@@ -34,17 +49,12 @@ def adapt_policy_for_degradation(
     adapted_checks: list[QualityPolicyCheck] = []
     missing_sources = list(degradation_context.external_uncontrollable_sources or degradation_context.missing_sources)
 
+    adaptation_policy = (policy_registry or default_policy_registry()).quality_adaptation_policy()
+    single_source_soft_checks = set(adaptation_policy["single_source_soft_checks"])
+    single_source_line_soft_checks = set(adaptation_policy["single_source_line_soft_checks"])
     for check in policy.checks:
         adapted = check.model_copy(deep=True)
-        if check.check_id == "multi_source_lineage" and available_source_count < 2:
-            adapted = _adapt_check_severity(
-                adapted,
-                severity="soft",
-                reason="external_source_unavailable",
-                missing_sources=missing_sources,
-                adaptations=adaptations,
-            )
-        elif check.check_id == "source_contribution_balance" and available_source_count < 2:
+        if check.check_id in single_source_soft_checks and available_source_count < 2:
             adapted = _adapt_check_severity(
                 adapted,
                 severity="soft",
@@ -53,7 +63,7 @@ def adapt_policy_for_degradation(
                 adaptations=adaptations,
             )
         elif (
-            check.check_id == "dangle_endpoint_rate_per_100km"
+            check.check_id in single_source_line_soft_checks
             and available_source_count < 2
             and task_kind in {TaskKind.road, TaskKind.waterways}
         ):
@@ -66,7 +76,10 @@ def adapt_policy_for_degradation(
             )
         elif check.check_id == "source_contribution_balance" and available_source_count == 2:
             original_threshold = adapted.threshold
-            widened = _widen_balance_threshold(original_threshold)
+            widened = _widen_balance_threshold(
+                original_threshold,
+                minimum=float(adaptation_policy["reduced_mix_balance_threshold"]),
+            )
             if widened != original_threshold:
                 adapted.threshold = widened
                 adapted.metadata = {
@@ -104,95 +117,6 @@ def adapt_policy_for_degradation(
     return adapted_policy, adaptations
 
 
-_DEFAULT_POLICY_BY_TASK_KIND = {
-    TaskKind.building: "quality.default.building.v1",
-    TaskKind.road: "quality.default.road.v1",
-    TaskKind.water_polygon: "quality.default.water_polygon.v1",
-    TaskKind.waterways: "quality.default.waterways.v1",
-    TaskKind.poi: "quality.default.poi.v1",
-}
-
-
-def _default_policies() -> dict[str, QualityPolicy]:
-    return {
-        policy.policy_id: policy
-        for policy in [
-            _policy(TaskKind.building, "quality.default.building.v1", duplicate_threshold=0.0, balance_threshold=0.75),
-            _policy(TaskKind.road, "quality.default.road.v1", duplicate_threshold=0.05, balance_threshold=0.85),
-            _policy(TaskKind.water_polygon, "quality.default.water_polygon.v1", duplicate_threshold=0.05, balance_threshold=0.90),
-            _policy(TaskKind.waterways, "quality.default.waterways.v1", duplicate_threshold=0.05, balance_threshold=0.90),
-            _policy(TaskKind.poi, "quality.default.poi.v1", duplicate_threshold=0.10, balance_threshold=0.95),
-        ]
-    }
-
-
-def _policy(
-    task_kind: TaskKind,
-    policy_id: str,
-    *,
-    duplicate_threshold: float,
-    balance_threshold: float,
-) -> QualityPolicy:
-    checks = [
-        QualityPolicyCheck(check_id="readable", metric_name="readable", operator="eq", threshold=True),
-        QualityPolicyCheck(check_id="non_empty", metric_name="non_empty", operator="eq", threshold=True),
-        QualityPolicyCheck(check_id="required_fields", metric_name="required_fields", operator="eq", threshold=True),
-        QualityPolicyCheck(check_id="geometry_type", metric_name="geometry_type", operator="eq", threshold=True),
-        QualityPolicyCheck(check_id="aoi_intersection", metric_name="aoi_intersection", operator="eq", threshold=True),
-        QualityPolicyCheck(check_id="source_lineage", metric_name="source_lineage", operator="eq", threshold=True),
-        QualityPolicyCheck(
-            check_id="multi_source_lineage",
-            metric_name="multi_source_lineage",
-            operator="eq",
-            threshold=True,
-            metadata={"downgrade_to_soft_when_external_degraded_for_task_kinds": ["poi"]},
-        ),
-        QualityPolicyCheck(
-            check_id="duplicate_geometry_rate",
-            metric_name="duplicate_geometry_rate",
-            operator="lte",
-            threshold=duplicate_threshold,
-        ),
-        QualityPolicyCheck(
-            check_id="invalid_geometry_rate",
-            metric_name="invalid_geometry_rate",
-            operator="lte",
-            threshold=0.0,
-        ),
-        QualityPolicyCheck(
-            check_id="source_contribution_balance",
-            metric_name="source_contribution_balance",
-            operator="lte",
-            threshold=balance_threshold,
-        ),
-    ]
-    checks.extend(_topology_policy_checks(task_kind))
-    checks.extend(
-        [
-            QualityPolicyCheck(
-                check_id="feature_retention_rate",
-                metric_name="feature_retention_rate",
-                severity="soft",
-                operator="gte",
-                threshold=0.5,
-            ),
-            QualityPolicyCheck(
-                check_id="coverage_retention_rate",
-                metric_name="coverage_retention_rate",
-                severity="soft",
-                operator="gte",
-                threshold=0.5,
-            ),
-        ]
-    )
-    return QualityPolicy(
-        policy_id=policy_id,
-        task_kind=task_kind,
-        description=f"Default {task_kind.value} quality policy.",
-        checks=checks,
-    )
-
-
 def _adapt_check_severity(
     check: QualityPolicyCheck,
     *,
@@ -224,12 +148,12 @@ def _adapt_check_severity(
     return check
 
 
-def _widen_balance_threshold(threshold: object) -> float:
+def _widen_balance_threshold(threshold: object, *, minimum: float) -> float:
     try:
         current = float(threshold)
     except (TypeError, ValueError):
         current = 0.0
-    return max(current, 0.95)
+    return max(current, minimum)
 
 
 def _available_source_count(component_coverage: dict[str, object]) -> int:
@@ -260,38 +184,3 @@ def _coverage_feature_count(payload: object) -> int:
         return int(float(value or 0))
     except (OverflowError, TypeError, ValueError):
         return 0
-
-
-def _topology_policy_checks(task_kind: TaskKind) -> list[QualityPolicyCheck]:
-    if task_kind in {TaskKind.road, TaskKind.waterways}:
-        return [
-            QualityPolicyCheck(
-                check_id="zero_length_geometry_count",
-                metric_name="zero_length_geometry_count",
-                operator="eq",
-                threshold=0,
-            ),
-            QualityPolicyCheck(
-                check_id="dangle_endpoint_rate_per_100km",
-                metric_name="dangle_endpoint_rate_per_100km",
-                operator="lte",
-                threshold=500.0,
-                metadata={"normalization": "dangle endpoints per 100 km of line length"},
-            ),
-        ]
-    if task_kind in {TaskKind.building, TaskKind.water_polygon}:
-        return [
-            QualityPolicyCheck(
-                check_id="self_intersection_count",
-                metric_name="self_intersection_count",
-                operator="eq",
-                threshold=0,
-            ),
-            QualityPolicyCheck(
-                check_id="sliver_polygon_count",
-                metric_name="sliver_polygon_count",
-                operator="lte",
-                threshold=0,
-            ),
-        ]
-    return []

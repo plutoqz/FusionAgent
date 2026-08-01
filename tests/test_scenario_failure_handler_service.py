@@ -44,3 +44,4 @@ def test_failure_handler_marks_manual_review_when_not_recoverable() -> None:
 
     assert record.recovery_state == "blocked"
     assert record.next_action == "manual_review"
+    assert record.error_code == "ALGO_RUNTIME_ERROR"

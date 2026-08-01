@@ -15,6 +15,9 @@ class QualityGateReport(BaseModel):
     metrics: dict[str, Any] = Field(default_factory=dict)
     failure_reasons: list[str] = Field(default_factory=list)
     policy_id: str | None = None
+    contract_id: str | None = None
+    knowledge_identity: dict[str, str] = Field(default_factory=dict)
+    knowledge_refs: list[str] = Field(default_factory=list)
     soft_failure_reasons: list[str] = Field(default_factory=list)
     degraded_mode: bool = False
     degradation_level: str | None = None

@@ -1,0 +1,707 @@
+{
+  "schema_version": "1.0.0",
+  "p3_id": "freeze-c-governance-ablation-v1",
+  "manifest_path": "D:\\code\\FusionAgent\\docs\\thesis\\manifests\\2026-07-20-c02-c04-c06-real-data.json",
+  "evidence_root": "D:\\code\\freeze-c-evidence\\p3-governance-20260801-c02-c04-c06",
+  "variants": [
+    "full_method",
+    "no_product_contract",
+    "no_quality_gate",
+    "no_degraded_recovery",
+    "fixed_priority"
+  ],
+  "fixed_environment": {
+    "kg_backend": "memory",
+    "llm_provider": "mock",
+    "celery_eager": true,
+    "scenario_child_max_workers": 1,
+    "local_only": true,
+    "artifact_reuse_disabled": true,
+    "one_run_per_variant": true
+  },
+  "variant_definitions": [
+    {
+      "variant": "full_method",
+      "label": "完整方法"
+    },
+    {
+      "variant": "no_product_contract",
+      "label": "无产品契约"
+    },
+    {
+      "variant": "no_quality_gate",
+      "label": "无质量门"
+    },
+    {
+      "variant": "no_degraded_recovery",
+      "label": "无降级恢复"
+    },
+    {
+      "variant": "fixed_priority",
+      "label": "固定优先级"
+    }
+  ],
+  "results": [
+    {
+      "variant": "full_method",
+      "label": "完整方法",
+      "status": "completed",
+      "experiment_dir": "D:\\code\\freeze-c-evidence\\p3-governance-20260801-c02-c04-c06\\full_method",
+      "runtime_result": {
+        "all_cases_passed": false,
+        "evidence_manifest_path": "D:\\code\\freeze-c-evidence\\p3-governance-20260801-c02-c04-c06\\full_method\\experiment_evidence_manifest.json"
+      },
+      "case_metrics": [
+        {
+          "case_id": "C02",
+          "initial_phase": "failed",
+          "final_phase": "failed",
+          "task_order": [
+            "water_polygon",
+            "waterways",
+            "road"
+          ],
+          "planning_valid": true,
+          "first_quality_gate_passed": false,
+          "final_delivery_success": false,
+          "recovery_case": false,
+          "recovery_attempted": false,
+          "recovery_success": null,
+          "recovery_cost_child_retries": 0,
+          "key_layer_delivered_on_time": false,
+          "gap_declaration_correct": false,
+          "expected_gap_types": [
+            "quality_failed",
+            "source_unavailable"
+          ],
+          "observed_gap_types": [
+            "quality_failed"
+          ],
+          "evidence_complete": false,
+          "runtime_product_contract_bound": true,
+          "supersession_observed": false,
+          "initial_child_count": 3,
+          "final_child_count": 3,
+          "first_child_task": "water_polygon"
+        },
+        {
+          "case_id": "C04",
+          "initial_phase": "failed",
+          "final_phase": "failed",
+          "task_order": [
+            "water_polygon"
+          ],
+          "planning_valid": null,
+          "first_quality_gate_passed": null,
+          "final_delivery_success": false,
+          "recovery_case": true,
+          "recovery_attempted": true,
+          "recovery_success": false,
+          "recovery_cost_child_retries": 1,
+          "key_layer_delivered_on_time": false,
+          "gap_declaration_correct": false,
+          "expected_gap_types": [
+            "source_unavailable"
+          ],
+          "observed_gap_types": [
+            "quality_failed"
+          ],
+          "evidence_complete": false,
+          "runtime_product_contract_bound": true,
+          "supersession_observed": false,
+          "initial_child_count": 1,
+          "final_child_count": 1,
+          "first_child_task": "water_polygon"
+        },
+        {
+          "case_id": "C06",
+          "initial_phase": "failed",
+          "final_phase": "partial_provisional",
+          "task_order": [
+            "road"
+          ],
+          "planning_valid": true,
+          "first_quality_gate_passed": false,
+          "final_delivery_success": true,
+          "recovery_case": true,
+          "recovery_attempted": true,
+          "recovery_success": true,
+          "recovery_cost_child_retries": 1,
+          "key_layer_delivered_on_time": false,
+          "gap_declaration_correct": true,
+          "expected_gap_types": [
+            "quality_failed",
+            "source_unavailable"
+          ],
+          "observed_gap_types": [
+            "quality_failed",
+            "source_unavailable"
+          ],
+          "evidence_complete": true,
+          "runtime_product_contract_bound": true,
+          "supersession_observed": false,
+          "initial_child_count": 1,
+          "final_child_count": 1,
+          "first_child_task": "road"
+        }
+      ],
+      "metrics": {
+        "case_count": 3,
+        "planning_valid_rate": 1.0,
+        "first_quality_gate_pass_rate": 0.0,
+        "final_delivery_success_rate": 0.3333333333333333,
+        "recovery_success_rate": 0.5,
+        "recovery_cost_mean_child_retries": 1.0,
+        "key_layer_on_time_rate": 0.0,
+        "gap_declaration_correctness_rate": 0.3333333333333333,
+        "evidence_completeness_rate": 0.3333333333333333,
+        "runtime_product_contract_binding_rate": 1.0,
+        "supersession_rate": 0.0,
+        "quality_gate_bypassed_rate": 0.3333333333333333
+      },
+      "deltas_vs_full_method": {
+        "case_count": 0.0,
+        "planning_valid_rate": 0.0,
+        "first_quality_gate_pass_rate": 0.0,
+        "final_delivery_success_rate": 0.0,
+        "recovery_success_rate": 0.0,
+        "recovery_cost_mean_child_retries": 0.0,
+        "key_layer_on_time_rate": 0.0,
+        "gap_declaration_correctness_rate": 0.0,
+        "evidence_completeness_rate": 0.0,
+        "runtime_product_contract_binding_rate": 0.0,
+        "supersession_rate": 0.0,
+        "quality_gate_bypassed_rate": 0.0
+      }
+    },
+    {
+      "variant": "no_product_contract",
+      "label": "无产品契约",
+      "status": "completed",
+      "experiment_dir": "D:\\code\\freeze-c-evidence\\p3-governance-20260801-c02-c04-c06\\no_product_contract",
+      "runtime_result": {
+        "all_cases_passed": false,
+        "evidence_manifest_path": "D:\\code\\freeze-c-evidence\\p3-governance-20260801-c02-c04-c06\\no_product_contract\\experiment_evidence_manifest.json"
+      },
+      "case_metrics": [
+        {
+          "case_id": "C02",
+          "initial_phase": "failed",
+          "final_phase": "failed",
+          "task_order": [
+            "water_polygon",
+            "waterways",
+            "road"
+          ],
+          "planning_valid": true,
+          "first_quality_gate_passed": false,
+          "final_delivery_success": false,
+          "recovery_case": false,
+          "recovery_attempted": false,
+          "recovery_success": null,
+          "recovery_cost_child_retries": 0,
+          "key_layer_delivered_on_time": false,
+          "gap_declaration_correct": false,
+          "expected_gap_types": [
+            "quality_failed",
+            "source_unavailable"
+          ],
+          "observed_gap_types": [
+            "quality_failed"
+          ],
+          "evidence_complete": false,
+          "runtime_product_contract_bound": true,
+          "supersession_observed": false,
+          "initial_child_count": 3,
+          "final_child_count": 3,
+          "first_child_task": "water_polygon"
+        },
+        {
+          "case_id": "C04",
+          "initial_phase": "failed",
+          "final_phase": "failed",
+          "task_order": [
+            "water_polygon"
+          ],
+          "planning_valid": null,
+          "first_quality_gate_passed": null,
+          "final_delivery_success": false,
+          "recovery_case": true,
+          "recovery_attempted": true,
+          "recovery_success": false,
+          "recovery_cost_child_retries": 1,
+          "key_layer_delivered_on_time": false,
+          "gap_declaration_correct": false,
+          "expected_gap_types": [
+            "source_unavailable"
+          ],
+          "observed_gap_types": [
+            "quality_failed"
+          ],
+          "evidence_complete": false,
+          "runtime_product_contract_bound": true,
+          "supersession_observed": false,
+          "initial_child_count": 1,
+          "final_child_count": 1,
+          "first_child_task": "water_polygon"
+        },
+        {
+          "case_id": "C06",
+          "initial_phase": "failed",
+          "final_phase": "partial",
+          "task_order": [
+            "road"
+          ],
+          "planning_valid": true,
+          "first_quality_gate_passed": false,
+          "final_delivery_success": true,
+          "recovery_case": true,
+          "recovery_attempted": true,
+          "recovery_success": true,
+          "recovery_cost_child_retries": 1,
+          "key_layer_delivered_on_time": false,
+          "gap_declaration_correct": true,
+          "expected_gap_types": [
+            "quality_failed",
+            "source_unavailable"
+          ],
+          "observed_gap_types": [
+            "quality_failed",
+            "source_unavailable"
+          ],
+          "evidence_complete": true,
+          "runtime_product_contract_bound": false,
+          "supersession_observed": false,
+          "initial_child_count": 1,
+          "final_child_count": 1,
+          "first_child_task": "road"
+        }
+      ],
+      "metrics": {
+        "case_count": 3,
+        "planning_valid_rate": 1.0,
+        "first_quality_gate_pass_rate": 0.0,
+        "final_delivery_success_rate": 0.3333333333333333,
+        "recovery_success_rate": 0.5,
+        "recovery_cost_mean_child_retries": 1.0,
+        "key_layer_on_time_rate": 0.0,
+        "gap_declaration_correctness_rate": 0.3333333333333333,
+        "evidence_completeness_rate": 0.3333333333333333,
+        "runtime_product_contract_binding_rate": 0.6666666666666666,
+        "supersession_rate": 0.0,
+        "quality_gate_bypassed_rate": 0.3333333333333333
+      },
+      "deltas_vs_full_method": {
+        "case_count": 0.0,
+        "planning_valid_rate": 0.0,
+        "first_quality_gate_pass_rate": 0.0,
+        "final_delivery_success_rate": 0.0,
+        "recovery_success_rate": 0.0,
+        "recovery_cost_mean_child_retries": 0.0,
+        "key_layer_on_time_rate": 0.0,
+        "gap_declaration_correctness_rate": 0.0,
+        "evidence_completeness_rate": 0.0,
+        "runtime_product_contract_binding_rate": -0.33333333333333337,
+        "supersession_rate": 0.0,
+        "quality_gate_bypassed_rate": 0.0
+      }
+    },
+    {
+      "variant": "no_quality_gate",
+      "label": "无质量门",
+      "status": "completed",
+      "experiment_dir": "D:\\code\\freeze-c-evidence\\p3-governance-20260801-c02-c04-c06\\no_quality_gate",
+      "runtime_result": {
+        "all_cases_passed": false,
+        "evidence_manifest_path": "D:\\code\\freeze-c-evidence\\p3-governance-20260801-c02-c04-c06\\no_quality_gate\\experiment_evidence_manifest.json"
+      },
+      "case_metrics": [
+        {
+          "case_id": "C02",
+          "initial_phase": "partial",
+          "final_phase": "partial",
+          "task_order": [
+            "water_polygon",
+            "waterways",
+            "road"
+          ],
+          "planning_valid": true,
+          "first_quality_gate_passed": null,
+          "final_delivery_success": true,
+          "recovery_case": false,
+          "recovery_attempted": false,
+          "recovery_success": null,
+          "recovery_cost_child_retries": 0,
+          "key_layer_delivered_on_time": false,
+          "gap_declaration_correct": false,
+          "expected_gap_types": [
+            "quality_failed",
+            "source_unavailable"
+          ],
+          "observed_gap_types": [
+            "quality_failed"
+          ],
+          "evidence_complete": false,
+          "runtime_product_contract_bound": true,
+          "supersession_observed": false,
+          "initial_child_count": 3,
+          "final_child_count": 3,
+          "first_child_task": "water_polygon"
+        },
+        {
+          "case_id": "C04",
+          "initial_phase": "failed",
+          "final_phase": "failed",
+          "task_order": [
+            "water_polygon"
+          ],
+          "planning_valid": null,
+          "first_quality_gate_passed": null,
+          "final_delivery_success": false,
+          "recovery_case": true,
+          "recovery_attempted": true,
+          "recovery_success": false,
+          "recovery_cost_child_retries": 1,
+          "key_layer_delivered_on_time": false,
+          "gap_declaration_correct": false,
+          "expected_gap_types": [
+            "source_unavailable"
+          ],
+          "observed_gap_types": [
+            "quality_failed"
+          ],
+          "evidence_complete": false,
+          "runtime_product_contract_bound": true,
+          "supersession_observed": false,
+          "initial_child_count": 1,
+          "final_child_count": 1,
+          "first_child_task": "water_polygon"
+        },
+        {
+          "case_id": "C06",
+          "initial_phase": "succeeded",
+          "final_phase": "succeeded",
+          "task_order": [
+            "road"
+          ],
+          "planning_valid": true,
+          "first_quality_gate_passed": null,
+          "final_delivery_success": true,
+          "recovery_case": true,
+          "recovery_attempted": false,
+          "recovery_success": false,
+          "recovery_cost_child_retries": 0,
+          "key_layer_delivered_on_time": true,
+          "gap_declaration_correct": false,
+          "expected_gap_types": [
+            "quality_failed",
+            "source_unavailable"
+          ],
+          "observed_gap_types": [],
+          "evidence_complete": true,
+          "runtime_product_contract_bound": true,
+          "supersession_observed": false,
+          "initial_child_count": 1,
+          "final_child_count": 1,
+          "first_child_task": "road"
+        }
+      ],
+      "metrics": {
+        "case_count": 3,
+        "planning_valid_rate": 1.0,
+        "first_quality_gate_pass_rate": null,
+        "final_delivery_success_rate": 0.6666666666666666,
+        "recovery_success_rate": 0.0,
+        "recovery_cost_mean_child_retries": 0.5,
+        "key_layer_on_time_rate": 0.3333333333333333,
+        "gap_declaration_correctness_rate": 0.0,
+        "evidence_completeness_rate": 0.3333333333333333,
+        "runtime_product_contract_binding_rate": 1.0,
+        "supersession_rate": 0.0,
+        "quality_gate_bypassed_rate": 1.0
+      },
+      "deltas_vs_full_method": {
+        "case_count": 0.0,
+        "planning_valid_rate": 0.0,
+        "final_delivery_success_rate": 0.3333333333333333,
+        "recovery_success_rate": -0.5,
+        "recovery_cost_mean_child_retries": -0.5,
+        "key_layer_on_time_rate": 0.3333333333333333,
+        "gap_declaration_correctness_rate": -0.3333333333333333,
+        "evidence_completeness_rate": 0.0,
+        "runtime_product_contract_binding_rate": 0.0,
+        "supersession_rate": 0.0,
+        "quality_gate_bypassed_rate": 0.6666666666666667
+      }
+    },
+    {
+      "variant": "no_degraded_recovery",
+      "label": "无降级恢复",
+      "status": "completed",
+      "experiment_dir": "D:\\code\\freeze-c-evidence\\p3-governance-20260801-c02-c04-c06\\no_degraded_recovery",
+      "runtime_result": {
+        "all_cases_passed": false,
+        "evidence_manifest_path": "D:\\code\\freeze-c-evidence\\p3-governance-20260801-c02-c04-c06\\no_degraded_recovery\\experiment_evidence_manifest.json"
+      },
+      "case_metrics": [
+        {
+          "case_id": "C02",
+          "initial_phase": "failed",
+          "final_phase": "failed",
+          "task_order": [
+            "water_polygon",
+            "waterways",
+            "road"
+          ],
+          "planning_valid": true,
+          "first_quality_gate_passed": false,
+          "final_delivery_success": false,
+          "recovery_case": false,
+          "recovery_attempted": false,
+          "recovery_success": null,
+          "recovery_cost_child_retries": 0,
+          "key_layer_delivered_on_time": false,
+          "gap_declaration_correct": false,
+          "expected_gap_types": [
+            "quality_failed",
+            "source_unavailable"
+          ],
+          "observed_gap_types": [
+            "quality_failed"
+          ],
+          "evidence_complete": false,
+          "runtime_product_contract_bound": true,
+          "supersession_observed": false,
+          "initial_child_count": 3,
+          "final_child_count": 3,
+          "first_child_task": "water_polygon"
+        },
+        {
+          "case_id": "C04",
+          "initial_phase": "failed",
+          "final_phase": "failed",
+          "task_order": [
+            "water_polygon"
+          ],
+          "planning_valid": null,
+          "first_quality_gate_passed": null,
+          "final_delivery_success": false,
+          "recovery_case": true,
+          "recovery_attempted": false,
+          "recovery_success": false,
+          "recovery_cost_child_retries": 0,
+          "key_layer_delivered_on_time": false,
+          "gap_declaration_correct": false,
+          "expected_gap_types": [
+            "source_unavailable"
+          ],
+          "observed_gap_types": [
+            "quality_failed"
+          ],
+          "evidence_complete": false,
+          "runtime_product_contract_bound": true,
+          "supersession_observed": false,
+          "initial_child_count": 1,
+          "final_child_count": 1,
+          "first_child_task": "water_polygon"
+        },
+        {
+          "case_id": "C06",
+          "initial_phase": "failed",
+          "final_phase": "failed",
+          "task_order": [
+            "road"
+          ],
+          "planning_valid": true,
+          "first_quality_gate_passed": false,
+          "final_delivery_success": false,
+          "recovery_case": true,
+          "recovery_attempted": false,
+          "recovery_success": false,
+          "recovery_cost_child_retries": 0,
+          "key_layer_delivered_on_time": false,
+          "gap_declaration_correct": false,
+          "expected_gap_types": [
+            "quality_failed",
+            "source_unavailable"
+          ],
+          "observed_gap_types": [
+            "quality_failed"
+          ],
+          "evidence_complete": true,
+          "runtime_product_contract_bound": true,
+          "supersession_observed": false,
+          "initial_child_count": 1,
+          "final_child_count": 1,
+          "first_child_task": "road"
+        }
+      ],
+      "metrics": {
+        "case_count": 3,
+        "planning_valid_rate": 1.0,
+        "first_quality_gate_pass_rate": 0.0,
+        "final_delivery_success_rate": 0.0,
+        "recovery_success_rate": 0.0,
+        "recovery_cost_mean_child_retries": 0.0,
+        "key_layer_on_time_rate": 0.0,
+        "gap_declaration_correctness_rate": 0.0,
+        "evidence_completeness_rate": 0.3333333333333333,
+        "runtime_product_contract_binding_rate": 1.0,
+        "supersession_rate": 0.0,
+        "quality_gate_bypassed_rate": 0.3333333333333333
+      },
+      "deltas_vs_full_method": {
+        "case_count": 0.0,
+        "planning_valid_rate": 0.0,
+        "first_quality_gate_pass_rate": 0.0,
+        "final_delivery_success_rate": -0.3333333333333333,
+        "recovery_success_rate": -0.5,
+        "recovery_cost_mean_child_retries": -1.0,
+        "key_layer_on_time_rate": 0.0,
+        "gap_declaration_correctness_rate": -0.3333333333333333,
+        "evidence_completeness_rate": 0.0,
+        "runtime_product_contract_binding_rate": 0.0,
+        "supersession_rate": 0.0,
+        "quality_gate_bypassed_rate": 0.0
+      }
+    },
+    {
+      "variant": "fixed_priority",
+      "label": "固定优先级",
+      "status": "completed",
+      "experiment_dir": "D:\\code\\freeze-c-evidence\\p3-governance-20260801-c02-c04-c06\\fixed_priority",
+      "runtime_result": {
+        "all_cases_passed": false,
+        "evidence_manifest_path": "D:\\code\\freeze-c-evidence\\p3-governance-20260801-c02-c04-c06\\fixed_priority\\experiment_evidence_manifest.json"
+      },
+      "case_metrics": [
+        {
+          "case_id": "C02",
+          "initial_phase": "failed",
+          "final_phase": "failed",
+          "task_order": [
+            "road",
+            "water_polygon",
+            "waterways"
+          ],
+          "planning_valid": true,
+          "first_quality_gate_passed": false,
+          "final_delivery_success": false,
+          "recovery_case": false,
+          "recovery_attempted": false,
+          "recovery_success": null,
+          "recovery_cost_child_retries": 0,
+          "key_layer_delivered_on_time": false,
+          "gap_declaration_correct": false,
+          "expected_gap_types": [
+            "quality_failed",
+            "source_unavailable"
+          ],
+          "observed_gap_types": [
+            "quality_failed"
+          ],
+          "evidence_complete": false,
+          "runtime_product_contract_bound": true,
+          "supersession_observed": false,
+          "initial_child_count": 3,
+          "final_child_count": 3,
+          "first_child_task": "road"
+        },
+        {
+          "case_id": "C04",
+          "initial_phase": "failed",
+          "final_phase": "failed",
+          "task_order": [
+            "water_polygon"
+          ],
+          "planning_valid": null,
+          "first_quality_gate_passed": null,
+          "final_delivery_success": false,
+          "recovery_case": true,
+          "recovery_attempted": true,
+          "recovery_success": false,
+          "recovery_cost_child_retries": 1,
+          "key_layer_delivered_on_time": false,
+          "gap_declaration_correct": false,
+          "expected_gap_types": [
+            "source_unavailable"
+          ],
+          "observed_gap_types": [
+            "quality_failed"
+          ],
+          "evidence_complete": false,
+          "runtime_product_contract_bound": true,
+          "supersession_observed": false,
+          "initial_child_count": 1,
+          "final_child_count": 1,
+          "first_child_task": "water_polygon"
+        },
+        {
+          "case_id": "C06",
+          "initial_phase": "failed",
+          "final_phase": "partial_provisional",
+          "task_order": [
+            "road"
+          ],
+          "planning_valid": true,
+          "first_quality_gate_passed": false,
+          "final_delivery_success": true,
+          "recovery_case": true,
+          "recovery_attempted": true,
+          "recovery_success": true,
+          "recovery_cost_child_retries": 1,
+          "key_layer_delivered_on_time": false,
+          "gap_declaration_correct": true,
+          "expected_gap_types": [
+            "quality_failed",
+            "source_unavailable"
+          ],
+          "observed_gap_types": [
+            "quality_failed",
+            "source_unavailable"
+          ],
+          "evidence_complete": true,
+          "runtime_product_contract_bound": true,
+          "supersession_observed": false,
+          "initial_child_count": 1,
+          "final_child_count": 1,
+          "first_child_task": "road"
+        }
+      ],
+      "metrics": {
+        "case_count": 3,
+        "planning_valid_rate": 1.0,
+        "first_quality_gate_pass_rate": 0.0,
+        "final_delivery_success_rate": 0.3333333333333333,
+        "recovery_success_rate": 0.5,
+        "recovery_cost_mean_child_retries": 1.0,
+        "key_layer_on_time_rate": 0.0,
+        "gap_declaration_correctness_rate": 0.3333333333333333,
+        "evidence_completeness_rate": 0.3333333333333333,
+        "runtime_product_contract_binding_rate": 1.0,
+        "supersession_rate": 0.0,
+        "quality_gate_bypassed_rate": 0.3333333333333333
+      },
+      "deltas_vs_full_method": {
+        "case_count": 0.0,
+        "planning_valid_rate": 0.0,
+        "first_quality_gate_pass_rate": 0.0,
+        "final_delivery_success_rate": 0.0,
+        "recovery_success_rate": 0.0,
+        "recovery_cost_mean_child_retries": 0.0,
+        "key_layer_on_time_rate": 0.0,
+        "gap_declaration_correctness_rate": 0.0,
+        "evidence_completeness_rate": 0.0,
+        "runtime_product_contract_binding_rate": 0.0,
+        "supersession_rate": 0.0,
+        "quality_gate_bypassed_rate": 0.0
+      }
+    }
+  ],
+  "limitations": [
+    "每个变体只运行一次，当前结果用于最小治理方向筛查，不用于统计显著性结论。",
+    "实验使用 memory KG、mock LLM、eager 执行和单 child worker。",
+    "固定优先级变体只改变任务编译顺序；完整方法使用请求中的上下文任务顺序。",
+    "P3 不比较融合算法本身，质量差异只用于观察质量门与恢复治理行为。"
+  ]
+}

@@ -45,6 +45,7 @@ def run_manifest(
 ) -> dict[str, Any]:
     manifest = load_experiment_manifest(manifest_path)
     experiment_dir = Path(experiment_dir).resolve()
+    _assert_new_experiment_dir(experiment_dir)
     runtime_dir = experiment_dir / "runtime"
     data_root = runtime_dir / "data_repository"
     downloads_root = runtime_dir / "downloads"
@@ -111,20 +112,28 @@ def run_manifest(
                 else:
                     if not scenario_id:
                         raise RuntimeError(f"{case.case_id}/{stage.stage_id} cannot resume without a scenario id")
-                    response = _post_json(
-                        api_base_url,
-                        f"/api/v2/scenario-runs/{scenario_id}/resume",
-                        None,
-                        params={"retry_failed": str(stage.retry_failed).lower()},
-                        timeout=timeout_seconds,
-                    )
-                    final = _wait_for_scenario(
-                        api_base_url,
-                        scenario_id,
-                        output_root=scenario_root,
-                        timeout_seconds=timeout_seconds,
-                        poll_seconds=poll_seconds,
-                    )
+                    if _p3_variant() == "no_degraded_recovery":
+                        response = {
+                            "scenario_id": scenario_id,
+                            "phase": "skipped",
+                            "variant": "no_degraded_recovery",
+                        }
+                        final = _load_json_object(stage_records[-1].get("summary_path")) if stage_records else {}
+                    else:
+                        response = _post_json(
+                            api_base_url,
+                            f"/api/v2/scenario-runs/{scenario_id}/resume",
+                            None,
+                            params={"retry_failed": str(stage.retry_failed).lower()},
+                            timeout=timeout_seconds,
+                        )
+                        final = _wait_for_scenario(
+                            api_base_url,
+                            scenario_id,
+                            output_root=scenario_root,
+                            timeout_seconds=timeout_seconds,
+                            poll_seconds=poll_seconds,
+                        )
                 summary_path = Path(str(final.get("output_dir") or "")) / "scenario_summary.json"
                 summary_snapshot_path = case_dir / f"scenario_summary_{stage.stage_id}.json"
                 summary_snapshot_path.write_text(
@@ -140,6 +149,7 @@ def run_manifest(
                     "summary_path": str(summary_snapshot_path.resolve()),
                     "runtime_summary_path": str(summary_path.resolve()),
                     "summary_phase": final.get("phase"),
+                    "variant_stage_skipped": stage.action == "resume" and _p3_variant() == "no_degraded_recovery",
                     "prepared_inputs": prepared,
                 }
                 (case_dir / f"api_{stage.stage_id}.json").write_text(
@@ -163,6 +173,7 @@ def run_manifest(
         freeze_path = experiment_dir / "experiment_evidence_manifest.json"
         result = {
             "experiment_id": manifest.experiment_id,
+            "variant": _p3_variant(),
             "manifest_path": str(manifest_path.resolve()),
             "experiment_dir": str(experiment_dir),
             "case_results": case_results,
@@ -188,6 +199,13 @@ def run_manifest(
     finally:
         if server is not None:
             _stop_server(server)
+
+
+def _assert_new_experiment_dir(experiment_dir: Path) -> None:
+    if experiment_dir.exists() and any(experiment_dir.iterdir()):
+        raise FileExistsError(
+            f"实验目录非空，拒绝覆盖既有证据: {experiment_dir}. 请使用新的 experiment-dir。"
+        )
 
 
 def _start_server(
@@ -245,6 +263,8 @@ def _server_environment_overrides(
         "GEOFUSION_SCENARIO_CHILD_MAX_WORKERS": "1",
         "GEOFUSION_LOCAL_ONLY": "1",
         "GEOFUSION_DISABLE_ARTIFACT_REUSE": "1",
+        "GEOFUSION_P3_VARIANT": _p3_variant(),
+        "GEOFUSION_PLAN_GROUNDING_MODE": "report",
         "GEOFUSION_DATA_REPOSITORY_ROOT": str(data_root),
         "GEOFUSION_DOWNLOAD_ROOT": str(downloads_root),
         "GEOFUSION_OUTPUT_ROOT": str(runtime_dir_for_env(experiment_dir) / "outputs"),
@@ -334,6 +354,16 @@ def _wait_for_scenario(
     raise TimeoutError(f"Scenario {scenario_id} did not reach a terminal phase; last={last}")
 
 
+def _load_json_object(path: Any) -> dict[str, Any]:
+    if not path:
+        return {}
+    try:
+        payload = json.loads(Path(str(path)).read_text(encoding="utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        return {}
+    return payload if isinstance(payload, dict) else {}
+
+
 def _write_runtime_metadata(
     manifest: ContractExperimentManifest,
     manifest_path: Path,
@@ -386,6 +416,10 @@ def _runtime_settings_hash(manifest: ContractExperimentManifest, runtime_dir: Pa
     ).hexdigest()
 
 
+def _p3_variant() -> str:
+    return os.getenv("GEOFUSION_P3_VARIANT", "full_method").strip().lower()
+
+
 def _execution_settings() -> dict[str, Any]:
     return {
         "kg_backend": "memory",
@@ -394,6 +428,8 @@ def _execution_settings() -> dict[str, Any]:
         "scenario_child_max_workers": 1,
         "local_only": True,
         "artifact_reuse_disabled": True,
+        "p3_variant": _p3_variant(),
+        "plan_grounding_mode": "report",
     }
 
 
@@ -512,7 +548,14 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--no-server", action="store_true")
     parser.add_argument("--poll-seconds", type=float, default=2.0)
     parser.add_argument("--timeout-seconds", type=float, default=1800.0)
+    parser.add_argument(
+        "--variant",
+        choices=("full_method", "no_product_contract", "no_quality_gate", "no_degraded_recovery", "fixed_priority"),
+        default="",
+    )
     args = parser.parse_args(argv)
+    if args.variant:
+        os.environ["GEOFUSION_P3_VARIANT"] = args.variant
     result = run_manifest(
         manifest_path=Path(args.manifest),
         experiment_dir=Path(args.experiment_dir),

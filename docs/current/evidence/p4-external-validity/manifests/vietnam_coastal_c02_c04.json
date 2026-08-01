@@ -1,0 +1,281 @@
+{
+  "schema_version": "1.0.0",
+  "experiment_id": "p4-vietnam_coastal-c02-c04-20260801",
+  "title": "P4 越南北部沿海走廊 external validity C02/C04 repeat",
+  "data_boundary": {
+    "real_external_data": true,
+    "real_fusion_algorithms": true,
+    "real_llm": false,
+    "real_neo4j": false,
+    "execution_note": "Cross-AOI P4 slice uses cached external vector snapshots, memory KG, mock LLM, eager execution, and one child worker."
+  },
+  "runtime": {
+    "kg_backend": "memory",
+    "llm_provider": "mock",
+    "celery_eager": true,
+    "scenario_child_max_workers": 1,
+    "local_only": true,
+    "artifact_reuse_disabled": true,
+    "target_crs": "EPSG:32648",
+    "api_path": "/api/v2/scenario-runs"
+  },
+  "sources": [
+    {
+      "source_id": "raw.osm.road",
+      "product": "road",
+      "original_path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\geofabrik_clips\\vietnam\\raw_osm_road\\767db3e08935\\gis_osm_roads_free_1.shp",
+      "runtime_relative_path": "Data/roads/OSM/roads.shp",
+      "preparation": "vector_extract",
+      "clip_bbox": [
+        106.6,
+        20.78,
+        106.78,
+        20.92
+      ],
+      "dataset_version": "vietnam_coastal-osm-road-2026-07-01",
+      "observed_at": "2026-07-01T00:00:00+08:00",
+      "freshness_status": "cached_external_snapshot",
+      "semantic_status": "road"
+    },
+    {
+      "source_id": "raw.osm.building",
+      "product": "building",
+      "original_path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\geofabrik_clips\\vietnam\\raw_osm_building\\767db3e08935\\gis_osm_buildings_a_free_1.shp",
+      "runtime_relative_path": "Data/buildings/OSM/buildings.shp",
+      "preparation": "vector_extract",
+      "clip_bbox": [
+        106.6,
+        20.78,
+        106.78,
+        20.92
+      ],
+      "dataset_version": "vietnam_coastal-osm-building-2026-07-01",
+      "observed_at": "2026-07-01T00:00:00+08:00",
+      "freshness_status": "cached_external_snapshot",
+      "semantic_status": "building"
+    },
+    {
+      "source_id": "raw.osm.water",
+      "product": "water_polygon",
+      "original_path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\geofabrik_clips\\vietnam\\raw_osm_water\\767db3e08935\\gis_osm_water_a_free_1.shp",
+      "runtime_relative_path": "Data/burundi-260127-free.shp/gis_osm_water_a_free_1.shp",
+      "preparation": "vector_extract",
+      "clip_bbox": [
+        106.6,
+        20.78,
+        106.78,
+        20.92
+      ],
+      "dataset_version": "vietnam_coastal-osm-water-2026-07-01",
+      "observed_at": "2026-07-01T00:00:00+08:00",
+      "freshness_status": "cached_external_snapshot",
+      "semantic_status": "water_polygon"
+    },
+    {
+      "source_id": "raw.osm.waterways",
+      "product": "waterways",
+      "original_path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\geofabrik_clips\\vietnam\\raw_osm_waterways\\767db3e08935\\gis_osm_waterways_free_1.shp",
+      "runtime_relative_path": "Data/burundi-260127-free.shp/gis_osm_waterways_free_1.shp",
+      "preparation": "vector_extract",
+      "clip_bbox": [
+        106.6,
+        20.78,
+        106.78,
+        20.92
+      ],
+      "dataset_version": "vietnam_coastal-osm-waterways-2026-07-01",
+      "observed_at": "2026-07-01T00:00:00+08:00",
+      "freshness_status": "cached_external_snapshot",
+      "semantic_status": "waterways"
+    },
+    {
+      "source_id": "raw.hydrorivers.water",
+      "product": "waterways",
+      "original_path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\hydrosheds_clips\\raw_hydrorivers_water\\767db3e08935\\HydroRIVERS_v10.shp",
+      "runtime_relative_path": "Data/water/HydroRIVERS_v10.shp",
+      "preparation": "vector_extract",
+      "clip_bbox": [
+        106.6,
+        20.78,
+        106.78,
+        20.92
+      ],
+      "dataset_version": "HydroRIVERS-v10",
+      "observed_at": "2026-07-01T00:00:00+08:00",
+      "freshness_status": "cached_external_snapshot",
+      "semantic_status": "waterways"
+    },
+    {
+      "source_id": "raw.hydrolakes.water",
+      "product": "water_polygon",
+      "original_path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\hydrosheds_clips\\raw_hydrolakes_water\\767db3e08935\\HydroLAKES_polys_v10.shp",
+      "runtime_relative_path": "Data/water/HydroLAKES_polys_v10.shp",
+      "preparation": "vector_extract",
+      "clip_bbox": [
+        106.6,
+        20.78,
+        106.78,
+        20.92
+      ],
+      "dataset_version": "HydroLAKES-v10",
+      "observed_at": "2026-07-01T00:00:00+08:00",
+      "freshness_status": "cached_external_snapshot",
+      "semantic_status": "water_polygon"
+    },
+    {
+      "source_id": "aoi.vietnam_coastal",
+      "product": "aoi_boundary",
+      "original_path": "D:\\code\\FusionAgent\\docs\\current\\evidence\\p4-external-validity\\manifests\\vietnam_coastal_aoi_boundary.geojson",
+      "runtime_relative_path": "Data/admin/OSM/venezuela_capital_district.geojson",
+      "preparation": "copy",
+      "dataset_version": "vietnam_coastal-derived-request-bbox-2026-08-01",
+      "observed_at": "2026-08-01T00:00:00+08:00",
+      "freshness_status": "derived_from_declared_request_bbox",
+      "semantic_status": "aoi_boundary_envelope"
+    }
+  ],
+  "cases": [
+    {
+      "case_id": "C02",
+      "scenario_name": "C02 越南北部沿海走廊 flood water and road priority",
+      "description": "Cross-AOI repeat of water, waterways, and road priority with available OSM and HydroSheds sources.",
+      "request": {
+        "disaster_type": "flood",
+        "job_types": [],
+        "spatial_extent": "bbox(106.6,20.78,106.78,20.92)",
+        "force_aoi_resolution": false,
+        "target_crs": "EPSG:32648",
+        "debug": false,
+        "scenario_name": "C02 越南北部沿海走廊 flood water and road priority",
+        "trigger_content": "越南北部沿海走廊 flood response: execute water polygon, waterways, and road fusion in that order.",
+        "metadata": {
+          "requested_task_kinds": [
+            "water_polygon",
+            "waterways",
+            "road"
+          ],
+          "requested_layers_present": true,
+          "provisional_task_kinds": [
+            "water_polygon"
+          ]
+        }
+      },
+      "resource_regime": {
+        "network": "moderate",
+        "time": "tight",
+        "aoi_scale": "vietnam_coastal",
+        "source_condition": "OSM and HydroSheds cached external snapshot"
+      },
+      "expected_layer_priority": [
+        "water_polygon",
+        "waterways",
+        "road"
+      ],
+      "expected_delivery_strategy": "Deliver water and road evidence first while retaining explicit source and quality observations.",
+      "expected_gap_types": [],
+      "stages": [
+        {
+          "stage_id": "priority_delivery",
+          "action": "create",
+          "active_source_ids": [
+            "raw.osm.water",
+            "raw.osm.waterways",
+            "raw.hydrorivers.water",
+            "raw.osm.road",
+            "aoi.vietnam_coastal"
+          ],
+          "expected_phases": [
+            "partial",
+            "partial_provisional",
+            "succeeded"
+          ],
+          "expected_task_order": [
+            "water_polygon",
+            "waterways",
+            "road"
+          ],
+          "assertions": {
+            "water_priority": true
+          }
+        }
+      ]
+    },
+    {
+      "case_id": "C04",
+      "scenario_name": "C04 越南北部沿海走廊 progressive water coverage",
+      "description": "Cross-AOI repeat of provisional OSM water delivery followed by HydroLAKES activation and supersession.",
+      "request": {
+        "disaster_type": "flood",
+        "job_types": [],
+        "spatial_extent": "bbox(106.6,20.78,106.78,20.92)",
+        "force_aoi_resolution": false,
+        "target_crs": "EPSG:32648",
+        "debug": false,
+        "scenario_name": "C04 越南北部沿海走廊 progressive water coverage",
+        "trigger_content": "越南北部沿海走廊 storm response: progressively deliver water polygon coverage and supersede provisional output after the reference source arrives.",
+        "metadata": {
+          "requested_task_kinds": [
+            "water_polygon"
+          ],
+          "requested_layers_present": true,
+          "provisional_task_kinds": [
+            "water_polygon"
+          ]
+        }
+      },
+      "resource_regime": {
+        "network": "staged",
+        "time": "tight",
+        "aoi_scale": "vietnam_coastal",
+        "source_condition": "HydroLAKES activates after initial OSM delivery"
+      },
+      "expected_layer_priority": [
+        "water_polygon"
+      ],
+      "expected_delivery_strategy": "Persist an OSM provisional product, resume after HydroLAKES activation, and record supersession.",
+      "expected_gap_types": [
+        "source_unavailable"
+      ],
+      "stages": [
+        {
+          "stage_id": "osm_provisional",
+          "action": "create",
+          "active_source_ids": [
+            "raw.osm.water",
+            "aoi.vietnam_coastal"
+          ],
+          "expected_phases": [
+            "partial_provisional"
+          ],
+          "expected_task_order": [
+            "water_polygon"
+          ],
+          "assertions": {
+            "provisional_required": true
+          }
+        },
+        {
+          "stage_id": "hydrolakes_resume",
+          "action": "resume",
+          "active_source_ids": [
+            "raw.osm.water",
+            "raw.hydrolakes.water",
+            "aoi.vietnam_coastal"
+          ],
+          "retry_failed": true,
+          "expected_phases": [
+            "succeeded",
+            "partial"
+          ],
+          "expected_task_order": [
+            "water_polygon"
+          ],
+          "assertions": {
+            "supersede_required": true
+          }
+        }
+      ]
+    }
+  ],
+  "metric_definition_path": "docs/thesis/contract_case_metrics_v1.json"
+}

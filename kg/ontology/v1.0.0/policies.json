@@ -1,0 +1,547 @@
+{
+  "metadata": {
+    "knowledge_version": "1.0.0",
+    "release_id": "fusionagent-kg-v1.0.0",
+    "status": "frozen",
+    "policy_source": "canonical_kg_release"
+  },
+  "mission_policy": {
+    "policy_id": "mission.scope.v1",
+    "default_direct_task_kind": "building",
+    "disaster_scope_source": "kg_disaster_task_bundle",
+    "explicit_task_scope_source": "explicit_task_kinds",
+    "explicit_job_scope_source": "explicit_job_types",
+    "detected_task_scope_source": "detected_direct_task",
+    "default_task_scope_source": "kg_default_direct_task"
+  },
+  "intent_boundary_policy": {
+    "policy_id": "intent.boundary.v1",
+    "unsupported_disaster_terms": ["hurricane", "wildfire", "forest fire", "conflict", "armed conflict", "conflict response", "野火", "森林火灾", "武装冲突"],
+    "rules": [
+      {
+        "code": "trajectory_to_road_deferred",
+        "message": "trajectory-to-road is reservation-only in this phase",
+        "keywords": ["trajectory", "gps trace", "gps trajectory", "轨迹", "轨迹到道路"],
+        "job_types": ["road"]
+      },
+      {
+        "code": "unsupported_unbounded_poi_entity_alignment",
+        "message": "POI fusion is bounded and does not support open-ended entity alignment.",
+        "job_types": ["poi"],
+        "required_keyword_groups": [["poi"], ["without bbox", "without boundary", "unbounded"], ["match", "align", "entity"]],
+        "supported_boundary": "bounded AOI POI fusion only"
+      },
+      {
+        "code": "unsupported_unbounded_poi_entity_alignment",
+        "message": "POI fusion is bounded and does not support open-ended entity alignment.",
+        "keywords": ["entity resolution", "entity alignment", "all businesses", "all poi businesses", "global entity", "通用实体对齐"],
+        "job_types": ["poi"],
+        "supported_boundary": "bounded AOI POI fusion only"
+      },
+      {
+        "code": "OFF_DOMAIN_REQUEST",
+        "message": "Request includes off-domain content that the fusion workflow does not support.",
+        "keywords": ["gdp", "gross domestic product", "population heatmap", "stock market", "国内生产总值", "人口热力", "人口"],
+        "job_types": ["building", "road", "water", "poi"]
+      },
+      {
+        "code": "UNSUPPORTED_OUTPUT_SCHEMA_CUSTOMIZATION",
+        "message": "Request asks for output schema customization that is not supported.",
+        "keywords": ["列名改成中文", "中文列名", "属性表列名", "rename all columns", "rename columns", "custom output schema", "schema customization"],
+        "job_types": ["building", "road", "water", "poi"]
+      }
+    ]
+  },
+  "disaster_vocabulary": [
+    {
+      "disaster_type": "flood",
+      "label_zh": "洪水/洪涝",
+      "aliases": ["flood", "heavy rainfall", "heavy_rainfall", "rainstorm", "洪涝", "洪水", "内涝", "强降雨", "暴雨", "降雨"],
+      "scenario_profile_id": "scenario.flood.default",
+      "default_task_bundle_id": "task_bundle.flood.emergency_vector"
+    },
+    {
+      "disaster_type": "earthquake",
+      "label_zh": "地震",
+      "aliases": ["earthquake", "地震"],
+      "scenario_profile_id": "scenario.earthquake.default",
+      "default_task_bundle_id": "task_bundle.earthquake.emergency_vector"
+    },
+    {
+      "disaster_type": "typhoon",
+      "label_zh": "台风",
+      "aliases": ["typhoon", "台风", "飓风", "热带气旋"],
+      "scenario_profile_id": "scenario.typhoon.default",
+      "default_task_bundle_id": "task_bundle.typhoon.emergency_vector"
+    },
+    {
+      "disaster_type": "generic",
+      "label_zh": "通用灾害/应急",
+      "aliases": ["disaster", "emergency", "灾害", "应急"],
+      "scenario_profile_id": "scenario.default.task",
+      "default_task_bundle_id": "task_bundle.direct_request"
+    }
+  ],
+  "place_vocabulary": [
+    {"term": "科特迪瓦", "canonical": "Cote d'Ivoire", "kind": "country", "country_code": "ci", "aliases": ["象牙海岸", "cote d'ivoire", "côte d'ivoire", "ivory coast"]},
+    {"term": "阿比让", "canonical": "Abidjan", "kind": "city", "country": "Cote d'Ivoire", "country_code": "ci", "aliases": ["abidjan"]},
+    {"term": "巴基斯坦", "canonical": "Pakistan", "kind": "country", "country_code": "pk", "aliases": ["pakistan"]},
+    {"term": "卡拉奇", "canonical": "Karachi", "kind": "city", "country": "Pakistan", "country_code": "pk", "aliases": ["卡拉奇市", "karachi"]}
+  ],
+  "aoi_resolution_policy": {
+    "policy_id": "aoi.resolution.v1",
+    "additional_disaster_terms": ["volcanic eruption", "civil unrest", "flash flood", "heat wave", "landslide", "aftershock", "pandemic", "violence", "epidemic", "outbreak", "cyclone", "drought", "tsunami", "mudslide", "heatwave", "crisis", "storm", "fire", "war"],
+    "admin_unit_prefixes": ["arrondissement", "municipality", "freguesia", "municipio", "parroquia", "district", "distrito", "quartier", "commune", "comuna", "bairro", "barangay", "sector", "ward"],
+    "admin_trailing_qualifiers": ["cercado", "centro", "central", "historico", "historica", "historical", "historic", "urbano", "urbana"],
+    "admin_kind_suffix_aliases": {"quartier": "Quarter"},
+    "area_candidate_categories": ["boundary", "place"],
+    "area_candidate_types": ["administrative", "borough", "city", "city_district", "commune", "county", "district", "hamlet", "municipality", "neighbourhood", "quarter", "state", "suburb", "town", "village", "ward"],
+    "area_address_keys": ["neighbourhood", "suburb", "city_district", "district", "borough", "quarter", "city", "county", "state", "country"]
+  },
+  "rescue_organization_terms": ["红十字会", "消防", "应急管理", "救援队", "联合国"],
+  "task_semantics": [
+    {
+      "task_kind": "building",
+      "task_id": "task.building.fusion",
+      "job_type": "building",
+      "family": "building",
+      "output_data_type": "dt.building.fused",
+      "aliases": ["building", "buildings"],
+      "preferred_pattern_id": null,
+      "instruction_suffix": null,
+      "execution_order": 10
+    },
+    {
+      "task_kind": "road",
+      "task_id": "task.road.fusion",
+      "job_type": "road",
+      "family": "road",
+      "output_data_type": "dt.road.fused",
+      "aliases": ["road", "roads"],
+      "preferred_pattern_id": null,
+      "instruction_suffix": null,
+      "execution_order": 20
+    },
+    {
+      "task_kind": "water_polygon",
+      "task_id": "task.water.fusion",
+      "job_type": "water",
+      "family": "water",
+      "output_data_type": "dt.water.fused",
+      "aliases": ["water", "water_polygon", "water_polygons", "polygon", "polygons", "waterbody", "waterbodies", "lake", "lakes", "reservoir", "reservoirs", "pond", "ponds"],
+      "preferred_pattern_id": "wp.flood.water_polygon.default",
+      "instruction_suffix": "execute water polygon fusion only",
+      "execution_order": 30
+    },
+    {
+      "task_kind": "waterways",
+      "task_id": "task.waterways.fusion",
+      "job_type": "water",
+      "family": "water",
+      "output_data_type": "dt.waterways.fused",
+      "aliases": ["water", "waterways", "waterway", "river", "rivers", "stream", "streams", "canal", "canals", "drain", "drains", "creek", "creeks"],
+      "preferred_pattern_id": "wp.flood.waterways.default",
+      "instruction_suffix": "execute waterways and river line fusion only",
+      "execution_order": 40
+    },
+    {
+      "task_kind": "poi",
+      "task_id": "task.poi.fusion",
+      "job_type": "poi",
+      "family": "poi",
+      "output_data_type": "dt.poi.fused",
+      "aliases": ["poi", "pois", "point_of_interest", "points_of_interest", "hospital", "hospitals", "clinic", "clinics"],
+      "preferred_pattern_id": null,
+      "instruction_suffix": "execute bounded POI fusion",
+      "execution_order": 50
+    }
+  ],
+  "output_contracts": [
+    {
+      "contract_id": "contract.building.fused.v1",
+      "product_contract_id": "contract.product.building.v1",
+      "task_kind": "building",
+      "allowed_geometry_types": ["Polygon", "MultiPolygon"],
+      "lineage_fields": ["source_id", "source_feature_id", "primary_source"],
+      "uncontracted_lineage_fields": ["source_id"],
+      "required_fields": ["geometry"],
+      "preserve_if_present": ["source_id", "source_feature_id", "name", "height_m", "Height", "H_Raster", "fusion_mode", "provisional", "primary_source", "missing_sources", "retry_status"],
+      "field_null_rate_thresholds": {"height_m": 0.5, "Height": 0.5, "H_Raster": 0.5}
+    },
+    {
+      "contract_id": "contract.road.fused.v1",
+      "product_contract_id": "contract.product.road.v1",
+      "task_kind": "road",
+      "allowed_geometry_types": ["LineString", "MultiLineString"],
+      "lineage_fields": ["fusion_source", "source_layer", "source_feature_id"],
+      "uncontracted_lineage_fields": ["source_id"],
+      "required_fields": ["geometry", "fusion_source", "match_role", "road_class", "source_layer", "name", "osm_name", "road_name"],
+      "preserve_if_present": ["source_feature_id", "surface", "lanes", "ref"],
+      "field_null_rate_thresholds": {"name": 0.8, "osm_name": 0.9, "road_name": 0.9}
+    },
+    {
+      "contract_id": "contract.water_polygon.fused.v1",
+      "product_contract_id": "contract.product.water_polygon.v1",
+      "task_kind": "water_polygon",
+      "allowed_geometry_types": ["Polygon", "MultiPolygon"],
+      "lineage_fields": ["source_id", "source_feature_id"],
+      "uncontracted_lineage_fields": ["source_id"],
+      "required_fields": ["geometry"],
+      "preserve_if_present": ["source_id", "source_feature_id", "name", "water_class"],
+      "field_null_rate_thresholds": {"name": 0.95}
+    },
+    {
+      "contract_id": "contract.waterways.fused.v1",
+      "product_contract_id": "contract.product.waterways.v1",
+      "task_kind": "waterways",
+      "allowed_geometry_types": ["LineString", "MultiLineString"],
+      "lineage_fields": ["fusion_source", "source_layer", "source_feature_id", "supplement_source"],
+      "uncontracted_lineage_fields": ["source_id"],
+      "required_fields": ["geometry", "fusion_source", "match_role", "waterway_class", "source_layer"],
+      "preserve_if_present": ["source_feature_id", "name", "name_en", "name_ur", "width", "depth"],
+      "field_null_rate_thresholds": {"name": 0.95}
+    },
+    {
+      "contract_id": "contract.poi.fused.v1",
+      "product_contract_id": "contract.product.poi.v1",
+      "task_kind": "poi",
+      "allowed_geometry_types": ["Point", "MultiPoint"],
+      "lineage_fields": ["source_id", "source_feature_id", "SRC"],
+      "uncontracted_lineage_fields": ["source_id"],
+      "required_fields": ["geometry"],
+      "preserve_if_present": ["source_id", "source_feature_id", "name", "category", "type"],
+      "field_null_rate_thresholds": {"name": 0.2}
+    }
+  ],
+  "quality_policies": [
+    {"policy_id": "quality.default.building.v1", "task_kind": "building", "duplicate_threshold": 0.0, "balance_threshold": 0.75, "topology": "polygon"},
+    {"policy_id": "quality.default.road.v1", "task_kind": "road", "duplicate_threshold": 0.05, "balance_threshold": 0.85, "topology": "line"},
+    {"policy_id": "quality.default.water_polygon.v1", "task_kind": "water_polygon", "duplicate_threshold": 0.05, "balance_threshold": 0.9, "topology": "polygon"},
+    {"policy_id": "quality.default.waterways.v1", "task_kind": "waterways", "duplicate_threshold": 0.05, "balance_threshold": 0.9, "topology": "line"},
+    {"policy_id": "quality.default.poi.v1", "task_kind": "poi", "duplicate_threshold": 0.1, "balance_threshold": 0.95, "topology": "point"}
+  ],
+  "quality_check_templates": {
+    "common": [
+      {"check_id": "readable", "metric_name": "readable", "operator": "eq", "threshold": true, "severity": "hard"},
+      {"check_id": "non_empty", "metric_name": "non_empty", "operator": "eq", "threshold": true, "severity": "hard"},
+      {"check_id": "required_fields", "metric_name": "required_fields", "operator": "eq", "threshold": true, "severity": "hard"},
+      {"check_id": "geometry_type", "metric_name": "geometry_type", "operator": "eq", "threshold": true, "severity": "hard"},
+      {"check_id": "aoi_intersection", "metric_name": "aoi_intersection", "operator": "eq", "threshold": true, "severity": "hard"},
+      {"check_id": "source_lineage", "metric_name": "source_lineage", "operator": "eq", "threshold": true, "severity": "hard"},
+      {"check_id": "multi_source_lineage", "metric_name": "multi_source_lineage", "operator": "eq", "threshold": true, "severity": "hard"},
+      {"check_id": "duplicate_geometry_rate", "metric_name": "duplicate_geometry_rate", "operator": "lte", "threshold_ref": "duplicate_threshold", "severity": "hard"},
+      {"check_id": "invalid_geometry_rate", "metric_name": "invalid_geometry_rate", "operator": "lte", "threshold": 0.0, "severity": "hard"},
+      {"check_id": "source_contribution_balance", "metric_name": "source_contribution_balance", "operator": "lte", "threshold_ref": "balance_threshold", "severity": "hard"},
+      {"check_id": "feature_retention_rate", "metric_name": "feature_retention_rate", "operator": "gte", "threshold": 0.5, "severity": "soft"},
+      {"check_id": "coverage_retention_rate", "metric_name": "coverage_retention_rate", "operator": "gte", "threshold": 0.5, "severity": "soft"}
+    ],
+    "line": [
+      {"check_id": "zero_length_geometry_count", "metric_name": "zero_length_geometry_count", "operator": "eq", "threshold": 0, "severity": "hard"},
+      {"check_id": "dangle_endpoint_rate_per_100km", "metric_name": "dangle_endpoint_rate_per_100km", "operator": "lte", "threshold": 500.0, "severity": "hard"}
+    ],
+    "polygon": [
+      {"check_id": "self_intersection_count", "metric_name": "self_intersection_count", "operator": "eq", "threshold": 0, "severity": "hard"},
+      {"check_id": "sliver_polygon_count", "metric_name": "sliver_polygon_count", "operator": "lte", "threshold": 0, "severity": "hard"}
+    ],
+    "point": []
+  },
+  "quality_adaptation_policy": {
+    "policy_id": "quality.external_degradation.v1",
+    "single_source_soft_checks": ["multi_source_lineage", "source_contribution_balance"],
+    "single_source_line_soft_checks": ["dangle_endpoint_rate_per_100km"],
+    "reduced_mix_balance_threshold": 0.95
+  },
+  "source_role_policies": [
+    {"task_kind": "building", "role_id": "primary_footprint", "required": true, "bundle_slot": "primary", "geometry_types": ["Polygon", "MultiPolygon"], "completeness_policy": "required_non_empty", "candidates": [{"source_id": "raw.osm.building", "provider_family": "osm", "priority": 10}]},
+    {"task_kind": "building", "role_id": "reference_footprint", "required": true, "bundle_slot": "reference", "distinct_from_role_ids": ["primary_footprint"], "geometry_types": ["Polygon", "MultiPolygon"], "completeness_policy": "required_non_empty", "candidates": [{"source_id": "raw.microsoft.building", "provider_family": "microsoft", "priority": 10}]},
+    {"task_kind": "building", "role_id": "supplemental_footprint", "required": false, "bundle_slot": "auxiliary", "geometry_types": ["Polygon", "MultiPolygon"], "completeness_policy": "optional_reference", "candidates": [{"source_id": "raw.google.building", "provider_family": "google", "priority": 10}]},
+    {"task_kind": "building", "role_id": "height_signal", "required": true, "bundle_slot": "auxiliary", "condition": "building_height_or_height_algorithm", "geometry_types": ["Raster"], "completeness_policy": "required_non_empty", "candidates": [{"source_id": "raw.google.building_height.raster", "provider_family": "google_temporal", "priority": 10}]},
+    {"task_kind": "road", "role_id": "base_network", "required": true, "bundle_slot": "primary", "geometry_types": ["LineString", "MultiLineString"], "completeness_policy": "required_non_empty", "candidates": [{"source_id": "raw.osm.road", "provider_family": "osm", "priority": 10}]},
+    {"task_kind": "road", "role_id": "reference_network", "required": false, "bundle_slot": "reference", "distinct_from_role_ids": ["base_network"], "geometry_types": ["LineString", "MultiLineString"], "completeness_policy": "optional_reference", "candidates": [{"source_id": "raw.microsoft.road", "provider_family": "microsoft", "priority": 10}]},
+    {"task_kind": "water_polygon", "role_id": "base_water_polygon", "required": true, "bundle_slot": "primary", "geometry_types": ["Polygon", "MultiPolygon"], "completeness_policy": "required_query_with_sparse_allowed", "candidates": [{"source_id": "raw.osm.water", "provider_family": "osm", "priority": 10}]},
+    {"task_kind": "water_polygon", "role_id": "reference_water_polygon", "required": false, "bundle_slot": "reference", "distinct_from_role_ids": ["base_water_polygon"], "geometry_types": ["Polygon", "MultiPolygon"], "completeness_policy": "optional_reference", "candidates": [{"source_id": "raw.hydrolakes.water", "provider_family": "hydrosheds", "priority": 10}]},
+    {"task_kind": "waterways", "role_id": "base_waterway_line", "required": true, "bundle_slot": "primary", "geometry_types": ["LineString", "MultiLineString"], "completeness_policy": "required_non_empty", "candidates": [{"source_id": "raw.osm.waterways", "provider_family": "osm", "priority": 10}]},
+    {"task_kind": "waterways", "role_id": "reference_river_line", "required": true, "bundle_slot": "reference", "distinct_from_role_ids": ["base_waterway_line"], "geometry_types": ["LineString", "MultiLineString"], "completeness_policy": "required_non_empty", "candidates": [{"source_id": "raw.hydrorivers.water", "provider_family": "hydrosheds", "priority": 10}]},
+    {"task_kind": "waterways", "role_id": "local_waterway_supplement", "required": false, "bundle_slot": "auxiliary", "geometry_types": ["LineString", "MultiLineString"], "completeness_policy": "optional_reference", "candidates": [{"source_id": "raw.local.pakistan.waterways", "provider_family": "local_open_data", "priority": 10}]},
+    {"task_kind": "poi", "role_id": "base_poi", "required": true, "bundle_slot": "primary", "geometry_types": ["Point", "MultiPoint"], "completeness_policy": "required_query_with_sparse_allowed", "candidates": [{"source_id": "raw.osm.poi", "provider_family": "osm", "priority": 10}]},
+    {"task_kind": "poi", "role_id": "reference_poi", "required": false, "bundle_slot": "reference", "distinct_from_role_ids": ["base_poi"], "geometry_types": ["Point", "MultiPoint"], "completeness_policy": "optional_reference", "candidates": [{"source_id": "raw.gns.poi", "provider_family": "gns", "priority": 10}, {"source_id": "raw.google.poi", "provider_family": "google_places", "priority": 20}, {"source_id": "raw.rh.poi", "provider_family": "rh", "priority": 30}]}
+  ],
+  "source_bundle_policies": [
+    {"source_id": "catalog.flood.building", "component_candidates": ["raw.osm.building", "raw.microsoft.building", "raw.google.building"], "required_full_closure": ["raw.osm.building", "raw.microsoft.building"], "allows_partial_coverage": false, "fallback_source_ids": [], "tiled_building_runtime": true},
+    {"source_id": "catalog.earthquake.building", "component_candidates": ["raw.osm.building", "raw.microsoft.building", "raw.google.building"], "required_full_closure": ["raw.osm.building", "raw.microsoft.building"], "allows_partial_coverage": false, "fallback_source_ids": [], "tiled_building_runtime": true},
+    {"source_id": "catalog.generic.poi", "component_candidates": ["raw.gns.poi", "raw.google.poi", "raw.osm.poi"], "required_full_closure": ["raw.gns.poi", "raw.google.poi", "raw.osm.poi"], "allows_partial_coverage": true, "fallback_source_ids": []},
+    {"source_id": "catalog.flood.water", "component_candidates": ["raw.osm.water", "raw.hydrolakes.water"], "required_full_closure": ["raw.osm.water", "raw.hydrolakes.water"], "allows_partial_coverage": true, "fallback_source_ids": []},
+    {"source_id": "catalog.flood.water_polygon", "component_candidates": ["raw.osm.water", "raw.hydrolakes.water"], "required_full_closure": ["raw.osm.water", "raw.hydrolakes.water"], "allows_partial_coverage": true, "fallback_source_ids": []},
+    {"source_id": "catalog.flood.waterways", "component_candidates": ["raw.osm.waterways", "raw.hydrorivers.water", "raw.local.pakistan.waterways"], "required_full_closure": ["raw.osm.waterways", "raw.hydrorivers.water"], "allows_partial_coverage": false, "fallback_source_ids": []},
+    {"source_id": "catalog.flood.road", "component_candidates": ["raw.osm.road", "raw.microsoft.road"], "required_full_closure": ["raw.osm.road", "raw.microsoft.road"], "allows_partial_coverage": true, "fallback_source_ids": []},
+    {"source_id": "catalog.earthquake.road", "component_candidates": ["raw.osm.road", "raw.microsoft.road"], "required_full_closure": ["raw.osm.road", "raw.microsoft.road"], "allows_partial_coverage": true, "fallback_source_ids": []},
+    {"source_id": "catalog.typhoon.road", "component_candidates": ["raw.osm.road", "raw.microsoft.road"], "required_full_closure": ["raw.osm.road", "raw.microsoft.road"], "allows_partial_coverage": true, "fallback_source_ids": []}
+  ],
+  "source_runtime_bindings": {
+    "policy_id": "source.runtime.bindings.v1",
+    "aliases": {
+      "raw.google.building": "GOOGLE",
+      "raw.google.open_buildings.vector": "GOOGLE_OPEN_BUILDINGS",
+      "raw.gns.poi": "GNG",
+      "raw.google.poi": "GOOGLE",
+      "raw.hydrolakes.water": "HYDROLAKES",
+      "raw.hydrorivers.water": "HYDRORIVERS",
+      "raw.local.microsoft.building": "MICROSOFT_LOCAL",
+      "raw.local.pakistan.waterways": "LOCAL_WATERWAYS",
+      "raw.local.water": "LOCAL_WATER",
+      "raw.microsoft.building": "MS",
+      "raw.microsoft.road": "MS",
+      "raw.openbuildingmap.building": "OBM",
+      "raw.osm.building": "OSM",
+      "raw.osm.poi": "OSM",
+      "raw.osm.road": "OSM",
+      "raw.osm.water": "OSM",
+      "raw.osm.waterways": "OSM",
+      "raw.overture.road": "OVERTURE",
+      "raw.overture.transportation": "OVERTURE",
+      "raw.rh.poi": "RH"
+    },
+    "source_id_aliases": {
+      "raw.geonames.poi": "raw.gns.poi",
+      "raw.google.open_buildings_2_5d.height_raster": "raw.google.building_height.raster"
+    },
+    "priority_orders": {
+      "building_vector": ["raw.microsoft.building", "raw.local.microsoft.building", "raw.openbuildingmap.building", "raw.google.open_buildings.vector", "raw.google.building", "raw.osm.building"],
+      "building_height_raster": ["raw.google.building_height.raster"],
+      "poi_vector": ["raw.gns.poi", "raw.google.poi", "raw.osm.poi", "raw.rh.poi"]
+    },
+    "vector_sources": [
+      {"source_id": "raw.osm.building", "remote_handler": "geofabrik", "remote_layer_name": "gis_osm_buildings_a_free_1.shp", "local_candidates": [["Data", "buildings", "OSM"], ["Data", "burundi-260127-free.shp", "gis_osm_buildings_a_free_1.shp"]]},
+      {"source_id": "raw.osm.road", "remote_handler": "geofabrik", "remote_layer_name": "gis_osm_roads_free_1.shp", "local_candidates": [["Data", "roads", "OSM"], ["Data", "burundi-260127-free.shp", "gis_osm_roads_free_1.shp"]]},
+      {"source_id": "raw.osm.water", "remote_handler": "geofabrik", "remote_layer_name": "gis_osm_water_a_free_1.shp", "local_candidates": [["Data", "burundi-260127-free.shp", "gis_osm_water_a_free_1.shp"]]},
+      {"source_id": "raw.osm.waterways", "remote_handler": "geofabrik", "remote_layer_name": "gis_osm_waterways_free_1.shp", "local_candidates": [["Data", "burundi-260127-free.shp", "gis_osm_waterways_free_1.shp"]]},
+      {"source_id": "raw.osm.poi", "remote_handler": "geofabrik", "remote_layer_name": "gis_osm_pois_free_1.shp", "local_candidates": [["Data", "POI"], ["Data", "burundi-260127-free.shp", "gis_osm_pois_free_1.shp"]]},
+      {"source_id": "raw.google.building", "remote_handler": "google_open_buildings", "local_candidates": [["Data", "buildings", "Google"]]},
+      {"source_id": "raw.google.open_buildings.vector", "remote_handler": "google_open_buildings", "local_candidates": []},
+      {"source_id": "raw.google.poi", "remote_handler": "google_places", "local_candidates": []},
+      {"source_id": "raw.microsoft.building", "remote_handler": "microsoft_global_buildings", "local_candidates": [["Data", "buildings", "Microsoft"]]},
+      {"source_id": "raw.microsoft.road", "remote_handler": null, "local_candidates": [["Data", "roads", "Microsoft"]]},
+      {"source_id": "raw.overture.transportation", "remote_handler": "overturemaps", "local_candidates": [["Data", "roads", "Overture"]]},
+      {"source_id": "raw.overture.road", "remote_handler": "overturemaps", "local_candidates": [["Data", "roads", "Overture"]]},
+      {"source_id": "raw.hydrorivers.water", "remote_handler": "hydrorivers", "local_candidates": [["Data", "water", "BDI.shp"], ["Data", "water", "HydroRIVERS"], ["Data", "water", "HydroRIVERS_v10.shp"]]},
+      {"source_id": "raw.hydrolakes.water", "remote_handler": "hydrolakes", "local_candidates": [["Data", "water", "布隆迪湖泊.shp"], ["Data", "water", "HydroLAKES"], ["Data", "water", "HydroLAKES_polys_v10.shp"]]},
+      {"source_id": "raw.gns.poi", "remote_handler": "gns", "local_candidates": [["Data", "POI"]]},
+      {"source_id": "raw.rh.poi", "remote_handler": null, "local_candidates": [["Data", "POI"]]},
+      {"source_id": "raw.local.pakistan.waterways", "remote_handler": null, "local_candidates": [["Data", "water", "Pakistan_Waterways_Data.shp"], ["Data", "water"]]},
+      {"source_id": "raw.local.water", "remote_handler": null, "local_candidates": [["Data", "water", "布隆迪湖泊.shp"], ["Data", "water"]]}
+    ],
+    "raster_sources": [
+      {
+        "source_id": "raw.google.building_height.raster",
+        "env_suffix": "GOOGLE",
+        "file_patterns": ["*.tif", "*.tiff", "*.vrt"],
+        "local_candidates": [
+          ["Data", "buildings", "height", "OpenBuildings2_5D"],
+          ["Data", "buildings", "height", "open_buildings_2_5d"],
+          ["Data", "buildings", "height", "google_open_buildings_2_5d"],
+          ["Data", "buildings", "height", "Google"],
+          ["Data", "buildings", "height", "google"],
+          ["data", "open_buildings_2_5d_2023_caracas_urban_height"],
+          ["data", "open_buildings_2_5d_2023_caracas_bbox_height"],
+          ["data", "open_buildings_2_5d_2023_ee_bbox_height"],
+          ["data", "open_buildings_2_5d_2023"],
+          ["_processing", "google_open_buildings_temporal_2023"]
+        ]
+      }
+    ],
+    "profiling_sets": [
+      {
+        "profile_set_id": "profile.benin.building.v1",
+        "sources": [
+          {"source_id": "raw.osm.building", "path_patterns": ["final_shp/openstreetmap/*.shp"], "required": true},
+          {"source_id": "raw.openbuildingmap.building", "path_patterns": ["final_shp/openbuildingmap/*.shp"], "required": true},
+          {"source_id": "raw.google.open_buildings.vector", "path_patterns": ["final_shp/google_open_buildings_v3/*.shp"], "required": true},
+          {"source_id": "raw.local.microsoft.building", "path_patterns": ["final_shp/microsoft_global_ml_building_footprints/*.shp"], "required": true},
+          {"source_id": "raw.google.building_presence.raster", "path_patterns": ["_processing/google_open_buildings_temporal_2023/building_presence_2023_benin_4m.tif"], "required": true},
+          {"source_id": "raw.google.building_height.raster", "path_patterns": ["_processing/google_open_buildings_temporal_2023/building_height_2023_benin_4m.tif"], "required": false}
+        ]
+      }
+    ]
+  },
+  "quality_component_policies": [
+    {"policy_id": "quality.components.building.v1", "task_kind": "building", "expected_source_ids": ["raw.osm.building", "raw.microsoft.building"], "external_optional_source_ids": ["raw.google.building", "raw.microsoft.building"]},
+    {"policy_id": "quality.components.road.v1", "task_kind": "road", "expected_source_ids": ["raw.osm.road", "raw.microsoft.road"], "external_optional_source_ids": ["raw.microsoft.road", "raw.overture.transportation", "raw.overture.road"]},
+    {"policy_id": "quality.components.water_polygon.v1", "task_kind": "water_polygon", "expected_source_ids": ["raw.osm.water", "raw.hydrolakes.water"], "external_optional_source_ids": ["raw.hydrolakes.water"]},
+    {"policy_id": "quality.components.waterways.v1", "task_kind": "waterways", "expected_source_ids": ["raw.osm.waterways", "raw.hydrorivers.water"], "external_optional_source_ids": ["raw.hydrorivers.water", "raw.local.pakistan.waterways"]},
+    {"policy_id": "quality.components.poi.v1", "task_kind": "poi", "expected_source_ids": ["raw.osm.poi", "raw.gns.poi"], "external_optional_source_ids": ["raw.gns.poi", "raw.google.poi"]}
+  ],
+  "artifact_evaluation_policy": {
+    "policy_id": "artifact.evaluation.v1",
+    "sliver_area_threshold_sq_m": 1.0,
+    "metadata_only_threshold_bytes": 536870912,
+    "supported_vector_extensions": [".gpkg", ".shp", ".geojson"],
+    "large_artifact_mode": "metadata_only",
+    "sampling_policy": {
+      "authorized": false,
+      "strategy": null,
+      "max_features": null,
+      "applicable_extensions": []
+    }
+  },
+  "fault_policy": {
+    "default_empty_coverage_status": "empty",
+    "empty_coverage_status_by_source": {
+      "raw.microsoft.building": "coverage_empty"
+    },
+    "inferred_missing_fault_by_control": {
+      "external": "PROVIDER_UNAVAILABLE",
+      "internal": "SOURCE_MISSING"
+    },
+    "inspection_guidance": {
+      "failure_actions": {
+        "ALGO_TIMEOUT": "reduce the AOI or retry with a lighter workflow, then rerun",
+        "CRS_MISMATCH": "align the source CRS with the requested target CRS, then rerun",
+        "PARAM_OUT_OF_RANGE": "adjust bound and rerun",
+        "SOURCE_CORRUPTED": "repair or replace the corrupted source, then rerun",
+        "SOURCE_MISSING": "provide or materialize the required source, then rerun",
+        "SUSPECT_OUTPUT": "inspect the artifact and validator output before rerunning"
+      },
+      "phase_actions": {
+        "execution": "monitor progress",
+        "failed": "inspect the failure summary and rerun when the issue is resolved",
+        "healing": "monitor progress",
+        "planning": "monitor progress",
+        "queued": "monitor progress",
+        "running": "monitor progress",
+        "succeeded": "download the artifact or compare this run against a baseline",
+        "validation": "monitor progress"
+      },
+      "recoverability_actions": {
+        "replan": "review the failed step inputs and rerun"
+      }
+    },
+    "source_attempt_statuses": ["attempted", "available", "empty", "coverage_empty", "no_coverage", "awaiting_external_config", "network_failed", "provider_failed", "unauthorized", "cache_reused", "materialized", "internal_failed"],
+    "normalization_input_statuses": ["attempted", "failed", "provider_failed"],
+    "recoverable_faults": ["SOURCE_DOWNLOAD_FAILED", "SOURCE_MISSING", "SOURCE_CORRUPTED", "CRS_MISMATCH", "ALGO_TIMEOUT"],
+    "external_uncontrollable_faults": ["SOURCE_DOWNLOAD_FAILED", "NETWORK_FAILED", "PROVIDER_UNAVAILABLE", "NO_OFFICIAL_COVERAGE", "UNAUTHORIZED"],
+    "system_failure_faults": ["MISSING_PROVIDER", "ALGO_RUNTIME_ERROR", "PARAM_OUT_OF_RANGE", "CRS_MISMATCH", "UNKNOWN_FAILURE"],
+    "source_candidate_fallback_faults": ["SOURCE_DOWNLOAD_FAILED", "NETWORK_FAILED", "SOURCE_MISSING", "NO_OFFICIAL_COVERAGE", "SOURCE_CORRUPTED", "PROVIDER_UNAVAILABLE", "UNAUTHORIZED"],
+    "status_normalization": {"SOURCE_DOWNLOAD_FAILED": "network_failed", "NETWORK_FAILED": "network_failed", "PROVIDER_UNAVAILABLE": "provider_failed", "NO_OFFICIAL_COVERAGE": "no_coverage", "UNAUTHORIZED": "unauthorized", "CONFIG_MISSING": "awaiting_external_config", "SOURCE_MISSING": "no_coverage", "SOURCE_CORRUPTED": "provider_failed", "UNKNOWN_FAILURE": "internal_failed"},
+    "source_mode_by_fault": {"CONFIG_MISSING": "awaiting_external_config", "NO_OFFICIAL_COVERAGE": "no_coverage", "UNAUTHORIZED": "unauthorized", "SOURCE_MISSING": "missing_optional_ref", "SOURCE_DOWNLOAD_FAILED": "rapid_response_timeout", "NETWORK_FAILED": "provider_failed", "PROVIDER_UNAVAILABLE": "provider_failed", "SOURCE_CORRUPTED": "provider_failed", "UNKNOWN_FAILURE": "provider_failed"},
+    "retry_policy": {"initial_seconds": 30, "multiplier": 2, "max_seconds": 900},
+    "classification": {
+      "policy_id": "failure.classification.v1",
+      "default_by_scope": {
+        "general": "ALGO_RUNTIME_ERROR",
+        "source_asset": "UNKNOWN_FAILURE",
+        "source_acquisition": "UNKNOWN_FAILURE",
+        "scenario_child": "ALGO_RUNTIME_ERROR"
+      },
+      "empty_by_scope": {
+        "general": "ALGO_RUNTIME_ERROR",
+        "source_asset": "UNKNOWN_FAILURE",
+        "source_acquisition": "UNKNOWN_FAILURE",
+        "scenario_child": ""
+      },
+      "rules": [
+        {"priority": 10, "failure_class": "CONFIG_MISSING", "scopes": ["scenario_child"], "match_any": ["config_missing", "dependency file", "依赖.txt"]},
+        {"priority": 15, "failure_class": "CONFIG_MISSING", "scopes": ["source_acquisition"], "match_any": ["no configured local path or url", "url index is not configured", "cache key is not configured", "google_places_api_key"]},
+        {"priority": 20, "failure_class": "PORT_CONFLICT", "scopes": ["scenario_child"], "match_any": ["port_conflict"], "match_all_alternatives": [["port", "occupied"]]},
+        {"priority": 30, "failure_class": "CHILD_RUN_TIMEOUT", "scopes": ["scenario_child"], "match_any": ["child_run_timeout"]},
+        {"priority": 40, "failure_class": "AOI_RESOLUTION_REQUIRED", "scopes": ["scenario_child"], "match_any": ["aoi_resolution_required"]},
+        {"priority": 50, "failure_class": "AOI_RESOLUTION_FAILED", "scopes": ["scenario_child"], "match_any": ["aoi_resolution_failed", "no aoi candidates"]},
+        {"priority": 60, "failure_class": "GEOCODER_TIMEOUT", "scopes": ["scenario_child"], "match_all_alternatives": [["geocoder", "timeout"], ["geocoder", "timed out"]]},
+        {"priority": 70, "failure_class": "SOURCE_FETCH_TIMEOUT", "scopes": ["scenario_child"], "match_any": ["source_fetch_timeout"], "match_all_alternatives": [["source_download_failed", "timeout"], ["source_download_failed", "timed out"]]},
+        {"priority": 80, "failure_class": "MISSING_REQUIRED_SOURCE", "scopes": ["scenario_child"], "match_any": ["missing_required_source", "source_missing"], "match_all_alternatives": [["missing", "source"]]},
+        {"priority": 100, "failure_class": "CRS_MISMATCH", "scopes": ["general", "source_asset"], "match_any": ["crs_mismatch", "crs mismatch", "fault=crs_mismatch"]},
+        {"priority": 110, "failure_class": "SOURCE_CORRUPTED", "scopes": ["general", "source_asset", "source_acquisition"], "match_any": ["source_corrupted", "corrupted shapefile", "source corrupted", "fault=source_corrupted", "corrupt", "corrupted", "broken", "badzipfile"]},
+        {"priority": 120, "failure_class": "NO_OFFICIAL_COVERAGE", "scopes": ["source_asset", "source_acquisition"], "match_any": ["no official coverage", "official no coverage", "outside coverage", "empty source coverage", "geofusion_local_only=1"]},
+        {"priority": 130, "failure_class": "UNAUTHORIZED", "scopes": ["source_asset", "source_acquisition"], "exception_types": ["PermissionError"], "match_any": ["unauthorized", "forbidden", "401", "403", "permission", "api key", "credential"]},
+        {"priority": 165, "failure_class": "PROVIDER_UNAVAILABLE", "scopes": ["source_asset", "source_acquisition"], "match_any": ["provider unavailable", "service unavailable", "503", "upstream unavailable", "task-driven input materialization failed"]},
+        {"priority": 150, "failure_class": "SOURCE_DOWNLOAD_FAILED", "scopes": ["source_acquisition"], "exception_types": ["TimeoutError", "SourceAcquisitionTimeoutError"], "match_any": ["source_download_failed", "download failed", "download error", "failed to download", "http error", "fetch failed", "fault=source_download_failed", "download", "timeout", "timed out"]},
+        {"priority": 155, "failure_class": "SOURCE_DOWNLOAD_FAILED", "scopes": ["general"], "match_any": ["source_download_failed", "download failed", "download error", "failed to download", "http error", "fetch failed", "fault=source_download_failed"]},
+        {"priority": 160, "failure_class": "NETWORK_FAILED", "scopes": ["source_asset"], "exception_types": ["TimeoutError"], "match_any": ["timeout", "timed out", "connection", "network", "dns", "temporary failure", "unreachable"]},
+        {"priority": 170, "failure_class": "SOURCE_MISSING", "scopes": ["general", "source_asset", "source_acquisition"], "exception_types": ["FileNotFoundError", "KeyError"], "match_any": ["source_missing", "missing source", "source missing", "fault=source_missing", "no local or remote source asset path available", "not found", "missing"]},
+        {"priority": 180, "failure_class": "PARAM_OUT_OF_RANGE", "scopes": ["general"], "match_any": ["param_out_of_range", "out of range"]},
+        {"priority": 190, "failure_class": "ALGO_TIMEOUT", "scopes": ["general"], "match_any": ["algo_timeout", "timeout", "timed out"]},
+        {"priority": 200, "failure_class": "SUSPECT_OUTPUT", "scopes": ["general"], "match_any": ["suspect_output", "suspect output", "semantically empty"]}
+      ]
+    }
+  },
+  "recovery_policy": {
+    "policy_id": "recovery.default.v1",
+    "executor_strategy_order": [
+      {
+        "order": 10,
+        "strategy_id": "repair.source_fallback.v1",
+        "action": "request_source_rematerialization"
+      },
+      {
+        "order": 20,
+        "strategy_id": "repair.alternative_algorithm.v1",
+        "action": "alternative_algorithm"
+      }
+    ],
+    "artifact_strategy_order": [
+      {"order": 10, "strategy_id": "repair.artifact.schema_backfill.v1", "action": "schema_attribute_backfill"},
+      {"order": 20, "strategy_id": "repair.artifact.road_name.v1", "action": "road_name_preservation"},
+      {"order": 30, "strategy_id": "repair.artifact.line_topology.v1", "action": "line_topology_cleanup"},
+      {"order": 40, "strategy_id": "repair.artifact.geometry_validity.v1", "action": "geometry_validity_repair"}
+    ],
+    "terminal_phases": ["succeeded"],
+    "recoverable_actions": ["redispatch_full_run", "redispatch_from_validation", "redispatch_from_execution"],
+    "authorized_strategy_ids": ["repair.source_fallback.v1", "repair.alternative_algorithm.v1"],
+    "default_unmatched_action": "mark_failed_requires_manual_review",
+    "phase_actions": {"queued": "redispatch_full_run", "planning": "redispatch_full_run", "validating": "redispatch_from_validation"},
+    "phase_stage_rules": [
+      {"phase": "healing", "effective_stages": ["validation"], "action": "redispatch_from_validation"},
+      {"phase": "healing", "resume_stages": ["execution"], "action": "redispatch_from_execution"},
+      {"phase": "healing", "effective_stages": ["queued", "planning", "replanning"], "action": "redispatch_full_run"},
+      {"phase": "running", "effective_stages": ["validation"], "action": "redispatch_from_validation"},
+      {"phase": "running", "effective_stages": ["*"], "action": "redispatch_from_execution"}
+    ],
+    "failure_category_actions": {"CRS_MISMATCH": "redispatch_from_validation"},
+    "failed_stage_actions": {"queued": "redispatch_full_run", "planning": "redispatch_full_run", "replanning": "redispatch_full_run", "validation": "redispatch_from_validation", "*": "redispatch_from_execution"}
+  },
+  "decision_policies": [
+    {
+      "policy_id": "decision.candidate.v2",
+      "weights": {"success_accuracy": 0.58, "data_quality": 0.2, "stability": 0.12, "freshness": 0.05, "reuse": 0.03, "speed": 0.01, "cost": 0.01},
+      "primary_mix": {"success_rate": 0.65, "accuracy": 0.35},
+      "missing_core": 0.0,
+      "missing_optional": 0.5,
+      "tie_break": "candidate_id_ascending",
+      "learning_adjustment_bounds": [-0.1, 0.1]
+    },
+    {
+      "policy_id": "retrieval.candidate.v1",
+      "weights": {"source_quality": 0.4, "algorithm_fit": 0.35, "workflow_support": 0.25},
+      "missing_requirement_penalty": 0.25,
+      "maximum_penalty": 1.0,
+      "algorithm_fit_weights": {
+        "success_rate": 0.65,
+        "accuracy_score": 0.25,
+        "stability_score": 0.10
+      },
+      "source_fit": {
+        "initial_workflow_support": 1.0,
+        "upload_bundle_quality": 1.0,
+        "typed_match": 1.0,
+        "untyped_match": 0.6,
+        "not_selectable_penalty": 0.35,
+        "reservation_only_penalty": 0.35,
+        "aoi_unsupported_penalty": 0.15
+      },
+      "workflow_adjustments": {
+        "task_driven_supported_bonus": 0.05,
+        "waterways_match_bonus": 0.18,
+        "waterways_polygon_mismatch_penalty": 0.12,
+        "polygon_match_bonus": 0.10,
+        "polygon_line_mismatch_penalty": 0.18
+      },
+      "tie_break": "candidate_id_ascending"
+    }
+  ],
+  "runtime_gates": {
+    "validator_mode": "enforce",
+    "grounding_mode": "enforce",
+    "backend_fallback": "forbidden_in_strict_mode",
+    "missing_required_knowledge": "fail_closed",
+    "experience_policy": "pinned_snapshot"
+  }
+}

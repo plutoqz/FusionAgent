@@ -44,11 +44,9 @@ def test_build_seed_manifest_payload_contains_current_seed_ids() -> None:
         item["contract_id"] == "contract.product.emergency_vector_bundle.v1"
         for item in payload["product_contracts"]
     )
-    assert payload["metadata"]["schema_version"] == "1.0.0"
-    assert payload["metadata"]["source_modules"] == [
-        "kg.seed",
-        "fusion_algorithms.registry_metadata",
-    ]
+    assert payload["metadata"]["schema_version"] == "2.0.0"
+    assert payload["metadata"]["canonical_source"] == "kg/ontology/v1.0.0/entities.json"
+    assert payload["metadata"]["generated_from"] == "legacy_migration"
     assert payload["metadata"]["content_hash"].startswith("sha256:")
 
 

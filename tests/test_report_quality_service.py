@@ -74,4 +74,45 @@ def test_report_quality_summary_marks_bounded_poi_and_rejects_unbounded_claim() 
     assert poi["bounded"] is True
     assert poi["aoi_bound"] == [36.65, -1.45, 37.10, -1.10]
     assert poi["source_ids"] == ["raw.gns.poi", "raw.osm.poi"]
+    assert poi["required_source_ids"] == ["raw.gns.poi", "raw.osm.poi"]
+    assert poi["policy_id"] == "quality.components.poi.v1"
     assert poi["unsupported_boundary"] == "unbounded POI entity alignment is unsupported"
+
+
+def test_report_quality_summary_uses_kg_policy_for_bounded_poi_sources() -> None:
+    class Registry:
+        @staticmethod
+        def quality_component_policy(task_kind: str) -> dict[str, object]:
+            assert task_kind == "poi"
+            return {
+                "policy_id": "quality.components.poi.mutated",
+                "expected_source_ids": ["raw.poi.base", "raw.poi.reference"],
+            }
+
+    summary = build_report_quality_summary(
+        job_type=JobType.poi.value,
+        audit_events=[
+            RunEvent(
+                timestamp="2026-05-29T00:00:00+00:00",
+                kind="task_inputs_resolved",
+                phase=RunPhase.running,
+                message="poi inputs",
+                details={
+                    "resolved_aoi": {"bbox": [1.0, 2.0, 3.0, 4.0]},
+                    "component_coverage": {
+                        "raw.poi.base": {"feature_count": 3},
+                        "raw.poi.reference": {"feature_count": 1},
+                    },
+                },
+            )
+        ],
+        source_semantic_contract={},
+        artifact_metrics={"artifact_validity": True},
+        recovery_evidence={},
+        policy_registry=Registry(),  # type: ignore[arg-type]
+    )
+
+    poi = summary["target_capability"]["target_5_bounded_poi"]
+    assert poi["bounded"] is True
+    assert poi["policy_id"] == "quality.components.poi.mutated"
+    assert poi["required_source_ids"] == ["raw.poi.base", "raw.poi.reference"]

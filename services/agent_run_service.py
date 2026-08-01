@@ -26,8 +26,10 @@ from agent.executor import ExecutionContext, WorkflowExecutor
 from agent.planner import WorkflowPlanner
 from agent.validator import WorkflowValidator
 from kg.factory import create_kg_repository
+from kg.knowledge_release import KnowledgeReleaseError
 from kg.models import ExecutionFeedback
 from kg.models import DurableLearningRecord
+from kg.policy_registry import default_policy_registry
 from kg.repository import KGRepository
 from llm.factory import create_llm_provider
 from schemas.agent import (
@@ -43,10 +45,11 @@ from schemas.agent import (
     RunTriggerType,
     WorkflowPlan,
 )
-from schemas.failure_taxonomy import classify_failure_details
+from schemas.failure_taxonomy import classify_failure_category, classify_failure_details
+from schemas.data_requirement import DataRequirementPlan
 from schemas.fusion import JobType
 from schemas.settings import EffectiveLLMSettings
-from schemas.task_kind import TaskKind, expand_job_type_to_task_kinds
+from schemas.task_kind import TaskKind
 from services.artifact_registry import ArtifactRecord, ArtifactRegistry
 from services.artifact_reuse_policy import get_artifact_reuse_max_age_seconds
 from services.artifact_reuse_service import ArtifactReuseService, ReuseResult
@@ -74,11 +77,11 @@ from services.run_report_service import build_run_report_summary, render_run_rep
 from services.run_execution_router import RunExecutionRouter
 from services.run_state_store import RunStateStore
 from services.run_writeback_service import RunWritebackService
-from services.source_field_profile_registry import SourceFieldProfileRegistry
-from services.source_acquisition_policy import classify_component_degradation
+from services.source_acquisition_policy import classify_component_degradation, source_fallback_candidates
 from services.source_semantic_contract_service import SourceSemanticContractService
 from services.tile_partition_service import TilePartitionService
 from services.tiled_building_runtime_service import TiledBuildingRuntimeService
+from services.task_kind_resolution_service import resolve_task_kind
 from services.unsupported_intent_guard import classify_unsupported_intent
 from utils.crs import normalize_target_crs, resolve_target_crs
 from utils.shp_zip import validate_zip_has_shapefile, zip_shapefile_bundle
@@ -114,14 +117,8 @@ def _as_int(value: str | None, default: int) -> int:
         return default
 
 
-def _task_kind_for_request(request: RunCreateRequest) -> TaskKind:
-    preferred = str(request.preferred_pattern_id or "")
-    if "waterways" in preferred:
-        return TaskKind.waterways
-    if "water_polygon" in preferred:
-        return TaskKind.water_polygon
-    expanded = expand_job_type_to_task_kinds(request.job_type)
-    return expanded[0]
+def _task_kind_for_request(request: RunCreateRequest, plan: WorkflowPlan | None = None) -> TaskKind:
+    return resolve_task_kind(request=request, plan=plan)
 
 
 def _component_coverage_from_status(status: RunStatus | None) -> dict[str, object]:
@@ -329,27 +326,11 @@ def _inspection_next_operator_action(
     recoverability: str | None,
 ) -> str | None:
     code = str(root_cause or failure_category or "").strip().upper()
-    if code == "PARAM_OUT_OF_RANGE":
-        return "adjust bound and rerun"
-    if code == "SOURCE_MISSING":
-        return "provide or materialize the required source, then rerun"
-    if code == "SOURCE_CORRUPTED":
-        return "repair or replace the corrupted source, then rerun"
-    if code == "CRS_MISMATCH":
-        return "align the source CRS with the requested target CRS, then rerun"
-    if code == "ALGO_TIMEOUT":
-        return "reduce the AOI or retry with a lighter workflow, then rerun"
-    if code == "SUSPECT_OUTPUT":
-        return "inspect the artifact and validator output before rerunning"
-    if recoverability == "replan":
-        return "review the failed step inputs and rerun"
-    if current_phase in {"queued", "planning", "validation", "running", "execution", "healing"}:
-        return "monitor progress"
-    if current_phase == "succeeded":
-        return "download the artifact or compare this run against a baseline"
-    if current_phase == "failed":
-        return "inspect the failure summary and rerun when the issue is resolved"
-    return None
+    return default_policy_registry().inspection_operator_action(
+        current_phase=current_phase,
+        fault_class=code,
+        recoverability=recoverability,
+    )
 
 
 @dataclass(frozen=True)
@@ -629,6 +610,8 @@ class AgentRunService:
             logger.info("Planning stage completed with revision=%s", plan.context.get("plan_revision", 0))
 
             plan = self.run_validation_stage(run_id=run_id, plan=plan)
+            plan = _apply_p3_plan_variant(plan)
+            self._persist_plan(self._plan_path(run_id), plan)
             logger.info("Validation stage completed; valid=%s", getattr(plan.validation, "valid", None))
             runtime_request = self._request_with_effective_target_crs(run_id, request)
 
@@ -890,6 +873,8 @@ class AgentRunService:
                         event_details={"failed_step": failed_step, "previous_revision": current_revision},
                     )
                     plan = self.run_validation_stage(run_id=run_id, plan=plan)
+                    plan = _apply_p3_plan_variant(plan)
+                    self._persist_plan(self._plan_path(run_id), plan)
                     if (
                         request.input_strategy == RunInputStrategy.task_driven_auto
                         and previous_input_signature != self._task_driven_input_signature(plan)
@@ -1173,9 +1158,10 @@ class AgentRunService:
 
     def _apply_plan_grounding_gate(self, run_id: str, plan: WorkflowPlan, *, stage: str):
         grounding_report = ensure_plan_grounding_report(plan)
+        configured_mode = os.getenv("GEOFUSION_PLAN_GROUNDING_MODE")
         decision = evaluate_plan_grounding_gate(
             grounding_report,
-            mode=os.getenv("GEOFUSION_PLAN_GROUNDING_MODE", "report"),
+            mode=configured_mode or default_policy_registry().runtime_gate_mode("grounding_mode"),
         )
         plan.context = {**plan.context, "grounding_gate": decision.model_dump(mode="json")}
         return grounding_report, decision
@@ -1537,7 +1523,7 @@ class AgentRunService:
             raise ValueError("task-driven input strategy could not resolve the required input data type")
 
         request_bbox = self._resolve_request_bbox(request, resolved_aoi=resolved_aoi)
-        self._write_data_requirement_evidence(
+        data_requirements = self._write_data_requirement_evidence(
             run_id=run_id,
             request=request,
             plan=plan,
@@ -1567,6 +1553,7 @@ class AgentRunService:
                     input_dir=input_dir,
                     request_bbox=request_bbox,
                     resolved_aoi=resolved_aoi,
+                    data_requirements=data_requirements,
                 )
                 if candidate_source_id != source_id and not resolved.fallback_from_source_id:
                     resolved = ResolvedRunInputs(
@@ -1654,6 +1641,7 @@ class AgentRunService:
         input_dir: Path,
         request_bbox: BBox | None,
         resolved_aoi: ResolvedAOI | None,
+        data_requirements: DataRequirementPlan,
     ) -> ResolvedRunInputs:
         timeout_seconds = self._input_acquisition_timeout_seconds()
         heartbeat_seconds = self._input_acquisition_heartbeat_seconds()
@@ -1665,6 +1653,7 @@ class AgentRunService:
                 input_dir=input_dir,
                 request_bbox=request_bbox,
                 resolved_aoi=resolved_aoi,
+                data_requirements=data_requirements,
             )
 
         attempt_input_dir = self._source_acquisition_attempt_input_dir(input_dir, source_id)
@@ -1696,6 +1685,7 @@ class AgentRunService:
                             input_dir=attempt_input_dir,
                             request_bbox=request_bbox,
                             resolved_aoi=resolved_aoi,
+                            data_requirements=data_requirements,
                         ),
                     )
                 )
@@ -2102,41 +2092,20 @@ class AgentRunService:
 
     @staticmethod
     def _source_acquisition_fault_class(error: BaseException) -> str:
-        text = str(error or "").strip().lower()
-        if isinstance(error, TimeoutError) or "source_download_failed" in text or "download" in text or "timeout" in text:
-            return "SOURCE_DOWNLOAD_FAILED"
-        if "source_missing" in text or "missing" in text or "not found" in text:
-            return "SOURCE_MISSING"
-        if "unauthorized" in text or "permission" in text or "api key" in text or "credential" in text:
-            return "UNAUTHORIZED"
-        if "empty source coverage" in text or "no official coverage" in text or "outside coverage" in text:
-            return "NO_OFFICIAL_COVERAGE"
-        if "corrupt" in text or "badzipfile" in text:
-            return "SOURCE_CORRUPTED"
-        return "PROVIDER_UNAVAILABLE"
+        return classify_failure_category(
+            str(error or ""),
+            scope="source_acquisition",
+            error_type=type(error).__name__,
+        )
 
     @staticmethod
     def _is_source_candidate_fallback_error(error: BaseException) -> bool:
-        if isinstance(error, TimeoutError):
-            return True
-        text = str(error or "").strip().lower()
-        if not text:
-            return False
-        fallback_tokens = (
-            "task-driven input materialization failed",
-            "source_download_failed",
-            "network_failed",
-            "source_missing",
-            "empty source coverage",
-            "no official coverage",
-            "outside coverage",
-            "source_corrupted",
-            "provider_unavailable",
-            "provider unavailable",
-            "download",
-            "timeout",
+        fault_class = classify_failure_category(
+            str(error or ""),
+            scope="source_acquisition",
+            error_type=type(error).__name__,
         )
-        return any(token in text for token in fallback_tokens)
+        return fault_class in default_policy_registry().source_candidate_fallback_faults()
 
     def _write_data_requirement_evidence(
         self,
@@ -2145,8 +2114,8 @@ class AgentRunService:
         request: RunCreateRequest,
         plan: WorkflowPlan,
         input_dir: Path,
-    ) -> Path:
-        task_kind = _task_kind_for_request(request)
+    ) -> DataRequirementPlan:
+        task_kind = _task_kind_for_request(request, plan)
         requirements = self.data_requirement_resolver.resolve(task_kind=task_kind, plan=plan)
         requirements_path = input_dir / "data_requirements.json"
         requirements_path.parent.mkdir(parents=True, exist_ok=True)
@@ -2168,7 +2137,7 @@ class AgentRunService:
                 "role_ids": [role.role_id for role in requirements.roles],
             },
         )
-        return requirements_path
+        return requirements
 
     def _record_tiled_runtime_event(
         self,
@@ -2627,6 +2596,15 @@ class AgentRunService:
             return list(raw_policy.get("required_fields", []) or ["geometry"])
         if schema_policy is not None:
             return list(schema_policy.required_fields)
+        running_tests = bool(os.getenv("PYTEST_CURRENT_TEST") or "pytest" in sys.modules)
+        runtime_mode = os.getenv(
+            "GEOFUSION_KG_RUNTIME_MODE",
+            "development" if running_tests else "strict",
+        ).lower().strip()
+        if runtime_mode in {"strict", "research"}:
+            raise RuntimeError(
+                f"Frozen KG output schema policy is required for output_data_type={output_data_type!r}"
+            )
         return ["geometry"]
 
     def _quality_gate_required_fields_for_plan(self, plan: WorkflowPlan, *, contract_id: str | None = None) -> list[str]:
@@ -2649,21 +2627,10 @@ class AgentRunService:
         return None
 
     @staticmethod
-    def _quality_contract_id_for_request(request: RunCreateRequest) -> str:
-        return get_domain_output_contract(_task_kind_for_request(request)).contract_id
-
-    def _source_expected_null_rates_for_request(
-        self,
-        request: RunCreateRequest,
-        plan: WorkflowPlan,
-    ) -> dict[str, float]:
-        task_kind = _task_kind_for_request(request)
-        if task_kind != TaskKind.road:
-            return {}
-        resolved_aoi = self._extract_resolved_aoi(plan)
-        country_code = resolved_aoi.country_code if resolved_aoi is not None else None
-        profile = SourceFieldProfileRegistry().resolve("fields.road.osm", country_code=country_code)
-        return dict(profile.expected_null_rates)
+    def _quality_contract_id_for_request(request: RunCreateRequest, plan: WorkflowPlan | None = None) -> str | None:
+        if _p3_variant() == "no_product_contract":
+            return None
+        return get_domain_output_contract(_task_kind_for_request(request, plan)).contract_id
 
     def _output_schema_policy_id_for_plan(self, plan: WorkflowPlan) -> str | None:
         output_data_type = self._extract_output_data_type(plan)
@@ -2822,7 +2789,9 @@ class AgentRunService:
             or resolved_inputs.source_id
             or self._resolve_task_driven_source_id(plan)
         )
-        if selected_source_id not in {"catalog.flood.building", "catalog.earthquake.building"}:
+        if selected_source_id not in set(
+            default_policy_registry().tiled_building_catalog_source_ids()
+        ):
             return False
         threshold = self._read_env_int("GEOFUSION_BUILDING_TILING_MIN_FEATURES") or 250000
         return self._max_building_component_feature_count(resolved_inputs.component_coverage) >= threshold
@@ -2850,24 +2819,25 @@ class AgentRunService:
         )
         if not selected_source_id:
             return False
-        return self._has_large_area_runtime_material(resolved_inputs, job_type=request.job_type)
+        return self._has_large_area_runtime_material(
+            resolved_inputs,
+            task_kind=_task_kind_for_request(request, plan),
+        )
 
     @classmethod
-    def _has_large_area_runtime_material(cls, resolved_inputs: ResolvedRunInputs, *, job_type: JobType) -> bool:
-        allowed_source_ids_by_job = {
-            JobType.road: {"raw.osm.road", "raw.microsoft.road", "raw.overture.transportation", "raw.overture.road"},
-            JobType.water: {
-                "raw.osm.water",
-                "raw.hydrolakes.water",
-                "raw.osm.waterways",
-                "raw.hydrorivers.water",
-            },
-            JobType.poi: {"raw.osm.poi", "raw.google.poi", "raw.gns.poi", "raw.geonames.poi"},
-        }
-        allowed_source_ids = allowed_source_ids_by_job.get(job_type, set())
+    def _has_large_area_runtime_material(
+        cls,
+        resolved_inputs: ResolvedRunInputs,
+        *,
+        task_kind: TaskKind,
+    ) -> bool:
+        allowed_source_ids = cls._kg_source_ids_for_task_kind(task_kind)
         coverage = dict(resolved_inputs.component_coverage or {})
         for source_id, payload in coverage.items():
-            if source_id not in allowed_source_ids:
+            canonical_source_id = default_policy_registry().source_id_aliases().get(
+                str(source_id), str(source_id)
+            )
+            if canonical_source_id not in allowed_source_ids:
                 continue
             path = cls._component_path_from_payload(payload)
             if path is not None and path.exists():
@@ -2875,6 +2845,21 @@ class AgentRunService:
         if coverage:
             return False
         return cls._has_legacy_input_bundle_path(resolved_inputs)
+
+    @staticmethod
+    def _kg_source_ids_for_task_kind(task_kind: TaskKind) -> set[str]:
+        source_ids = {
+            str(candidate.get("source_id") or "").strip()
+            for role in default_policy_registry().source_role_policies(task_kind.value)
+            for candidate in role.get("candidates", [])
+            if isinstance(candidate, dict)
+            and str(candidate.get("source_id") or "").strip()
+        }
+        if not source_ids:
+            raise KnowledgeReleaseError(
+                f"No KG source-role candidates for task kind {task_kind.value}"
+            )
+        return source_ids
 
     @staticmethod
     def _has_legacy_input_bundle_path(resolved_inputs: ResolvedRunInputs) -> bool:
@@ -2965,55 +2950,38 @@ class AgentRunService:
         from services.large_area_runtime_service import LargeAreaSlice
 
         del request, resolved_inputs
+        task_sources, missing_roles = self._runtime_sources_for_task_kind(
+            task_kind,
+            component_paths,
+        )
+        if missing_roles:
+            return LargeAreaSlicePlan(
+                can_execute=False,
+                slices=[],
+                failure_reason="required_kg_source_role_missing",
+                missing_sources=missing_roles,
+            )
         if task_kind == TaskKind.water_polygon:
-            water_sources = {
-                key: path
-                for key, path in {
-                    "raw.osm.water": component_paths.get("raw.osm.water"),
-                    "raw.hydrolakes.water": component_paths.get("raw.hydrolakes.water"),
-                }.items()
-                if path is not None
-            }
             return LargeAreaSlicePlan(
                 can_execute=True,
                 slices=[
                     LargeAreaSlice(
                         name="water_polygon",
                         geometry_family="polygon",
-                        sources=water_sources,
+                        sources=task_sources,
                         runner=run_water_polygon_tile,
                     )
                 ],
             )
 
         if task_kind == TaskKind.waterways:
-            line_supplement = component_paths.get("raw.hydrorivers.water") or component_paths.get(
-                "raw.local.pakistan.waterways"
-            )
-            if component_paths.get("raw.osm.waterways") is None or line_supplement is None:
-                missing_sources: list[str] = []
-                if component_paths.get("raw.osm.waterways") is None:
-                    missing_sources.append("raw.osm.waterways")
-                if line_supplement is None:
-                    missing_sources.append("raw.hydrorivers.water|raw.local.pakistan.waterways")
-                return LargeAreaSlicePlan(
-                    can_execute=False,
-                    slices=[],
-                    failure_reason="no_line_source_available",
-                    missing_sources=missing_sources,
-                )
-            line_sources = {"raw.osm.waterways": component_paths["raw.osm.waterways"]}
-            if component_paths.get("raw.hydrorivers.water") is not None:
-                line_sources["raw.hydrorivers.water"] = component_paths["raw.hydrorivers.water"]
-            else:
-                line_sources["raw.local.pakistan.waterways"] = component_paths["raw.local.pakistan.waterways"]
             return LargeAreaSlicePlan(
                 can_execute=True,
                 slices=[
                     LargeAreaSlice(
                         name="waterways_line",
                         geometry_family="line",
-                        sources=line_sources,
+                        sources=task_sources,
                         runner=run_waterways_tile,
                     )
                 ],
@@ -3024,6 +2992,49 @@ class AgentRunService:
             slices=[],
             failure_reason=f"unsupported_water_task_kind:{task_kind.value}",
         )
+
+    @staticmethod
+    def _runtime_sources_for_task_kind(
+        task_kind: TaskKind,
+        component_paths: dict[str, Path],
+    ) -> tuple[dict[str, Path], list[str]]:
+        registry = default_policy_registry()
+        aliases = registry.source_id_aliases()
+        canonical_paths: dict[str, Path] = {}
+        for source_id, path in component_paths.items():
+            canonical_id = aliases.get(str(source_id), str(source_id))
+            canonical_paths.setdefault(canonical_id, path)
+
+        selected: dict[str, Path] = {}
+        missing_roles: list[str] = []
+        for role in registry.source_role_policies(task_kind.value):
+            role_id = str(role.get("role_id") or "<missing-role-id>")
+            candidates = sorted(
+                (
+                    candidate
+                    for candidate in role.get("candidates", [])
+                    if isinstance(candidate, dict)
+                ),
+                key=lambda candidate: (
+                    int(candidate.get("priority", 0)),
+                    str(candidate.get("source_id") or ""),
+                ),
+            )
+            available_source_ids = [
+                str(candidate.get("source_id"))
+                for candidate in candidates
+                if canonical_paths.get(str(candidate.get("source_id"))) is not None
+            ]
+            for source_id in available_source_ids:
+                selected[source_id] = canonical_paths[source_id]
+            if not available_source_ids and role.get("required") is True:
+                candidate_ids = [
+                    str(candidate.get("source_id")) for candidate in candidates
+                ]
+                missing_roles.append(
+                    f"{role_id}=>{'|'.join(candidate_ids) or '<no-candidates>'}"
+                )
+        return selected, missing_roles
 
     def run_large_area_execution_stage(
         self,
@@ -3052,25 +3063,24 @@ class AgentRunService:
             run_id=run_id,
             resolved_inputs=resolved_inputs,
         )
-        task_kind = _task_kind_for_request(request)
+        task_kind = _task_kind_for_request(request, plan)
         tile_manifest = self._partition_large_area_runtime_bbox(
             bbox=request_bbox,
             bbox_crs="EPSG:4326",
             working_crs=target_crs,
             resolved_inputs=resolved_inputs,
-            job_type=request.job_type,
+            task_kind=task_kind,
         )
         if request.job_type == JobType.road:
-            road_sources = {
-                source_id: path
-                for source_id, path in {
-                    "raw.osm.road": component_paths.get("raw.osm.road"),
-                    "raw.microsoft.road": component_paths.get("raw.microsoft.road"),
-                    "raw.overture.transportation": component_paths.get("raw.overture.transportation"),
-                    "raw.overture.road": component_paths.get("raw.overture.road"),
-                }.items()
-                if path is not None
-            }
+            road_sources, missing_roles = self._runtime_sources_for_task_kind(
+                task_kind,
+                component_paths,
+            )
+            if missing_roles:
+                raise RuntimeError(
+                    "SOURCE_MISSING: required KG source roles are unavailable: "
+                    + ", ".join(missing_roles)
+                )
             slices = [
                 LargeAreaSlice(
                     name="road",
@@ -3093,17 +3103,15 @@ class AgentRunService:
                 )
             slices = slice_plan.slices
         elif request.job_type == JobType.poi:
-            if component_paths.get("raw.osm.poi") is None:
-                raise ValueError("POI large-area runtime requires raw.osm.poi")
-            poi_sources = {
-                source_id: path
-                for source_id, path in {
-                    "raw.gns.poi": component_paths.get("raw.gns.poi") or component_paths.get("raw.geonames.poi"),
-                    "raw.google.poi": component_paths.get("raw.google.poi"),
-                    "raw.osm.poi": component_paths.get("raw.osm.poi"),
-                }.items()
-                if path is not None
-            }
+            poi_sources, missing_roles = self._runtime_sources_for_task_kind(
+                task_kind,
+                component_paths,
+            )
+            if missing_roles:
+                raise RuntimeError(
+                    "SOURCE_MISSING: required KG source roles are unavailable: "
+                    + ", ".join(missing_roles)
+                )
             slices = [
                 LargeAreaSlice(
                     name="poi",
@@ -3224,8 +3232,13 @@ class AgentRunService:
         bbox_crs: str,
         working_crs: str,
         resolved_inputs: ResolvedRunInputs,
-        job_type: JobType,
+        task_kind: TaskKind | None = None,
+        job_type: JobType | None = None,
     ):
+        task_kind = self._unambiguous_task_kind(
+            task_kind=task_kind,
+            job_type=job_type,
+        )
         default_manifest = self.tile_partition_service.partition_bbox(
             bbox=bbox,
             bbox_crs=bbox_crs,
@@ -3238,7 +3251,7 @@ class AgentRunService:
         area_km2 = (width_m * height_m) / 1_000_000.0
         max_features = self._max_large_area_component_feature_count(
             resolved_inputs.component_coverage,
-            job_type=job_type,
+            task_kind=task_kind,
         )
 
         single_tile_max_features = self._read_env_int("GEOFUSION_LARGE_AREA_SINGLE_TILE_MAX_FEATURES") or 300000
@@ -3324,24 +3337,42 @@ class AgentRunService:
         return AgentRunService._max_component_feature_count(building_coverage)
 
     @staticmethod
-    def _max_large_area_component_feature_count(component_coverage: Dict[str, object], *, job_type: JobType) -> int:
-        allowed_source_ids_by_job = {
-            JobType.road: {"raw.osm.road", "raw.microsoft.road", "raw.overture.transportation", "raw.overture.road"},
-            JobType.water: {
-                "raw.osm.water",
-                "raw.hydrolakes.water",
-                "raw.osm.waterways",
-                "raw.hydrorivers.water",
-            },
-            JobType.poi: {"raw.osm.poi", "raw.google.poi", "raw.gns.poi", "raw.geonames.poi"},
-        }
-        allowed_source_ids = allowed_source_ids_by_job.get(job_type, set())
+    def _max_large_area_component_feature_count(
+        component_coverage: Dict[str, object],
+        *,
+        task_kind: TaskKind | None = None,
+        job_type: JobType | None = None,
+    ) -> int:
+        task_kind = AgentRunService._unambiguous_task_kind(
+            task_kind=task_kind,
+            job_type=job_type,
+        )
+        registry = default_policy_registry()
+        allowed_source_ids = AgentRunService._kg_source_ids_for_task_kind(task_kind)
+        aliases = registry.source_id_aliases()
         filtered = {
             source_id: raw
             for source_id, raw in (component_coverage or {}).items()
-            if str(source_id) in allowed_source_ids
+            if aliases.get(str(source_id), str(source_id)) in allowed_source_ids
         }
         return AgentRunService._max_component_feature_count(filtered)
+
+    @staticmethod
+    def _unambiguous_task_kind(
+        *,
+        task_kind: TaskKind | None,
+        job_type: JobType | None,
+    ) -> TaskKind:
+        if task_kind is not None:
+            return task_kind
+        if job_type is None:
+            raise KnowledgeReleaseError("Task kind is required for KG source-role lookup")
+        matches = default_policy_registry().task_kinds_for_job_type(job_type.value)
+        if len(matches) != 1:
+            raise KnowledgeReleaseError(
+                f"Job type {job_type.value} does not identify one KG task kind: {matches}"
+            )
+        return TaskKind(matches[0])
 
 
     @staticmethod
@@ -3674,7 +3705,7 @@ class AgentRunService:
             failure_details = classify_failure_details(error=failure_reason, reason_code=failure_reason)
             durable_metadata.update(
                 _build_durable_learning_condition_metadata(
-                    task_kind=_task_kind_for_request(request).value,
+                    task_kind=_task_kind_for_request(request, plan).value,
                     requested_bbox=self._parse_bbox(request.trigger.spatial_extent),
                     component_coverage=_component_coverage_from_status(status),
                     failure_category=(failure_details.failure_category if failure_reason else None),
@@ -4154,29 +4185,22 @@ class AgentRunService:
         selected = AgentRunService._extract_selected_data_source(plan)
         if selected and selected != "upload.bundle":
             if compatible_source_ids and selected not in compatible_source_ids:
-                return compatible_source_ids[0]
+                raise ValueError(
+                    "PLAN_SOURCE_NOT_COMPATIBLE: the KG-grounded plan source is not an executable "
+                    f"candidate for the required input type: {selected}"
+                )
             return selected
         if compatible_source_ids:
             return compatible_source_ids[0]
-        alternatives = AgentRunService._extract_alternative_sources(plan)
-        return alternatives[0] if alternatives else None
+        return None
 
     @staticmethod
     def _task_driven_source_candidates(plan: WorkflowPlan) -> list[str]:
+        selected_source_id = AgentRunService._resolve_task_driven_source_id(plan)
+        if not selected_source_id:
+            return []
         ordered: list[str] = []
-        compatible_alternatives = AgentRunService._filter_disaster_compatible_sources(
-            AgentRunService._extract_task_driven_compatible_sources(plan),
-            plan,
-        )
-        alternative_source_ids = (
-            [item["source_id"] for item in compatible_alternatives]
-            if compatible_alternatives
-            else AgentRunService._extract_alternative_sources(plan)
-        )
-        for source_id in [
-            AgentRunService._resolve_task_driven_source_id(plan),
-            *alternative_source_ids,
-        ]:
+        for source_id in [selected_source_id, *source_fallback_candidates(selected_source_id)]:
             if source_id and source_id != "upload.bundle" and source_id not in ordered:
                 ordered.append(source_id)
         return ordered
@@ -4190,21 +4214,10 @@ class AgentRunService:
 
     @staticmethod
     def _extract_alternative_sources(plan: WorkflowPlan) -> List[str]:
-        compatible_sources = AgentRunService._extract_task_driven_compatible_sources(plan)
-        if compatible_sources:
-            selected = AgentRunService._extract_selected_data_source(plan)
-            compatible_ids = [item["source_id"] for item in compatible_sources]
-            return [source_id for source_id in compatible_ids if source_id != selected]
-        retrieval = plan.context.get("retrieval", {})
-        candidates = retrieval.get("data_sources", []) if isinstance(retrieval, dict) else []
-        ordered: List[str] = []
-        for candidate in candidates:
-            source_id = candidate.get("source_id")
-            if not source_id:
-                continue
-            if source_id not in ordered and source_id != "upload.bundle":
-                ordered.append(source_id)
-        return ordered
+        selected_source_id = AgentRunService._resolve_task_driven_source_id(plan)
+        if not selected_source_id:
+            return []
+        return source_fallback_candidates(selected_source_id)
 
     @staticmethod
     def _extract_task_driven_compatible_sources(plan: WorkflowPlan) -> List[Dict[str, Any]]:
@@ -4274,15 +4287,13 @@ class AgentRunService:
             for source in generic
             if AgentRunService._source_disaster_types(source) == {"generic"}
         ]
-        return pure_generic or generic or sources
+        return pure_generic or generic
 
     @staticmethod
     def _plan_disaster_type(plan: WorkflowPlan) -> str | None:
-        explicit = AgentRunService._infer_disaster_type_from_texts(
-            getattr(plan.trigger, "disaster_type", None),
-        )
-        if explicit:
-            return explicit
+        explicit_value = getattr(plan.trigger, "disaster_type", None)
+        if str(explicit_value or "").strip():
+            return AgentRunService._require_known_disaster_type(explicit_value)
 
         context = plan.context if isinstance(plan.context, dict) else {}
         intent = context.get("intent")
@@ -4297,11 +4308,10 @@ class AgentRunService:
             intent_trigger.get("disaster_type"),
             context_trigger.get("disaster_type"),
         ):
-            inferred = AgentRunService._infer_disaster_type_from_texts(value)
-            if inferred:
-                return inferred
+            if str(value or "").strip():
+                return AgentRunService._require_known_disaster_type(value)
 
-        return AgentRunService._infer_disaster_type_from_texts(
+        inference_values = (
             getattr(plan.trigger, "content", None),
             intent_trigger.get("content"),
             intent.get("trigger_content"),
@@ -4312,25 +4322,46 @@ class AgentRunService:
             context.get("pattern_id"),
             AgentRunService._extract_pattern_id(plan),
         )
+        inferred = AgentRunService._infer_disaster_type_from_texts(*inference_values)
+        if inferred is not None:
+            return inferred
+
+        registry = default_policy_registry()
+        request_text_values = inference_values[:4]
+        for value in request_text_values:
+            unsupported_term = registry.unsupported_disaster_term_in_text(value)
+            if unsupported_term is not None:
+                raise KnowledgeReleaseError(
+                    "Disaster type is outside the frozen KG vocabulary: "
+                    f"{unsupported_term}"
+                )
+        if getattr(plan.trigger, "type", None) == RunTriggerType.disaster_event:
+            raise KnowledgeReleaseError(
+                "Disaster event has no type recognized by the frozen KG vocabulary"
+            )
+        return None
 
     @staticmethod
     def _infer_disaster_type_from_texts(*values: object) -> str | None:
-        patterns = (
-            ("flood", r"\b(flood|floods|flooding|flooded|inundation)\b"),
-            ("earthquake", r"\b(earthquake|earthquakes|quake|quakes|seismic)\b"),
-            ("hurricane", r"\b(hurricane|hurricanes)\b"),
-            ("wildfire", r"\b(wildfire|wildfires|wild[-\s]?fire|wild[-\s]?fires|bushfire|bushfires)\b"),
-            ("conflict", r"\b(conflict|conflicts|war|wars|armed\s+conflict)\b"),
-            ("typhoon", r"\b(typhoon|typhoons)\b"),
-        )
+        registry = default_policy_registry()
         for value in values:
-            text = str(value or "").strip().casefold()
+            text = str(value or "").strip()
             if not text:
                 continue
-            for disaster_type, pattern in patterns:
-                if re.search(pattern, text):
-                    return disaster_type
+            resolved = registry.resolve_disaster_type(text) or registry.disaster_type_in_text(text)
+            if resolved:
+                return resolved
         return None
+
+    @staticmethod
+    def _require_known_disaster_type(value: object) -> str:
+        text = str(value or "").strip()
+        resolved = default_policy_registry().resolve_disaster_type(text)
+        if resolved is None:
+            raise KnowledgeReleaseError(
+                f"Disaster type is outside the frozen KG vocabulary: {text}"
+            )
+        return resolved
 
     @staticmethod
     def _source_disaster_types(source: Dict[str, Any]) -> set[str]:
@@ -4341,7 +4372,11 @@ class AgentRunService:
             values.append(metadata.get("disaster_types"))
             values.append(metadata.get("scenario_focus"))
         source_id = str(source.get("source_id") or "").casefold()
-        for token in ("flood", "earthquake", "hurricane", "wildfire", "conflict", "typhoon", "generic"):
+        known_disaster_types = {
+            str(item["disaster_type"])
+            for item in default_policy_registry().disaster_records()
+        }
+        for token in sorted(known_disaster_types):
             if f".{token}." in source_id or source_id.startswith(f"{token}.") or source_id.endswith(f".{token}"):
                 values.append(token)
 
@@ -4537,13 +4572,29 @@ class AgentRunService:
         evidence_refs = ["context.retrieval.data_sources", "policy:deterministic_weighted_sum"]
         if self._plan_disaster_type(plan):
             evidence_refs.append("policy:disaster_source_compatibility")
-        decision = self.policy_engine.select("data_source_selection", candidates).model_copy(
-            update={"evidence_refs": evidence_refs}
+        scored = self.policy_engine.select("data_source_selection", candidates)
+        planned_source_id = self._extract_selected_data_source(plan)
+        planned_candidate = next(
+            (item for item in scored.candidates if item.candidate_id == planned_source_id),
+            None,
         )
-        for task in plan.tasks:
-            if not task.is_transform:
-                task.input.data_source_id = decision.selected_id
-        return decision
+        if planned_source_id and planned_candidate is not None:
+            return scored.model_copy(
+                update={
+                    "selected_id": planned_source_id,
+                    "selected_score": planned_candidate.score,
+                    "rationale": (
+                        "Preserved the KG-grounded plan source; post-plan policy scoring is audit-only. "
+                        f"{planned_candidate.reason}"
+                    ),
+                    "evidence_refs": [
+                        *evidence_refs,
+                        "plan.tasks[*].input.data_source_id",
+                        f"kg_release:{default_policy_registry().knowledge_identity()['semantic_hash']}",
+                    ],
+                }
+            )
+        return scored.model_copy(update={"evidence_refs": evidence_refs})
 
     def _build_artifact_reuse_selection_decision(self, plan: WorkflowPlan) -> Optional[DecisionRecord]:
         retrieval = plan.context.get("retrieval", {})
@@ -4968,6 +5019,22 @@ class AgentRunService:
         ):
             return resolve_download_root(requested_root, data_repository_root=data_repository_root)
         return self.base_dir
+
+
+def _p3_variant() -> str:
+    return os.getenv("GEOFUSION_P3_VARIANT", "full_method").strip().lower()
+
+
+def _apply_p3_plan_variant(plan: WorkflowPlan) -> WorkflowPlan:
+    if _p3_variant() != "no_product_contract":
+        return plan
+    plan.product_contract = None
+    plan.context = {
+        **plan.context,
+        "p3_variant": "no_product_contract",
+        "product_contract_binding": "disabled_for_ablation",
+    }
+    return plan
 
 
 agent_run_service = AgentRunService()

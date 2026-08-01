@@ -13,12 +13,22 @@ from shapely.geometry import LineString, Point, Polygon
 
 from services.artifact_registry import ArtifactRegistry
 from services.aoi_resolution_service import ResolvedAOI
-from services.raw_vector_source_service import RawVectorSourceService
+from services.raw_vector_source_service import RawVectorSourceService, _cache_version_key
 
 
 def _write_frame(path: Path, gdf: gpd.GeoDataFrame) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     gdf.to_file(path)
+
+
+def test_cache_version_key_is_deterministic_and_filesystem_safe() -> None:
+    token = "empty:raw.osm.water/../../unsafe"
+
+    first = _cache_version_key(token)
+
+    assert first == _cache_version_key(token)
+    assert len(first) == 64
+    assert all(character in "0123456789abcdef" for character in first)
 
 
 def _extract_bounds(bundle_zip: Path, *, output_crs: str = "EPSG:4326") -> list[float]:
@@ -704,7 +714,13 @@ def test_raw_vector_source_service_locates_google_open_buildings_vector_gpkg_whe
     tmp_path: Path,
 ) -> None:
     registry = ArtifactRegistry(index_path=tmp_path / "artifact_registry.json")
-    vector_gpkg = tmp_path / "Data" / "buildings" / "GoogleOpenBuildingsVector" / "google_open_buildings.gpkg"
+    vector_gpkg = (
+        tmp_path
+        / "Benin"
+        / "final_shp"
+        / "google_open_buildings_v3"
+        / "google_open_buildings_v3_benin.gpkg"
+    )
     _write_frame(
         vector_gpkg,
         gpd.GeoDataFrame(

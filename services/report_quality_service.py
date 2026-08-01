@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from kg.policy_registry import KnowledgePolicyRegistry, default_policy_registry
 from schemas.agent import RunEvent
 
 
@@ -12,12 +13,18 @@ def build_report_quality_summary(
     source_semantic_contract: dict[str, Any] | None,
     artifact_metrics: dict[str, Any],
     recovery_evidence: dict[str, Any] | None,
+    policy_registry: KnowledgePolicyRegistry | None = None,
 ) -> dict[str, Any]:
     contract = source_semantic_contract or {}
     recovery = recovery_evidence or {}
     height_sources = _height_raster_source_ids(contract=contract, audit_events=audit_events)
     source_download = _source_download_summary(audit_events)
-    poi_boundary = _poi_boundary_summary(job_type=job_type, audit_events=audit_events, contract=contract)
+    poi_boundary = _poi_boundary_summary(
+        job_type=job_type,
+        audit_events=audit_events,
+        contract=contract,
+        policy_registry=policy_registry,
+    )
     recovery_summary = _recovery_summary(recovery)
     checks = [
         bool(artifact_metrics.get("artifact_validity")),
@@ -92,7 +99,13 @@ def _source_download_summary(audit_events: list[RunEvent]) -> dict[str, Any]:
     }
 
 
-def _poi_boundary_summary(*, job_type: str, audit_events: list[RunEvent], contract: dict[str, Any]) -> dict[str, Any]:
+def _poi_boundary_summary(
+    *,
+    job_type: str,
+    audit_events: list[RunEvent],
+    contract: dict[str, Any],
+    policy_registry: KnowledgePolicyRegistry | None,
+) -> dict[str, Any]:
     source_ids: set[str] = set()
     aoi_bound: list[float] | None = None
     for event in audit_events:
@@ -107,12 +120,22 @@ def _poi_boundary_summary(*, job_type: str, audit_events: list[RunEvent], contra
     component_ids = contract.get("component_source_ids")
     if isinstance(component_ids, list):
         source_ids.update(str(item) for item in component_ids)
-    bounded = job_type != "poi" or ({"raw.osm.poi", "raw.gns.poi"}.issubset(source_ids) and aoi_bound is not None)
+    policy = (policy_registry or default_policy_registry()).quality_component_policy("poi")
+    required_source_ids = {
+        str(item) for item in policy.get("expected_source_ids") or [] if str(item)
+    }
+    if not required_source_ids:
+        raise ValueError("KG POI quality component policy has no expected_source_ids")
+    bounded = job_type != "poi" or (
+        required_source_ids.issubset(source_ids) and aoi_bound is not None
+    )
     return {
         "supported": job_type == "poi",
         "bounded": bounded,
         "aoi_bound": aoi_bound,
         "source_ids": sorted(source_ids),
+        "required_source_ids": sorted(required_source_ids),
+        "policy_id": policy.get("policy_id"),
         "unsupported_boundary": "unbounded POI entity alignment is unsupported",
     }
 

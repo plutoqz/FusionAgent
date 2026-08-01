@@ -1,0 +1,39 @@
+{
+  "type": "FeatureCollection",
+  "features": [
+    {
+      "type": "Feature",
+      "properties": {
+        "aoi_id": "vietnam_coastal",
+        "boundary_type": "derived_request_bbox"
+      },
+      "geometry": {
+        "type": "Polygon",
+        "coordinates": [
+          [
+            [
+              106.78,
+              20.78
+            ],
+            [
+              106.78,
+              20.92
+            ],
+            [
+              106.6,
+              20.92
+            ],
+            [
+              106.6,
+              20.78
+            ],
+            [
+              106.78,
+              20.78
+            ]
+          ]
+        ]
+      }
+    }
+  ]
+}

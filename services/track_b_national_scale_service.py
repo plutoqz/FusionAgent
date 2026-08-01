@@ -21,12 +21,19 @@ from fusion_algorithms.waterways_conflation_v7 import (
 )
 from kg.source_catalog import build_data_sources, get_catalog_bundle_spec
 from kg.track_b_source_contract import TRACK_B_THEME_CONTRACTS
+from kg.policy_registry import default_policy_registry
 from services.aoi_resolution_service import ResolvedAOI
 from services.artifact_evaluation_service import evaluate_vector_artifact
 from services.artifact_registry import ArtifactRegistry
 from services.autonomous_fusion_readiness_service import classify_autonomous_readiness
 from services.local_bundle_catalog import LocalBundleCatalogProvider
 from services.raw_vector_source_service import RawVectorSourceService
+from services.runtime_source_aliases import (
+    BUILDING_SOURCE_ALIASES,
+    BUILDING_SOURCE_PRIORITY_ORDER,
+    POI_SOURCE_ALIASES,
+    POI_SOURCE_PRIORITY_ORDER,
+)
 from services.source_asset_service import SourceAssetService, SourceCoverageStatus
 from services.tile_partition_service import TilePartitionService, TileSpec
 from services.tiled_building_runtime_service import TiledBuildingRuntimeService
@@ -34,42 +41,65 @@ from services.track_b_source_normalization import normalize_track_b_source_frame
 from utils.shp_zip import validate_zip_has_shapefile
 
 
-DEFAULT_THEME_SOURCE_IDS = {
-    "building": "catalog.earthquake.building",
-    "road": "catalog.flood.road",
-    "water": "catalog.flood.water",
-    "waterways": "catalog.flood.waterways",
-    "poi": "catalog.generic.poi",
-}
+_POLICY_REGISTRY = default_policy_registry()
 
-BUILDING_SOURCE_ALIASES = {
-    "raw.osm.building": "OSM",
-    "raw.microsoft.building": "MS",
-    "raw.local.microsoft.building": "MICROSOFT_LOCAL",
-    "raw.google.building": "GOOGLE",
-    "raw.google.open_buildings.vector": "GOOGLE_OPEN_BUILDINGS",
-    "raw.openbuildingmap.building": "OBM",
-}
 
-BUILDING_SOURCE_PRIORITY_ORDER = (
-    "MS",
-    "MICROSOFT_LOCAL",
-    "OBM",
-    "GOOGLE_OPEN_BUILDINGS",
-    "GOOGLE",
-    "OSM",
+def _default_theme_source_ids() -> dict[str, str]:
+    defaults: dict[str, str] = {}
+    for theme, contract in TRACK_B_THEME_CONTRACTS.items():
+        if not contract.current_catalog_source_ids:
+            raise ValueError(f"Frozen KG Track B theme {theme} has no catalog source")
+        defaults[theme] = contract.current_catalog_source_ids[0]
+    return defaults
+
+
+def _task_candidate_source_ids(task_kind: str) -> tuple[str, ...]:
+    candidates = [
+        candidate
+        for role in _POLICY_REGISTRY.source_role_policies(task_kind)
+        for candidate in role.get("candidates", [])
+        if isinstance(candidate, dict)
+    ]
+    return tuple(
+        str(candidate["source_id"])
+        for candidate in sorted(
+            candidates,
+            key=lambda item: (int(item.get("priority", 0)), str(item.get("source_id") or "")),
+        )
+    )
+
+
+def _required_primary_source_id(task_kind: str) -> str:
+    primary_roles = [
+        role
+        for role in _POLICY_REGISTRY.source_role_policies(task_kind)
+        if role.get("required") is True and role.get("bundle_slot") == "primary"
+    ]
+    if len(primary_roles) != 1:
+        raise ValueError(
+            f"Frozen KG task {task_kind} must have one required primary source role"
+        )
+    candidates = sorted(
+        (
+            candidate
+            for candidate in primary_roles[0].get("candidates", [])
+            if isinstance(candidate, dict)
+        ),
+        key=lambda item: (int(item.get("priority", 0)), str(item.get("source_id") or "")),
+    )
+    if not candidates:
+        raise ValueError(f"Frozen KG task {task_kind} primary role has no candidates")
+    return str(candidates[0]["source_id"])
+
+
+DEFAULT_THEME_SOURCE_IDS = _default_theme_source_ids()
+CORE_SELECTED_POI_SOURCE_IDS = set(
+    _POLICY_REGISTRY.source_bundle_policy(
+        DEFAULT_THEME_SOURCE_IDS["poi"], required=True
+    )["required_full_closure"]
 )
-
-POI_SOURCE_ALIASES = {
-    "raw.gns.poi": "GNG",
-    "raw.geonames.poi": "GNG",
-    "raw.google.poi": "GOOGLE",
-    "raw.osm.poi": "OSM",
-    "raw.rh.poi": "RH",
-}
-
-POI_SOURCE_PRIORITY_ORDER = ("GNG", "GOOGLE", "OSM", "RH")
-CORE_SELECTED_POI_SOURCE_IDS = {"raw.gns.poi", "raw.google.poi", "raw.osm.poi"}
+WATERWAYS_SOURCE_IDS = _task_candidate_source_ids("waterways")
+BUILDING_ROAD_CONTEXT_SOURCE_ID = _required_primary_source_id("road")
 
 
 @dataclass(frozen=True)
@@ -350,6 +380,7 @@ class TrackBNationalScaleService:
         autonomous_readiness = _write_autonomous_readiness(
             output_root=output_root,
             job_type=theme,
+            policy_identifier=selected_source_id,
             component_coverage=selected_coverage,
             source_attempts=source_attempts,
         )
@@ -534,7 +565,10 @@ class TrackBNationalScaleService:
             selected_component_ids=set(component_source_ids),
             resolved_aoi=resolved_aoi,
         )
-        road_summary = self._building_raw_source_summary("raw.osm.road", resolved_aoi=resolved_aoi)
+        road_summary = self._building_raw_source_summary(
+            BUILDING_ROAD_CONTEXT_SOURCE_ID,
+            resolved_aoi=resolved_aoi,
+        )
         road_path = self._summary_artifact_path(road_summary)
         context_vectors = self._building_context_vectors(
             road_path=road_path,
@@ -590,6 +624,7 @@ class TrackBNationalScaleService:
         autonomous_readiness = _write_autonomous_readiness(
             output_root=output_root,
             job_type="building",
+            policy_identifier=selected_source_id,
             component_coverage=readiness_coverage,
             source_attempts=[],
         )
@@ -873,8 +908,20 @@ class TrackBNationalScaleService:
 
     @staticmethod
     def _poi_component_source_ids(component_source_ids: list[str]) -> list[str]:
-        available = {"raw.gns.poi" if item == "raw.geonames.poi" else item for item in component_source_ids}
-        ordered = [source_id for source_id in ("raw.gns.poi", "raw.google.poi", "raw.osm.poi", "raw.rh.poi") if source_id in available]
+        source_id_aliases = _POLICY_REGISTRY.source_id_aliases()
+        available = {
+            source_id_aliases.get(item, item) for item in component_source_ids
+        }
+        priority_by_alias = {
+            alias: index for index, alias in enumerate(POI_SOURCE_PRIORITY_ORDER)
+        }
+        ordered = sorted(
+            (source_id for source_id in available if source_id in POI_SOURCE_ALIASES),
+            key=lambda source_id: (
+                priority_by_alias.get(POI_SOURCE_ALIASES[source_id], len(priority_by_alias)),
+                source_id,
+            ),
+        )
         ordered.extend(sorted(source_id for source_id in available if source_id not in ordered))
         return ordered
 
@@ -890,8 +937,18 @@ class TrackBNationalScaleService:
         paths: dict[str, Path] = {}
         for source_id in component_source_ids:
             coverage = component_coverage.get(source_id)
-            if coverage is None and source_id == "raw.gns.poi":
-                coverage = component_coverage.get("raw.geonames.poi")
+            if coverage is None:
+                aliases = _POLICY_REGISTRY.source_id_aliases()
+                alias_id = next(
+                    (
+                        alias
+                        for alias, canonical_id in aliases.items()
+                        if canonical_id == source_id and alias in component_coverage
+                    ),
+                    None,
+                )
+                if alias_id is not None:
+                    coverage = component_coverage.get(alias_id)
             path = self._coverage_path(coverage)
             is_core_selected = source_id in CORE_SELECTED_POI_SOURCE_IDS
             coverage_available = self._coverage_is_available(coverage)
@@ -938,7 +995,7 @@ class TrackBNationalScaleService:
     ) -> dict[str, dict[str, Any]]:
         normalized_dir.mkdir(parents=True, exist_ok=True)
         summary: dict[str, dict[str, Any]] = {}
-        for source_id in ("raw.osm.waterways", "raw.hydrorivers.water", "raw.local.pakistan.waterways"):
+        for source_id in WATERWAYS_SOURCE_IDS:
             coverage = component_coverage.get(source_id)
             path = self._coverage_path(coverage)
             if path is None or not path.exists():
@@ -1056,22 +1113,35 @@ class TrackBNationalScaleService:
                 runner=run_water_polygon_tile,
             )
         ]
-        waterways_path = self._supplemental_artifact_path(supplemental_summary, "raw.osm.waterways")
-        line_supplement_source_id = (
-            "raw.hydrorivers.water"
-            if self._supplemental_artifact_path(supplemental_summary, "raw.hydrorivers.water") is not None
-            else "raw.local.pakistan.waterways"
+        line_sources = {
+            source_id: path
+            for source_id in WATERWAYS_SOURCE_IDS
+            if (
+                path := self._supplemental_artifact_path(
+                    supplemental_summary, source_id
+                )
+            )
+            is not None
+        }
+        required_line_roles = [
+            role
+            for role in _POLICY_REGISTRY.source_role_policies("waterways")
+            if role.get("required") is True
+        ]
+        required_line_role_satisfied = all(
+            any(
+                str(candidate.get("source_id")) in line_sources
+                for candidate in role.get("candidates", [])
+                if isinstance(candidate, dict)
+            )
+            for role in required_line_roles
         )
-        line_supplement_path = self._supplemental_artifact_path(supplemental_summary, line_supplement_source_id)
-        if waterways_path is not None and line_supplement_path is not None:
+        if required_line_role_satisfied:
             slices.append(
                 LargeAreaSlice(
                     name="waterways_line",
                     geometry_family="line",
-                    sources={
-                        "raw.osm.waterways": waterways_path,
-                        line_supplement_source_id: line_supplement_path,
-                    },
+                    sources=line_sources,
                     runner=run_waterways_tile,
                     parameters={"profile": "balanced"},
                 )
@@ -1119,11 +1189,7 @@ class TrackBNationalScaleService:
                 "algorithm_id": algorithm_id,
                 "base_source_id": base_source_id,
                 "supplement_source_id": supplement_source_id,
-                "line_source_ids": [
-                    source_id
-                    for source_id in ("raw.osm.waterways", line_supplement_source_id)
-                    if self._supplemental_artifact_path(supplemental_summary, source_id) is not None
-                ],
+                "line_source_ids": list(line_sources),
                 "runtime": "shared_large_area_runtime",
                 "runtime_evidence_paths": {
                     key: str(path) for key, path in runtime_result.evidence_paths.items()
@@ -1206,9 +1272,9 @@ class TrackBNationalScaleService:
         from services.domain_fusion_runners import run_road_tile
         from services.large_area_runtime_service import LargeAreaRuntimeService, LargeAreaSlice
 
-        road_sources: dict[str, Path] = {"raw.osm.road": base_path}
+        road_sources: dict[str, Path] = {base_source_id: base_path}
         if supplement_path is not None and supplement_source_id is not None:
-            road_sources["raw.overture.transportation"] = supplement_path
+            road_sources[supplement_source_id] = supplement_path
 
         runtime_result = LargeAreaRuntimeService(max_workers=1).run(
             run_id="track-b-national-road",
@@ -1336,7 +1402,24 @@ class TrackBNationalScaleService:
         for source_id, artifact_path in candidate_paths.items():
             if artifact_path is None or not artifact_path.exists():
                 continue
-            if source_id == "raw.local.microsoft.building" and "raw.microsoft.building" in candidate_paths:
+            source_node = self.source_index.get(source_id)
+            provider_family = str(
+                (getattr(source_node, "metadata", {}) or {}).get("provider_family") or ""
+            )
+            selected_same_provider = any(
+                candidate_id != source_id
+                and candidate_id in selected_sources
+                and str(
+                    (
+                        getattr(self.source_index.get(candidate_id), "metadata", {})
+                        or {}
+                    ).get("provider_family")
+                    or ""
+                )
+                == provider_family
+                for candidate_id in candidate_paths
+            )
+            if provider_family and selected_same_provider:
                 continue
             alias = BUILDING_SOURCE_ALIASES.get(source_id)
             if not alias or alias in vector_sources:
@@ -1636,7 +1719,13 @@ def _building_readiness_coverage(
     for source_id, summary in supplemental_summary.items():
         payload = _readiness_payload_from_summary(source_id, summary)
         coverage.setdefault(source_id, payload)
-    coverage["raw.osm.road"] = _readiness_payload_from_summary("raw.osm.road", road_summary)
+    road_source_id = str(
+        road_summary.get("source_id") or BUILDING_ROAD_CONTEXT_SOURCE_ID
+    )
+    coverage[road_source_id] = _readiness_payload_from_summary(
+        road_source_id,
+        road_summary,
+    )
     return coverage
 
 
@@ -1655,6 +1744,7 @@ def _write_autonomous_readiness(
     *,
     output_root: Path,
     job_type: str,
+    policy_identifier: str | None = None,
     component_coverage: dict[str, Any],
     source_attempts: list[dict[str, Any]],
 ) -> dict[str, Any]:
@@ -1662,6 +1752,7 @@ def _write_autonomous_readiness(
         job_type=job_type,
         component_coverage=component_coverage,
         source_attempts=source_attempts,
+        policy_identifier=policy_identifier,
     )
     (output_root / "autonomous_readiness.json").write_text(
         json.dumps(autonomous_readiness, ensure_ascii=False, indent=2),

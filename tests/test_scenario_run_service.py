@@ -6,6 +6,7 @@ from threading import Event, Lock
 
 import pytest
 
+from kg.inmemory_repository import InMemoryKGRepository
 from schemas.agent import RunEvent, RunPhase, RunStatus, RunTrigger, RunTriggerType, ValidationReport, WorkflowPlan, WorkflowTask, WorkflowTaskInput, WorkflowTaskOutput
 from schemas.fusion import JobType
 from schemas.scenario import ScenarioPhase, ScenarioRunRequest
@@ -16,8 +17,11 @@ from services.scenario_registry_service import ScenarioRegistryService
 from services.scenario_run_service import (
     ScenarioRunService,
     _child_degradation,
+    _superseded_outputs,
+    _write_preflight_snapshot,
     build_child_run_specs,
     process_due_source_acquisition_reruns,
+    validate_mission_child_specs,
 )
 
 
@@ -34,6 +38,93 @@ def test_build_child_run_specs_expands_building_and_road_tasks(tmp_path):
 
     assert [spec.job_type for spec in specs] == [JobType.building, JobType.road]
     assert all(spec.disaster_type == "earthquake" for spec in specs)
+    assert [spec.product_contract_id for spec in specs] == [
+        "contract.product.building.v1",
+        "contract.product.road.v1",
+    ]
+    assert all(spec.provisional_when_degraded for spec in specs)
+    assert all(spec.final_output_may_supersede_provisional for spec in specs)
+
+
+def test_validate_mission_child_specs_rejects_equal_length_wrong_task(tmp_path):
+    request = ScenarioRunRequest(
+        scenario_name="Parakou earthquake",
+        trigger_content="fuse building and road data",
+        disaster_type="earthquake",
+        job_types=[JobType.building, JobType.road],
+        output_root=str(tmp_path),
+    )
+    specs = build_child_run_specs(request)
+    wrong_specs = [specs[0], specs[1].model_copy(update={"task_kind": TaskKind.poi})]
+
+    with pytest.raises(ValueError, match="MISSION_CHILD_TASK_MISMATCH"):
+        validate_mission_child_specs(request, wrong_specs)
+
+
+def test_validate_mission_child_specs_rejects_reordered_and_duplicate_tasks(tmp_path):
+    request = ScenarioRunRequest(
+        scenario_name="Parakou earthquake",
+        trigger_content="fuse building and road data",
+        disaster_type="earthquake",
+        job_types=[JobType.building, JobType.road],
+        output_root=str(tmp_path),
+    )
+    specs = build_child_run_specs(request)
+
+    with pytest.raises(ValueError, match="MISSION_CHILD_ORDER_MISMATCH"):
+        validate_mission_child_specs(request, list(reversed(specs)))
+    with pytest.raises(ValueError, match="MISSION_CHILD_DUPLICATE"):
+        validate_mission_child_specs(request, [specs[0], specs[0]])
+
+
+def test_validate_mission_child_specs_rejects_extra_task_and_content_drift(tmp_path):
+    request = ScenarioRunRequest(
+        scenario_name="Parakou earthquake",
+        trigger_content="fuse building and road data",
+        disaster_type="earthquake",
+        job_types=[JobType.building, JobType.road],
+        output_root=str(tmp_path),
+    )
+    specs = build_child_run_specs(request)
+
+    with pytest.raises(ValueError, match="MISSION_CHILD_EXTRA"):
+        validate_mission_child_specs(request, [*specs, specs[0]])
+
+    drifted = [
+        specs[0],
+        specs[1].model_copy(update={"spatial_extent": "unexpected extent"}),
+    ]
+    with pytest.raises(ValueError, match="MISSION_CHILD_CONTENT_MISMATCH"):
+        validate_mission_child_specs(request, drifted)
+
+
+def test_request_metadata_cannot_override_product_contract_delivery_policy(tmp_path):
+    repo = InMemoryKGRepository()
+    road_contract = repo.product_contracts["contract.product.road.v1"]
+    road_contract.degradation_policy = {
+        **road_contract.degradation_policy,
+        "provisional_delivery_allowed": False,
+        "final_output_may_supersede_provisional": False,
+    }
+    request = ScenarioRunRequest(
+        scenario_name="road contract gate",
+        trigger_content="fuse road data",
+        job_types=[JobType.road],
+        output_root=str(tmp_path),
+        metadata={"provisional_task_kinds": ["road"]},
+    )
+
+    specs = build_child_run_specs(request, kg_repo=repo)
+
+    assert len(specs) == 1
+    assert specs[0].product_contract_id == "contract.product.road.v1"
+    assert specs[0].provisional_when_degraded is False
+    assert specs[0].final_output_may_supersede_provisional is False
+
+    _write_preflight_snapshot(tmp_path, request, child_specs=specs)
+    preflight = json.loads((tmp_path / "preflight.json").read_text(encoding="utf-8"))
+    assert preflight["child_specs"][0]["provisional_when_degraded"] is False
+    assert preflight["child_specs"][0]["final_output_may_supersede_provisional"] is False
 
 
 def test_build_child_run_specs_propagates_spatial_extent(tmp_path):
@@ -101,11 +192,11 @@ def test_build_child_run_specs_normalizes_heavy_rainfall_to_flood_contract(tmp_p
         TaskKind.poi,
     ]
     assert all(spec.disaster_type == "flood" for spec in specs)
-    assert specs[0].preferred_pattern_id == "wp.flood.building.default"
-    assert specs[1].preferred_pattern_id == "wp.flood.road.default"
+    assert specs[0].preferred_pattern_id is None
+    assert specs[1].preferred_pattern_id is None
     assert specs[2].preferred_pattern_id == "wp.flood.water_polygon.default"
     assert specs[3].preferred_pattern_id == "wp.flood.waterways.default"
-    assert specs[4].preferred_pattern_id == "wp.generic.poi.default"
+    assert specs[4].preferred_pattern_id is None
 
 
 def test_scenario_run_service_writes_summary_and_reports(tmp_path):
@@ -568,7 +659,9 @@ def test_scenario_run_service_starts_all_children_before_waiting_for_terminal_st
         "water",
         "poi",
     ]
-    assert summary["mission"]["scope_source"] == "default_disaster_bundle"
+    assert summary["mission"]["scope_source"] == "kg_disaster_task_bundle"
+    assert summary["mission"]["task_bundle_id"] == "task_bundle.flood.emergency_vector"
+    assert "task_bundle:task_bundle.flood.emergency_vector" in summary["mission"]["knowledge_refs"]
     assert summary["mission"]["task_kinds"] == [
         "building",
         "road",
@@ -715,6 +808,52 @@ def test_scenario_run_service_refresh_preserves_provisional_degradation_policy(t
     assert refreshed["run_id"] == "run-water"
 
 
+def test_refresh_does_not_promote_provisional_result_into_contract_permission(tmp_path, monkeypatch):
+    service = ScenarioRunService(agent_run_service=_FakeAgentRunService(tmp_path))
+    captured = {}
+
+    def inspect(*, run_id, spec, fallback_status=None):
+        captured["provisional_when_degraded"] = spec.provisional_when_degraded
+        return {"run_id": run_id, "phase": RunPhase.succeeded.value}
+
+    monkeypatch.setattr(service, "_inspect_child_result", inspect)
+    service._refresh_started_child_result(
+        {
+            "run_id": "run-water",
+            "job_type": JobType.water.value,
+            "task_kind": "water_polygon",
+            "task_family": "water_polygon",
+            "phase": ScenarioPhase.partial_provisional.value,
+            "provisional": True,
+            "provisional_when_degraded": False,
+        }
+    )
+
+    assert captured["provisional_when_degraded"] is False
+
+
+def test_supersession_requires_explicit_product_contract_permission() -> None:
+    previous = [
+        {
+            "run_id": "provisional-run",
+            "task_kind": "building",
+            "phase": ScenarioPhase.partial_provisional.value,
+            "artifact_path": "provisional.zip",
+            "final_output_may_supersede_provisional": False,
+        }
+    ]
+    current = [
+        {
+            "run_id": "final-run",
+            "task_kind": "building",
+            "phase": RunPhase.succeeded.value,
+            "artifact_path": "final.zip",
+        }
+    ]
+
+    assert _superseded_outputs(previous, current) == []
+
+
 def test_water_task_degradation_uses_task_specific_source_contract() -> None:
     event = RunEvent(
         timestamp="2026-07-20T00:00:00+00:00",
@@ -787,9 +926,10 @@ def test_scenario_run_service_marks_succeeded_degraded_child_as_partial(tmp_path
 
     scenario_dir = Path(response.output_dir)
     summary = json.loads((scenario_dir / "scenario_summary.json").read_text(encoding="utf-8"))
-    assert response.phase == ScenarioPhase.partial
-    assert summary["phase"] == ScenarioPhase.partial.value
-    assert summary["child_runs"][0]["phase"] == RunPhase.succeeded.value
+    assert response.phase == ScenarioPhase.partial_provisional
+    assert summary["phase"] == ScenarioPhase.partial_provisional.value
+    assert summary["child_runs"][0]["phase"] == ScenarioPhase.partial_provisional.value
+    assert summary["child_runs"][0]["provisional"] is True
     assert summary["child_runs"][0]["degradation"]["state"] == "degraded"
 
 
@@ -1174,6 +1314,9 @@ def _write_resume_checkpoint(
                 "task_family": spec.task_family,
                 "preferred_pattern_id": spec.preferred_pattern_id,
                 "output_data_type": spec.output_data_type,
+                "product_contract_id": spec.product_contract_id,
+                "provisional_when_degraded": spec.provisional_when_degraded,
+                "final_output_may_supersede_provisional": spec.final_output_may_supersede_provisional,
             }
             for spec in child_specs
         ],
@@ -1540,7 +1683,7 @@ class _DegradedSucceededAgentRunService(_FakeAgentRunService):
                     "selected_source_id": "catalog.flood.road",
                     "component_coverage": {
                         "raw.osm.road": {"feature_count": 3, "coverage_status": "available"},
-                        "raw.overture.transportation": {"feature_count": 0, "coverage_status": "empty"},
+                        "raw.microsoft.road": {"feature_count": 0, "coverage_status": "empty"},
                     },
                 },
             ),

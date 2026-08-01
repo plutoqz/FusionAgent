@@ -8,7 +8,15 @@ from shapely.geometry import Polygon
 
 from agent.executor import ExecutionContext, WorkflowExecutor
 from kg.inmemory_repository import InMemoryKGRepository
-from schemas.agent import ValidationReport, WorkflowPlan, WorkflowTask, WorkflowTaskInput, WorkflowTaskOutput
+from schemas.agent import (
+    ProductContractRef,
+    RepairStrategyRef,
+    ValidationReport,
+    WorkflowPlan,
+    WorkflowTask,
+    WorkflowTaskInput,
+    WorkflowTaskOutput,
+)
 from schemas.fusion import JobType
 from services.artifact_evaluation_service import evaluate_vector_artifact
 
@@ -167,6 +175,15 @@ def test_workflow_executor_falls_back_to_safe_building_algorithm_for_large_input
             )
         ],
         expected_output="building result",
+        product_contract=ProductContractRef(
+            contract_id="contract.product.building.v1",
+            contract_name="Building Product Contract",
+            product_type="building",
+            repair_strategy_ids=["repair.alternative_algorithm.v1"],
+        ),
+        repair_strategies=[
+            RepairStrategyRef(strategy_id="repair.alternative_algorithm.v1")
+        ],
         validation=ValidationReport(valid=True, inserted_transform_steps=0, issues=[]),
     )
     context = ExecutionContext(

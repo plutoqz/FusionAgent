@@ -5,6 +5,7 @@ from typing import Dict, Iterable, List, Optional, Tuple, TYPE_CHECKING
 
 from pydantic import BaseModel, Field, model_validator
 
+from kg.policy_registry import KnowledgePolicyRegistry, default_policy_registry
 from schemas.agent import DecisionCandidate, DecisionRecord
 
 if TYPE_CHECKING:
@@ -103,15 +104,13 @@ class CandidateScoreInput(BaseModel):
 
 @dataclass(frozen=True)
 class _Weights:
-    # Priority order (largest to smallest): success/accuracy, quality/stability,
-    # freshness/reuse, then speed/cost.
-    success_accuracy: float = 0.58
-    data_quality: float = 0.20
-    stability: float = 0.12
-    freshness: float = 0.05
-    reuse: float = 0.03
-    speed: float = 0.01
-    cost: float = 0.01
+    success_accuracy: float
+    data_quality: float
+    stability: float
+    freshness: float
+    reuse: float
+    speed: float
+    cost: float
 
 
 class PolicyEngine:
@@ -123,9 +122,17 @@ class PolicyEngine:
     then speed/cost as low-priority tie shapers.
     """
 
-    def __init__(self, policy_version: str = "v2", weights: Optional[_Weights] = None) -> None:
-        self.policy_version = policy_version
-        self._w = weights or _Weights()
+    def __init__(
+        self,
+        policy_version: str | None = None,
+        weights: Optional[_Weights] = None,
+        policy_registry: KnowledgePolicyRegistry | None = None,
+    ) -> None:
+        self.policy_registry = policy_registry or default_policy_registry()
+        policy = self.policy_registry.decision_policy("decision.candidate.v2")
+        self.policy_version = policy_version or str(policy["policy_id"])
+        self._w = weights or _Weights(**{key: float(value) for key, value in policy["weights"].items()})
+        self._policy = policy
 
     def select(self, decision_type: str, candidates: List[CandidateScoreInput]) -> DecisionRecord:
         if not candidates:
@@ -196,25 +203,22 @@ class PolicyEngine:
         )
         return (float(score), reason)
 
-    @staticmethod
-    def _core_or_zero(value: Optional[float]) -> float:
-        return float(value) if value is not None else 0.0
+    def _core_or_zero(self, value: Optional[float]) -> float:
+        return float(value) if value is not None else float(self._policy["missing_core"])
 
-    @staticmethod
-    def _neutral_if_missing(value: Optional[float]) -> float:
-        return float(value) if value is not None else 0.5
+    def _neutral_if_missing(self, value: Optional[float]) -> float:
+        return float(value) if value is not None else float(self._policy["missing_optional"])
 
     @staticmethod
     def _learning_adjustment(value: Optional[float]) -> float:
         return float(value) if value is not None else 0.0
 
-    @staticmethod
-    def _primary_success_accuracy(c: CandidateScoreInput) -> float:
-        # Missing primary metrics are treated as 0.0 to avoid "rewarding" omission.
-        sr = 0.0 if c.success_rate is None else float(c.success_rate)
-        acc = 0.0 if c.accuracy is None else float(c.accuracy)
-        # Bias towards success_rate, still reflect accuracy.
-        return 0.65 * sr + 0.35 * acc
+    def _primary_success_accuracy(self, c: CandidateScoreInput) -> float:
+        missing = float(self._policy["missing_core"])
+        sr = missing if c.success_rate is None else float(c.success_rate)
+        acc = missing if c.accuracy is None else float(c.accuracy)
+        mix = self._policy["primary_mix"]
+        return float(mix["success_rate"]) * sr + float(mix["accuracy"]) * acc
 
     def _build_rationale(
         self,

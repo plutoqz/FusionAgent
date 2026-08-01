@@ -1,114 +1,41 @@
 from __future__ import annotations
 
+from kg.policy_registry import KnowledgePolicyRegistry, default_policy_registry
 from schemas.degradation import DegradationContext, DegradationLevel
 from schemas.source_acquisition import SourceAcquisitionAttempt
 
-_RECOVERABLE_FAULTS = {
-    "SOURCE_DOWNLOAD_FAILED",
-    "SOURCE_MISSING",
-    "SOURCE_CORRUPTED",
-    "CRS_MISMATCH",
-}
-
-SOURCE_ATTEMPT_STATUSES = {
-    "attempted",
-    "available",
-    "empty",
-    "coverage_empty",
-    "no_coverage",
-    "awaiting_external_config",
-    "network_failed",
-    "provider_failed",
-    "unauthorized",
-    "cache_reused",
-    "materialized",
-    "internal_failed",
-}
-
-EXTERNAL_UNCONTROLLABLE_FAULTS = {
-    "SOURCE_DOWNLOAD_FAILED",
-    "NETWORK_FAILED",
-    "PROVIDER_UNAVAILABLE",
-    "NO_OFFICIAL_COVERAGE",
-    "UNAUTHORIZED",
-}
-
-SYSTEM_FAILURE_FAULTS = {"MISSING_PROVIDER", "ALGO_RUNTIME_ERROR", "PARAM_OUT_OF_RANGE", "CRS_MISMATCH"}
-
-_FAULT_STATUS_NORMALIZATION = {
-    "SOURCE_DOWNLOAD_FAILED": "network_failed",
-    "NETWORK_FAILED": "network_failed",
-    "PROVIDER_UNAVAILABLE": "provider_failed",
-    "NO_OFFICIAL_COVERAGE": "no_coverage",
-    "UNAUTHORIZED": "unauthorized",
-    "CONFIG_MISSING": "awaiting_external_config",
-}
-
-_FAULT_NORMALIZED_FROM_STATUSES = {
-    "attempted",
-    "failed",
-    "provider_failed",
-}
-
-_SOURCE_FALLBACKS = {
-    "catalog.earthquake.building": ["catalog.flood.building"],
-    "catalog.flood.waterways": ["catalog.flood.water"],
-}
-
-_SOURCE_COMPONENT_CANDIDATES = {
-    "catalog.flood.building": [
-        "raw.google.building",
-        "raw.microsoft.building",
-        "raw.osm.building",
-        "raw.osm.road",
-        "raw.openbuildingmap.building",
-    ],
-    "catalog.earthquake.building": [
-        "raw.google.building",
-        "raw.microsoft.building",
-        "raw.osm.building",
-        "raw.osm.road",
-        "raw.openbuildingmap.building",
-    ],
-    "catalog.generic.poi": ["raw.gns.poi", "raw.google.poi", "raw.osm.poi"],
-    "catalog.flood.water": ["raw.osm.water", "raw.hydrolakes.water", "raw.osm.waterways", "raw.hydrorivers.water"],
-    "catalog.flood.water_polygon": ["raw.osm.water", "raw.hydrolakes.water"],
-    "catalog.flood.waterways": ["raw.osm.waterways", "raw.hydrorivers.water", "raw.osm.water", "raw.hydrolakes.water"],
-    "catalog.flood.road": ["raw.osm.road", "raw.microsoft.road"],
-    "catalog.earthquake.road": ["raw.osm.road", "raw.microsoft.road"],
-    "catalog.typhoon.road": ["raw.osm.road", "raw.microsoft.road"],
-}
-
-_REQUIRED_FULL_CLOSURE_SOURCE_IDS = {
-    "catalog.flood.building": [
-        "raw.google.building",
-        "raw.microsoft.building",
-        "raw.osm.building",
-        "raw.osm.road",
-    ],
-    "catalog.earthquake.building": [
-        "raw.google.building",
-        "raw.microsoft.building",
-        "raw.osm.building",
-        "raw.osm.road",
-    ],
-    "catalog.generic.poi": ["raw.gns.poi", "raw.google.poi", "raw.osm.poi"],
-    "catalog.flood.road": ["raw.osm.road", "raw.microsoft.road"],
-    "catalog.earthquake.road": ["raw.osm.road", "raw.microsoft.road"],
-    "catalog.typhoon.road": ["raw.osm.road", "raw.microsoft.road"],
-    "catalog.flood.water": ["raw.osm.water", "raw.hydrolakes.water"],
-    "catalog.flood.water_polygon": ["raw.osm.water", "raw.hydrolakes.water"],
-    "catalog.flood.waterways": ["raw.osm.waterways", "raw.hydrorivers.water"],
-}
+_POLICY_REGISTRY = default_policy_registry()
+_FAULT_POLICY = _POLICY_REGISTRY.fault_policy()
+_RECOVERABLE_FAULTS = set(_FAULT_POLICY["recoverable_faults"])
+SOURCE_ATTEMPT_STATUSES = set(_FAULT_POLICY["source_attempt_statuses"])
+EXTERNAL_UNCONTROLLABLE_FAULTS = set(_FAULT_POLICY["external_uncontrollable_faults"])
+SYSTEM_FAILURE_FAULTS = set(_FAULT_POLICY["system_failure_faults"])
+_FAULT_STATUS_NORMALIZATION = dict(_FAULT_POLICY["status_normalization"])
+_FAULT_NORMALIZED_FROM_STATUSES = set(_FAULT_POLICY["normalization_input_statuses"])
 
 
-def retry_schedule_seconds(*, attempt_no: int) -> int:
+def retry_schedule_seconds(
+    *,
+    attempt_no: int,
+    policy_registry: KnowledgePolicyRegistry | None = None,
+) -> int:
     attempt_no = max(1, int(attempt_no))
-    return min(900, 30 * (2 ** (attempt_no - 1)))
+    retry_policy = (policy_registry or default_policy_registry()).fault_policy()["retry_policy"]
+    return min(
+        int(retry_policy["max_seconds"]),
+        int(retry_policy["initial_seconds"]) * (int(retry_policy["multiplier"]) ** (attempt_no - 1)),
+    )
 
 
-def is_recoverable_fault(fault_class: str) -> bool:
-    return str(fault_class or "") in _RECOVERABLE_FAULTS
+def is_recoverable_fault(
+    fault_class: str,
+    *,
+    policy_registry: KnowledgePolicyRegistry | None = None,
+) -> bool:
+    recoverable_faults = set(
+        (policy_registry or default_policy_registry()).fault_policy()["recoverable_faults"]
+    )
+    return str(fault_class or "") in recoverable_faults
 
 
 def build_source_attempt(
@@ -198,7 +125,6 @@ def build_failed_attempt(
         fault_message=fault_message,
         recoverable=recoverable,
         next_retry_after_seconds=retry_schedule_seconds(attempt_no=attempt_no) if recoverable else None,
-        normalize_status=False,
     )
 
 
@@ -224,16 +150,32 @@ def build_success_attempt(
     )
 
 
-def source_fallback_candidates(source_id: str) -> list[str]:
-    return list(_SOURCE_FALLBACKS.get(str(source_id), []))
+def source_fallback_candidates(
+    source_id: str,
+    *,
+    policy_registry: KnowledgePolicyRegistry | None = None,
+) -> list[str]:
+    policy = (policy_registry or default_policy_registry()).source_bundle_policy(str(source_id), required=True)
+    return [str(item) for item in policy.get("fallback_source_ids", [])]
 
 
-def source_component_candidates(source_id: str, default: list[str] | tuple[str, ...]) -> list[str]:
-    return list(_SOURCE_COMPONENT_CANDIDATES.get(str(source_id), list(default)))
+def source_component_candidates(
+    source_id: str,
+    default: list[str] | tuple[str, ...],
+    *,
+    policy_registry: KnowledgePolicyRegistry | None = None,
+) -> list[str]:
+    policy = (policy_registry or default_policy_registry()).source_bundle_policy(str(source_id), required=True)
+    return [str(item) for item in policy.get("component_candidates", [])]
 
 
-def required_full_closure_source_ids(source_id: str) -> list[str]:
-    return list(_REQUIRED_FULL_CLOSURE_SOURCE_IDS.get(str(source_id), []))
+def required_full_closure_source_ids(
+    source_id: str,
+    *,
+    policy_registry: KnowledgePolicyRegistry | None = None,
+) -> list[str]:
+    policy = (policy_registry or default_policy_registry()).source_bundle_policy(str(source_id), required=True)
+    return [str(item) for item in policy.get("required_full_closure", [])]
 
 
 def classify_component_degradation(component_coverage: dict[str, object]) -> DegradationContext:
@@ -323,15 +265,10 @@ def _coverage_bool(coverage: object, field_name: str) -> bool:
     return bool(value)
 
 
-_PARTIAL_COVERAGE_ALLOWED_SOURCES = {
-    "catalog.flood.road",
-    "catalog.earthquake.road",
-    "catalog.typhoon.road",
-    "catalog.flood.water",
-    "catalog.flood.water_polygon",
-    "catalog.generic.poi",
-}
-
-
-def requires_complete_pair_coverage(source_id: str) -> bool:
-    return str(source_id) not in _PARTIAL_COVERAGE_ALLOWED_SOURCES
+def requires_complete_pair_coverage(
+    source_id: str,
+    *,
+    policy_registry: KnowledgePolicyRegistry | None = None,
+) -> bool:
+    policy = (policy_registry or default_policy_registry()).source_bundle_policy(str(source_id), required=True)
+    return not bool(policy.get("allows_partial_coverage"))

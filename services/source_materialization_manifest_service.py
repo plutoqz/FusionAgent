@@ -24,9 +24,11 @@ def build_source_materialization_manifest(
     degradation: dict[str, object] | None = None,
     fault: dict[str, object] | None = None,
     runtime_source_contracts: list[dict[str, object]] | None = None,
+    data_requirement_hash: str | None = None,
+    knowledge_identity: dict[str, object] | None = None,
 ) -> dict[str, object]:
     return {
-        "manifest_version": 2,
+        "manifest_version": 3,
         "artifact_role": artifact_role,
         "source_id": source_id,
         "selected_source_id": selected_source_id or source_id,
@@ -44,6 +46,8 @@ def build_source_materialization_manifest(
         "degradation": dict(degradation or {}),
         "fault": _fault_payload(fault),
         "runtime_source_contracts": list(runtime_source_contracts or []),
+        "data_requirement_hash": data_requirement_hash,
+        "knowledge_identity": dict(knowledge_identity or {}),
     }
 
 

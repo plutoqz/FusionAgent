@@ -6,6 +6,11 @@ from typing import Optional
 
 import geopandas as gpd
 
+from schemas.data_requirement import (
+    CompletenessPolicy,
+    DataRequirementPlan,
+    SourceRoleRequirement,
+)
 from services.aoi_resolution_service import ResolvedAOI
 from services.input_acquisition_service import BBox, MaterializedInputBundle
 from services.raw_vector_source_service import MaterializedRawVectorSource, RawVectorSourceService
@@ -28,7 +33,9 @@ class RawVectorInputBundleProvider:
         *,
         request_bbox: Optional[BBox] = None,
         resolved_aoi: ResolvedAOI | None = None,
+        data_requirements: DataRequirementPlan | None = None,
     ) -> str:
+        _validate_direct_source_plan(source_id, data_requirements)
         return self.raw_source_service.current_version(
             source_id,
             request_bbox=request_bbox,
@@ -43,7 +50,9 @@ class RawVectorInputBundleProvider:
         resolved_aoi: ResolvedAOI | None = None,
         target_dir: Path,
         target_crs: str,
+        data_requirements: DataRequirementPlan | None = None,
     ) -> MaterializedInputBundle:
+        role_contracts = _validate_direct_source_plan(source_id, data_requirements)
         normalized_crs = normalize_target_crs(target_crs)
         target_dir.mkdir(parents=True, exist_ok=True)
         raw = self.raw_source_service.resolve(
@@ -55,6 +64,57 @@ class RawVectorInputBundleProvider:
         )
         ref = _create_empty_companion_bundle(raw, target_dir / "ref.zip")
         coverage_status = coverage_status_for_count(raw.feature_count)
+        for role in role_contracts:
+            if (
+                role.required
+                and role.completeness_policy == CompletenessPolicy.required_non_empty
+                and int(raw.feature_count or 0) <= 0
+            ):
+                raise ValueError(
+                    f"Direct raw source {source_id} did not satisfy required non-empty role {role.role_id}"
+                )
+        role_payloads = [role.model_dump(mode="json") for role in role_contracts]
+        role_ids = [role.role_id for role in role_contracts]
+        coverage: object
+        if role_ids:
+            coverage = {
+                "source_id": source_id,
+                "source_mode": raw.source_mode,
+                "feature_count": raw.feature_count,
+                "coverage_status": coverage_status,
+                "path": raw.zip_path,
+                "role_id": role_ids[0],
+                "role_ids": role_ids,
+                "role_contract": role_payloads[0],
+                "role_contracts": role_payloads,
+                "selected_role_ids": role_ids,
+            }
+        else:
+            coverage = SourceCoverageStatus(
+                source_id=source_id,
+                source_mode=raw.source_mode,
+                feature_count=raw.feature_count,
+                coverage_status=coverage_status,
+                path=raw.zip_path,
+            )
+        attempt = build_success_attempt(
+            source_id=source_id,
+            status="available" if coverage_status == "available" else "empty",
+            attempt_no=1,
+            coverage_status=coverage_status,
+            feature_count=raw.feature_count,
+            selected_for_fusion=bool(role_ids) or coverage_status == "available",
+        )
+        if role_ids:
+            attempt.update(
+                {
+                    "role_id": role_ids[0],
+                    "role_ids": role_ids,
+                    "role_contract": role_payloads[0],
+                    "role_contracts": role_payloads,
+                    "selected_role_ids": role_ids,
+                }
+            )
 
         return MaterializedInputBundle(
             osm_zip_path=raw.zip_path,
@@ -63,26 +123,41 @@ class RawVectorInputBundleProvider:
             target_crs=normalized_crs,
             source_id=source_id,
             attempted_sources=[source_id],
-            component_coverage={
-                source_id: SourceCoverageStatus(
-                    source_id=source_id,
-                    source_mode=raw.source_mode,
-                    feature_count=raw.feature_count,
-                    coverage_status=coverage_status,
-                    path=raw.zip_path,
-                )
-            },
-            provider_attempts=[
-                build_success_attempt(
-                    source_id=source_id,
-                    status="available" if coverage_status == "available" else "empty",
-                    attempt_no=1,
-                    coverage_status=coverage_status,
-                    feature_count=raw.feature_count,
-                    selected_for_fusion=coverage_status == "available",
-                )
-            ],
+            component_coverage={source_id: coverage},
+            provider_attempts=[attempt],
         )
+
+
+def _validate_direct_source_plan(
+    source_id: str,
+    data_requirements: DataRequirementPlan | None,
+) -> list[SourceRoleRequirement]:
+    if data_requirements is None:
+        return []
+    matching_roles = [
+        role
+        for role in data_requirements.roles
+        if any(candidate.source_id == source_id for candidate in role.candidates)
+    ]
+    missing_required_roles = [
+        role.role_id
+        for role in data_requirements.roles
+        if role.required and role not in matching_roles
+    ]
+    if missing_required_roles:
+        raise ValueError(
+            f"Direct raw source {source_id} cannot satisfy required KG roles: "
+            + ", ".join(missing_required_roles)
+        )
+    matching_role_ids = {role.role_id for role in matching_roles}
+    for role in matching_roles:
+        conflicting = matching_role_ids.intersection(role.distinct_from_role_ids)
+        if conflicting:
+            raise ValueError(
+                f"Direct raw source {source_id} cannot satisfy distinct KG roles "
+                f"{role.role_id} and {', '.join(sorted(conflicting))}"
+            )
+    return matching_roles
 
 
 def _create_empty_companion_bundle(raw: MaterializedRawVectorSource, output_zip: Path) -> MaterializedRawVectorSource:

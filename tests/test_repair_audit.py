@@ -2,7 +2,16 @@ from pathlib import Path
 
 from agent.executor import ExecutionContext, WorkflowExecutor
 from kg.inmemory_repository import InMemoryKGRepository
-from schemas.agent import RunTrigger, RunTriggerType, WorkflowPlan, WorkflowTask, WorkflowTaskInput, WorkflowTaskOutput
+from schemas.agent import (
+    ProductContractRef,
+    RepairStrategyRef,
+    RunTrigger,
+    RunTriggerType,
+    WorkflowPlan,
+    WorkflowTask,
+    WorkflowTaskInput,
+    WorkflowTaskOutput,
+)
 from schemas.fusion import JobType
 
 
@@ -43,6 +52,13 @@ def test_executor_records_reason_codes_for_healing_attempts(tmp_path: Path) -> N
             )
         ],
         expected_output="building result",
+        product_contract=ProductContractRef(
+            contract_id="contract.product.building.v1",
+            contract_name="Building",
+            product_type="building",
+            repair_strategy_ids=["repair.alternative_algorithm.v1"],
+        ),
+        repair_strategies=[RepairStrategyRef(strategy_id="repair.alternative_algorithm.v1")],
     )
 
     ctx = ExecutionContext(
@@ -99,6 +115,13 @@ def test_executor_skips_deprecated_healing_alternative_with_decision_evidence(tm
             )
         ],
         expected_output="road",
+        product_contract=ProductContractRef(
+            contract_id="contract.product.road.v1",
+            contract_name="Road",
+            product_type="road",
+            repair_strategy_ids=["repair.alternative_algorithm.v1"],
+        ),
+        repair_strategies=[RepairStrategyRef(strategy_id="repair.alternative_algorithm.v1")],
     )
     ctx = ExecutionContext(
         run_id="r1",
@@ -114,7 +137,8 @@ def test_executor_skips_deprecated_healing_alternative_with_decision_evidence(tm
 
     assert artifact == output_file
     success = next(record for record in repairs if record.reason_code == "alternative_algorithm_succeeded")
-    assert success.policy_source == "runtime_contract"
+    assert success.policy_source == "kg_release"
+    assert success.policy_decision_basis["strategy_id"] == "repair.alternative_algorithm.v1"
     assert [item["algorithm_id"] for item in success.candidate_actions] == [
         "algo.fusion.road.v1",
         "algo.fusion.building.safe",

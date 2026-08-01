@@ -1298,16 +1298,16 @@
         "bundle_strategy": "osm_ref_pair",
         "component_source_ids": [
           "raw.osm.waterways",
-          "raw.local.pakistan.waterways"
+          "raw.hydrorivers.water"
         ],
         "kind": "catalog",
         "materialization_scope": "resolved_aoi_clip",
         "path_hints": [
           "Data/burundi-260127-free.shp/gis_osm_waterways_free_1.shp",
-          "Data/water/Pakistan_Waterways_Data.shp"
+          "Data/water/HydroRIVERS_v10.shp"
         ],
         "priority": 2,
-        "provider_family": "local_bundle_catalog",
+        "provider_family": "mixed_remote_catalog",
         "runtime_status": "runtime_candidate",
         "selectable_now": true,
         "source_contract_ref": "docs/superpowers/specs/2026-05-18-track-b-national-source-matrix.md",
@@ -1317,7 +1317,7 @@
         "track_b_current_catalog_source_ids": [
           "catalog.flood.waterways"
         ],
-        "track_b_implementation_goal": "Keep line waterways separate from polygon water, with OSM waterways as the base and Pakistan local waterways as the first manual supplement contract.",
+        "track_b_implementation_goal": "Keep line waterways separate from polygon water, with OSM waterways as the base, HydroRIVERS as the portable reference, and Pakistan local waterways as an optional AOI-specific supplement.",
         "track_b_manual_preload_source_ids": [
           "raw.local.pakistan.waterways"
         ],
@@ -1333,7 +1333,7 @@
       "quality_tier": "curated",
       "source_id": "catalog.flood.waterways",
       "source_kind": "catalog",
-      "source_name": "Flood Waterways Bundle (OSM + Pakistan Local Waterways)",
+      "source_name": "Flood Waterways Bundle (OSM + HydroRIVERS)",
       "supported_geometry_types": [
         "line"
       ],
@@ -1579,11 +1579,11 @@
         "coverage_scope": "national_clip",
         "height_semantics": "estimated_height",
         "kind": "raw_raster",
-        "materialization_scope": "reservation_only",
+        "materialization_scope": "configured_or_local_raster",
         "path_hint": "Benin/_processing/google_open_buildings_temporal_2023/building_height_2023_benin_4m.tif",
         "provider_family": "google_temporal",
-        "runtime_status": "reservation_only",
-        "selectable_now": false,
+        "runtime_status": "runtime_candidate",
+        "selectable_now": true,
         "source_form": "raster",
         "source_role": "height_enrichment_candidate",
         "supports_aoi": false,
@@ -2401,6 +2401,41 @@
         "earthquake",
         "typhoon"
       ],
+      "freshness_category": "reservation",
+      "freshness_hours": null,
+      "freshness_score": null,
+      "metadata": {
+        "acquisition_class": "reservation_only",
+        "kind": "raw_vector",
+        "provider_family": "overturemaps",
+        "runtime_status": "reservation_only",
+        "selectable_now": false,
+        "source_form": "vector",
+        "supports_aoi": true,
+        "theme": "poi"
+      },
+      "quality_score": 0.8,
+      "quality_tier": "unvalidated_reservation",
+      "source_id": "raw.overture.poi",
+      "source_kind": "open_data",
+      "source_name": "Overture Places (Reserved)",
+      "supported_geometry_types": [
+        "point"
+      ],
+      "supported_job_types": [
+        "poi"
+      ],
+      "supported_types": [
+        "dt.raw.vector"
+      ]
+    },
+    {
+      "disaster_types": [
+        "generic",
+        "flood",
+        "earthquake",
+        "typhoon"
+      ],
       "freshness_category": "sample_snapshot",
       "freshness_hours": 240,
       "freshness_score": 0.57,
@@ -2437,6 +2472,41 @@
       ],
       "supported_job_types": [
         "road"
+      ],
+      "supported_types": [
+        "dt.raw.vector"
+      ]
+    },
+    {
+      "disaster_types": [
+        "generic",
+        "flood",
+        "earthquake",
+        "typhoon"
+      ],
+      "freshness_category": "reservation",
+      "freshness_hours": null,
+      "freshness_score": null,
+      "metadata": {
+        "acquisition_class": "reservation_only",
+        "kind": "raw_vector",
+        "provider_family": "overturemaps",
+        "runtime_status": "reservation_only",
+        "selectable_now": false,
+        "source_form": "vector",
+        "supports_aoi": true,
+        "theme": "water"
+      },
+      "quality_score": 0.8,
+      "quality_tier": "unvalidated_reservation",
+      "source_id": "raw.overture.water",
+      "source_kind": "open_data",
+      "source_name": "Overture Water (Reserved)",
+      "supported_geometry_types": [
+        "polygon"
+      ],
+      "supported_job_types": [
+        "water"
       ],
       "supported_types": [
         "dt.raw.vector"
@@ -2764,14 +2834,22 @@
     }
   ],
   "metadata": {
-    "content_hash": "sha256:5581d43164cd21b488971fe38456ed0d6a9f43f86b1e4c9d5d1d1fbf16288fcb",
-    "generated_at": "2026-07-27T08:00:36.756862+00:00",
-    "generated_from": "kg.seed",
-    "schema_version": "1.0.0",
+    "canonical_source": "kg/ontology/v1.0.0/entities.json",
+    "content_hash": "sha256:f2d983092875279e8ae2cffb836e68dafb49ca6d14912043214f99f1c298a820",
+    "generated_at": "2026-07-28T00:00:00+08:00",
+    "generated_from": "legacy_migration",
+    "knowledge_version": "1.0.0",
+    "notes": [
+      "Runtime canonical static graph for FusionAgent KG v1.0.0.",
+      "Generated once from the legacy Python seed; runtime must not fall back to Python knowledge."
+    ],
+    "release_id": "fusionagent-kg-v1.0.0",
+    "schema_version": "2.0.0",
     "source_modules": [
-      "kg.seed",
-      "fusion_algorithms.registry_metadata"
-    ]
+      "kg.seed@pre-v1.0.0",
+      "fusion_algorithms.registry_metadata@pre-v1.0.0"
+    ],
+    "status": "frozen"
   },
   "output_requirements": [
     {
@@ -4807,7 +4885,9 @@
       ],
       "repair_strategy_ids": [
         "repair.source_fallback.v1",
-        "repair.alternative_algorithm.v1"
+        "repair.alternative_algorithm.v1",
+        "repair.artifact.schema_backfill.v1",
+        "repair.artifact.geometry_validity.v1"
       ],
       "response_phases": [
         "preparedness",
@@ -4952,7 +5032,11 @@
       ],
       "repair_strategy_ids": [
         "repair.source_fallback.v1",
-        "repair.alternative_algorithm.v1"
+        "repair.alternative_algorithm.v1",
+        "repair.artifact.schema_backfill.v1",
+        "repair.artifact.road_name.v1",
+        "repair.artifact.line_topology.v1",
+        "repair.artifact.geometry_validity.v1"
       ],
       "response_phases": [
         "preparedness",
@@ -5066,7 +5150,9 @@
         "category_conflicts_checked"
       ],
       "repair_strategy_ids": [
-        "repair.source_fallback.v1"
+        "repair.source_fallback.v1",
+        "repair.artifact.schema_backfill.v1",
+        "repair.artifact.geometry_validity.v1"
       ],
       "response_phases": [
         "preparedness",
@@ -5180,7 +5266,11 @@
       ],
       "repair_strategy_ids": [
         "repair.source_fallback.v1",
-        "repair.alternative_algorithm.v1"
+        "repair.alternative_algorithm.v1",
+        "repair.artifact.schema_backfill.v1",
+        "repair.artifact.road_name.v1",
+        "repair.artifact.line_topology.v1",
+        "repair.artifact.geometry_validity.v1"
       ],
       "response_phases": [
         "preparedness",
@@ -5297,7 +5387,9 @@
         "polygon_boundary_validity_checked"
       ],
       "repair_strategy_ids": [
-        "repair.source_fallback.v1"
+        "repair.source_fallback.v1",
+        "repair.artifact.schema_backfill.v1",
+        "repair.artifact.geometry_validity.v1"
       ],
       "response_phases": [
         "preparedness",
@@ -5412,7 +5504,10 @@
       ],
       "repair_strategy_ids": [
         "repair.source_fallback.v1",
-        "repair.alternative_algorithm.v1"
+        "repair.alternative_algorithm.v1",
+        "repair.artifact.schema_backfill.v1",
+        "repair.artifact.line_topology.v1",
+        "repair.artifact.geometry_validity.v1"
       ],
       "response_phases": [
         "preparedness",
@@ -5519,6 +5614,91 @@
       "applies_to_task_ids": [
         "task.building.fusion",
         "task.road.fusion",
+        "task.water.fusion",
+        "task.waterways.fusion",
+        "task.poi.fusion"
+      ],
+      "from_algorithm_id": null,
+      "metadata": {
+        "action": "schema_attribute_backfill",
+        "claim_state": "runtime_supported",
+        "runtime_role": "artifact_repair_strategy",
+        "runtime_status": "runtime_candidate",
+        "strategy": "artifact_transform"
+      },
+      "reason_codes": [
+        "quality_missing_fields"
+      ],
+      "strategy_id": "repair.artifact.schema_backfill.v1",
+      "strategy_name": "Artifact Schema Attribute Backfill",
+      "to_algorithm_id": null
+    },
+    {
+      "applies_to_task_ids": [
+        "task.road.fusion"
+      ],
+      "from_algorithm_id": null,
+      "metadata": {
+        "action": "road_name_preservation",
+        "claim_state": "runtime_supported",
+        "runtime_role": "artifact_repair_strategy",
+        "runtime_status": "runtime_candidate",
+        "strategy": "artifact_transform"
+      },
+      "reason_codes": [
+        "quality_road_name_missing"
+      ],
+      "strategy_id": "repair.artifact.road_name.v1",
+      "strategy_name": "Road Name Preservation",
+      "to_algorithm_id": null
+    },
+    {
+      "applies_to_task_ids": [
+        "task.road.fusion",
+        "task.waterways.fusion"
+      ],
+      "from_algorithm_id": null,
+      "metadata": {
+        "action": "line_topology_cleanup",
+        "claim_state": "runtime_supported",
+        "runtime_role": "artifact_repair_strategy",
+        "runtime_status": "runtime_candidate",
+        "strategy": "artifact_transform"
+      },
+      "reason_codes": [
+        "quality_line_topology_failed"
+      ],
+      "strategy_id": "repair.artifact.line_topology.v1",
+      "strategy_name": "Line Topology Cleanup",
+      "to_algorithm_id": null
+    },
+    {
+      "applies_to_task_ids": [
+        "task.building.fusion",
+        "task.road.fusion",
+        "task.water.fusion",
+        "task.waterways.fusion",
+        "task.poi.fusion"
+      ],
+      "from_algorithm_id": null,
+      "metadata": {
+        "action": "geometry_validity_repair",
+        "claim_state": "runtime_supported",
+        "runtime_role": "artifact_repair_strategy",
+        "runtime_status": "runtime_candidate",
+        "strategy": "artifact_transform"
+      },
+      "reason_codes": [
+        "quality_invalid_geometry"
+      ],
+      "strategy_id": "repair.artifact.geometry_validity.v1",
+      "strategy_name": "Geometry Validity Repair",
+      "to_algorithm_id": null
+    },
+    {
+      "applies_to_task_ids": [
+        "task.building.fusion",
+        "task.road.fusion",
         "task.waterways.fusion"
       ],
       "from_algorithm_id": null,
@@ -5603,18 +5783,24 @@
     {
       "activated_tasks": [
         "task.building.fusion",
-        "task.road.fusion"
+        "task.road.fusion",
+        "task.water.fusion",
+        "task.waterways.fusion",
+        "task.poi.fusion"
       ],
       "disaster_types": [
         "earthquake"
       ],
       "metadata": {
         "claim_state": "runtime_supported",
-        "default_task_bundle_id": "task_bundle.earthquake.building_road",
+        "default_task_bundle_id": "task_bundle.earthquake.emergency_vector",
         "entry_mode": "scenario_driven",
         "output_requirement_ids": [
           "or.building.fused.v1",
-          "or.road.fused.v1"
+          "or.road.fused.v1",
+          "or.water.fused.v1",
+          "or.waterways.fused.v1",
+          "or.poi.fused.v1"
         ],
         "runtime_role": "scenario_constraint",
         "runtime_status": "runtime_candidate"
@@ -5637,18 +5823,24 @@
     {
       "activated_tasks": [
         "task.building.fusion",
-        "task.road.fusion"
+        "task.road.fusion",
+        "task.water.fusion",
+        "task.waterways.fusion",
+        "task.poi.fusion"
       ],
       "disaster_types": [
         "flood"
       ],
       "metadata": {
         "claim_state": "runtime_supported",
-        "default_task_bundle_id": "task_bundle.flood.building_road",
+        "default_task_bundle_id": "task_bundle.flood.emergency_vector",
         "entry_mode": "scenario_driven",
         "output_requirement_ids": [
           "or.building.fused.v1",
-          "or.road.fused.v1"
+          "or.road.fused.v1",
+          "or.water.fused.v1",
+          "or.waterways.fused.v1",
+          "or.poi.fused.v1"
         ],
         "runtime_role": "scenario_constraint",
         "runtime_status": "runtime_candidate"
@@ -5671,18 +5863,24 @@
     {
       "activated_tasks": [
         "task.building.fusion",
-        "task.road.fusion"
+        "task.road.fusion",
+        "task.water.fusion",
+        "task.waterways.fusion",
+        "task.poi.fusion"
       ],
       "disaster_types": [
         "typhoon"
       ],
       "metadata": {
         "claim_state": "runtime_supported",
-        "default_task_bundle_id": "task_bundle.typhoon.building_road",
+        "default_task_bundle_id": "task_bundle.typhoon.emergency_vector",
         "entry_mode": "scenario_driven",
         "output_requirement_ids": [
           "or.building.fused.v1",
-          "or.road.fused.v1"
+          "or.road.fused.v1",
+          "or.water.fused.v1",
+          "or.waterways.fused.v1",
+          "or.poi.fused.v1"
         ],
         "runtime_role": "scenario_constraint",
         "runtime_status": "runtime_candidate"
@@ -5762,6 +5960,46 @@
       "requires_disaster_profile": true
     },
     {
+      "bundle_id": "task_bundle.earthquake.emergency_vector",
+      "bundle_name": "Earthquake Emergency Vector Product Bundle",
+      "data_need_ids": [
+        "dn.task.building.fusion.input",
+        "dn.task.road.fusion.input",
+        "dn.task.water.fusion.input",
+        "dn.task.waterways.fusion.input",
+        "dn.task.poi.fusion.input"
+      ],
+      "metadata": {
+        "claim_state": "runtime_supported",
+        "entry_mode": "scenario_driven",
+        "output_requirement_ids": [
+          "or.building.fused.v1",
+          "or.road.fused.v1",
+          "or.water.fused.v1",
+          "or.waterways.fused.v1",
+          "or.poi.fused.v1"
+        ],
+        "runtime_role": "task_bundle",
+        "runtime_status": "runtime_candidate",
+        "scenario_profile_id": "scenario.earthquake.default",
+        "supersedes_bundle_id": "task_bundle.earthquake.building_road"
+      },
+      "output_requirement_id": null,
+      "qos_policy_id": "qos.scenario.earthquake.v1",
+      "repair_strategy_ids": [
+        "repair.source_fallback.v1",
+        "repair.alternative_algorithm.v1"
+      ],
+      "requested_tasks": [
+        "task.building.fusion",
+        "task.road.fusion",
+        "task.water.fusion",
+        "task.waterways.fusion",
+        "task.poi.fusion"
+      ],
+      "requires_disaster_profile": true
+    },
+    {
       "bundle_id": "task_bundle.flood.building_road",
       "bundle_name": "Flood Building And Road Bundle",
       "data_need_ids": [
@@ -5788,6 +6026,46 @@
       "requires_disaster_profile": true
     },
     {
+      "bundle_id": "task_bundle.flood.emergency_vector",
+      "bundle_name": "Flood Emergency Vector Product Bundle",
+      "data_need_ids": [
+        "dn.task.building.fusion.input",
+        "dn.task.road.fusion.input",
+        "dn.task.water.fusion.input",
+        "dn.task.waterways.fusion.input",
+        "dn.task.poi.fusion.input"
+      ],
+      "metadata": {
+        "claim_state": "runtime_supported",
+        "entry_mode": "scenario_driven",
+        "output_requirement_ids": [
+          "or.building.fused.v1",
+          "or.road.fused.v1",
+          "or.water.fused.v1",
+          "or.waterways.fused.v1",
+          "or.poi.fused.v1"
+        ],
+        "runtime_role": "task_bundle",
+        "runtime_status": "runtime_candidate",
+        "scenario_profile_id": "scenario.flood.default",
+        "supersedes_bundle_id": "task_bundle.flood.building_road"
+      },
+      "output_requirement_id": null,
+      "qos_policy_id": "qos.scenario.flood.v1",
+      "repair_strategy_ids": [
+        "repair.source_fallback.v1",
+        "repair.alternative_algorithm.v1"
+      ],
+      "requested_tasks": [
+        "task.building.fusion",
+        "task.road.fusion",
+        "task.water.fusion",
+        "task.waterways.fusion",
+        "task.poi.fusion"
+      ],
+      "requires_disaster_profile": true
+    },
+    {
       "bundle_id": "task_bundle.typhoon.building_road",
       "bundle_name": "Typhoon Building And Road Bundle",
       "data_need_ids": [
@@ -5810,6 +6088,46 @@
       "requested_tasks": [
         "task.building.fusion",
         "task.road.fusion"
+      ],
+      "requires_disaster_profile": true
+    },
+    {
+      "bundle_id": "task_bundle.typhoon.emergency_vector",
+      "bundle_name": "Typhoon Emergency Vector Product Bundle",
+      "data_need_ids": [
+        "dn.task.building.fusion.input",
+        "dn.task.road.fusion.input",
+        "dn.task.water.fusion.input",
+        "dn.task.waterways.fusion.input",
+        "dn.task.poi.fusion.input"
+      ],
+      "metadata": {
+        "claim_state": "runtime_supported",
+        "entry_mode": "scenario_driven",
+        "output_requirement_ids": [
+          "or.building.fused.v1",
+          "or.road.fused.v1",
+          "or.water.fused.v1",
+          "or.waterways.fused.v1",
+          "or.poi.fused.v1"
+        ],
+        "runtime_role": "task_bundle",
+        "runtime_status": "runtime_candidate",
+        "scenario_profile_id": "scenario.typhoon.default",
+        "supersedes_bundle_id": "task_bundle.typhoon.building_road"
+      },
+      "output_requirement_id": null,
+      "qos_policy_id": "qos.scenario.typhoon.v1",
+      "repair_strategy_ids": [
+        "repair.source_fallback.v1",
+        "repair.alternative_algorithm.v1"
+      ],
+      "requested_tasks": [
+        "task.building.fusion",
+        "task.road.fusion",
+        "task.water.fusion",
+        "task.waterways.fusion",
+        "task.poi.fusion"
       ],
       "requires_disaster_profile": true
     }
@@ -5981,6 +6299,20 @@
       "task_name": "Waterways Fusion"
     }
   ],
+  "transform_edges": {
+    "dt.raw.vector": [
+      "dt.building.bundle",
+      "dt.poi.bundle",
+      "dt.road.bundle",
+      "dt.waterways.bundle"
+    ],
+    "dt.road.candidate": [
+      "dt.road.bundle"
+    ],
+    "dt.trajectory.raw": [
+      "dt.road.candidate"
+    ]
+  },
   "workflow_patterns": [
     {
       "disaster_types": [

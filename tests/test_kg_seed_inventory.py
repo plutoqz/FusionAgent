@@ -19,16 +19,16 @@ from kg.seed_provider import load_seed_data
 def test_seed_inventory_matches_expected_static_counts() -> None:
     assert len(DATA_TYPES) == 27
     assert len(TASKS) == 11
-    assert len(TASK_BUNDLES) == 4
+    assert len(TASK_BUNDLES) == 7
     assert len(ALGORITHMS) == 33
     assert sum(len(items) for items in PARAMETER_SPECS.values()) == 72
-    assert len(DATA_SOURCES) == 32
+    assert len(DATA_SOURCES) == 34
     assert len(SCENARIO_PROFILES) == 4
     assert len(QOS_POLICIES) == 4
     assert len(OUTPUT_SCHEMA_POLICIES) == 5
     assert len(OUTPUT_REQUIREMENTS) == 5
     assert len(DATA_NEEDS) == 12
-    assert len(REPAIR_STRATEGIES) == 2
+    assert len(REPAIR_STRATEGIES) == 6
     assert len(WORKFLOW_PATTERNS) == 15
 
 

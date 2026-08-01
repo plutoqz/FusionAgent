@@ -1,0 +1,800 @@
+{
+  "schema_version": "1.0.0",
+  "p4_id": "freeze-c-external-validity-v1",
+  "prepared_at": "2026-08-01",
+  "manifests": {
+    "caracas": "D:\\code\\FusionAgent\\docs\\current\\evidence\\p4-external-validity\\manifests\\caracas_c02_c04_c06.json",
+    "abidjan": "D:\\code\\FusionAgent\\docs\\current\\evidence\\p4-external-validity\\manifests\\abidjan_c02_c04.json",
+    "vietnam_coastal": "D:\\code\\FusionAgent\\docs\\current\\evidence\\p4-external-validity\\manifests\\vietnam_coastal_c02_c04.json"
+  },
+  "inventory": [
+    {
+      "aoi_id": "caracas",
+      "label": "Caracas 首都区",
+      "structure": "山地首都城区，原始 Freeze C 案例",
+      "bbox": [
+        -67.17,
+        10.38,
+        -66.86,
+        10.57
+      ],
+      "manifest_path": "D:\\code\\FusionAgent\\docs\\current\\evidence\\p4-external-validity\\manifests\\caracas_c02_c04_c06.json",
+      "source_count": 9,
+      "case_ids": [
+        "C02",
+        "C04",
+        "C06"
+      ],
+      "c06_road_reference_available": true,
+      "input_hashes": [
+        {
+          "source_id": "raw.osm.road",
+          "product": "road",
+          "original_path": "D:\\fyx\\任务\\委内瑞拉数据整合\\output\\capital\\osm\\roads.shp",
+          "dataset_version": "caracas-osm-capital-2026-06-25",
+          "observed_at": "2026-06-25T16:21:00+08:00",
+          "freshness_status": "event_snapshot_25_days_old",
+          "semantic_status": "road_line_baseline",
+          "files": [
+            {
+              "path": "D:\\fyx\\任务\\委内瑞拉数据整合\\output\\capital\\osm\\roads.cpg",
+              "sha256": "3ad3031f5503a4404af825262ee8232cc04d4ea6683d42c5dd0a2f2a27ac9824",
+              "size_bytes": 5
+            },
+            {
+              "path": "D:\\fyx\\任务\\委内瑞拉数据整合\\output\\capital\\osm\\roads.dbf",
+              "sha256": "f451a64a7529574eb0fc4f8a948c0eb93e734e317ceabc5bc0b50e6c8c8399f2",
+              "size_bytes": 29774677
+            },
+            {
+              "path": "D:\\fyx\\任务\\委内瑞拉数据整合\\output\\capital\\osm\\roads.prj",
+              "sha256": "6b38e304d3d1802806ac14ebc72f206bea61b3ed44b121f5a540c3b465ed1dde",
+              "size_bytes": 149
+            },
+            {
+              "path": "D:\\fyx\\任务\\委内瑞拉数据整合\\output\\capital\\osm\\roads.qmd",
+              "sha256": "e1ff5cdf9690398908a312ca8f9f0964e416479412869450db5b5821c295ea42",
+              "size_bytes": 1624
+            },
+            {
+              "path": "D:\\fyx\\任务\\委内瑞拉数据整合\\output\\capital\\osm\\roads.shp",
+              "sha256": "edec477cd1a56f8930ecd3ef67ffcd44b2bc551cd809a137a61078a10122695a",
+              "size_bytes": 3115612
+            },
+            {
+              "path": "D:\\fyx\\任务\\委内瑞拉数据整合\\output\\capital\\osm\\roads.shx",
+              "sha256": "1f6bcd0e885ddebd818b7b461f77571d088b474e21207df0e12475dff677fc52",
+              "size_bytes": 130332
+            }
+          ]
+        },
+        {
+          "source_id": "raw.microsoft.road",
+          "product": "road",
+          "original_path": "D:\\fyx\\任务\\委内瑞拉数据整合\\output\\capital\\microsoft_roads\\microsoft_roads_capital.gpkg",
+          "dataset_version": "microsoft-roads-caracas-capital-2026-06-25",
+          "observed_at": "2026-06-25T16:14:00+08:00",
+          "freshness_status": "versioned_external_snapshot",
+          "semantic_status": "road_line_reference",
+          "files": [
+            {
+              "path": "D:\\fyx\\任务\\委内瑞拉数据整合\\output\\capital\\microsoft_roads\\microsoft_roads_capital.gpkg",
+              "sha256": "cb81ae84384f381fe368fe55dfe4d8c134f12a40a4bd6bf2c9b3c781bb44544c",
+              "size_bytes": 2605056
+            }
+          ]
+        },
+        {
+          "source_id": "raw.osm.water",
+          "product": "water_polygon",
+          "original_path": "D:\\fyx\\任务\\委内瑞拉数据整合\\output\\capital\\osm\\water.shp",
+          "dataset_version": "caracas-osm-water-polygons-2026-06-25",
+          "observed_at": "2026-06-25T16:21:00+08:00",
+          "freshness_status": "event_snapshot_25_days_old",
+          "semantic_status": "polygonal_surface_water",
+          "files": [
+            {
+              "path": "D:\\fyx\\任务\\委内瑞拉数据整合\\output\\capital\\osm\\water.cpg",
+              "sha256": "3ad3031f5503a4404af825262ee8232cc04d4ea6683d42c5dd0a2f2a27ac9824",
+              "size_bytes": 5
+            },
+            {
+              "path": "D:\\fyx\\任务\\委内瑞拉数据整合\\output\\capital\\osm\\water.dbf",
+              "sha256": "48a71fa34003cd29dca4ab25b5acb512b5da31581870f0877601a766a33f689b",
+              "size_bytes": 30328
+            },
+            {
+              "path": "D:\\fyx\\任务\\委内瑞拉数据整合\\output\\capital\\osm\\water.prj",
+              "sha256": "6b38e304d3d1802806ac14ebc72f206bea61b3ed44b121f5a540c3b465ed1dde",
+              "size_bytes": 149
+            },
+            {
+              "path": "D:\\fyx\\任务\\委内瑞拉数据整合\\output\\capital\\osm\\water.qmd",
+              "sha256": "e1ff5cdf9690398908a312ca8f9f0964e416479412869450db5b5821c295ea42",
+              "size_bytes": 1624
+            },
+            {
+              "path": "D:\\fyx\\任务\\委内瑞拉数据整合\\output\\capital\\osm\\water.shp",
+              "sha256": "bd03b0d62ff532963fbc397fae8c947b9c5a1510e6565b27d72547a49e79edcd",
+              "size_bytes": 51236
+            },
+            {
+              "path": "D:\\fyx\\任务\\委内瑞拉数据整合\\output\\capital\\osm\\water.shx",
+              "sha256": "0c11cfee119029d1d85eabb2cafc047f96ce8889fdf64d077c1de1b343b5f5b0",
+              "size_bytes": 404
+            }
+          ]
+        },
+        {
+          "source_id": "raw.osm.waterways",
+          "product": "waterways",
+          "original_path": "D:\\fyx\\任务\\委内瑞拉数据整合\\output\\capital\\osm\\waterways.shp",
+          "dataset_version": "caracas-osm-waterways-2026-06-25",
+          "observed_at": "2026-06-25T16:21:00+08:00",
+          "freshness_status": "event_snapshot_25_days_old",
+          "semantic_status": "linear_hydrography",
+          "files": [
+            {
+              "path": "D:\\fyx\\任务\\委内瑞拉数据整合\\output\\capital\\osm\\waterways.cpg",
+              "sha256": "3ad3031f5503a4404af825262ee8232cc04d4ea6683d42c5dd0a2f2a27ac9824",
+              "size_bytes": 5
+            },
+            {
+              "path": "D:\\fyx\\任务\\委内瑞拉数据整合\\output\\capital\\osm\\waterways.dbf",
+              "sha256": "01f263d328ca2c04d0c39e883e346d7b9bc65b338e550cc8417e9349f2326021",
+              "size_bytes": 125494
+            },
+            {
+              "path": "D:\\fyx\\任务\\委内瑞拉数据整合\\output\\capital\\osm\\waterways.prj",
+              "sha256": "6b38e304d3d1802806ac14ebc72f206bea61b3ed44b121f5a540c3b465ed1dde",
+              "size_bytes": 149
+            },
+            {
+              "path": "D:\\fyx\\任务\\委内瑞拉数据整合\\output\\capital\\osm\\waterways.qmd",
+              "sha256": "e1ff5cdf9690398908a312ca8f9f0964e416479412869450db5b5821c295ea42",
+              "size_bytes": 1624
+            },
+            {
+              "path": "D:\\fyx\\任务\\委内瑞拉数据整合\\output\\capital\\osm\\waterways.shp",
+              "sha256": "577a169a3b4662cc9495e42ccf467964ca93aea04114e7b9da50f4a0859fda97",
+              "size_bytes": 95572
+            },
+            {
+              "path": "D:\\fyx\\任务\\委内瑞拉数据整合\\output\\capital\\osm\\waterways.shx",
+              "sha256": "3c3957dca30ba4fd5960b05f59c4bb5d472db2dbd4713679c1e2cabada7b1056",
+              "size_bytes": 1348
+            }
+          ]
+        },
+        {
+          "source_id": "raw.hydrorivers.water",
+          "product": "waterways",
+          "original_path": "D:\\fyx\\任务\\委内瑞拉数据整合\\output\\capital\\hydro\\hydrorivers_capital.gpkg",
+          "dataset_version": "HydroRIVERS-v10-caracas-capital-clip",
+          "observed_at": "2026-06-25T16:10:00+08:00",
+          "freshness_status": "static_reference_v10",
+          "semantic_status": "linear_hydrography_reference",
+          "files": [
+            {
+              "path": "D:\\fyx\\任务\\委内瑞拉数据整合\\output\\capital\\hydro\\hydrorivers_capital.gpkg",
+              "sha256": "d830341f6dbf8fd24d86a0783ed60be306d0b5a29c67c8f2ef8a9dd9577a65ff",
+              "size_bytes": 106496
+            }
+          ]
+        },
+        {
+          "source_id": "raw.hydrolakes.water",
+          "product": "water_polygon",
+          "original_path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\hydrosheds\\raw_hydrolakes_water\\extract\\HydroLAKES_polys_v10_shp\\HydroLAKES_polys_v10.shp",
+          "dataset_version": "HydroLAKES-polys-v10",
+          "observed_at": "2026-07-01T12:31:00+08:00",
+          "freshness_status": "static_reference_v10",
+          "semantic_status": "polygonal_surface_water_reference",
+          "files": [
+            {
+              "path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\hydrosheds\\raw_hydrolakes_water\\extract\\HydroLAKES_polys_v10_shp\\HydroLAKES_polys_v10.dbf",
+              "sha256": "7155f56b9336c963c68f0bee690c0268076e2155ac0fdc0e272d2bc368687887",
+              "size_bytes": 376910338
+            },
+            {
+              "path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\hydrosheds\\raw_hydrolakes_water\\extract\\HydroLAKES_polys_v10_shp\\HydroLAKES_polys_v10.prj",
+              "sha256": "514d90b133d45328d2d8a70e74c01e5cddc18196b90fff7cf818f0f381a11673",
+              "size_bytes": 219
+            },
+            {
+              "path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\hydrosheds\\raw_hydrolakes_water\\extract\\HydroLAKES_polys_v10_shp\\HydroLAKES_polys_v10.shp",
+              "sha256": "bbb5a60b8e3016908991aa0abd76f5553a3d019ae7d2da0866c823f1ddf4dded",
+              "size_bytes": 1112048460
+            },
+            {
+              "path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\hydrosheds\\raw_hydrolakes_water\\extract\\HydroLAKES_polys_v10_shp\\HydroLAKES_polys_v10.shx",
+              "sha256": "fd0e65487bf53345e037e366deaa28cbdc5ac34773d83f2f440ba1031552fb72",
+              "size_bytes": 11421604
+            }
+          ]
+        },
+        {
+          "source_id": "raw.osm.building",
+          "product": "building",
+          "original_path": "D:\\fyx\\任务\\委内瑞拉数据整合\\output\\capital\\osm\\buildings.shp",
+          "dataset_version": "caracas-osm-buildings-2026-06-25",
+          "observed_at": "2026-06-25T16:21:00+08:00",
+          "freshness_status": "declared_deferred_for_c02",
+          "semantic_status": "building_polygon",
+          "files": [
+            {
+              "path": "D:\\fyx\\任务\\委内瑞拉数据整合\\output\\capital\\osm\\buildings.cpg",
+              "sha256": "3ad3031f5503a4404af825262ee8232cc04d4ea6683d42c5dd0a2f2a27ac9824",
+              "size_bytes": 5
+            },
+            {
+              "path": "D:\\fyx\\任务\\委内瑞拉数据整合\\output\\capital\\osm\\buildings.dbf",
+              "sha256": "1a83357586dc5731e4e57e1f976fd32f17f9d84ebfb62f28d1d693f20ed4e80f",
+              "size_bytes": 14509552
+            },
+            {
+              "path": "D:\\fyx\\任务\\委内瑞拉数据整合\\output\\capital\\osm\\buildings.prj",
+              "sha256": "6b38e304d3d1802806ac14ebc72f206bea61b3ed44b121f5a540c3b465ed1dde",
+              "size_bytes": 149
+            },
+            {
+              "path": "D:\\fyx\\任务\\委内瑞拉数据整合\\output\\capital\\osm\\buildings.qmd",
+              "sha256": "e1ff5cdf9690398908a312ca8f9f0964e416479412869450db5b5821c295ea42",
+              "size_bytes": 1624
+            },
+            {
+              "path": "D:\\fyx\\任务\\委内瑞拉数据整合\\output\\capital\\osm\\buildings.shp",
+              "sha256": "5c1cf7cf1a21d8a51957be82d51524a75812096fce3575765cd60f4affcce8be",
+              "size_bytes": 2410636
+            },
+            {
+              "path": "D:\\fyx\\任务\\委内瑞拉数据整合\\output\\capital\\osm\\buildings.shx",
+              "sha256": "a0ef28404ac3aa19727602693645db534e3a825978eed83a950dd0f990c8698b",
+              "size_bytes": 110964
+            }
+          ]
+        },
+        {
+          "source_id": "raw.microsoft.building",
+          "product": "building",
+          "original_path": "D:\\fyx\\任务\\委内瑞拉数据整合\\output\\capital\\Microsoft_capital_district.gpkg",
+          "dataset_version": "microsoft-buildings-caracas-capital-2026-06-25",
+          "observed_at": "2026-06-25T16:14:00+08:00",
+          "freshness_status": "declared_deferred_for_c02",
+          "semantic_status": "building_polygon_reference",
+          "files": [
+            {
+              "path": "D:\\fyx\\任务\\委内瑞拉数据整合\\output\\capital\\Microsoft_capital_district.gpkg",
+              "sha256": "fe0e22e0a2a95d5ab00eaeb948fe3e4de4393853f54c6a9a450010514b54ae3d",
+              "size_bytes": 28573696
+            }
+          ]
+        },
+        {
+          "source_id": "aoi.venezuela_capital_district",
+          "product": "aoi_boundary",
+          "original_path": "D:\\fyx\\任务\\委内瑞拉数据整合\\output\\boundaries\\venezuela_capital_district.geojson",
+          "dataset_version": "venezuela-capital-district-boundary-2026-06-25",
+          "observed_at": "2026-06-25T16:20:00+08:00",
+          "freshness_status": "static_boundary",
+          "semantic_status": "aoi_boundary",
+          "files": [
+            {
+              "path": "D:\\fyx\\任务\\委内瑞拉数据整合\\output\\boundaries\\venezuela_capital_district.geojson",
+              "sha256": "fd6b54e0fa139f0e6b1e1d48cd86ded7f656ab7b75762e661ba3a09783d2552c",
+              "size_bytes": 55457
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "aoi_id": "abidjan",
+      "label": "Abidjan 都市走廊",
+      "structure": "高密度沿海都市，水系与建筑密度较高",
+      "bbox": [
+        -4.17,
+        5.23,
+        -3.86,
+        5.48
+      ],
+      "manifest_path": "D:\\code\\FusionAgent\\docs\\current\\evidence\\p4-external-validity\\manifests\\abidjan_c02_c04.json",
+      "source_count": 7,
+      "case_ids": [
+        "C02",
+        "C04"
+      ],
+      "c06_road_reference_available": false,
+      "input_hashes": [
+        {
+          "source_id": "raw.osm.road",
+          "product": "road",
+          "original_path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\geofabrik_clips\\ivory-coast\\raw_osm_road\\515115cfa3e8\\gis_osm_roads_free_1.shp",
+          "dataset_version": "abidjan-osm-road-2026-07-01",
+          "observed_at": "2026-07-01T00:00:00+08:00",
+          "freshness_status": "cached_external_snapshot",
+          "semantic_status": "road",
+          "files": [
+            {
+              "path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\geofabrik_clips\\ivory-coast\\raw_osm_road\\515115cfa3e8\\gis_osm_roads_free_1.cpg",
+              "sha256": "3ad3031f5503a4404af825262ee8232cc04d4ea6683d42c5dd0a2f2a27ac9824",
+              "size_bytes": 5
+            },
+            {
+              "path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\geofabrik_clips\\ivory-coast\\raw_osm_road\\515115cfa3e8\\gis_osm_roads_free_1.dbf",
+              "sha256": "a5177f36234bd634436b0465ad0d69aa8c5ba107730a904f909b140f9a991000",
+              "size_bytes": 27029529
+            },
+            {
+              "path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\geofabrik_clips\\ivory-coast\\raw_osm_road\\515115cfa3e8\\gis_osm_roads_free_1.prj",
+              "sha256": "a02a27b1d1982c8516d83398e85a3c8b1aef1713c13ef4d84d7bde17430c07c4",
+              "size_bytes": 145
+            },
+            {
+              "path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\geofabrik_clips\\ivory-coast\\raw_osm_road\\515115cfa3e8\\gis_osm_roads_free_1.shp",
+              "sha256": "177103e2f3f8a41b432e0dfc5f587d1464f053973b5bb99e2bb2ccc1efc67427",
+              "size_bytes": 6983304
+            },
+            {
+              "path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\geofabrik_clips\\ivory-coast\\raw_osm_road\\515115cfa3e8\\gis_osm_roads_free_1.shx",
+              "sha256": "f065f0d226816a6decda7f9a49056fd9339305b86c0b390c546f6c0f501af8cb",
+              "size_bytes": 362300
+            }
+          ]
+        },
+        {
+          "source_id": "raw.osm.building",
+          "product": "building",
+          "original_path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\geofabrik_clips\\ivory-coast\\raw_osm_building\\515115cfa3e8\\gis_osm_buildings_a_free_1.shp",
+          "dataset_version": "abidjan-osm-building-2026-07-01",
+          "observed_at": "2026-07-01T00:00:00+08:00",
+          "freshness_status": "cached_external_snapshot",
+          "semantic_status": "building",
+          "files": [
+            {
+              "path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\geofabrik_clips\\ivory-coast\\raw_osm_building\\515115cfa3e8\\gis_osm_buildings_a_free_1.cpg",
+              "sha256": "3ad3031f5503a4404af825262ee8232cc04d4ea6683d42c5dd0a2f2a27ac9824",
+              "size_bytes": 5
+            },
+            {
+              "path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\geofabrik_clips\\ivory-coast\\raw_osm_building\\515115cfa3e8\\gis_osm_buildings_a_free_1.dbf",
+              "sha256": "4ea416aeeab90a94a62819b6e99c6fb369d1c7faed3d4c7c26328674e07e1cfe",
+              "size_bytes": 125341494
+            },
+            {
+              "path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\geofabrik_clips\\ivory-coast\\raw_osm_building\\515115cfa3e8\\gis_osm_buildings_a_free_1.prj",
+              "sha256": "a02a27b1d1982c8516d83398e85a3c8b1aef1713c13ef4d84d7bde17430c07c4",
+              "size_bytes": 145
+            },
+            {
+              "path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\geofabrik_clips\\ivory-coast\\raw_osm_building\\515115cfa3e8\\gis_osm_buildings_a_free_1.shp",
+              "sha256": "6a6515724aa2ca520214c4b5c70d1dee68117f4a80bfe2c28f0b5a5aca8525d9",
+              "size_bytes": 52671836
+            },
+            {
+              "path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\geofabrik_clips\\ivory-coast\\raw_osm_building\\515115cfa3e8\\gis_osm_buildings_a_free_1.shx",
+              "sha256": "e1fb4ae13c520e61e59cb50524fe98ce96d6aa46c59126c592e101869d2d49e1",
+              "size_bytes": 2865044
+            }
+          ]
+        },
+        {
+          "source_id": "raw.osm.water",
+          "product": "water_polygon",
+          "original_path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\geofabrik_clips\\ivory-coast\\raw_osm_water\\515115cfa3e8\\gis_osm_water_a_free_1.shp",
+          "dataset_version": "abidjan-osm-water-2026-07-01",
+          "observed_at": "2026-07-01T00:00:00+08:00",
+          "freshness_status": "cached_external_snapshot",
+          "semantic_status": "water_polygon",
+          "files": [
+            {
+              "path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\geofabrik_clips\\ivory-coast\\raw_osm_water\\515115cfa3e8\\gis_osm_water_a_free_1.cpg",
+              "sha256": "3ad3031f5503a4404af825262ee8232cc04d4ea6683d42c5dd0a2f2a27ac9824",
+              "size_bytes": 5
+            },
+            {
+              "path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\geofabrik_clips\\ivory-coast\\raw_osm_water\\515115cfa3e8\\gis_osm_water_a_free_1.dbf",
+              "sha256": "3a62ea09a85a5a5371fca588239828571806875f27d56ffe3bca9113adcabab8",
+              "size_bytes": 38912
+            },
+            {
+              "path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\geofabrik_clips\\ivory-coast\\raw_osm_water\\515115cfa3e8\\gis_osm_water_a_free_1.prj",
+              "sha256": "a02a27b1d1982c8516d83398e85a3c8b1aef1713c13ef4d84d7bde17430c07c4",
+              "size_bytes": 145
+            },
+            {
+              "path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\geofabrik_clips\\ivory-coast\\raw_osm_water\\515115cfa3e8\\gis_osm_water_a_free_1.shp",
+              "sha256": "ca3593632978fee406683b48f3aa648480bef3dd6374a4585c6161eb35b90cb0",
+              "size_bytes": 269120
+            },
+            {
+              "path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\geofabrik_clips\\ivory-coast\\raw_osm_water\\515115cfa3e8\\gis_osm_water_a_free_1.shx",
+              "sha256": "adab16fd2251ead9a1aec06f49b1346b7e4727b91d4f0a25771430739351573a",
+              "size_bytes": 1340
+            }
+          ]
+        },
+        {
+          "source_id": "raw.osm.waterways",
+          "product": "waterways",
+          "original_path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\geofabrik_clips\\ivory-coast\\raw_osm_waterways\\515115cfa3e8\\gis_osm_waterways_free_1.shp",
+          "dataset_version": "abidjan-osm-waterways-2026-07-01",
+          "observed_at": "2026-07-01T00:00:00+08:00",
+          "freshness_status": "cached_external_snapshot",
+          "semantic_status": "waterways",
+          "files": [
+            {
+              "path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\geofabrik_clips\\ivory-coast\\raw_osm_waterways\\515115cfa3e8\\gis_osm_waterways_free_1.cpg",
+              "sha256": "3ad3031f5503a4404af825262ee8232cc04d4ea6683d42c5dd0a2f2a27ac9824",
+              "size_bytes": 5
+            },
+            {
+              "path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\geofabrik_clips\\ivory-coast\\raw_osm_waterways\\515115cfa3e8\\gis_osm_waterways_free_1.dbf",
+              "sha256": "df53a510e4635c4c980d6bc33747117cf9c807e21810fb4e4e22347d5e540ae4",
+              "size_bytes": 164400
+            },
+            {
+              "path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\geofabrik_clips\\ivory-coast\\raw_osm_waterways\\515115cfa3e8\\gis_osm_waterways_free_1.prj",
+              "sha256": "a02a27b1d1982c8516d83398e85a3c8b1aef1713c13ef4d84d7bde17430c07c4",
+              "size_bytes": 145
+            },
+            {
+              "path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\geofabrik_clips\\ivory-coast\\raw_osm_waterways\\515115cfa3e8\\gis_osm_waterways_free_1.shp",
+              "sha256": "571f87cbf256097929ae5feb587084544584073443da0f43d5ab160180d5fa0e",
+              "size_bytes": 176780
+            },
+            {
+              "path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\geofabrik_clips\\ivory-coast\\raw_osm_waterways\\515115cfa3e8\\gis_osm_waterways_free_1.shx",
+              "sha256": "d758969444020e47a542925ce132f1c51f2c1dd4c3f939398476d0e57edbe5e6",
+              "size_bytes": 5172
+            }
+          ]
+        },
+        {
+          "source_id": "raw.hydrorivers.water",
+          "product": "waterways",
+          "original_path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\hydrosheds_clips\\raw_hydrorivers_water\\515115cfa3e8\\HydroRIVERS_v10.shp",
+          "dataset_version": "HydroRIVERS-v10",
+          "observed_at": "2026-07-01T00:00:00+08:00",
+          "freshness_status": "cached_external_snapshot",
+          "semantic_status": "waterways",
+          "files": [
+            {
+              "path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\hydrosheds_clips\\raw_hydrorivers_water\\515115cfa3e8\\HydroRIVERS_v10.cpg",
+              "sha256": "3ad3031f5503a4404af825262ee8232cc04d4ea6683d42c5dd0a2f2a27ac9824",
+              "size_bytes": 5
+            },
+            {
+              "path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\hydrosheds_clips\\raw_hydrorivers_water\\515115cfa3e8\\HydroRIVERS_v10.dbf",
+              "sha256": "c66303a3ad7be556d355131c7d5427567de2272b5d80712e0fa8aacff6467443",
+              "size_bytes": 18110
+            },
+            {
+              "path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\hydrosheds_clips\\raw_hydrorivers_water\\515115cfa3e8\\HydroRIVERS_v10.prj",
+              "sha256": "a02a27b1d1982c8516d83398e85a3c8b1aef1713c13ef4d84d7bde17430c07c4",
+              "size_bytes": 145
+            },
+            {
+              "path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\hydrosheds_clips\\raw_hydrorivers_water\\515115cfa3e8\\HydroRIVERS_v10.shp",
+              "sha256": "c42aeb762b8f234befd4aab4d1ff737abaaad24570e14b3be9c2172210da2f7c",
+              "size_bytes": 10084
+            },
+            {
+              "path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\hydrosheds_clips\\raw_hydrorivers_water\\515115cfa3e8\\HydroRIVERS_v10.shx",
+              "sha256": "cd993763ea665f652688c93ab4e5a63ad6bad210524ad282e2ce76004fdf233a",
+              "size_bytes": 724
+            }
+          ]
+        },
+        {
+          "source_id": "raw.hydrolakes.water",
+          "product": "water_polygon",
+          "original_path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\hydrosheds_clips\\raw_hydrolakes_water\\515115cfa3e8\\HydroLAKES_polys_v10.shp",
+          "dataset_version": "HydroLAKES-v10",
+          "observed_at": "2026-07-01T00:00:00+08:00",
+          "freshness_status": "cached_external_snapshot",
+          "semantic_status": "water_polygon",
+          "files": [
+            {
+              "path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\hydrosheds_clips\\raw_hydrolakes_water\\515115cfa3e8\\HydroLAKES_polys_v10.cpg",
+              "sha256": "3ad3031f5503a4404af825262ee8232cc04d4ea6683d42c5dd0a2f2a27ac9824",
+              "size_bytes": 5
+            },
+            {
+              "path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\hydrosheds_clips\\raw_hydrolakes_water\\515115cfa3e8\\HydroLAKES_polys_v10.dbf",
+              "sha256": "2cee23eec4e10c70c003e7f052073d1090c3dabf52d3862facbd2761c6f8957f",
+              "size_bytes": 3976
+            },
+            {
+              "path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\hydrosheds_clips\\raw_hydrolakes_water\\515115cfa3e8\\HydroLAKES_polys_v10.prj",
+              "sha256": "a02a27b1d1982c8516d83398e85a3c8b1aef1713c13ef4d84d7bde17430c07c4",
+              "size_bytes": 145
+            },
+            {
+              "path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\hydrosheds_clips\\raw_hydrolakes_water\\515115cfa3e8\\HydroLAKES_polys_v10.shp",
+              "sha256": "cc8a8dec22dfc34fe3facd73f3692b3e1e4dae6f1e867188665429003c4aa810",
+              "size_bytes": 20928
+            },
+            {
+              "path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\hydrosheds_clips\\raw_hydrolakes_water\\515115cfa3e8\\HydroLAKES_polys_v10.shx",
+              "sha256": "7b6a75f50f911fff0c4133d93186aa8800d04535f8a2dfa6d1531c0a19037a17",
+              "size_bytes": 140
+            }
+          ]
+        },
+        {
+          "source_id": "aoi.abidjan",
+          "product": "aoi_boundary",
+          "original_path": "D:\\code\\FusionAgent\\docs\\current\\evidence\\p4-external-validity\\manifests\\abidjan_aoi_boundary.geojson",
+          "dataset_version": "abidjan-derived-request-bbox-2026-08-01",
+          "observed_at": "2026-08-01T00:00:00+08:00",
+          "freshness_status": "derived_from_declared_request_bbox",
+          "semantic_status": "aoi_boundary_envelope",
+          "files": [
+            {
+              "path": "D:\\code\\FusionAgent\\docs\\current\\evidence\\p4-external-validity\\manifests\\abidjan_aoi_boundary.geojson",
+              "sha256": "f3ed86199ec50c616e66871c3662f15424517cc27e0b545a80a7cc3cde556581",
+              "size_bytes": 695
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "aoi_id": "vietnam_coastal",
+      "label": "越南北部沿海走廊",
+      "structure": "较大沿海走廊，水系密度和覆盖尺度不同",
+      "bbox": [
+        106.6,
+        20.78,
+        106.78,
+        20.92
+      ],
+      "manifest_path": "D:\\code\\FusionAgent\\docs\\current\\evidence\\p4-external-validity\\manifests\\vietnam_coastal_c02_c04.json",
+      "source_count": 7,
+      "case_ids": [
+        "C02",
+        "C04"
+      ],
+      "c06_road_reference_available": false,
+      "input_hashes": [
+        {
+          "source_id": "raw.osm.road",
+          "product": "road",
+          "original_path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\geofabrik_clips\\vietnam\\raw_osm_road\\767db3e08935\\gis_osm_roads_free_1.shp",
+          "dataset_version": "vietnam_coastal-osm-road-2026-07-01",
+          "observed_at": "2026-07-01T00:00:00+08:00",
+          "freshness_status": "cached_external_snapshot",
+          "semantic_status": "road",
+          "files": [
+            {
+              "path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\geofabrik_clips\\vietnam\\raw_osm_road\\767db3e08935\\gis_osm_roads_free_1.cpg",
+              "sha256": "3ad3031f5503a4404af825262ee8232cc04d4ea6683d42c5dd0a2f2a27ac9824",
+              "size_bytes": 5
+            },
+            {
+              "path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\geofabrik_clips\\vietnam\\raw_osm_road\\767db3e08935\\gis_osm_roads_free_1.dbf",
+              "sha256": "3d5105756cbf9e21cdf028f0cab8347c546f297f94bf887f2b326df206c4cbeb",
+              "size_bytes": 153837702
+            },
+            {
+              "path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\geofabrik_clips\\vietnam\\raw_osm_road\\767db3e08935\\gis_osm_roads_free_1.prj",
+              "sha256": "a02a27b1d1982c8516d83398e85a3c8b1aef1713c13ef4d84d7bde17430c07c4",
+              "size_bytes": 145
+            },
+            {
+              "path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\geofabrik_clips\\vietnam\\raw_osm_road\\767db3e08935\\gis_osm_roads_free_1.shp",
+              "sha256": "1ce6ee01de558059d8640c359dbc42fe1341342931676f864a8001928ac2c178",
+              "size_bytes": 45280756
+            },
+            {
+              "path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\geofabrik_clips\\vietnam\\raw_osm_road\\767db3e08935\\gis_osm_roads_free_1.shx",
+              "sha256": "9b8fdeb8b5e865245fbb0418fc5bbafa544e1aceefbcfd577f620d4939ff0530",
+              "size_bytes": 2061572
+            }
+          ]
+        },
+        {
+          "source_id": "raw.osm.building",
+          "product": "building",
+          "original_path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\geofabrik_clips\\vietnam\\raw_osm_building\\767db3e08935\\gis_osm_buildings_a_free_1.shp",
+          "dataset_version": "vietnam_coastal-osm-building-2026-07-01",
+          "observed_at": "2026-07-01T00:00:00+08:00",
+          "freshness_status": "cached_external_snapshot",
+          "semantic_status": "building",
+          "files": [
+            {
+              "path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\geofabrik_clips\\vietnam\\raw_osm_building\\767db3e08935\\gis_osm_buildings_a_free_1.cpg",
+              "sha256": "3ad3031f5503a4404af825262ee8232cc04d4ea6683d42c5dd0a2f2a27ac9824",
+              "size_bytes": 5
+            },
+            {
+              "path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\geofabrik_clips\\vietnam\\raw_osm_building\\767db3e08935\\gis_osm_buildings_a_free_1.dbf",
+              "sha256": "910bb9fcc69215944dcb6201d20fd0fa41e3f91ca080d80159c42c3d29b9c9a9",
+              "size_bytes": 8820122
+            },
+            {
+              "path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\geofabrik_clips\\vietnam\\raw_osm_building\\767db3e08935\\gis_osm_buildings_a_free_1.prj",
+              "sha256": "a02a27b1d1982c8516d83398e85a3c8b1aef1713c13ef4d84d7bde17430c07c4",
+              "size_bytes": 145
+            },
+            {
+              "path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\geofabrik_clips\\vietnam\\raw_osm_building\\767db3e08935\\gis_osm_buildings_a_free_1.shp",
+              "sha256": "36773bb7a678ff263302bfd71970b034dc6b1293087ba28a1944d0cc623061c4",
+              "size_bytes": 3858672
+            },
+            {
+              "path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\geofabrik_clips\\vietnam\\raw_osm_building\\767db3e08935\\gis_osm_buildings_a_free_1.shx",
+              "sha256": "2e55f10f5839937100fe4812566059c74f0ea9dc93df40de2c653cf29f70ef57",
+              "size_bytes": 202276
+            }
+          ]
+        },
+        {
+          "source_id": "raw.osm.water",
+          "product": "water_polygon",
+          "original_path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\geofabrik_clips\\vietnam\\raw_osm_water\\767db3e08935\\gis_osm_water_a_free_1.shp",
+          "dataset_version": "vietnam_coastal-osm-water-2026-07-01",
+          "observed_at": "2026-07-01T00:00:00+08:00",
+          "freshness_status": "cached_external_snapshot",
+          "semantic_status": "water_polygon",
+          "files": [
+            {
+              "path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\geofabrik_clips\\vietnam\\raw_osm_water\\767db3e08935\\gis_osm_water_a_free_1.cpg",
+              "sha256": "3ad3031f5503a4404af825262ee8232cc04d4ea6683d42c5dd0a2f2a27ac9824",
+              "size_bytes": 5
+            },
+            {
+              "path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\geofabrik_clips\\vietnam\\raw_osm_water\\767db3e08935\\gis_osm_water_a_free_1.dbf",
+              "sha256": "38fca00c196408295738f7a61dfc992248b51930022033c988d5432c03ebfbb4",
+              "size_bytes": 821662
+            },
+            {
+              "path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\geofabrik_clips\\vietnam\\raw_osm_water\\767db3e08935\\gis_osm_water_a_free_1.prj",
+              "sha256": "a02a27b1d1982c8516d83398e85a3c8b1aef1713c13ef4d84d7bde17430c07c4",
+              "size_bytes": 145
+            },
+            {
+              "path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\geofabrik_clips\\vietnam\\raw_osm_water\\767db3e08935\\gis_osm_water_a_free_1.shp",
+              "sha256": "e30d3527d713157741d3c05a40f905cd576612536d670140b73783958d7fd7a1",
+              "size_bytes": 2227096
+            },
+            {
+              "path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\geofabrik_clips\\vietnam\\raw_osm_water\\767db3e08935\\gis_osm_water_a_free_1.shx",
+              "sha256": "c9f0b73226f49f90df5005c9efb03772df72f731b4aec8fbfa9ae772bc997918",
+              "size_bytes": 26388
+            }
+          ]
+        },
+        {
+          "source_id": "raw.osm.waterways",
+          "product": "waterways",
+          "original_path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\geofabrik_clips\\vietnam\\raw_osm_waterways\\767db3e08935\\gis_osm_waterways_free_1.shp",
+          "dataset_version": "vietnam_coastal-osm-waterways-2026-07-01",
+          "observed_at": "2026-07-01T00:00:00+08:00",
+          "freshness_status": "cached_external_snapshot",
+          "semantic_status": "waterways",
+          "files": [
+            {
+              "path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\geofabrik_clips\\vietnam\\raw_osm_waterways\\767db3e08935\\gis_osm_waterways_free_1.cpg",
+              "sha256": "3ad3031f5503a4404af825262ee8232cc04d4ea6683d42c5dd0a2f2a27ac9824",
+              "size_bytes": 5
+            },
+            {
+              "path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\geofabrik_clips\\vietnam\\raw_osm_waterways\\767db3e08935\\gis_osm_waterways_free_1.dbf",
+              "sha256": "9cc016da41ce7541cfd9eab6cb547bc5a36acc6db581d9d1ffe5d3f67e00c369",
+              "size_bytes": 470279
+            },
+            {
+              "path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\geofabrik_clips\\vietnam\\raw_osm_waterways\\767db3e08935\\gis_osm_waterways_free_1.prj",
+              "sha256": "a02a27b1d1982c8516d83398e85a3c8b1aef1713c13ef4d84d7bde17430c07c4",
+              "size_bytes": 145
+            },
+            {
+              "path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\geofabrik_clips\\vietnam\\raw_osm_waterways\\767db3e08935\\gis_osm_waterways_free_1.shp",
+              "sha256": "eaf56dc248ca42bc13a21a8e0987961269ad79bdd235a8a4a44578517889a495",
+              "size_bytes": 762696
+            },
+            {
+              "path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\geofabrik_clips\\vietnam\\raw_osm_waterways\\767db3e08935\\gis_osm_waterways_free_1.shx",
+              "sha256": "953990c4571f48cb64a7bce13635351459aa9d7204edb626dc842cdea4d3487e",
+              "size_bytes": 14620
+            }
+          ]
+        },
+        {
+          "source_id": "raw.hydrorivers.water",
+          "product": "waterways",
+          "original_path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\hydrosheds_clips\\raw_hydrorivers_water\\767db3e08935\\HydroRIVERS_v10.shp",
+          "dataset_version": "HydroRIVERS-v10",
+          "observed_at": "2026-07-01T00:00:00+08:00",
+          "freshness_status": "cached_external_snapshot",
+          "semantic_status": "waterways",
+          "files": [
+            {
+              "path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\hydrosheds_clips\\raw_hydrorivers_water\\767db3e08935\\HydroRIVERS_v10.cpg",
+              "sha256": "3ad3031f5503a4404af825262ee8232cc04d4ea6683d42c5dd0a2f2a27ac9824",
+              "size_bytes": 5
+            },
+            {
+              "path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\hydrosheds_clips\\raw_hydrorivers_water\\767db3e08935\\HydroRIVERS_v10.dbf",
+              "sha256": "a2c800a9f3d165cfdae757ab707189dbcf27f2e579c341fe37a6ec264edcb801",
+              "size_bytes": 217442
+            },
+            {
+              "path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\hydrosheds_clips\\raw_hydrorivers_water\\767db3e08935\\HydroRIVERS_v10.prj",
+              "sha256": "a02a27b1d1982c8516d83398e85a3c8b1aef1713c13ef4d84d7bde17430c07c4",
+              "size_bytes": 145
+            },
+            {
+              "path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\hydrosheds_clips\\raw_hydrorivers_water\\767db3e08935\\HydroRIVERS_v10.shp",
+              "sha256": "9cb299c30a684e7497f981a62fdb421fd827915a837f1a2e53ab13e636bdc126",
+              "size_bytes": 116700
+            },
+            {
+              "path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\hydrosheds_clips\\raw_hydrorivers_water\\767db3e08935\\HydroRIVERS_v10.shx",
+              "sha256": "564684d314f0c2d32b83a68f68db39a61413384700dd43226798132c0a7b14a6",
+              "size_bytes": 7780
+            }
+          ]
+        },
+        {
+          "source_id": "raw.hydrolakes.water",
+          "product": "water_polygon",
+          "original_path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\hydrosheds_clips\\raw_hydrolakes_water\\767db3e08935\\HydroLAKES_polys_v10.shp",
+          "dataset_version": "HydroLAKES-v10",
+          "observed_at": "2026-07-01T00:00:00+08:00",
+          "freshness_status": "cached_external_snapshot",
+          "semantic_status": "water_polygon",
+          "files": [
+            {
+              "path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\hydrosheds_clips\\raw_hydrolakes_water\\767db3e08935\\HydroLAKES_polys_v10.cpg",
+              "sha256": "3ad3031f5503a4404af825262ee8232cc04d4ea6683d42c5dd0a2f2a27ac9824",
+              "size_bytes": 5
+            },
+            {
+              "path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\hydrosheds_clips\\raw_hydrolakes_water\\767db3e08935\\HydroLAKES_polys_v10.dbf",
+              "sha256": "050ae1b9b97a0c801cad1c486521fa95ca85b53fd424bc7718c623d9d0086fa2",
+              "size_bytes": 64798
+            },
+            {
+              "path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\hydrosheds_clips\\raw_hydrolakes_water\\767db3e08935\\HydroLAKES_polys_v10.prj",
+              "sha256": "a02a27b1d1982c8516d83398e85a3c8b1aef1713c13ef4d84d7bde17430c07c4",
+              "size_bytes": 145
+            },
+            {
+              "path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\hydrosheds_clips\\raw_hydrolakes_water\\767db3e08935\\HydroLAKES_polys_v10.shp",
+              "sha256": "0577d5f2b2fb1480ee8076364f8fa05473ea647e7ce029d6e5df1e257ec6c023",
+              "size_bytes": 42820
+            },
+            {
+              "path": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\hydrosheds_clips\\raw_hydrolakes_water\\767db3e08935\\HydroLAKES_polys_v10.shx",
+              "sha256": "723ce822cc2ba25fe05c325859474889882f98d672ec5d87f08104259c3cfe00",
+              "size_bytes": 884
+            }
+          ]
+        },
+        {
+          "source_id": "aoi.vietnam_coastal",
+          "product": "aoi_boundary",
+          "original_path": "D:\\code\\FusionAgent\\docs\\current\\evidence\\p4-external-validity\\manifests\\vietnam_coastal_aoi_boundary.geojson",
+          "dataset_version": "vietnam_coastal-derived-request-bbox-2026-08-01",
+          "observed_at": "2026-08-01T00:00:00+08:00",
+          "freshness_status": "derived_from_declared_request_bbox",
+          "semantic_status": "aoi_boundary_envelope",
+          "files": [
+            {
+              "path": "D:\\code\\FusionAgent\\docs\\current\\evidence\\p4-external-validity\\manifests\\vietnam_coastal_aoi_boundary.geojson",
+              "sha256": "080ca20bee03d8eb3903a88435e26d861bd437419168557c36eca0cf0430342b",
+              "size_bytes": 711
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "limitations": [
+    "Burundi 缓存目录存在与越南范围相同的空几何/错配快照，未纳入正式 AOI。",
+    "非 Caracas AOI 当前没有独立 Microsoft 道路参考源，因此 C06 只做源可用性审计，不伪造质量门失败重复。"
+  ]
+}

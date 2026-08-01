@@ -32,10 +32,7 @@ def test_building_contract_tracks_height_completeness() -> None:
     assert contract.field_null_rate_thresholds["Height"] == 0.50
 
 
-def test_contract_applies_source_expected_null_rate_as_threshold_override() -> None:
-    contract = get_domain_output_contract(
-        TaskKind.road,
-        source_expected_null_rates={"name": 0.95},
-    )
+def test_contract_thresholds_are_owned_by_the_frozen_kg_contract() -> None:
+    contract = get_domain_output_contract(TaskKind.road)
 
-    assert contract.field_null_rate_thresholds["name"] == 0.95
+    assert contract.field_null_rate_thresholds["name"] == 0.80

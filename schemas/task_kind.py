@@ -2,6 +2,8 @@ from __future__ import annotations
 
 from enum import Enum
 
+from kg.knowledge_release import KnowledgeReleaseError
+from kg.policy_registry import KnowledgePolicyRegistry, default_policy_registry
 from schemas.fusion import JobType
 
 
@@ -13,106 +15,51 @@ class TaskKind(str, Enum):
     poi = "poi"
 
 
-FULL_DISASTER_TASK_KINDS: tuple[TaskKind, ...] = (
-    TaskKind.building,
-    TaskKind.road,
-    TaskKind.water_polygon,
-    TaskKind.waterways,
-    TaskKind.poi,
-)
+def _registry() -> KnowledgePolicyRegistry:
+    return default_policy_registry()
 
-_TASK_KIND_JOB_TYPES: dict[TaskKind, JobType] = {
-    TaskKind.building: JobType.building,
-    TaskKind.road: JobType.road,
-    TaskKind.water_polygon: JobType.water,
-    TaskKind.waterways: JobType.water,
-    TaskKind.poi: JobType.poi,
-}
 
-_TASK_KIND_FAMILIES: dict[TaskKind, str] = {
-    TaskKind.building: "building",
-    TaskKind.road: "road",
-    TaskKind.water_polygon: "water",
-    TaskKind.waterways: "water",
-    TaskKind.poi: "poi",
-}
+def _task_record(task_kind: TaskKind) -> dict[str, object]:
+    return _registry().task_record(task_kind.value)
 
-_TASK_KIND_OUTPUT_TYPES: dict[TaskKind, str] = {
-    TaskKind.building: "dt.building.fused",
-    TaskKind.road: "dt.road.fused",
-    TaskKind.water_polygon: "dt.water.fused",
-    TaskKind.waterways: "dt.waterways.fused",
-    TaskKind.poi: "dt.poi.fused",
-}
 
-# Compatibility bridge for the current KG vocabulary: water split task kinds still
-# target the existing flood/generic water patterns until KG pattern ids are generalized.
-_FLOOD_PATTERN_HINTS: dict[TaskKind, str] = {
-    TaskKind.building: "wp.flood.building.default",
-    TaskKind.road: "wp.flood.road.default",
-    TaskKind.water_polygon: "wp.flood.water_polygon.default",
-    TaskKind.waterways: "wp.flood.waterways.default",
-    TaskKind.poi: "wp.generic.poi.default",
-}
+def _default_disaster_task_kinds() -> tuple[TaskKind, ...]:
+    registry = _registry()
+    generic_disaster = registry.disaster_record("generic")
+    bundle_id = str(generic_disaster.get("default_task_bundle_id") or "").strip()
+    bundle = registry.task_bundle_record(bundle_id)
+    requested_tasks = bundle.get("requested_tasks")
+    if not isinstance(requested_tasks, list) or not requested_tasks:
+        raise KnowledgeReleaseError(f"Frozen TaskBundle {bundle_id!r} has no requested_tasks")
+    return tuple(
+        TaskKind(str(registry.task_record_by_id(str(task_id))["task_kind"]))
+        for task_id in requested_tasks
+    )
 
-_JOB_TYPE_TASK_KINDS: dict[JobType, tuple[TaskKind, ...]] = {
-    JobType.building: (TaskKind.building,),
-    JobType.road: (TaskKind.road,),
-    JobType.water: (TaskKind.water_polygon, TaskKind.waterways),
-    JobType.poi: (TaskKind.poi,),
-}
 
-_TASK_KIND_ALIASES: dict[str, tuple[TaskKind, ...]] = {
-    "building": (TaskKind.building,),
-    "buildings": (TaskKind.building,),
-    "road": (TaskKind.road,),
-    "roads": (TaskKind.road,),
-    "water": (TaskKind.water_polygon, TaskKind.waterways),
-    "water_polygon": (TaskKind.water_polygon,),
-    "water_polygons": (TaskKind.water_polygon,),
-    "waterbody": (TaskKind.water_polygon,),
-    "waterbodies": (TaskKind.water_polygon,),
-    "lake": (TaskKind.water_polygon,),
-    "lakes": (TaskKind.water_polygon,),
-    "waterways": (TaskKind.waterways,),
-    "waterway": (TaskKind.waterways,),
-    "river": (TaskKind.waterways,),
-    "rivers": (TaskKind.waterways,),
-    "stream": (TaskKind.waterways,),
-    "canal": (TaskKind.waterways,),
-    "poi": (TaskKind.poi,),
-    "pois": (TaskKind.poi,),
-    "point_of_interest": (TaskKind.poi,),
-    "points_of_interest": (TaskKind.poi,),
-}
+FULL_DISASTER_TASK_KINDS: tuple[TaskKind, ...] = _default_disaster_task_kinds()
 
 
 def task_kind_to_job_type(task_kind: TaskKind) -> JobType:
-    return _TASK_KIND_JOB_TYPES[task_kind]
+    return JobType(str(_task_record(task_kind)["job_type"]))
 
 
 def task_kind_family(task_kind: TaskKind) -> str:
-    return _TASK_KIND_FAMILIES[task_kind]
+    return str(_task_record(task_kind)["family"])
 
 
 def task_kind_output_type(task_kind: TaskKind) -> str:
-    return _TASK_KIND_OUTPUT_TYPES[task_kind]
+    return str(_task_record(task_kind)["output_data_type"])
 
 
 def task_kind_preferred_pattern_id(task_kind: TaskKind, disaster_type: str | None) -> str | None:
-    normalized = str(disaster_type or "").strip().casefold()
-    if normalized in {"flood", "heavy_rainfall", "heavy rainfall", "rainstorm"}:
-        return _FLOOD_PATTERN_HINTS.get(task_kind)
-    if task_kind in {TaskKind.water_polygon, TaskKind.waterways}:
-        return _FLOOD_PATTERN_HINTS[task_kind]
-    return None
+    value = _task_record(task_kind).get("preferred_pattern_id")
+    return str(value) if value else None
 
 
 def expand_job_type_to_task_kinds(job_type: JobType) -> list[TaskKind]:
-    return list(_JOB_TYPE_TASK_KINDS[job_type])
+    return [TaskKind(value) for value in _registry().task_kinds_for_job_type(job_type.value)]
 
 
 def normalize_task_kind(value: object) -> list[TaskKind]:
-    token = str(value or "").strip().casefold().replace(" ", "_")
-    token = token.replace("-", "_")
-    return list(_TASK_KIND_ALIASES.get(token, ()))
+    return [TaskKind(item) for item in _registry().task_kinds_for_alias(value)]

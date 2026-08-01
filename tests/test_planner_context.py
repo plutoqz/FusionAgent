@@ -141,8 +141,21 @@ def test_planner_builds_stable_context_fields() -> None:
     plan = planner.create_plan(run_id="run-ctx", job_type=JobType.building, trigger=trigger)
 
     assert provider.last_context is not None
-    assert set(provider.last_context.keys()) == {"intent", "retrieval", "constraints", "execution_hints"}
-    assert set(plan.context.keys()) >= {"intent", "retrieval", "selection_reason", "llm_provider", "plan_revision"}
+    assert set(provider.last_context.keys()) == {
+        "knowledge_identity",
+        "intent",
+        "retrieval",
+        "constraints",
+        "execution_hints",
+    }
+    assert set(plan.context.keys()) >= {
+        "knowledge_identity",
+        "intent",
+        "retrieval",
+        "selection_reason",
+        "llm_provider",
+        "plan_revision",
+    }
     assert plan.context["plan_revision"] == 1
     assert plan.context["llm_provider"] == "capturing"
     assert plan.context["planning_source"] == "llm"
@@ -726,8 +739,8 @@ def test_planner_context_uses_effective_profile_task_bundle_for_flood_road() -> 
 
     assert provider.last_context is not None
     assert provider.last_context["intent"]["effective_scenario_profile_id"] == "scenario.flood.default"
-    assert provider.last_context["intent"]["task_bundle"]["bundle_id"] == "task_bundle.flood.building_road"
-    assert plan.context["intent"]["task_bundle"]["bundle_id"] == "task_bundle.flood.building_road"
+    assert provider.last_context["intent"]["task_bundle"]["bundle_id"] == "task_bundle.flood.emergency_vector"
+    assert plan.context["intent"]["task_bundle"]["bundle_id"] == "task_bundle.flood.emergency_vector"
 
 
 def test_planner_context_exposes_durable_learning_summaries() -> None:

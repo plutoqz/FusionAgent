@@ -15,39 +15,24 @@ import geopandas as gpd
 from shapely.geometry import box
 from shapely.ops import unary_union
 
+from kg.knowledge_release import KnowledgeReleaseError
+from kg.policy_registry import default_policy_registry
 from services.scenario_trigger_normalizer import normalize_scenario_trigger_text
 from utils.vector_clip import REQUEST_BBOX_CRS, filter_frame_to_intersecting_geometry, frame_bbox_in_crs
 
 
-_DISASTER_TERMS = (
-    "volcanic eruption",
-    "civil unrest",
-    "flash flood",
-    "heat wave",
-    "earthquake",
-    "hurricane",
-    "landslide",
-    "emergency",
-    "aftershock",
-    "pandemic",
-    "violence",
-    "wildfire",
-    "epidemic",
-    "outbreak",
-    "conflict",
-    "disaster",
-    "cyclone",
-    "typhoon",
-    "drought",
-    "tsunami",
-    "mudslide",
-    "heatwave",
-    "crisis",
-    "storm",
-    "flood",
-    "fire",
-    "war",
-)
+_POLICY_REGISTRY = default_policy_registry()
+_AOI_POLICY = _POLICY_REGISTRY.aoi_resolution_policy()
+
+
+def _policy_string_list(key: str) -> tuple[str, ...]:
+    values = _AOI_POLICY.get(key)
+    if not isinstance(values, list) or not values:
+        raise KnowledgeReleaseError(f"aoi_resolution_policy.{key} must be a non-empty list")
+    return tuple(str(item) for item in values)
+
+
+_DISASTER_TERMS = tuple(_POLICY_REGISTRY.aoi_disaster_terms())
 _DISASTER_TERM_PATTERN = "|".join(
     re.escape(term).replace(r"\ ", r"\s+") for term in _DISASTER_TERMS
 )
@@ -76,73 +61,21 @@ _NEED_SUFFIX_RE = re.compile(
     flags=re.IGNORECASE,
 )
 
-_ADMIN_UNIT_PREFIXES = (
-    "arrondissement",
-    "municipality",
-    "freguesia",
-    "municipio",
-    "parroquia",
-    "district",
-    "distrito",
-    "quartier",
-    "commune",
-    "comuna",
-    "bairro",
-    "barangay",
-    "sector",
-    "ward",
-)
+_ADMIN_UNIT_PREFIXES = _policy_string_list("admin_unit_prefixes")
 _ADMIN_UNIT_PREFIX_RE = re.compile(
     r"^\s*(?P<kind>"
     + "|".join(re.escape(term) for term in sorted(set(_ADMIN_UNIT_PREFIXES), key=len, reverse=True))
     + r")\s+(?:(?:de|do|da|del|das|dos|du|des|d')\s+)?(?P<name>.+?)\s*$",
     flags=re.IGNORECASE,
 )
-_ADMIN_TRAILING_QUALIFIER_KEYS = {
-    "cercado",
-    "centro",
-    "central",
-    "historico",
-    "historica",
-    "historical",
-    "historic",
-    "urbano",
-    "urbana",
-}
+_ADMIN_TRAILING_QUALIFIER_KEYS = set(_policy_string_list("admin_trailing_qualifiers"))
 _ADMIN_KIND_SUFFIX_ALIASES = {
-    "quartier": "Quarter",
+    str(key): str(value)
+    for key, value in dict(_AOI_POLICY.get("admin_kind_suffix_aliases") or {}).items()
 }
-_AREA_CANDIDATE_CATEGORIES = {"boundary", "place"}
-_AREA_CANDIDATE_TYPES = {
-    "administrative",
-    "borough",
-    "city",
-    "city_district",
-    "commune",
-    "county",
-    "district",
-    "hamlet",
-    "municipality",
-    "neighbourhood",
-    "quarter",
-    "state",
-    "suburb",
-    "town",
-    "village",
-    "ward",
-}
-_AREA_ADDRESS_KEYS = (
-    "neighbourhood",
-    "suburb",
-    "city_district",
-    "district",
-    "borough",
-    "quarter",
-    "city",
-    "county",
-    "state",
-    "country",
-)
+_AREA_CANDIDATE_CATEGORIES = set(_policy_string_list("area_candidate_categories"))
+_AREA_CANDIDATE_TYPES = set(_policy_string_list("area_candidate_types"))
+_AREA_ADDRESS_KEYS = _policy_string_list("area_address_keys")
 
 
 def _clean_location_phrase(value: str) -> str:

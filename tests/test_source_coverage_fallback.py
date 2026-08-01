@@ -150,22 +150,23 @@ def test_building_catalog_records_google_attempt_but_keeps_missing_microsoft_deg
         },
     )
 
-    bundle = provider.materialize_with_fallback(
-        source_id="catalog.earthquake.building",
-        request_bbox=(2.48, 9.23, 2.77, 9.44),
-        resolved_aoi=_make_resolved_aoi("Parakou, Benin"),
-        target_dir=tmp_path / "bundle",
-        target_crs="EPSG:32631",
-    )
+    with pytest.raises(BundleMaterializationError) as exc_info:
+        provider.materialize_with_fallback(
+            source_id="catalog.earthquake.building",
+            request_bbox=(2.48, 9.23, 2.77, 9.44),
+            resolved_aoi=_make_resolved_aoi("Parakou, Benin"),
+            target_dir=tmp_path / "bundle",
+            target_crs="EPSG:32631",
+        )
 
     assert "raw.google.building" in provider.raw_source_service.resolved_source_ids
     assert "raw.microsoft.building" in provider.raw_source_service.resolved_source_ids
-    assert bundle.component_coverage["raw.google.building"].feature_count == 8
-    assert bundle.component_coverage["raw.microsoft.building"].feature_count == 0
-    assert bundle.component_coverage["raw.microsoft.building"].coverage_status == "coverage_empty"
+    assert exc_info.value.component_coverage["raw.google.building"].feature_count == 8
+    assert exc_info.value.component_coverage["raw.microsoft.building"].feature_count == 0
+    assert exc_info.value.component_coverage["raw.microsoft.building"].coverage_status == "coverage_empty"
     assert any(
         attempt["source_id"] == "raw.microsoft.building" and attempt["status"] == "empty"
-        for attempt in bundle.provider_attempts
+        for attempt in exc_info.value.provider_attempts
     )
 
 
@@ -183,16 +184,17 @@ def test_google_unconfigured_is_awaiting_config(tmp_path):
         },
     )
 
-    bundle = provider.materialize_with_fallback(
-        source_id="catalog.flood.building",
-        request_bbox=(2.48, 9.23, 2.77, 9.44),
-        resolved_aoi=_make_resolved_aoi("Parakou, Benin"),
-        target_dir=tmp_path / "building-google-unconfigured",
-        target_crs="EPSG:32631",
-    )
+    with pytest.raises(BundleMaterializationError) as exc_info:
+        provider.materialize_with_fallback(
+            source_id="catalog.flood.building",
+            request_bbox=(2.48, 9.23, 2.77, 9.44),
+            resolved_aoi=_make_resolved_aoi("Parakou, Benin"),
+            target_dir=tmp_path / "building-google-unconfigured",
+            target_crs="EPSG:32631",
+        )
 
-    google = bundle.component_coverage["raw.google.building"]
-    attempts = {attempt["source_id"]: attempt for attempt in bundle.provider_attempts}
+    google = exc_info.value.component_coverage["raw.google.building"]
+    attempts = {attempt["source_id"]: attempt for attempt in exc_info.value.provider_attempts}
 
     assert google.coverage_status == "awaiting_external_config"
     assert google.source_mode == "awaiting_external_config"
@@ -223,11 +225,9 @@ def test_building_catalog_records_full_task6_candidate_attempts_without_task7_ro
     )
 
     assert [attempt["source_id"] for attempt in bundle.provider_attempts] == [
-        "raw.google.building",
-        "raw.microsoft.building",
         "raw.osm.building",
-        "raw.osm.road",
-        "raw.openbuildingmap.building",
+        "raw.microsoft.building",
+        "raw.google.building",
     ]
     assert bundle.osm_zip_path.name == "osm.zip"
     assert bundle.ref_zip_path.name == "ref.zip"
@@ -235,10 +235,8 @@ def test_building_catalog_records_full_task6_candidate_attempts_without_task7_ro
         "raw.google.building",
         "raw.microsoft.building",
         "raw.osm.building",
-        "raw.osm.road",
-        "raw.openbuildingmap.building",
     }
-    assert [attempt["attempt_no"] for attempt in bundle.provider_attempts] == [1, 2, 3, 4, 5]
+    assert [attempt["attempt_no"] for attempt in bundle.provider_attempts] == [1, 2, 3]
 
 
 def test_water_catalog_accepts_empty_reference_when_osm_has_coverage(tmp_path):
@@ -399,19 +397,15 @@ def test_water_catalog_records_task6_polygon_and_line_attempts(tmp_path):
     assert [attempt["source_id"] for attempt in bundle.provider_attempts] == [
         "raw.osm.water",
         "raw.hydrolakes.water",
-        "raw.osm.waterways",
-        "raw.hydrorivers.water",
     ]
     assert set(bundle.component_coverage) >= {
         "raw.osm.water",
         "raw.hydrolakes.water",
-        "raw.osm.waterways",
-        "raw.hydrorivers.water",
     }
-    assert [attempt["attempt_no"] for attempt in bundle.provider_attempts] == [1, 2, 3, 4]
+    assert [attempt["attempt_no"] for attempt in bundle.provider_attempts] == [1, 2]
 
 
-def test_waterways_catalog_records_task6_line_and_polygon_attempts_with_fallback_preserved(tmp_path):
+def test_waterways_catalog_rejects_empty_strict_line_closure_without_polygon_fallback(tmp_path):
     provider = _make_provider_with_component_counts(
         tmp_path,
         counts={
@@ -422,26 +416,24 @@ def test_waterways_catalog_records_task6_line_and_polygon_attempts_with_fallback
         },
     )
 
-    bundle = provider.materialize_with_fallback(
-        source_id="catalog.flood.waterways",
-        request_bbox=(36.66, -1.44, 37.10, -1.16),
-        resolved_aoi=_make_resolved_aoi("Nairobi, Kenya", country_name="Kenya", country_code="ke"),
-        target_dir=tmp_path / "waterways-bundle-full",
-        target_crs="EPSG:32737",
-    )
+    with pytest.raises(BundleMaterializationError) as exc_info:
+        provider.materialize_with_fallback(
+            source_id="catalog.flood.waterways",
+            request_bbox=(36.66, -1.44, 37.10, -1.16),
+            resolved_aoi=_make_resolved_aoi("Nairobi, Kenya", country_name="Kenya", country_code="ke"),
+            target_dir=tmp_path / "waterways-bundle-full",
+            target_crs="EPSG:32737",
+        )
 
-    assert [attempt["source_id"] for attempt in bundle.provider_attempts][:4] == [
+    assert [attempt["source_id"] for attempt in exc_info.value.provider_attempts] == [
         "raw.osm.waterways",
         "raw.hydrorivers.water",
-        "raw.osm.water",
-        "raw.hydrolakes.water",
+        "raw.local.pakistan.waterways",
     ]
-    assert bundle.source_id in {"catalog.flood.waterways", "catalog.flood.water"}
-    assert set(bundle.component_coverage) >= {
+    assert set(exc_info.value.component_coverage) == {
         "raw.osm.waterways",
         "raw.hydrorivers.water",
-        "raw.osm.water",
-        "raw.hydrolakes.water",
+        "raw.local.pakistan.waterways",
     }
 
 
@@ -492,18 +484,16 @@ def test_policy_candidate_value_error_is_recorded_and_later_candidates_continue(
     )
 
     assert provider.raw_source_service.resolved_source_ids == [
-        "raw.google.building",
-        "raw.microsoft.building",
         "raw.osm.building",
+        "raw.microsoft.building",
+        "raw.google.building",
     ]
     attempts = {attempt["source_id"]: attempt for attempt in bundle.provider_attempts}
-    assert attempts["raw.google.building"]["status"] == "provider_failed"
-    assert attempts["raw.google.building"]["fault_class"] == "PROVIDER_UNAVAILABLE"
+    assert attempts["raw.google.building"]["status"] == "internal_failed"
+    assert attempts["raw.google.building"]["fault_class"] == "UNKNOWN_FAILURE"
     assert attempts["raw.microsoft.building"]["status"] == "available"
     assert attempts["raw.osm.building"]["status"] == "available"
-    assert attempts["raw.osm.road"]["coverage_status"] == "not_attempted"
-    assert attempts["raw.openbuildingmap.building"]["coverage_status"] == "not_attempted"
-    assert [attempt["attempt_no"] for attempt in bundle.provider_attempts] == [1, 2, 3, 4, 5]
+    assert [attempt["attempt_no"] for attempt in bundle.provider_attempts] == [1, 2, 3]
 
 
 def test_road_catalog_accepts_missing_microsoft_reference_when_osm_has_coverage(tmp_path):

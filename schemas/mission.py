@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import List, Optional
+from typing import Dict, List, Optional
 
 from pydantic import BaseModel, Field
 
@@ -24,6 +24,9 @@ class MissionTaskSpec(BaseModel):
 
 class MissionSpec(BaseModel):
     scope_source: str
+    task_bundle_id: Optional[str] = None
     child_tasks: List[MissionTaskSpec] = Field(default_factory=list)
     task_families: List[str] = Field(default_factory=list)
     unsupported_layers: List[str] = Field(default_factory=list)
+    knowledge_identity: Dict[str, str] = Field(default_factory=dict)
+    knowledge_refs: List[str] = Field(default_factory=list)

@@ -99,7 +99,7 @@ def test_trigger_event_without_requested_layers_compiles_default_disaster_bundle
     mission = compile_scenario_mission(request)
 
     assert request.metadata["requested_layers_present"] is False
-    assert mission.scope_source == "default_disaster_bundle"
+    assert mission.scope_source == "kg_disaster_task_bundle"
     assert [task.task_kind for task in mission.child_tasks] == [
         TaskKind.building,
         TaskKind.road,

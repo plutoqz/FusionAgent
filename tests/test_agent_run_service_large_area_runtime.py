@@ -456,10 +456,14 @@ def test_large_area_waterways_fails_before_execution_when_line_sources_are_missi
     )
 
     assert result.can_execute is False
-    assert result.failure_reason == "no_line_source_available"
+    assert result.failure_reason == "required_kg_source_role_missing"
+    assert result.missing_sources == [
+        "base_waterway_line=>raw.osm.waterways",
+        "reference_river_line=>raw.hydrorivers.water",
+    ]
 
 
-def test_large_area_waterways_missing_sources_omit_hydrorivers_when_local_supplement_exists(
+def test_large_area_waterways_local_supplement_cannot_replace_required_kg_roles(
     tmp_path: Path,
 ) -> None:
     service = AgentRunService(base_dir=tmp_path / "runs", max_workers=1)
@@ -481,8 +485,11 @@ def test_large_area_waterways_missing_sources_omit_hydrorivers_when_local_supple
     )
 
     assert result.can_execute is False
-    assert result.failure_reason == "no_line_source_available"
-    assert result.missing_sources == ["raw.osm.waterways"]
+    assert result.failure_reason == "required_kg_source_role_missing"
+    assert result.missing_sources == [
+        "base_waterway_line=>raw.osm.waterways",
+        "reference_river_line=>raw.hydrorivers.water",
+    ]
 
 
 def test_large_area_waterways_missing_sources_report_supplement_alternatives_when_both_are_missing(
@@ -507,8 +514,10 @@ def test_large_area_waterways_missing_sources_report_supplement_alternatives_whe
     )
 
     assert result.can_execute is False
-    assert result.failure_reason == "no_line_source_available"
-    assert result.missing_sources == ["raw.hydrorivers.water|raw.local.pakistan.waterways"]
+    assert result.failure_reason == "required_kg_source_role_missing"
+    assert result.missing_sources == [
+        "reference_river_line=>raw.hydrorivers.water"
+    ]
 
 
 def test_poi_task_driven_run_uses_osm_and_gns_large_area_runtime(tmp_path: Path, monkeypatch) -> None:

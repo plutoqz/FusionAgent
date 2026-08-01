@@ -15,6 +15,7 @@ from schemas.failure_taxonomy import classify_failure_category, classify_failure
         ("CRS mismatch between EPSG:4326 and EPSG:32631", "CRS_MISMATCH"),
         ("PARAM_OUT_OF_RANGE", "PARAM_OUT_OF_RANGE"),
         ("TimeoutError: algorithm execution timed out after 30s", "ALGO_TIMEOUT"),
+        ("SOURCE_DOWNLOAD_FAILED: input acquisition timed out", "SOURCE_DOWNLOAD_FAILED"),
         ("suspect output: semantically empty geometry collection", "SUSPECT_OUTPUT"),
         ("RuntimeError: primary execution failed", "ALGO_RUNTIME_ERROR"),
     ],

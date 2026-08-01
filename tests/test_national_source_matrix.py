@@ -26,7 +26,7 @@ def test_national_source_matrix_locks_track_b_first_batch_sources() -> None:
     ]
     assert payload["bundle_targets"]["road"]["minimum_sources"] == [
         "raw.osm.road",
-        "raw.overture.transportation",
+        "raw.microsoft.road",
     ]
     assert payload["bundle_targets"]["water"]["line_sources"] == [
         "raw.osm.waterways",
@@ -46,7 +46,7 @@ def test_national_source_matrix_locks_track_b_first_batch_sources() -> None:
     assert building["raw.google.building"]["source_mode"] == "manual_preload_required"
     assert building["raw.local.microsoft.building"]["claim_boundary"] == "local_reference_only"
 
-    assert road["raw.overture.transportation"]["delivery_stage"] == "next_implementation"
+    assert road["raw.overture.transportation"]["delivery_stage"] == "reservation_only"
     assert road["raw.overture.transportation"]["field_mapping_profile"] == "road.line.v1"
 
     assert water["raw.hydrorivers.water"]["delivery_stage"] == "next_implementation"
@@ -63,11 +63,11 @@ def test_national_source_matrix_locks_track_b_first_batch_sources() -> None:
     assert "poi.point.v1" in payload["field_mapping_profiles"]
 
 
-def test_national_source_matrix_is_registered_in_live_specs_index() -> None:
+def test_national_source_matrix_directory_is_governed_as_compatibility_history() -> None:
     readme = Path("docs/superpowers/specs/README.md").read_text(encoding="utf-8")
 
-    assert "2026-05-18-national-source-matrix.md" in readme
-    assert "2026-05-18-national-source-matrix.json" in readme
+    assert "兼容与历史集合" in readme
+    assert "docs/current/project-status.md" in readme
 
 
 def test_geonames_alias_is_documented_as_gns_poi_alias() -> None:

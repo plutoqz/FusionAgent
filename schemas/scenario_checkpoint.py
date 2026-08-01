@@ -19,7 +19,9 @@ class ScenarioCheckpointChildSpec(BaseModel):
     task_family: str | None = None
     preferred_pattern_id: str | None = None
     output_data_type: str | None = None
+    product_contract_id: str | None = None
     provisional_when_degraded: bool = False
+    final_output_may_supersede_provisional: bool = False
 
 
 class ScenarioCheckpointChildRun(BaseModel):

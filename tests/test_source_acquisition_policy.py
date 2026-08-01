@@ -25,15 +25,15 @@ def test_failed_attempt_records_recoverable_retry_metadata() -> None:
     )
 
     assert attempt["source_id"] == "catalog.flood.water"
-    assert attempt["status"] == "failed"
+    assert attempt["status"] == "network_failed"
     assert attempt["recoverable"] is True
     assert attempt["next_retry_after_seconds"] == 60
     assert attempt["channel"] == "provider"
 
 
 def test_source_fallback_candidates_are_source_specific() -> None:
-    assert source_fallback_candidates("catalog.earthquake.building") == ["catalog.flood.building"]
-    assert source_fallback_candidates("catalog.flood.waterways") == ["catalog.flood.water"]
+    assert source_fallback_candidates("catalog.earthquake.building") == []
+    assert source_fallback_candidates("catalog.flood.waterways") == []
     assert source_fallback_candidates("catalog.generic.poi") == []
 
 

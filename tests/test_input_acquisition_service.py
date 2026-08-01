@@ -9,7 +9,15 @@ import pytest
 from shapely.geometry import Polygon
 
 from schemas.agent import RunCreateRequest, RunInputStrategy, RunTrigger, RunTriggerType
+from schemas.data_requirement import (
+    BundleSlot,
+    CompletenessPolicy,
+    DataRequirementPlan,
+    SourceCandidate,
+    SourceRoleRequirement,
+)
 from schemas.fusion import JobType
+from schemas.task_kind import TaskKind
 from services.aoi_resolution_service import ResolvedAOI
 from services.artifact_registry import ArtifactLookupRequest, ArtifactRecord, ArtifactRegistry
 from utils.shp_zip import zip_shapefile_bundle
@@ -59,6 +67,43 @@ class _StubBundleProvider:
             osm_zip_path=zip_shapefile_bundle(osm_shp, target_dir / "osm.zip"),
             ref_zip_path=zip_shapefile_bundle(ref_shp, target_dir / "ref.zip"),
             bbox=(0.0, 0.0, 10.0, 10.0),
+            target_crs=target_crs,
+        )
+
+
+class _RequirementAwareBundleProvider(_StubBundleProvider):
+    def __init__(self, *, version_token: str) -> None:
+        super().__init__(version_token=version_token)
+        self.materialized_requirements: list[DataRequirementPlan | None] = []
+
+    def current_version(
+        self,
+        source_id: str,
+        *,
+        request_bbox=None,
+        resolved_aoi=None,
+        data_requirements: DataRequirementPlan | None = None,
+    ) -> str:
+        del request_bbox, resolved_aoi, data_requirements
+        assert self.can_handle(source_id)
+        return self.version_token
+
+    def materialize(
+        self,
+        *,
+        source_id: str,
+        request_bbox,
+        resolved_aoi=None,
+        target_dir: Path,
+        target_crs: str,
+        data_requirements: DataRequirementPlan | None = None,
+    ):
+        del resolved_aoi
+        self.materialized_requirements.append(data_requirements)
+        return super().materialize(
+            source_id=source_id,
+            request_bbox=request_bbox,
+            target_dir=target_dir,
             target_crs=target_crs,
         )
 
@@ -388,6 +433,39 @@ def _build_request(
         field_mapping={},
         debug=False,
         input_strategy=RunInputStrategy.task_driven_auto,
+    )
+
+
+def _building_data_requirements(*, workflow_id: str, priority: int = 10) -> DataRequirementPlan:
+    return DataRequirementPlan(
+        task_kind=TaskKind.building,
+        task_family="building",
+        algorithm_id="algo.building.fusion",
+        output_data_type="dt.building.bundle",
+        roles=[
+            SourceRoleRequirement(
+                role_id="primary_footprint",
+                required=True,
+                bundle_slot=BundleSlot.primary,
+                geometry_types=["Polygon", "MultiPolygon"],
+                completeness_policy=CompletenessPolicy.required_non_empty,
+                candidates=[
+                    SourceCandidate(
+                        source_id="raw.osm.building",
+                        provider_family="osm",
+                        priority=priority,
+                    )
+                ],
+            )
+        ],
+        evidence={
+            "workflow_id": workflow_id,
+            "basis": "frozen_kg_source_role_policy",
+            "knowledge_identity": {
+                "release_id": "fusionagent-kg-test",
+                "semantic_hash": "sha256:" + "c" * 64,
+            },
+        },
     )
 
 
@@ -835,7 +913,7 @@ def test_input_acquisition_manifest_records_provider_attempts_and_component_cove
 
     assert resolved.manifest_path is not None
     manifest = json.loads(resolved.manifest_path.read_text(encoding="utf-8"))
-    assert manifest["manifest_version"] == 2
+    assert manifest["manifest_version"] == 3
     assert manifest["artifact_role"] == "input_bundle"
     assert manifest["selected_source_id"] == "catalog.flood.building"
     assert manifest["component_coverage"]["raw.osm.building"]["coverage_status"] == "available"
@@ -1050,7 +1128,7 @@ def test_input_acquisition_writes_manifest_for_failed_provider(tmp_path: Path) -
         )
 
     manifest = json.loads((tmp_path / "run" / "source_materialization_manifest.json").read_text(encoding="utf-8"))
-    assert manifest["manifest_version"] == 2
+    assert manifest["manifest_version"] == 3
     assert manifest["artifact_role"] == "input_bundle"
     assert manifest["source_id"] == "catalog.flood.water"
     assert manifest["source_mode"] == "failed"
@@ -1058,12 +1136,12 @@ def test_input_acquisition_writes_manifest_for_failed_provider(tmp_path: Path) -
     assert manifest["source_attempts_path"] == "source_attempts.json"
     source_attempts = json.loads((tmp_path / "run" / "source_attempts.json").read_text(encoding="utf-8"))
     assert source_attempts["coverage_state"] == "missing"
-    assert source_attempts["attempts"][0]["status"] == "provider_failed"
+    assert source_attempts["attempts"][0]["status"] == "no_coverage"
     assert manifest["fault"]["fault_class"] == "SOURCE_MISSING"
     assert manifest["fault"]["recoverable"] is True
     attempt = manifest["provider_attempts"][0]
     assert attempt["source_id"] == "catalog.flood.water"
-    assert attempt["status"] == "failed"
+    assert attempt["status"] == "no_coverage"
     assert attempt["fault_class"] == "SOURCE_MISSING"
     assert attempt["recoverable"] is True
     assert attempt["next_retry_after_seconds"] == 30
@@ -1079,7 +1157,7 @@ def test_input_acquisition_failed_provider_preserves_component_evidence(tmp_path
         cache_dir=tmp_path / "cache",
     )
 
-    with pytest.raises(ValueError, match="SOURCE_MISSING"):
+    with pytest.raises(ValueError, match="NO_OFFICIAL_COVERAGE"):
         service.resolve_task_driven_inputs(
             request=_build_request(job_type=JobType.water, content="need water data"),
             source_id="catalog.flood.water",
@@ -1124,3 +1202,73 @@ def test_input_acquisition_failed_provider_records_external_normalized_source_at
     }
     manifest = json.loads((tmp_path / "run" / "source_materialization_manifest.json").read_text(encoding="utf-8"))
     assert manifest["degradation"] == source_attempts["degradation"]
+
+
+def test_data_requirement_hash_is_stable_and_isolates_cache_by_semantics(tmp_path: Path) -> None:
+    from services.input_acquisition_service import InputAcquisitionService
+
+    registry = ArtifactRegistry(index_path=tmp_path / "artifact_registry.json")
+    provider = _RequirementAwareBundleProvider(version_token="requirement-aware-v1")
+    service = InputAcquisitionService(
+        registry=registry,
+        providers=[provider],
+        cache_dir=tmp_path / "cache",
+    )
+    request = _build_request()
+
+    first = service.resolve_task_driven_inputs(
+        request=request,
+        source_id="catalog.task.building.default",
+        required_output_type="dt.building.bundle",
+        input_dir=tmp_path / "run-1",
+        data_requirements=_building_data_requirements(workflow_id="workflow-1"),
+    )
+    same_semantics = service.resolve_task_driven_inputs(
+        request=request,
+        source_id="catalog.task.building.default",
+        required_output_type="dt.building.bundle",
+        input_dir=tmp_path / "run-2",
+        data_requirements=_building_data_requirements(workflow_id="workflow-2"),
+    )
+    changed_priority = service.resolve_task_driven_inputs(
+        request=request,
+        source_id="catalog.task.building.default",
+        required_output_type="dt.building.bundle",
+        input_dir=tmp_path / "run-3",
+        data_requirements=_building_data_requirements(workflow_id="workflow-3", priority=20),
+    )
+
+    first_manifest = json.loads(first.manifest_path.read_text(encoding="utf-8"))
+    same_manifest = json.loads(same_semantics.manifest_path.read_text(encoding="utf-8"))
+    changed_manifest = json.loads(changed_priority.manifest_path.read_text(encoding="utf-8"))
+    assert first_manifest["data_requirement_hash"] == same_manifest["data_requirement_hash"]
+    assert changed_manifest["data_requirement_hash"] != first_manifest["data_requirement_hash"]
+    assert same_semantics.cache_hit is True
+    assert changed_priority.cache_hit is False
+    assert provider.download_calls == 2
+    assert provider.materialized_requirements[0].evidence["workflow_id"] == "workflow-1"
+    assert provider.materialized_requirements[1].roles[0].candidates[0].priority == 20
+
+
+def test_input_acquisition_does_not_drop_kg_plan_for_legacy_provider_signature(
+    tmp_path: Path,
+) -> None:
+    from services.input_acquisition_service import InputAcquisitionService
+
+    provider = _StubBundleProvider(version_token="legacy-v1")
+    service = InputAcquisitionService(
+        registry=ArtifactRegistry(index_path=tmp_path / "artifact_registry.json"),
+        providers=[provider],
+        cache_dir=tmp_path / "cache",
+    )
+
+    with pytest.raises(TypeError, match="unexpected keyword argument"):
+        service.resolve_task_driven_inputs(
+            request=_build_request(),
+            source_id="catalog.task.building.default",
+            required_output_type="dt.building.bundle",
+            input_dir=tmp_path / "run",
+            data_requirements=_building_data_requirements(workflow_id="workflow-strict"),
+        )
+
+    assert provider.download_calls == 0

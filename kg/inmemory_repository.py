@@ -1,8 +1,10 @@
 from __future__ import annotations
 
+import dataclasses
 from collections import deque
+from enum import Enum
 from pathlib import Path
-from typing import Dict, List, Optional, Set
+from typing import Any, Dict, List, Optional, Set
 
 from schemas.fusion import JobType
 
@@ -13,6 +15,7 @@ from kg.models import (
     DataSourceNode,
     DataNeedNode,
     DurableLearningRecord,
+    DurableLearningSummary,
     ExecutionFeedback,
     KGContext,
     OutputSchemaPolicy,
@@ -24,6 +27,13 @@ from kg.models import (
     TaskBundleNode,
     TaskNode,
     WorkflowPatternNode,
+)
+from kg.knowledge_release import (
+    DEFAULT_ENTITIES_PATH,
+    KnowledgeReleaseError,
+    get_knowledge_identity,
+    semantic_hash,
+    sha256_file,
 )
 from kg.repository import KGRepository
 from kg.seed_provider import load_seed_data
@@ -48,7 +58,24 @@ class InMemoryKGRepository(KGRepository):
         data_needs: Optional[List[DataNeedNode]] = None,
         repair_strategies: Optional[Dict[str, RepairStrategyNode]] = None,
         seed_manifest_path: Optional[Path] = None,
+        experience_policy: str = "adaptive",
+        knowledge_identity: Optional[Dict[str, str]] = None,
     ) -> None:
+        normalized_experience_policy = str(experience_policy).strip().lower()
+        if normalized_experience_policy not in {"adaptive", "pinned_snapshot"}:
+            raise ValueError(
+                "experience_policy must be 'adaptive' or 'pinned_snapshot', "
+                f"got {experience_policy!r}"
+            )
+        self.experience_policy = normalized_experience_policy
+        self._uses_frozen_release = (
+            seed_manifest_path is None
+            or Path(seed_manifest_path).resolve() == DEFAULT_ENTITIES_PATH.resolve()
+        )
+        self._knowledge_identity = self._resolve_knowledge_identity(
+            seed_manifest_path=seed_manifest_path,
+            knowledge_identity=knowledge_identity,
+        )
         seed_payload = load_seed_data(seed_manifest_path)
         self.algorithms = seed_payload["algorithms"] if algorithms is None else algorithms
         self.patterns = seed_payload["patterns"] if patterns is None else patterns
@@ -72,6 +99,63 @@ class InMemoryKGRepository(KGRepository):
         self._pattern_scores: Dict[str, float] = {}
         self._algorithm_scores: Dict[str, float] = {}
         self._data_source_scores: Dict[str, float] = {}
+        self._static_state_hash = self._compute_static_state_hash()
+
+    @staticmethod
+    def _resolve_knowledge_identity(
+        *,
+        seed_manifest_path: Optional[Path],
+        knowledge_identity: Optional[Dict[str, str]],
+    ) -> Dict[str, str]:
+        if knowledge_identity is not None:
+            return {str(key): str(value) for key, value in knowledge_identity.items()}
+        if seed_manifest_path is None or Path(seed_manifest_path).resolve() == DEFAULT_ENTITIES_PATH.resolve():
+            return get_knowledge_identity()
+
+        seed_path = Path(seed_manifest_path).resolve()
+        return {
+            "release_id": f"custom-seed:{seed_path.name}",
+            "ontology_version": "unversioned",
+            "knowledge_version": "unversioned",
+            "semantic_hash": sha256_file(seed_path),
+            "experience_snapshot_hash": "unversioned",
+        }
+
+    def get_knowledge_identity(self) -> Dict[str, str]:
+        return dict(self._knowledge_identity)
+
+    def _compute_static_state_hash(self) -> str:
+        return semantic_hash(
+            _to_plain(
+                {
+                    "algorithms": self.algorithms,
+                    "patterns": self.patterns,
+                    "can_transform_to": self.can_transform_to,
+                    "data_sources": self.data_sources,
+                    "data_types": self.data_types,
+                    "parameter_specs": self.parameter_specs,
+                    "output_schema_policies": self.output_schema_policies,
+                    "task_nodes": self.task_nodes,
+                    "scenario_profiles": self.scenario_profiles,
+                    "product_contracts": self.product_contracts,
+                    "task_bundles": self.task_bundles,
+                    "output_requirements": self.output_requirements,
+                    "qos_policies": self.qos_policies,
+                    "data_needs": self.data_needs,
+                    "repair_strategies": self.repair_strategies,
+                }
+            )
+        )
+
+    def validate_knowledge_state(self) -> None:
+        if self._uses_frozen_release and get_knowledge_identity() != self._knowledge_identity:
+            raise KnowledgeReleaseError(
+                "Frozen KG release identity changed after repository initialization"
+            )
+        if self._compute_static_state_hash() != self._static_state_hash:
+            raise KnowledgeReleaseError(
+                "In-memory frozen knowledge state drifted after repository initialization"
+            )
 
     def list_algorithms(self) -> List[AlgorithmNode]:
         return [self.algorithms[algo_id] for algo_id in sorted(self.algorithms)]
@@ -245,6 +329,8 @@ class InMemoryKGRepository(KGRepository):
 
     def record_execution_feedback(self, feedback: ExecutionFeedback) -> None:
         self.feedback_history.append(feedback)
+        if self.experience_policy == "pinned_snapshot":
+            return
         delta = 0.2 if feedback.success else -0.15
         if feedback.pattern_id:
             self._pattern_scores[feedback.pattern_id] = self._pattern_scores.get(feedback.pattern_id, 0.0) + delta
@@ -280,12 +366,29 @@ class InMemoryKGRepository(KGRepository):
     ) -> List[DurableLearningRecord]:
         if limit <= 0:
             return []
+        if self.experience_policy == "pinned_snapshot":
+            return []
         records = self.durable_learning_records
         if job_type is not None:
             records = [record for record in records if record.job_type == job_type]
         if success is not None:
             records = [record for record in records if record.success is success]
         return list(records[:limit])
+
+    def summarize_durable_learning_records(
+        self,
+        *,
+        job_type: Optional[JobType] = None,
+        disaster_type: Optional[str] = None,
+        limit: int = 5,
+    ) -> Dict[str, List[DurableLearningSummary]]:
+        if self.experience_policy == "pinned_snapshot":
+            return {"patterns": [], "algorithms": [], "data_sources": []}
+        return super().summarize_durable_learning_records(
+            job_type=job_type,
+            disaster_type=disaster_type,
+            limit=limit,
+        )
 
     def _collect_upstream_transform_types(self, target_types: Set[str], max_depth: int = 3) -> Set[str]:
         frontier = set(target_types)
@@ -304,6 +407,8 @@ class InMemoryKGRepository(KGRepository):
         return discovered
 
     def build_context(self, job_type: JobType, disaster_type: Optional[str]) -> KGContext:
+        if self.experience_policy == "pinned_snapshot":
+            self.validate_knowledge_state()
         patterns = self.get_candidate_patterns(job_type=job_type, disaster_type=disaster_type, limit=3)
         algo_ids = {step.algorithm_id for p in patterns for step in p.steps}
         algorithms = {aid: self.algorithms[aid] for aid in algo_ids if aid in self.algorithms}
@@ -344,7 +449,7 @@ class InMemoryKGRepository(KGRepository):
             algorithms=algorithms,
             data_types=self.list_data_types(),
             parameter_specs=parameter_specs,
-            data_sources=list(sources.values()),
+            data_sources=[sources[source_id] for source_id in sorted(sources)],
             output_schema_policies=output_schema_policies,
             durable_learning_summaries=self.summarize_durable_learning_records(
                 job_type=job_type,
@@ -361,3 +466,20 @@ class InMemoryKGRepository(KGRepository):
             repair_strategies=self.list_repair_strategies(),
             disaster_type=disaster_type,
         )
+
+
+def _to_plain(value: Any) -> Any:
+    if dataclasses.is_dataclass(value):
+        return _to_plain(dataclasses.asdict(value))
+    if isinstance(value, Enum):
+        return value.value
+    if isinstance(value, dict):
+        return {
+            str(key): _to_plain(item)
+            for key, item in sorted(value.items(), key=lambda pair: str(pair[0]))
+        }
+    if isinstance(value, (list, tuple)):
+        return [_to_plain(item) for item in value]
+    if isinstance(value, set):
+        return sorted(_to_plain(item) for item in value)
+    return value

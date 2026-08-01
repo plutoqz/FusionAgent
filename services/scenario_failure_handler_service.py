@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from schemas.failure_taxonomy import classify_failure_category
 from schemas.scenario_failure import ScenarioChildFailureRecord
 
 
@@ -59,17 +60,4 @@ def _attempted_sources(child_result: dict[str, object]) -> list[dict[str, object
 
 
 def _classify_child_error(error: object) -> str:
-    text = str(error or "").casefold()
-    if "child_run_timeout" in text:
-        return "CHILD_RUN_TIMEOUT"
-    if "aoi_resolution_required" in text:
-        return "AOI_RESOLUTION_REQUIRED"
-    if "aoi_resolution_failed" in text or "no aoi candidates" in text:
-        return "AOI_RESOLUTION_FAILED"
-    if "geocoder" in text and "timeout" in text:
-        return "GEOCODER_TIMEOUT"
-    if "source_download_failed" in text and "timeout" in text:
-        return "SOURCE_FETCH_TIMEOUT"
-    if "missing" in text and "source" in text:
-        return "MISSING_REQUIRED_SOURCE"
-    return "ALGO_RUNTIME_ERROR" if text else ""
+    return classify_failure_category(str(error or ""), scope="scenario_child")

@@ -24,7 +24,9 @@ import pandas as pd
 from shapely import wkt
 from shapely.geometry import shape
 
+from kg.policy_registry import KnowledgePolicyRegistry, default_policy_registry
 from kg.source_catalog import get_raw_vector_source_spec
+from schemas.failure_taxonomy import classify_failure_category
 from services.aoi_resolution_service import ResolvedAOI
 from utils.raster_cli import gdalinfo_json
 from utils.shp_zip import collect_bundle_files, safe_extract_zip
@@ -41,106 +43,16 @@ OVERTURE_DOWNLOAD_TIMEOUT_SECONDS = 600
 HTTP_DOWNLOAD_TIMEOUT_SECONDS = 120
 
 
-_GEOFABRIK_LAYER_NAMES = {
-    "raw.osm.building": "gis_osm_buildings_a_free_1.shp",
-    "raw.osm.road": "gis_osm_roads_free_1.shp",
-    "raw.osm.water": "gis_osm_water_a_free_1.shp",
-    "raw.osm.waterways": "gis_osm_waterways_free_1.shp",
-    "raw.osm.poi": "gis_osm_pois_free_1.shp",
-}
-
 _GEOFABRIK_COUNTRY_ALIASES = {
     "gb": {"great britain", "england", "scotland", "wales"},
     "uk": {"great britain", "england", "scotland", "wales"},
     "united kingdom": {"great britain", "england", "scotland", "wales"},
-}
-
-_LOCAL_SOURCE_CANDIDATES = {
-    "raw.osm.building": [
-        ("Data", "buildings", "OSM"),
-        ("Data", "burundi-260127-free.shp", "gis_osm_buildings_a_free_1.shp"),
-    ],
-    "raw.osm.road": [
-        ("Data", "roads", "OSM"),
-        ("Data", "burundi-260127-free.shp", "gis_osm_roads_free_1.shp"),
-    ],
-    "raw.overture.transportation": [
-        ("Data", "roads", "Overture"),
-    ],
-    "raw.overture.road": [
-        ("Data", "roads", "Overture"),
-    ],
-    "raw.osm.water": [
-        ("Data", "burundi-260127-free.shp", "gis_osm_water_a_free_1.shp"),
-    ],
-    "raw.osm.waterways": [
-        ("Data", "burundi-260127-free.shp", "gis_osm_waterways_free_1.shp"),
-    ],
-    "raw.local.pakistan.waterways": [
-        ("Data", "water", "Pakistan_Waterways_Data.shp"),
-        ("Data", "water"),
-    ],
-    "raw.local.water": [
-        ("Data", "water", "布隆迪湖泊.shp"),
-        ("Data", "water"),
-    ],
-    "raw.hydrorivers.water": [
-        ("Data", "water", "BDI.shp"),
-        ("Data", "water", "HydroRIVERS"),
-        ("Data", "water", "HydroRIVERS_v10.shp"),
-    ],
-    "raw.hydrolakes.water": [
-        ("Data", "water", "布隆迪湖泊.shp"),
-        ("Data", "water", "HydroLAKES"),
-        ("Data", "water", "HydroLAKES_polys_v10.shp"),
-    ],
-    "raw.osm.poi": [
-        ("Data", "POI"),
-        ("Data", "burundi-260127-free.shp", "gis_osm_pois_free_1.shp"),
-    ],
-    "raw.gns.poi": [
-        ("Data", "POI"),
-    ],
-    "raw.rh.poi": [
-        ("Data", "POI"),
-    ],
-    "raw.microsoft.building": [
-        ("Data", "buildings", "Microsoft"),
-    ],
-    "raw.google.building": [
-        ("Data", "buildings", "Google"),
-    ],
-}
-
-_REMOTELY_MATERIALIZABLE_SOURCE_IDS = {
-    "raw.osm.building",
-    "raw.osm.road",
-    "raw.osm.water",
-    "raw.osm.waterways",
-    "raw.osm.poi",
-    "raw.google.building",
-    "raw.google.open_buildings.vector",
-    "raw.google.poi",
-    "raw.microsoft.building",
-    "raw.overture.transportation",
-    "raw.overture.road",
-    "raw.hydrorivers.water",
-    "raw.hydrolakes.water",
-    "raw.gns.poi",
-}
-
-_SOURCE_ID_ALIASES = {
-    "raw.geonames.poi": "raw.gns.poi",
 }
 _LOCAL_VECTOR_GLOB_PATTERNS = ("*.shp", "*.gpkg")
 
 
 def _env_flag(name: str) -> bool:
     return os.getenv(name, "").strip().lower() in {"1", "true", "yes", "on"}
-
-
-def _canonical_source_id(source_id: str) -> str:
-    return _SOURCE_ID_ALIASES.get(source_id, source_id)
 
 
 def _local_vector_glob_patterns(pattern: str | None) -> tuple[str, ...]:
@@ -195,49 +107,17 @@ def classify_source_fault(
     if normalized_expected and source_crs and source_crs != normalized_expected:
         return "CRS_MISMATCH"
 
-    text = str(error or "").strip().lower()
-    if "crs mismatch" in text:
-        return "CRS_MISMATCH"
-    if "corrupt" in text or "corrupted" in text or "broken" in text or "badzipfile" in text:
-        return "SOURCE_CORRUPTED"
-    if (
-        "no official coverage" in text
-        or "official no coverage" in text
-        or "outside coverage" in text
-    ):
-        return "NO_OFFICIAL_COVERAGE"
-    if (
-        "unauthorized" in text
-        or "forbidden" in text
-        or "401" in text
-        or "403" in text
-        or "permission" in text
-        or "api key" in text
-        or "credential" in text
-    ):
-        return "UNAUTHORIZED"
-    if (
-        "provider unavailable" in text
-        or "service unavailable" in text
-        or "503" in text
-        or "upstream unavailable" in text
-    ):
-        return "PROVIDER_UNAVAILABLE"
-    if (
-        "timeout" in text
-        or "timed out" in text
-        or "connection" in text
-        or "network" in text
-        or "dns" in text
-        or "temporary failure" in text
-        or "unreachable" in text
-    ):
-        return "NETWORK_FAILED"
-    if "no local or remote source asset path available" in text or "not found" in text or "missing" in text:
-        return "SOURCE_MISSING"
-    if source.get("path") in {None, ""}:
-        return "SOURCE_MISSING"
-    return "SOURCE_CORRUPTED"
+    if not str(error or "").strip() and source.get("path") in {None, ""}:
+        return classify_failure_category(
+            "source path missing",
+            scope="source_asset",
+            error_type="FileNotFoundError",
+        )
+    return classify_failure_category(
+        str(error or ""),
+        scope="source_asset",
+        error_type=type(error).__name__ if isinstance(error, BaseException) else None,
+    )
 
 
 @dataclass(frozen=True)
@@ -466,6 +346,7 @@ class SourceAssetService:
         hydrolakes_global_zip_url: str = HYDROLAKES_GLOBAL_ZIP_URL,
         prefer_local_data: bool = True,
         http_max_retries: int = 3,
+        policy_registry: KnowledgePolicyRegistry | None = None,
     ) -> None:
         self.repo_root = Path(repo_root)
         self.cache_dir = Path(cache_dir)
@@ -484,12 +365,38 @@ class SourceAssetService:
         self.hydrolakes_global_zip_url = hydrolakes_global_zip_url
         self.prefer_local_data = prefer_local_data
         self.http_max_retries = max(1, int(http_max_retries))
+        self.policy_registry = policy_registry or default_policy_registry()
+        vector_bindings = {
+            str(record["source_id"]): record
+            for record in self.policy_registry.vector_source_bindings()
+        }
+        self.source_id_aliases = self.policy_registry.source_id_aliases()
+        self.local_source_candidates = {
+            source_id: [
+                tuple(str(part) for part in candidate)
+                for candidate in record.get("local_candidates", [])
+            ]
+            for source_id, record in vector_bindings.items()
+        }
+        self.remote_source_handlers = {
+            source_id: str(record["remote_handler"])
+            for source_id, record in vector_bindings.items()
+            if record.get("remote_handler")
+        }
+        self.geofabrik_layer_names = {
+            source_id: str(record["remote_layer_name"])
+            for source_id, record in vector_bindings.items()
+            if record.get("remote_handler") == "geofabrik" and record.get("remote_layer_name")
+        }
         self._geofabrik_index_cache: list[dict[str, Any]] | None = None
         self._gns_download_index_cache: list[_GNSCountryFile] | None = None
 
+    def _canonical_source_id(self, source_id: str) -> str:
+        return self.source_id_aliases.get(source_id, source_id)
+
     def can_materialize(self, source_id: str) -> bool:
-        source_id = _canonical_source_id(source_id)
-        if source_id in _REMOTELY_MATERIALIZABLE_SOURCE_IDS or source_id in _LOCAL_SOURCE_CANDIDATES:
+        source_id = self._canonical_source_id(source_id)
+        if source_id in self.remote_source_handlers or source_id in self.local_source_candidates:
             return True
         try:
             get_raw_vector_source_spec(source_id)
@@ -516,10 +423,11 @@ class SourceAssetService:
         request_bbox: Optional[BBox] = None,
         aoi: ResolvedAOI | None = None,
     ) -> SourceAssetResolution:
-        source_id = _canonical_source_id(source_id)
+        source_id = self._canonical_source_id(source_id)
+        remote_handler = self.remote_source_handlers.get(source_id)
         effective_bbox = request_bbox or (tuple(aoi.bbox) if aoi is not None else None)
 
-        if source_id == "raw.google.poi":
+        if remote_handler == "google_places":
             effective_aoi = self._effective_country_aoi(source_id=source_id, request_bbox=effective_bbox, aoi=aoi)
             return self._resolve_google_poi(request_bbox=effective_bbox, aoi=effective_aoi)
 
@@ -537,7 +445,7 @@ class SourceAssetService:
                 if (
                     _env_flag("GEOFUSION_LOCAL_ONLY")
                     or local_resolution.feature_count != 0
-                    or source_id not in _REMOTELY_MATERIALIZABLE_SOURCE_IDS
+                    or source_id not in self.remote_source_handlers
                 ):
                     return local_resolution
 
@@ -545,18 +453,18 @@ class SourceAssetService:
         if _env_flag("GEOFUSION_LOCAL_ONLY"):
             raise FileNotFoundError(f"No local source asset path available for {source_id} (GEOFUSION_LOCAL_ONLY=1)")
 
-        if source_id in _GEOFABRIK_LAYER_NAMES:
+        if remote_handler == "geofabrik":
             return self._resolve_geofabrik_source(source_id, request_bbox=effective_bbox, aoi=effective_aoi)
 
-        if source_id == "raw.microsoft.building":
+        if remote_handler == "microsoft_global_buildings":
             return self._resolve_msft_buildings(request_bbox=effective_bbox, aoi=effective_aoi)
-        if source_id in {"raw.google.building", "raw.google.open_buildings.vector"}:
+        if remote_handler == "google_open_buildings":
             return self._resolve_google_open_buildings(source_id, request_bbox=effective_bbox, aoi=effective_aoi)
-        if source_id in {"raw.overture.transportation", "raw.overture.road"}:
+        if remote_handler == "overturemaps":
             return self._resolve_overture_transportation(source_id=source_id, request_bbox=effective_bbox, aoi=effective_aoi)
-        if source_id in {"raw.hydrorivers.water", "raw.hydrolakes.water"}:
+        if remote_handler in {"hydrorivers", "hydrolakes"}:
             return self._resolve_hydrosheds_water(source_id, request_bbox=effective_bbox, aoi=effective_aoi)
-        if source_id == "raw.gns.poi":
+        if remote_handler == "gns":
             return self._resolve_gns_poi(request_bbox=effective_bbox, aoi=effective_aoi)
 
         raise FileNotFoundError(f"No local or remote source asset path available for {source_id}")
@@ -572,7 +480,7 @@ class SourceAssetService:
             return aoi
         if request_bbox is None:
             return None
-        if source_id not in {*_GEOFABRIK_LAYER_NAMES, "raw.microsoft.building", "raw.gns.poi"}:
+        if self.remote_source_handlers.get(source_id) not in {"geofabrik", "microsoft_global_buildings", "gns"}:
             return None
         inferred = self._infer_aoi_from_bbox(request_bbox)
         if inferred is None:
@@ -632,7 +540,7 @@ class SourceAssetService:
         )
 
     def _try_local_path(self, source_id: str) -> Optional[Path]:
-        for rel_parts in _LOCAL_SOURCE_CANDIDATES.get(source_id, []):
+        for rel_parts in self.local_source_candidates.get(source_id, []):
             candidate = self.repo_root.joinpath(*rel_parts)
             if not candidate.exists():
                 continue
@@ -954,7 +862,7 @@ class SourceAssetService:
         zip_path = asset_dir / filename
         extract_dir = asset_dir / "extract"
         marker_path = extract_dir / ".ready"
-        layer_path = extract_dir / _GEOFABRIK_LAYER_NAMES[source_id]
+        layer_path = extract_dir / self.geofabrik_layer_names[source_id]
         cache_hit = marker_path.exists() and layer_path.exists()
         if cache_hit:
             return layer_path, True

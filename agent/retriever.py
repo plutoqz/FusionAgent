@@ -18,16 +18,13 @@ from kg.models import (
     TaskBundleNode,
     WorkflowPatternNode,
 )
+from kg.policy_registry import KnowledgePolicyRegistry, default_policy_registry
 from kg.repository import KGRepository
 from schemas.agent import RunTrigger, RunTriggerType
 from schemas.fusion import JobType
 from services.aoi_resolution_service import AOIResolutionService, ResolvedAOI
 from services.artifact_reuse_policy import get_artifact_reuse_max_age_seconds
 from services.artifact_registry import ArtifactLookupRequest, ArtifactRegistry, ArtifactRecord
-
-
-_WATERWAYS_HINT_RE = re.compile(r"\b(waterway|waterways|river|rivers|stream|streams|canal|canals|drain|drains|creek|creeks)\b", re.IGNORECASE)
-_WATER_POLYGON_HINT_RE = re.compile(r"\b(polygon|polygons|lake|lakes|reservoir|reservoirs|pond|ponds|waterbody|waterbodies)\b", re.IGNORECASE)
 
 
 def _to_unit_interval(value: Any, *, default: float = 0.0) -> float:
@@ -46,7 +43,13 @@ def _candidate_identity(candidate: Dict[str, Any]) -> str:
     return ""
 
 
-def rank_retrieval_candidates(candidates: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
+def rank_retrieval_candidates(
+    candidates: List[Dict[str, Any]],
+    *,
+    policy_registry: KnowledgePolicyRegistry | None = None,
+) -> List[Dict[str, Any]]:
+    policy = (policy_registry or default_policy_registry()).decision_policy("retrieval.candidate.v1")
+    weights = policy["weights"]
     ranked: List[Dict[str, Any]] = []
     for raw in candidates:
         candidate = dict(raw)
@@ -56,12 +59,15 @@ def rank_retrieval_candidates(candidates: List[Dict[str, Any]]) -> List[Dict[str
         missing_requirements = candidate.get("missing_requirements") or []
         if not isinstance(missing_requirements, list):
             missing_requirements = [missing_requirements]
-        penalty = min(1.0, 0.25 * len(missing_requirements))
+        penalty = min(float(policy["maximum_penalty"]), float(policy["missing_requirement_penalty"]) * len(missing_requirements))
         score = max(
             0.0,
             min(
                 1.0,
-                0.40 * source_quality + 0.35 * algorithm_fit + 0.25 * workflow_support - penalty,
+                float(weights["source_quality"]) * source_quality
+                + float(weights["algorithm_fit"]) * algorithm_fit
+                + float(weights["workflow_support"]) * workflow_support
+                - penalty,
             ),
         )
         candidate["ranking_score"] = round(score, 6)
@@ -77,9 +83,15 @@ def rank_retrieval_candidates(candidates: List[Dict[str, Any]]) -> List[Dict[str
 
 
 class PlanningContextBuilder:
-    def __init__(self, kg_repo: KGRepository, artifact_registry: ArtifactRegistry | None = None) -> None:
+    def __init__(
+        self,
+        kg_repo: KGRepository,
+        artifact_registry: ArtifactRegistry | None = None,
+        policy_registry: KnowledgePolicyRegistry | None = None,
+    ) -> None:
         self.kg_repo = kg_repo
         self.artifact_registry = artifact_registry
+        self.policy_registry = policy_registry or default_policy_registry()
         self.aoi_resolution_service: AOIResolutionService | None = None
         self.resolved_aoi_override: ResolvedAOI | None = None
         self.preferred_pattern_id_override: str | None = None
@@ -134,6 +146,7 @@ class PlanningContextBuilder:
             relevant_sources=relevant_sources,
         )
         context = {
+            "knowledge_identity": self.kg_repo.get_knowledge_identity(),
             "intent": self._extract_intent(
                 job_type,
                 trigger,
@@ -412,15 +425,15 @@ class PlanningContextBuilder:
                 return bundle
         return None
 
-    @staticmethod
     def _select_output_requirement(
+        self,
         *,
         job_type: JobType,
         trigger: RunTrigger,
         output_requirements: Dict[str, OutputRequirementNode],
     ) -> OutputRequirementNode | None:
         if job_type == JobType.water:
-            preference = PlanningContextBuilder._infer_water_semantics_preference(trigger.content)
+            preference = self._infer_water_semantics_preference(trigger.content)
             if preference == "waterways":
                 return output_requirements.get("dt.waterways.fused")
         return output_requirements.get(f"dt.{job_type.value}.fused")
@@ -472,7 +485,7 @@ class PlanningContextBuilder:
                 )
             )
             candidates.append(candidate)
-        ranked = rank_retrieval_candidates(candidates)
+        ranked = rank_retrieval_candidates(candidates, policy_registry=self.policy_registry)
         preferred_pattern_id = str(self.preferred_pattern_id_override or "").strip()
         if preferred_pattern_id:
             preferred = [
@@ -493,6 +506,8 @@ class PlanningContextBuilder:
         resolved_aoi: ResolvedAOI | None,
     ) -> List[Dict[str, Any]]:
         candidates: List[Dict[str, Any]] = []
+        retrieval_policy = self.policy_registry.decision_policy("retrieval.candidate.v1")
+        source_fit = retrieval_policy["source_fit"]
         required_prefix = f"dt.{job_type.value}."
         for source in sources:
             candidate = self._data_source_to_dict(source)
@@ -500,15 +515,15 @@ class PlanningContextBuilder:
             selectable_now = bool(metadata.get("selectable_now", False))
             runtime_status = str(metadata.get("runtime_status") or "runtime_candidate").lower()
             missing_requirements: List[str] = []
-            workflow_support = 1.0
+            workflow_support = float(source_fit["initial_workflow_support"])
             if not selectable_now:
-                workflow_support -= 0.35
+                workflow_support -= float(source_fit["not_selectable_penalty"])
                 missing_requirements.append("not_selectable_now")
             if runtime_status == "reservation_only":
-                workflow_support -= 0.35
+                workflow_support -= float(source_fit["reservation_only_penalty"])
                 missing_requirements.append("reservation_only")
             if resolved_aoi is not None and metadata.get("supports_aoi") is False:
-                workflow_support -= 0.15
+                workflow_support -= float(source_fit["aoi_unsupported_penalty"])
                 missing_requirements.append("aoi_not_supported")
             typed_match = any(item.startswith(required_prefix) for item in source.supported_types)
             if job_type == JobType.water and "dt.waterways.bundle" in source.supported_types:
@@ -516,13 +531,15 @@ class PlanningContextBuilder:
             candidate.update(
                 {
                     "source_quality": _to_unit_interval(source.quality_score, default=0.0),
-                    "algorithm_fit": 1.0 if typed_match else 0.6,
+                    "algorithm_fit": float(
+                        source_fit["typed_match"] if typed_match else source_fit["untyped_match"]
+                    ),
                     "workflow_support": max(0.0, min(1.0, workflow_support)),
                     "missing_requirements": missing_requirements,
                 }
             )
             candidates.append(candidate)
-        return rank_retrieval_candidates(candidates)
+        return rank_retrieval_candidates(candidates, policy_registry=self.policy_registry)
 
     def _pattern_ranking_metrics(
         self,
@@ -533,6 +550,10 @@ class PlanningContextBuilder:
         prefer_task_driven_catalog_patterns: bool,
         water_preference: str | None,
     ) -> Dict[str, Any]:
+        retrieval_policy = self.policy_registry.decision_policy("retrieval.candidate.v1")
+        algorithm_fit_weights = retrieval_policy["algorithm_fit_weights"]
+        source_fit = retrieval_policy["source_fit"]
+        workflow_adjustments = retrieval_policy["workflow_adjustments"]
         source_scores: List[float] = []
         algorithm_scores: List[float] = []
         workflow_supported_steps = 0
@@ -546,11 +567,15 @@ class PlanningContextBuilder:
                 success_rate = _to_unit_interval(algorithm.success_rate, default=_to_unit_interval(pattern.success_rate))
                 accuracy_score = _to_unit_interval(algorithm.accuracy_score, default=success_rate)
                 stability_score = _to_unit_interval(algorithm.stability_score, default=success_rate)
-                algorithm_scores.append(0.65 * success_rate + 0.25 * accuracy_score + 0.10 * stability_score)
+                algorithm_scores.append(
+                    float(algorithm_fit_weights["success_rate"]) * success_rate
+                    + float(algorithm_fit_weights["accuracy_score"]) * accuracy_score
+                    + float(algorithm_fit_weights["stability_score"]) * stability_score
+                )
             source = source_by_id.get(step.data_source_id)
             if source is None:
                 if step.data_source_id == "upload.bundle":
-                    source_scores.append(1.0)
+                    source_scores.append(float(source_fit["upload_bundle_quality"]))
                     workflow_supported_steps += 1
                 else:
                     missing_requirements.append(f"missing_source:{step.data_source_id}")
@@ -565,21 +590,36 @@ class PlanningContextBuilder:
         workflow_support = workflow_supported_steps / max(1, len(pattern.steps))
         metadata = dict(pattern.metadata or {})
         if metadata.get("input_strategy") == "task_driven_auto_supported":
-            workflow_support = min(1.0, workflow_support + 0.05)
+            workflow_support = min(
+                1.0,
+                workflow_support + float(workflow_adjustments["task_driven_supported_bonus"]),
+            )
         elif prefer_task_driven_catalog_patterns and all(step.data_source_id == "upload.bundle" for step in pattern.steps):
             missing_requirements.append("task_driven_bundle_not_supported")
         water_semantics = str(metadata.get("water_semantics") or "").strip().lower()
         if water_preference == "waterways":
             if water_semantics == "waterways_line":
-                workflow_support = min(1.0, workflow_support + 0.18)
+                workflow_support = min(
+                    1.0,
+                    workflow_support + float(workflow_adjustments["waterways_match_bonus"]),
+                )
             elif water_semantics == "polygon":
-                workflow_support = max(0.0, workflow_support - 0.12)
+                workflow_support = max(
+                    0.0,
+                    workflow_support - float(workflow_adjustments["waterways_polygon_mismatch_penalty"]),
+                )
                 missing_requirements.append("water_semantics_polygon_when_waterways_requested")
         elif water_preference == "polygon":
             if water_semantics == "polygon":
-                workflow_support = min(1.0, workflow_support + 0.10)
+                workflow_support = min(
+                    1.0,
+                    workflow_support + float(workflow_adjustments["polygon_match_bonus"]),
+                )
             elif water_semantics == "waterways_line":
-                workflow_support = max(0.0, workflow_support - 0.18)
+                workflow_support = max(
+                    0.0,
+                    workflow_support - float(workflow_adjustments["polygon_line_mismatch_penalty"]),
+                )
                 missing_requirements.append("water_semantics_line_when_polygon_requested")
         return {
             "source_quality": round(sum(source_scores) / max(1, len(source_scores)), 6),
@@ -588,14 +628,14 @@ class PlanningContextBuilder:
             "missing_requirements": missing_requirements,
         }
 
-    @staticmethod
-    def _infer_water_semantics_preference(content: str | None) -> str | None:
+    def _infer_water_semantics_preference(self, content: str | None) -> str | None:
         text = str(content or "").strip().lower()
         if not text:
             return None
-        if _WATERWAYS_HINT_RE.search(text):
+        task_kinds = self.policy_registry.task_kinds_in_text(text)
+        if "waterways" in task_kinds and "water_polygon" not in task_kinds:
             return "waterways"
-        if _WATER_POLYGON_HINT_RE.search(text):
+        if "water_polygon" in task_kinds and "waterways" not in task_kinds:
             return "polygon"
         return None
 

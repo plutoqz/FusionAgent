@@ -4,41 +4,7 @@ import re
 from dataclasses import asdict, dataclass
 from typing import Any
 
-
-_CHINESE_LOCATION_ALIASES = {
-    "科特迪瓦": {
-        "canonical": "Cote d'Ivoire",
-        "kind": "country",
-        "country_code": "ci",
-        "aliases": ("象牙海岸",),
-    },
-    "阿比让": {
-        "canonical": "Abidjan",
-        "kind": "city",
-        "country": "Cote d'Ivoire",
-        "country_code": "ci",
-        "aliases": (),
-    },
-    "巴基斯坦": {
-        "canonical": "Pakistan",
-        "kind": "country",
-        "country_code": "pk",
-        "aliases": (),
-    },
-    "卡拉奇": {
-        "canonical": "Karachi",
-        "kind": "city",
-        "country": "Pakistan",
-        "country_code": "pk",
-        "aliases": ("卡拉奇市",),
-    },
-}
-
-_DISASTER_ALIASES = (
-    ("flood", ("洪涝", "洪水", "内涝", "强降雨", "暴雨", "降雨", "heavy rainfall", "rainstorm")),
-    ("earthquake", ("地震",)),
-    ("typhoon", ("台风", "飓风", "热带气旋")),
-)
+from kg.policy_registry import KnowledgePolicyRegistry, default_policy_registry
 
 
 @dataclass(frozen=True)
@@ -60,6 +26,9 @@ class NormalizedScenarioTrigger:
 
 
 class ScenarioTriggerNormalizer:
+    def __init__(self, policy_registry: KnowledgePolicyRegistry | None = None) -> None:
+        self.policy_registry = policy_registry or default_policy_registry()
+
     def normalize(self, text: str) -> NormalizedScenarioTrigger:
         original = str(text or "").strip()
         location = self._extract_location(original)
@@ -85,25 +54,16 @@ class ScenarioTriggerNormalizer:
             confidence=min(confidence, 1.0),
         )
 
-    @staticmethod
-    def _extract_location(text: str) -> dict[str, str]:
+    def _extract_location(self, text: str) -> dict[str, str]:
         matches: list[tuple[str, dict[str, Any]]] = []
-        for primary, payload in _CHINESE_LOCATION_ALIASES.items():
-            aliases = (primary, *tuple(payload.get("aliases") or ()))
-            if any(alias and alias in text for alias in aliases):
-                matches.append((primary, payload))
         lowered = text.casefold()
-        english_aliases = {
-            "abidjan": _CHINESE_LOCATION_ALIASES["阿比让"],
-            "cote d'ivoire": _CHINESE_LOCATION_ALIASES["科特迪瓦"],
-            "côte d'ivoire": _CHINESE_LOCATION_ALIASES["科特迪瓦"],
-            "ivory coast": _CHINESE_LOCATION_ALIASES["科特迪瓦"],
-            "karachi": _CHINESE_LOCATION_ALIASES["卡拉奇"],
-            "pakistan": _CHINESE_LOCATION_ALIASES["巴基斯坦"],
-        }
-        for alias, payload in english_aliases.items():
-            if alias in lowered:
-                matches.append((alias, payload))
+        for payload in self.policy_registry.place_records():
+            aliases = [payload.get("term"), payload.get("canonical"), *list(payload.get("aliases") or [])]
+            for alias in aliases:
+                term = str(alias or "").strip()
+                if term and term.casefold() in lowered:
+                    matches.append((term, payload))
+                    break
         if not matches:
             return {}
 
@@ -130,16 +90,8 @@ class ScenarioTriggerNormalizer:
             "locality": locality or "",
         }
 
-    @staticmethod
-    def _extract_disaster_type(text: str) -> str | None:
-        lowered = text.casefold()
-        for disaster_type, aliases in _DISASTER_ALIASES:
-            if any(alias.casefold() in lowered for alias in aliases):
-                return disaster_type
-        for disaster_type in ("flood", "earthquake", "typhoon"):
-            if re.search(rf"(?<![a-z0-9_]){disaster_type}(?![a-z0-9_])", lowered):
-                return disaster_type
-        return None
+    def _extract_disaster_type(self, text: str) -> str | None:
+        return self.policy_registry.disaster_type_in_text(text)
 
     @staticmethod
     def _extract_casualties(text: str) -> dict[str, int]:
@@ -155,14 +107,17 @@ class ScenarioTriggerNormalizer:
                 summary[key] = int(match.group(1))
         return summary
 
-    @staticmethod
-    def _extract_rescue_organizations(text: str) -> list[str]:
+    def _extract_rescue_organizations(self, text: str) -> list[str]:
         organizations = []
-        for token in ("红十字会", "消防", "应急管理", "救援队", "联合国"):
+        for token in self.policy_registry.rescue_organization_terms():
             if token in text:
                 organizations.append(token)
         return organizations
 
 
-def normalize_scenario_trigger_text(text: str) -> NormalizedScenarioTrigger:
-    return ScenarioTriggerNormalizer().normalize(text)
+def normalize_scenario_trigger_text(
+    text: str,
+    *,
+    policy_registry: KnowledgePolicyRegistry | None = None,
+) -> NormalizedScenarioTrigger:
+    return ScenarioTriggerNormalizer(policy_registry).normalize(text)

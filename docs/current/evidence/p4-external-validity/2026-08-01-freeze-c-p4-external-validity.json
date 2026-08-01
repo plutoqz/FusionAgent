@@ -1,0 +1,1344 @@
+{
+  "schema_version": "1.0.0",
+  "p4_id": "freeze-c-external-validity-v1",
+  "fixed_environment": {
+    "kg_backend": "memory",
+    "llm_provider": "mock",
+    "celery_eager": true,
+    "scenario_child_max_workers": 1,
+    "plan_grounding_mode": "report",
+    "local_only": true,
+    "artifact_reuse_disabled": true
+  },
+  "aoi_inventory_path": "D:\\code\\FusionAgent\\docs\\current\\evidence\\p4-external-validity\\2026-08-01-freeze-c-p4-aoi-input-inventory.json",
+  "reference_sample_path": "D:\\code\\FusionAgent\\docs\\current\\evidence\\p4-external-validity\\2026-08-01-freeze-c-p4-reference-sample-audit.json",
+  "raw_evidence_root": "D:\\code\\freeze-c-evidence\\p4-external-validity-20260801-v2",
+  "case_coverage": [
+    {
+      "aoi_id": "caracas",
+      "cases_requested": [
+        "C02",
+        "C04",
+        "C06"
+      ],
+      "cases_run": [
+        "C02",
+        "C04",
+        "C06"
+      ],
+      "c06_status": "run"
+    },
+    {
+      "aoi_id": "abidjan",
+      "cases_requested": [
+        "C02",
+        "C04",
+        "C06"
+      ],
+      "cases_run": [
+        "C02",
+        "C04"
+      ],
+      "c06_status": "not_run_missing_independent_road_reference"
+    },
+    {
+      "aoi_id": "vietnam_coastal",
+      "cases_requested": [
+        "C02",
+        "C04",
+        "C06"
+      ],
+      "cases_run": [
+        "C02",
+        "C04"
+      ],
+      "c06_status": "not_run_missing_independent_road_reference"
+    }
+  ],
+  "full_method_aggregates": {
+    "planning_valid": {
+      "n": 7,
+      "mean": 1.0,
+      "std": 0.0,
+      "ci95": [
+        1.0,
+        1.0
+      ],
+      "failure_rate": 0.0
+    },
+    "first_quality_gate_passed": {
+      "n": 7,
+      "mean": 0.42857142857142855,
+      "std": 0.5345224838248488,
+      "ci95": [
+        0.03259163110696195,
+        0.8245512260358951
+      ],
+      "failure_rate": 0.5714285714285714
+    },
+    "final_delivery_success": {
+      "n": 7,
+      "mean": 1.0,
+      "std": 0.0,
+      "ci95": [
+        1.0,
+        1.0
+      ],
+      "failure_rate": 0.0
+    },
+    "recovery_success": {
+      "n": 4,
+      "mean": 1.0,
+      "std": 0.0,
+      "ci95": [
+        1.0,
+        1.0
+      ],
+      "failure_rate": 0.0
+    },
+    "key_layer_delivered_on_time": {
+      "n": 7,
+      "mean": 0.8571428571428571,
+      "std": 0.37796447300922725,
+      "ci95": [
+        0.5771428571428571,
+        1.0
+      ],
+      "failure_rate": 0.1428571428571429
+    },
+    "gap_declaration_correct": {
+      "n": 7,
+      "mean": 1.0,
+      "std": 0.0,
+      "ci95": [
+        1.0,
+        1.0
+      ],
+      "failure_rate": 0.0
+    },
+    "evidence_complete": {
+      "n": 7,
+      "mean": 1.0,
+      "std": 0.0,
+      "ci95": [
+        1.0,
+        1.0
+      ],
+      "failure_rate": 0.0
+    }
+  },
+  "fixed_priority_aggregates": {
+    "planning_valid": {
+      "n": 7,
+      "mean": 1.0,
+      "std": 0.0,
+      "ci95": [
+        1.0,
+        1.0
+      ],
+      "failure_rate": 0.0
+    },
+    "first_quality_gate_passed": {
+      "n": 7,
+      "mean": 0.42857142857142855,
+      "std": 0.5345224838248488,
+      "ci95": [
+        0.03259163110696195,
+        0.8245512260358951
+      ],
+      "failure_rate": 0.5714285714285714
+    },
+    "final_delivery_success": {
+      "n": 7,
+      "mean": 1.0,
+      "std": 0.0,
+      "ci95": [
+        1.0,
+        1.0
+      ],
+      "failure_rate": 0.0
+    },
+    "recovery_success": {
+      "n": 4,
+      "mean": 1.0,
+      "std": 0.0,
+      "ci95": [
+        1.0,
+        1.0
+      ],
+      "failure_rate": 0.0
+    },
+    "key_layer_delivered_on_time": {
+      "n": 7,
+      "mean": 0.42857142857142855,
+      "std": 0.5345224838248488,
+      "ci95": [
+        0.03259163110696195,
+        0.8245512260358951
+      ],
+      "failure_rate": 0.5714285714285714
+    },
+    "gap_declaration_correct": {
+      "n": 7,
+      "mean": 1.0,
+      "std": 0.0,
+      "ci95": [
+        1.0,
+        1.0
+      ],
+      "failure_rate": 0.0
+    },
+    "evidence_complete": {
+      "n": 7,
+      "mean": 1.0,
+      "std": 0.0,
+      "ci95": [
+        1.0,
+        1.0
+      ],
+      "failure_rate": 0.0
+    }
+  },
+  "full_method_recovery_cost": {
+    "n": 4,
+    "mean": 1.0,
+    "std": 0.0,
+    "ci95": [
+      1.0,
+      1.0
+    ],
+    "min": 1.0,
+    "max": 1.0
+  },
+  "fixed_priority_recovery_cost": {
+    "n": 4,
+    "mean": 1.0,
+    "std": 0.0,
+    "ci95": [
+      1.0,
+      1.0
+    ],
+    "min": 1.0,
+    "max": 1.0
+  },
+  "effect_sizes": {
+    "planning_valid": {
+      "cohen_h_full_vs_fixed_priority": 0.0,
+      "interpretation": "探索性比例效果量；P4 样本量小，不作为显著性结论。"
+    },
+    "first_quality_gate_passed": {
+      "cohen_h_full_vs_fixed_priority": 0.0,
+      "interpretation": "探索性比例效果量；P4 样本量小，不作为显著性结论。"
+    },
+    "final_delivery_success": {
+      "cohen_h_full_vs_fixed_priority": 0.0,
+      "interpretation": "探索性比例效果量；P4 样本量小，不作为显著性结论。"
+    },
+    "recovery_success": {
+      "cohen_h_full_vs_fixed_priority": 0.0,
+      "interpretation": "探索性比例效果量；P4 样本量小，不作为显著性结论。"
+    },
+    "key_layer_delivered_on_time": {
+      "cohen_h_full_vs_fixed_priority": 0.9389505223899004,
+      "interpretation": "探索性比例效果量；P4 样本量小，不作为显著性结论。"
+    },
+    "gap_declaration_correct": {
+      "cohen_h_full_vs_fixed_priority": 0.0,
+      "interpretation": "探索性比例效果量；P4 样本量小，不作为显著性结论。"
+    },
+    "evidence_complete": {
+      "cohen_h_full_vs_fixed_priority": 0.0,
+      "interpretation": "探索性比例效果量；P4 样本量小，不作为显著性结论。"
+    }
+  },
+  "case_rows": [
+    {
+      "aoi_id": "caracas",
+      "variant": "full_method",
+      "case_metrics": {
+        "case_id": "C02",
+        "initial_phase": "partial_provisional",
+        "final_phase": "partial_provisional",
+        "task_order": [
+          "water_polygon",
+          "waterways",
+          "road"
+        ],
+        "planning_valid": true,
+        "first_quality_gate_passed": false,
+        "final_delivery_success": true,
+        "recovery_case": false,
+        "recovery_attempted": false,
+        "recovery_success": null,
+        "recovery_cost_child_retries": 0,
+        "key_layer_delivered_on_time": true,
+        "gap_declaration_correct": true,
+        "expected_gap_types": [
+          "quality_failed",
+          "source_unavailable"
+        ],
+        "observed_gap_types": [
+          "quality_failed",
+          "source_unavailable"
+        ],
+        "evidence_complete": true,
+        "runtime_product_contract_bound": true,
+        "supersession_observed": false,
+        "initial_child_count": 3,
+        "final_child_count": 3,
+        "first_child_task": "water_polygon"
+      },
+      "case_assertions_passed": true,
+      "experiment_all_cases_passed": true
+    },
+    {
+      "aoi_id": "caracas",
+      "variant": "full_method",
+      "case_metrics": {
+        "case_id": "C04",
+        "initial_phase": "partial_provisional",
+        "final_phase": "succeeded",
+        "task_order": [
+          "water_polygon"
+        ],
+        "planning_valid": true,
+        "first_quality_gate_passed": true,
+        "final_delivery_success": true,
+        "recovery_case": true,
+        "recovery_attempted": true,
+        "recovery_success": true,
+        "recovery_cost_child_retries": 1,
+        "key_layer_delivered_on_time": true,
+        "gap_declaration_correct": true,
+        "expected_gap_types": [
+          "source_unavailable"
+        ],
+        "observed_gap_types": [
+          "source_unavailable"
+        ],
+        "evidence_complete": true,
+        "runtime_product_contract_bound": true,
+        "supersession_observed": true,
+        "initial_child_count": 1,
+        "final_child_count": 1,
+        "first_child_task": "water_polygon"
+      },
+      "case_assertions_passed": true,
+      "experiment_all_cases_passed": true
+    },
+    {
+      "aoi_id": "caracas",
+      "variant": "full_method",
+      "case_metrics": {
+        "case_id": "C06",
+        "initial_phase": "failed",
+        "final_phase": "partial_provisional",
+        "task_order": [
+          "road"
+        ],
+        "planning_valid": true,
+        "first_quality_gate_passed": false,
+        "final_delivery_success": true,
+        "recovery_case": true,
+        "recovery_attempted": true,
+        "recovery_success": true,
+        "recovery_cost_child_retries": 1,
+        "key_layer_delivered_on_time": false,
+        "gap_declaration_correct": true,
+        "expected_gap_types": [
+          "quality_failed",
+          "source_unavailable"
+        ],
+        "observed_gap_types": [
+          "quality_failed",
+          "source_unavailable"
+        ],
+        "evidence_complete": true,
+        "runtime_product_contract_bound": true,
+        "supersession_observed": false,
+        "initial_child_count": 1,
+        "final_child_count": 1,
+        "first_child_task": "road"
+      },
+      "case_assertions_passed": true,
+      "experiment_all_cases_passed": true
+    },
+    {
+      "aoi_id": "caracas",
+      "variant": "fixed_priority",
+      "case_metrics": {
+        "case_id": "C02",
+        "initial_phase": "partial_provisional",
+        "final_phase": "partial_provisional",
+        "task_order": [
+          "road",
+          "water_polygon",
+          "waterways"
+        ],
+        "planning_valid": true,
+        "first_quality_gate_passed": false,
+        "final_delivery_success": true,
+        "recovery_case": false,
+        "recovery_attempted": false,
+        "recovery_success": null,
+        "recovery_cost_child_retries": 0,
+        "key_layer_delivered_on_time": false,
+        "gap_declaration_correct": true,
+        "expected_gap_types": [
+          "quality_failed",
+          "source_unavailable"
+        ],
+        "observed_gap_types": [
+          "quality_failed",
+          "source_unavailable"
+        ],
+        "evidence_complete": true,
+        "runtime_product_contract_bound": true,
+        "supersession_observed": false,
+        "initial_child_count": 3,
+        "final_child_count": 3,
+        "first_child_task": "road"
+      },
+      "case_assertions_passed": false,
+      "experiment_all_cases_passed": false
+    },
+    {
+      "aoi_id": "caracas",
+      "variant": "fixed_priority",
+      "case_metrics": {
+        "case_id": "C04",
+        "initial_phase": "partial_provisional",
+        "final_phase": "succeeded",
+        "task_order": [
+          "water_polygon"
+        ],
+        "planning_valid": true,
+        "first_quality_gate_passed": true,
+        "final_delivery_success": true,
+        "recovery_case": true,
+        "recovery_attempted": true,
+        "recovery_success": true,
+        "recovery_cost_child_retries": 1,
+        "key_layer_delivered_on_time": true,
+        "gap_declaration_correct": true,
+        "expected_gap_types": [
+          "source_unavailable"
+        ],
+        "observed_gap_types": [
+          "source_unavailable"
+        ],
+        "evidence_complete": true,
+        "runtime_product_contract_bound": true,
+        "supersession_observed": true,
+        "initial_child_count": 1,
+        "final_child_count": 1,
+        "first_child_task": "water_polygon"
+      },
+      "case_assertions_passed": true,
+      "experiment_all_cases_passed": false
+    },
+    {
+      "aoi_id": "caracas",
+      "variant": "fixed_priority",
+      "case_metrics": {
+        "case_id": "C06",
+        "initial_phase": "failed",
+        "final_phase": "partial_provisional",
+        "task_order": [
+          "road"
+        ],
+        "planning_valid": true,
+        "first_quality_gate_passed": false,
+        "final_delivery_success": true,
+        "recovery_case": true,
+        "recovery_attempted": true,
+        "recovery_success": true,
+        "recovery_cost_child_retries": 1,
+        "key_layer_delivered_on_time": false,
+        "gap_declaration_correct": true,
+        "expected_gap_types": [
+          "quality_failed",
+          "source_unavailable"
+        ],
+        "observed_gap_types": [
+          "quality_failed",
+          "source_unavailable"
+        ],
+        "evidence_complete": true,
+        "runtime_product_contract_bound": true,
+        "supersession_observed": false,
+        "initial_child_count": 1,
+        "final_child_count": 1,
+        "first_child_task": "road"
+      },
+      "case_assertions_passed": true,
+      "experiment_all_cases_passed": false
+    },
+    {
+      "aoi_id": "abidjan",
+      "variant": "full_method",
+      "case_metrics": {
+        "case_id": "C02",
+        "initial_phase": "partial_provisional",
+        "final_phase": "partial_provisional",
+        "task_order": [
+          "water_polygon",
+          "waterways",
+          "road"
+        ],
+        "planning_valid": true,
+        "first_quality_gate_passed": false,
+        "final_delivery_success": true,
+        "recovery_case": false,
+        "recovery_attempted": false,
+        "recovery_success": null,
+        "recovery_cost_child_retries": 0,
+        "key_layer_delivered_on_time": true,
+        "gap_declaration_correct": true,
+        "expected_gap_types": [],
+        "observed_gap_types": [
+          "quality_failed",
+          "source_unavailable"
+        ],
+        "evidence_complete": true,
+        "runtime_product_contract_bound": true,
+        "supersession_observed": false,
+        "initial_child_count": 3,
+        "final_child_count": 3,
+        "first_child_task": "water_polygon"
+      },
+      "case_assertions_passed": true,
+      "experiment_all_cases_passed": true
+    },
+    {
+      "aoi_id": "abidjan",
+      "variant": "full_method",
+      "case_metrics": {
+        "case_id": "C04",
+        "initial_phase": "partial_provisional",
+        "final_phase": "succeeded",
+        "task_order": [
+          "water_polygon"
+        ],
+        "planning_valid": true,
+        "first_quality_gate_passed": true,
+        "final_delivery_success": true,
+        "recovery_case": true,
+        "recovery_attempted": true,
+        "recovery_success": true,
+        "recovery_cost_child_retries": 1,
+        "key_layer_delivered_on_time": true,
+        "gap_declaration_correct": true,
+        "expected_gap_types": [
+          "source_unavailable"
+        ],
+        "observed_gap_types": [
+          "source_unavailable"
+        ],
+        "evidence_complete": true,
+        "runtime_product_contract_bound": true,
+        "supersession_observed": true,
+        "initial_child_count": 1,
+        "final_child_count": 1,
+        "first_child_task": "water_polygon"
+      },
+      "case_assertions_passed": true,
+      "experiment_all_cases_passed": true
+    },
+    {
+      "aoi_id": "abidjan",
+      "variant": "fixed_priority",
+      "case_metrics": {
+        "case_id": "C02",
+        "initial_phase": "partial_provisional",
+        "final_phase": "partial_provisional",
+        "task_order": [
+          "road",
+          "water_polygon",
+          "waterways"
+        ],
+        "planning_valid": true,
+        "first_quality_gate_passed": false,
+        "final_delivery_success": true,
+        "recovery_case": false,
+        "recovery_attempted": false,
+        "recovery_success": null,
+        "recovery_cost_child_retries": 0,
+        "key_layer_delivered_on_time": false,
+        "gap_declaration_correct": true,
+        "expected_gap_types": [],
+        "observed_gap_types": [
+          "quality_failed",
+          "source_unavailable"
+        ],
+        "evidence_complete": true,
+        "runtime_product_contract_bound": true,
+        "supersession_observed": false,
+        "initial_child_count": 3,
+        "final_child_count": 3,
+        "first_child_task": "road"
+      },
+      "case_assertions_passed": false,
+      "experiment_all_cases_passed": false
+    },
+    {
+      "aoi_id": "abidjan",
+      "variant": "fixed_priority",
+      "case_metrics": {
+        "case_id": "C04",
+        "initial_phase": "partial_provisional",
+        "final_phase": "succeeded",
+        "task_order": [
+          "water_polygon"
+        ],
+        "planning_valid": true,
+        "first_quality_gate_passed": true,
+        "final_delivery_success": true,
+        "recovery_case": true,
+        "recovery_attempted": true,
+        "recovery_success": true,
+        "recovery_cost_child_retries": 1,
+        "key_layer_delivered_on_time": true,
+        "gap_declaration_correct": true,
+        "expected_gap_types": [
+          "source_unavailable"
+        ],
+        "observed_gap_types": [
+          "source_unavailable"
+        ],
+        "evidence_complete": true,
+        "runtime_product_contract_bound": true,
+        "supersession_observed": true,
+        "initial_child_count": 1,
+        "final_child_count": 1,
+        "first_child_task": "water_polygon"
+      },
+      "case_assertions_passed": true,
+      "experiment_all_cases_passed": false
+    },
+    {
+      "aoi_id": "vietnam_coastal",
+      "variant": "full_method",
+      "case_metrics": {
+        "case_id": "C02",
+        "initial_phase": "partial_provisional",
+        "final_phase": "partial_provisional",
+        "task_order": [
+          "water_polygon",
+          "waterways",
+          "road"
+        ],
+        "planning_valid": true,
+        "first_quality_gate_passed": false,
+        "final_delivery_success": true,
+        "recovery_case": false,
+        "recovery_attempted": false,
+        "recovery_success": null,
+        "recovery_cost_child_retries": 0,
+        "key_layer_delivered_on_time": true,
+        "gap_declaration_correct": true,
+        "expected_gap_types": [],
+        "observed_gap_types": [
+          "quality_failed",
+          "source_unavailable"
+        ],
+        "evidence_complete": true,
+        "runtime_product_contract_bound": true,
+        "supersession_observed": false,
+        "initial_child_count": 3,
+        "final_child_count": 3,
+        "first_child_task": "water_polygon"
+      },
+      "case_assertions_passed": true,
+      "experiment_all_cases_passed": true
+    },
+    {
+      "aoi_id": "vietnam_coastal",
+      "variant": "full_method",
+      "case_metrics": {
+        "case_id": "C04",
+        "initial_phase": "partial_provisional",
+        "final_phase": "succeeded",
+        "task_order": [
+          "water_polygon"
+        ],
+        "planning_valid": true,
+        "first_quality_gate_passed": true,
+        "final_delivery_success": true,
+        "recovery_case": true,
+        "recovery_attempted": true,
+        "recovery_success": true,
+        "recovery_cost_child_retries": 1,
+        "key_layer_delivered_on_time": true,
+        "gap_declaration_correct": true,
+        "expected_gap_types": [
+          "source_unavailable"
+        ],
+        "observed_gap_types": [
+          "source_unavailable"
+        ],
+        "evidence_complete": true,
+        "runtime_product_contract_bound": true,
+        "supersession_observed": true,
+        "initial_child_count": 1,
+        "final_child_count": 1,
+        "first_child_task": "water_polygon"
+      },
+      "case_assertions_passed": true,
+      "experiment_all_cases_passed": true
+    },
+    {
+      "aoi_id": "vietnam_coastal",
+      "variant": "fixed_priority",
+      "case_metrics": {
+        "case_id": "C02",
+        "initial_phase": "partial_provisional",
+        "final_phase": "partial_provisional",
+        "task_order": [
+          "road",
+          "water_polygon",
+          "waterways"
+        ],
+        "planning_valid": true,
+        "first_quality_gate_passed": false,
+        "final_delivery_success": true,
+        "recovery_case": false,
+        "recovery_attempted": false,
+        "recovery_success": null,
+        "recovery_cost_child_retries": 0,
+        "key_layer_delivered_on_time": false,
+        "gap_declaration_correct": true,
+        "expected_gap_types": [],
+        "observed_gap_types": [
+          "quality_failed",
+          "source_unavailable"
+        ],
+        "evidence_complete": true,
+        "runtime_product_contract_bound": true,
+        "supersession_observed": false,
+        "initial_child_count": 3,
+        "final_child_count": 3,
+        "first_child_task": "road"
+      },
+      "case_assertions_passed": false,
+      "experiment_all_cases_passed": false
+    },
+    {
+      "aoi_id": "vietnam_coastal",
+      "variant": "fixed_priority",
+      "case_metrics": {
+        "case_id": "C04",
+        "initial_phase": "partial_provisional",
+        "final_phase": "succeeded",
+        "task_order": [
+          "water_polygon"
+        ],
+        "planning_valid": true,
+        "first_quality_gate_passed": true,
+        "final_delivery_success": true,
+        "recovery_case": true,
+        "recovery_attempted": true,
+        "recovery_success": true,
+        "recovery_cost_child_retries": 1,
+        "key_layer_delivered_on_time": true,
+        "gap_declaration_correct": true,
+        "expected_gap_types": [
+          "source_unavailable"
+        ],
+        "observed_gap_types": [
+          "source_unavailable"
+        ],
+        "evidence_complete": true,
+        "runtime_product_contract_bound": true,
+        "supersession_observed": true,
+        "initial_child_count": 1,
+        "final_child_count": 1,
+        "first_child_task": "water_polygon"
+      },
+      "case_assertions_passed": true,
+      "experiment_all_cases_passed": false
+    }
+  ],
+  "reference_results": [
+    {
+      "aoi_id": "caracas",
+      "bbox": [
+        -67.17,
+        10.38,
+        -66.86,
+        10.57
+      ],
+      "reference_layers": {
+        "water_polygon": {
+          "osm_feature_count": 38,
+          "reference_feature_count": 1,
+          "sample_size": 1,
+          "matched_count": 0,
+          "match_rate": 0.0,
+          "reference_area_overlap_proxy": 0.0,
+          "sampling_rule": "first N features in deterministic source order; representative point/line midpoint within 100 m"
+        },
+        "waterways": {
+          "osm_feature_count": 156,
+          "reference_feature_count": 22,
+          "sample_size": 22,
+          "matched_count": 8,
+          "match_rate": 0.36363636363636365,
+          "reference_area_overlap_proxy": null,
+          "sampling_rule": "first N features in deterministic source order; representative point/line midpoint within 100 m"
+        }
+      },
+      "samples": {
+        "water_polygon": [
+          {
+            "source_index": "0",
+            "distance_m": 1615.4995888105761,
+            "matched_within_100m": false
+          }
+        ],
+        "waterways": [
+          {
+            "source_index": "0",
+            "distance_m": 69.30261967441317,
+            "matched_within_100m": true
+          },
+          {
+            "source_index": "1",
+            "distance_m": 179.07301683487108,
+            "matched_within_100m": false
+          },
+          {
+            "source_index": "2",
+            "distance_m": 0.10745598030743786,
+            "matched_within_100m": true
+          },
+          {
+            "source_index": "3",
+            "distance_m": 176.2408146660377,
+            "matched_within_100m": false
+          },
+          {
+            "source_index": "4",
+            "distance_m": 99.4889359775425,
+            "matched_within_100m": true
+          },
+          {
+            "source_index": "5",
+            "distance_m": 1058.4411711403477,
+            "matched_within_100m": false
+          },
+          {
+            "source_index": "6",
+            "distance_m": 28.102175926863218,
+            "matched_within_100m": true
+          },
+          {
+            "source_index": "7",
+            "distance_m": 16.597726000657126,
+            "matched_within_100m": true
+          },
+          {
+            "source_index": "8",
+            "distance_m": 49.326172459525665,
+            "matched_within_100m": true
+          },
+          {
+            "source_index": "9",
+            "distance_m": 214.71479427369002,
+            "matched_within_100m": false
+          },
+          {
+            "source_index": "10",
+            "distance_m": 146.27477455705306,
+            "matched_within_100m": false
+          },
+          {
+            "source_index": "11",
+            "distance_m": 1163.3495979911806,
+            "matched_within_100m": false
+          },
+          {
+            "source_index": "12",
+            "distance_m": 866.1053883547412,
+            "matched_within_100m": false
+          },
+          {
+            "source_index": "13",
+            "distance_m": 1280.7427993934537,
+            "matched_within_100m": false
+          },
+          {
+            "source_index": "14",
+            "distance_m": 36.17800061709105,
+            "matched_within_100m": true
+          },
+          {
+            "source_index": "15",
+            "distance_m": 211.47048453702124,
+            "matched_within_100m": false
+          },
+          {
+            "source_index": "16",
+            "distance_m": 9.691932185479514,
+            "matched_within_100m": true
+          },
+          {
+            "source_index": "17",
+            "distance_m": 246.52291790090118,
+            "matched_within_100m": false
+          },
+          {
+            "source_index": "18",
+            "distance_m": 183.87950517891832,
+            "matched_within_100m": false
+          },
+          {
+            "source_index": "19",
+            "distance_m": 911.7513283370504,
+            "matched_within_100m": false
+          },
+          {
+            "source_index": "20",
+            "distance_m": 2525.68276305912,
+            "matched_within_100m": false
+          },
+          {
+            "source_index": "21",
+            "distance_m": 2838.5701658073103,
+            "matched_within_100m": false
+          }
+        ]
+      },
+      "source_paths": {
+        "osm_water": "D:\\fyx\\任务\\委内瑞拉数据整合\\output\\capital\\osm\\water.shp",
+        "osm_waterways": "D:\\fyx\\任务\\委内瑞拉数据整合\\output\\capital\\osm\\waterways.shp",
+        "hydrolakes": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\hydrosheds\\raw_hydrolakes_water\\extract\\HydroLAKES_polys_v10_shp\\HydroLAKES_polys_v10.shp",
+        "hydrorivers": "D:\\fyx\\任务\\委内瑞拉数据整合\\output\\capital\\hydro\\hydrorivers_capital.gpkg"
+      }
+    },
+    {
+      "aoi_id": "abidjan",
+      "bbox": [
+        -4.17,
+        5.23,
+        -3.86,
+        5.48
+      ],
+      "reference_layers": {
+        "water_polygon": {
+          "osm_feature_count": 153,
+          "reference_feature_count": 5,
+          "sample_size": 5,
+          "matched_count": 5,
+          "match_rate": 1.0,
+          "reference_area_overlap_proxy": 0.9502545877123043,
+          "sampling_rule": "first N features in deterministic source order; representative point/line midpoint within 100 m"
+        },
+        "waterways": {
+          "osm_feature_count": 634,
+          "reference_feature_count": 78,
+          "sample_size": 30,
+          "matched_count": 8,
+          "match_rate": 0.26666666666666666,
+          "reference_area_overlap_proxy": null,
+          "sampling_rule": "first N features in deterministic source order; representative point/line midpoint within 100 m"
+        }
+      },
+      "samples": {
+        "water_polygon": [
+          {
+            "source_index": "0",
+            "distance_m": 0.0,
+            "matched_within_100m": true
+          },
+          {
+            "source_index": "1",
+            "distance_m": 0.0,
+            "matched_within_100m": true
+          },
+          {
+            "source_index": "2",
+            "distance_m": 0.0,
+            "matched_within_100m": true
+          },
+          {
+            "source_index": "3",
+            "distance_m": 0.0,
+            "matched_within_100m": true
+          },
+          {
+            "source_index": "4",
+            "distance_m": 0.0,
+            "matched_within_100m": true
+          }
+        ],
+        "waterways": [
+          {
+            "source_index": "0",
+            "distance_m": 225.35703385616898,
+            "matched_within_100m": false
+          },
+          {
+            "source_index": "1",
+            "distance_m": 412.5306450438137,
+            "matched_within_100m": false
+          },
+          {
+            "source_index": "2",
+            "distance_m": 159.22740406267565,
+            "matched_within_100m": false
+          },
+          {
+            "source_index": "3",
+            "distance_m": 22.621646635694788,
+            "matched_within_100m": true
+          },
+          {
+            "source_index": "4",
+            "distance_m": 113.3148070517075,
+            "matched_within_100m": false
+          },
+          {
+            "source_index": "5",
+            "distance_m": 45.90572858882034,
+            "matched_within_100m": true
+          },
+          {
+            "source_index": "6",
+            "distance_m": 110.00184097073861,
+            "matched_within_100m": false
+          },
+          {
+            "source_index": "7",
+            "distance_m": 163.4167293619761,
+            "matched_within_100m": false
+          },
+          {
+            "source_index": "8",
+            "distance_m": 174.71562048634144,
+            "matched_within_100m": false
+          },
+          {
+            "source_index": "9",
+            "distance_m": 89.25092076331832,
+            "matched_within_100m": true
+          },
+          {
+            "source_index": "10",
+            "distance_m": 180.9250452773528,
+            "matched_within_100m": false
+          },
+          {
+            "source_index": "11",
+            "distance_m": 899.3840197470075,
+            "matched_within_100m": false
+          },
+          {
+            "source_index": "12",
+            "distance_m": 57.299017074735886,
+            "matched_within_100m": true
+          },
+          {
+            "source_index": "13",
+            "distance_m": 94.10154296659299,
+            "matched_within_100m": true
+          },
+          {
+            "source_index": "14",
+            "distance_m": 231.93124165016457,
+            "matched_within_100m": false
+          },
+          {
+            "source_index": "15",
+            "distance_m": 862.8873914619542,
+            "matched_within_100m": false
+          },
+          {
+            "source_index": "16",
+            "distance_m": 1296.384505599754,
+            "matched_within_100m": false
+          },
+          {
+            "source_index": "17",
+            "distance_m": 32.47345572006227,
+            "matched_within_100m": true
+          },
+          {
+            "source_index": "18",
+            "distance_m": 699.9554925388899,
+            "matched_within_100m": false
+          },
+          {
+            "source_index": "19",
+            "distance_m": 1547.62389777522,
+            "matched_within_100m": false
+          },
+          {
+            "source_index": "20",
+            "distance_m": 825.7514703845375,
+            "matched_within_100m": false
+          },
+          {
+            "source_index": "21",
+            "distance_m": 174.11937047599372,
+            "matched_within_100m": false
+          },
+          {
+            "source_index": "22",
+            "distance_m": 92.21558970563721,
+            "matched_within_100m": true
+          },
+          {
+            "source_index": "23",
+            "distance_m": 519.9629534759894,
+            "matched_within_100m": false
+          },
+          {
+            "source_index": "24",
+            "distance_m": 1.3977508053993635,
+            "matched_within_100m": true
+          },
+          {
+            "source_index": "25",
+            "distance_m": 133.33661730590688,
+            "matched_within_100m": false
+          },
+          {
+            "source_index": "26",
+            "distance_m": 541.3364899258589,
+            "matched_within_100m": false
+          },
+          {
+            "source_index": "27",
+            "distance_m": 193.99189144832394,
+            "matched_within_100m": false
+          },
+          {
+            "source_index": "28",
+            "distance_m": 160.60808649154058,
+            "matched_within_100m": false
+          },
+          {
+            "source_index": "29",
+            "distance_m": 167.01604843572866,
+            "matched_within_100m": false
+          }
+        ]
+      },
+      "source_paths": {
+        "osm_water": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\geofabrik_clips\\ivory-coast\\raw_osm_water\\515115cfa3e8\\gis_osm_water_a_free_1.shp",
+        "osm_waterways": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\geofabrik_clips\\ivory-coast\\raw_osm_waterways\\515115cfa3e8\\gis_osm_waterways_free_1.shp",
+        "hydrolakes": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\hydrosheds_clips\\raw_hydrolakes_water\\515115cfa3e8\\HydroLAKES_polys_v10.shp",
+        "hydrorivers": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\hydrosheds_clips\\raw_hydrorivers_water\\515115cfa3e8\\HydroRIVERS_v10.shp"
+      }
+    },
+    {
+      "aoi_id": "vietnam_coastal",
+      "bbox": [
+        106.6,
+        20.78,
+        106.78,
+        20.92
+      ],
+      "reference_layers": {
+        "water_polygon": {
+          "osm_feature_count": 490,
+          "reference_feature_count": 8,
+          "sample_size": 8,
+          "matched_count": 1,
+          "match_rate": 0.125,
+          "reference_area_overlap_proxy": 0.4284955029123128,
+          "sampling_rule": "first N features in deterministic source order; representative point/line midpoint within 100 m"
+        },
+        "waterways": {
+          "osm_feature_count": 92,
+          "reference_feature_count": 24,
+          "sample_size": 24,
+          "matched_count": 9,
+          "match_rate": 0.375,
+          "reference_area_overlap_proxy": null,
+          "sampling_rule": "first N features in deterministic source order; representative point/line midpoint within 100 m"
+        }
+      },
+      "samples": {
+        "water_polygon": [
+          {
+            "source_index": "0",
+            "distance_m": 0.0,
+            "matched_within_100m": true
+          },
+          {
+            "source_index": "1",
+            "distance_m": 469.3954110582842,
+            "matched_within_100m": false
+          },
+          {
+            "source_index": "2",
+            "distance_m": 363.3374004175881,
+            "matched_within_100m": false
+          },
+          {
+            "source_index": "3",
+            "distance_m": 302.94842589799424,
+            "matched_within_100m": false
+          },
+          {
+            "source_index": "4",
+            "distance_m": 1245.6279923348343,
+            "matched_within_100m": false
+          },
+          {
+            "source_index": "5",
+            "distance_m": 313.05752232976965,
+            "matched_within_100m": false
+          },
+          {
+            "source_index": "6",
+            "distance_m": 1349.1968622260501,
+            "matched_within_100m": false
+          },
+          {
+            "source_index": "7",
+            "distance_m": 120.46847646828766,
+            "matched_within_100m": false
+          }
+        ],
+        "waterways": [
+          {
+            "source_index": "0",
+            "distance_m": 38.94019367113237,
+            "matched_within_100m": true
+          },
+          {
+            "source_index": "1",
+            "distance_m": 74.6523230392093,
+            "matched_within_100m": true
+          },
+          {
+            "source_index": "2",
+            "distance_m": 1408.2093155964133,
+            "matched_within_100m": false
+          },
+          {
+            "source_index": "3",
+            "distance_m": 1345.1985948935776,
+            "matched_within_100m": false
+          },
+          {
+            "source_index": "4",
+            "distance_m": 1004.4136794048462,
+            "matched_within_100m": false
+          },
+          {
+            "source_index": "5",
+            "distance_m": 40.10269798504195,
+            "matched_within_100m": true
+          },
+          {
+            "source_index": "6",
+            "distance_m": 84.11235380420372,
+            "matched_within_100m": true
+          },
+          {
+            "source_index": "7",
+            "distance_m": 360.0035553828646,
+            "matched_within_100m": false
+          },
+          {
+            "source_index": "8",
+            "distance_m": 1.8759759620910235,
+            "matched_within_100m": true
+          },
+          {
+            "source_index": "9",
+            "distance_m": 448.16859057656757,
+            "matched_within_100m": false
+          },
+          {
+            "source_index": "10",
+            "distance_m": 38.76017448985579,
+            "matched_within_100m": true
+          },
+          {
+            "source_index": "11",
+            "distance_m": 659.8937636428841,
+            "matched_within_100m": false
+          },
+          {
+            "source_index": "12",
+            "distance_m": 151.11082790159062,
+            "matched_within_100m": false
+          },
+          {
+            "source_index": "13",
+            "distance_m": 201.00658629949683,
+            "matched_within_100m": false
+          },
+          {
+            "source_index": "14",
+            "distance_m": 80.33128155365613,
+            "matched_within_100m": true
+          },
+          {
+            "source_index": "15",
+            "distance_m": 60.297524988176576,
+            "matched_within_100m": true
+          },
+          {
+            "source_index": "16",
+            "distance_m": 193.7668230774756,
+            "matched_within_100m": false
+          },
+          {
+            "source_index": "17",
+            "distance_m": 456.12961844017707,
+            "matched_within_100m": false
+          },
+          {
+            "source_index": "18",
+            "distance_m": 260.30227018129165,
+            "matched_within_100m": false
+          },
+          {
+            "source_index": "19",
+            "distance_m": 68.66057096796462,
+            "matched_within_100m": true
+          },
+          {
+            "source_index": "20",
+            "distance_m": 171.05337485043398,
+            "matched_within_100m": false
+          },
+          {
+            "source_index": "21",
+            "distance_m": 931.6373856782727,
+            "matched_within_100m": false
+          },
+          {
+            "source_index": "22",
+            "distance_m": 177.38507006504756,
+            "matched_within_100m": false
+          },
+          {
+            "source_index": "23",
+            "distance_m": 298.0604676718557,
+            "matched_within_100m": false
+          }
+        ]
+      },
+      "source_paths": {
+        "osm_water": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\geofabrik_clips\\vietnam\\raw_osm_water\\767db3e08935\\gis_osm_water_a_free_1.shp",
+        "osm_waterways": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\geofabrik_clips\\vietnam\\raw_osm_waterways\\767db3e08935\\gis_osm_waterways_free_1.shp",
+        "hydrolakes": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\hydrosheds_clips\\raw_hydrolakes_water\\767db3e08935\\HydroLAKES_polys_v10.shp",
+        "hydrorivers": "D:\\fyx\\任务\\fusionagent_downloads\\raw_source_cache\\source_assets\\hydrosheds_clips\\raw_hydrorivers_water\\767db3e08935\\HydroRIVERS_v10.shp"
+      }
+    }
+  ],
+  "limitations": [
+    "当前跨 AOI 重复覆盖 C02/C04；C06 只有 Caracas 具备独立第二道路源，其他 AOI 记录为不可运行。",
+    "reference match rate 是外部源一致性/覆盖代理，不等同于人工真值精度、召回率或位置误差完整评价。",
+    "每个 AOI/变体只有一次运行；均值、标准差、95% CI 和 Cohen h 仅作探索性统计。",
+    "fixed_priority 效果量用于任务顺序敏感性，不证明融合质量提升。",
+    "固定优先级 C02 按预期违反水体优先断言；其最终交付指标仍单独统计，不能与 all_cases_passed 混为一谈。"
+  ]
+}

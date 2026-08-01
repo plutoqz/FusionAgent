@@ -122,6 +122,7 @@ class ProductContractRef(BaseModel):
     gap_declaration_policy: Dict[str, Any] = Field(default_factory=dict)
     delivery_policy: Dict[str, Any] = Field(default_factory=dict)
     satisfaction_states: List[str] = Field(default_factory=list)
+    repair_strategy_ids: List[str] = Field(default_factory=list)
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
 
