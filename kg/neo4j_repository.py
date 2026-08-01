@@ -6,7 +6,13 @@ from typing import Dict, List, Optional, Type
 
 from schemas.fusion import JobType
 
-from kg.bootstrap import MANAGED_LABEL, resolve_graph_target
+from kg.bootstrap import (
+    MANAGED_LABEL,
+    build_live_knowledge_manifest_cypher,
+    expected_seed_inventory,
+    resolve_graph_target,
+)
+from kg.knowledge_release import KnowledgeReleaseError, get_knowledge_identity as get_frozen_knowledge_identity
 from kg.models import (
     AlgorithmNode,
     AlgorithmParameterSpec,
@@ -39,6 +45,8 @@ class Neo4jKGRepository(KGRepository):
         password: str,
         database: Optional[str] = None,
         graph_namespace: str = DEFAULT_GRAPH_NAMESPACE,
+        experience_policy: str = "adaptive",
+        expected_knowledge_identity: Optional[Dict[str, str]] = None,
     ) -> None:
         try:
             from neo4j import GraphDatabase  # type: ignore
@@ -49,27 +57,66 @@ class Neo4jKGRepository(KGRepository):
         self._driver = GraphDatabase.driver(uri, auth=(user, password))
         self.database = database
         self.graph_namespace = graph_namespace.strip() or DEFAULT_GRAPH_NAMESPACE
+        normalized_experience_policy = str(experience_policy).strip().lower()
+        if normalized_experience_policy not in {"adaptive", "pinned_snapshot"}:
+            raise ValueError(
+                "experience_policy must be 'adaptive' or 'pinned_snapshot', "
+                f"got {experience_policy!r}"
+            )
+        self.experience_policy = normalized_experience_policy
+        self._expected_knowledge_identity = dict(
+            expected_knowledge_identity or get_frozen_knowledge_identity()
+        )
 
     @classmethod
-    def from_env(cls) -> Optional["Neo4jKGRepository"]:
+    def from_env(
+        cls,
+        *,
+        experience_policy: str = "adaptive",
+        expected_knowledge_identity: Optional[Dict[str, str]] = None,
+    ) -> "Neo4jKGRepository":
         uri = os.getenv("GEOFUSION_NEO4J_URI")
         user = os.getenv("GEOFUSION_NEO4J_USER")
         password = os.getenv("GEOFUSION_NEO4J_PASSWORD")
         database = os.getenv("GEOFUSION_NEO4J_DATABASE")
         graph_namespace = get_graph_namespace()
         if not uri or not user or not password:
-            return None
+            missing = [
+                name
+                for name, value in (
+                    ("GEOFUSION_NEO4J_URI", uri),
+                    ("GEOFUSION_NEO4J_USER", user),
+                    ("GEOFUSION_NEO4J_PASSWORD", password),
+                )
+                if not value
+            ]
+            raise RuntimeError(f"Neo4j KG backend requires configuration: {', '.join(missing)}")
         resolved = resolve_graph_target(uri=uri, user=user, password=password, database=database)
-        return cls(
+        repository = cls(
             uri=uri,
             user=user,
             password=password,
             database=resolved["database_used"],
             graph_namespace=graph_namespace,
+            experience_policy=experience_policy,
+            expected_knowledge_identity=expected_knowledge_identity,
         )
+        try:
+            repository.verify_connectivity()
+            repository.verify_knowledge_release()
+        except Exception:
+            repository.close()
+            raise
+        return repository
 
     def close(self) -> None:
         self._driver.close()
+
+    def verify_connectivity(self) -> None:
+        verify = getattr(self._driver, "verify_connectivity", None)
+        if not callable(verify):
+            raise RuntimeError("Neo4j driver does not expose verify_connectivity()")
+        verify()
 
     def _execute(self, cypher: str, **params: object) -> List[Dict[str, object]]:
         with self._driver.session(database=self.database) as session:
@@ -80,6 +127,157 @@ class Neo4jKGRepository(KGRepository):
         return {
             **params,
             "graph_namespace": self.graph_namespace,
+        }
+
+    def _expected_identity(self) -> Dict[str, str]:
+        identity = getattr(self, "_expected_knowledge_identity", None)
+        return dict(identity or get_frozen_knowledge_identity())
+
+    def _experience_policy(self) -> str:
+        return str(getattr(self, "experience_policy", "adaptive"))
+
+    def get_knowledge_identity(self) -> Dict[str, str]:
+        rows = self._execute(
+            f"""
+            MATCH (release:KnowledgeRelease:{MANAGED_LABEL})
+            WHERE release.graphNamespace = $graph_namespace
+            RETURN release.releaseId AS release_id,
+                   release.ontologyVersion AS ontology_version,
+                   release.knowledgeVersion AS knowledge_version,
+                   release.semanticHash AS semantic_hash,
+                   release.experienceSnapshotHash AS experience_snapshot_hash,
+                   release.status AS status
+            """,
+            **self._with_namespace(),
+        )
+        if len(rows) != 1:
+            raise KnowledgeReleaseError(
+                f"Expected one KnowledgeRelease in graph namespace {self.graph_namespace!r}, found {len(rows)}"
+            )
+        row = rows[0]
+        if row.get("status") != "frozen":
+            raise KnowledgeReleaseError(
+                f"KnowledgeRelease in graph namespace {self.graph_namespace!r} is not frozen"
+            )
+        return {
+            key: str(value)
+            for key, value in row.items()
+            if key != "status"
+        }
+
+    def verify_knowledge_release(self) -> Dict[str, str]:
+        expected = self._expected_identity()
+        actual = self.get_knowledge_identity()
+        identity_mismatches = {
+            key: {"expected": expected[key], "actual": actual.get(key)}
+            for key in expected
+            if actual.get(key) != expected[key]
+        }
+        if identity_mismatches:
+            raise KnowledgeReleaseError(
+                "Neo4j KnowledgeRelease mismatch: "
+                + json.dumps(identity_mismatches, ensure_ascii=False, sort_keys=True)
+            )
+
+        expected_inventory = expected_seed_inventory()
+        rows = self._execute(
+            f"""
+            MATCH (n:{MANAGED_LABEL})
+            WHERE n.graphNamespace = $graph_namespace
+            UNWIND [label IN labels(n) WHERE label IN $seed_labels] AS label
+            RETURN label,
+                   count(*) AS count,
+                   sum(
+                       CASE
+                           WHEN n.releaseId = $release_id AND n.semanticHash = $semantic_hash THEN 0
+                           ELSE 1
+                       END
+                   ) AS mismatched_count
+            ORDER BY label
+            """,
+            **self._with_namespace(
+                seed_labels=sorted(expected_inventory),
+                release_id=expected["release_id"],
+                semantic_hash=expected["semantic_hash"],
+            ),
+        )
+        live_counts = {str(row["label"]): int(row["count"]) for row in rows}
+        inventory_mismatches = {
+            label: {"expected": count, "actual": live_counts.get(label, 0)}
+            for label, count in expected_inventory.items()
+            if live_counts.get(label, 0) != count
+        }
+        tagged_mismatches = {
+            str(row["label"]): int(row.get("mismatched_count", 0))
+            for row in rows
+            if int(row.get("mismatched_count", 0)) > 0
+        }
+        if inventory_mismatches or tagged_mismatches:
+            raise KnowledgeReleaseError(
+                "Neo4j frozen knowledge inventory mismatch: "
+                + json.dumps(
+                    {
+                        "inventory": inventory_mismatches,
+                        "release_tags": tagged_mismatches,
+                    },
+                    ensure_ascii=False,
+                    sort_keys=True,
+                )
+            )
+
+        manifest_rows = self._execute(
+            build_live_knowledge_manifest_cypher(),
+            **self._with_namespace(seed_labels=sorted(expected_inventory)),
+        )
+        if len(manifest_rows) != 1:
+            raise KnowledgeReleaseError(
+                f"Expected one live knowledge manifest row, found {len(manifest_rows)}"
+            )
+        manifest = manifest_rows[0]
+        entity_manifest_matches = manifest.get("stored_entity_manifest") == manifest.get("live_entity_manifest")
+        relationship_manifest_matches = (
+            manifest.get("stored_relationship_manifest") == manifest.get("live_relationship_manifest")
+        )
+        if not entity_manifest_matches or not relationship_manifest_matches:
+            raise KnowledgeReleaseError(
+                "Neo4j frozen knowledge manifest mismatch: "
+                + json.dumps(
+                    {
+                        "entity_manifest": self._manifest_comparison_summary(
+                            manifest.get("stored_entity_manifest"),
+                            manifest.get("live_entity_manifest"),
+                        ),
+                        "relationship_manifest": self._manifest_comparison_summary(
+                            manifest.get("stored_relationship_manifest"),
+                            manifest.get("live_relationship_manifest"),
+                        ),
+                    },
+                    ensure_ascii=False,
+                    sort_keys=True,
+                )
+            )
+        return actual
+
+    @staticmethod
+    def _manifest_comparison_summary(stored: object, live: object) -> Dict[str, object]:
+        stored_items = list(stored) if isinstance(stored, list) else []
+        live_items = list(live) if isinstance(live, list) else []
+        first_difference: Dict[str, object] | None = None
+        for index in range(max(len(stored_items), len(live_items))):
+            stored_value = stored_items[index] if index < len(stored_items) else None
+            live_value = live_items[index] if index < len(live_items) else None
+            if stored_value != live_value:
+                first_difference = {
+                    "index": index,
+                    "stored": stored_value,
+                    "live": live_value,
+                }
+                break
+        return {
+            "matches": stored == live,
+            "stored_count": len(stored_items),
+            "live_count": len(live_items),
+            "first_difference": first_difference,
         }
 
     @staticmethod
@@ -810,9 +1008,14 @@ class Neo4jKGRepository(KGRepository):
         return rows
 
     def record_execution_feedback(self, feedback: ExecutionFeedback) -> None:
+        identity = self._expected_identity()
         self._execute(
             f"""
-            MERGE (run:WorkflowInstance {{instanceId: $run_id}})
+            MATCH (release:KnowledgeRelease:{MANAGED_LABEL})
+            WHERE release.graphNamespace = $graph_namespace
+              AND release.releaseId = $release_id
+              AND release.semanticHash = $semantic_hash
+            MERGE (run:WorkflowInstance {{instanceId: $run_id, graphNamespace: $graph_namespace}})
             SET run:{MANAGED_LABEL}
             SET run.jobType = $job_type,
                 run.disasterType = $disaster_type,
@@ -821,7 +1024,11 @@ class Neo4jKGRepository(KGRepository):
                 run.repaired = $repaired,
                 run.repairCount = $repair_count,
                 run.failureReason = $failure_reason,
-                run.graphNamespace = $graph_namespace
+                run.graphNamespace = $graph_namespace,
+                run.releaseId = $release_id,
+                run.semanticHash = $semantic_hash,
+                run.experienceSnapshotHash = $experience_snapshot_hash
+            MERGE (run)-[:REFERENCES_RELEASE]->(release)
             WITH run
             OPTIONAL MATCH (wp:WorkflowPattern:{MANAGED_LABEL} {{patternId: $pattern_id}})
             WHERE wp.graphNamespace = $graph_namespace
@@ -845,15 +1052,27 @@ class Neo4jKGRepository(KGRepository):
                 pattern_id=feedback.pattern_id,
                 algorithm_id=feedback.algorithm_id,
                 selected_data_source=feedback.selected_data_source,
+                release_id=identity["release_id"],
+                semantic_hash=identity["semantic_hash"],
+                experience_snapshot_hash=identity["experience_snapshot_hash"],
             ),
         )
 
     def record_durable_learning_record(self, record: DurableLearningRecord) -> None:
+        identity = self._expected_identity()
         self._execute(
             f"""
-            MERGE (run:WorkflowInstance {{instanceId: $run_id}})
+            MATCH (release:KnowledgeRelease:{MANAGED_LABEL})
+            WHERE release.graphNamespace = $graph_namespace
+              AND release.releaseId = $release_id
+              AND release.semanticHash = $semantic_hash
+            MERGE (run:WorkflowInstance {{instanceId: $run_id, graphNamespace: $graph_namespace}})
             SET run:{MANAGED_LABEL}
-            MERGE (dlr:DurableLearningRecord {{recordId: $record_id}})
+            SET run.releaseId = $release_id,
+                run.semanticHash = $semantic_hash,
+                run.experienceSnapshotHash = $experience_snapshot_hash
+            MERGE (run)-[:REFERENCES_RELEASE]->(release)
+            MERGE (dlr:DurableLearningRecord {{recordId: $record_id, graphNamespace: $graph_namespace}})
             SET dlr:{MANAGED_LABEL}
             SET dlr.runId = $run_id,
                 dlr.jobType = $job_type,
@@ -871,7 +1090,10 @@ class Neo4jKGRepository(KGRepository):
                 dlr.planRevision = $plan_revision,
                 dlr.metadataJson = $metadata_json,
                 dlr.createdAt = $created_at,
-                dlr.graphNamespace = $graph_namespace
+                dlr.graphNamespace = $graph_namespace,
+                dlr.releaseId = $release_id,
+                dlr.semanticHash = $semantic_hash,
+                dlr.experienceSnapshotHash = $live_experience_hash
             MERGE (run)-[:HAS_DURABLE_LEARNING]->(dlr)
             SET run.graphNamespace = $graph_namespace
             WITH dlr
@@ -903,6 +1125,10 @@ class Neo4jKGRepository(KGRepository):
                 plan_revision=record.plan_revision,
                 metadata_json=(json.dumps(record.metadata, ensure_ascii=False, sort_keys=True) if record.metadata else None),
                 created_at=record.created_at,
+                release_id=identity["release_id"],
+                semantic_hash=identity["semantic_hash"],
+                experience_snapshot_hash=identity["experience_snapshot_hash"],
+                live_experience_hash="unversioned-live",
             ),
         )
 
@@ -913,21 +1139,27 @@ class Neo4jKGRepository(KGRepository):
         success: Optional[bool] = None,
         limit: int = 20,
     ) -> List[DurableLearningRecord]:
+        experience_filter = ""
+        params: Dict[str, object] = self._with_namespace(
+            job_type=(job_type.value if job_type is not None else None),
+            success=success,
+            limit=limit,
+        )
+        if self._experience_policy() == "pinned_snapshot":
+            experience_filter = "AND dlr.experienceSnapshotHash = $experience_snapshot_hash"
+            params["experience_snapshot_hash"] = self._expected_identity()["experience_snapshot_hash"]
         rows = self._execute(
             f"""
             MATCH (dlr:DurableLearningRecord:{MANAGED_LABEL})
             WHERE dlr.graphNamespace = $graph_namespace
               AND ($job_type IS NULL OR dlr.jobType = $job_type)
               AND ($success IS NULL OR dlr.success = $success)
+              {experience_filter}
             RETURN dlr
             ORDER BY coalesce(dlr.createdAt, "") DESC, dlr.recordId DESC
             LIMIT $limit
             """,
-            **self._with_namespace(
-                job_type=(job_type.value if job_type is not None else None),
-                success=success,
-                limit=limit,
-            ),
+            **params,
         )
         result: List[DurableLearningRecord] = []
         for row in rows:
@@ -965,6 +1197,8 @@ class Neo4jKGRepository(KGRepository):
         return result
 
     def build_context(self, job_type: JobType, disaster_type: Optional[str]) -> KGContext:
+        if self._experience_policy() == "pinned_snapshot":
+            self.verify_knowledge_release()
         patterns = self.get_candidate_patterns(job_type=job_type, disaster_type=disaster_type, limit=3)
         algorithms: Dict[str, AlgorithmNode] = {}
         for pattern in patterns:
@@ -986,7 +1220,7 @@ class Neo4jKGRepository(KGRepository):
             algorithms.setdefault(algo.algo_id, algo)
             parameter_specs.setdefault(algo.algo_id, self.get_parameter_specs(algo.algo_id))
         sources: Dict[str, DataSourceNode] = {}
-        for required_type in required_types:
+        for required_type in sorted(required_types):
             for source in self.get_candidate_data_sources(job_type, disaster_type, required_type, limit=3):
                 sources[source.source_id] = source
         output_schema_policies = {
@@ -1004,7 +1238,7 @@ class Neo4jKGRepository(KGRepository):
             algorithms=algorithms,
             data_types=self.list_data_types(),
             parameter_specs=parameter_specs,
-            data_sources=list(sources.values()),
+            data_sources=[sources[source_id] for source_id in sorted(sources)],
             output_schema_policies=output_schema_policies,
             durable_learning_summaries=self.summarize_durable_learning_records(
                 job_type=job_type,

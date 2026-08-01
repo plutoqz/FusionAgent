@@ -83,8 +83,12 @@ def _plan() -> WorkflowPlan:
 def _write_building(path: Path) -> Path:
     path.parent.mkdir(parents=True, exist_ok=True)
     gpd.GeoDataFrame(
-        {"id": ["building-1"], "source_id": ["raw.osm.building"], "HEIGHT": [9.0]},
-        geometry=[box(0.2, 0.2, 0.8, 0.8)],
+        {
+            "id": ["building-1", "building-2"],
+            "source_id": ["raw.osm.building", "raw.microsoft.building"],
+            "HEIGHT": [9.0, 11.0],
+        },
+        geometry=[box(0.2, 0.2, 0.45, 0.45), box(0.55, 0.55, 0.8, 0.8)],
         crs="EPSG:4326",
     ).to_file(path, driver="GPKG")
     return path
@@ -290,7 +294,7 @@ def test_source_semantics_keeps_raster_out_of_vector_component_paths(
     }
 
 
-def test_building_sources_from_semantic_contract_selects_preferred_height_raster(tmp_path: Path) -> None:
+def test_building_sources_from_semantic_contract_uses_frozen_height_source_priority(tmp_path: Path) -> None:
     open_buildings_height = tmp_path / "open_buildings_2_5d.tif"
     globfp_height = tmp_path / "3d_globfp.tif"
     legacy_google_height = tmp_path / "legacy_google.tif"
@@ -316,7 +320,7 @@ def test_building_sources_from_semantic_contract_selects_preferred_height_raster
         "MS": tmp_path / "ms.gpkg",
         "OSM": tmp_path / "osm.gpkg",
     }
-    assert rasters == {"building_height": open_buildings_height}
+    assert rasters == {"building_height": legacy_google_height}
 
 
 def test_building_multisource_runner_uses_working_bbox_for_inner_manifest(

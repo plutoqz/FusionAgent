@@ -1,5 +1,6 @@
 import json
 import threading
+from dataclasses import asdict
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Optional
@@ -11,8 +12,11 @@ from shapely.geometry import LineString, box
 
 from agent.executor import ExecutionContext, WorkflowExecutor
 from kg.inmemory_repository import InMemoryKGRepository
+from kg.seed_provider import load_seed_data
 from schemas.agent import (
+    ProductContractRef,
     RepairRecord,
+    RepairStrategyRef,
     RunCreateRequest,
     RunInputStrategy,
     RunPhase,
@@ -40,6 +44,11 @@ from services.source_asset_service import SourceAssetResolution
 from services.input_acquisition_service import ResolvedRunInputs
 from services.source_materialization_manifest_service import build_source_materialization_manifest
 from services.tiled_building_runtime_service import TiledBuildingRunResult
+
+
+@pytest.fixture(autouse=True)
+def _explicit_legacy_grounding_mode(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("GEOFUSION_PLAN_GROUNDING_MODE", "report")
 
 
 def test_agent_run_service_can_disable_artifact_reuse_for_isolated_experiments(
@@ -116,7 +125,7 @@ def test_task_driven_source_candidates_filter_alternatives_by_disaster_type() ->
     assert AgentRunService._task_driven_source_candidates(plan) == ["catalog.flood.road"]
 
 
-def test_task_driven_source_candidates_infer_disaster_type_from_trigger_content() -> None:
+def test_task_driven_source_candidates_reject_plan_source_incompatible_with_inferred_disaster() -> None:
     plan = WorkflowPlan(
         workflow_id="wf-building",
         trigger=RunTrigger(
@@ -165,7 +174,8 @@ def test_task_driven_source_candidates_infer_disaster_type_from_trigger_content(
 
     assert plan.trigger.disaster_type is None
     assert AgentRunService._plan_disaster_type(plan) == "flood"
-    assert AgentRunService._task_driven_source_candidates(plan) == ["catalog.flood.building"]
+    with pytest.raises(ValueError, match="PLAN_SOURCE_NOT_COMPATIBLE"):
+        AgentRunService._task_driven_source_candidates(plan)
 
 
 def _write_dummy_zip(path: Path) -> bytes:
@@ -194,13 +204,73 @@ def _write_frame(path: Path, frame: gpd.GeoDataFrame) -> None:
     frame.to_file(path)
 
 
-def _write_minimal_polygon_shapefile(path: Path, *, crs: str = "EPSG:4326", with_confidence: bool = False) -> Path:
-    data = {"fid": [1]}
+def _write_minimal_polygon_shapefile(
+    path: Path,
+    *,
+    crs: str = "EPSG:4326",
+    with_confidence: bool = False,
+    bounds: tuple[float, float, float, float] = (0.0, 0.0, 1.0, 1.0),
+) -> Path:
+    min_x, min_y, max_x, max_y = bounds
+    width = max_x - min_x
+    height = max_y - min_y
+    data = {
+        "fid": [1, 2],
+        "source_id": ["raw.test.primary", "raw.test.reference"],
+        "source_feature_id": ["feature-1", "feature-2"],
+        "primary_source": ["raw.test.primary", "raw.test.primary"],
+    }
     if with_confidence:
-        data["confidence"] = [0.9]
-    frame = gpd.GeoDataFrame(data, geometry=[box(0, 0, 1, 1)], crs=crs)
+        data["confidence"] = [0.9, 0.8]
+    frame = gpd.GeoDataFrame(
+        data,
+        geometry=[
+            box(min_x, min_y, min_x + width * 0.45, min_y + height * 0.45),
+            box(min_x + width * 0.55, min_y + height * 0.55, max_x, max_y),
+        ],
+        crs=crs,
+    )
     path.parent.mkdir(parents=True, exist_ok=True)
     frame.to_file(path)
+    return path
+
+
+def _write_minimal_road_artifact(
+    path: Path,
+    *,
+    bounds: tuple[float, float, float, float] = (0.0, 0.0, 1.0, 1.0),
+) -> Path:
+    min_x, min_y, max_x, max_y = bounds
+    width = max_x - min_x
+    height = max_y - min_y
+    frame = gpd.GeoDataFrame(
+        {
+            "fusion_source": ["raw.osm.road", "raw.microsoft.road"],
+            "match_role": ["base", "reference"],
+            "road_class": ["primary", "secondary"],
+            "source_layer": ["base", "reference"],
+            "name": ["Road A", "Road B"],
+            "osm_name": ["Road A", "Road B"],
+            "road_name": ["Road A", "Road B"],
+        },
+        geometry=[
+            LineString(
+                [
+                    (min_x + width * 0.1, min_y + height * 0.3),
+                    (max_x - width * 0.1, min_y + height * 0.3),
+                ]
+            ),
+            LineString(
+                [
+                    (min_x + width * 0.1, min_y + height * 0.7),
+                    (max_x - width * 0.1, min_y + height * 0.7),
+                ]
+            ),
+        ],
+        crs="EPSG:4326",
+    )
+    path.parent.mkdir(parents=True, exist_ok=True)
+    frame.to_file(path, driver="GPKG")
     return path
 
 
@@ -264,6 +334,16 @@ def _build_plan(
         expected_output="building result",
         validation=ValidationReport(valid=True, inserted_transform_steps=0, issues=[]),
     )
+
+
+def _attach_contract_repairs(plan: WorkflowPlan, contract_id: str) -> None:
+    seed = load_seed_data()
+    contract = seed["product_contracts"][contract_id]
+    plan.product_contract = ProductContractRef.model_validate(asdict(contract))
+    plan.repair_strategies = [
+        RepairStrategyRef.model_validate(asdict(seed["repair_strategies"][strategy_id]))
+        for strategy_id in contract.repair_strategy_ids
+    ]
 
 
 class _NoHealingKG(InMemoryKGRepository):
@@ -779,8 +859,11 @@ def test_agent_run_service_water_task_driven_auto_uses_real_shared_acquisition_c
     _write_frame(
         fused_shp,
         gpd.GeoDataFrame(
-            {"fid": [1]},
-            geometry=[box(0.25, 0.25, 1.75, 1.75)],
+            {
+                "fid": [1, 2],
+                "source_id": ["raw.osm.water", "raw.hydrolakes.water"],
+            },
+            geometry=[box(0.25, 0.25, 0.9, 0.9), box(1.0, 1.0, 1.75, 1.75)],
             crs="EPSG:4326",
         ),
     )
@@ -858,8 +941,14 @@ def test_agent_run_service_poi_task_driven_auto_uses_real_shared_acquisition_cha
     _write_frame(
         fused_shp,
         gpd.GeoDataFrame(
-            {"fid": [1]},
-            geometry=[box(36.80002, -1.30002, 36.80003, -1.30001).centroid],
+            {
+                "fid": [1, 2],
+                "source_id": ["raw.osm.poi", "raw.gns.poi"],
+            },
+            geometry=[
+                box(36.80002, -1.30002, 36.80003, -1.30001).centroid,
+                box(36.80004, -1.30004, 36.80005, -1.30003).centroid,
+            ],
             crs="EPSG:4326",
         ),
     )
@@ -915,7 +1004,7 @@ def test_agent_run_service_poi_task_driven_auto_uses_real_shared_acquisition_cha
     assert resolved_event.details["cache_hit"] is False
 
 
-def test_agent_run_service_water_task_driven_auto_fails_at_materialization_time_when_bundle_is_empty(
+def test_agent_run_service_water_task_driven_auto_allows_sparse_empty_materialization(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
@@ -961,11 +1050,13 @@ def test_agent_run_service_water_task_driven_auto_fails_at_materialization_time_
     monkeypatch.setattr(service.planner, "create_plan", lambda **_kwargs: plan.model_copy(deep=True))
     monkeypatch.setattr(service.validator, "validate_and_repair", lambda input_plan: input_plan)
     monkeypatch.setattr(service, "_should_use_large_area_runtime", lambda **_kwargs: False)
-    monkeypatch.setattr(
-        service.executor,
-        "execute_plan",
-        lambda **_kwargs: pytest.fail("execution should not run when water bundle materialization fails"),
-    )
+    execution_reached = {"value": False}
+
+    def stop_after_sparse_materialization(**_kwargs):
+        execution_reached["value"] = True
+        raise RuntimeError("stop after sparse-empty materialization evidence")
+
+    monkeypatch.setattr(service.executor, "execute_plan", stop_after_sparse_materialization)
 
     status = service.create_run(
         request=_build_auto_request(
@@ -982,15 +1073,17 @@ def test_agent_run_service_water_task_driven_auto_fails_at_materialization_time_
     latest = service.get_run(status.run_id)
     assert latest is not None
     assert latest.phase == RunPhase.failed
-    assert latest.error is not None
-    assert "task-driven input materialization failed for catalog.flood.water" in latest.error
-    assert "failure_category=SOURCE_MISSING" in (latest.failure_summary or "")
-    assert "suggested_action=replan" in (latest.failure_summary or "")
+    assert execution_reached["value"] is True
+    assert "stop after sparse-empty materialization evidence" in (latest.error or "")
     audit_events = service.get_audit_events(status.run_id)
-    assert not any(event.kind == "task_inputs_resolved" for event in audit_events)
+    resolved_event = next(event for event in audit_events if event.kind == "task_inputs_resolved")
+    assert resolved_event.details["source_id"] == "catalog.flood.water"
+    assert {
+        str(item.get("coverage_status"))
+        for item in resolved_event.details["component_coverage"].values()
+    } == {"empty"}
+    assert any(event.kind == "source_materialized" for event in audit_events)
     assert audit_events[-1].kind == "run_failed"
-    assert audit_events[-1].details["failure_category"] == "SOURCE_MISSING"
-    assert audit_events[-1].details["suggested_action"] == "replan"
 
 
 @pytest.mark.parametrize(
@@ -1007,7 +1100,7 @@ def test_agent_run_service_water_task_driven_auto_fails_at_materialization_time_
     ],
     ids=["timeout", "download-failure"],
 )
-def test_agent_run_service_retries_next_source_candidate_after_acquisition_failure(
+def test_agent_run_service_does_not_use_unapproved_retrieval_candidate_as_source_fallback(
     tmp_path: Path,
     monkeypatch,
     first_candidate_error: BaseException,
@@ -1066,22 +1159,17 @@ def test_agent_run_service_retries_next_source_candidate_after_acquisition_failu
         fake_resolve_task_driven_inputs_with_progress,
     )
 
-    osm_zip_path, ref_zip_path, resolved = service._resolve_execution_inputs(
-        run_id=run_id,
-        request=request,
-        plan=plan,
-        input_dir=tmp_path / "runs" / run_id / "input",
-        osm_zip_path=None,
-        ref_zip_path=None,
-    )
+    with pytest.raises(type(first_candidate_error)):
+        service._resolve_execution_inputs(
+            run_id=run_id,
+            request=request,
+            plan=plan,
+            input_dir=tmp_path / "runs" / run_id / "input",
+            osm_zip_path=None,
+            ref_zip_path=None,
+        )
 
-    assert osm_zip_path == resolved_inputs.osm_zip_path
-    assert ref_zip_path == resolved_inputs.ref_zip_path
-    assert resolved is not None
-    assert resolved.source_id == "catalog.flood.building"
-    assert resolved.selected_source_id == "catalog.flood.building"
-    assert resolved.fallback_from_source_id == "catalog.earthquake.building"
-    assert attempted == ["catalog.earthquake.building", "catalog.flood.building"]
+    assert attempted == ["catalog.earthquake.building"]
 
     latest = service.get_run(run_id)
     assert latest is not None
@@ -1093,17 +1181,28 @@ def test_agent_run_service_retries_next_source_candidate_after_acquisition_failu
         for event in audit_events
         if event.kind == "source_acquisition_started"
     ]
-    assert started_sources == ["catalog.earthquake.building", "catalog.flood.building"]
+    assert started_sources == ["catalog.earthquake.building"]
     failed = next(event for event in audit_events if event.kind == "source_acquisition_failed")
     assert failed.details["source_id"] == "catalog.earthquake.building"
     assert failed.details["candidate_index"] == 1
-    assert failed.details["candidate_count"] == 2
+    assert failed.details["candidate_count"] == 1
     assert failed.details["fault_class"] == "SOURCE_DOWNLOAD_FAILED"
-    assert failed.details["will_try_next_candidate"] is True
-    assert any(event.kind == "source_materialized" for event in audit_events)
+    assert failed.details["will_try_next_candidate"] is False
+    assert not any(event.kind == "source_materialized" for event in audit_events)
 
 
-def test_agent_run_service_retries_task_driven_source_alternative_after_source_missing(
+def test_source_candidate_fallback_uses_frozen_fault_vocabulary() -> None:
+    assert AgentRunService._source_acquisition_fault_class(TimeoutError("timed out")) == "SOURCE_DOWNLOAD_FAILED"
+    assert AgentRunService._is_source_candidate_fallback_error(RuntimeError("403 forbidden")) is True
+    assert AgentRunService._source_acquisition_fault_class(
+        RuntimeError("unclassified provider response")
+    ) == "UNKNOWN_FAILURE"
+    assert AgentRunService._is_source_candidate_fallback_error(
+        RuntimeError("unclassified provider response")
+    ) is False
+
+
+def test_agent_run_service_rejects_unapproved_source_alternative_after_source_missing(
     tmp_path: Path,
     monkeypatch,
 ) -> None:
@@ -1187,16 +1286,15 @@ def test_agent_run_service_retries_task_driven_source_alternative_after_source_m
 
     latest = service.get_run(status.run_id)
     assert latest is not None
-    assert latest.phase == RunPhase.succeeded
-    assert attempted == ["catalog.flood.building", "catalog.generic.building"]
+    assert latest.phase == RunPhase.failed
+    assert attempted == ["catalog.flood.building"]
 
     audit_events = service.get_audit_events(status.run_id)
-    fallback_event = next(event for event in audit_events if event.kind == "source_fallback_selected")
-    assert fallback_event.details["fallback_from_source_id"] == "catalog.flood.building"
-    assert fallback_event.details["selected_source_id"] == "catalog.generic.building"
-    resolved_event = next(event for event in audit_events if event.kind == "task_inputs_resolved")
-    assert resolved_event.details["source_id"] == "catalog.generic.building"
-    assert resolved_event.details["fallback_from_source_id"] == "catalog.flood.building"
+    assert not any(event.kind == "source_fallback_selected" for event in audit_events)
+    assert not any(event.kind == "task_inputs_resolved" for event in audit_events)
+    failed_event = next(event for event in audit_events if event.kind == "source_acquisition_failed")
+    assert failed_event.details["source_id"] == "catalog.flood.building"
+    assert failed_event.details["will_try_next_candidate"] is False
 
 
 def test_agent_run_service_road_task_driven_auto_keeps_trajectory_seam_reserved(
@@ -1204,9 +1302,9 @@ def test_agent_run_service_road_task_driven_auto_keeps_trajectory_seam_reserved(
     monkeypatch,
 ) -> None:
     service = AgentRunService(base_dir=tmp_path / "runs")
-    fused_shp = tmp_path / "fused_road_reserved.shp"
+    fused_shp = tmp_path / "fused_road_reserved.gpkg"
     artifact_zip = tmp_path / "artifact_road_reserved.zip"
-    _write_minimal_polygon_shapefile(fused_shp)
+    _write_minimal_road_artifact(fused_shp, bounds=(74.1, 35.8, 74.3, 36.0))
     artifact_zip.write_bytes(b"zip")
 
     plan = _build_road_task_driven_plan()
@@ -1287,9 +1385,9 @@ def test_agent_run_service_road_task_driven_auto_uses_real_shared_acquisition_ch
         ),
     )
     _write_frame(
-        root_dir / "Data" / "roads" / "Overture" / "overture_roads.shp",
+        root_dir / "Data" / "roads" / "Microsoft" / "microsoft_roads.shp",
         gpd.GeoDataFrame(
-            {"id": ["seg-1"], "class": ["primary"], "surface": ["paved"], "lane_count": [2]},
+            {"ms_road_id": ["ms-1"], "ms_class": ["primary"]},
             geometry=[box(74.12, 35.82, 74.28, 35.98).boundary],
             crs="EPSG:4326",
         ),
@@ -1308,12 +1406,23 @@ def test_agent_run_service_road_task_driven_auto_uses_real_shared_acquisition_ch
         cache_dir=service.base_dir / "input_bundle_cache",
     )
 
-    fused_shp = tmp_path / "fused_road_real.shp"
+    fused_shp = tmp_path / "fused_road_real.gpkg"
     _write_frame(
         fused_shp,
         gpd.GeoDataFrame(
-            {"fid": [1]},
-            geometry=[box(74.10, 35.80, 74.30, 36.00)],
+            {
+                "fusion_source": ["raw.osm.road", "raw.microsoft.road"],
+                "match_role": ["base", "reference"],
+                "road_class": ["primary", "primary"],
+                "source_layer": ["base", "reference"],
+                "name": ["A", "B"],
+                "osm_name": ["A", "B"],
+                "road_name": ["A", "B"],
+            },
+            geometry=[
+                box(74.10, 35.80, 74.19, 35.89).boundary,
+                box(74.21, 35.91, 74.30, 36.00).boundary,
+            ],
             crs="EPSG:4326",
         ),
     )
@@ -1358,7 +1467,7 @@ def test_agent_run_service_road_task_driven_auto_uses_real_shared_acquisition_ch
     assert Path(captured["osm_shp"]).exists()
     assert Path(captured["ref_shp"]).exists()
     assert list(captured["osm_frame"].columns)[:1] == ["road_id"]
-    assert list(captured["ref_frame"].columns)[:1] == ["id"]
+    assert list(captured["ref_frame"].columns)[:1] == ["ms_road_id"]
     assert str(captured["osm_frame"].crs) == "EPSG:32643"
     assert str(captured["ref_frame"].crs) == "EPSG:32643"
 
@@ -1686,11 +1795,11 @@ def test_agent_run_service_writes_quality_report_for_gpkg_output(tmp_path: Path)
     fused_gpkg = output_dir / "building_fusion_result.gpkg"
     gpd.GeoDataFrame(
         {
-            "fid": [1],
-            "source_id": ["raw.osm.building"],
-            "source_count": [2],
+            "fid": [1, 2],
+            "source_id": ["raw.osm.building", "raw.microsoft.building"],
+            "source_count": [2, 2],
         },
-        geometry=[box(0.1, 0.1, 0.9, 0.9)],
+        geometry=[box(0.1, 0.1, 0.45, 0.45), box(0.55, 0.55, 0.9, 0.9)],
         crs="EPSG:4326",
     ).to_file(fused_gpkg, driver="GPKG")
 
@@ -1758,7 +1867,7 @@ def test_agent_run_service_passes_plan_quality_policy_id_to_quality_gate(tmp_pat
     assert captured["quality_policy_id"] == "quality.default.building.v1"
 
 
-def test_agent_run_service_passes_contract_and_country_baselines_to_quality_gate(tmp_path: Path) -> None:
+def test_agent_run_service_passes_only_kg_contract_thresholds_to_quality_gate(tmp_path: Path) -> None:
     captured: dict[str, object] = {}
 
     class FakeQualityGate:
@@ -1832,7 +1941,7 @@ def test_agent_run_service_passes_contract_and_country_baselines_to_quality_gate
 
     assert captured["contract_id"] == "contract.road.fused.v1"
     assert captured["required_fields"] == ["geometry"]
-    assert captured["source_expected_null_rates"]["name"] == 0.95
+    assert "source_expected_null_rates" not in captured
 
 
 def test_agent_writeback_writes_feature_alignment_report(tmp_path: Path) -> None:
@@ -1902,6 +2011,7 @@ def test_agent_writeback_writes_feature_alignment_report(tmp_path: Path) -> None
     plan.context["intent"]["job_type"] = "road"
     plan.tasks[0].input.data_type_id = "dt.road.bundle"
     plan.tasks[0].output.data_type_id = "dt.road.fused"
+    _attach_contract_repairs(plan, "contract.product.road.v1")
 
     service.run_writeback_stage(
         run_id=run_id,
@@ -1938,12 +2048,13 @@ def test_agent_writeback_repairs_quality_gate_failures_before_zip(tmp_path: Path
     fused_gpkg = output_dir / "road_bad.gpkg"
     gpd.GeoDataFrame(
         {
-            "source_layer": ["base", "supplement"],
-            "name": ["Main Road", ""],
-            "ref": ["MR-1", "Side Road"],
+            "source_layer": ["base", "supplement", "supplement"],
+            "name": ["Main Road", "Side Road", ""],
+            "ref": ["MR-1", "SR-1", "Broken Road"],
         },
         geometry=[
             LineString([(0, 0), (100000, 0)]),
+            LineString([(0, 100), (100000, 100)]),
             LineString([(10, 10), (10, 10)]),
         ],
         crs="EPSG:32631",
@@ -1963,6 +2074,7 @@ def test_agent_writeback_repairs_quality_gate_failures_before_zip(tmp_path: Path
     plan.context["intent"]["job_type"] = "road"
     plan.tasks[0].input.data_type_id = "dt.road.bundle"
     plan.tasks[0].output.data_type_id = "dt.road.fused"
+    _attach_contract_repairs(plan, "contract.product.road.v1")
     repairs: list[RepairRecord] = []
 
     artifact = service.run_writeback_stage(
@@ -1983,14 +2095,18 @@ def test_agent_writeback_repairs_quality_gate_failures_before_zip(tmp_path: Path
     assert quality_report["accepted"] is True
     assert (output_dir / "quality_report.before_repair.json").exists()
     assert repair_report["changed"] is True
-    assert {"schema_attribute_backfill", "road_name_preservation", "line_topology_cleanup"} <= set(
+    assert {
+        "repair.artifact.schema_backfill.v1",
+        "repair.artifact.road_name.v1",
+        "repair.artifact.line_topology.v1",
+    } <= set(
         repair_report["applied_strategies"]
     )
     assert "artifact_repair_started" in audit_kinds
     assert "artifact_repair_applied" in audit_kinds
     assert repairs
     assert repaired["road_name"].iloc[0] == "Main Road"
-    assert len(repaired) == 1
+    assert len(repaired) == 2
 
 
 def test_agent_writeback_passes_degradation_context_to_quality_gate(tmp_path: Path, monkeypatch) -> None:
@@ -2009,8 +2125,8 @@ def test_agent_writeback_passes_degradation_context_to_quality_gate(tmp_path: Pa
     status.checkpoint = {
         "stage": "execution",
         "component_coverage": {
-            "raw.gns.poi": {"feature_count": 3, "coverage_status": "available"},
-            "raw.google.poi": {
+            "raw.osm.poi": {"feature_count": 3, "coverage_status": "available"},
+            "raw.gns.poi": {
                 "feature_count": 0,
                 "coverage_status": "missing",
                 "fault_class": "UNAUTHORIZED",
@@ -2022,6 +2138,10 @@ def test_agent_writeback_passes_degradation_context_to_quality_gate(tmp_path: Pa
 
     plan = _build_plan(workflow_id="wf_poi_degradation_context", revision=1, algorithm_id="algo.fusion.poi.v1")
     plan.context["intent"]["job_type"] = "poi"
+    plan.tasks[0].name = "poi_fusion"
+    plan.tasks[0].description = "poi fusion"
+    plan.tasks[0].input.data_type_id = "dt.poi.bundle"
+    plan.tasks[0].output.data_type_id = "dt.poi.fused"
     output_dir = tmp_path / "output-poi-degradation-context"
     output_dir.mkdir(parents=True, exist_ok=True)
     fused_gpkg = output_dir / "poi_fusion_result.gpkg"
@@ -2057,9 +2177,9 @@ def test_agent_writeback_passes_degradation_context_to_quality_gate(tmp_path: Pa
 
     assert isinstance(captured["degradation_context"], DegradationContext)
     assert captured["degradation_context"].level == DegradationLevel.external_uncontrollable
-    assert captured["degradation_context"].available_sources == ["raw.gns.poi"]
-    assert captured["degradation_context"].missing_sources == ["raw.google.poi"]
-    assert captured["degradation_context"].external_uncontrollable_sources == ["raw.google.poi"]
+    assert captured["degradation_context"].available_sources == ["raw.osm.poi"]
+    assert captured["degradation_context"].missing_sources == ["raw.gns.poi"]
+    assert captured["degradation_context"].external_uncontrollable_sources == ["raw.gns.poi"]
     assert captured["degradation_context"].system_failure_sources == []
 
 
@@ -2087,6 +2207,10 @@ def test_agent_writeback_infers_missing_quality_source_closure_for_poi(tmp_path:
 
     plan = _build_plan(workflow_id="wf_poi_source_closure", revision=1, algorithm_id="algo.fusion.poi.v1")
     plan.context["intent"]["job_type"] = "poi"
+    plan.tasks[0].name = "poi_fusion"
+    plan.tasks[0].description = "poi fusion"
+    plan.tasks[0].input.data_type_id = "dt.poi.bundle"
+    plan.tasks[0].output.data_type_id = "dt.poi.fused"
     output_dir = tmp_path / "output-poi-source-closure"
     output_dir.mkdir(parents=True, exist_ok=True)
     fused_gpkg = output_dir / "poi_fusion_result.gpkg"
@@ -2123,15 +2247,14 @@ def test_agent_writeback_infers_missing_quality_source_closure_for_poi(tmp_path:
 
     coverage = captured["component_coverage"]
     assert isinstance(coverage, dict)
-    assert set(coverage) == {"raw.gns.poi", "raw.google.poi", "raw.osm.poi"}
+    assert set(coverage) == {"raw.gns.poi", "raw.osm.poi"}
     assert coverage["raw.osm.poi"]["feature_count"] == 3217
     assert coverage["raw.gns.poi"]["external_uncontrollable"] is True
-    assert coverage["raw.google.poi"]["external_uncontrollable"] is True
     context = captured["degradation_context"]
     assert isinstance(context, DegradationContext)
     assert context.level == DegradationLevel.external_uncontrollable
     assert context.available_sources == ["raw.osm.poi"]
-    assert context.external_uncontrollable_sources == ["raw.gns.poi", "raw.google.poi"]
+    assert context.external_uncontrollable_sources == ["raw.gns.poi"]
 
 
 def test_source_materialization_manifest_includes_runtime_source_contracts() -> None:
@@ -2355,7 +2478,7 @@ def test_task_driven_building_source_selection_prefers_bundle_compatible_catalog
 
     assert selected.selected_id == "catalog.flood.building"
     assert service._resolve_task_driven_source_id(plan) == "catalog.flood.building"
-    assert service._extract_alternative_sources(plan) == ["catalog.earthquake.building"]
+    assert service._extract_alternative_sources(plan) == []
     assert selected.evidence_refs == [
         "context.retrieval.data_sources",
         "policy:deterministic_weighted_sum",
@@ -2608,7 +2731,7 @@ def test_agent_run_service_explicit_bbox_is_authoritative_even_when_force_aoi_re
     artifact_zip = tmp_path / "artifact_bbox.zip"
     for path in [osm_shp, ref_shp]:
         path.write_text("dummy", encoding="utf-8")
-    _write_minimal_polygon_shapefile(fused_shp)
+    _write_minimal_polygon_shapefile(fused_shp, bounds=(36.79, -1.31, 36.81, -1.29))
     artifact_zip.write_bytes(b"zip")
 
     plan = _build_plan(workflow_id="wf_nairobi_explicit_bbox", revision=1)
@@ -2692,9 +2815,9 @@ def test_agent_run_service_direct_bbox_run_does_not_force_aoi_resolution(
     monkeypatch,
 ) -> None:
     service = AgentRunService(base_dir=tmp_path / "runs")
-    fused_shp = tmp_path / "fused_road_direct_bbox.shp"
+    fused_shp = tmp_path / "fused_road_direct_bbox.gpkg"
     artifact_zip = tmp_path / "artifact_road_direct_bbox.zip"
-    _write_minimal_polygon_shapefile(fused_shp)
+    _write_minimal_road_artifact(fused_shp, bounds=(74.1, 35.8, 74.3, 36.0))
     artifact_zip.write_bytes(b"zip")
 
     plan = _build_road_task_driven_plan()
@@ -2752,9 +2875,9 @@ def test_agent_run_service_direct_bbox_run_derives_target_crs_when_omitted(
     monkeypatch,
 ) -> None:
     service = AgentRunService(base_dir=tmp_path / "runs")
-    fused_shp = tmp_path / "fused_haiphong_bbox.shp"
+    fused_shp = tmp_path / "fused_haiphong_bbox.gpkg"
     artifact_zip = tmp_path / "artifact_haiphong_bbox.zip"
-    _write_minimal_polygon_shapefile(fused_shp)
+    _write_minimal_road_artifact(fused_shp, bounds=(106.60, 20.78, 106.78, 20.92))
     artifact_zip.write_bytes(b"zip")
 
     plan = _build_road_task_driven_plan()
@@ -3199,7 +3322,7 @@ def test_agent_run_service_falls_back_to_fresh_execution_when_clip_reuse_materia
     artifact_zip = tmp_path / "artifact.zip"
     for path in [osm_shp, ref_shp]:
         path.write_text("dummy", encoding="utf-8")
-    _write_minimal_polygon_shapefile(fused_shp)
+    _write_minimal_polygon_shapefile(fused_shp, bounds=(3.0, 3.0, 4.0, 4.0))
     artifact_zip.write_bytes(b"zip")
 
     # Deliberately lie in the registry bbox so candidate selection passes but clipping fails.
@@ -3282,11 +3405,11 @@ def test_agent_run_service_skips_stale_reuse_candidates_using_job_type_policy(tm
     service = AgentRunService(base_dir=tmp_path / "runs")
     osm_shp = tmp_path / "osm.shp"
     ref_shp = tmp_path / "ref.shp"
-    fused_shp = tmp_path / "fresh-road.shp"
+    fused_shp = tmp_path / "fresh-road.gpkg"
     artifact_zip = tmp_path / "road-artifact.zip"
     for path in [osm_shp, ref_shp]:
         path.write_text("dummy", encoding="utf-8")
-    _write_minimal_polygon_shapefile(fused_shp)
+    _write_minimal_road_artifact(fused_shp)
     artifact_zip.write_bytes(b"zip")
 
     source_artifact = _write_polygon_bundle_zip(
@@ -4494,8 +4617,8 @@ def test_get_run_refreshes_stale_cached_status_from_disk(tmp_path: Path) -> None
 
 
 def test_agent_run_service_enforces_plan_grounding_before_validation(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.delenv("GEOFUSION_PLAN_GROUNDING_MODE", raising=False)
     service = AgentRunService(base_dir=tmp_path / "runs")
-    monkeypatch.setenv("GEOFUSION_PLAN_GROUNDING_MODE", "enforce")
     ungrounded_plan = _build_plan(workflow_id="wf_ungrounded", revision=1)
     ungrounded_plan.context["retrieval"] = {
         "candidate_patterns": [],
@@ -4527,6 +4650,7 @@ def test_agent_run_service_enforces_plan_grounding_before_validation(tmp_path: P
 
 
 def test_agent_run_service_rejects_validator_invalid_plan_before_execution(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("GEOFUSION_PLAN_GROUNDING_MODE", "report")
     monkeypatch.setenv("GEOFUSION_VALIDATOR_MODE", "enforce")
     service = AgentRunService(base_dir=tmp_path / "runs")
     plan = _build_road_task_driven_plan(workflow_id="wf_deprecated_validator")
@@ -4560,6 +4684,7 @@ def test_agent_run_service_rejects_validator_invalid_plan_before_execution(tmp_p
 
 
 def test_agent_run_service_records_grounding_gate_in_report_mode(tmp_path: Path, monkeypatch) -> None:
+    monkeypatch.setenv("GEOFUSION_PLAN_GROUNDING_MODE", "report")
     service = AgentRunService(base_dir=tmp_path / "runs")
     plan = _build_plan(workflow_id="wf_report_mode", revision=1)
     plan.context["retrieval"] = {

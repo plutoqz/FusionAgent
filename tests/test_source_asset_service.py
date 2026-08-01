@@ -175,6 +175,16 @@ def test_classify_source_fault_recognizes_external_faults(error: Exception, expe
     assert classify_source_fault(source={"source_id": "raw.external"}, error=error) == expected
 
 
+def test_classify_source_fault_fails_closed_for_unknown_provider_error() -> None:
+    assert (
+        classify_source_fault(
+            source={"source_id": "raw.external", "path": "configured"},
+            error=RuntimeError("unclassified provider response"),
+        )
+        == "UNKNOWN_FAILURE"
+    )
+
+
 def test_source_asset_service_prefers_existing_local_data_tree(tmp_path: Path) -> None:
     local_shp = tmp_path / "Data" / "burundi-260127-free.shp" / "gis_osm_buildings_a_free_1.shp"
     _write_frame(

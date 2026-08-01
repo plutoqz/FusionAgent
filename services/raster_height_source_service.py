@@ -11,9 +11,11 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from kg.policy_registry import default_policy_registry
+from schemas.failure_taxonomy import classify_failure_category
 from services.aoi_resolution_service import ResolvedAOI
 from services.runtime_source_aliases import BUILDING_HEIGHT_RASTER_PRIORITY_ORDER
-from services.source_acquisition_policy import build_source_attempt
+from services.source_acquisition_policy import EXTERNAL_UNCONTROLLABLE_FAULTS, build_source_attempt
 from utils.vector_clip import BBox
 
 
@@ -21,41 +23,26 @@ HEIGHT_RASTER_ACQUISITION_SKILL_ID = "skill.source_acquisition.building_height_r
 HEIGHT_RASTER_ACQUISITION_SKILL_NAME = "Building Height Raster Acquisition"
 DEFAULT_HEIGHT_RASTER_MAX_SECONDS = 30
 
+_POLICY_REGISTRY = default_policy_registry()
+_RASTER_BINDINGS = {
+    source_id: _POLICY_REGISTRY.raster_source_binding(source_id)
+    for source_id in BUILDING_HEIGHT_RASTER_PRIORITY_ORDER
+}
 _SOURCE_ENV_SUFFIX = {
-    "raw.google.open_buildings_2_5d.height_raster": "OPEN_BUILDINGS_2_5D",
-    "raw.3d_globfp.building_height.raster": "3D_GLOBFP",
-    "raw.google.building_height.raster": "GOOGLE",
-    "raw.local.building_height.raster": "LOCAL",
+    source_id: str(binding["env_suffix"])
+    for source_id, binding in _RASTER_BINDINGS.items()
 }
-
-_LOCAL_RASTER_PATTERNS = ("*.tif", "*.tiff", "*.vrt")
-
 _LOCAL_RASTER_CANDIDATES = {
-    "raw.google.open_buildings_2_5d.height_raster": (
-        ("Data", "buildings", "height", "OpenBuildings2_5D"),
-        ("Data", "buildings", "height", "open_buildings_2_5d"),
-        ("Data", "buildings", "height", "google_open_buildings_2_5d"),
-        ("data", "open_buildings_2_5d_2023_caracas_urban_height"),
-        ("data", "open_buildings_2_5d_2023_caracas_bbox_height"),
-        ("data", "open_buildings_2_5d_2023_ee_bbox_height"),
-        ("data", "open_buildings_2_5d_2023"),
-    ),
-    "raw.3d_globfp.building_height.raster": (
-        ("Data", "buildings", "height", "3D-GloBFP"),
-        ("Data", "buildings", "height", "3d_globfp"),
-        ("Data", "buildings", "height", "GloBFP"),
-    ),
-    "raw.google.building_height.raster": (
-        ("Data", "buildings", "height", "Google"),
-        ("Data", "buildings", "height", "google"),
-        ("_processing", "google_open_buildings_temporal_2023"),
-    ),
-    "raw.local.building_height.raster": (
-        ("Data", "buildings", "height"),
-        ("Data", "buildings", "rasters"),
-        ("height_rasters",),
-    ),
+    source_id: tuple(tuple(str(part) for part in candidate) for candidate in binding.get("local_candidates") or [])
+    for source_id, binding in _RASTER_BINDINGS.items()
 }
+_LOCAL_RASTER_PATTERNS = tuple(
+    dict.fromkeys(
+        str(pattern)
+        for binding in _RASTER_BINDINGS.values()
+        for pattern in binding.get("file_patterns") or []
+    )
+)
 
 
 @dataclass(frozen=True)
@@ -123,48 +110,19 @@ class RasterHeightSourceService:
                     target_dir=target_dir,
                     resolved_aoi=resolved_aoi,
                 )
-            except TimeoutError as exc:
-                coverage, attempt = self._failed_evidence(
-                    source_id,
-                    attempt_no=attempt_no,
-                    fault_class="SOURCE_DOWNLOAD_FAILED",
-                    fault_message=str(exc),
-                    source_mode="rapid_response_timeout",
-                )
-                component_coverage[source_id] = coverage
-                attempts.append(attempt)
-                continue
-            except FileNotFoundError as exc:
-                missing_config = "No configured local path or URL" in str(exc)
-                coverage, attempt = self._failed_evidence(
-                    source_id,
-                    attempt_no=attempt_no,
-                    fault_class="CONFIG_MISSING" if missing_config else "SOURCE_MISSING",
-                    fault_message=str(exc),
-                    source_mode="awaiting_external_config" if missing_config else "missing_optional_height_raster",
-                    status="awaiting_external_config" if missing_config else "no_coverage",
-                )
-                component_coverage[source_id] = coverage
-                attempts.append(attempt)
-                continue
-            except PermissionError as exc:
-                coverage, attempt = self._failed_evidence(
-                    source_id,
-                    attempt_no=attempt_no,
-                    fault_class="UNAUTHORIZED",
-                    fault_message=str(exc),
-                    source_mode="unauthorized",
-                )
-                component_coverage[source_id] = coverage
-                attempts.append(attempt)
-                continue
             except Exception as exc:  # noqa: BLE001
+                fault_class = classify_failure_category(
+                    str(exc),
+                    scope="source_acquisition",
+                    error_type=type(exc).__name__,
+                    policy_registry=_POLICY_REGISTRY,
+                )
                 coverage, attempt = self._failed_evidence(
                     source_id,
                     attempt_no=attempt_no,
-                    fault_class="PROVIDER_UNAVAILABLE",
+                    fault_class=fault_class,
                     fault_message=str(exc),
-                    source_mode="provider_failed",
+                    source_mode=_POLICY_REGISTRY.source_mode_for_fault(fault_class),
                 )
                 component_coverage[source_id] = coverage
                 attempts.append(attempt)
@@ -323,14 +281,7 @@ class RasterHeightSourceService:
         source_mode: str,
         status: str = "attempted",
     ) -> tuple[dict[str, object], dict[str, object]]:
-        external = fault_class in {
-            "SOURCE_DOWNLOAD_FAILED",
-            "NETWORK_FAILED",
-            "PROVIDER_UNAVAILABLE",
-            "NO_OFFICIAL_COVERAGE",
-            "UNAUTHORIZED",
-            "SOURCE_MISSING",
-        }
+        external = fault_class in EXTERNAL_UNCONTROLLABLE_FAULTS
         coverage_status = "awaiting_external_config" if fault_class == "CONFIG_MISSING" else "missing"
         coverage = {
             "source_id": source_id,

@@ -12,6 +12,7 @@ from kg.bootstrap import (
     expected_seed_inventory,
     resolve_graph_target,
 )
+from kg.knowledge_release import get_knowledge_identity
 
 
 def test_bootstrap_cypher_contains_schema_and_seed_entities() -> None:
@@ -72,6 +73,7 @@ def test_checked_in_bootstrap_cypher_stays_in_sync_with_generator_and_trajectory
     generated = build_bootstrap_cypher()
 
     assert checked_in == generated
+    assert 'valueType(n[propertyKey]) STARTS WITH "LIST"' in checked_in
     assert 'typeId: "dt.trajectory.raw"' in checked_in
     assert 'typeId: "dt.road.candidate"' in checked_in
     assert 'taskId: "task.trajectory_to_road"' in checked_in
@@ -165,6 +167,9 @@ def test_ensure_bootstrap_data_applies_seed_only_when_missing(monkeypatch) -> No
             if "MATCH (:FusionAgentManaged)-[r]->(:FusionAgentManaged) WHERE startNode(r).graphNamespace = $graph_namespace AND endNode(r).graphNamespace = $graph_namespace" in normalized:
                 assert params["graph_namespace"] == "fusionagent"
                 return FakeResult(rows=[])
+            if "MATCH (release:KnowledgeRelease:FusionAgentManaged)" in normalized:
+                assert params["graph_namespace"] == "fusionagent"
+                return FakeResult(rows=[])
             executed_statements.append(statement)
             return FakeResult(rows=[])
 
@@ -199,23 +204,25 @@ def test_expected_seed_inventory_matches_static_bootstrap_contract() -> None:
     assert inventory == {
         "DataType": 27,
         "Task": 11,
-        "TaskBundle": 4,
+        "TaskBundle": 7,
         "ProductContract": 6,
         "Algorithm": 33,
         "AlgorithmParameterSpec": 72,
-        "DataSource": 32,
+        "DataSource": 34,
         "ScenarioProfile": 4,
         "QoSPolicy": 4,
         "OutputSchemaPolicy": 5,
         "OutputRequirement": 5,
         "DataNeed": 12,
-        "RepairStrategy": 2,
+        "RepairStrategy": 6,
         "WorkflowPattern": 15,
+        "StepTemplate": 27,
     }
 
 
 def test_ensure_bootstrap_data_applies_seed_when_non_pattern_seed_labels_are_missing(monkeypatch) -> None:
     executed_statements: list[str] = []
+    monkeypatch.setattr("kg.bootstrap.inspect_knowledge_release", lambda **_kwargs: get_knowledge_identity())
 
     class FakeResult:
         def __init__(self, rows=None, single_row=None):

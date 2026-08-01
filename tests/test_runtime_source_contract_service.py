@@ -109,12 +109,43 @@ def test_runtime_source_contract_service_marks_height_rasters_as_skill_ready() -
         external_config_provider=lambda source_id: [],
     )
 
-    contract = service.check_source("raw.google.open_buildings_2_5d.height_raster")
+    contract = service.check_source("raw.google.building_height.raster")
 
     assert contract.status == RuntimeProviderStatus.runtime_ready
     assert contract.input_bundle_supported is True
     assert contract.provider_names == ["RasterHeightSourceService"]
     assert contract.reasons == ["source is handled by building height raster acquisition skill"]
+
+
+def test_runtime_source_contract_does_not_promote_kg_reservation_only_source() -> None:
+    service = RuntimeSourceContractService(
+        raw_source_service=_FakeRawService({"raw.overture.transportation"}),
+        input_bundle_providers=[_FakeProvider({"raw.overture.transportation"})],
+        external_config_provider=lambda source_id: [],
+    )
+
+    contract = service.check_source("raw.overture.transportation")
+
+    assert contract.catalog_selectable is False
+    assert contract.raw_vector_supported is True
+    assert contract.input_bundle_supported is True
+    assert contract.status is RuntimeProviderStatus.reservation_only
+    assert contract.reasons == ["frozen KG marks source as reservation-only and not runtime-authorized"]
+
+
+def test_strict_runtime_rejects_source_missing_from_frozen_kg() -> None:
+    service = RuntimeSourceContractService(
+        raw_source_service=_FakeRawService({"raw.unfrozen"}),
+        input_bundle_providers=[_FakeProvider({"raw.unfrozen"})],
+        external_config_provider=lambda source_id: [],
+        runtime_mode="research",
+    )
+
+    contract = service.check_source("raw.unfrozen")
+
+    assert contract.catalog_selectable is False
+    assert contract.status is RuntimeProviderStatus.missing_provider
+    assert contract.reasons == ["source has no runtime authorization in the frozen KG release"]
 
 
 def test_runtime_source_contract_service_deduplicates_sources_deterministically() -> None:

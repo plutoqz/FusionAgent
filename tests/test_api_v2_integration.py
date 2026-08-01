@@ -109,12 +109,28 @@ def _build_water_sample(tmp_path: Path) -> tuple[Path, Path]:
     return osm_shp, ref_shp
 
 
-def _write_minimal_polygon_shapefile(path: Path) -> Path:
+def _write_minimal_polygon_shapefile(
+    path: Path,
+    *,
+    source_ids: tuple[str, str] = ("raw.osm.building", "raw.microsoft.building"),
+    origin: tuple[float, float] = (0.0, 0.0),
+) -> Path:
     from shapely.geometry import Polygon
 
+    x, y = origin
     frame = geopandas.GeoDataFrame(
-        {"fid": [1], "source_id": ["raw.osm.water"]},
-        geometry=[Polygon([(0, 0), (0, 0.01), (0.01, 0.01), (0.01, 0)])],
+        {"fid": [1, 2], "source_id": list(source_ids)},
+        geometry=[
+            Polygon([(x, y), (x, y + 0.01), (x + 0.01, y + 0.01), (x + 0.01, y)]),
+            Polygon(
+                [
+                    (x + 0.02, y + 0.02),
+                    (x + 0.02, y + 0.03),
+                    (x + 0.03, y + 0.03),
+                    (x + 0.03, y + 0.02),
+                ]
+            ),
+        ],
         crs="EPSG:4326",
     )
     frame.to_file(path)
@@ -125,8 +141,12 @@ def _write_minimal_point_shapefile(path: Path) -> Path:
     from shapely.geometry import Point
 
     frame = geopandas.GeoDataFrame(
-        {"fid": [1], "source_id": ["raw.osm.poi"], "name": ["Clinic A"]},
-        geometry=[Point(36.8, -1.3)],
+        {
+            "fid": [1, 2],
+            "source_id": ["raw.osm.poi", "raw.gns.poi"],
+            "name": ["Clinic A", "Clinic B"],
+        },
+        geometry=[Point(36.8, -1.3), Point(36.81, -1.3)],
         crs="EPSG:4326",
     )
     frame.to_file(path)
@@ -249,8 +269,25 @@ def _build_task_driven_water_plan() -> WorkflowPlan:
                 },
             },
             "retrieval": {
-                "candidate_patterns": [{"pattern_id": "wp.flood.water.default", "success_rate": 0.84}],
+                "candidate_patterns": [
+                    {
+                        "pattern_id": "wp.flood.water.default",
+                        "success_rate": 0.84,
+                        "steps": [
+                            {
+                                "algorithm_id": "algo.fusion.water_polygon.priority_merge.v2",
+                                "input_data_type": "dt.water.bundle",
+                                "output_data_type": "dt.water.fused",
+                                "data_source_id": "catalog.flood.water",
+                            }
+                        ],
+                    }
+                ],
                 "data_sources": [{"source_id": "catalog.flood.water"}],
+                "algorithms": {
+                    "algo.fusion.water_polygon.priority_merge.v2": {"tool_ref": "builtin:water_polygon"}
+                },
+                "output_schema_policies": {"dt.water.fused": {"policy_id": "schema.water.fused"}},
             },
             "selection_reason": "initial",
             "llm_provider": "mock",
@@ -331,8 +368,23 @@ def _build_task_driven_poi_plan() -> WorkflowPlan:
                 },
             },
             "retrieval": {
-                "candidate_patterns": [{"pattern_id": "wp.generic.poi.default", "success_rate": 0.8}],
+                "candidate_patterns": [
+                    {
+                        "pattern_id": "wp.generic.poi.default",
+                        "success_rate": 0.8,
+                        "steps": [
+                            {
+                                "algorithm_id": "algo.fusion.poi.v1",
+                                "input_data_type": "dt.poi.bundle",
+                                "output_data_type": "dt.poi.fused",
+                                "data_source_id": "catalog.generic.poi",
+                            }
+                        ],
+                    }
+                ],
                 "data_sources": [{"source_id": "catalog.generic.poi"}],
+                "algorithms": {"algo.fusion.poi.v1": {"tool_ref": "builtin:poi"}},
+                "output_schema_policies": {"dt.poi.fused": {"policy_id": "schema.poi.fused"}},
             },
             "selection_reason": "initial",
             "llm_provider": "mock",
@@ -537,7 +589,11 @@ def test_v2_run_water_task_driven_auto_integration(
     artifact_zip = tmp_path / "artifact_water.zip"
     for path in [osm_shp, ref_shp]:
         path.write_text("dummy", encoding="utf-8")
-    _write_minimal_polygon_shapefile(fused_shp)
+    _write_minimal_polygon_shapefile(
+        fused_shp,
+        source_ids=("raw.osm.water", "raw.hydrolakes.water"),
+        origin=(36.8, -1.3),
+    )
     artifact_zip.write_bytes(b"zip")
     osm_water = _write_water_component(tmp_path / "raw_osm_water.gpkg", "raw.osm.water")
     hydrolakes = _write_water_component(tmp_path / "raw_hydrolakes_water.gpkg", "raw.hydrolakes.water", offset=0.005)
@@ -1087,7 +1143,7 @@ def test_v2_run_task_driven_auto_nairobi_query_records_aoi_resolution(
     artifact_zip = tmp_path / "artifact.zip"
     for path in [osm_shp, ref_shp]:
         path.write_text("dummy", encoding="utf-8")
-    _write_minimal_polygon_shapefile(fused_shp)
+    _write_minimal_polygon_shapefile(fused_shp, origin=(36.8, -1.3))
     artifact_zip.write_bytes(b"zip")
 
     plan = _build_task_driven_plan()
@@ -1096,6 +1152,10 @@ def test_v2_run_task_driven_auto_nairobi_query_records_aoi_resolution(
         content="fuse building and road data for Nairobi, Kenya",
     )
     plan.tasks[0].input.data_source_id = "catalog.earthquake.building"
+    plan.context["retrieval"]["candidate_patterns"][0]["steps"][0]["data_source_id"] = (
+        "catalog.earthquake.building"
+    )
+    plan.context["retrieval"]["data_sources"] = [{"source_id": "catalog.earthquake.building"}]
 
     prepared_dir = tmp_path / "prepared"
     prepared_dir.mkdir(parents=True, exist_ok=True)
@@ -1163,7 +1223,7 @@ def test_v2_run_task_driven_auto_nairobi_query_uses_auto_target_crs_when_omitted
     artifact_zip = tmp_path / "artifact_auto.zip"
     for path in [osm_shp, ref_shp]:
         path.write_text("dummy", encoding="utf-8")
-    _write_minimal_polygon_shapefile(fused_shp)
+    _write_minimal_polygon_shapefile(fused_shp, origin=(36.8, -1.3))
     artifact_zip.write_bytes(b"zip")
 
     plan = _build_task_driven_plan()
@@ -1172,6 +1232,10 @@ def test_v2_run_task_driven_auto_nairobi_query_uses_auto_target_crs_when_omitted
         content="fuse building and road data for Nairobi, Kenya",
     )
     plan.tasks[0].input.data_source_id = "catalog.earthquake.building"
+    plan.context["retrieval"]["candidate_patterns"][0]["steps"][0]["data_source_id"] = (
+        "catalog.earthquake.building"
+    )
+    plan.context["retrieval"]["data_sources"] = [{"source_id": "catalog.earthquake.building"}]
 
     prepared_dir = tmp_path / "prepared_auto"
     prepared_dir.mkdir(parents=True, exist_ok=True)

@@ -1,9 +1,13 @@
+import json
 from pathlib import Path
 
 import geopandas as gpd
 import numpy as np
+import pytest
 from shapely.geometry import LineString, MultiLineString, MultiPolygon, Point, Polygon
 
+from kg.knowledge_release import KnowledgeReleaseError
+from kg.policy_registry import KnowledgePolicyRegistry
 from schemas.agent import DecisionCandidate, DecisionRecord, RunEvent, RunPhase, RunTrigger, RunTriggerType, WorkflowPlan, WorkflowTask, WorkflowTaskInput, WorkflowTaskOutput
 from services.artifact_evaluation_service import evaluate_agentic_run, evaluate_vector_artifact
 
@@ -79,6 +83,76 @@ def test_evaluate_vector_artifact_uses_metadata_for_large_gpkg(tmp_path, monkeyp
     assert metrics["geometry_types"] == ["MultiPolygon"]
     assert metrics["bbox"]
     assert metrics["evaluation_mode"] == "metadata_only"
+    assert metrics["evaluation_status"] == "partial"
+    for metric_name in (
+        "duplicate_geometry_rate",
+        "invalid_geometry_rate",
+        "self_intersection_count",
+        "sliver_polygon_count",
+        "dangle_endpoint_count",
+    ):
+        assert metrics[metric_name] is None
+        assert metrics["metric_evaluation_status"][metric_name] == "not_evaluated"
+
+
+def test_evaluate_vector_artifact_reads_geojson_under_kg_supported_format_policy(tmp_path):
+    path = tmp_path / "buildings.geojson"
+    gpd.GeoDataFrame(
+        {"source_id": ["raw.osm.building"]},
+        geometry=[Polygon([(0, 0), (0, 1), (1, 1), (1, 0)])],
+        crs="EPSG:4326",
+    ).to_file(path, driver="GeoJSON")
+
+    metrics = evaluate_vector_artifact(path, required_fields=["geometry", "source_id"])
+
+    assert metrics["artifact_validity"] is True
+    assert metrics["evaluation_mode"] == "full"
+    assert metrics["evaluation_policy_id"] == "artifact.evaluation.v1"
+
+
+def test_evaluate_vector_artifact_rejects_sampling_without_explicit_kg_authorization(tmp_path):
+    path = _write_polygon_fixture(tmp_path / "sample-blocked.gpkg", count=2, crs="EPSG:4326")
+    registry = _evaluation_policy_registry(
+        tmp_path,
+        large_artifact_mode="sample",
+        sampling_policy={"authorized": False},
+    )
+
+    with pytest.raises(KnowledgeReleaseError, match="not explicitly authorized"):
+        evaluate_vector_artifact(
+            path,
+            required_fields=["geometry"],
+            metadata_only_threshold_bytes=1,
+            policy_registry=registry,
+        )
+
+
+def test_evaluate_vector_artifact_samples_only_with_scoped_kg_authorization(tmp_path):
+    path = _write_polygon_fixture(tmp_path / "sample-authorized.gpkg", count=3, crs="EPSG:4326")
+    registry = _evaluation_policy_registry(
+        tmp_path,
+        large_artifact_mode="sample",
+        sampling_policy={
+            "authorized": True,
+            "strategy": "head",
+            "max_features": 1,
+            "applicable_extensions": [".gpkg"],
+        },
+    )
+
+    metrics = evaluate_vector_artifact(
+        path,
+        required_fields=["geometry"],
+        metadata_only_threshold_bytes=1,
+        policy_registry=registry,
+    )
+
+    assert metrics["evaluation_mode"] == "sampled"
+    assert metrics["evaluation_status"] == "sampled"
+    assert metrics["feature_count"] == 3
+    assert metrics["sample_feature_count"] == 1
+    assert metrics["sampling"]["authorized"] is True
+    assert metrics["metric_evaluation_status"]["invalid_geometry_rate"] == "sampled"
 
 
 def test_evaluate_vector_artifact_reports_aoi_containment(tmp_path):
@@ -402,6 +476,35 @@ def _write_line_fixture(path: Path, *, count: int, crs: str) -> Path:
     )
     frame.to_file(path)
     return path
+
+
+def _evaluation_policy_registry(
+    tmp_path: Path,
+    *,
+    large_artifact_mode: str,
+    sampling_policy: dict[str, object],
+) -> KnowledgePolicyRegistry:
+    policy_path = tmp_path / f"artifact-policy-{large_artifact_mode}-{len(list(tmp_path.glob('artifact-policy-*')))}.json"
+    policy_path.write_text(
+        json.dumps(
+            {
+                "metadata": {
+                    "release_id": "test-artifact-policy",
+                    "knowledge_version": "test",
+                },
+                "artifact_evaluation_policy": {
+                    "policy_id": "artifact.evaluation.test",
+                    "sliver_area_threshold_sq_m": 1.0,
+                    "metadata_only_threshold_bytes": 1,
+                    "supported_vector_extensions": [".gpkg", ".shp", ".geojson"],
+                    "large_artifact_mode": large_artifact_mode,
+                    "sampling_policy": sampling_policy,
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    return KnowledgePolicyRegistry(policy_path)
 
 
 def _make_plan_with_kg_path() -> WorkflowPlan:

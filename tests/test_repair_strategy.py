@@ -4,6 +4,8 @@ from agent.executor import ExecutionContext, WorkflowExecutor
 from kg.inmemory_repository import InMemoryKGRepository
 from schemas.agent import (
     RepairRecord,
+    RepairStrategyRef,
+    ProductContractRef,
     RunTrigger,
     RunTriggerType,
     WorkflowPlan,
@@ -51,6 +53,15 @@ def test_executor_uses_alternative_algorithm(tmp_path: Path) -> None:
             )
         ],
         expected_output="building result",
+        product_contract=ProductContractRef(
+            contract_id="contract.product.building.v1",
+            contract_name="Building",
+            product_type="building",
+            repair_strategy_ids=["repair.alternative_algorithm.v1"],
+        ),
+        repair_strategies=[
+            RepairStrategyRef(strategy_id="repair.alternative_algorithm.v1")
+        ],
     )
 
     ctx = ExecutionContext(

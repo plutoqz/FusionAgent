@@ -154,7 +154,8 @@ def test_validator_rejects_task_not_activated_by_effective_scenario_profile() ->
     assert fixed.validation.issues[0].code == "SCENARIO_PROFILE_TASK_MISMATCH"
 
 
-def test_validator_marks_deprecated_algorithm_with_runtime_contract_issue() -> None:
+def test_validator_defaults_to_kg_enforce_mode_for_runtime_contract_issue(monkeypatch) -> None:
+    monkeypatch.delenv("GEOFUSION_VALIDATOR_MODE", raising=False)
     plan = WorkflowPlan(
         workflow_id="wf_deprecated_algo",
         trigger=RunTrigger(type=RunTriggerType.user_query, content="road"),
@@ -181,12 +182,12 @@ def test_validator_marks_deprecated_algorithm_with_runtime_contract_issue() -> N
     assert fixed.validation is not None
     assert fixed.validation.valid is False
     assert fixed.validation.issues[0].code == "DEPRECATED_ALGORITHM"
-    assert fixed.validation.rejected is False
-    assert fixed.validation.enforcement_mode == "report"
+    assert fixed.validation.rejected is True
+    assert fixed.validation.enforcement_mode == "enforce"
     assert fixed.tasks[0].kg_validated is False
 
 
-def test_validator_enforce_mode_marks_report_rejected() -> None:
+def test_validator_explicit_report_mode_keeps_diagnostic_plan() -> None:
     plan = WorkflowPlan(
         workflow_id="wf_enforce_deprecated",
         trigger=RunTrigger(type=RunTriggerType.user_query, content="road"),
@@ -208,9 +209,9 @@ def test_validator_enforce_mode_marks_report_rejected() -> None:
         expected_output="road result",
     )
 
-    fixed = WorkflowValidator(InMemoryKGRepository(), enforcement_mode="enforce").validate_and_repair(plan)
+    fixed = WorkflowValidator(InMemoryKGRepository(), enforcement_mode="report").validate_and_repair(plan)
 
     assert fixed.validation is not None
     assert fixed.validation.valid is False
-    assert fixed.validation.rejected is True
-    assert fixed.validation.enforcement_mode == "enforce"
+    assert fixed.validation.rejected is False
+    assert fixed.validation.enforcement_mode == "report"

@@ -288,3 +288,37 @@
 - **Observation**: fixed verification selected the Nominatim relation candidate (`admin_level=county`, bbox `[2.2296377, 6.3438819, 2.445889, 6.6805346]`) instead of the original place node bbox `[2.194245, 6.2938637, 2.514245, 6.6138637]`.
 - **Artifact Integrity**: `poi_fusion_result.zip` contains `.shp/.shx/.dbf/.prj` plus `.cpg`; 3,167 POI geometries are non-empty; CRS is `EPSG:32631`.
 - **Impact**: this removes a generic AOI ranking failure, but the run still does not count as a boundary-clip success sample because local administrative boundary matching fell back to bbox.
+
+## Round 11 analysis - 2026-07-03T02:10:30+08:00
+
+- **Area ID**: AS-04
+- **Query**: fuse building data for wildfire response in Barangay 656, Intramuros, Manila, Philippines
+- **Job Type**: building | **Disaster**: wildfire
+- **Run ID**: c10ab106e5cb452e87592c0fab069fdf
+- **Status**: failed (`SOURCE_DOWNLOAD_FAILED`) | **Duration**: 3611s
+- **Admin Level**: city_district
+- **Clip Mode**: degraded bbox (`degraded_bbox_clip=true`)
+
+### Issue 1: Slow optional building provider blocked component-level fallback
+
+- **Stage**: data download / input acquisition
+- **Direct Cause**: `services/local_bundle_catalog.py:341` iterates building component candidates synchronously and waits for each `raw_source_service.resolve(...)` call to finish before trying the next component. For building catalogs, `services/source_acquisition_policy.py:59` and `services/source_acquisition_policy.py:66` put `raw.google.building` and `raw.microsoft.building` before `raw.osm.building` / `raw.osm.road`; then `services/source_asset_service.py:1019`-`1025` loads Microsoft rows and downloads all bbox-intersecting Microsoft parts before any later OSM candidate can run. In this round the Microsoft path left a zero-byte `.part` file in `raw_source_cache/source_assets/msft_parts` and never returned before the catalog-level 1800s watchdog fired.
+- **Trigger Conditions**: cold or slow remote building acquisition for a small AOI, especially outside already-cached countries, when the selected building catalog has remote Google/Microsoft components ahead of OSM fallback components.
+- **Similar Scope**: any `building` task-driven run in countries with slow Microsoft part downloads; wildfire/hurricane/conflict building tasks that fall onto the existing flood/earthquake building catalogs; small administrative AOIs where Geofabrik/OSM would be enough to continue but a prior remote component monopolizes the catalog attempt.
+- **Why Guards Failed**: the source watchdog at `services/agent_run_service.py:1671` correctly produced heartbeats and timed out the whole catalog candidate, and source-level fallback moved from `catalog.earthquake.building` to `catalog.flood.building`. However, there was no component-level timeout/budget or early continuation inside `LocalBundleCatalogProvider`, so one slow optional remote component prevented later component candidates from being tried within the same catalog attempt. Retrying `catalog.flood.building` repeated the same component class and consumed a second 1800s window.
+- **Fix Direction**: make building bundle materialization resilient at component granularity: local/OSM components should be attempted before slow remote optional components for task-driven bundles, and the provider should be able to stop once it has a usable building pair instead of requiring every optional component to finish before returning.
+
+### Issue 2: Wildfire request degraded to flood/earthquake building catalogs with no generic source
+
+- **Stage**: planner / source selection
+- **Direct Cause**: `_filter_disaster_compatible_sources` at `services/agent_run_service.py:4167`-`4191` falls back to all sources when no exact disaster match or generic source exists. The Round 11 retrieval context had only `catalog.earthquake.building` and `catalog.flood.building` for `dt.building.bundle`, so a wildfire request selected `catalog.earthquake.building` by score and then fell back to `catalog.flood.building`.
+- **Trigger Conditions**: disaster types without a dedicated building catalog (`wildfire`, `hurricane`, `conflict`) combined with task-driven building requests where the KG retrieval lacks a `catalog.generic.building` or explicit generic disaster metadata on the existing footprint catalogs.
+- **Similar Scope**: `fuse building data for hurricane response ...`, `fuse building data for conflict response ...`, and future disaster labels that need disaster-agnostic building footprints rather than an event-specific bundle.
+- **Why Guards Failed**: existing tests cover exact flood preference and generic fallback when a generic source is present, but not the no-exact/no-generic path. The guard chose availability over early rejection, which kept the run executable but made the audit claim `policy:disaster_source_compatibility` while actually using disaster-mismatched catalogs.
+- **Fix Direction**: separate disaster-agnostic building footprint catalogs from event-specific disaster labels, or introduce a generic building catalog/metadata path so non-flood/non-earthquake building requests do not bounce between equivalent flood and earthquake catalogs.
+
+### Evidence Note: Timeout/Fallback Worked, Materialization Did Not Progress
+
+- **Observation**: AOI resolution selected the exact `Barangay 656` administrative relation with bbox `[120.967321, 14.5908483, 120.9786148, 14.5960191]`; `catalog.earthquake.building` timed out at 1800.015s with `will_try_next_candidate=true`; `catalog.flood.building` timed out at 1800.0s with `will_try_next_candidate=false`; the run then failed with `failure_category=SOURCE_DOWNLOAD_FAILED`.
+- **Artifact Integrity**: no artifact was produced and no `source_materialized` event exists in audit. The run stayed entirely in input acquisition.
+- **Impact**: this is a real robustness failure in building source acquisition. The watchdog and source-level fallback are observable and correct, but the component acquisition policy can still spend an hour without trying cheaper/local alternatives that could let the run proceed.

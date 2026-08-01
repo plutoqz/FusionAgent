@@ -3,6 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import geopandas as gpd
+import numpy as np
 import pytest
 from shapely.geometry import LineString, Point, Polygon
 
@@ -39,6 +40,42 @@ def test_quality_gate_accepts_multisource_building_gpkg(tmp_path: Path) -> None:
     assert report.adapted_quality_passed is True
     assert report.checks["non_empty"]["passed"] is True
     assert report.checks["multi_source_lineage"]["passed"] is True
+
+
+def test_quality_gate_rejects_metadata_only_artifact_with_unevaluated_hard_metrics(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:
+    path = tmp_path / "large-building.gpkg"
+    with path.open("wb") as handle:
+        handle.truncate(600 * 1024 * 1024)
+
+    monkeypatch.setattr(
+        "services.artifact_evaluation_service.pyogrio.read_info",
+        lambda _path: {
+            "crs": "EPSG:4326",
+            "features": 1_000_000,
+            "fields": np.array(["source_id"]),
+            "geometry_type": "Polygon",
+            "total_bounds": (0.0, 0.0, 1.0, 1.0),
+        },
+    )
+
+    report = QualityGateService().evaluate(
+        artifact_path=path,
+        task_kind=TaskKind.building,
+        required_fields=["geometry", "source_id"],
+        component_coverage={
+            "raw.osm.building": {"feature_count": 500_000, "coverage_status": "available"},
+            "raw.microsoft.building": {"feature_count": 500_000, "coverage_status": "available"},
+        },
+    )
+
+    assert report.accepted is False
+    assert report.metrics["evaluation_mode"] == "metadata_only"
+    assert report.metrics["invalid_geometry_rate"] is None
+    assert report.checks["invalid_geometry_rate"]["passed"] is False
+    assert "invalid_geometry_rate" in report.failure_reasons
 
 
 def test_quality_gate_rejects_wrong_geometry_for_waterways(tmp_path: Path) -> None:
@@ -262,8 +299,11 @@ def test_quality_gate_preserves_source_id_lineage_requirement_without_contract(t
 def test_quality_gate_contract_mode_accepts_source_feature_id_lineage(tmp_path: Path) -> None:
     path = tmp_path / "building_feature_id_contract.gpkg"
     frame = gpd.GeoDataFrame(
-        {"source_feature_id": ["building-1"]},
-        geometry=[Polygon([(0, 0), (0, 1), (1, 1), (1, 0)])],
+        {"source_feature_id": ["osm-building-1", "microsoft-building-1"]},
+        geometry=[
+            Polygon([(0, 0), (0, 0.4), (0.4, 0.4), (0.4, 0)]),
+            Polygon([(0.6, 0.6), (0.6, 1), (1, 1), (1, 0.6)]),
+        ],
         crs="EPSG:4326",
     )
     frame.to_file(path, driver="GPKG")
@@ -313,10 +353,10 @@ def test_quality_gate_rejects_field_null_rate_above_contract_threshold(tmp_path:
     path = tmp_path / "road_empty_names.gpkg"
     frame = gpd.GeoDataFrame(
         {
-            "fusion_source": ["base_road_network"] * 5,
-            "match_role": ["base"] * 5,
+            "fusion_source": ["base_road_network"] * 3 + ["reference_road_network"] * 2,
+            "match_role": ["base"] * 3 + ["reference"] * 2,
             "road_class": ["primary"] * 5,
-            "source_layer": ["base"] * 5,
+            "source_layer": ["base"] * 3 + ["reference"] * 2,
             "name": ["", "", "", "", ""],
             "osm_name": ["", "", "", "", ""],
             "road_name": ["", "", "", "", ""],
@@ -345,7 +385,7 @@ def test_quality_gate_rejects_field_null_rate_above_contract_threshold(tmp_path:
     assert report.checks["field_null_rate:name"]["threshold"] == 0.80
 
 
-def test_quality_gate_accepts_country_expected_high_road_name_null_rate(tmp_path: Path) -> None:
+def test_quality_gate_does_not_allow_country_profile_to_override_kg_threshold(tmp_path: Path) -> None:
     path = tmp_path / "nepal_road_names.gpkg"
     frame = gpd.GeoDataFrame(
         {
@@ -353,9 +393,9 @@ def test_quality_gate_accepts_country_expected_high_road_name_null_rate(tmp_path
             "match_role": ["base"] * 5,
             "road_class": ["primary"] * 5,
             "source_layer": ["base"] * 5,
-            "name": ["A", "", "", "", ""],
-            "osm_name": ["A", "", "", "", ""],
-            "road_name": ["A", "", "", "", ""],
+            "name": [""] * 5,
+            "osm_name": [""] * 5,
+            "road_name": [""] * 5,
         },
         geometry=[LineString([(idx, 0), (idx + 1, 0)]) for idx in range(5)],
         crs="EPSG:4326",
@@ -372,12 +412,11 @@ def test_quality_gate_accepts_country_expected_high_road_name_null_rate(tmp_path
             "raw.overture.road": {"feature_count": 5, "coverage_status": "available"},
         },
         contract_id="contract.road.fused.v1",
-        source_expected_null_rates={"name": 0.95},
     )
 
-    assert "field_null_rate:name" not in report.soft_failure_reasons
-    assert report.checks["field_null_rate:name"]["passed"] is True
-    assert report.checks["field_null_rate:name"]["threshold"] == 0.95
+    assert "field_null_rate:name" in report.soft_failure_reasons
+    assert report.checks["field_null_rate:name"]["passed"] is False
+    assert report.checks["field_null_rate:name"]["threshold"] == 0.80
 
 
 def test_quality_gate_includes_feature_alignment_metrics_when_source_paths_are_available(tmp_path: Path) -> None:

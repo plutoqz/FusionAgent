@@ -1,0 +1,78 @@
+{
+  "audit_id": "fusionagent.freeze-c-independent-audit.v1",
+  "schema_version": "1.0.0",
+  "passed": true,
+  "target": {
+    "evidence_dir": "D:\\code\\freeze-c-evidence\\exp-c02-c04-c06-20260725-final-93ebdc5",
+    "manifest_path": "D:\\code\\freeze-c-evidence\\exp-c02-c04-c06-20260725-final-93ebdc5\\experiment_evidence_manifest.json",
+    "manifest_sha256": "38225e3a1dff3301c0cd076c871b8fee4b09ecb28b32fb3b0df2e24d589a7a45",
+    "experiment_id": "exp-c02-c04-c06-caracas-real-20260725-final",
+    "commit_sha": "93ebdc51c8732ec466067de760a65f30f3f1155c"
+  },
+  "checks": [
+    {
+      "id": "manifest_hash",
+      "title": "manifest SHA-256",
+      "passed": true,
+      "errors": [],
+      "details": {
+        "sha256": "38225e3a1dff3301c0cd076c871b8fee4b09ecb28b32fb3b0df2e24d589a7a45",
+        "expected_sha256": "38225e3a1dff3301c0cd076c871b8fee4b09ecb28b32fb3b0df2e24d589a7a45",
+        "externally_anchored": true
+      }
+    },
+    {
+      "id": "package_hashes",
+      "title": "冻结包逐文件 SHA-256 与 clean 文件集",
+      "passed": true,
+      "errors": [],
+      "details": {
+        "declared_file_count": 638,
+        "actual_file_count": 639,
+        "category_counts": {
+          "case_evidence": 34,
+          "prepared_input": 5,
+          "metadata": 127,
+          "raw_package": 317,
+          "runtime_input": 49,
+          "runtime_output": 106
+        },
+        "allowed_manifest_path": "experiment_evidence_manifest.json"
+      }
+    },
+    {
+      "id": "external_input_hashes",
+      "title": "原始外部输入逐文件 SHA-256",
+      "passed": true,
+      "errors": [],
+      "details": {
+        "source_count": 9,
+        "file_count": 32
+      }
+    },
+    {
+      "id": "experiment_result",
+      "title": "实验结果与 all_cases_passed 闸门",
+      "passed": true,
+      "errors": [],
+      "details": {
+        "case_count": 3,
+        "failed_cases": [],
+        "all_cases_passed": true
+      }
+    },
+    {
+      "id": "commit_and_clean_worktree",
+      "title": "commit 与冻结 worktree clean 状态",
+      "passed": true,
+      "errors": [],
+      "details": {
+        "manifest_commit": "93ebdc51c8732ec466067de760a65f30f3f1155c",
+        "expected_commit": "93ebdc51c8732ec466067de760a65f30f3f1155c",
+        "worktree": "D:\\code\\FusionAgent-freeze-c-93ebdc5",
+        "actual_commit": "93ebdc51c8732ec466067de760a65f30f3f1155c",
+        "status_porcelain": []
+      }
+    }
+  ]
+}

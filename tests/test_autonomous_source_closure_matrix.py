@@ -5,9 +5,9 @@ from services.autonomous_fusion_readiness_service import classify_autonomous_rea
 
 def test_autonomous_closure_matrix_defines_required_sources_for_all_core_tasks() -> None:
     cases = {
-        "building": ["raw.google.building", "raw.microsoft.building", "raw.osm.building", "raw.osm.road"],
+        "building": ["raw.osm.building", "raw.microsoft.building"],
         "road": ["raw.osm.road", "raw.microsoft.road"],
-        "poi": ["raw.gns.poi", "raw.google.poi", "raw.osm.poi"],
+        "poi": ["raw.osm.poi", "raw.gns.poi"],
         "water": ["raw.osm.water", "raw.hydrolakes.water"],
         "waterways": ["raw.osm.waterways", "raw.hydrorivers.water"],
     }

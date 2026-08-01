@@ -26,8 +26,14 @@ def test_build_source_materialization_manifest_records_fault_and_provider_attemp
             "external_uncontrollable_source_ids": ["raw.gns.water"],
         },
         fault={"fault_class": "SOURCE_MISSING", "fault_message": "missing water", "recoverable": True},
+        data_requirement_hash="sha256:" + "1" * 64,
+        knowledge_identity={
+            "release_id": "fusionagent-kg-v1.0.0",
+            "semantic_hash": "sha256:" + "2" * 64,
+        },
     )
 
+    assert manifest["manifest_version"] == 3
     assert manifest["source_id"] == "catalog.flood.water"
     assert manifest["selected_source_id"] == "catalog.flood.water"
     assert manifest["source_mode"] == "downloaded"
@@ -49,6 +55,11 @@ def test_build_source_materialization_manifest_records_fault_and_provider_attemp
         "fault_class": "SOURCE_MISSING",
         "fault_message": "missing water",
         "recoverable": True,
+    }
+    assert manifest["data_requirement_hash"] == "sha256:" + "1" * 64
+    assert manifest["knowledge_identity"] == {
+        "release_id": "fusionagent-kg-v1.0.0",
+        "semantic_hash": "sha256:" + "2" * 64,
     }
 
 

@@ -463,7 +463,7 @@ def test_domain_line_runners_force_v7_config_target_crs(tmp_path: Path, monkeypa
 
     domain_runners.run_road_tile(
         _manifest().tiles[0],
-        {"raw.osm.road": road_base, "raw.overture.transportation": road_supplement},
+        {"raw.osm.road": road_base, "raw.microsoft.road": road_supplement},
         tmp_path / "road-out",
         "EPSG:4326",
         {"target_crs": "EPSG:32643"},

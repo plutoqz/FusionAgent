@@ -7,7 +7,11 @@ from typing import Any
 from kg.track_b_source_contract import get_track_b_source_contract
 from services.source_field_profile_registry import SourceFieldProfileRegistry
 from services.source_profile_service import SourceProfile, SourceProfileService
-from services.runtime_source_aliases import BUILDING_HEIGHT_RASTER_PRIORITY_ORDER
+from services.runtime_source_aliases import (
+    BUILDING_HEIGHT_RASTER_PRIORITY_ORDER,
+    BUILDING_SOURCE_ALIASES,
+    BUILDING_SOURCE_PRIORITY_ORDER,
+)
 
 
 @dataclass(frozen=True)
@@ -252,15 +256,16 @@ class SourceSemanticContractService:
     @staticmethod
     def _parameter_hints(*, job_type: str, component_source_ids: list[str]) -> dict[str, Any]:
         if job_type == "building":
-            alias_by_source = {
-                "raw.microsoft.building": "MS",
-                "raw.local.microsoft.building": "MICROSOFT_LOCAL",
-                "raw.openbuildingmap.building": "OBM",
-                "raw.google.open_buildings.vector": "GOOGLE_OPEN_BUILDINGS",
-                "raw.google.building": "GOOGLE",
-                "raw.osm.building": "OSM",
+            available_aliases = {
+                BUILDING_SOURCE_ALIASES[source_id]
+                for source_id in component_source_ids
+                if source_id in BUILDING_SOURCE_ALIASES
             }
-            priority = [alias_by_source[item] for item in component_source_ids if item in alias_by_source]
+            priority = [
+                alias
+                for alias in BUILDING_SOURCE_PRIORITY_ORDER
+                if alias in available_aliases
+            ]
             return {"source_priority_order": priority} if priority else {}
         if job_type == "poi":
             return {"geohash_precision": 8}

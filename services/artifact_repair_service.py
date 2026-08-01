@@ -11,10 +11,12 @@ from shapely import make_valid
 from shapely.geometry import GeometryCollection, MultiLineString, MultiPoint, MultiPolygon
 from shapely.ops import linemerge
 
+from kg.policy_registry import KnowledgePolicyRegistry, default_policy_registry
 from schemas.agent import RepairRecord
 from schemas.quality_gate import QualityGateReport
 from schemas.task_kind import TaskKind
 from services.artifact_evaluation_service import evaluate_vector_artifact
+from services.output_contract_service import get_domain_output_contract
 
 
 _LINE_TYPES = {"LineString", "MultiLineString"}
@@ -35,6 +37,9 @@ class ArtifactRepairResult:
 
 
 class ArtifactRepairService:
+    def __init__(self, policy_registry: KnowledgePolicyRegistry | None = None) -> None:
+        self.policy_registry = policy_registry or default_policy_registry()
+
     def repair(
         self,
         *,
@@ -45,6 +50,8 @@ class ArtifactRepairService:
         output_dir: Path,
         repair_records: list[RepairRecord],
         source_artifact_paths: dict[str, Path | str] | None = None,
+        authorized_strategy_ids: list[str] | None = None,
+        available_strategy_ids: list[str] | None = None,
         max_attempts: int = 1,
     ) -> ArtifactRepairResult:
         del max_attempts
@@ -55,33 +62,38 @@ class ArtifactRepairService:
         original = frame.copy()
         applied: list[str] = []
         strategy_reports: list[dict[str, Any]] = []
-
-        frame, changed, details = self._repair_schema_attributes(
-            frame,
-            task_kind=task_kind,
-            required_fields=required_fields,
-            source_artifact_paths=source_artifact_paths or {},
+        authorized = {str(item) for item in (authorized_strategy_ids or []) if item}
+        available = {str(item) for item in (available_strategy_ids or []) if item}
+        ordered_policy = self.policy_registry.recovery_policy().get("artifact_strategy_order")
+        if not isinstance(ordered_policy, list) or not ordered_policy:
+            raise ValueError("KG recovery policy has no artifact_strategy_order")
+        candidate_policies = sorted(
+            (dict(item) for item in ordered_policy if isinstance(item, dict)),
+            key=lambda item: (int(item.get("order") or 0), str(item.get("strategy_id") or "")),
         )
-        if changed:
-            applied.append("schema_attribute_backfill")
-            strategy_reports.append({"strategy": "schema_attribute_backfill", **details})
 
-        if task_kind == TaskKind.road:
-            frame, changed, details = self._preserve_road_names(frame)
+        for policy in candidate_policies:
+            strategy_id = str(policy.get("strategy_id") or "")
+            action = str(policy.get("action") or "")
+            if not strategy_id or strategy_id not in authorized or strategy_id not in available:
+                continue
+            frame, changed, details = self._apply_strategy(
+                action,
+                frame,
+                task_kind=task_kind,
+                required_fields=required_fields,
+                source_artifact_paths=source_artifact_paths or {},
+            )
+            strategy_reports.append(
+                {
+                    "strategy_id": strategy_id,
+                    "action": action,
+                    "changed": changed,
+                    **details,
+                }
+            )
             if changed:
-                applied.append("road_name_preservation")
-                strategy_reports.append({"strategy": "road_name_preservation", **details})
-
-        if task_kind in {TaskKind.road, TaskKind.waterways}:
-            frame, changed, details = self._repair_line_topology(frame)
-            if changed:
-                applied.append("line_topology_cleanup")
-                strategy_reports.append({"strategy": "line_topology_cleanup", **details})
-
-        frame, changed, details = self._repair_geometry_validity(frame, task_kind=task_kind)
-        if changed:
-            applied.append("geometry_validity_repair")
-            strategy_reports.append({"strategy": "geometry_validity_repair", **details})
+                applied.append(strategy_id)
 
         if not applied:
             return ArtifactRepairResult(
@@ -94,7 +106,10 @@ class ArtifactRepairService:
                     "output_path": str(artifact_path),
                     "changed": False,
                     "applied_strategies": [],
-                    "strategy_reports": [],
+                    "strategy_reports": strategy_reports,
+                    "authorized_strategy_ids": sorted(authorized),
+                    "available_strategy_ids": sorted(available),
+                    "knowledge_identity": self.policy_registry.knowledge_identity(),
                 },
             )
 
@@ -105,15 +120,19 @@ class ArtifactRepairService:
         new_records = [
             RepairRecord(
                 attempt_no=len(repair_records) + index + 1,
-                strategy=strategy,
+                strategy=strategy_id,
                 step=0,
-                message=f"Applied artifact repair strategy {strategy}.",
+                message=f"Applied KG-authorized artifact repair strategy {strategy_id}.",
                 success=True,
                 timestamp=_utc_now(),
-                reason_code=_reason_code_for_strategy(strategy),
-                policy_source="quality_gate",
+                reason_code=_reason_code_for_strategy(strategy_id),
+                policy_source=strategy_id,
+                policy_decision_basis={
+                    "knowledge_identity": self.policy_registry.knowledge_identity(),
+                    "authorized_by_product_contract": True,
+                },
             )
-            for index, strategy in enumerate(applied)
+            for index, strategy_id in enumerate(applied)
         ]
         report = {
             "input_path": str(artifact_path),
@@ -122,6 +141,9 @@ class ArtifactRepairService:
             "applied_strategies": applied,
             "trigger_failure_reasons": list(quality_report.failure_reasons or []),
             "strategy_reports": strategy_reports,
+            "authorized_strategy_ids": sorted(authorized),
+            "available_strategy_ids": sorted(available),
+            "knowledge_identity": self.policy_registry.knowledge_identity(),
             "before_metrics": before_metrics,
             "after_metrics": after_metrics,
         }
@@ -134,6 +156,34 @@ class ArtifactRepairService:
             after_metrics=after_metrics,
             report=report,
         )
+
+    def _apply_strategy(
+        self,
+        action: str,
+        frame: gpd.GeoDataFrame,
+        *,
+        task_kind: TaskKind,
+        required_fields: list[str],
+        source_artifact_paths: dict[str, Path | str],
+    ) -> tuple[gpd.GeoDataFrame, bool, dict[str, Any]]:
+        if action == "schema_attribute_backfill":
+            return self._repair_schema_attributes(
+                frame,
+                task_kind=task_kind,
+                required_fields=required_fields,
+                source_artifact_paths=source_artifact_paths,
+            )
+        if action == "road_name_preservation":
+            if task_kind != TaskKind.road:
+                return frame, False, {"skipped": "task_not_applicable"}
+            return self._preserve_road_names(frame)
+        if action == "line_topology_cleanup":
+            if task_kind not in {TaskKind.road, TaskKind.waterways}:
+                return frame, False, {"skipped": "task_not_applicable"}
+            return self._repair_line_topology(frame)
+        if action == "geometry_validity_repair":
+            return self._repair_geometry_validity(frame, task_kind=task_kind)
+        raise ValueError(f"Unsupported KG artifact repair action: {action}")
 
     def _repair_schema_attributes(
         self,
@@ -265,7 +315,12 @@ class ArtifactRepairService:
         repaired = 0
         dropped = 0
         fixed_geometries = []
-        allowed = _allowed_geometry_types(task_kind)
+        allowed = set(
+            get_domain_output_contract(
+                task_kind,
+                policy_registry=self.policy_registry,
+            ).allowed_geometry_types
+        )
         for geom in result.geometry:
             fixed = geom
             if fixed is not None and not fixed.is_empty and not fixed.is_valid:
@@ -324,10 +379,10 @@ def _utc_now() -> str:
 
 def _reason_code_for_strategy(strategy: str) -> str:
     return {
-        "schema_attribute_backfill": "quality_missing_fields",
-        "road_name_preservation": "quality_road_name_missing",
-        "geometry_validity_repair": "quality_invalid_geometry",
-        "line_topology_cleanup": "quality_line_topology_failed",
+        "repair.artifact.schema_backfill.v1": "quality_missing_fields",
+        "repair.artifact.road_name.v1": "quality_road_name_missing",
+        "repair.artifact.geometry_validity.v1": "quality_invalid_geometry",
+        "repair.artifact.line_topology.v1": "quality_line_topology_failed",
     }.get(strategy, "quality_artifact_repair")
 
 
@@ -389,16 +444,6 @@ def _mark_repair(frame: gpd.GeoDataFrame, strategy: str) -> gpd.GeoDataFrame:
     existing = result["repair_strategy"].fillna("").astype(str)
     result["repair_strategy"] = existing.map(lambda value: f"{value};{strategy}".strip(";") if value else strategy)
     return result
-
-
-def _allowed_geometry_types(task_kind: TaskKind) -> set[str]:
-    if task_kind in {TaskKind.road, TaskKind.waterways}:
-        return _LINE_TYPES
-    if task_kind in {TaskKind.building, TaskKind.water_polygon}:
-        return _POLYGON_TYPES
-    if task_kind == TaskKind.poi:
-        return _POINT_TYPES
-    return set()
 
 
 def _extract_allowed_geometry(geom, allowed: set[str]):

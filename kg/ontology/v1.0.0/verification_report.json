@@ -1,0 +1,426 @@
+{
+  "checks": [
+    {
+      "details": {
+        "knowledge_version": "1.0.0",
+        "ontology_version": "1.0.0",
+        "release_id": "fusionagent-kg-v1.0.0",
+        "status": "frozen"
+      },
+      "errors": [],
+      "id": "release_status",
+      "passed": true,
+      "title": "冻结发布状态"
+    },
+    {
+      "details": {
+        "actual_hashes": {
+          "entities.json": "sha256:f95726c55cde0b499043dd2cb9841a5355e0c6ffd8c267c86ecf891293d82920",
+          "policies.json": "sha256:52db1d24f8ceae2cb34815d9f730fdbdabc3cbfc3b91656c7caba251691b7996",
+          "schema.json": "sha256:769112202acce7987873b5751c18621168d36dcbe6854a7dd08c333310fb1ead"
+        },
+        "declared_files": [
+          "entities.json",
+          "policies.json",
+          "schema.json"
+        ]
+      },
+      "errors": [],
+      "id": "file_hashes",
+      "passed": true,
+      "title": "冻结文件逐字节 SHA-256"
+    },
+    {
+      "details": {
+        "parsed_files": {
+          "entities.json": true,
+          "policies.json": true,
+          "schema.json": true
+        }
+      },
+      "errors": [],
+      "id": "json_documents",
+      "passed": true,
+      "title": "冻结 JSON 文档可解析性"
+    },
+    {
+      "details": {
+        "actual": "sha256:50067b9368914c47580707650789c04c78b2e856ccb3ef4d120a31f36c0ad71e",
+        "expected": "sha256:50067b9368914c47580707650789c04c78b2e856ccb3ef4d120a31f36c0ad71e"
+      },
+      "errors": [],
+      "id": "semantic_hash",
+      "passed": true,
+      "title": "规范化语义哈希"
+    },
+    {
+      "details": {
+        "class_count": 71,
+        "constraint_ids": [
+          "C-ALGO-IO",
+          "C-CONTRACT-CLOSED",
+          "C-EXPERIENCE-SEPARATE",
+          "C-ID-UNIQUE",
+          "C-REF-CLOSED",
+          "C-RELEASE-IMMUTABLE",
+          "C-STRICT-REQUIRED",
+          "C-WORKFLOW-DAG"
+        ],
+        "layer_ids": [
+          "L1",
+          "L2",
+          "L3",
+          "L4",
+          "L5",
+          "L6",
+          "L7"
+        ],
+        "layers": {
+          "L1": [
+            "DisasterEvent",
+            "UserRequest",
+            "DisasterContext",
+            "ScenarioProfile",
+            "HazardVocabulary",
+            "Place",
+            "ResponseOrganization",
+            "ResponsePhase",
+            "ResourceRegime",
+            "LayerUrgency",
+            "ConflictAxis",
+            "SituationSignature"
+          ],
+          "L2": [
+            "DataProductContract",
+            "DataProduct",
+            "RequiredLayer",
+            "OutputRequirement",
+            "FieldRequirement",
+            "GeometryConstraint",
+            "QualityRequirement",
+            "EvidenceRequirement",
+            "AcceptableDegradation",
+            "GapDeclarationRule"
+          ],
+          "L3": [
+            "DataNeed",
+            "DataType",
+            "DataSource",
+            "SourceContract",
+            "SourceRole",
+            "SourceRuntimeBinding",
+            "CoverageEvidence",
+            "FreshnessProfile",
+            "SourceConfidence",
+            "DataAbsence"
+          ],
+          "L4": [
+            "Task",
+            "TaskBundle",
+            "Algorithm",
+            "AlgorithmParameter",
+            "WorkflowPattern",
+            "PatternStep",
+            "DataTransform",
+            "RepairStrategy"
+          ],
+          "L5": [
+            "PlanningContext",
+            "AcquisitionStrategy",
+            "ProgressiveDeliveryStrategy",
+            "PlanningDecision",
+            "PlanningRationale",
+            "DecisionPolicy",
+            "ReplanningProposal"
+          ],
+          "L6": [
+            "RunInstance",
+            "WorkflowInstance",
+            "ExecutionStep",
+            "RuntimeContract",
+            "QualityGate",
+            "QualityComponentPolicy",
+            "ArtifactEvaluationPolicy",
+            "QualityGateResult",
+            "OutputSchemaPolicy",
+            "FailureClass",
+            "RetryPolicy",
+            "RecoveryPolicy",
+            "RuntimeGatePolicy",
+            "ExecutionStatus"
+          ],
+          "L7": [
+            "KnowledgeRelease",
+            "EvidenceTrace",
+            "EvidenceItem",
+            "GapDeclaration",
+            "DeliveryManifest",
+            "ExecutionCase",
+            "CaseStep",
+            "StructuralSignature",
+            "PatternCandidate",
+            "DurableLearningRecord"
+          ]
+        }
+      },
+      "errors": [],
+      "id": "schema_layers",
+      "passed": true,
+      "title": "七层本体与基础约束"
+    },
+    {
+      "details": {
+        "property_count": 19,
+        "property_ids": [
+          "algo_id",
+          "allowed_geometry_types",
+          "authorized_strategy_ids",
+          "candidate_source_ids",
+          "contract_id",
+          "disaster_type",
+          "evidence_refs",
+          "experience_snapshot_hash",
+          "fallback_source_ids",
+          "input_types",
+          "output_type",
+          "policy_id",
+          "quality_threshold",
+          "release_id",
+          "requested_tasks",
+          "required_fields",
+          "semantic_hash",
+          "source_id",
+          "strategy_id"
+        ],
+        "relation_count": 42,
+        "relation_ids": [
+          "ALLOWS",
+          "APPLIES_TO",
+          "AUTHORIZES_REPAIR",
+          "BUILDS_CONTEXT",
+          "CAN_TRANSFORM_TO",
+          "CLASSIFIES_FAILURE",
+          "COMPILED_TO",
+          "CONSUMES",
+          "CONTAINS",
+          "DECLARES",
+          "DERIVES",
+          "GENERATES",
+          "GOVERNED_BY",
+          "HAS_FIELD_REQUIREMENT",
+          "HAS_GEOMETRY_CONSTRAINT",
+          "HAS_PARAMETER",
+          "HAS_PHASE",
+          "HAS_RESOURCE_REGIME",
+          "HAS_SOURCE_ROLE",
+          "HAS_STEP",
+          "IMPLEMENTS",
+          "INCLUDES",
+          "NORMALIZED_TO",
+          "PRODUCES",
+          "PRODUCES_RESULT",
+          "RAISES",
+          "RECOVERED_BY",
+          "REFERENCES_RELEASE",
+          "REQUIRES",
+          "REQUIRES_TYPE",
+          "SELECTS",
+          "SPECIFIES_EVIDENCE",
+          "SPECIFIES_OUTPUT",
+          "SPECIFIES_QUALITY",
+          "SUBSTITUTES",
+          "SUPERSEDES",
+          "SUPPORTS",
+          "TRIGGERS",
+          "USES",
+          "USES_DECISION_POLICY",
+          "USES_PROFILE",
+          "VALIDATED_BY"
+        ],
+        "runtime_mapping_count": 14
+      },
+      "errors": [],
+      "id": "schema_reference_closure",
+      "passed": true,
+      "title": "模式层引用闭包"
+    },
+    {
+      "details": {
+        "embedded_content_hash": {
+          "actual": "sha256:f2d983092875279e8ae2cffb836e68dafb49ca6d14912043214f99f1c298a820",
+          "expected": "sha256:f2d983092875279e8ae2cffb836e68dafb49ca6d14912043214f99f1c298a820"
+        },
+        "global_id_count": 241,
+        "section_counts": {
+          "algorithms": 33,
+          "data_needs": 12,
+          "data_sources": 34,
+          "data_types": 27,
+          "output_requirements": 5,
+          "output_schema_policies": 5,
+          "parameter_specs": 72,
+          "product_contracts": 6,
+          "qos_policies": 4,
+          "repair_strategies": 6,
+          "scenario_profiles": 4,
+          "task_bundles": 7,
+          "tasks": 11,
+          "workflow_patterns": 15
+        }
+      },
+      "errors": [],
+      "id": "entity_structure",
+      "passed": true,
+      "title": "实体包基础结构与唯一标识"
+    },
+    {
+      "details": {
+        "checked_reference_count": 738
+      },
+      "errors": [],
+      "id": "entity_reference_closure",
+      "passed": true,
+      "title": "静态实体引用闭包"
+    },
+    {
+      "details": {
+        "checked_reference_count": 233
+      },
+      "errors": [],
+      "id": "policy_reference_closure",
+      "passed": true,
+      "title": "策略知识引用闭包"
+    },
+    {
+      "details": {
+        "pattern_count": 15,
+        "patterns": {
+          "wp.building.drs4br.decomposed.v1": {
+            "acyclic": true,
+            "edge_count": 12,
+            "step_count": 13
+          },
+          "wp.earthquake.building.default": {
+            "acyclic": true,
+            "edge_count": 0,
+            "step_count": 1
+          },
+          "wp.earthquake.building.safe": {
+            "acyclic": true,
+            "edge_count": 0,
+            "step_count": 1
+          },
+          "wp.flood.building.default": {
+            "acyclic": true,
+            "edge_count": 0,
+            "step_count": 1
+          },
+          "wp.flood.building.safe": {
+            "acyclic": true,
+            "edge_count": 0,
+            "step_count": 1
+          },
+          "wp.flood.road.default": {
+            "acyclic": true,
+            "edge_count": 0,
+            "step_count": 1
+          },
+          "wp.flood.water.default": {
+            "acyclic": true,
+            "edge_count": 0,
+            "step_count": 1
+          },
+          "wp.flood.water_polygon.default": {
+            "acyclic": true,
+            "edge_count": 0,
+            "step_count": 1
+          },
+          "wp.flood.waterways.default": {
+            "acyclic": true,
+            "edge_count": 0,
+            "step_count": 1
+          },
+          "wp.generic.poi.default": {
+            "acyclic": true,
+            "edge_count": 0,
+            "step_count": 1
+          },
+          "wp.poi.fusioncode.geohash_priority.v1": {
+            "acyclic": true,
+            "edge_count": 0,
+            "step_count": 1
+          },
+          "wp.road.fusioncode.conflation.v7": {
+            "acyclic": true,
+            "edge_count": 0,
+            "step_count": 1
+          },
+          "wp.typhoon.road.default": {
+            "acyclic": true,
+            "edge_count": 0,
+            "step_count": 1
+          },
+          "wp.water_polygon.fusioncode.priority_merge.v2": {
+            "acyclic": true,
+            "edge_count": 0,
+            "step_count": 1
+          },
+          "wp.waterways.fusioncode.conflation.v7": {
+            "acyclic": true,
+            "edge_count": 0,
+            "step_count": 1
+          }
+        }
+      },
+      "errors": [],
+      "id": "workflow_dag",
+      "passed": true,
+      "title": "工作流 DAG 与算法 I/O"
+    },
+    {
+      "details": {
+        "covered_layers": [
+          "L1",
+          "L2",
+          "L3",
+          "L4",
+          "L5",
+          "L6",
+          "L7"
+        ],
+        "question_count": 8,
+        "question_ids": [
+          "CQ01",
+          "CQ02",
+          "CQ03",
+          "CQ04",
+          "CQ05",
+          "CQ06",
+          "CQ07",
+          "CQ08"
+        ]
+      },
+      "errors": [],
+      "id": "competency_questions",
+      "passed": true,
+      "title": "能力问题完整性与概念覆盖"
+    }
+  ],
+  "passed": true,
+  "release_dir": "D:\\code\\FusionAgent\\kg\\ontology\\v1.0.0",
+  "release_identity": {
+    "knowledge_version": "1.0.0",
+    "ontology_version": "1.0.0",
+    "release_id": "fusionagent-kg-v1.0.0",
+    "semantic_hash": "sha256:50067b9368914c47580707650789c04c78b2e856ccb3ef4d120a31f36c0ad71e"
+  },
+  "report_schema_version": "1.0.0",
+  "summary": {
+    "check_count": 11,
+    "failed_check_ids": [],
+    "failed_count": 0,
+    "passed_count": 11
+  },
+  "verified_at": "2026-07-29T07:21:29.374975+00:00",
+  "verifier_id": "fusionagent.kg-release-verifier.v1"
+}

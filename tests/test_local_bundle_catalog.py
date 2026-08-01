@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import zipfile
 from pathlib import Path
 
@@ -8,8 +9,20 @@ import pytest
 geopandas = pytest.importorskip("geopandas")
 from shapely.geometry import LineString, Polygon
 
+from kg.policy_registry import default_policy_registry
+from schemas.agent import RunCreateRequest, RunInputStrategy, RunTrigger, RunTriggerType
+from schemas.data_requirement import (
+    BundleSlot,
+    CompletenessPolicy,
+    DataRequirementPlan,
+    SourceCandidate,
+    SourceRoleRequirement,
+)
+from schemas.fusion import JobType
+from schemas.task_kind import TaskKind
 from services.artifact_registry import ArtifactRegistry
-from services.local_bundle_catalog import LocalBundleCatalogProvider
+from services.input_acquisition_service import InputAcquisitionService
+from services.local_bundle_catalog import BundleMaterializationError, LocalBundleCatalogProvider
 from services.raster_height_source_service import RasterHeightSourceService
 from services.raw_vector_source_service import MaterializedRawVectorSource, RawVectorSourceService
 
@@ -122,6 +135,131 @@ def _read_columns(bundle_zip: Path) -> list[str]:
 class _NoRemoteSourceAssetService:
     def can_materialize(self, _source_id: str) -> bool:
         return False
+
+
+class _BuildingBundlePolicyRegistry:
+    def __init__(self, *, allows_partial_coverage: bool) -> None:
+        self.allows_partial_coverage = allows_partial_coverage
+
+    def source_bundle_policy(self, source_id: str, *, required: bool = False):
+        assert source_id == "catalog.flood.building" or not required
+        if source_id != "catalog.flood.building":
+            return None
+        return {
+            "source_id": source_id,
+            "component_candidates": [
+                "raw.osm.building",
+                "raw.microsoft.building",
+                "raw.google.building",
+            ],
+            "required_full_closure": ["raw.osm.building", "raw.microsoft.building"],
+            "allows_partial_coverage": self.allows_partial_coverage,
+            "fallback_source_ids": [],
+        }
+
+    def failure_classification_policy(self):
+        return default_policy_registry().failure_classification_policy()
+
+    def source_mode_for_fault(self, fault_class: str) -> str:
+        return default_policy_registry().source_mode_for_fault(fault_class)
+
+
+def _building_data_requirements(
+    *,
+    reference_source_ids: tuple[str, ...] = ("raw.microsoft.building", "raw.google.building"),
+    workflow_id: str = "workflow-k3",
+) -> DataRequirementPlan:
+    return DataRequirementPlan(
+        task_kind=TaskKind.building,
+        task_family="building",
+        algorithm_id="algo.building.fusion",
+        output_data_type="dt.building.bundle",
+        roles=[
+            SourceRoleRequirement(
+                role_id="primary_footprint",
+                required=True,
+                bundle_slot=BundleSlot.primary,
+                geometry_types=["Polygon", "MultiPolygon"],
+                completeness_policy=CompletenessPolicy.required_non_empty,
+                candidates=[
+                    SourceCandidate(
+                        source_id="raw.osm.building",
+                        provider_family="osm",
+                        priority=10,
+                    )
+                ],
+            ),
+            SourceRoleRequirement(
+                role_id="reference_footprint",
+                required=True,
+                bundle_slot=BundleSlot.reference,
+                distinct_from_role_ids=["primary_footprint"],
+                geometry_types=["Polygon", "MultiPolygon"],
+                completeness_policy=CompletenessPolicy.required_non_empty,
+                candidates=[
+                    SourceCandidate(
+                        source_id=source_id,
+                        provider_family="fixture",
+                        priority=(index + 1) * 10,
+                    )
+                    for index, source_id in enumerate(reference_source_ids)
+                ],
+            ),
+        ],
+        evidence={
+            "workflow_id": workflow_id,
+            "resolver_version": "test",
+            "basis": "frozen_kg_source_role_policy",
+            "knowledge_identity": {
+                "release_id": "fusionagent-kg-test",
+                "semantic_hash": "sha256:" + "a" * 64,
+            },
+        },
+    )
+
+
+def _road_data_requirements() -> DataRequirementPlan:
+    return DataRequirementPlan(
+        task_kind=TaskKind.road,
+        task_family="road",
+        roles=[
+            SourceRoleRequirement(
+                role_id="base_network",
+                required=True,
+                bundle_slot=BundleSlot.primary,
+                geometry_types=["LineString", "MultiLineString"],
+                completeness_policy=CompletenessPolicy.required_non_empty,
+                candidates=[
+                    SourceCandidate(
+                        source_id="raw.osm.road",
+                        provider_family="osm",
+                        priority=10,
+                    )
+                ],
+            ),
+            SourceRoleRequirement(
+                role_id="reference_network",
+                required=False,
+                bundle_slot=BundleSlot.reference,
+                distinct_from_role_ids=["base_network"],
+                geometry_types=["LineString", "MultiLineString"],
+                completeness_policy=CompletenessPolicy.optional_reference,
+                candidates=[
+                    SourceCandidate(
+                        source_id="raw.microsoft.road",
+                        provider_family="microsoft",
+                        priority=10,
+                    )
+                ],
+            ),
+        ],
+        evidence={
+            "knowledge_identity": {
+                "release_id": "fusionagent-kg-test",
+                "semantic_hash": "sha256:" + "b" * 64,
+            }
+        },
+    )
 
 
 class _RawServiceWithEmptyThenAvailableWater:
@@ -305,44 +443,29 @@ def test_local_bundle_catalog_records_task6_building_candidate_attempts(tmp_path
         "raw.google.building",
         "raw.microsoft.building",
         "raw.osm.building",
-        "raw.osm.road",
-        "raw.openbuildingmap.building",
     }
-    assert [attempt["attempt_no"] for attempt in materialized.provider_attempts] == [1, 2, 3, 4, 5]
+    assert [attempt["attempt_no"] for attempt in materialized.provider_attempts] == [1, 2, 3]
 
 
-def test_local_bundle_catalog_building_bundle_skips_slow_remote_candidates_after_osm(tmp_path: Path) -> None:
+def test_local_bundle_catalog_building_bundle_does_not_accept_osm_only_shortcut(tmp_path: Path) -> None:
     raw_service = _BuildingRawServiceWithRemoteBeforeOsm()
     provider = LocalBundleCatalogProvider(tmp_path, raw_source_service=raw_service)
 
-    materialized = provider.materialize_with_fallback(
-        source_id="catalog.flood.building",
-        request_bbox=None,
-        target_dir=tmp_path / "building_bundle_remote_before_osm",
-        target_crs="EPSG:4326",
-    )
+    with pytest.raises(BundleMaterializationError, match="required full closure") as exc_info:
+        provider.materialize(
+            source_id="catalog.flood.building",
+            request_bbox=None,
+            target_dir=tmp_path / "building_bundle_remote_before_osm",
+            target_crs="EPSG:4326",
+        )
 
-    assert raw_service.resolved_source_ids == ["raw.osm.building"]
-    assert materialized.attempted_sources == ["catalog.flood.building"]
-    assert materialized.fallback_from is None
-    assert materialized.osm_zip_path.name == "osm.zip"
-    assert materialized.ref_zip_path.name == "ref.zip"
-    assert set(materialized.component_coverage) >= {
-        "raw.google.building",
-        "raw.microsoft.building",
+    assert raw_service.resolved_source_ids == [
         "raw.osm.building",
-        "raw.osm.road",
-        "raw.openbuildingmap.building",
-    }
-
-    attempts = {attempt["source_id"]: attempt for attempt in materialized.provider_attempts}
-    assert attempts["raw.google.building"]["status"] == "no_coverage"
-    assert attempts["raw.google.building"]["coverage_status"] == "not_attempted"
-    assert attempts["raw.google.building"]["metadata"]["reason"] == "skipped_after_usable_building_pair"
-    assert materialized.component_coverage["raw.microsoft.building"].source_mode == "skipped_after_usable_building_pair"
-    assert materialized.component_coverage["raw.microsoft.building"].coverage_status == "not_attempted"
-    assert materialized.component_coverage["raw.osm.road"].coverage_status == "not_attempted"
-    assert [attempt["attempt_no"] for attempt in materialized.provider_attempts] == [1, 2, 3, 4, 5]
+        "raw.microsoft.building",
+        "raw.google.building",
+    ]
+    assert exc_info.value.component_coverage["raw.osm.building"].feature_count == 1
+    assert exc_info.value.component_coverage["raw.microsoft.building"].feature_count == 0
 
 
 def test_local_bundle_catalog_adds_optional_preferred_building_height_raster(tmp_path: Path) -> None:
@@ -371,18 +494,18 @@ def test_local_bundle_catalog_adds_optional_preferred_building_height_raster(tmp
         target_crs="EPSG:4326",
     )
 
-    coverage = materialized.component_coverage["raw.google.open_buildings_2_5d.height_raster"]
+    coverage = materialized.component_coverage["raw.google.building_height.raster"]
     assert coverage["coverage_status"] == "available"
     assert coverage["path"] == str(height_raster)
     height_attempts = [
         attempt
         for attempt in materialized.provider_attempts
-        if attempt["source_id"] == "raw.google.open_buildings_2_5d.height_raster"
+        if attempt["source_id"] == "raw.google.building_height.raster"
     ]
     assert height_attempts[0]["attempt_type"] == "skill"
     assert height_attempts[0]["skill_id"] == "skill.source_acquisition.building_height_raster"
     assert height_attempts[0]["selected_for_fusion"] is True
-    assert [attempt["attempt_no"] for attempt in materialized.provider_attempts] == [1, 2, 3, 4, 5, 6]
+    assert [attempt["attempt_no"] for attempt in materialized.provider_attempts] == [1, 2, 3, 4]
 
 
 def test_local_bundle_catalog_discovers_open_buildings_height_next_to_runtime_view(tmp_path: Path) -> None:
@@ -417,7 +540,7 @@ def test_local_bundle_catalog_discovers_open_buildings_height_next_to_runtime_vi
         target_crs="EPSG:4326",
     )
 
-    coverage = materialized.component_coverage["raw.google.open_buildings_2_5d.height_raster"]
+    coverage = materialized.component_coverage["raw.google.building_height.raster"]
     assert coverage["coverage_status"] == "available"
     assert coverage["path"] == str(height_raster)
 
@@ -447,11 +570,10 @@ def test_local_bundle_catalog_records_height_raster_degradation_without_blocking
 
     assert materialized.osm_zip_path.exists()
     assert materialized.ref_zip_path.exists()
-    assert materialized.component_coverage["raw.google.open_buildings_2_5d.height_raster"]["coverage_status"] == "awaiting_external_config"
+    assert materialized.component_coverage["raw.google.building_height.raster"]["coverage_status"] == "awaiting_external_config"
     attempts = {attempt["source_id"]: attempt for attempt in materialized.provider_attempts}
-    assert attempts["raw.google.open_buildings_2_5d.height_raster"]["attempt_type"] == "skill"
-    assert attempts["raw.google.open_buildings_2_5d.height_raster"]["status"] == "awaiting_external_config"
-    assert attempts["raw.3d_globfp.building_height.raster"]["status"] == "awaiting_external_config"
+    assert attempts["raw.google.building_height.raster"]["attempt_type"] == "skill"
+    assert attempts["raw.google.building_height.raster"]["status"] == "awaiting_external_config"
 
 
 def test_local_bundle_catalog_uses_microsoft_reference_layer_for_default_building_pairs(tmp_path: Path) -> None:
@@ -508,11 +630,7 @@ def test_local_bundle_catalog_materializes_flood_water_bundle_from_shared_provid
     assert set(materialized.component_coverage) >= {
         "raw.osm.water",
         "raw.hydrolakes.water",
-        "raw.osm.waterways",
-        "raw.hydrorivers.water",
     }
-    assert materialized.component_coverage["raw.osm.waterways"].feature_count == 1
-    assert materialized.component_coverage["raw.hydrorivers.water"].feature_count == 1
 
 
 def test_local_bundle_catalog_materializes_flood_road_bundle_with_microsoft_reference(tmp_path: Path) -> None:
@@ -569,7 +687,7 @@ def test_local_bundle_catalog_road_bundle_uses_microsoft_when_overture_absent(tm
     assert "id" not in ref_columns
 
 
-def test_local_bundle_catalog_road_bundle_uses_overture_when_microsoft_absent(tmp_path: Path) -> None:
+def test_local_bundle_catalog_does_not_promote_local_overture_outside_kg_bundle_policy(tmp_path: Path) -> None:
     _seed_local_catalog_tree(tmp_path)
     microsoft_dir = tmp_path / "Data" / "roads" / "Microsoft"
     for path in microsoft_dir.glob("*"):
@@ -594,33 +712,29 @@ def test_local_bundle_catalog_road_bundle_uses_overture_when_microsoft_absent(tm
 
     assert materialized.source_id == "catalog.flood.road"
     assert materialized.component_coverage["raw.microsoft.road"].feature_count == 0
-    assert materialized.component_coverage["raw.overture.road"].feature_count == 1
+    assert "raw.overture.road" not in materialized.component_coverage
     assert [attempt["source_id"] for attempt in materialized.provider_attempts] == [
         "raw.osm.road",
         "raw.microsoft.road",
-        "raw.overture.road",
     ]
     ref_columns = _read_columns(materialized.ref_zip_path)
-    assert "id" in ref_columns
+    assert "id" not in ref_columns
     assert "ms_road_id" not in ref_columns
 
 
-def test_local_bundle_catalog_uses_policy_fallback_for_waterways(tmp_path: Path) -> None:
+def test_local_bundle_catalog_waterways_fails_when_strict_closure_is_incomplete(tmp_path: Path) -> None:
     provider = LocalBundleCatalogProvider(
         root_dir=tmp_path,
         raw_source_service=_RawServiceWithEmptyThenAvailableWater(),
     )
 
-    bundle = provider.materialize_with_fallback(
-        source_id="catalog.flood.waterways",
-        request_bbox=(66.9, 24.8, 67.1, 25.0),
-        target_dir=tmp_path / "bundle",
-        target_crs="EPSG:4326",
-    )
-
-    assert bundle.fallback_from == "catalog.flood.waterways"
-    assert bundle.source_id == "catalog.flood.water"
-    assert bundle.attempted_sources == ["catalog.flood.waterways", "catalog.flood.water"]
+    with pytest.raises(BundleMaterializationError, match="did not satisfy its KG completeness contract"):
+        provider.materialize_with_fallback(
+            source_id="catalog.flood.waterways",
+            request_bbox=(66.9, 24.8, 67.1, 25.0),
+            target_dir=tmp_path / "bundle",
+            target_crs="EPSG:4326",
+        )
 
 
 def test_local_bundle_catalog_current_version_ignores_missing_overture_compatibility_source(tmp_path: Path) -> None:
@@ -669,3 +783,171 @@ def test_local_bundle_catalog_water_bundle_raises_when_aoi_has_empty_component_c
             target_dir=tmp_path / "water_bundle_empty",
             target_crs="EPSG:4326",
         )
+
+
+def test_role_candidate_priority_changes_materialized_reference(tmp_path: Path) -> None:
+    _seed_local_catalog_tree(tmp_path)
+    provider = LocalBundleCatalogProvider(
+        tmp_path,
+        raw_source_service=RawVectorSourceService(
+            root_dir=tmp_path,
+            registry=ArtifactRegistry(index_path=tmp_path / "artifact_registry.json"),
+            cache_dir=tmp_path / "raw-cache",
+            source_asset_service=_NoRemoteSourceAssetService(),
+        ),
+    )
+
+    microsoft_first = provider.materialize(
+        source_id="catalog.flood.building",
+        request_bbox=None,
+        target_dir=tmp_path / "microsoft_first",
+        target_crs="EPSG:4326",
+        data_requirements=_building_data_requirements(),
+    )
+    google_first = provider.materialize(
+        source_id="catalog.flood.building",
+        request_bbox=None,
+        target_dir=tmp_path / "google_first",
+        target_crs="EPSG:4326",
+        data_requirements=_building_data_requirements(
+            reference_source_ids=("raw.google.building", "raw.microsoft.building")
+        ),
+    )
+
+    assert "msft_id" in _read_columns(microsoft_first.ref_zip_path)
+    assert "google_id" in _read_columns(google_first.ref_zip_path)
+    assert microsoft_first.component_coverage["raw.microsoft.building"].selected_role_ids == (
+        "reference_footprint",
+    )
+    assert google_first.component_coverage["raw.google.building"].selected_role_ids == (
+        "reference_footprint",
+    )
+
+
+def test_required_role_missing_fails_even_when_bundle_allows_partial(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _seed_local_catalog_tree(tmp_path)
+    for path in (tmp_path / "Data" / "roads" / "OSM").glob("*"):
+        path.unlink()
+    monkeypatch.setenv("GEOFUSION_LOCAL_ONLY", "1")
+    provider = LocalBundleCatalogProvider(
+        tmp_path,
+        raw_source_service=RawVectorSourceService(
+            root_dir=tmp_path,
+            registry=ArtifactRegistry(index_path=tmp_path / "artifact_registry.json"),
+            cache_dir=tmp_path / "raw-cache",
+            source_asset_service=_NoRemoteSourceAssetService(),
+        ),
+    )
+
+    with pytest.raises(BundleMaterializationError, match="required role base_network"):
+        provider.materialize(
+            source_id="catalog.flood.road",
+            request_bbox=None,
+            target_dir=tmp_path / "missing_required_road",
+            target_crs="EPSG:4326",
+            data_requirements=_road_data_requirements(),
+        )
+
+
+def test_allows_partial_coverage_switch_changes_full_closure_behavior(
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    _seed_local_catalog_tree(tmp_path)
+    for path in (tmp_path / "Data" / "buildings" / "Microsoft").glob("*"):
+        path.unlink()
+    monkeypatch.setenv("GEOFUSION_LOCAL_ONLY", "1")
+    requirements = _building_data_requirements(
+        reference_source_ids=("raw.google.building", "raw.microsoft.building")
+    )
+
+    strict_provider = LocalBundleCatalogProvider(
+        tmp_path,
+        raw_source_service=RawVectorSourceService(
+            root_dir=tmp_path,
+            registry=ArtifactRegistry(index_path=tmp_path / "strict_registry.json"),
+            cache_dir=tmp_path / "strict-cache",
+            source_asset_service=_NoRemoteSourceAssetService(),
+        ),
+        policy_registry=_BuildingBundlePolicyRegistry(allows_partial_coverage=False),
+    )
+    with pytest.raises(BundleMaterializationError, match="required full closure"):
+        strict_provider.materialize(
+            source_id="catalog.flood.building",
+            request_bbox=None,
+            target_dir=tmp_path / "strict_bundle",
+            target_crs="EPSG:4326",
+            data_requirements=requirements,
+        )
+
+    partial_provider = LocalBundleCatalogProvider(
+        tmp_path,
+        raw_source_service=RawVectorSourceService(
+            root_dir=tmp_path,
+            registry=ArtifactRegistry(index_path=tmp_path / "partial_registry.json"),
+            cache_dir=tmp_path / "partial-cache",
+            source_asset_service=_NoRemoteSourceAssetService(),
+        ),
+        policy_registry=_BuildingBundlePolicyRegistry(allows_partial_coverage=True),
+    )
+    partial = partial_provider.materialize(
+        source_id="catalog.flood.building",
+        request_bbox=None,
+        target_dir=tmp_path / "partial_bundle",
+        target_crs="EPSG:4326",
+        data_requirements=requirements,
+    )
+
+    assert "google_id" in _read_columns(partial.ref_zip_path)
+    assert partial.component_coverage["raw.microsoft.building"].feature_count == 0
+
+
+def test_materialization_manifest_binds_kg_identity_and_component_roles(tmp_path: Path) -> None:
+    _seed_local_catalog_tree(tmp_path)
+    registry = ArtifactRegistry(index_path=tmp_path / "artifact_registry.json")
+    provider = LocalBundleCatalogProvider(
+        tmp_path,
+        raw_source_service=RawVectorSourceService(
+            root_dir=tmp_path,
+            registry=registry,
+            cache_dir=tmp_path / "raw-cache",
+            source_asset_service=_NoRemoteSourceAssetService(),
+        ),
+    )
+    service = InputAcquisitionService(
+        registry=registry,
+        providers=[provider],
+        cache_dir=tmp_path / "input-cache",
+    )
+    requirements = _building_data_requirements()
+    request = RunCreateRequest(
+        job_type=JobType.building,
+        trigger=RunTrigger(
+            type=RunTriggerType.user_query,
+            content="materialize KG governed building inputs",
+            spatial_extent="bbox(0,0,1,1)",
+        ),
+        target_crs="EPSG:4326",
+        field_mapping={},
+        input_strategy=RunInputStrategy.task_driven_auto,
+    )
+
+    resolved = service.resolve_task_driven_inputs(
+        request=request,
+        source_id="catalog.flood.building",
+        required_output_type="dt.building.bundle",
+        input_dir=tmp_path / "run",
+        data_requirements=requirements,
+    )
+
+    manifest = json.loads(resolved.manifest_path.read_text(encoding="utf-8"))
+    assert manifest["manifest_version"] == 3
+    assert manifest["knowledge_identity"] == requirements.evidence["knowledge_identity"]
+    assert manifest["data_requirement_hash"].startswith("sha256:")
+    assert manifest["component_coverage"]
+    for component in manifest["component_coverage"].values():
+        assert component["role_id"]
+        assert component["role_contract"]["role_id"] == component["role_id"]

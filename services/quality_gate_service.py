@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from pathlib import Path
 
+from kg.policy_registry import KnowledgePolicyRegistry, default_policy_registry
 from schemas.degradation import DegradationContext
 from schemas.quality_gate import QualityGateReport
 from schemas.task_kind import TaskKind
@@ -9,16 +10,10 @@ from services.artifact_evaluation_service import evaluate_vector_artifact
 from services.output_contract_service import get_domain_output_contract
 from services.quality_policy_service import adapt_policy_for_degradation, get_quality_policy
 
-_EXPECTED_GEOMETRIES = {
-    TaskKind.building: {"Polygon", "MultiPolygon"},
-    TaskKind.road: {"LineString", "MultiLineString"},
-    TaskKind.water_polygon: {"Polygon", "MultiPolygon"},
-    TaskKind.waterways: {"LineString", "MultiLineString"},
-    TaskKind.poi: {"Point", "MultiPoint"},
-}
-
-
 class QualityGateService:
+    def __init__(self, policy_registry: KnowledgePolicyRegistry | None = None) -> None:
+        self.policy_registry = policy_registry or default_policy_registry()
+
     def evaluate(
         self,
         *,
@@ -30,42 +25,50 @@ class QualityGateService:
         source_artifact_paths: dict[str, Path | str] | None = None,
         quality_policy_id: str | None = None,
         contract_id: str | None = None,
-        source_expected_null_rates: dict[str, float] | None = None,
         degradation_context: DegradationContext | None = None,
     ) -> QualityGateReport:
-        contract = (
-            get_domain_output_contract(task_kind, source_expected_null_rates=source_expected_null_rates)
-            if contract_id is not None
-            else None
+        contract = get_domain_output_contract(
+            task_kind,
+            policy_registry=self.policy_registry,
         )
-        if contract is not None and contract.contract_id != contract_id:
+        contract_enabled = contract_id is not None
+        if contract_enabled and contract.contract_id != contract_id:
             raise ValueError(
                 f"Quality contract {contract.contract_id} for {task_kind.value} does not match requested {contract_id}"
             )
         effective_required_fields = _merge_fields(
             list(required_fields or []),
-            contract.required_fields if contract is not None else [],
+            contract.required_fields if contract_enabled else [],
         )
-        base_policy = get_quality_policy(task_kind=task_kind, policy_id=quality_policy_id)
+        base_policy = get_quality_policy(
+            task_kind=task_kind,
+            policy_id=quality_policy_id,
+            policy_registry=self.policy_registry,
+        )
         policy, policy_adaptations = adapt_policy_for_degradation(
             base_policy,
             task_kind=task_kind,
             component_coverage=component_coverage or {},
             degradation_context=degradation_context,
+            policy_registry=self.policy_registry,
         )
         metrics = evaluate_vector_artifact(
             Path(artifact_path),
             required_fields=effective_required_fields,
             requested_bbox=requested_bbox,
             source_artifact_paths=source_artifact_paths,
+            policy_registry=self.policy_registry,
         )
         checks = {
             "readable": {"passed": "error" not in metrics},
             "non_empty": {"passed": int(metrics.get("feature_count") or 0) > 0},
             "required_fields": {"passed": not metrics.get("missing_fields")},
             "geometry_type": {
-                "passed": bool(set(metrics.get("geometry_types") or []) & _EXPECTED_GEOMETRIES[task_kind]),
-                "expected": sorted(_EXPECTED_GEOMETRIES[task_kind]),
+                "passed": _geometry_types_allowed(
+                    metrics.get("geometry_types"),
+                    contract.allowed_geometry_types,
+                ),
+                "expected": sorted(contract.allowed_geometry_types),
                 "actual": metrics.get("geometry_types") or [],
             },
             "aoi_intersection": {
@@ -75,19 +78,22 @@ class QualityGateService:
                 "passed": _lineage_present(
                     effective_required_fields,
                     metrics,
-                    lineage_fields=(
-                        {"source_id", "source_feature_id", "fusion_source", "source_layer"}
-                        if contract is not None
-                        else {"source_id"}
+                    lineage_fields=set(
+                        contract.lineage_fields if contract_enabled else contract.uncontracted_lineage_fields
                     ),
-                    require_required_field=contract is None,
+                    require_required_field=not contract_enabled,
                 ),
             },
             "multi_source_lineage": {
-                "passed": _multi_source_lineage_available(component_coverage or {}),
+                "passed": _multi_source_lineage_present(
+                    metrics,
+                    lineage_fields=set(
+                        contract.lineage_fields if contract_enabled else contract.uncontracted_lineage_fields
+                    ),
+                ),
             },
         }
-        if contract is not None:
+        if contract_enabled:
             for field, threshold in contract.field_null_rate_thresholds.items():
                 metric_name = f"{field}_null_rate"
                 value = metrics.get(metric_name)
@@ -156,6 +162,9 @@ class QualityGateService:
             metrics=metrics,
             failure_reasons=failure_reasons,
             policy_id=policy.policy_id,
+            contract_id=contract.contract_id if contract_enabled else None,
+            knowledge_identity=self.policy_registry.knowledge_identity(),
+            knowledge_refs=[contract.contract_id, base_policy.policy_id],
             soft_failure_reasons=soft_failure_reasons,
             degraded_mode=bool(degradation_context and degradation_context.degraded),
             degradation_level=degradation_context.level.value if degradation_context is not None else None,
@@ -167,15 +176,34 @@ class QualityGateService:
         )
 
 
-def _multi_source_lineage_available(component_coverage: dict[str, object]) -> bool:
-    available = []
-    for source_id, payload in component_coverage.items():
-        if isinstance(payload, dict):
-            count = payload.get("feature_count")
-            status = str(payload.get("coverage_status") or "")
-            if status in {"available", "unknown_until_materialization"} or (count is not None and int(count) > 0):
-                available.append(source_id)
-    return len(set(available)) >= 2
+def _geometry_types_allowed(actual: object, allowed: list[str]) -> bool:
+    actual_types = {str(item) for item in (actual or [])}
+    allowed_types = {str(item) for item in allowed}
+    return bool(actual_types) and actual_types.issubset(allowed_types)
+
+
+def _multi_source_lineage_present(
+    metrics: dict[str, object],
+    *,
+    lineage_fields: set[str],
+) -> bool:
+    alignment = metrics.get("feature_alignment") or {}
+    if isinstance(alignment, dict) and alignment.get("status") == "available":
+        if int(alignment.get("source_count") or 0) >= 2 and int(alignment.get("matched_source_count") or 0) >= 2:
+            return True
+    source_counts = metrics.get("source_feature_counts") or {}
+    if isinstance(source_counts, dict):
+        represented_sources = [
+            source_id
+            for source_id, count in source_counts.items()
+            if str(source_id).strip() and int(count or 0) > 0
+        ]
+        if len(represented_sources) >= 2:
+            return True
+    distinct_counts = metrics.get("field_distinct_nonempty_counts") or {}
+    if not isinstance(distinct_counts, dict):
+        return False
+    return any(int(distinct_counts.get(field) or 0) >= 2 for field in lineage_fields)
 
 
 def _merge_fields(primary: list[str], secondary: list[str]) -> list[str]:
@@ -221,10 +249,23 @@ def _lineage_present(
     require_required_field: bool,
 ) -> bool:
     missing = set(metrics.get("missing_fields", []) or [])
+    nonempty_counts = metrics.get("field_nonempty_counts") or {}
+    if not isinstance(nonempty_counts, dict):
+        return False
     if not require_required_field:
         available_fields = set((metrics.get("field_null_rates") or {}).keys())
-        return any(field in available_fields and field not in missing for field in lineage_fields)
-    return any(field in required_fields and field not in missing for field in lineage_fields)
+        return any(
+            field in available_fields
+            and field not in missing
+            and int(nonempty_counts.get(field) or 0) > 0
+            for field in lineage_fields
+        )
+    return any(
+        field in required_fields
+        and field not in missing
+        and int(nonempty_counts.get(field) or 0) > 0
+        for field in lineage_fields
+    )
 
 
 def _policy_check_passed(value, *, operator: str, threshold) -> bool:

@@ -11,7 +11,12 @@ from pathlib import Path
 from threading import Lock
 from typing import Any
 
+from kg.knowledge_release import KnowledgeReleaseError
+from kg.policy_registry import KnowledgePolicyRegistry, default_policy_registry
+from kg.repository import KGRepository
+from kg.seed_provider import load_seed_data
 from schemas.agent import RunCreateRequest, RunInputStrategy, RunPhase, RunTrigger, RunTriggerType
+from schemas.failure_taxonomy import classify_failure_category
 from schemas.fusion import JobType
 from schemas.scenario import ScenarioChildRunSpec, ScenarioPhase, ScenarioRunRequest, ScenarioRunResponse
 from schemas.scenario_checkpoint import (
@@ -48,7 +53,6 @@ TERMINAL_CHILD_PHASES = {
     "cancelled",
 }
 
-FLOOD_EXPECTED_CHILD_COUNT = 5
 SCENARIO_SOURCE_RETRY_STATUS = "source_retrying"
 
 
@@ -88,12 +92,22 @@ def _expected_child_runs_root_for_scenario_output_root(output_root: Path) -> Pat
     return None
 
 
-def build_child_run_specs(request: ScenarioRunRequest) -> list[ScenarioChildRunSpec]:
-    mission = compile_scenario_mission(request)
-    provisional_task_kinds = {
-        str(item).strip()
-        for item in (request.metadata.get("provisional_task_kinds") or [])
-        if str(item).strip()
+def build_child_run_specs(
+    request: ScenarioRunRequest,
+    *,
+    kg_repo: KGRepository | None = None,
+    policy_registry: KnowledgePolicyRegistry | None = None,
+) -> list[ScenarioChildRunSpec]:
+    registry = policy_registry or default_policy_registry()
+    mission = compile_scenario_mission(request, policy_registry=registry)
+    contracts = _product_contracts_by_id(kg_repo)
+    governance = {
+        task.task_kind: _delivery_governance_for_task(
+            task.task_kind,
+            contracts=contracts,
+            policy_registry=registry,
+        )
+        for task in mission.child_tasks
     }
     return [
         ScenarioChildRunSpec(
@@ -108,28 +122,140 @@ def build_child_run_specs(request: ScenarioRunRequest) -> list[ScenarioChildRunS
             task_family=task.task_family,
             preferred_pattern_id=task.preferred_pattern_id,
             output_data_type=task.output_data_type,
-            provisional_when_degraded=task.task_kind.value in provisional_task_kinds,
+            product_contract_id=governance[task.task_kind]["product_contract_id"],
+            provisional_when_degraded=governance[task.task_kind]["provisional_delivery_allowed"],
+            final_output_may_supersede_provisional=governance[task.task_kind][
+                "final_output_may_supersede_provisional"
+            ],
         )
         for task in mission.child_tasks
     ]
 
 
-def validate_mission_child_specs(request: ScenarioRunRequest, child_specs: list[ScenarioChildRunSpec]) -> None:
-    mission = compile_scenario_mission(request)
-    if (
-        _is_flood_request(request)
-        and mission.scope_source == "default_disaster_bundle"
-        and len(child_specs) < FLOOD_EXPECTED_CHILD_COUNT
-    ):
-        raise ValueError(
-            "MISSION_CHILD_MISSING: flood scenario expected "
-            f"{FLOOD_EXPECTED_CHILD_COUNT} child tasks, got {len(child_specs)}"
+def _product_contracts_by_id(kg_repo: KGRepository | None) -> dict[str, Any]:
+    if kg_repo is not None:
+        return {contract.contract_id: contract for contract in kg_repo.get_product_contracts(None)}
+    return dict(load_seed_data()["product_contracts"])
+
+
+def _delivery_governance_for_task(
+    task_kind: TaskKind,
+    *,
+    contracts: dict[str, Any],
+    policy_registry: KnowledgePolicyRegistry,
+) -> dict[str, Any]:
+    if _p3_variant() == "no_product_contract":
+        return {
+            "product_contract_id": None,
+            "provisional_delivery_allowed": False,
+            "final_output_may_supersede_provisional": False,
+        }
+    output_contract = policy_registry.output_contract(task_kind.value)
+    contract_id = str(output_contract.get("product_contract_id") or "").strip()
+    contract = contracts.get(contract_id)
+    if contract is None:
+        raise KnowledgeReleaseError(
+            f"Product contract {contract_id or '<missing>'} for task {task_kind.value} is absent from the KG backend"
         )
-    if mission.scope_source == "default_disaster_bundle" and len(child_specs) < len(mission.child_tasks):
+    degradation_policy = getattr(contract, "degradation_policy", None)
+    if not isinstance(degradation_policy, dict):
+        raise KnowledgeReleaseError(f"Product contract {contract_id} has no degradation_policy")
+    governance: dict[str, Any] = {"product_contract_id": contract_id}
+    for field in ("provisional_delivery_allowed", "final_output_may_supersede_provisional"):
+        value = degradation_policy.get(field)
+        if not isinstance(value, bool):
+            raise KnowledgeReleaseError(f"Product contract {contract_id} must declare boolean {field}")
+        governance[field] = value
+    return governance
+
+
+def validate_mission_child_specs(
+    request: ScenarioRunRequest,
+    child_specs: list[ScenarioChildRunSpec],
+    *,
+    policy_registry: KnowledgePolicyRegistry | None = None,
+) -> None:
+    registry = policy_registry or default_policy_registry()
+    mission = compile_scenario_mission(request, policy_registry=registry)
+    expected_count = len(mission.child_tasks)
+    actual_count = len(child_specs)
+    if actual_count < expected_count:
         raise ValueError(
             "MISSION_CHILD_MISSING: scenario mission expected "
-            f"{len(mission.child_tasks)} child tasks, got {len(child_specs)}"
+            f"{expected_count} child tasks, got {actual_count}"
         )
+    if actual_count > expected_count:
+        raise ValueError(
+            "MISSION_CHILD_EXTRA: scenario mission expected "
+            f"{expected_count} child tasks, got {actual_count}"
+        )
+
+    expected_task_ids = [
+        _task_id_for_kind(task.task_kind, registry=registry)
+        for task in mission.child_tasks
+    ]
+    actual_task_ids: list[str] = []
+    for index, spec in enumerate(child_specs):
+        if spec.task_kind is None:
+            raise ValueError(
+                f"MISSION_CHILD_TASK_ID_MISSING: child spec at index {index} has no task_kind"
+            )
+        actual_task_ids.append(_task_id_for_kind(spec.task_kind, registry=registry))
+
+    duplicate_task_ids = sorted(
+        task_id for task_id in set(actual_task_ids) if actual_task_ids.count(task_id) > 1
+    )
+    if duplicate_task_ids:
+        raise ValueError(
+            "MISSION_CHILD_DUPLICATE: duplicate child task IDs: "
+            + ", ".join(duplicate_task_ids)
+        )
+
+    if actual_task_ids != expected_task_ids:
+        if sorted(actual_task_ids) == sorted(expected_task_ids):
+            raise ValueError(
+                "MISSION_CHILD_ORDER_MISMATCH: expected task ID order "
+                f"{expected_task_ids}, got {actual_task_ids}"
+            )
+        raise ValueError(
+            "MISSION_CHILD_TASK_MISMATCH: expected task IDs "
+            f"{expected_task_ids}, got {actual_task_ids}"
+        )
+
+    content_fields = (
+        "job_type",
+        "trigger_content",
+        "disaster_type",
+        "spatial_extent",
+        "force_aoi_resolution",
+        "target_crs",
+        "debug",
+        "task_family",
+        "preferred_pattern_id",
+        "output_data_type",
+    )
+    for index, (expected, actual) in enumerate(zip(mission.child_tasks, child_specs)):
+        mismatches = [
+            field
+            for field in content_fields
+            if getattr(actual, field) != getattr(expected, field)
+        ]
+        if mismatches:
+            raise ValueError(
+                "MISSION_CHILD_CONTENT_MISMATCH: child spec at index "
+                f"{index} ({expected_task_ids[index]}) differs in fields {mismatches}"
+            )
+
+
+def _task_id_for_kind(
+    task_kind: TaskKind,
+    *,
+    registry: KnowledgePolicyRegistry,
+) -> str:
+    task_id = str(registry.task_record(task_kind.value).get("task_id") or "").strip()
+    if not task_id:
+        raise KnowledgeReleaseError(f"KG task semantics for {task_kind.value} has no task_id")
+    return task_id
 
 
 def classify_scenario_request(
@@ -259,8 +385,12 @@ class ScenarioRunService:
         self.failure_handler = ScenarioFailureHandlerService()
         self._executor = ThreadPoolExecutor(max_workers=1, thread_name_prefix="scenario-run")
 
+    def _build_child_run_specs(self, request: ScenarioRunRequest) -> list[ScenarioChildRunSpec]:
+        repo = getattr(self.agent_run_service, "kg_repo", None)
+        return build_child_run_specs(request, kg_repo=repo)
+
     def create_scenario_run(self, request: ScenarioRunRequest) -> ScenarioRunResponse:
-        child_specs = build_child_run_specs(request)
+        child_specs = self._build_child_run_specs(request)
         validate_mission_child_specs(request, child_specs)
         scenario_id = create_scenario_id()
         output_dir = scenario_output_dir(request, scenario_id)
@@ -276,7 +406,7 @@ class ScenarioRunService:
         )
         if decision["decision"] != "allow":
             raise ValueError(f'{decision["reason_code"]}: {decision["message"]}')
-        child_specs = build_child_run_specs(request)
+        child_specs = self._build_child_run_specs(request)
         validate_mission_child_specs(request, child_specs)
 
         scenario_id = create_scenario_id()
@@ -285,7 +415,7 @@ class ScenarioRunService:
         output_dir.mkdir(parents=True, exist_ok=True)
         _write_json_roundtrip(output_dir / "request.json", request.model_dump(mode="json"))
         _write_runtime_snapshot(output_dir)
-        _write_preflight_snapshot(output_dir, request)
+        _write_preflight_snapshot(output_dir, request, child_specs=child_specs)
         _write_checkpoint(
             output_dir,
             _initial_checkpoint(
@@ -392,7 +522,7 @@ class ScenarioRunService:
 
         child_specs = _child_specs_from_checkpoint(checkpoint)
         if not child_specs:
-            child_specs = build_child_run_specs(request)
+            child_specs = self._build_child_run_specs(request)
 
         child_results = _child_results_from_checkpoint(checkpoint, child_specs)
         previous_child_results = [dict(result) for result in child_results]
@@ -502,10 +632,13 @@ class ScenarioRunService:
         if decision["decision"] != "allow":
             raise ValueError(f'{decision["reason_code"]}: {decision["message"]}')
 
+        child_specs = self._build_child_run_specs(request)
+        validate_mission_child_specs(request, child_specs)
+
         output_dir.mkdir(parents=True, exist_ok=True)
         _write_json_roundtrip(output_dir / "request.json", request.model_dump(mode="json"))
         _write_runtime_snapshot(output_dir)
-        _write_preflight_snapshot(output_dir, request)
+        _write_preflight_snapshot(output_dir, request, child_specs=child_specs)
         checkpoint = _initial_checkpoint(
             request=request,
             scenario_id=scenario_id,
@@ -513,8 +646,6 @@ class ScenarioRunService:
         )
         _write_checkpoint(output_dir, checkpoint)
 
-        child_specs = build_child_run_specs(request)
-        validate_mission_child_specs(request, child_specs)
         checkpoint = _checkpoint_with_specs(checkpoint, child_specs)
         _write_checkpoint(output_dir, checkpoint)
         child_run_slots = [_queued_child_run_for_spec(spec) for spec in child_specs]
@@ -650,6 +781,9 @@ class ScenarioRunService:
                 "plan": None,
                 "audit_events": [],
                 "artifact_path": None,
+                "product_contract_id": spec.product_contract_id,
+                "provisional_when_degraded": spec.provisional_when_degraded,
+                "final_output_may_supersede_provisional": spec.final_output_may_supersede_provisional,
             }
 
     def _inspect_child_result(self, *, run_id: str, spec: ScenarioChildRunSpec, fallback_status=None) -> dict[str, Any]:
@@ -675,11 +809,13 @@ class ScenarioRunService:
             "audit_events": audit_events,
             "artifact_path": self.agent_run_service.get_artifact_path(run_id),
             "error": getattr(status, "error", None) if status is not None else None,
+            "product_contract_id": spec.product_contract_id,
             "provisional_when_degraded": spec.provisional_when_degraded,
+            "final_output_may_supersede_provisional": spec.final_output_may_supersede_provisional,
         }
         return _mark_child_result_provisional_if_degraded(
             result,
-            allow_nonbuilding=spec.provisional_when_degraded,
+            allowed=spec.provisional_when_degraded,
         )
 
     def _wait_for_child_result(self, *, run_id: str, spec: ScenarioChildRunSpec, fallback_status=None) -> dict[str, Any]:
@@ -708,7 +844,13 @@ class ScenarioRunService:
             trigger_content="",
             task_kind=task_kind,
             task_family=str(result.get("task_family") or (task_kind_family(task_kind) if task_kind else job_type.value)),
-            provisional_when_degraded=bool(result.get("provisional_when_degraded") or result.get("provisional")),
+            provisional_when_degraded=result.get("provisional_when_degraded") is True,
+            product_contract_id=(
+                str(result.get("product_contract_id")) if result.get("product_contract_id") else None
+            ),
+            final_output_may_supersede_provisional=bool(
+                result.get("final_output_may_supersede_provisional")
+            ),
         )
         return self._inspect_child_result(run_id=str(run_id), spec=spec, fallback_status=result.get("status"))
 
@@ -839,10 +981,13 @@ class ScenarioRunService:
             "expected_child_count": expected_child_count,
             "mission": {
                 "scope_source": mission.scope_source,
+                "task_bundle_id": mission.task_bundle_id,
                 "expected_child_count": expected_child_count,
                 "task_kinds": [task.task_kind.value for task in mission.child_tasks],
                 "task_families": mission.task_families,
                 "unsupported_layers": mission.unsupported_layers,
+                "knowledge_identity": mission.knowledge_identity,
+                "knowledge_refs": mission.knowledge_refs,
             },
             "child_runs": [_child_summary(result) for result in child_results],
             "kg_path_traces": kg_path_traces,
@@ -911,8 +1056,12 @@ def _write_runtime_snapshot(output_dir: Path) -> None:
     _write_json_roundtrip(output_dir / "runtime.json", payload)
 
 
-def _write_preflight_snapshot(output_dir: Path, request: ScenarioRunRequest) -> None:
-    child_specs = build_child_run_specs(request)
+def _write_preflight_snapshot(
+    output_dir: Path,
+    request: ScenarioRunRequest,
+    *,
+    child_specs: list[ScenarioChildRunSpec],
+) -> None:
     expected_child_count = _expected_child_count_for_request(request, mission_child_count=len(child_specs))
     payload = {
         "timestamp": _utc_now_iso(),
@@ -1123,7 +1272,9 @@ def _child_specs_from_checkpoint(checkpoint: ScenarioCheckpoint) -> list[Scenari
                     task_family=item.task_family,
                     preferred_pattern_id=item.preferred_pattern_id,
                     output_data_type=item.output_data_type,
+                    product_contract_id=item.product_contract_id,
                     provisional_when_degraded=item.provisional_when_degraded,
+                    final_output_may_supersede_provisional=item.final_output_may_supersede_provisional,
                 )
             )
         except ValueError as exc:
@@ -1168,6 +1319,11 @@ def _checkpoint_run_to_child_result(
         "plan": None,
         "audit_events": [],
         "status": None,
+        "product_contract_id": spec.product_contract_id if spec is not None else None,
+        "provisional_when_degraded": spec.provisional_when_degraded if spec is not None else False,
+        "final_output_may_supersede_provisional": (
+            spec.final_output_may_supersede_provisional if spec is not None else False
+        ),
     }
 
 
@@ -1236,7 +1392,9 @@ def _checkpoint_child_spec(spec: ScenarioChildRunSpec) -> ScenarioCheckpointChil
         task_family=spec.task_family,
         preferred_pattern_id=spec.preferred_pattern_id,
         output_data_type=spec.output_data_type,
+        product_contract_id=spec.product_contract_id,
         provisional_when_degraded=spec.provisional_when_degraded,
+        final_output_may_supersede_provisional=spec.final_output_may_supersede_provisional,
     )
 
 
@@ -1266,6 +1424,9 @@ def _queued_child_run_for_spec(spec: ScenarioChildRunSpec) -> dict[str, Any]:
         "phase": RunPhase.queued.value,
         "artifact_path": None,
         "error": None,
+        "product_contract_id": spec.product_contract_id,
+        "provisional_when_degraded": spec.provisional_when_degraded,
+        "final_output_may_supersede_provisional": spec.final_output_may_supersede_provisional,
     }
 
 
@@ -1336,17 +1497,7 @@ def _phase_from_child_results(child_results: list[dict[str, Any]]) -> ScenarioPh
     return ScenarioPhase.partial
 
 
-def _is_flood_request(request: ScenarioRunRequest) -> bool:
-    disaster_type = str(request.disaster_type or "").strip().casefold().replace("-", "_")
-    if disaster_type in {"flood", "heavy_rainfall", "rainstorm"}:
-        return True
-    text = " ".join([request.scenario_name, request.trigger_content]).casefold()
-    return any(token in text for token in ("flood", "heavy rainfall", "heavy_rainfall", "rainstorm", "洪涝", "洪水", "内涝", "强降雨", "暴雨"))
-
-
 def _expected_child_count_for_request(request: ScenarioRunRequest, *, mission_child_count: int) -> int:
-    if _is_flood_request(request):
-        return FLOOD_EXPECTED_CHILD_COUNT
     return mission_child_count
 
 
@@ -1560,11 +1711,13 @@ def _task_relevant_component_coverage(task_kind: str, coverage: Any) -> dict[str
     if not isinstance(coverage, dict):
         return {}
     relevant_source_ids = {
-        "water_polygon": {"raw.osm.water", "raw.hydrolakes.water", "raw.local.water"},
-        "waterways": {"raw.osm.waterways", "raw.hydrorivers.water", "raw.local.pakistan.waterways"},
-    }.get(str(task_kind))
-    if relevant_source_ids is None:
-        return dict(coverage)
+        str(candidate.get("source_id") or "").strip()
+        for role in default_policy_registry().source_role_policies(str(task_kind))
+        for candidate in role.get("candidates", [])
+        if isinstance(candidate, dict) and str(candidate.get("source_id") or "").strip()
+    }
+    if not relevant_source_ids:
+        raise KnowledgeReleaseError(f"No source role candidates for task kind {task_kind}")
     return {
         str(source_id): payload
         for source_id, payload in coverage.items()
@@ -1575,17 +1728,14 @@ def _task_relevant_component_coverage(task_kind: str, coverage: Any) -> dict[str
 def _mark_child_result_provisional_if_degraded(
     result: dict[str, Any],
     *,
-    allow_nonbuilding: bool = False,
+    allowed: bool,
 ) -> dict[str, Any]:
     if str(result.get("phase")) != RunPhase.succeeded.value or not result.get("artifact_path"):
         return result
     degradation = _child_degradation(result)
     if degradation.get("state") != "degraded":
         return result
-    if (
-        str(result.get("task_family") or result.get("task_kind") or "") != "building"
-        and not allow_nonbuilding
-    ):
+    if not allowed:
         return result
     provisional = dict(result)
     provisional["phase"] = ScenarioPhase.partial_provisional.value
@@ -1607,6 +1757,8 @@ def _superseded_outputs(
     superseded: list[dict[str, Any]] = []
     for old in previous_child_results:
         if str(old.get("phase")) != ScenarioPhase.partial_provisional.value:
+            continue
+        if old.get("final_output_may_supersede_provisional") is not True:
             continue
         task_key = old.get("task_kind") or old.get("job_type")
         replacement = next(
@@ -1760,31 +1912,7 @@ def _child_summary(result: dict[str, Any]) -> dict[str, Any]:
 
 
 def _classify_error_code(error: Any) -> str:
-    text = str(error or "").strip()
-    lowered = text.casefold()
-    if not text:
-        return ""
-    if "config_missing" in lowered or "dependency file" in lowered or "依赖.txt" in lowered:
-        return "CONFIG_MISSING"
-    if "port_conflict" in lowered or "port" in lowered and "occupied" in lowered:
-        return "PORT_CONFLICT"
-    if "aoi_resolution_required" in lowered:
-        return "AOI_RESOLUTION_REQUIRED"
-    if "aoi_resolution_failed" in lowered or "no aoi candidates" in lowered:
-        return "AOI_RESOLUTION_FAILED"
-    if "geocoder" in lowered and ("timeout" in lowered or "timed out" in lowered):
-        return "GEOCODER_TIMEOUT"
-    if "child_run_timeout" in lowered:
-        return "CHILD_RUN_TIMEOUT"
-    if "missing_required_source" in lowered:
-        return "MISSING_REQUIRED_SOURCE"
-    if "source_fetch_timeout" in lowered:
-        return "SOURCE_FETCH_TIMEOUT"
-    if "source_download_failed" in lowered and ("timeout" in lowered or "timed out" in lowered):
-        return "SOURCE_FETCH_TIMEOUT"
-    if "source_missing" in lowered or "source_missing" in text or "missing" in lowered and "source" in lowered:
-        return "MISSING_REQUIRED_SOURCE"
-    return text.split(":", 1)[0] if ":" in text and text.split(":", 1)[0].isupper() else "ALGO_RUNTIME_ERROR"
+    return classify_failure_category(str(error or ""), scope="scenario_child")
 
 
 def _next_action_for_error(error: Any) -> str:
@@ -1811,6 +1939,10 @@ def _task_identity(
     task_key = task_kind.value if task_kind else job_type.value
     family = task_family or (task_kind_family(task_kind) if task_kind else job_type.value)
     return task_key, family
+
+
+def _p3_variant() -> str:
+    return os.getenv("GEOFUSION_P3_VARIANT", "full_method").strip().lower()
 
 
 scenario_run_service = ScenarioRunService(agent_run_service=agent_run_service)

@@ -107,7 +107,7 @@ def test_scenario_preflight_expands_flood_children_and_reports_sources() -> None
     assert payload["child_preflights"][3]["source_selection"]["selected_source_id"] == "catalog.flood.waterways"
     assert payload["child_preflights"][3]["component_coverage"]["required_source_ids"] == [
         "raw.osm.waterways",
-        "raw.local.pakistan.waterways",
+        "raw.hydrorivers.water",
     ]
 
 

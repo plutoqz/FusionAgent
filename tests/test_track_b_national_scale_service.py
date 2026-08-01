@@ -151,8 +151,6 @@ def test_track_b_national_scale_service_writes_building_evidence_with_multisourc
         assert str(roads.crs).upper() == "EPSG:32735"
         assert tuple(source_priority_order) == (
             "MS",
-            "OBM",
-            "GOOGLE_OPEN_BUILDINGS",
             "GOOGLE",
             "OSM",
         )
@@ -194,17 +192,14 @@ def test_track_b_national_scale_service_writes_building_evidence_with_multisourc
     assert selected_sources["component_source_ids"] == ["raw.osm.building", "raw.microsoft.building"]
     assert selected_sources["fusion_summary"]["vector_source_ids"] == [
         "raw.microsoft.building",
-        "raw.openbuildingmap.building",
-        "raw.google.open_buildings.vector",
         "raw.google.building",
         "raw.osm.building",
     ]
     assert "raw.google.building" in normalization_summary["supplemental_sources"]
     assert float(fused.loc[0, "height_ms"]) == 9.0
-    assert float(fused.loc[0, "height_obm"]) == 11.0
     assert float(fused.loc[0, "height_google"]) == 7.0
-    assert float(fused.loc[0, "height_final"]) == 11.0
-    assert fused.loc[0, "height_final_source"] == "height_obm"
+    assert float(fused.loc[0, "height_final"]) == 9.0
+    assert fused.loc[0, "height_final_source"] == "height_ms"
     assert stitched_artifact["fusion_summary"]["source_priority_order"][0] == "MS"
     assert autonomous_readiness["status"] == "full_autonomous_closure"
     assert autonomous_readiness["missing_required_source_ids"] == []
@@ -303,11 +298,10 @@ def test_track_b_building_national_fusion_passes_raw_sources_to_tiled_runtime(
     assert summary["claim_state"] == "national_scale_supported"
     assert captured["vector_sources"] == {
         "MS": ms_path,
-        "GOOGLE_OPEN_BUILDINGS": gobv_path,
         "OSM": osm_path,
     }
     assert captured["vector_source_crs"] == "EPSG:4326"
-    assert captured["source_priority_order"] == ("MS", "GOOGLE_OPEN_BUILDINGS", "OSM")
+    assert captured["source_priority_order"] == ("MS", "OSM")
     assert not (output_root / "normalized").exists()
 
 
@@ -598,11 +592,11 @@ def test_track_b_national_scale_service_uses_hydrolakes_as_selected_water_refere
     assert summary["claim_state"] == "national_scale_supported"
     assert selected_sources["component_source_ids"] == ["raw.osm.water", "raw.hydrolakes.water"]
     assert normalization_summary["selected_sources"]["raw.hydrolakes.water"]["feature_count"] == 1
-    assert normalization_summary["supplemental_sources"]["raw.hydrorivers.water"]["feature_count"] == 1
-    assert "raw.hydrorivers.water" in inspection_summary["operator_readable_summary"]["supplemental_source_ids"]
+    assert "raw.hydrorivers.water" not in normalization_summary["supplemental_sources"]
+    assert "raw.hydrorivers.water" not in inspection_summary["operator_readable_summary"]["supplemental_source_ids"]
 
 
-def test_track_b_national_scale_service_includes_hydrorivers_lines_in_water_output(
+def test_track_b_national_scale_service_runs_waterways_as_separate_line_product(
     tmp_path: Path,
 ) -> None:
     _write_frame(
@@ -641,8 +635,8 @@ def test_track_b_national_scale_service_includes_hydrorivers_lines_in_water_outp
     service = TrackBNationalScaleService(root_dir=tmp_path, cache_dir=tmp_path / "cache")
     output_root = tmp_path / "evidence" / "water_lines"
     summary = service.build_theme_evidence(
-        job_type="water",
-        source_id="catalog.flood.water",
+        job_type="waterways",
+        source_id="catalog.flood.waterways",
         request_bbox=(29.0, -3.5, 29.8, -2.9),
         target_crs="EPSG:32735",
         output_root=output_root,
@@ -661,15 +655,15 @@ def test_track_b_national_scale_service_includes_hydrorivers_lines_in_water_outp
 
     assert "line" in feature_kinds
     assert any("Line" in value for value in geom_types)
-    assert any("Polygon" in value for value in geom_types)
-    assert summary["tile_count"] == tile_manifest["tile_count"]
-    assert stitched_artifact["tile_count"] == tile_manifest["tile_count"]
-    assert timing["tile_count"] == tile_manifest["tile_count"]
-    assert inspection_summary["tile_count"] == tile_manifest["tile_count"]
-    assert len(stitched_artifact["tile_outputs"]) > tile_manifest["tile_count"]
+    assert not any("Polygon" in value for value in geom_types)
+    assert summary["tile_count"] <= tile_manifest["tile_count"]
+    assert stitched_artifact["tile_count"] == summary["tile_count"]
+    assert timing["tile_count"] == summary["tile_count"]
+    assert inspection_summary["tile_count"] == summary["tile_count"]
+    assert len(stitched_artifact["tile_outputs"]) == summary["tile_count"]
 
 
-def test_track_b_national_scale_service_includes_osm_waterways_lines_in_water_output(
+def test_track_b_water_polygon_output_excludes_waterways_lines(
     tmp_path: Path,
 ) -> None:
     _write_frame(
@@ -724,8 +718,8 @@ def test_track_b_national_scale_service_includes_osm_waterways_lines_in_water_ou
         | (fused.get("feature_kind") == "line")
     ].copy()
 
-    assert not osm_line_rows.empty
-    assert any("Line" in value for value in osm_line_rows.geom_type.unique())
+    assert osm_line_rows.empty
+    assert all("Polygon" in value for value in fused.geom_type.unique())
 
 
 def test_track_b_national_scale_service_clips_water_output_to_country_boundary_when_country_hint_available(

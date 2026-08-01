@@ -4,6 +4,7 @@ import math
 import os
 from typing import Dict, List
 
+from kg.policy_registry import default_policy_registry
 from kg.repository import KGRepository
 from schemas.agent import (
     ValidationIssue,
@@ -19,7 +20,15 @@ from services.runtime_contract_service import RuntimeContractService
 class WorkflowValidator:
     def __init__(self, kg_repo: KGRepository, *, enforcement_mode: str | None = None) -> None:
         self.kg_repo = kg_repo
-        self.enforcement_mode = str(enforcement_mode or os.getenv("GEOFUSION_VALIDATOR_MODE", "report")).lower()
+        configured_mode = enforcement_mode or os.getenv("GEOFUSION_VALIDATOR_MODE")
+        self.enforcement_mode = str(
+            configured_mode or default_policy_registry().runtime_gate_mode("validator_mode")
+        ).strip().lower()
+        if self.enforcement_mode not in {"enforce", "report", "warn"}:
+            raise ValueError(
+                "validator enforcement_mode must be enforce, report, or warn; "
+                f"got {self.enforcement_mode!r}"
+            )
         self.contract = RuntimeContractService(kg_repo)
         if hasattr(kg_repo, "list_data_sources"):
             self._data_sources = {source.source_id: source for source in kg_repo.list_data_sources()}

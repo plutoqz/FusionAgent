@@ -3,8 +3,17 @@ from __future__ import annotations
 from pathlib import Path
 
 import geopandas as gpd
+import pytest
 from shapely.geometry import Point
 
+from schemas.data_requirement import (
+    BundleSlot,
+    CompletenessPolicy,
+    DataRequirementPlan,
+    SourceCandidate,
+    SourceRoleRequirement,
+)
+from schemas.task_kind import TaskKind
 from services.agent_run_service import AgentRunService
 from services.raw_vector_source_service import MaterializedRawVectorSource
 from utils.shp_zip import validate_zip_has_shapefile, zip_shapefile_bundle
@@ -62,6 +71,44 @@ def _write_raw_zip(tmp_path: Path) -> Path:
     return zip_shapefile_bundle(shp_path, tmp_path / "raw.zip")
 
 
+def _requirements(*, reference_required: bool) -> DataRequirementPlan:
+    return DataRequirementPlan(
+        task_kind=TaskKind.poi,
+        task_family="poi",
+        roles=[
+            SourceRoleRequirement(
+                role_id="base_poi",
+                required=True,
+                bundle_slot=BundleSlot.primary,
+                geometry_types=["Point", "MultiPoint"],
+                completeness_policy=CompletenessPolicy.required_non_empty,
+                candidates=[
+                    SourceCandidate(
+                        source_id="raw.example.vector",
+                        provider_family="fixture",
+                        priority=10,
+                    )
+                ],
+            ),
+            SourceRoleRequirement(
+                role_id="reference_poi",
+                required=reference_required,
+                bundle_slot=BundleSlot.reference,
+                distinct_from_role_ids=["base_poi"],
+                geometry_types=["Point", "MultiPoint"],
+                completeness_policy=CompletenessPolicy.optional_reference,
+                candidates=[
+                    SourceCandidate(
+                        source_id="raw.other.vector",
+                        provider_family="fixture",
+                        priority=10,
+                    )
+                ],
+            ),
+        ],
+    )
+
+
 def test_provider_only_handles_raw_sources_supported_by_raw_service() -> None:
     from services.raw_vector_input_bundle_provider import RawVectorInputBundleProvider
 
@@ -116,6 +163,38 @@ def test_materialize_returns_bundle_with_raw_zip_empty_ref_coverage_and_attempt(
     assert bundle.provider_attempts[0]["coverage_status"] == "available"
     assert bundle.provider_attempts[0]["feature_count"] == 7
     assert bundle.provider_attempts[0]["selected_for_fusion"] is True
+
+
+def test_direct_raw_provider_records_kg_role_contract(tmp_path: Path) -> None:
+    from services.raw_vector_input_bundle_provider import RawVectorInputBundleProvider
+
+    provider = RawVectorInputBundleProvider(
+        raw_source_service=_FakeRawVectorSourceService(raw_zip=_write_raw_zip(tmp_path))
+    )
+    bundle = provider.materialize(
+        source_id="raw.example.vector",
+        request_bbox=None,
+        target_dir=tmp_path / "inputs-with-plan",
+        target_crs="EPSG:4326",
+        data_requirements=_requirements(reference_required=False),
+    )
+
+    coverage = bundle.component_coverage["raw.example.vector"]
+    assert coverage["role_id"] == "base_poi"
+    assert coverage["selected_role_ids"] == ["base_poi"]
+    assert bundle.provider_attempts[0]["role_contract"]["bundle_slot"] == "primary"
+
+
+def test_direct_raw_provider_rejects_unsatisfied_required_kg_role() -> None:
+    from services.raw_vector_input_bundle_provider import RawVectorInputBundleProvider
+
+    provider = RawVectorInputBundleProvider(raw_source_service=_FakeRawVectorSourceService())
+
+    with pytest.raises(ValueError, match="reference_poi"):
+        provider.current_version(
+            "raw.example.vector",
+            data_requirements=_requirements(reference_required=True),
+        )
 
 
 def test_agent_run_service_registers_raw_vector_input_bundle_provider(tmp_path: Path) -> None:

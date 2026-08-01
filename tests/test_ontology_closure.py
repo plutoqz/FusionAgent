@@ -121,7 +121,7 @@ def test_water_seed_records_exist() -> None:
     assert water_source.metadata["component_source_ids"] == ["raw.osm.water", "raw.hydrolakes.water"]
     waterways_source = next(source for source in DATA_SOURCES if source.source_id == "catalog.flood.waterways")
     assert waterways_source.supported_types == ["dt.waterways.bundle"]
-    assert waterways_source.metadata["component_source_ids"] == ["raw.osm.waterways", "raw.local.pakistan.waterways"]
+    assert waterways_source.metadata["component_source_ids"] == ["raw.osm.waterways", "raw.hydrorivers.water"]
     water_policy_note = OUTPUT_SCHEMA_POLICIES["dt.water.fused"].metadata["notes"]
     assert "uploaded-only" not in water_policy_note
     assert "shared bundle runtime" in water_policy_note

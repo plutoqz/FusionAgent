@@ -1,36 +1,15 @@
 from __future__ import annotations
 
 import json
+import os
 from pathlib import Path
 from typing import Any
 
+from kg.policy_registry import default_policy_registry
 from schemas.agent import RepairRecord, RunArtifactMeta, RunCreateRequest, RunPhase, WorkflowPlan
 from services.output_contract_service import get_domain_output_contract
-from schemas.task_kind import TaskKind, expand_job_type_to_task_kinds
-
-_EXPECTED_QUALITY_COMPONENTS_BY_TASK_KIND = {
-    TaskKind.building: ("raw.microsoft.building", "raw.osm.building"),
-    TaskKind.road: ("raw.osm.road", "raw.microsoft.road"),
-    TaskKind.water_polygon: ("raw.osm.water", "raw.hydrolakes.water"),
-    TaskKind.waterways: ("raw.osm.waterways", "raw.hydrorivers.water"),
-    TaskKind.poi: ("raw.gns.poi", "raw.google.poi", "raw.osm.poi"),
-}
-
-_OPTIONAL_EXTERNAL_QUALITY_COMPONENTS = {
-    "raw.google.building",
-    "raw.microsoft.building",
-    "raw.google.poi",
-    "raw.gns.poi",
-    "raw.geonames.poi",
-    "raw.microsoft.road",
-    "raw.overture.transportation",
-    "raw.overture.road",
-    "raw.hydrolakes.water",
-    "raw.hydrorivers.water",
-    "raw.local.pakistan.waterways",
-}
-
-_SYSTEM_FAULT_CLASSES = {"MISSING_PROVIDER", "ALGO_RUNTIME_ERROR", "PARAM_OUT_OF_RANGE", "CRS_MISMATCH"}
+from schemas.task_kind import TaskKind
+from services.task_kind_resolution_service import resolve_task_kind
 
 
 class RunWritebackService:
@@ -56,16 +35,15 @@ class RunWritebackService:
             plan=plan,
             fused_shp=fused_shp,
         )
-        if Path(fused_shp).suffix.lower() == ".gpkg":
-            fused_shp = self._evaluate_quality_and_repair_if_needed(
-                run_id=run_id,
-                request=request,
-                plan=plan,
-                fused_shp=fused_shp,
-                repair_records=repair_records,
-                output_dir=output_dir,
-                component_coverage=component_coverage,
-            )
+        fused_shp = self._evaluate_quality_and_repair_if_needed(
+            run_id=run_id,
+            request=request,
+            plan=plan,
+            fused_shp=fused_shp,
+            repair_records=repair_records,
+            output_dir=output_dir,
+            component_coverage=component_coverage,
+        )
         artifact_zip = service._zip_output_artifact(
             fused_shp,
             output_dir / f"{request.job_type.value}_fusion_result.zip",
@@ -98,8 +76,46 @@ class RunWritebackService:
         component_coverage: dict[str, object],
     ) -> Path:
         service = self.coordinator
-        contract_id = service._quality_contract_id_for_request(request)
-        task_kind = _task_kind_for_request(request)
+        if _p3_variant() == "no_quality_gate":
+            task_kind = resolve_task_kind(request=request, plan=plan)
+            quality_report_path = output_dir / "quality_report.json"
+            feature_alignment_path = output_dir / "feature_alignment_report.json"
+            quality_report_path.write_text(
+                json.dumps(
+                    {
+                        "schema_version": "p3-governance-ablation-v1",
+                        "gate_status": "disabled",
+                        "accepted": None,
+                        "task_kind": task_kind.value,
+                        "artifact_path": str(fused_shp),
+                        "reason": "quality_gate_disabled_for_ablation",
+                    },
+                    ensure_ascii=False,
+                    indent=2,
+                ),
+                encoding="utf-8",
+            )
+            feature_alignment_path.write_text(
+                json.dumps({"gate_status": "disabled"}, ensure_ascii=False, indent=2),
+                encoding="utf-8",
+            )
+            service._update_status(
+                run_id,
+                RunPhase.running,
+                progress=92,
+                plan_revision=service._extract_plan_revision(plan),
+                checkpoint=service._checkpoint(stage="quality_gate_disabled", plan_revision=service._extract_plan_revision(plan)),
+                event_kind="quality_gate_disabled_for_ablation",
+                event_message="Quality gate disabled for the governance ablation variant.",
+                event_details={
+                    "accepted": None,
+                    "task_kind": task_kind.value,
+                    "path": str(quality_report_path),
+                },
+            )
+            return fused_shp
+        contract_id = service._quality_contract_id_for_request(request, plan)
+        task_kind = resolve_task_kind(request=request, plan=plan)
         quality_component_coverage = _quality_component_coverage_for_task(
             task_kind=task_kind,
             component_coverage=component_coverage,
@@ -113,7 +129,6 @@ class RunWritebackService:
         requested_bbox = service._parse_bbox(request.trigger.spatial_extent)
         degradation_context = service._degradation_context_from_component_coverage(quality_component_coverage)
         quality_policy_id = service._quality_policy_id_for_plan(plan)
-        source_expected_null_rates = service._source_expected_null_rates_for_request(request, plan)
         quality_report = service.quality_gate_service.evaluate(
             artifact_path=fused_shp,
             task_kind=task_kind,
@@ -124,7 +139,6 @@ class RunWritebackService:
             degradation_context=degradation_context,
             quality_policy_id=quality_policy_id,
             contract_id=contract_id,
-            source_expected_null_rates=source_expected_null_rates,
         )
         quality_report_path = output_dir / "quality_report.json"
         feature_alignment_path = output_dir / "feature_alignment_report.json"
@@ -147,6 +161,10 @@ class RunWritebackService:
             },
         )
         if not quality_report.accepted:
+            authorized_strategy_ids, available_strategy_ids = _artifact_repair_authorization(
+                plan=plan,
+                task_kind=task_kind,
+            )
             before_repair_path = output_dir / "quality_report.before_repair.json"
             before_repair_path.write_text(
                 json.dumps(quality_report.model_dump(mode="json"), ensure_ascii=False, indent=2),
@@ -167,6 +185,8 @@ class RunWritebackService:
                     "input_path": str(fused_shp),
                     "quality_report_path": str(before_repair_path),
                     "failure_reasons": quality_report.failure_reasons,
+                    "authorized_strategy_ids": authorized_strategy_ids,
+                    "available_strategy_ids": available_strategy_ids,
                 },
             )
             repair_result = service.artifact_repair_service.repair(
@@ -177,6 +197,8 @@ class RunWritebackService:
                 output_dir=output_dir,
                 repair_records=repair_records,
                 source_artifact_paths=source_artifact_paths,
+                authorized_strategy_ids=authorized_strategy_ids,
+                available_strategy_ids=available_strategy_ids,
             )
             repair_records.extend(repair_result.repair_records)
             repair_report_path = output_dir / "artifact_repair_report.json"
@@ -218,7 +240,6 @@ class RunWritebackService:
                     degradation_context=degradation_context,
                     quality_policy_id=quality_policy_id,
                     contract_id=contract_id,
-                    source_expected_null_rates=source_expected_null_rates,
                 )
                 service._update_status(
                     run_id,
@@ -252,16 +273,6 @@ class RunWritebackService:
         if not quality_report.accepted:
             raise RuntimeError("Quality gate rejected fusion output")
         return fused_shp
-
-
-def _task_kind_for_request(request: RunCreateRequest) -> TaskKind:
-    preferred = str(request.preferred_pattern_id or "")
-    if "waterways" in preferred:
-        return TaskKind.waterways
-    if "water_polygon" in preferred:
-        return TaskKind.water_polygon
-    expanded = expand_job_type_to_task_kinds(request.job_type)
-    return expanded[0]
 
 
 def _component_coverage_from_status(status) -> dict[str, object]:
@@ -298,25 +309,29 @@ def _quality_component_coverage_for_task(
     component_coverage: dict[str, object],
 ) -> dict[str, object]:
     normalized = _normalize_quality_component_coverage(component_coverage or {})
-    if task_kind == TaskKind.poi and "raw.gns.poi" not in normalized and "raw.geonames.poi" in normalized:
-        normalized["raw.gns.poi"] = {
-            **_coverage_as_dict(normalized["raw.geonames.poi"], "raw.gns.poi"),
-            "source_id": "raw.gns.poi",
-        }
-
-    expected = _EXPECTED_QUALITY_COMPONENTS_BY_TASK_KIND.get(task_kind)
-    if task_kind == TaskKind.poi and {"raw.gns.poi", "raw.google.poi"}.intersection(normalized):
-        expected = ("raw.gns.poi", "raw.google.poi")
+    registry = default_policy_registry()
+    policy = registry.quality_component_policy(task_kind.value)
+    expected = [str(source_id) for source_id in policy.get("expected_source_ids") or []]
+    external_optional = {str(source_id) for source_id in policy.get("external_optional_source_ids") or []}
+    system_faults = {str(item) for item in registry.fault_policy().get("system_failure_faults") or []}
     if not expected:
-        return dict(normalized)
+        raise ValueError(f"KG quality component policy has no expected_source_ids for {task_kind.value}")
 
     result: dict[str, object] = {}
     for source_id in expected:
         payload = normalized.get(source_id)
         if payload is None:
-            result[source_id] = _inferred_missing_quality_source(source_id)
+            result[source_id] = _inferred_missing_quality_source(
+                source_id,
+                external_optional_source_ids=external_optional,
+            )
             continue
-        result[source_id] = _mark_optional_missing_source_as_external(source_id, payload)
+        result[source_id] = _mark_optional_missing_source_as_external(
+            source_id,
+            payload,
+            external_optional_source_ids=external_optional,
+            system_fault_classes=system_faults,
+        )
     return result
 
 
@@ -348,31 +363,61 @@ def _coverage_as_dict(payload: object, source_id: str) -> dict[str, object]:
     return result
 
 
-def _mark_optional_missing_source_as_external(source_id: str, payload: object) -> dict[str, object]:
+def _mark_optional_missing_source_as_external(
+    source_id: str,
+    payload: object,
+    *,
+    external_optional_source_ids: set[str],
+    system_fault_classes: set[str],
+) -> dict[str, object]:
     result = _coverage_as_dict(payload, source_id)
-    if source_id not in _OPTIONAL_EXTERNAL_QUALITY_COMPONENTS:
+    if source_id not in external_optional_source_ids:
         return result
     status = str(result.get("coverage_status") or "").strip().lower()
     fault_class = str(result.get("fault_class") or "").strip().upper()
-    if status == "available" or _coverage_feature_count(result) > 0 or fault_class in _SYSTEM_FAULT_CLASSES:
+    if status == "available" or _coverage_feature_count(result) > 0 or fault_class in system_fault_classes:
         return result
     result["external_uncontrollable"] = True
-    result.setdefault("fault_class", "PROVIDER_UNAVAILABLE")
+    result.setdefault(
+        "fault_class",
+        default_policy_registry().inferred_missing_fault(external=True),
+    )
     result.setdefault("coverage_status", status or "missing")
     return result
 
 
-def _inferred_missing_quality_source(source_id: str) -> dict[str, object]:
-    external = source_id in _OPTIONAL_EXTERNAL_QUALITY_COMPONENTS
+def _inferred_missing_quality_source(
+    source_id: str,
+    *,
+    external_optional_source_ids: set[str],
+) -> dict[str, object]:
+    external = source_id in external_optional_source_ids
+    fault_class = default_policy_registry().inferred_missing_fault(external=external)
     return {
         "source_id": source_id,
         "feature_count": 0,
         "coverage_status": "missing",
         "path": None,
-        "fault_class": "PROVIDER_UNAVAILABLE" if external else "SOURCE_MISSING",
+        "fault_class": fault_class,
         "external_uncontrollable": external,
         "inferred_missing_for_quality": True,
     }
+
+
+def _artifact_repair_authorization(*, plan: WorkflowPlan, task_kind: TaskKind) -> tuple[list[str], list[str]]:
+    if plan.product_contract is None:
+        return [], []
+    registry = default_policy_registry()
+    task_id = str(registry.task_record(task_kind.value)["task_id"])
+    authorized = {str(item) for item in plan.product_contract.repair_strategy_ids if item}
+    available = {
+        strategy.strategy_id
+        for strategy in plan.repair_strategies
+        if strategy.strategy_id in authorized
+        and (not strategy.applies_to_task_ids or task_id in strategy.applies_to_task_ids)
+        and str(strategy.metadata.get("runtime_role") or "") == "artifact_repair_strategy"
+    }
+    return sorted(authorized), sorted(available)
 
 
 def _coverage_feature_count(payload: dict[str, object]) -> int:
@@ -391,3 +436,7 @@ def _merge_required_fields(primary: list[str], secondary: list[str]) -> list[str
         if field not in result:
             result.append(field)
     return result
+
+
+def _p3_variant() -> str:
+    return os.getenv("GEOFUSION_P3_VARIANT", "full_method").strip().lower()

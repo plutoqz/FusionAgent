@@ -5,23 +5,15 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from kg.policy_registry import default_policy_registry
 from schemas.agent import WorkflowPlan
 from schemas.failure_taxonomy import classify_failure_category
 from services.runtime_contract_service import RuntimeContractService
 
-TERMINAL_PHASES = {"succeeded"}
-RECOVERABLE_ACTIONS = {
-    "redispatch_full_run",
-    "redispatch_from_validation",
-    "redispatch_from_execution",
-}
-RECOVERABLE_FAILURE_CATEGORIES = {
-    "SOURCE_DOWNLOAD_FAILED",
-    "SOURCE_MISSING",
-    "SOURCE_CORRUPTED",
-    "CRS_MISMATCH",
-    "ALGO_TIMEOUT",
-}
+_RECOVERY_POLICY = default_policy_registry().recovery_policy()
+TERMINAL_PHASES = set(_RECOVERY_POLICY["terminal_phases"])
+RECOVERABLE_ACTIONS = set(_RECOVERY_POLICY["recoverable_actions"])
+RECOVERABLE_FAILURE_CATEGORIES = set(default_policy_registry().fault_policy()["recoverable_faults"])
 
 
 def collect_recoverable_runs(
@@ -231,36 +223,31 @@ def _checkpoint_recovery_action(
     effective_stage: str,
     resume_stage: str,
 ) -> str | None:
-    if phase in {"queued", "planning"}:
-        return "redispatch_full_run"
-    if phase == "validating":
-        return "redispatch_from_validation"
-    if phase == "healing":
-        if effective_stage == "validation":
-            return "redispatch_from_validation"
-        if resume_stage == "execution":
-            return "redispatch_from_execution"
-        if effective_stage in {"queued", "planning", "replanning"}:
-            return "redispatch_full_run"
-        return None
-    if phase == "running":
-        if effective_stage == "validation":
-            return "redispatch_from_validation"
-        return "redispatch_from_execution"
+    phase_action = _RECOVERY_POLICY["phase_actions"].get(phase)
+    if phase_action:
+        return str(phase_action)
+    for rule in _RECOVERY_POLICY["phase_stage_rules"]:
+        if rule.get("phase") != phase:
+            continue
+        effective_stages = set(rule.get("effective_stages", []))
+        resume_stages = set(rule.get("resume_stages", []))
+        if effective_stages and "*" not in effective_stages and effective_stage not in effective_stages:
+            continue
+        if resume_stages and resume_stage not in resume_stages:
+            continue
+        return str(rule["action"])
     return None
 
 
 def _failed_run_recovery_action(record: dict[str, Any], *, effective_stage: str) -> str:
     failure_category = _failure_category(record)
     if failure_category not in RECOVERABLE_FAILURE_CATEGORIES:
-        return "mark_failed_requires_manual_review"
-    if failure_category == "CRS_MISMATCH":
-        return "redispatch_from_validation"
-    if effective_stage in {"queued", "planning", "replanning"}:
-        return "redispatch_full_run"
-    if effective_stage == "validation":
-        return "redispatch_from_validation"
-    return "redispatch_from_execution"
+        return str(_RECOVERY_POLICY["default_unmatched_action"])
+    category_action = _RECOVERY_POLICY["failure_category_actions"].get(failure_category)
+    if category_action:
+        return str(category_action)
+    stage_actions = _RECOVERY_POLICY["failed_stage_actions"]
+    return str(stage_actions.get(effective_stage) or stage_actions["*"])
 
 
 def _failure_category(record: dict[str, Any]) -> str | None:

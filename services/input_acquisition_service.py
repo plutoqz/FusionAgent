@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import Optional, Protocol, Sequence
 
 from schemas.agent import RunCreateRequest
+from schemas.data_requirement import DataRequirementPlan
 from services.aoi_resolution_service import ResolvedAOI
 from services.artifact_registry import ArtifactLookupRequest, ArtifactRecord, ArtifactRegistry
 from services.source_asset_service import classify_source_fault
@@ -50,6 +51,18 @@ def _safe_cache_component(value: str) -> str:
     if not text:
         return "empty"
     return f"v_{hashlib.sha1(text.encode('utf-8')).hexdigest()[:16]}"
+
+
+def _data_requirement_hash(data_requirements: DataRequirementPlan | None) -> str | None:
+    if data_requirements is None:
+        return None
+    payload = data_requirements.model_dump(mode="json")
+    evidence = dict(payload.get("evidence") or {})
+    for volatile_key in ("workflow_id", "run_id", "created_at", "timestamp"):
+        evidence.pop(volatile_key, None)
+    payload["evidence"] = evidence
+    encoded = json.dumps(payload, ensure_ascii=False, sort_keys=True, separators=(",", ":")).encode("utf-8")
+    return "sha256:" + hashlib.sha256(encoded).hexdigest()
 
 
 def _tile_meta(request_bbox: Optional[BBox]) -> dict[str, object]:
@@ -117,6 +130,7 @@ class InputBundleProvider(Protocol):
         *,
         request_bbox: Optional[BBox] = None,
         resolved_aoi: ResolvedAOI | None = None,
+        data_requirements: DataRequirementPlan | None = None,
     ) -> str: ...
 
     def materialize(
@@ -127,6 +141,7 @@ class InputBundleProvider(Protocol):
         resolved_aoi: ResolvedAOI | None = None,
         target_dir: Path,
         target_crs: str,
+        data_requirements: DataRequirementPlan | None = None,
     ) -> "MaterializedInputBundle": ...
 
 
@@ -173,6 +188,7 @@ class InputAcquisitionService:
         input_dir: Path,
         request_bbox: Optional[BBox] = None,
         resolved_aoi: ResolvedAOI | None = None,
+        data_requirements: DataRequirementPlan | None = None,
     ) -> ResolvedRunInputs:
         provider = self._provider_for(source_id)
         target_crs = normalize_target_crs(request.target_crs)
@@ -180,12 +196,28 @@ class InputAcquisitionService:
         if effective_request_bbox is None and resolved_aoi is not None:
             effective_request_bbox = tuple(resolved_aoi.bbox)
         manifest_path = input_dir / "source_materialization_manifest.json"
+        requirement_hash = _data_requirement_hash(data_requirements)
+        knowledge_identity = dict((data_requirements.evidence or {}).get("knowledge_identity") or {}) if data_requirements else {}
+        if data_requirements is not None:
+            missing_identity_fields = [
+                field_name
+                for field_name in ("release_id", "semantic_hash")
+                if not str(knowledge_identity.get(field_name) or "").strip()
+            ]
+            if missing_identity_fields:
+                raise ValueError(
+                    "data requirement plan is not bound to a frozen knowledge release: missing "
+                    + ", ".join(missing_identity_fields)
+                )
         version_token = self._provider_current_version(
             provider,
             source_id,
             request_bbox=effective_request_bbox,
             resolved_aoi=resolved_aoi,
+            data_requirements=data_requirements,
         )
+        if requirement_hash:
+            version_token = f"{version_token}|requirements:{requirement_hash}"
         candidate = self.registry.find_reusable(
             ArtifactLookupRequest(
                 job_type=request.job_type.value,
@@ -195,6 +227,13 @@ class InputAcquisitionService:
                 required_meta={
                     "artifact_role": "input_bundle",
                     "source_id": source_id,
+                    **({"data_requirement_hash": requirement_hash} if requirement_hash else {}),
+                    **({"kg_release_id": knowledge_identity.get("release_id")} if knowledge_identity.get("release_id") else {}),
+                    **(
+                        {"kg_semantic_hash": knowledge_identity.get("semantic_hash")}
+                        if knowledge_identity.get("semantic_hash")
+                        else {}
+                    ),
                     **(
                         {"clip_geometry_hash": _clip_geometry_hash(resolved_aoi)}
                         if _has_boundary_clip(resolved_aoi)
@@ -211,7 +250,10 @@ class InputAcquisitionService:
 
         if candidate is not None and candidate.meta.get("source_version") == version_token:
             bundle_dir = Path(candidate.artifact_path)
-            cached_component_coverage = dict(candidate.meta.get("component_coverage") or {})
+            cached_component_coverage = _bind_component_role_evidence(
+                dict(candidate.meta.get("component_coverage") or {}),
+                data_requirements,
+            )
             cached_provider_attempts = _cached_provider_attempts(
                 source_id=source_id,
                 attempts=candidate.meta.get("source_attempts"),
@@ -243,6 +285,8 @@ class InputAcquisitionService:
                         provider_attempts=_manifest_provider_attempts_for_reuse(cached_provider_attempts),
                         source_attempts=cached_provider_attempts,
                         resolved_aoi=resolved_aoi,
+                        data_requirement_hash=requirement_hash,
+                        knowledge_identity=knowledge_identity,
                     ),
                 )
             if effective_request_bbox is not None and candidate.bbox is not None and tuple(candidate.bbox) != effective_request_bbox:
@@ -277,6 +321,8 @@ class InputAcquisitionService:
                         provider_attempts=_manifest_provider_attempts_for_reuse(cached_provider_attempts),
                         source_attempts=cached_provider_attempts,
                         resolved_aoi=resolved_aoi,
+                        data_requirement_hash=requirement_hash,
+                        knowledge_identity=knowledge_identity,
                     ),
                 )
             copied = self._copy_cached_bundle(bundle_dir=bundle_dir, input_dir=input_dir)
@@ -305,6 +351,8 @@ class InputAcquisitionService:
                     provider_attempts=_manifest_provider_attempts_for_reuse(cached_provider_attempts),
                     source_attempts=cached_provider_attempts,
                     resolved_aoi=resolved_aoi,
+                    data_requirement_hash=requirement_hash,
+                    knowledge_identity=knowledge_identity,
                 ),
             )
 
@@ -322,6 +370,7 @@ class InputAcquisitionService:
                 resolved_aoi=resolved_aoi,
                 target_dir=cache_bundle_dir,
                 target_crs=target_crs,
+                data_requirements=data_requirements,
             )
         except Exception as exc:  # noqa: BLE001
             fault = classify_source_fault(
@@ -331,6 +380,10 @@ class InputAcquisitionService:
             )
             failed_component_coverage = _jsonable_component_coverage(
                 getattr(exc, "component_coverage", {}) or {}
+            )
+            failed_component_coverage = _bind_component_role_evidence(
+                failed_component_coverage,
+                data_requirements,
             )
             failed_provider_attempts = [
                 dict(attempt)
@@ -362,6 +415,8 @@ class InputAcquisitionService:
                 provider_attempts=failed_provider_attempts,
                 fault={"fault_class": fault, "fault_message": str(exc), "recoverable": True},
                 resolved_aoi=resolved_aoi,
+                data_requirement_hash=requirement_hash,
+                knowledge_identity=knowledge_identity,
             )
             raise ValueError(
                 f"task-driven input materialization failed for {source_id}: fault={fault}; error={exc}"
@@ -390,7 +445,10 @@ class InputAcquisitionService:
                 provider_attempts=[dict(attempt) for attempt in original_materialized.provider_attempts],
             )
             bundle_bbox = materialized.bbox
-        component_coverage = _jsonable_component_coverage(materialized.component_coverage)
+        component_coverage = _bind_component_role_evidence(
+            _jsonable_component_coverage(materialized.component_coverage),
+            data_requirements,
+        )
         provider_attempts = _provider_attempts_for_materialized(source_id, materialized)
         source_provider_attempts = _source_provider_attempts_for_materialized(source_id, materialized)
         source_attempts = _source_attempts_for_evidence(source_provider_attempts, component_coverage)
@@ -414,6 +472,10 @@ class InputAcquisitionService:
                     "source_attempts": source_attempts,
                     "source_version": version_token,
                     "planning_mode": "task_driven",
+                    "data_requirement_hash": requirement_hash,
+                    "knowledge_identity": knowledge_identity,
+                    "kg_release_id": knowledge_identity.get("release_id"),
+                    "kg_semantic_hash": knowledge_identity.get("semantic_hash"),
                     **_tile_meta(effective_request_bbox),
                     **_clip_meta(resolved_aoi),
                 },
@@ -445,6 +507,8 @@ class InputAcquisitionService:
                 provider_attempts=provider_attempts,
                 source_attempts=source_provider_attempts,
                 resolved_aoi=resolved_aoi,
+                data_requirement_hash=requirement_hash,
+                knowledge_identity=knowledge_identity,
             ),
         )
 
@@ -461,7 +525,15 @@ class InputAcquisitionService:
         *,
         request_bbox: Optional[BBox],
         resolved_aoi: ResolvedAOI | None,
+        data_requirements: DataRequirementPlan | None,
     ) -> str:
+        if data_requirements is not None:
+            return provider.current_version(
+                source_id,
+                request_bbox=request_bbox,
+                resolved_aoi=resolved_aoi,
+                data_requirements=data_requirements,
+            )
         try:
             return provider.current_version(
                 source_id,
@@ -480,15 +552,42 @@ class InputAcquisitionService:
         resolved_aoi: ResolvedAOI | None,
         target_dir: Path,
         target_crs: str,
+        data_requirements: DataRequirementPlan | None,
     ) -> MaterializedInputBundle:
         materialize_with_fallback = getattr(provider, "materialize_with_fallback", None)
         if callable(materialize_with_fallback):
-            return materialize_with_fallback(
+            if data_requirements is not None:
+                return materialize_with_fallback(
+                    source_id=source_id,
+                    request_bbox=request_bbox,
+                    resolved_aoi=resolved_aoi,
+                    target_dir=target_dir,
+                    target_crs=target_crs,
+                    data_requirements=data_requirements,
+                )
+            try:
+                return materialize_with_fallback(
+                    source_id=source_id,
+                    request_bbox=request_bbox,
+                    resolved_aoi=resolved_aoi,
+                    target_dir=target_dir,
+                    target_crs=target_crs,
+                )
+            except TypeError:
+                return materialize_with_fallback(
+                    source_id=source_id,
+                    request_bbox=request_bbox,
+                    target_dir=target_dir,
+                    target_crs=target_crs,
+                )
+        if data_requirements is not None:
+            return provider.materialize(
                 source_id=source_id,
                 request_bbox=request_bbox,
                 resolved_aoi=resolved_aoi,
                 target_dir=target_dir,
                 target_crs=target_crs,
+                data_requirements=data_requirements,
             )
         try:
             return provider.materialize(
@@ -606,6 +705,8 @@ class InputAcquisitionService:
         source_attempts: list[dict[str, object]] | None = None,
         fault: dict[str, object] | None = None,
         resolved_aoi: ResolvedAOI | None = None,
+        data_requirement_hash: str | None = None,
+        knowledge_identity: dict[str, object] | None = None,
     ) -> Path:
         evidence_attempts = source_attempts if source_attempts is not None else provider_attempts
         source_attempts_path = _write_source_attempts(
@@ -633,6 +734,8 @@ class InputAcquisitionService:
             coverage_state=coverage_state,
             degradation=degradation,
             fault=fault,
+            data_requirement_hash=data_requirement_hash,
+            knowledge_identity=knowledge_identity,
         )
         manifest.update(_clip_meta(resolved_aoi))
         return write_source_materialization_manifest(path, manifest)
@@ -679,12 +782,56 @@ def _jsonable_component_coverage(component_coverage: dict[str, object]) -> dict[
                 "fault_class": getattr(raw, "fault_class", None),
                 "external_uncontrollable": bool(getattr(raw, "external_uncontrollable", False)),
             }
+            for optional_field in (
+                "role_id",
+                "role_ids",
+                "role_contract",
+                "role_contracts",
+                "selected_role_ids",
+            ):
+                optional_value = getattr(raw, optional_field, None)
+                if optional_value not in (None, (), [], {}):
+                    value[optional_field] = list(optional_value) if isinstance(optional_value, tuple) else optional_value
         elif isinstance(raw, dict):
             value = dict(raw)
         else:
             value = {"source_id": source_id, "value": raw}
         payload[source_id] = value
     return payload
+
+
+def _bind_component_role_evidence(
+    component_coverage: dict[str, dict[str, object]],
+    data_requirements: DataRequirementPlan | None,
+) -> dict[str, dict[str, object]]:
+    if data_requirements is None:
+        return component_coverage
+    contracts_by_source: dict[str, list[dict[str, object]]] = {}
+    for role in data_requirements.roles:
+        role_contract = role.model_dump(mode="json")
+        for candidate in role.candidates:
+            contracts_by_source.setdefault(candidate.source_id, []).append(role_contract)
+    for source_id, component in component_coverage.items():
+        if component.get("role_id"):
+            continue
+        role_contracts = contracts_by_source.get(source_id) or [
+            {
+                "role_id": "unmapped_provider_component",
+                "required": False,
+                "completeness_policy": "provider_evidence_only",
+                "candidates": [{"source_id": source_id}],
+            }
+        ]
+        role_ids = [str(contract["role_id"]) for contract in role_contracts]
+        component.update(
+            {
+                "role_id": role_ids[0],
+                "role_ids": role_ids,
+                "role_contract": dict(role_contracts[0]),
+                "role_contracts": [dict(contract) for contract in role_contracts],
+            }
+        )
+    return component_coverage
 
 
 def _coverage_state(component_coverage: dict[str, object]) -> str:

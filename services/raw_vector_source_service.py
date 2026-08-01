@@ -72,6 +72,11 @@ def _bundle_version_token(vector_path: Path) -> str:
     return hashlib.sha1(payload.encode("utf-8")).hexdigest()
 
 
+def _cache_version_key(version_token: str) -> str:
+    """Return a deterministic, filesystem-safe key without changing evidence identity."""
+    return hashlib.sha256(str(version_token).encode("utf-8")).hexdigest()
+
+
 def _tile_meta(request_bbox: Optional[BBox]) -> dict[str, object]:
     if request_bbox is None:
         return {
@@ -277,7 +282,13 @@ class RawVectorSourceService:
                 coverage_status=coverage_status_for_count(feature_count),
             )
 
-        cache_zip = self.cache_dir / source_id.replace(".", "_") / version_token / uuid.uuid4().hex / "source.zip"
+        cache_zip = (
+            self.cache_dir
+            / source_id.replace(".", "_")
+            / _cache_version_key(version_token)[:16]
+            / uuid.uuid4().hex[:8]
+            / "source.zip"
+        )
         materialized = self._materialize_from_source(
             source_id=source_id,
             source_path=source_resolution.path,
@@ -353,7 +364,7 @@ class RawVectorSourceService:
         projected = _project_source_frame_for_bundle(source_id, projected)
 
         target_path.parent.mkdir(parents=True, exist_ok=True)
-        out_dir = target_path.parent / f"b_{uuid.uuid4().hex[:8]}"
+        out_dir = target_path.parent / "b"
         out_dir.mkdir(parents=True, exist_ok=True)
         out_shp = out_dir / "source.shp"
         projected.to_file(out_shp)

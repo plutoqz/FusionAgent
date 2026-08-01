@@ -53,7 +53,7 @@
 - 论文案例、评分规则、实验 runner 和研究写作。
 - KG/LLM 责任边界与实验性实现。
 
-该 worktree 当前包含未提交的 `docs/CURRENT.md`、本体 v2、稳定性协议、实验脚本、schemas、services 和 tests。整理工作不得将这些文件视为可删除冗余。
+该 worktree 包含 `PROJECT.md`、`docs/CURRENT.md`、本体 v2、稳定性协议、实验脚本、schemas、services 和 tests。研究章程中仍有价值的内容应提升到共享的 `docs/current/research-charter.md`；此后该 worktree 中的 `PROJECT.md` 和 `docs/CURRENT.md` 不再拥有高于共享 A0 的权威性。整理工作不得将其他研究文件视为可删除冗余。
 
 ## 4. 稳定成果提升流程
 

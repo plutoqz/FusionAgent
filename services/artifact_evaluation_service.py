@@ -10,11 +10,29 @@ from pyproj import Transformer
 from shapely.validation import explain_validity
 
 from fusion_algorithms.quality import evaluate_feature_alignment
+from kg.knowledge_release import KnowledgeReleaseError
+from kg.policy_registry import KnowledgePolicyRegistry, default_policy_registry
 from services.kg_path_trace_service import build_kg_path_trace
 
 
-_DEFAULT_SLIVER_AREA_THRESHOLD_SQ_M = 1.0
-_DEFAULT_METADATA_ONLY_THRESHOLD_BYTES = 512 * 1024 * 1024
+_FRAME_DERIVED_METRICS = (
+    "total_area_sq_km",
+    "total_length_km",
+    "duplicate_geometry_rate",
+    "invalid_geometry_rate",
+    "source_feature_counts",
+    "source_contribution_balance",
+    "zero_length_geometry_count",
+    "self_intersection_count",
+    "sliver_polygon_count",
+    "dangle_endpoint_count",
+    "dangle_endpoint_rate_per_100km",
+    "overlap_pair_count",
+    "overlap_area_sq_m",
+    "overlap_area_rate",
+    "field_null_rates",
+    "field_nonempty_counts",
+)
 
 
 def evaluate_vector_artifact(
@@ -23,28 +41,64 @@ def evaluate_vector_artifact(
     required_fields: list[str],
     requested_bbox: list[float] | tuple[float, float, float, float] | None = None,
     source_artifact_paths: dict[str, Path | str] | None = None,
-    sliver_area_threshold_sq_m: float = _DEFAULT_SLIVER_AREA_THRESHOLD_SQ_M,
-    metadata_only_threshold_bytes: int = _DEFAULT_METADATA_ONLY_THRESHOLD_BYTES,
+    sliver_area_threshold_sq_m: float | None = None,
+    metadata_only_threshold_bytes: int | None = None,
+    policy_registry: KnowledgePolicyRegistry | None = None,
 ) -> dict[str, Any]:
+    registry = policy_registry or default_policy_registry()
+    evaluation_policy = registry.artifact_evaluation_policy()
     shp_path = Path(shp_path)
-    metadata_metrics = _metadata_only_metrics(
+    _require_supported_vector_artifact(shp_path, evaluation_policy=evaluation_policy)
+    if sliver_area_threshold_sq_m is None:
+        sliver_area_threshold_sq_m = float(evaluation_policy["sliver_area_threshold_sq_m"])
+    if metadata_only_threshold_bytes is None:
+        metadata_only_threshold_bytes = int(evaluation_policy["metadata_only_threshold_bytes"])
+    large_artifact_metrics = _large_artifact_metrics(
         shp_path,
         required_fields=required_fields,
         requested_bbox=requested_bbox,
+        source_artifact_paths=source_artifact_paths,
+        sliver_area_threshold_sq_m=sliver_area_threshold_sq_m,
         metadata_only_threshold_bytes=metadata_only_threshold_bytes,
+        evaluation_policy=evaluation_policy,
     )
-    if metadata_metrics is not None:
-        metadata_metrics["feature_alignment"] = _feature_alignment_not_available("metadata_only_evaluation")
-        return metadata_metrics
+    if large_artifact_metrics is not None:
+        return _with_evaluation_provenance(
+            large_artifact_metrics,
+            evaluation_policy=evaluation_policy,
+            registry=registry,
+        )
 
     frame = gpd.read_file(shp_path)
+    metrics = _evaluate_loaded_frame(
+        frame,
+        artifact_path=shp_path,
+        required_fields=required_fields,
+        requested_bbox=requested_bbox,
+        source_artifact_paths=source_artifact_paths,
+        sliver_area_threshold_sq_m=sliver_area_threshold_sq_m,
+    )
+    metrics["evaluation_mode"] = "full"
+    metrics["evaluation_status"] = "evaluated"
+    return _with_evaluation_provenance(metrics, evaluation_policy=evaluation_policy, registry=registry)
+
+
+def _evaluate_loaded_frame(
+    frame: gpd.GeoDataFrame,
+    *,
+    artifact_path: Path,
+    required_fields: list[str],
+    requested_bbox: list[float] | tuple[float, float, float, float] | None,
+    source_artifact_paths: dict[str, Path | str] | None,
+    sliver_area_threshold_sq_m: float,
+) -> dict[str, Any]:
     missing_fields = [
         field
         for field in required_fields
-        if not _has_required_field(field=field, frame=frame, artifact_path=shp_path)
+        if not _has_required_field(field=field, frame=frame, artifact_path=artifact_path)
     ]
     metrics = {
-        "artifact_validity": shp_path.exists() and not frame.empty and not missing_fields,
+        "artifact_validity": artifact_path.exists() and not frame.empty and not missing_fields,
         "feature_count": int(len(frame)),
         "crs": str(frame.crs),
         "geometry_types": sorted(str(value) for value in frame.geometry.geom_type.dropna().unique()),
@@ -60,12 +114,15 @@ def evaluate_vector_artifact(
     return metrics
 
 
-def _metadata_only_metrics(
+def _large_artifact_metrics(
     artifact_path: Path,
     *,
     required_fields: list[str],
     requested_bbox: list[float] | tuple[float, float, float, float] | None,
+    source_artifact_paths: dict[str, Path | str] | None,
+    sliver_area_threshold_sq_m: float,
     metadata_only_threshold_bytes: int,
+    evaluation_policy: dict[str, Any],
 ) -> dict[str, Any] | None:
     if metadata_only_threshold_bytes <= 0:
         return None
@@ -75,6 +132,61 @@ def _metadata_only_metrics(
         info = pyogrio.read_info(artifact_path)
     except Exception:  # noqa: BLE001
         return None
+
+    mode = str(evaluation_policy.get("large_artifact_mode") or "").strip().lower()
+    if mode == "metadata_only":
+        return _metadata_only_metrics(
+            artifact_path,
+            info=info,
+            required_fields=required_fields,
+            requested_bbox=requested_bbox,
+        )
+    if mode == "sample":
+        sampling_policy = _authorized_sampling_policy(
+            artifact_path,
+            evaluation_policy=evaluation_policy,
+        )
+        frame = gpd.read_file(artifact_path, rows=int(sampling_policy["max_features"]))
+        metrics = _evaluate_loaded_frame(
+            frame,
+            artifact_path=artifact_path,
+            required_fields=required_fields,
+            requested_bbox=requested_bbox,
+            source_artifact_paths=None,
+            sliver_area_threshold_sq_m=sliver_area_threshold_sq_m,
+        )
+        sample_feature_count = metrics["feature_count"]
+        metadata_feature_count = _metadata_feature_count(info)
+        metrics.update(
+            {
+                "feature_count": int(metadata_feature_count or sample_feature_count),
+                "sample_feature_count": sample_feature_count,
+                "bbox": _metadata_bbox_wgs84(info, crs=str(info.get("crs") or "")) or metrics.get("bbox"),
+                "evaluation_mode": "sampled",
+                "evaluation_status": "sampled",
+                "sampling": {
+                    "authorized": True,
+                    "strategy": sampling_policy["strategy"],
+                    "max_features": int(sampling_policy["max_features"]),
+                    "applicable_extensions": list(sampling_policy["applicable_extensions"]),
+                },
+                "metric_evaluation_status": {name: "sampled" for name in _FRAME_DERIVED_METRICS},
+                "feature_alignment": _feature_alignment_not_available("sampled_evaluation"),
+            }
+        )
+        return metrics
+    raise KnowledgeReleaseError(
+        "artifact_evaluation_policy.large_artifact_mode must be metadata_only or sample"
+    )
+
+
+def _metadata_only_metrics(
+    artifact_path: Path,
+    *,
+    info: dict[str, Any],
+    required_fields: list[str],
+    requested_bbox: list[float] | tuple[float, float, float, float] | None,
+) -> dict[str, Any]:
 
     feature_count = _metadata_feature_count(info)
     crs = str(info.get("crs") or "")
@@ -95,19 +207,93 @@ def _metadata_only_metrics(
         "missing_fields": missing_fields,
         "bbox": bbox,
         "evaluation_mode": "metadata_only",
-        "total_area_sq_km": 0.0,
-        "total_length_km": 0.0,
-        "duplicate_geometry_rate": 0.0,
-        "invalid_geometry_rate": 0.0,
-        "source_feature_counts": {},
-        "source_contribution_balance": 0.0,
-        "zero_length_geometry_count": 0,
-        "self_intersection_count": 0,
-        "sliver_polygon_count": 0,
-        "dangle_endpoint_count": 0,
+        "evaluation_status": "partial",
+        "metric_evaluation_status": {name: "not_evaluated" for name in _FRAME_DERIVED_METRICS},
+        "not_evaluated_metrics": list(_FRAME_DERIVED_METRICS),
+        "feature_alignment": _feature_alignment_not_available("metadata_only_evaluation"),
+        **{name: None for name in _FRAME_DERIVED_METRICS},
     }
     if requested_bbox is not None:
         metrics["aoi_consistency"] = _aoi_consistency(metrics.get("bbox"), requested_bbox)
+    return metrics
+
+
+def _require_supported_vector_artifact(
+    artifact_path: Path,
+    *,
+    evaluation_policy: dict[str, Any],
+) -> None:
+    raw_extensions = evaluation_policy.get("supported_vector_extensions")
+    if not isinstance(raw_extensions, list) or not raw_extensions:
+        raise KnowledgeReleaseError(
+            "artifact_evaluation_policy.supported_vector_extensions must be a non-empty list"
+        )
+    extensions = {
+        value if value.startswith(".") else f".{value}"
+        for item in raw_extensions
+        if (value := str(item).strip().lower())
+    }
+    if artifact_path.suffix.lower() not in extensions:
+        raise ValueError(
+            f"Unsupported vector artifact extension {artifact_path.suffix or '<none>'}; "
+            f"KG policy allows {sorted(extensions)}"
+        )
+
+
+def _authorized_sampling_policy(
+    artifact_path: Path,
+    *,
+    evaluation_policy: dict[str, Any],
+) -> dict[str, Any]:
+    sampling = evaluation_policy.get("sampling_policy")
+    if not isinstance(sampling, dict) or sampling.get("authorized") is not True:
+        raise KnowledgeReleaseError(
+            "Large-artifact sampling is not explicitly authorized by artifact_evaluation_policy"
+        )
+    strategy = str(sampling.get("strategy") or "").strip().lower()
+    if strategy != "head":
+        raise KnowledgeReleaseError("Authorized sampling_policy.strategy must be head")
+    max_features = sampling.get("max_features")
+    if isinstance(max_features, bool):
+        raise KnowledgeReleaseError("Authorized sampling_policy.max_features must be a positive integer")
+    try:
+        max_features = int(max_features)
+    except (TypeError, ValueError) as exc:
+        raise KnowledgeReleaseError(
+            "Authorized sampling_policy.max_features must be a positive integer"
+        ) from exc
+    if max_features <= 0:
+        raise KnowledgeReleaseError("Authorized sampling_policy.max_features must be a positive integer")
+    raw_extensions = sampling.get("applicable_extensions")
+    if not isinstance(raw_extensions, list) or not raw_extensions:
+        raise KnowledgeReleaseError(
+            "Authorized sampling_policy.applicable_extensions must be a non-empty list"
+        )
+    applicable_extensions = [
+        value if value.startswith(".") else f".{value}"
+        for item in raw_extensions
+        if (value := str(item).strip().lower())
+    ]
+    if artifact_path.suffix.lower() not in applicable_extensions:
+        raise KnowledgeReleaseError(
+            f"Sampling policy does not authorize extension {artifact_path.suffix.lower()}"
+        )
+    return {
+        "authorized": True,
+        "strategy": strategy,
+        "max_features": max_features,
+        "applicable_extensions": applicable_extensions,
+    }
+
+
+def _with_evaluation_provenance(
+    metrics: dict[str, Any],
+    *,
+    evaluation_policy: dict[str, Any],
+    registry: KnowledgePolicyRegistry,
+) -> dict[str, Any]:
+    metrics["evaluation_policy_id"] = str(evaluation_policy.get("policy_id") or "")
+    metrics["knowledge_identity"] = registry.knowledge_identity()
     return metrics
 
 
@@ -206,6 +392,7 @@ def _semantic_null_mask(series: Any) -> Any:
 def _field_quality_metrics(frame: gpd.GeoDataFrame) -> dict[str, Any]:
     field_null_rates: dict[str, float] = {}
     field_nonempty_counts: dict[str, int] = {}
+    field_distinct_nonempty_counts: dict[str, int] = {}
     total = int(len(frame))
     for column in frame.columns:
         if column == frame.geometry.name:
@@ -214,10 +401,14 @@ def _field_quality_metrics(frame: gpd.GeoDataFrame) -> dict[str, Any]:
         null_count = int(null_mask.sum())
         field_null_rates[column] = null_count / total if total else 0.0
         field_nonempty_counts[column] = total - null_count
+        field_distinct_nonempty_counts[column] = int(
+            frame.loc[~null_mask, column].astype(str).str.strip().nunique()
+        )
     flattened = {f"{column}_null_rate": value for column, value in field_null_rates.items()}
     return {
         "field_null_rates": field_null_rates,
         "field_nonempty_counts": field_nonempty_counts,
+        "field_distinct_nonempty_counts": field_distinct_nonempty_counts,
         **flattened,
     }
 
@@ -310,7 +501,7 @@ def _geometry_measurements(frame: gpd.GeoDataFrame) -> dict[str, float]:
 def _geometry_quality_metrics(
     frame: gpd.GeoDataFrame,
     *,
-    sliver_area_threshold_sq_m: float = _DEFAULT_SLIVER_AREA_THRESHOLD_SQ_M,
+    sliver_area_threshold_sq_m: float,
 ) -> dict[str, Any]:
     if frame.empty:
         return {
@@ -344,7 +535,7 @@ def _geometry_quality_metrics(
 def _topology_quality_metrics(
     frame: gpd.GeoDataFrame,
     *,
-    sliver_area_threshold_sq_m: float = _DEFAULT_SLIVER_AREA_THRESHOLD_SQ_M,
+    sliver_area_threshold_sq_m: float,
 ) -> dict[str, Any]:
     measured = frame
     if measured.crs is not None and measured.crs.is_geographic:
@@ -487,12 +678,17 @@ def _endpoint_key(coord) -> tuple[float, float]:
 
 
 def _source_feature_counts(frame: gpd.GeoDataFrame) -> dict[str, int]:
-    if "source_id" not in frame.columns:
+    source_column = next(
+        (column for column in ("source_id", "primary_source") if column in frame.columns),
+        None,
+    )
+    if source_column is None:
         return {}
     counts: dict[str, int] = {}
-    for value in frame["source_id"].dropna():
-        source_id = str(value)
-        counts[source_id] = counts.get(source_id, 0) + 1
+    for value in frame[source_column].dropna():
+        source_ids = [item.strip() for item in str(value).split(";") if item.strip()]
+        for source_id in source_ids:
+            counts[source_id] = counts.get(source_id, 0) + 1
     return counts
 
 

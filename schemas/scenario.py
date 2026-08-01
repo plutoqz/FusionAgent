@@ -48,7 +48,9 @@ class ScenarioChildRunSpec(BaseModel):
     task_family: Optional[str] = None
     preferred_pattern_id: Optional[str] = None
     output_data_type: Optional[str] = None
+    product_contract_id: Optional[str] = None
     provisional_when_degraded: bool = False
+    final_output_may_supersede_provisional: bool = False
 
 
 class ScenarioRunResponse(BaseModel):

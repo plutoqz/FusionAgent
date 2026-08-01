@@ -12,6 +12,8 @@ from fusion_algorithms.poi_fusion import run_poi_geohash_priority_fusion
 from fusion_algorithms.road_conflation_v7 import RoadConflationV7Config, run_road_conflation_v7
 from fusion_algorithms.water_fusion import fuse_water_polygons
 from fusion_algorithms.waterways_conflation_v7 import WaterwaysConflationV7Config, run_waterways_conflation_v7
+from kg.knowledge_release import KnowledgeReleaseError
+from kg.policy_registry import default_policy_registry
 from services.large_area_runtime_service import DomainRunner
 from services.runtime_source_aliases import (
     LINE_SOURCE_ALIASES,
@@ -73,15 +75,17 @@ def _polygon_source_paths(sources: dict[str, Path]) -> dict[str, Path]:
 
 def _poi_source_paths(sources: dict[str, Path]) -> dict[str, Path]:
     canonical_sources = dict(sources)
-    if "raw.gns.poi" in canonical_sources and "raw.geonames.poi" in canonical_sources:
-        canonical_sources.pop("raw.geonames.poi")
+    for source_id, canonical_id in default_policy_registry().source_id_aliases().items():
+        if source_id in canonical_sources and canonical_id in canonical_sources:
+            canonical_sources.pop(source_id)
     return {**canonical_sources, **alias_paths(canonical_sources, POI_SOURCE_ALIASES)}
 
 
 def _poi_source_id_for_alias(alias: str, sources: dict[str, Path]) -> str:
+    source_id_aliases = default_policy_registry().source_id_aliases()
     for source_id, runtime_alias in POI_SOURCE_ALIASES.items():
         if runtime_alias == alias and source_id in sources:
-            return "raw.gns.poi" if source_id == "raw.geonames.poi" else source_id
+            return source_id_aliases.get(source_id, source_id)
     return alias
 
 
@@ -91,8 +95,7 @@ def _poi_alias_for_source_id(source_id: object) -> str | None:
         return None
     if text in POI_SOURCE_PRIORITY_ORDER:
         return text
-    if text == "raw.geonames.poi":
-        text = "raw.gns.poi"
+    text = default_policy_registry().source_id_aliases().get(text, text)
     return POI_SOURCE_ALIASES.get(text)
 
 
@@ -131,11 +134,41 @@ def _fill_poi_provenance(frame: gpd.GeoDataFrame, *, source_id: str) -> gpd.GeoD
     return result
 
 
-def _source_id_from_path(paths: dict[str, Path], candidates: tuple[str, ...]) -> str:
+def _role_source_path(
+    paths: dict[str, Path],
+    *,
+    task_kind: str,
+    role_id: str,
+) -> tuple[str | None, Path | None, dict[str, Any]]:
+    registry = default_policy_registry()
+    role = registry.source_role_policy(task_kind, role_id)
+    aliases = registry.source_runtime_aliases()
+    candidates = sorted(
+        (item for item in role.get("candidates", []) if isinstance(item, dict)),
+        key=lambda item: (int(item.get("priority") or 0), str(item.get("source_id") or "")),
+    )
+    if not candidates:
+        raise KnowledgeReleaseError(f"Source role {task_kind}/{role_id} has no candidates")
     for candidate in candidates:
-        if paths.get(candidate) is not None:
-            return candidate
-    return candidates[0]
+        source_id = str(candidate.get("source_id") or "").strip()
+        if not source_id:
+            continue
+        path = paths.get(source_id)
+        if path is None:
+            runtime_alias = aliases.get(source_id)
+            path = paths.get(runtime_alias) if runtime_alias else None
+        if path is not None:
+            return source_id, path, role
+    return None, None, role
+
+
+def _role_is_required(role: dict[str, Any]) -> bool:
+    required = role.get("required")
+    if not isinstance(required, bool):
+        raise KnowledgeReleaseError(
+            f"Source role {role.get('task_kind')}/{role.get('role_id')} must declare boolean required"
+        )
+    return required
 
 
 def make_building_multisource_runner(
@@ -197,22 +230,30 @@ def run_road_tile(
 ) -> tuple[Path, dict[str, Any]]:
     del tile
     paths = _line_source_paths(sources)
-    base_path = paths.get("raw.osm.road") or paths.get("OSM")
-    supplement_path = (
-        paths.get("raw.microsoft.road")
-        or paths.get("MS")
-        or paths.get("raw.overture.transportation")
-        or paths.get("raw.overture.road")
-        or paths.get("OVERTURE")
+    base_source_id, base_path, _base_role = _role_source_path(
+        paths,
+        task_kind="road",
+        role_id="base_network",
+    )
+    supplement_source_id, supplement_path, supplement_role = _role_source_path(
+        paths,
+        task_kind="road",
+        role_id="reference_network",
     )
     if base_path is None:
         return _empty_output(output_dir, "road_fused", target_crs), {
             "algorithm_id": "algo.fusion.road.conflation.v7",
             "warning": "missing road source",
         }
-    base = _read(base_path, target_crs)
+    base = _fill_missing_source_id(_read(base_path, target_crs), str(base_source_id))
     if supplement_path is None:
-        output = _fill_missing_source_id(base, "raw.osm.road")
+        if _role_is_required(supplement_role):
+            return _empty_output(output_dir, "road_fused", target_crs), {
+                "algorithm_id": "algo.fusion.road.conflation.v7",
+                "warning": "required reference_network source role is unsatisfied",
+                "knowledge_refs": ["source_role:road/base_network", "source_role:road/reference_network"],
+            }
+        output = base
         if "fusion_source" not in output.columns:
             output["fusion_source"] = "base_road_network"
         if "match_role" not in output.columns:
@@ -221,8 +262,9 @@ def run_road_tile(
             "algorithm_id": "algo.fusion.road.conflation.v7",
             "stats": {"final_count": int(len(output)), "mode": "single_source_fallback"},
             "warnings": ["missing supplement road source; emitted base road network"],
+            "knowledge_refs": ["source_role:road/base_network", "source_role:road/reference_network"],
         }
-    supplement = _read(supplement_path, target_crs)
+    supplement = _fill_missing_source_id(_read(supplement_path, target_crs), str(supplement_source_id))
     if base.empty and supplement.empty:
         return _empty_output(output_dir, "road_fused", target_crs), {
             "algorithm_id": "algo.fusion.road.conflation.v7",
@@ -235,6 +277,7 @@ def run_road_tile(
         "stats": result.stats,
         "config": result.config,
         "warnings": result.warnings,
+        "knowledge_refs": ["source_role:road/base_network", "source_role:road/reference_network"],
     }
 
 
@@ -247,25 +290,49 @@ def run_water_polygon_tile(
 ) -> tuple[Path, dict[str, Any]]:
     del tile
     paths = _polygon_source_paths(sources)
-    base_path = paths.get("raw.osm.water") or paths.get("OSM")
-    supplement_path = paths.get("raw.hydrolakes.water") or paths.get("raw.local.water") or paths.get("HYDROLAKES") or paths.get("LOCAL_WATER")
+    base_source_id, base_path, _base_role = _role_source_path(
+        paths,
+        task_kind="water_polygon",
+        role_id="base_water_polygon",
+    )
+    supplement_source_id, supplement_path, supplement_role = _role_source_path(
+        paths,
+        task_kind="water_polygon",
+        role_id="reference_water_polygon",
+    )
     if base_path is None:
         return _empty_output(output_dir, "water_polygon_fused", target_crs, {"source_id": "object", "feature_kind": "object"}), {
             "algorithm_id": "algo.fusion.water_polygon.priority_merge.v2",
             "warning": "missing base water polygon source",
         }
-    base_source_id = _source_id_from_path(paths, ("raw.osm.water",))
-    base = _fill_missing_source_id(_read(base_path, target_crs), base_source_id)
+    base = _fill_missing_source_id(_read(base_path, target_crs), str(base_source_id))
     if supplement_path is None:
+        if _role_is_required(supplement_role):
+            return _empty_output(
+                output_dir,
+                "water_polygon_fused",
+                target_crs,
+                {"source_id": "object", "feature_kind": "object"},
+            ), {
+                "algorithm_id": "algo.fusion.water_polygon.priority_merge.v2",
+                "warning": "required reference_water_polygon source role is unsatisfied",
+                "knowledge_refs": [
+                    "source_role:water_polygon/base_water_polygon",
+                    "source_role:water_polygon/reference_water_polygon",
+                ],
+            }
         if not base.empty:
             base["feature_kind"] = "polygon"
         return _write(base, output_dir, "water_polygon_fused", target_crs), {
             "algorithm_id": "algo.fusion.water_polygon.priority_merge.v2",
             "stats": {"final_count": int(len(base)), "mode": "single_source_fallback"},
             "warnings": ["missing HydroLAKES reference; emitted OSM water polygon baseline"],
+            "knowledge_refs": [
+                "source_role:water_polygon/base_water_polygon",
+                "source_role:water_polygon/reference_water_polygon",
+            ],
         }
-    supplement_source_id = _source_id_from_path(paths, ("raw.hydrolakes.water", "raw.local.water"))
-    supplement = _fill_missing_source_id(_read(supplement_path, target_crs), supplement_source_id)
+    supplement = _fill_missing_source_id(_read(supplement_path, target_crs), str(supplement_source_id))
     params = params_from_mapping(WaterPolygonFusionParams, parameters)
     fused = fuse_water_polygons(base, supplement, params)
     if fused.empty:
@@ -283,6 +350,10 @@ def run_water_polygon_tile(
     return _write(fused, output_dir, "water_polygon_fused", target_crs), {
         "algorithm_id": "algo.fusion.water_polygon.priority_merge.v2",
         "stats": {"final_count": int(len(fused))},
+        "knowledge_refs": [
+            "source_role:water_polygon/base_water_polygon",
+            "source_role:water_polygon/reference_water_polygon",
+        ],
     }
 
 
@@ -295,22 +366,39 @@ def run_waterways_tile(
 ) -> tuple[Path, dict[str, Any]]:
     del tile
     paths = _line_source_paths(sources)
-    base_path = paths.get("raw.osm.waterways") or paths.get("OSM")
-    supplement_path = (
-        paths.get("raw.hydrorivers.water")
-        or paths.get("raw.local.pakistan.waterways")
-        or paths.get("HYDRORIVERS")
-        or paths.get("LOCAL_WATERWAYS")
+    base_source_id, base_path, _base_role = _role_source_path(
+        paths,
+        task_kind="waterways",
+        role_id="base_waterway_line",
     )
-    if base_path is None or supplement_path is None:
+    supplement_source_id, supplement_path, supplement_role = _role_source_path(
+        paths,
+        task_kind="waterways",
+        role_id="reference_river_line",
+    )
+    if base_path is None or (supplement_path is None and _role_is_required(supplement_role)):
         return _empty_output(output_dir, "waterways_fused", target_crs, {"source_id": "object", "feature_kind": "object"}), {
             "algorithm_id": "algo.fusion.waterways.conflation.v7",
             "warning": "missing waterways source",
+            "knowledge_refs": [
+                "source_role:waterways/base_waterway_line",
+                "source_role:waterways/reference_river_line",
+            ],
         }
-    base_source_id = _source_id_from_path(paths, ("raw.osm.waterways",))
-    supplement_source_id = _source_id_from_path(paths, ("raw.hydrorivers.water", "raw.local.pakistan.waterways"))
-    base = _fill_missing_source_id(_read(base_path, target_crs), base_source_id)
-    supplement = _fill_missing_source_id(_read(supplement_path, target_crs), supplement_source_id)
+    if supplement_path is None:
+        base = _fill_missing_source_id(_read(base_path, target_crs), str(base_source_id))
+        base["feature_kind"] = "line"
+        return _write(base, output_dir, "waterways_fused", target_crs), {
+            "algorithm_id": "algo.fusion.waterways.conflation.v7",
+            "stats": {"final_count": int(len(base)), "mode": "single_source_fallback"},
+            "warnings": ["missing optional waterways reference; emitted base waterways"],
+            "knowledge_refs": [
+                "source_role:waterways/base_waterway_line",
+                "source_role:waterways/reference_river_line",
+            ],
+        }
+    base = _fill_missing_source_id(_read(base_path, target_crs), str(base_source_id))
+    supplement = _fill_missing_source_id(_read(supplement_path, target_crs), str(supplement_source_id))
     if base.empty and supplement.empty:
         return _empty_output(output_dir, "waterways_fused", target_crs, {"source_id": "object", "feature_kind": "object"}), {
             "algorithm_id": "algo.fusion.waterways.conflation.v7",
@@ -325,6 +413,10 @@ def run_waterways_tile(
         "stats": result.stats,
         "config": result.config,
         "warnings": result.warnings,
+        "knowledge_refs": [
+            "source_role:waterways/base_waterway_line",
+            "source_role:waterways/reference_river_line",
+        ],
     }
 
 
@@ -337,6 +429,23 @@ def run_poi_tile(
 ) -> tuple[Path, dict[str, Any]]:
     del tile
     paths = _poi_source_paths(sources)
+    _base_source_id, base_path, base_role = _role_source_path(
+        paths,
+        task_kind="poi",
+        role_id="base_poi",
+    )
+    if base_path is None and _role_is_required(base_role):
+        return _empty_output(
+            output_dir,
+            "poi_fused",
+            target_crs,
+            {"source_id": "object", "source_rank": "int64", "MATCHED": "bool"},
+        ), {
+            "algorithm_id": "algo.fusion.poi.geohash_neighbor_match.v1",
+            "stats": {"final_count": 0},
+            "warning": "required base_poi source role is unsatisfied",
+            "knowledge_refs": ["source_role:poi/base_poi"],
+        }
     ordered_sources: dict[str, gpd.GeoDataFrame] = {}
     for alias in POI_SOURCE_PRIORITY_ORDER:
         path = paths.get(alias)
@@ -397,6 +506,7 @@ def run_poi_tile(
         "algorithm_id": "algo.fusion.poi.geohash_neighbor_match.v1",
         "stats": stats,
         "source_priority_order": list(params.source_priority_order),
+        "knowledge_refs": ["source_role:poi/base_poi", "source_runtime_priority:poi_vector"],
     }
     if warnings:
         payload["warnings"] = warnings

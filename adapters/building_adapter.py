@@ -192,6 +192,7 @@ def _should_use_safe_building_algorithm(osm_shp: Path, ref_shp: Path) -> tuple[b
 
 
 DEGRADATION_FIELDS = ["fusion_mode", "provisional", "primary_source", "missing_sources", "retry_status"]
+MULTISOURCE_BUILDING_LINEAGE = "raw.osm.building;raw.microsoft.building"
 
 
 def _finalize_building_output(
@@ -200,7 +201,7 @@ def _finalize_building_output(
     *,
     fusion_mode: str = "multi_source",
     provisional: bool = False,
-    primary_source: str = "mixed",
+    primary_source: str = MULTISOURCE_BUILDING_LINEAGE,
     missing_sources: str = "",
     retry_status: str = "not_required",
 ) -> gpd.GeoDataFrame:
@@ -214,6 +215,7 @@ def _finalize_building_output(
         if column not in output.columns:
             output[column] = np.nan
     defaults = {
+        "source_id": primary_source,
         "fusion_mode": fusion_mode,
         "provisional": bool(provisional),
         "primary_source": primary_source,
@@ -236,6 +238,7 @@ def _finalize_building_output(
                 "latitude",
                 "area_in_me",
                 "confidence",
+                "source_id",
                 *DEGRADATION_FIELDS,
                 "geometry",
             ]
@@ -277,7 +280,7 @@ def _build_unmatched_ref_frame(
     *,
     fusion_mode: str = "multi_source",
     provisional: bool = False,
-    primary_source: str = "reference",
+    primary_source: str = "raw.microsoft.building",
     missing_sources: str = "",
     retry_status: str = "not_required",
 ) -> gpd.GeoDataFrame:

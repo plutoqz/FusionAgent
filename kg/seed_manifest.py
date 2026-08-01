@@ -3,11 +3,11 @@ from __future__ import annotations
 import dataclasses
 import hashlib
 import json
-from datetime import datetime, timezone
 from enum import Enum
+from pathlib import Path
 from typing import Any
 
-from kg import seed
+from kg.knowledge_release import DEFAULT_ENTITIES_PATH
 from kg.models import (
     AlgorithmNode,
     AlgorithmParameterSpec,
@@ -28,36 +28,23 @@ from kg.models import (
 from schemas.fusion import JobType
 
 
-SCHEMA_VERSION = "1.0.0"
-SOURCE_MODULES = ["kg.seed", "fusion_algorithms.registry_metadata"]
+SCHEMA_VERSION = "2.0.0"
+SOURCE_MODULES = ["kg/ontology/v1.0.0/entities.json"]
 
 
-def build_seed_manifest_payload() -> dict[str, Any]:
-    payload: dict[str, Any] = {
-        "metadata": {
-            "schema_version": SCHEMA_VERSION,
-            "generated_from": "kg.seed",
-            "source_modules": SOURCE_MODULES,
-            "generated_at": datetime.now(timezone.utc).isoformat(),
-            "content_hash": "",
-        },
-        "data_types": _sorted_dict_values(seed.DATA_TYPES, "type_id"),
-        "tasks": _sorted_dict_values(seed.TASKS, "task_id"),
-        "scenario_profiles": _sorted_list(seed.SCENARIO_PROFILES, "profile_id"),
-        "product_contracts": _sorted_dict_values(getattr(seed, "PRODUCT_CONTRACTS", {}), "contract_id"),
-        "task_bundles": _sorted_dict_values(getattr(seed, "TASK_BUNDLES", {}), "bundle_id"),
-        "output_requirements": _sorted_dict_values(getattr(seed, "OUTPUT_REQUIREMENTS", {}), "requirement_id"),
-        "qos_policies": _sorted_dict_values(getattr(seed, "QOS_POLICIES", {}), "policy_id"),
-        "data_needs": _sorted_list(getattr(seed, "DATA_NEEDS", []), "need_id"),
-        "repair_strategies": _sorted_dict_values(getattr(seed, "REPAIR_STRATEGIES", {}), "strategy_id"),
-        "algorithms": _sorted_dict_values(seed.ALGORITHMS, "algo_id"),
-        "parameter_specs": _flatten_parameter_specs(seed.PARAMETER_SPECS),
-        "workflow_patterns": _sorted_list(seed.WORKFLOW_PATTERNS, "pattern_id"),
-        "data_sources": _sorted_list(seed.DATA_SOURCES, "source_id"),
-        "output_schema_policies": _sorted_dict_values(seed.OUTPUT_SCHEMA_POLICIES, "policy_id"),
-    }
-    payload["metadata"]["content_hash"] = "sha256:" + _content_hash(payload)
-    return payload
+def build_seed_manifest_payload(manifest_path: Path | None = None) -> dict[str, Any]:
+    """Return the canonical static graph payload.
+
+    The historical name is retained for callers, but this function no longer
+    synthesizes knowledge from ``kg.seed``.  The versioned JSON release is the
+    authority and Python modules are compatibility views over it.
+    """
+    path = Path(manifest_path) if manifest_path is not None else DEFAULT_ENTITIES_PATH
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(payload, dict):
+        raise ValueError(f"KG entity manifest must contain an object: {path}")
+    _validate_hash(payload)
+    return json.loads(json.dumps(payload, ensure_ascii=False, sort_keys=True))
 
 
 def load_seed_manifest_payload(payload: dict[str, Any]) -> dict[str, Any]:
@@ -84,6 +71,10 @@ def load_seed_manifest_payload(payload: dict[str, Any]) -> dict[str, Any]:
         "data_needs": [DataNeedNode(**item) for item in payload.get("data_needs", [])],
         "repair_strategies": {
             item["strategy_id"]: RepairStrategyNode(**item) for item in payload.get("repair_strategies", [])
+        },
+        "transform_edges": {
+            str(source): [str(target) for target in targets]
+            for source, targets in payload.get("transform_edges", {}).items()
         },
         "algorithms": {item["algo_id"]: AlgorithmNode(**item) for item in payload.get("algorithms", [])},
         "parameter_specs": _load_parameter_specs(payload.get("parameter_specs", [])),
@@ -187,3 +178,12 @@ def _validate_hash(payload: dict[str, Any]) -> None:
     actual = "sha256:" + _content_hash(payload)
     if expected != actual:
         raise ValueError(f"KG seed manifest content_hash mismatch: expected {expected!r}, got {actual!r}")
+
+
+def seal_manifest_payload(payload: dict[str, Any]) -> dict[str, Any]:
+    sealed = json.loads(json.dumps(payload, ensure_ascii=False, sort_keys=True))
+    metadata = dict(sealed.get("metadata") or {})
+    metadata["content_hash"] = ""
+    sealed["metadata"] = metadata
+    metadata["content_hash"] = "sha256:" + _content_hash(sealed)
+    return sealed

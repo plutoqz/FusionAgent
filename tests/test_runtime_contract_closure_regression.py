@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from schemas.degradation import DegradationContext, DegradationLevel
 from schemas.task_kind import TaskKind
-from services.quality_gate_service import _EXPECTED_GEOMETRIES
+from services.output_contract_service import get_domain_output_contract
 from services.source_acquisition_policy import classify_component_degradation
 
 
@@ -20,9 +20,18 @@ def test_no_location_specific_runtime_policy_names_are_required() -> None:
 
 
 def test_task_geometry_contracts_remain_hard_boundaries() -> None:
-    assert _EXPECTED_GEOMETRIES[TaskKind.water_polygon] == {"Polygon", "MultiPolygon"}
-    assert _EXPECTED_GEOMETRIES[TaskKind.waterways] == {"LineString", "MultiLineString"}
-    assert _EXPECTED_GEOMETRIES[TaskKind.poi] == {"Point", "MultiPoint"}
+    assert set(get_domain_output_contract(TaskKind.water_polygon).allowed_geometry_types) == {
+        "Polygon",
+        "MultiPolygon",
+    }
+    assert set(get_domain_output_contract(TaskKind.waterways).allowed_geometry_types) == {
+        "LineString",
+        "MultiLineString",
+    }
+    assert set(get_domain_output_contract(TaskKind.poi).allowed_geometry_types) == {
+        "Point",
+        "MultiPoint",
+    }
 
 
 def test_degradation_context_external_only_property_rejects_system_failure() -> None:

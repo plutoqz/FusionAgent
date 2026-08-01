@@ -90,7 +90,7 @@ def test_source_catalog_metadata_carries_track_b_b1_contract_for_live_sources() 
     assert "raw.overture.poi" in generic_poi.metadata["track_b_reservation_only_source_ids"] or "raw.overture.places" in generic_poi.metadata["track_b_reservation_only_source_ids"]
 
 
-def test_track_b_live_spec_and_readme_index_exist() -> None:
+def test_track_b_compatibility_spec_and_governance_index_exist() -> None:
     spec_path = Path(TRACK_B_SOURCE_CONTRACT_REF)
     text = spec_path.read_text(encoding="utf-8")
     readme = Path("docs/superpowers/specs/README.md").read_text(encoding="utf-8")
@@ -108,8 +108,8 @@ def test_track_b_live_spec_and_readme_index_exist() -> None:
     assert "official_remote_supported" in text
     assert "manual_preload_required" in text
     assert "reservation_only" in text
-    assert "2026-05-18-track-b-national-source-matrix.md" in readme
-    assert "2026-05-18-track-b-national-scale-evidence-freeze.json" in readme
+    assert "兼容与历史集合" in readme
+    assert "docs/current/claims-and-priorities.md" in readme
 
 
 def test_track_b_live_spec_covers_all_locked_source_contracts() -> None:

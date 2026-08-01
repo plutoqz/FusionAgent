@@ -1,0 +1,237 @@
+{
+  "metadata": {
+    "ontology_version": "1.0.0",
+    "release_id": "fusionagent-kg-v1.0.0",
+    "status": "frozen",
+    "frozen_at": "2026-07-28",
+    "language": "zh-CN",
+    "title": "FusionAgent 契约化灾害知识图谱七层本体"
+  },
+  "layers": [
+    {
+      "id": "L1",
+      "name_zh": "灾害情景层",
+      "name_en": "Disaster Context Layer",
+      "classes": [
+        {"id": "DisasterEvent", "status": "runtime-derived"},
+        {"id": "UserRequest", "status": "runtime-derived"},
+        {"id": "DisasterContext", "status": "implemented"},
+        {"id": "ScenarioProfile", "runtime_kind": "scenario_profile", "status": "implemented"},
+        {"id": "HazardVocabulary", "runtime_kind": "disaster_vocabulary", "status": "implemented"},
+        {"id": "Place", "runtime_kind": "place_vocabulary", "status": "implemented"},
+        {"id": "ResponseOrganization", "runtime_kind": "rescue_organization_terms", "status": "implemented"},
+        {"id": "ResponsePhase", "status": "implemented"},
+        {"id": "ResourceRegime", "status": "implemented"},
+        {"id": "LayerUrgency", "status": "implemented"},
+        {"id": "ConflictAxis", "status": "reserved"},
+        {"id": "SituationSignature", "status": "runtime-derived"}
+      ]
+    },
+    {
+      "id": "L2",
+      "name_zh": "数据产品契约层",
+      "name_en": "Data Product Contract Layer",
+      "classes": [
+        {"id": "DataProductContract", "runtime_kind": "product_contract", "status": "implemented"},
+        {"id": "DataProduct", "status": "runtime-derived"},
+        {"id": "RequiredLayer", "status": "implemented"},
+        {"id": "OutputRequirement", "runtime_kind": "output_requirement", "status": "implemented"},
+        {"id": "FieldRequirement", "runtime_kind": "output_contract", "status": "implemented"},
+        {"id": "GeometryConstraint", "runtime_kind": "output_contract", "status": "implemented"},
+        {"id": "QualityRequirement", "runtime_kind": "quality_policy", "status": "implemented"},
+        {"id": "EvidenceRequirement", "status": "implemented"},
+        {"id": "AcceptableDegradation", "status": "implemented"},
+        {"id": "GapDeclarationRule", "status": "implemented"}
+      ]
+    },
+    {
+      "id": "L3",
+      "name_zh": "数据需求与数据源语义层",
+      "name_en": "Data Need and Source Semantics Layer",
+      "classes": [
+        {"id": "DataNeed", "runtime_kind": "data_need", "status": "implemented"},
+        {"id": "DataType", "runtime_kind": "data_type", "status": "implemented"},
+        {"id": "DataSource", "runtime_kind": "data_source", "status": "implemented"},
+        {"id": "SourceContract", "runtime_kind": "source_policy", "status": "implemented"},
+        {"id": "SourceRole", "runtime_kind": "source_role_policy", "status": "implemented"},
+        {"id": "SourceRuntimeBinding", "runtime_kind": "source_runtime_bindings", "status": "implemented"},
+        {"id": "CoverageEvidence", "status": "runtime-derived"},
+        {"id": "FreshnessProfile", "status": "implemented"},
+        {"id": "SourceConfidence", "status": "implemented"},
+        {"id": "DataAbsence", "status": "runtime-derived"}
+      ]
+    },
+    {
+      "id": "L4",
+      "name_zh": "数据-算法-任务能力层",
+      "name_en": "Data-Algorithm-Task Capability Layer",
+      "classes": [
+        {"id": "Task", "runtime_kind": "task", "status": "implemented"},
+        {"id": "TaskBundle", "runtime_kind": "task_bundle", "status": "implemented"},
+        {"id": "Algorithm", "runtime_kind": "algorithm", "status": "implemented"},
+        {"id": "AlgorithmParameter", "runtime_kind": "parameter_spec", "status": "implemented"},
+        {"id": "WorkflowPattern", "runtime_kind": "workflow_pattern", "status": "implemented"},
+        {"id": "PatternStep", "status": "implemented"},
+        {"id": "DataTransform", "runtime_kind": "transform_edge", "status": "implemented"},
+        {"id": "RepairStrategy", "runtime_kind": "repair_strategy", "status": "implemented"}
+      ]
+    },
+    {
+      "id": "L5",
+      "name_zh": "受约束规划层",
+      "name_en": "Constrained Planning Layer",
+      "classes": [
+        {"id": "PlanningContext", "status": "runtime-derived"},
+        {"id": "AcquisitionStrategy", "runtime_kind": "source_policy", "status": "implemented"},
+        {"id": "ProgressiveDeliveryStrategy", "status": "implemented"},
+        {"id": "PlanningDecision", "status": "runtime-derived"},
+        {"id": "PlanningRationale", "status": "runtime-derived"},
+        {"id": "DecisionPolicy", "runtime_kind": "decision_policy", "status": "implemented"},
+        {"id": "ReplanningProposal", "status": "runtime-derived"}
+      ]
+    },
+    {
+      "id": "L6",
+      "name_zh": "执行质量校验层",
+      "name_en": "Execution and Validation Layer",
+      "classes": [
+        {"id": "RunInstance", "status": "runtime-derived"},
+        {"id": "WorkflowInstance", "status": "runtime-derived"},
+        {"id": "ExecutionStep", "status": "runtime-derived"},
+        {"id": "RuntimeContract", "status": "implemented"},
+        {"id": "QualityGate", "runtime_kind": "quality_policy", "status": "implemented"},
+        {"id": "QualityComponentPolicy", "runtime_kind": "quality_component_policy", "status": "implemented"},
+        {"id": "ArtifactEvaluationPolicy", "runtime_kind": "artifact_evaluation_policy", "status": "implemented"},
+        {"id": "QualityGateResult", "status": "runtime-derived"},
+        {"id": "OutputSchemaPolicy", "runtime_kind": "output_schema_policy", "status": "implemented"},
+        {"id": "FailureClass", "runtime_kind": "fault_policy", "status": "implemented"},
+        {"id": "RetryPolicy", "runtime_kind": "fault_policy", "status": "implemented"},
+        {"id": "RecoveryPolicy", "runtime_kind": "recovery_policy", "status": "implemented"},
+        {"id": "RuntimeGatePolicy", "runtime_kind": "runtime_gates", "status": "implemented"},
+        {"id": "ExecutionStatus", "status": "runtime-derived"}
+      ]
+    },
+    {
+      "id": "L7",
+      "name_zh": "证据与经验层",
+      "name_en": "Evidence and Experience Layer",
+      "classes": [
+        {"id": "KnowledgeRelease", "status": "implemented"},
+        {"id": "EvidenceTrace", "status": "runtime-derived"},
+        {"id": "EvidenceItem", "status": "runtime-derived"},
+        {"id": "GapDeclaration", "status": "runtime-derived"},
+        {"id": "DeliveryManifest", "status": "runtime-derived"},
+        {"id": "ExecutionCase", "status": "runtime-derived"},
+        {"id": "CaseStep", "status": "runtime-derived"},
+        {"id": "StructuralSignature", "status": "runtime-derived"},
+        {"id": "PatternCandidate", "status": "reserved"},
+        {"id": "DurableLearningRecord", "runtime_kind": "durable_learning_summary", "status": "runtime-derived"}
+      ]
+    }
+  ],
+  "identity_policy": {
+    "stable_id_rule": "静态知识对象必须使用带类型前缀和版本后缀的稳定 ID；冻结版本中不得原地复用 ID 表达不同语义",
+    "release_identity_fields": ["release_id", "ontology_version", "knowledge_version", "semantic_hash"],
+    "runtime_kind_mappings": [
+      {"section": "data_types", "class_id": "DataType", "id_field": "type_id"},
+      {"section": "tasks", "class_id": "Task", "id_field": "task_id"},
+      {"section": "scenario_profiles", "class_id": "ScenarioProfile", "id_field": "profile_id"},
+      {"section": "product_contracts", "class_id": "DataProductContract", "id_field": "contract_id"},
+      {"section": "task_bundles", "class_id": "TaskBundle", "id_field": "bundle_id"},
+      {"section": "output_requirements", "class_id": "OutputRequirement", "id_field": "requirement_id"},
+      {"section": "qos_policies", "class_id": "QualityRequirement", "id_field": "policy_id"},
+      {"section": "data_needs", "class_id": "DataNeed", "id_field": "need_id"},
+      {"section": "repair_strategies", "class_id": "RepairStrategy", "id_field": "strategy_id"},
+      {"section": "algorithms", "class_id": "Algorithm", "id_field": "algo_id"},
+      {"section": "parameter_specs", "class_id": "AlgorithmParameter", "id_field": ["algo_id", "key"]},
+      {"section": "workflow_patterns", "class_id": "WorkflowPattern", "id_field": "pattern_id"},
+      {"section": "data_sources", "class_id": "DataSource", "id_field": "source_id"},
+      {"section": "output_schema_policies", "class_id": "OutputSchemaPolicy", "id_field": "policy_id"}
+    ]
+  },
+  "properties": [
+    {"id": "release_id", "domain": ["KnowledgeRelease"], "range": "string", "required": true, "immutable": true},
+    {"id": "semantic_hash", "domain": ["KnowledgeRelease"], "range": "sha256", "required": true, "immutable": true},
+    {"id": "experience_snapshot_hash", "domain": ["KnowledgeRelease"], "range": "sha256", "required": true, "immutable": true},
+    {"id": "disaster_type", "domain": ["DisasterContext", "ScenarioProfile", "HazardVocabulary"], "range": "string", "required": true},
+    {"id": "requested_tasks", "domain": ["TaskBundle"], "range": "stable_id[]", "required": true},
+    {"id": "contract_id", "domain": ["DataProductContract", "FieldRequirement", "GeometryConstraint"], "range": "stable_id", "required": true},
+    {"id": "required_fields", "domain": ["OutputRequirement", "FieldRequirement", "OutputSchemaPolicy"], "range": "string[]", "required": true},
+    {"id": "allowed_geometry_types", "domain": ["GeometryConstraint"], "range": "string[]", "required": true},
+    {"id": "quality_threshold", "domain": ["QualityRequirement", "QualityGate"], "range": "number|boolean", "required": true},
+    {"id": "source_id", "domain": ["DataSource", "SourceContract"], "range": "stable_id", "required": true},
+    {"id": "candidate_source_ids", "domain": ["SourceRole", "AcquisitionStrategy"], "range": "stable_id[]", "required": true},
+    {"id": "fallback_source_ids", "domain": ["SourceContract", "AcquisitionStrategy"], "range": "stable_id[]", "required": false},
+    {"id": "algo_id", "domain": ["Algorithm", "AlgorithmParameter", "PatternStep"], "range": "stable_id", "required": true},
+    {"id": "input_types", "domain": ["Algorithm", "PatternStep"], "range": "stable_id[]", "required": true},
+    {"id": "output_type", "domain": ["Algorithm", "PatternStep", "OutputSchemaPolicy"], "range": "stable_id", "required": true},
+    {"id": "strategy_id", "domain": ["RepairStrategy"], "range": "stable_id", "required": true},
+    {"id": "authorized_strategy_ids", "domain": ["DataProductContract", "RecoveryPolicy"], "range": "stable_id[]", "required": true},
+    {"id": "policy_id", "domain": ["QualityRequirement", "SourceContract", "DecisionPolicy", "RecoveryPolicy"], "range": "stable_id", "required": true},
+    {"id": "evidence_refs", "domain": ["PlanningDecision", "PlanningRationale", "EvidenceTrace"], "range": "stable_id[]", "required": true}
+  ],
+  "relations": [
+    {"id": "NORMALIZED_TO", "from": "DisasterEvent", "to": "DisasterContext"},
+    {"id": "HAS_PHASE", "from": "DisasterContext", "to": "ResponsePhase"},
+    {"id": "HAS_RESOURCE_REGIME", "from": "DisasterContext", "to": "ResourceRegime"},
+    {"id": "USES_PROFILE", "from": "DisasterContext", "to": "ScenarioProfile"},
+    {"id": "RAISES", "from": "DisasterContext", "to": "LayerUrgency"},
+    {"id": "TRIGGERS", "from": "DisasterContext", "to": "DataProductContract"},
+    {"id": "COMPILED_TO", "from": "UserRequest", "to": "DataProductContract"},
+    {"id": "REQUIRES", "from": "DataProductContract", "to": "DataProduct"},
+    {"id": "INCLUDES", "from": "DataProductContract", "to": "RequiredLayer"},
+    {"id": "SPECIFIES_OUTPUT", "from": "DataProductContract", "to": "OutputRequirement"},
+    {"id": "HAS_FIELD_REQUIREMENT", "from": "OutputRequirement", "to": "FieldRequirement"},
+    {"id": "HAS_GEOMETRY_CONSTRAINT", "from": "OutputRequirement", "to": "GeometryConstraint"},
+    {"id": "SPECIFIES_QUALITY", "from": "DataProductContract", "to": "QualityRequirement"},
+    {"id": "SPECIFIES_EVIDENCE", "from": "DataProductContract", "to": "EvidenceRequirement"},
+    {"id": "ALLOWS", "from": "DataProductContract", "to": "AcceptableDegradation"},
+    {"id": "DERIVES", "from": "RequiredLayer", "to": "DataNeed"},
+    {"id": "REQUIRES_TYPE", "from": "DataNeed", "to": "DataType"},
+    {"id": "SUPPORTS", "from": "DataSource", "to": "DataType"},
+    {"id": "GOVERNED_BY", "from": "DataSource", "to": "SourceContract"},
+    {"id": "HAS_SOURCE_ROLE", "from": "SourceContract", "to": "SourceRole"},
+    {"id": "CONTAINS", "from": "TaskBundle", "to": "Task"},
+    {"id": "CONSUMES", "from": "Task", "to": "DataType"},
+    {"id": "PRODUCES", "from": "Task", "to": "DataType"},
+    {"id": "IMPLEMENTS", "from": "Algorithm", "to": "Task"},
+    {"id": "HAS_PARAMETER", "from": "Algorithm", "to": "AlgorithmParameter"},
+    {"id": "CAN_TRANSFORM_TO", "from": "DataType", "to": "DataType"},
+    {"id": "APPLIES_TO", "from": "WorkflowPattern", "to": "Task"},
+    {"id": "HAS_STEP", "from": "WorkflowPattern", "to": "PatternStep"},
+    {"id": "USES", "from": "PatternStep", "to": "Algorithm"},
+    {"id": "SUBSTITUTES", "from": "RepairStrategy", "to": "Algorithm"},
+    {"id": "BUILDS_CONTEXT", "from": "DataProductContract", "to": "PlanningContext"},
+    {"id": "SELECTS", "from": "PlanningDecision", "to": "WorkflowPattern"},
+    {"id": "USES_DECISION_POLICY", "from": "PlanningDecision", "to": "DecisionPolicy"},
+    {"id": "VALIDATED_BY", "from": "ExecutionStep", "to": "QualityGate"},
+    {"id": "PRODUCES_RESULT", "from": "QualityGate", "to": "QualityGateResult"},
+    {"id": "CLASSIFIES_FAILURE", "from": "ExecutionStep", "to": "FailureClass"},
+    {"id": "RECOVERED_BY", "from": "FailureClass", "to": "RecoveryPolicy"},
+    {"id": "AUTHORIZES_REPAIR", "from": "DataProductContract", "to": "RepairStrategy"},
+    {"id": "GENERATES", "from": "RunInstance", "to": "EvidenceTrace"},
+    {"id": "DECLARES", "from": "RunInstance", "to": "GapDeclaration"},
+    {"id": "SUPERSEDES", "from": "DataProduct", "to": "DataProduct"},
+    {"id": "REFERENCES_RELEASE", "from": "RunInstance", "to": "KnowledgeRelease"}
+  ],
+  "constraints": [
+    {"id": "C-ID-UNIQUE", "severity": "error", "check": "unique_stable_ids", "rule": "同一本体类中的稳定标识必须唯一"},
+    {"id": "C-REF-CLOSED", "severity": "error", "check": "reference_closure", "rule": "所有静态关系端点和实体引用必须存在"},
+    {"id": "C-WORKFLOW-DAG", "severity": "error", "check": "workflow_dag", "rule": "工作流步骤依赖必须构成有向无环图"},
+    {"id": "C-ALGO-IO", "severity": "error", "check": "algorithm_io_closure", "rule": "工作流步骤输入输出必须与算法能力和数据类型闭合"},
+    {"id": "C-CONTRACT-CLOSED", "severity": "error", "check": "product_contract_closure", "rule": "产品契约必须引用输出、质量、证据和恢复知识"},
+    {"id": "C-STRICT-REQUIRED", "severity": "error", "check": "required_policy_sections", "rule": "研究运行缺少必要场景、契约、质量或恢复知识时不得静默回退"},
+    {"id": "C-RELEASE-IMMUTABLE", "severity": "error", "check": "release_file_hashes", "rule": "frozen 发布目录的文件哈希必须与 release.json 一致"},
+    {"id": "C-EXPERIENCE-SEPARATE", "severity": "error", "check": "experience_hash_separation", "rule": "动态经验不得改变基础 KG 语义哈希"}
+  ],
+  "competency_questions": [
+    {"id": "CQ01", "question": "给定灾害类型和响应阶段，需要交付哪些产品与图层？", "required_concepts": ["DisasterContext", "DataProductContract", "RequiredLayer"]},
+    {"id": "CQ02", "question": "给定产品契约，哪些数据源、算法和工作流能够形成可执行闭环？", "required_concepts": ["DataNeed", "DataSource", "Algorithm", "WorkflowPattern"]},
+    {"id": "CQ03", "question": "某项输出必须满足哪些字段、几何和质量阈值？", "required_concepts": ["OutputRequirement", "OutputSchemaPolicy", "QualityRequirement"]},
+    {"id": "CQ04", "question": "某数据源不可用时允许使用哪些替代源，何时必须声明缺口？", "required_concepts": ["SourceContract", "AcceptableDegradation", "GapDeclarationRule"]},
+    {"id": "CQ05", "question": "某算法或质量门失败后，哪些修复策略被当前产品契约授权？", "required_concepts": ["RepairStrategy", "DataProductContract", "QualityGateResult"]},
+    {"id": "CQ06", "question": "规划决策引用了哪个 KG 版本、哪些实体和约束？", "required_concepts": ["PlanningDecision", "PlanningRationale", "KnowledgeRelease"]},
+    {"id": "CQ07", "question": "临时产品被何种最终产品替代，证据和缺口是否完整？", "required_concepts": ["DataProduct", "DeliveryManifest", "EvidenceTrace", "GapDeclaration"]},
+    {"id": "CQ08", "question": "相同基础 KG 与固定经验快照能否生成语义一致的计划？", "required_concepts": ["KnowledgeRelease", "SituationSignature", "PlanningDecision"]}
+  ]
+}

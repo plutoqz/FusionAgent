@@ -1,5 +1,12 @@
 from __future__ import annotations
 
+import json
+from pathlib import Path
+
+import pytest
+
+from kg.knowledge_release import DEFAULT_POLICIES_PATH, KnowledgeReleaseError
+from kg.policy_registry import KnowledgePolicyRegistry
 from schemas.fusion import JobType
 from schemas.scenario import ScenarioRunRequest
 from schemas.task_kind import TaskKind
@@ -32,7 +39,64 @@ def test_disaster_scenario_without_explicit_layers_expands_to_full_bundle() -> N
         JobType.poi,
     ]
     assert mission.task_families == ["building", "road", "water", "poi"]
-    assert mission.scope_source == "default_disaster_bundle"
+    assert mission.scope_source == "kg_disaster_task_bundle"
+    assert mission.task_bundle_id == "task_bundle.flood.emergency_vector"
+    assert mission.knowledge_identity["release_id"] == "fusionagent-kg-v1.0.0"
+    assert "task_bundle:task_bundle.flood.emergency_vector" in mission.knowledge_refs
+
+
+def test_disaster_default_tasks_come_from_frozen_task_bundle_not_legacy_task_kinds(
+    tmp_path: Path,
+) -> None:
+    payload = json.loads(DEFAULT_POLICIES_PATH.read_text(encoding="utf-8"))
+    flood = next(
+        record
+        for record in payload["disaster_vocabulary"]
+        if record["disaster_type"] == "flood"
+    )
+    flood["task_kinds"] = ["road"]
+    policy_path = tmp_path / "policies.json"
+    policy_path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+    mission = compile_scenario_mission(
+        ScenarioRunRequest(
+            scenario_name="Karachi flood",
+            trigger_content="Karachi has a flood disaster.",
+            disaster_type="flood",
+        ),
+        policy_registry=KnowledgePolicyRegistry(policy_path),
+    )
+
+    assert mission.task_bundle_id == "task_bundle.flood.emergency_vector"
+    assert [task.task_kind for task in mission.child_tasks] == [
+        TaskKind.building,
+        TaskKind.road,
+        TaskKind.water_polygon,
+        TaskKind.waterways,
+        TaskKind.poi,
+    ]
+
+
+def test_disaster_default_bundle_missing_fails_closed(tmp_path: Path) -> None:
+    payload = json.loads(DEFAULT_POLICIES_PATH.read_text(encoding="utf-8"))
+    flood = next(
+        record
+        for record in payload["disaster_vocabulary"]
+        if record["disaster_type"] == "flood"
+    )
+    flood["default_task_bundle_id"] = "task_bundle.missing"
+    policy_path = tmp_path / "policies.json"
+    policy_path.write_text(json.dumps(payload, ensure_ascii=False), encoding="utf-8")
+
+    with pytest.raises(KnowledgeReleaseError, match="No frozen TaskBundle entity"):
+        compile_scenario_mission(
+            ScenarioRunRequest(
+                scenario_name="Karachi flood",
+                trigger_content="Karachi has a flood disaster.",
+                disaster_type="flood",
+            ),
+            policy_registry=KnowledgePolicyRegistry(policy_path),
+        )
 
 
 def test_flood_mission_expands_to_five_tasks() -> None:
@@ -44,7 +108,7 @@ def test_flood_mission_expands_to_five_tasks() -> None:
 
     mission = compile_scenario_mission(request)
 
-    assert mission.scope_source == "default_disaster_bundle"
+    assert mission.scope_source == "kg_disaster_task_bundle"
     assert [task.task_kind for task in mission.child_tasks] == [
         TaskKind.building,
         TaskKind.road,
@@ -64,7 +128,7 @@ def test_chinese_abidjan_flood_trigger_normalizes_location_and_disaster_bundle()
 
     mission = compile_scenario_mission(request)
 
-    assert mission.scope_source == "default_disaster_bundle"
+    assert mission.scope_source == "kg_disaster_task_bundle"
     assert [task.task_kind for task in mission.child_tasks] == [
         TaskKind.building,
         TaskKind.road,
@@ -193,7 +257,7 @@ def test_english_keyword_detection_ignores_substring_false_positives() -> None:
     mission = compile_scenario_mission(request)
 
     assert [task.task_kind for task in mission.child_tasks] == [TaskKind.building]
-    assert mission.scope_source == "default_building"
+    assert mission.scope_source == "kg_default_direct_task"
 
 
 def test_partition_requested_task_kinds_deduplicates_and_records_unsupported_layers() -> None:

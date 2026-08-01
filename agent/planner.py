@@ -133,6 +133,10 @@ class WorkflowPlanner:
         selected_pattern_id = self._infer_selected_pattern_id(plan, candidate_patterns)
         if selected_pattern_id:
             plan.context["selected_pattern_id"] = selected_pattern_id
+            if selected_pattern_id not in str(plan.context.get("selection_reason") or ""):
+                plan.context["selection_reason"] = (
+                    f"selected_{selected_pattern_id}_via_{planning_source}"
+                )
         self._hydrate_plan_semantics(plan)
         return plan
 
@@ -453,6 +457,7 @@ class WorkflowPlanner:
         error_message: Optional[str] = None,
     ) -> Dict[str, Any]:
         normalized = {
+            "knowledge_identity": dict(planning_context["knowledge_identity"]),
             "intent": planning_context["intent"],
             "retrieval": planning_context["retrieval"],
             "execution_hints": planning_context["execution_hints"],

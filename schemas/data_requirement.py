@@ -15,6 +15,12 @@ class CompletenessPolicy(str, Enum):
     optional_when_requirement_absent = "optional_when_requirement_absent"
 
 
+class BundleSlot(str, Enum):
+    primary = "primary"
+    reference = "reference"
+    auxiliary = "auxiliary"
+
+
 class SourceCandidate(BaseModel):
     source_id: str
     provider_family: str
@@ -28,10 +34,12 @@ class SourceCandidate(BaseModel):
 class SourceRoleRequirement(BaseModel):
     role_id: str
     required: bool = True
+    bundle_slot: BundleSlot
     geometry_types: List[str] = Field(default_factory=list)
     completeness_policy: CompletenessPolicy
     candidates: List[SourceCandidate] = Field(default_factory=list)
     fallback_role_ids: List[str] = Field(default_factory=list)
+    distinct_from_role_ids: List[str] = Field(default_factory=list)
 
 
 class DataRequirementPlan(BaseModel):

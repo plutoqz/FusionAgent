@@ -1,0 +1,14 @@
+{
+  "experience_snapshot_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+  "files": {
+    "entities.json": "sha256:f95726c55cde0b499043dd2cb9841a5355e0c6ffd8c267c86ecf891293d82920",
+    "policies.json": "sha256:52db1d24f8ceae2cb34815d9f730fdbdabc3cbfc3b91656c7caba251691b7996",
+    "schema.json": "sha256:769112202acce7987873b5751c18621168d36dcbe6854a7dd08c333310fb1ead"
+  },
+  "frozen_at": "2026-07-28T00:00:00+08:00",
+  "knowledge_version": "1.0.0",
+  "ontology_version": "1.0.0",
+  "release_id": "fusionagent-kg-v1.0.0",
+  "semantic_hash": "sha256:50067b9368914c47580707650789c04c78b2e856ccb3ef4d120a31f36c0ad71e",
+  "status": "frozen"
+}

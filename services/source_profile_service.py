@@ -8,6 +8,9 @@ from typing import Any, Iterable
 
 import pyogrio
 
+from kg.knowledge_release import KnowledgeReleaseError
+from kg.policy_registry import KnowledgePolicyRegistry, default_policy_registry
+from kg.seed_provider import load_seed_data
 from utils.raster_cli import gdalinfo_json
 
 
@@ -58,60 +61,10 @@ class _BeninSourceSpec:
     required: bool = True
 
 
-_BENIN_SOURCE_SPECS: tuple[_BeninSourceSpec, ...] = (
-    _BeninSourceSpec(
-        source_id="raw.osm.building",
-        source_name="OpenStreetMap Building Footprints",
-        source_form="vector",
-        runtime_status="runtime_candidate",
-        selectable_now=True,
-        path_patterns=("final_shp/openstreetmap/*.shp",),
-    ),
-    _BeninSourceSpec(
-        source_id="raw.openbuildingmap.building",
-        source_name="OpenBuildingMap Building Footprints",
-        source_form="vector",
-        runtime_status="reservation_only",
-        selectable_now=False,
-        path_patterns=("final_shp/openbuildingmap/*.shp",),
-    ),
-    _BeninSourceSpec(
-        source_id="raw.google.open_buildings.vector",
-        source_name="Google Open Buildings Vector",
-        source_form="vector",
-        runtime_status="reservation_only",
-        selectable_now=False,
-        path_patterns=("final_shp/google_open_buildings_v3/*.shp",),
-    ),
-    _BeninSourceSpec(
-        source_id="raw.local.microsoft.building",
-        source_name="Local Microsoft Building Footprints",
-        source_form="vector",
-        runtime_status="reservation_only",
-        selectable_now=False,
-        path_patterns=("final_shp/microsoft_global_ml_building_footprints/*.shp",),
-    ),
-    _BeninSourceSpec(
-        source_id="raw.google.building_presence.raster",
-        source_name="Google Building Presence Raster",
-        source_form="raster",
-        runtime_status="reservation_only",
-        selectable_now=False,
-        path_patterns=("_processing/google_open_buildings_temporal_2023/building_presence_2023_benin_4m.tif",),
-    ),
-    _BeninSourceSpec(
-        source_id="raw.google.building_height.raster",
-        source_name="Google Building Height Raster",
-        source_form="raster",
-        runtime_status="reservation_only",
-        selectable_now=False,
-        path_patterns=("_processing/google_open_buildings_temporal_2023/building_height_2023_benin_4m.tif",),
-        required=False,
-    ),
-)
-
-
 class SourceProfileService:
+    def __init__(self, *, policy_registry: KnowledgePolicyRegistry | None = None) -> None:
+        self.policy_registry = policy_registry or default_policy_registry()
+
     def profile_vector_source(
         self,
         *,
@@ -228,7 +181,7 @@ class SourceProfileService:
     def profile_benin_root(self, root: Path) -> dict[str, object]:
         base = Path(root)
         profiles: list[SourceProfile] = []
-        for spec in _BENIN_SOURCE_SPECS:
+        for spec in self._profiling_specs("profile.benin.building.v1"):
             matches = self._resolve_matches(base, spec.path_patterns)
             if not matches and not spec.required:
                 continue
@@ -238,6 +191,46 @@ class SourceProfileService:
                 profile = self._profile_raster_candidates(spec, matches)
             profiles.append(profile)
         return {"profiles": [item.to_dict() for item in profiles]}
+
+    def _profiling_specs(self, profile_set_id: str) -> tuple[_BeninSourceSpec, ...]:
+        policy = self.policy_registry.source_profiling_set(profile_set_id)
+        sources_by_id = {
+            source.source_id: source
+            for source in load_seed_data()["data_sources"]
+        }
+        specs: list[_BeninSourceSpec] = []
+        for binding in policy["sources"]:
+            source_id = str(binding.get("source_id") or "").strip()
+            source = sources_by_id.get(source_id)
+            if source is None:
+                raise KnowledgeReleaseError(
+                    f"Source profiling set {profile_set_id} references unknown source {source_id!r}"
+                )
+            metadata = dict(source.metadata or {})
+            path_patterns = tuple(str(item) for item in binding.get("path_patterns", []) if str(item))
+            source_form = str(metadata.get("source_form") or "").strip()
+            runtime_status = str(metadata.get("runtime_status") or "").strip()
+            selectable_now = metadata.get("selectable_now")
+            if not path_patterns or source_form not in {"vector", "raster"}:
+                raise KnowledgeReleaseError(
+                    f"Source profiling binding {source_id} lacks path patterns or source form"
+                )
+            if not runtime_status or not isinstance(selectable_now, bool):
+                raise KnowledgeReleaseError(
+                    f"Source {source_id} lacks frozen runtime status/selectability metadata"
+                )
+            specs.append(
+                _BeninSourceSpec(
+                    source_id=source_id,
+                    source_name=source.source_name,
+                    source_form=source_form,
+                    runtime_status=runtime_status,
+                    selectable_now=selectable_now,
+                    path_patterns=path_patterns,
+                    required=bool(binding.get("required", True)),
+                )
+            )
+        return tuple(specs)
 
     @staticmethod
     def _resolve_matches(base: Path, patterns: Iterable[str]) -> list[Path]:

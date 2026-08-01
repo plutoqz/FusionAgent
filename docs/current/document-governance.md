@@ -16,7 +16,7 @@
 
 | 级别 | 定义 | 典型位置 |
 | --- | --- | --- |
-| A0 | 当前项目状态、主张边界和治理规则 | `docs/current/` |
+| A0 | 研究章程、当前项目状态、主张边界和治理规则 | `docs/current/` |
 | A1 | 当前工程/研究规范、协议和机器可读清单 | `docs/thesis/`、`docs/research/` |
 | A2 | 运行手册、演示说明和辅助材料 | `docs/demo/`、各类 runbook |
 | A3 | 历史计划、旧证据、会话交接和已替代版本 | `docs/archive/`、`docs/pasted/`、`docs/superpowers/**/done/` |
@@ -28,6 +28,8 @@
 - `draft`：草案，不能写成已实现事实。
 - `historical`：历史材料，仅用于追溯。
 - `superseded`：已有明确替代文件。
+
+`docs/current/research-charter.md` 是研究对象、目标、研究问题、创新点和非主张的唯一最高权威。其他 A0 文档负责状态和执行治理，不得另行定义相互冲突的研究主体。
 
 ## 3. 目录职责
 
@@ -48,7 +50,7 @@ docs/
 
 ## 4. 当前材料迁移规则
 
-- 当前知识图谱导出统一放入 `docs/research/ontology/2026-07-27/`。
+- 历史知识图谱导出保留在 `docs/research/ontology/YYYY-MM-DD/`；正式冻结版本使用 `kg/ontology/vX.Y.Z/`，并在 `docs/research/ontology/vX.Y.Z/` 保存同版本说明和验证报告。
 - 当前产品契约本体 PPT 放入 `docs/research/presentations/2026-07-27/`。
 - 仍写有“产品契约尚未成为完整图谱实体”的旧 PPT 放入 `docs/archive/presentations/2026-07-27/superseded/`。
 - `.inspect.ndjson` 属于演示材料 QA 记录，不作为主入口；当前版本放 `qa/`，旧版本随旧 PPT 归档。
@@ -82,6 +84,7 @@ docs/
 
 - 当前长期文档使用稳定语义名，如 `project-status.md`，通过 Git 记录版本。
 - 冻结证据、本体导出和 PPT 使用日期目录，文件名可保留生成日期。
+- 正式 KG 使用语义版本目录；已冻结版本不得原地改写，任何语义变化必须创建新版本并记录迁移说明。
 - 不再创建 `final-final-v2` 一类名称。
 - 同一天同类材料只保留一个 current 版本，其余进入 `superseded/`。
 
