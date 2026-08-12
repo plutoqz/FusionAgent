@@ -110,7 +110,7 @@ $env:GEOFUSION_CELERY_EAGER='0'
 - use `8012+` only for temporary diagnostics or one-off worktree isolation
 - official benchmark source-asset downloads are cached under `runs/source-assets/`; local `Data/` is still preferred unless you explicitly force remote materialization
 - task-driven AOI runs now resolve a natural-language location before planning and can fall back to official Geofabrik / Microsoft downloads when local `Data/` is incomplete
-- scenario-level runs accept an explicit output root. If omitted, `GEOFUSION_SCENARIO_OUTPUT_ROOT` is used. If that is also unset, scenario outputs are written under `E:\fyx\data\fusionagentTEST`.
+- scenario-level runs accept an explicit output root. If omitted, `GEOFUSION_SCENARIO_OUTPUT_ROOT` is used. If that is also unset, outputs are written to the `fusionagent_scenarios` child directory under `GEOFUSION_OUTPUT_ROOT` (engineering default: `D:\fyx\data\fusionagent_scenarios`).
 - the frontend defaults to Simplified Chinese, and users can switch to English from the sidebar
 - FastAPI allows `http://127.0.0.1:5173` and `http://localhost:5173` for local frontend development by default; override with `GEOFUSION_CORS_ORIGINS` when needed
 - when `frontend/dist/` exists, FastAPI serves it on `/` and falls back to `index.html` for non-`/api/*` SPA routes
@@ -151,7 +151,7 @@ Scenario-level paper/demo harness:
 python scripts/scenario_eval_harness.py `
   --manifest docs/superpowers/specs/2026-04-21-scenario-eval-manifest.json `
   --base-url http://127.0.0.1:8000 `
-  --output-root E:\fyx\data\fusionagentTEST `
+  --output-root runs\scenarios `
   --output-json tmp/eval/scenario-harness-summary.json `
   --timeout 1200
 ```
@@ -167,7 +167,7 @@ Task 5 live scenario harness deferral record:
 python scripts/scenario_eval_harness.py `
   --manifest docs/superpowers/specs/2026-04-21-scenario-eval-manifest.json `
   --base-url http://127.0.0.1:8000 `
-  --output-root E:\fyx\data\fusionagentTEST `
+  --output-root runs\scenarios `
   --output-json tmp/eval/scenario-harness-summary.json `
   --timeout 1200
 ```
@@ -445,7 +445,7 @@ The v2 API now has a narrow but practical operator layer.
 - `GET /api/v2/scenario-runs`: lists persisted scenario registry records from `scenario_runs_index.jsonl`
 - `GET /api/v2/scenario-runs/{scenario_id}`: loads the canonical `scenario_summary.json` for a scenario
 - request fields include `scenario_name`, `trigger_content`, `disaster_type`, `job_types`, optional `target_crs`, and optional `output_root`
-- output-root order is `request.output_root`, then `GEOFUSION_SCENARIO_OUTPUT_ROOT`, then `E:\fyx\data\fusionagentTEST`
+- output-root order is `request.output_root`, then `GEOFUSION_SCENARIO_OUTPUT_ROOT`, then `GEOFUSION_OUTPUT_ROOT/fusionagent_scenarios`
 - scenario output includes `scenario_summary.json`, `kg_path_trace.json`, `workflow_trace.json`, `source_coverage.json`, `evaluation.json`, `failed_children.json`, `scenario_artifact_manifest.json`, and bilingual reports under `documents/scenario_report.zh.md` and `documents/scenario_report.en.md`
 - scenario evidence is additive; single-run `run.json`, `plan.json`, `validation.json`, `audit.jsonl`, and artifact bundles remain stable
 - `scenario_artifact_manifest.json` indexes scenario source-of-truth files and child output references; it does not move current run or scenario outputs

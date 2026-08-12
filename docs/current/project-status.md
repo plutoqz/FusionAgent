@@ -1,16 +1,18 @@
 # FusionAgent 当前项目状态
 
 > 状态：A0 当前权威状态
-> 基准日期：2026-08-01
-> 当前活动工作区：`D:\code\FusionAgent`，分支 `main`（P0-R/K1–K5 整合改动尚未提交）
+> 基准日期：2026-08-07
+> 当前活动工作区：`D:\code\FusionAgent`，分支 `main`，基准提交 `2bcafaa`
 
 ## 1. 总体判断
 
-FusionAgent 已跨过“系统能否运行”的阶段，进入“以冻结知识基线约束运行，并把系统能力转化为可发表证据”的阶段。P0-R 与 P0-K1–K5 已按顺序验收，KG v1 已完成运行消费闸门和最终冻结发布。比较性证据、稳定性重复和多场景外部评价仍不完整。
+FusionAgent 已跨过“系统能否运行”的阶段，进入“以冻结知识基线约束运行，并把系统能力转化为可发表证据”的阶段。P0-R 与 P0-K1–K5 已按顺序验收，KG v1 已完成运行消费闸门和最终冻结发布。治理比较、稳定性和最小多 AOI 切片已有受限证据，但真实 LLM 规划对照及其选择性端到端验证仍未形成共享正式证据。
 
 - **工程实现**：产品契约、任务规划、质量门、渐进式交付、降级恢复和证据关联已经形成闭环。
 - **知识图谱实现**：七层 KG v1 的 schema、实体和政策机器源已冻结；模式含 71 个类，静态包含 241 个稳定标识知识对象和 1 条转换边。35 个高风险知识片段已完成唯一真源迁移或执行机制归类，K4 已证明 KG-only 行为扰动、fail-closed、源重新材料化和真实双后端一致性。
-- **研究证据**：P1、P2、P3 和 P4 最小外部有效性切片已完成；C02/C04/C06 及三 AOI 结果仍是受限证据，不构成广泛有效性证明。
+- **研究证据**：P1、P2、P3-G 治理消融和 P4-G 最小外部有效性切片已完成；P3-P 真实规划对照和 P4-P 规划外部有效性未完成。C02/C04/C06 及三 AOI 结果仍是受限证据，不构成广泛有效性证明。
+- **真实 LLM 状态**：OpenAI-compatible provider 已实现并有历史远端调用/token 记录，但当前本机配置解析为 mock；已检查的共享 smoke 记录最终均为 `planning_source=kg_fallback`，现有 P2/P3-G/P4-G 冻结证据也使用 mock，不能证明真实 LLM 计划已被端到端采用。
+- **研究分支资产**：`research/product-contract` 已实现五类规划模式、结构化决策、gold 隔离、重复实验审计和最小端到端运行时，定向套件当前为 `32 passed`。归并审计已确认其 KG 上下文未直接消费当前 KG v1；这些是待适配和选择性提升的开发资产，不是正式实验结论。
 - **论文准备度**：期刊实验与证据准备度约 45%–60%；硕士论文工程核心约 65%–75%，包含写作和补充实验后的整体完成度约 45%–60%。这些比例仅用于项目规划。
 
 ## 2. 已完成的工程闭环
@@ -83,15 +85,16 @@ Freeze C 已记录真实外部矢量数据、真实融合算法、9 项外部输
 
 | 工作区 | 分支/状态 | 处理原则 |
 | --- | --- | --- |
-| `D:\code\FusionAgent` | `main`，P0-R/K1–K5 活动整合改动未提交 | 保留用户与并行任务改动，不回滚、不清理 |
+| `D:\code\FusionAgent` | `main@2bcafaa`，当前活动工作区 | 保留用户与并行任务改动，不回滚、不清理 |
 | `D:\code\FusionAgent-freeze-c-93ebdc5` | detached `93ebdc5`，标签 `freeze-c-20260725`，干净 | 只读保留，承担 Freeze C 复现基线 |
-| `D:\code\FusionAgent-worktrees\research` | `research/product-contract`，有活动未提交研究改动 | 不删除、不重置；用于实验协议和论文研究 |
+| `D:\code\FusionAgent-head-baseline` | detached `db256d5`，含未跟踪的 `baseline-junit.xml` | 保留基线产物，不在共享任务中清理 |
+| `D:\code\FusionAgent-worktrees\research` | `research/product-contract`，当前干净 | 用于实验协议和论文研究；提升前独立审查 |
 
 原 `app/autonomous-fusion` 分支与 `main` 没有独有提交，worktree 也保持干净，已于 2026-07-28 删除。应用开发改为需要时从 `main` 创建短期任务分支。
 
 详细规则见[仓库与 Worktree](repository-worktrees.md)。
 
-## 7. 本轮验证与下一里程碑
+## 7. 已验收证据与待补缺口
 
 ### P0-K3 验收记录
 
@@ -120,17 +123,21 @@ P0-R/K1/K2 文档与结构验收已经完成。P0-K3 采用“语义退出条件
 - K4/K5 最终定向组合为 `47 passed`；未运行全量测试。
 - K5 重封后语义哈希仍为 `sha256:50067b9368914c47580707650789c04c78b2e856ccb3ef4d120a31f36c0ad71e`。包内独立报告为 11/11；clean 校验通过，`schema.json`、`entities.json`、`policies.json` 各自单字节篡改均返回非零；Neo4j bootstrap 已与冻结身份同步。
 
-### 研究里程碑
+### 研究阶段状态
 
-当前最优先的研究里程碑是先冻结统一 KG v1，再把已有能力变成可独立审计、可重复、可比较的证据：
+当前研究阶段从“冻结统一 KG v1”转入“把已有能力变成可独立审计、可重复、可比较的证据”：
 
 1. P0-R 研究章程与主张口径冻结。
 2. 已完成 P0-K1–K5；KG v1 已冻结。
 3. P1 已完成：独立审计通过；Freeze C 的 638 个包内声明文件、9 组/32 个外部输入、5 个 prepared-input、运行 input/output、`all_cases_passed` 和冻结 worktree 均已核验。机器报告与中文摘要见 `docs/current/evidence/2026-08-01-freeze-c-p1-audit.json` 和 `docs/current/evidence/2026-08-01-freeze-c-p1-audit.md`。
 4. P2 已完成：同一干净 commit 三次重跑通过；语义级稳定，artifact 字节差异均已分类，未解释差异为 0。报告见 `docs/current/evidence/p2-stability/2026-08-01-freeze-c-p2-stability.json` 和 `docs/current/evidence/p2-stability/2026-08-01-freeze-c-p2-stability.md`。
-5. P3 治理方向最小消融已完成：完整方法、无产品契约、无质量门、无降级恢复和固定优先级均在同一 C02/C04/C06 manifest 与固定环境下各运行一次。机器报告与中文摘要见 `docs/current/evidence/p3-governance/2026-08-01-freeze-c-p3-governance-grounding-report.json` 和 `docs/current/evidence/p3-governance/2026-08-01-freeze-c-p3-governance-grounding-report.md`。
-6. P4 最小外部有效性切片已完成：Caracas、Abidjan 和越南北部沿海走廊三 AOI 已纳入；C02/C04 在两种变体各重复一次，C06 在 Caracas 重复一次；已生成外部源确定性抽样、均值、样本标准差、探索性 95% CI、Cohen h、失败比例和论文材料索引。机器报告与中文摘要见 `docs/current/evidence/p4-external-validity/2026-08-01-freeze-c-p4-external-validity.json` 和同名 `.md`。
+5. P3-G 治理方向最小消融已完成：完整方法、无产品契约、无质量门、无降级恢复和固定优先级均在同一 C02/C04/C06 manifest 与固定环境下各运行一次。P3-P 规划方向尚未形成当前 KG v1 上的正式证据。
+6. P4-G 最小外部有效性切片已完成：Caracas、Abidjan 和越南北部沿海走廊三 AOI 已纳入；C02/C04 在两种变体各重复一次，C06 在 Caracas 重复一次。该切片使用 mock LLM，只评价治理与交付链路，不评价真实 LLM 规划增量。P4-P 尚未完成。
 
-本轮 P3 只支持受限的治理行为差异，不支持统计显著性或广泛有效性结论。完整方法的计划有效率、最终交付成功率、恢复成功率和证据完整率均为 1.0；无降级恢复的恢复成功率为 0；无质量门的首次质量门通过率为不可用值，质量门绕过率为 1.0；固定优先级改变了 C02 任务顺序，并使关键图层按时交付率由 2/3 降为 1/3。P4 中完整方法与固定优先级各包含 7 个可比较案例，完整方法关键图层按时交付率为 6/7，固定优先级为 3/7；该差异为探索性结果，不能作为显著性结论。原始证据统一保存在 `D:\code\freeze-c-evidence\` 下的正式变体根目录；中断的早期运行目录仅作诊断保留。
+本轮 P3-G 只支持受限的治理行为差异，不支持统计显著性、真实 LLM 增量或广泛有效性结论。完整方法的计划有效率、最终交付成功率、恢复成功率和证据完整率均为 1.0；无降级恢复的恢复成功率为 0；无质量门的首次质量门通过率为不可用值，质量门绕过率为 1.0；固定优先级改变了 C02 任务顺序，并使关键图层按时交付率由 2/3 降为 1/3。P4-G 中完整方法与固定优先级各包含 7 个可比较案例，完整方法关键图层按时交付率为 6/7，固定优先级为 3/7；该差异为探索性结果，不能作为显著性结论。原始证据统一保存在 `D:\code\freeze-c-evidence\` 下的正式变体根目录；中断的早期运行目录仅作诊断保留。
+
+`research/product-contract` 资产、当前 KG v1 消费路径、真实 LLM 证据路径和选择性端到端边界的联合审计已经完成，报告见[研究分支成果与当前 KG v1 归并审计](research-branch-kg-v1-merge-audit.md)。结论是禁止整分支合并；保留结构化决策、gold 隔离、失败留痕和审计链等设计资产；KG 上下文、运行映射和质量政策边界必须适配或重写。
+
+五项研究语义决策已经完成，P3-P/P4-P 已进入实现阶段。当前已形成版本化案例 manifest、canonical context、六组输入投影和确定性基线隔离测试，并完成 18-call 真实 LLM pilot 的离线 schedule/input-hash 预检；真实调用、模型/预算冻结、planning-only formal 和选择性端到端仍未执行。
 
 具体优先级、退出条件和论文映射见[论文主张与优先级](claims-and-priorities.md)。

@@ -16,7 +16,8 @@ settings_update_lock = Lock()
 
 
 def probe_llm_settings(llm_settings: EffectiveLLMSettings) -> None:
-    return None
+    provider = create_llm_provider(llm_settings)
+    provider.probe_connection()
 
 
 def _runtime_settings_from_persisted(settings: PersistedLLMSettings) -> EffectiveLLMSettings:
@@ -24,7 +25,6 @@ def _runtime_settings_from_persisted(settings: PersistedLLMSettings) -> Effectiv
 
 
 def _validate_runtime_settings(llm_settings: EffectiveLLMSettings) -> None:
-    create_llm_provider(llm_settings)
     probe_llm_settings(llm_settings)
 
 

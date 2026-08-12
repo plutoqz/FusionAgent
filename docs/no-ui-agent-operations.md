@@ -133,14 +133,14 @@ python scripts/watch_scenario_inbox.py `
   --inbox-dir tmp/scenario-inbox `
   --processed-dir tmp/scenario-processed `
   --failed-dir tmp/scenario-failed `
-  --output-root E:\fyx\data\fusionagentTEST
+  --output-root runs\scenarios
 ```
 
 Expected operator evidence:
 
 - processed event JSON moves to `--processed-dir`
 - invalid or failed event JSON moves to `--failed-dir` when provided
-- scenario outputs are written under the request output root, `GEOFUSION_SCENARIO_OUTPUT_ROOT`, or `E:\fyx\data\fusionagentTEST`
+- scenario outputs are written under the request output root, `GEOFUSION_SCENARIO_OUTPUT_ROOT`, or `GEOFUSION_OUTPUT_ROOT/fusionagent_scenarios`
 - scenario registry records preserve idempotency and trigger metadata when present
 
 ## Scenario Regression Harness
@@ -151,7 +151,7 @@ Use the scenario harness for API-to-runtime scenario regression and paper/demo e
 python scripts/scenario_eval_harness.py `
   --manifest docs/superpowers/specs/2026-04-21-scenario-eval-manifest.json `
   --base-url http://127.0.0.1:8000 `
-  --output-root E:\fyx\data\fusionagentTEST `
+  --output-root runs\scenarios `
   --output-json tmp/eval/scenario-harness-summary.json `
   --timeout 1200
 ```

@@ -69,9 +69,11 @@ def test_get_llm_settings_returns_masked_persisted_settings(tmp_path: Path, monk
 
 
 def test_put_llm_settings_persists_patch_and_refreshes_runtime(
-    settings_client: tuple[TestClient, RuntimeSettingsService, list[EffectiveLLMSettings]]
+    settings_client: tuple[TestClient, RuntimeSettingsService, list[EffectiveLLMSettings]],
+    monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     client, runtime_service, refresh_calls = settings_client
+    monkeypatch.setattr(settings_router, "probe_llm_settings", lambda llm_settings: None)
     runtime_service.save_llm_settings(
         PersistedLLMSettings(
             provider="openai",

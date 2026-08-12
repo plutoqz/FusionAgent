@@ -66,7 +66,7 @@ FusionAgent 当前定位是“面向灾害应急多源地理空间融合的契�
 
 - Freeze C 在干净 commit `93ebdc51c8732ec466067de760a65f30f3f1155c` 上冻结了 C02、C04、C06 的真实数据案例和复现环境。
 - 产品契约已经作为一等图谱实体接入 seed、仓库、Neo4j、检索、规划结果和 KG API；当前实现快照包含 15 个本体类、27 种关系、232 个静态实体和 497 条实体关系，七层 KG v1 已完成 P0-K1–K5 冻结与运行强绑定验收。
-- C02/C04/C06 支持产品契约治理、渐进式交付和降级恢复的受限案例结论，但尚不能替代基线、消融、重复实验和多 AOI 外部评价。
+- C02/C04/C06 及三 AOI 切片支持产品契约治理、渐进式交付和降级恢复的受限案例结论，但现有冻结实验使用 mock LLM，不能替代真实 LLM 规划对照或人工真值评价。
 - 当前研究目标与创新点见 [`docs/current/research-charter.md`](./docs/current/research-charter.md)，状态、论文主张和优先级统一见 [`docs/README.md`](./docs/README.md)。`docs/superpowers/` 下的旧计划和 freeze 保留用于追溯，不再定义当前研究方向。
 
 ## 核心亮点
@@ -104,7 +104,7 @@ FusionAgent 当前定位是“面向灾害应急多源地理空间融合的契�
 - 场景层面的 live event-feed 编排或 full digital twin 模拟
 - 任意数据源自动接入与任意任务族无限扩展
 
-当前优先级已经从继续扩张系统功能转向 P1 独立审计、P2 三次稳定性重跑、最小基线/消融和多 AOI 量化评价。详见 [`docs/current/claims-and-priorities.md`](./docs/current/claims-and-priorities.md)。
+P1 独立审计、P2 三次稳定性重跑、P3-G 最小治理消融和 P4-G 最小多 AOI 治理切片已经完成。P3-P 真实规划对照和 P4-P 规划外部有效性尚未完成；当前先审计并选择性提升研究分支已有实验 runner，使其直接消费 KG v1，再开展正式重复、选择性端到端和人工真值评价。详见 [`docs/current/claims-and-priorities.md`](./docs/current/claims-and-priorities.md)。
 
 ## 系统架构
 

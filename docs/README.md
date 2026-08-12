@@ -1,7 +1,7 @@
 # FusionAgent 文档入口
 
 > 状态：当前权威入口
-> 更新日期：2026-07-29
+> 更新日期：2026-08-04
 
 本文件是仓库文档的唯一导航入口。项目状态、论文主张、工作优先级或分支角色发生冲突时，先以 `docs/current/` 为准，再回到具体规范和证据文件核对。
 
@@ -12,6 +12,7 @@
 | [当前项目状态](current/project-status.md) | 已经完成什么、尚未证明什么、当前边界在哪里 | A0 |
 | [研究章程](current/research-charter.md) | 研究主体、目标、研究问题、创新点和主张边界是什么 | A0 |
 | [论文主张与优先级](current/claims-and-priorities.md) | 期刊和硕士论文下一步先做什么、验收标准是什么 | A0 |
+| [研究分支与 KG v1 归并审计](current/research-branch-kg-v1-merge-audit.md) | 研究资产分类、KG 对齐缺口、归并约束和讨论闸门 | A0 |
 | [仓库与 Worktree](current/repository-worktrees.md) | 每个分支/worktree 承担什么角色、如何提升稳定成果 | A0 |
 | [文档治理规则](current/document-governance.md) | 文档如何分类、归档、去重和判定权威性 | A0 |
 | [产品契约规范](thesis/product_contract_spec.md) | 产品契约的工程语义、交付状态和图谱映射 | A1 |
@@ -23,7 +24,7 @@
 | [历史知识图谱快照](research/ontology/2026-07-27/README.md) | P0 冻结前的导出快照，仅用于追溯 | A3 |
 | [当前组会汇报](research/presentations/2026-07-27/README.md) | 产品契约本体补充版 PPT 及 QA 记录 | A2 |
 
-`research/product-contract` worktree 中还有尚未提交的研究协议与七层本体 v2 草案。它们是活动研究材料，不应在提交和审查前被当作共享稳定规范。详情见[仓库与 Worktree](current/repository-worktrees.md)。
+`research/product-contract` worktree 已包含五类规划模式、真实 LLM 实验接口、结构化评分、重复实验审计和最小端到端运行时等开发资产。与当前 KG v1 的归并审计已经完成，结论是禁止整分支合并并按责任边界选择性提升；在适配 KG v1 并形成冻结证据前，其中内容不属于共享稳定规范或正式实验结论。详情见[研究分支与 KG v1 归并审计](current/research-branch-kg-v1-merge-audit.md)。
 
 ## 目录分类
 
@@ -45,11 +46,11 @@
 
 知识图谱是研究主体；产品契约、质量门、降级恢复和证据链是图谱驱动规划与治理的方法组成。P0-K1–K5 已完成：KG-only 行为扰动、fail-closed、源重新材料化、真实 Neo4j parity 及最终 clean/tamper 发布验收均已有定向证据。现有可执行图谱和 Freeze C 仍不能证明真实 LLM 规划优越性、广泛有效性或生产部署能力。
 
-近期执行顺序固定为：
+当前工作顺序调整为（尚不冻结为下一里程碑）：
 
 1. 已完成 P0-R、K1–K5。
-2. 下一步完成 P1 独立审计、P2 三次稳定性重跑。
-3. 完成规划/治理消融、多 AOI 实验和论文证据流水线。
+2. 已完成 P1 独立审计、P2 三次稳定性重跑、P3-G 最小治理消融和 P4-G 最小多 AOI 治理外部有效性切片。
+3. P3-P 真实规划对照和 P4-P 规划外部有效性尚未完成；研究分支与 KG v1 的归并审计已经完成，当前停在讨论闸门，待确认案例、基线、单源质量政策、真实 LLM 协议和选择性端到端范围后再冻结实施批次。
 
 详细验收条件见[论文主张与优先级](current/claims-and-priorities.md)。
 

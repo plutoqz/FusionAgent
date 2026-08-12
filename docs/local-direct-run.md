@@ -12,7 +12,7 @@
 - 可用的 Neo4j 5.x
 - `requirements.txt` 里的 Python 依赖
 
-本地私有配置写在仓库根目录的 `依赖.txt`，可由 [依赖.txt.example](/E:/vscode/fusionAgent/依赖.txt.example) 复制得到。
+本地私有配置写在仓库根目录的 `依赖.txt`，可由 [依赖.txt.example](../依赖.txt.example) 复制得到。
 
 ## 端口与依赖约定
 

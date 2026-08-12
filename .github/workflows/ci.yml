@@ -5,8 +5,9 @@ on:
   pull_request:
 
 jobs:
-  mock-inmemory-tests:
+  backend-tests:
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     env:
       GEOFUSION_KG_BACKEND: memory
       GEOFUSION_LLM_PROVIDER: mock
@@ -20,17 +21,34 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-      - name: Run mock/in-memory test suite
+      - name: Verify frozen KG release
         run: |
-          python -m pytest \
-            tests/test_kg_repository.py \
-            tests/test_repair_strategy.py \
-            tests/test_workflow_validator.py \
-            tests/test_kg_repository_enhancements.py \
-            tests/test_planner_context.py \
-            tests/test_repair_audit.py \
-            tests/test_agent_run_service_enhancements.py \
-            tests/test_worker_orchestration.py \
-            tests/test_neo4j_bootstrap.py \
-            tests/test_openai_provider_defaults.py \
-            -q
+          python scripts/verify_kg_release.py \
+            --release-dir kg/ontology/v1.0.0 \
+            --report-path tmp/ci-kg-verification-report.json
+      - name: Run fast runtime smoke
+        run: |
+          python -c "import main"
+          python scripts/runtime_doctor.py --mode fast
+      - name: Run backend regression suite
+        run: python -m pytest tests -q
+
+  frontend-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+      - name: Install frontend dependencies
+        run: npm ci
+      - name: Run frontend tests
+        run: npm test
+      - name: Build frontend
+        run: npm run build

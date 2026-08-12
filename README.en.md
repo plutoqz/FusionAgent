@@ -8,7 +8,9 @@ FusionAgent is a bounded geospatial vector-fusion agent runtime for disaster-res
 
 The project is not positioned as an unbounded general-purpose agent. Its goal is to turn task understanding, input acquisition, constrained planning, fusion execution, failure healing, and evidence preservation into a testable and auditable engineering system.
 
-FusionAgent can now run as a mature no-UI vector data fusion agent: the no-UI operator surface, scenario regression, maturity freeze, and shared evidence contract are aligned behind one regression-tested execution path.
+FusionAgent is currently a research prototype and engineering MVP. Its operator surface, scenario regression, and evidence contract support bounded experiments, but they do not establish production readiness or broad external validity.
+
+The frozen P1/P2 evidence, governance ablation (P3-G), and minimum multi-AOI governance slice (P4-G) use a mock LLM. A real OpenAI-compatible provider and experimental planning runners exist, but no shared frozen evidence currently demonstrates that a real LLM plan was accepted and used end to end. The remaining planning study must compare fixed workflow, rules-only, KG-only, LLM-only, LLM with capability KG, and LLM with the full contract KG against the current KG v1.
 
 ## Current Evidence Snapshot
 

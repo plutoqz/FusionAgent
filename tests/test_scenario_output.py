@@ -23,4 +23,4 @@ def test_resolve_scenario_output_root_uses_project_default_when_unconfigured(mon
     resolved = resolve_scenario_output_root(None)
 
     assert resolved == DEFAULT_SCENARIO_OUTPUT_ROOT
-    assert str(resolved) == r"E:\fyx\data\fusionagentTEST"
+    assert resolved.name == "fusionagent_scenarios"

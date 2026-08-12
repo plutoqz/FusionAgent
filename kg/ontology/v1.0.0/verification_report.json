@@ -16,8 +16,8 @@
       "details": {
         "actual_hashes": {
           "entities.json": "sha256:f95726c55cde0b499043dd2cb9841a5355e0c6ffd8c267c86ecf891293d82920",
-          "policies.json": "sha256:52db1d24f8ceae2cb34815d9f730fdbdabc3cbfc3b91656c7caba251691b7996",
-          "schema.json": "sha256:769112202acce7987873b5751c18621168d36dcbe6854a7dd08c333310fb1ead"
+          "policies.json": "sha256:3af64e00db8ea7627e8941d5e7bd5593c929784a773d615bd4e724d5a741d0de",
+          "schema.json": "sha256:d30c5f00cafc62c792e55f03f49f4eb9563c13d1ebf3a204288add29d15dfa15"
         },
         "declared_files": [
           "entities.json",
@@ -421,6 +421,6 @@
     "failed_count": 0,
     "passed_count": 11
   },
-  "verified_at": "2026-07-29T07:21:29.374975+00:00",
+  "verified_at": "2026-08-03T02:43:21.507605+00:00",
   "verifier_id": "fusionagent.kg-release-verifier.v1"
 }

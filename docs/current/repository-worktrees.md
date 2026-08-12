@@ -1,17 +1,18 @@
 # 仓库、分支与 Worktree 角色
 
 > 状态：A0 当前权威工作流
-> 更新日期：2026-07-28
+> 更新日期：2026-08-04
 
 ## 1. 当前布局
 
 | 路径 | 当前分支/提交 | 当前状态 | 角色 |
 | --- | --- | --- | --- |
-| `D:\code\FusionAgent` | `codex/repository-docs-consolidation-20260728` / `93ebdc5` 起点 | 本轮交付分支 | 产品契约实现、文档整理和远程审查；合并后删除 |
+| `D:\code\FusionAgent` | `main@2bcafaa` | 当前活动工作区，有本地改动时按任务边界审查 | 共享稳定集成与日常开发 |
 | `D:\code\FusionAgent-freeze-c-93ebdc5` | detached `93ebdc5`；标签 `freeze-c-20260725` | 干净 | Freeze C 只读复现基线，不再占用长期分支 |
-| `D:\code\FusionAgent-worktrees\research` | `research/product-contract` | 有活动未提交研究改动 | 产品契约、实验协议、本体 v2 和论文研究 |
+| `D:\code\FusionAgent-head-baseline` | detached `db256d5` | 含未跟踪的 `baseline-junit.xml` | 独立 HEAD 基线与回归归因 |
+| `D:\code\FusionAgent-worktrees\research` | `research/product-contract` | 当前干净 | 产品契约、实验协议、本体 v2 和论文研究 |
 
-`main` 是共享稳定集成目标，但当前没有单独 worktree 检出 `main`。主路径不应被等同为 `main`，应以 `git status --short --branch` 的实际结果为准。
+`main` 是共享稳定集成目标，当前由主路径直接检出。提交、分支和 dirty 状态仍应以 `git status --short --branch` 与 `git worktree list` 的实际结果为准。
 
 ## 2. 不可破坏约束
 
@@ -23,16 +24,16 @@
 
 ## 3. 各工作区职责
 
-### 共享整理工作区
+### 共享主工作区
 
 `D:\code\FusionAgent` 当前用于：
 
 - 整理共享文档入口和治理规则。
 - 接纳已经验证的产品契约本体实现。
 - 维护共享 schema、manifest、仓库接口和测试。
-- 将稳定成果提交后提升到 `main`。
+- 在 `main` 上集成已经验证的稳定成果。
 
-本轮整理结束前，不把它重新称为 Freeze C 分支，也不覆盖其中已有用户改动。
+该目录不是 Freeze C 基线。发现已有用户改动时，应在原状态上继续工作，不覆盖或清理。
 
 ### Freeze C 基线
 
@@ -44,6 +45,10 @@
 
 允许的操作是只读检查或从该提交创建新的临时 worktree；不在该目录直接编辑。
 
+### HEAD 基线
+
+`D:\code\FusionAgent-head-baseline` 用于独立基线回归与失败归因。当前 detached 在 `db256d5`，并保留未跟踪的 `baseline-junit.xml`；该产物不属于共享主工作区，不在其他任务中清理。
+
 ### Research Worktree
 
 `D:\code\FusionAgent-worktrees\research` 用于：
@@ -53,7 +58,11 @@
 - 论文案例、评分规则、实验 runner 和研究写作。
 - KG/LLM 责任边界与实验性实现。
 
-该 worktree 包含 `PROJECT.md`、`docs/CURRENT.md`、本体 v2、稳定性协议、实验脚本、schemas、services 和 tests。研究章程中仍有价值的内容应提升到共享的 `docs/current/research-charter.md`；此后该 worktree 中的 `PROJECT.md` 和 `docs/CURRENT.md` 不再拥有高于共享 A0 的权威性。整理工作不得将其他研究文件视为可删除冗余。
+该 worktree 已实现 `fixed`、`kg_only`、`llm_only`、`llm_capability_kg`、`llm_full_contract_kg`，以及结构化决策、gold 隔离、重复实验审计和最小端到端运行时。当前缺少独立 `rules-only`；归并审计已确认其 KG-only/完整契约上下文没有直接消费共享 KG v1。研究章程中仍有价值的内容应提升到共享的 `docs/current/research-charter.md`；该 worktree 中的 `PROJECT.md` 和 `docs/CURRENT.md` 不拥有高于共享 A0 的权威性。
+
+后续不得直接合并整个研究分支，也不得从零重复实现同类 runner。应以文件和责任边界为单位，将资产分类为“直接提升、适配 KG v1、重写、保留历史”，并确保不删除或覆盖 `main` 上已经冻结的 KG v1、P1–P4-G 证据和运行闭环。
+
+2026-08-04 已完成该分支与当前 KG v1 的归并审计。审计确认 runner 当前通过 case 和 Python 常量拼装知识上下文，未直接消费冻结 KG v1；研究版质量策略还会恢复第二知识真源。文件级分类、ID 对齐和讨论闸门见[研究分支成果与当前 KG v1 归并审计](research-branch-kg-v1-merge-audit.md)。
 
 ## 4. 稳定成果提升流程
 
@@ -62,7 +71,7 @@
 - `main`：共享稳定集成分支。
 - `research/product-contract`：确有并行、未提交研究工作的长期研究分支。
 
-`codex/repository-docs-consolidation-20260728` 是临时交付分支，完成远程审查并合并到 `main` 后应删除。原 `app/autonomous-fusion` 与 `main` 没有提交差异且 worktree 干净，已于 2026-07-28 删除。以后需要应用开发时，从最新 `main` 创建按任务命名的短期分支，不预留空的长期 app 分支。
+原 `codex/repository-docs-consolidation-20260728` 的成果已进入 `main`，不再是活动分支。原 `app/autonomous-fusion` 与 `main` 没有提交差异且 worktree 干净，已于 2026-07-28 删除。以后需要应用开发时，从最新 `main` 创建按任务命名的短期分支，不预留空的长期 app 分支。
 
 推荐流程：
 

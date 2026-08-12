@@ -7,6 +7,7 @@ from typing import Any, Dict
 class LLMProvider(ABC):
     last_usage: object | None = None
     last_model: str | None = None
+    last_attempt: dict[str, Any] | None = None
 
     @property
     def provider_name(self) -> str:
@@ -26,3 +27,7 @@ class LLMProvider(ABC):
     @abstractmethod
     def generate_workflow_plan(self, system_prompt: str, context: Dict[str, Any]) -> Dict[str, Any]:
         raise NotImplementedError
+
+    def probe_connection(self) -> None:
+        """Validate provider connectivity when the provider supports a live probe."""
+        return None

@@ -482,6 +482,7 @@ class WorkflowPlanner:
     def _reset_provider_telemetry(self) -> None:
         self.llm_provider.last_usage = None
         self.llm_provider.last_model = None
+        self.llm_provider.last_attempt = None
 
     def _generate_plan_payload(self, planning_context: Dict[str, Any]) -> tuple[Dict[str, Any], Dict[str, Any]]:
         with self._provider_call_lock:
@@ -506,13 +507,17 @@ class WorkflowPlanner:
         model = self.llm_provider.last_model
         if model is None:
             model = getattr(self.llm_provider, "model", None)
-        return {
+        telemetry = {
             "elapsed_ms": elapsed_ms,
             "context_size_bytes": estimate_json_size_bytes(planning_context),
             "provider": self.llm_provider.provider_name,
             "model": model,
             "llm_usage": normalize_llm_usage(self.llm_provider.last_usage),
         }
+        attempt = getattr(self.llm_provider, "last_attempt", None)
+        if isinstance(attempt, dict):
+            telemetry["llm_attempt"] = dict(attempt)
+        return telemetry
 
     def _hydrate_plan_semantics(self, plan: WorkflowPlan) -> None:
         for task in plan.tasks:
