@@ -1,12 +1,19 @@
+import json
 from pathlib import Path
+import sys
 
-from schemas.research_llm_pilot import ResearchPlanningDecision, build_research_llm_pilot_schedule
+from schemas.research_llm_pilot import (
+    ResearchLLMPilotSchedule,
+    ResearchPlanningDecision,
+    build_research_llm_pilot_schedule,
+)
 import pytest
 
 from scripts.run_research_llm_pilot import (
     FORBIDDEN_PLANNER_KEYS,
     _attempt_total_tokens,
     _conservative_token_estimate,
+    _select_pilot_subset,
     _validate_batch_token_budget,
     prepare_pilot,
 )
@@ -86,3 +93,54 @@ def test_attempt_total_tokens_tolerates_missing_usage() -> None:
     assert _attempt_total_tokens(None) == 0
     assert _attempt_total_tokens({"usage": None}) == 0
     assert _attempt_total_tokens({"usage": {"total_tokens": 42}}) == 42
+
+
+def test_pilot_subset_selects_case_and_replicate_without_changing_conditions() -> None:
+    schedule, prepared = prepare_pilot(MANIFEST)
+
+    selected = _select_pilot_subset(prepared, case_ids=["C06"], replicates=[1])
+
+    assert len(schedule.items) == 18
+    assert len(selected) == 3
+    assert {item["schedule"]["knowledge_condition"] for item in selected} == {
+        "llm_only",
+        "llm_capability_kg",
+        "llm_full_contract_kg",
+    }
+    assert {item["schedule"]["case_id"] for item in selected} == {"C06"}
+    assert {item["schedule"]["replicate"] for item in selected} == {1}
+
+
+def test_pilot_subset_rejects_unknown_selection() -> None:
+    _, prepared = prepare_pilot(MANIFEST)
+
+    with pytest.raises(ValueError, match="Unknown pilot case IDs"):
+        _select_pilot_subset(prepared, case_ids=["C99"], replicates=[1])
+
+
+def test_subset_schedule_remains_schema_valid(tmp_path: Path) -> None:
+    from scripts.run_research_llm_pilot import main
+
+    output = tmp_path / "subset"
+    original_argv = sys.argv
+    try:
+        sys.argv = [
+            "run_research_llm_pilot.py",
+            "--manifest",
+            str(MANIFEST),
+            "--output",
+            str(output),
+            "--case-id",
+            "C06",
+            "--replicate",
+            "1",
+        ]
+        assert main() == 0
+    finally:
+        sys.argv = original_argv
+
+    payload = json.loads((output / "schedule.json").read_text(encoding="utf-8"))
+    schedule = ResearchLLMPilotSchedule.model_validate(payload)
+    assert schedule.cases == ["C06"]
+    assert schedule.replicates == 1
+    assert len(schedule.items) == 3

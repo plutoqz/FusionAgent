@@ -75,7 +75,12 @@ def prepare_pilot(manifest_path: Path) -> tuple[Any, list[dict[str, Any]]]:
     return schedule, prepared
 
 
-def execute_pilot(prepared: list[dict[str, Any]], output_dir: Path) -> list[dict[str, Any]]:
+def execute_pilot(
+    prepared: list[dict[str, Any]],
+    output_dir: Path,
+    *,
+    pilot_scope: str,
+) -> list[dict[str, Any]]:
     model = _required_env("GEOFUSION_LLM_MODEL")
     base_url = os.getenv("GEOFUSION_LLM_BASE_URL", "https://api.openai.com/v1")
     max_output_tokens = _required_positive_int("GEOFUSION_LLM_MAX_OUTPUT_TOKENS")
@@ -107,6 +112,9 @@ def execute_pilot(prepared: list[dict[str, Any]], output_dir: Path) -> list[dict
             "fallback": "forbidden",
             "json_salvage": "forbidden",
             "transport_retries": 0,
+            "semantic_repairs": 0,
+            "pilot_scope": pilot_scope,
+            "claim_eligible": False,
         },
     )
     results: list[dict[str, Any]] = []
@@ -178,19 +186,70 @@ def main() -> int:
     )
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--execute", action="store_true", help="Make real provider calls. Default is dry-run only.")
+    parser.add_argument(
+        "--case-id",
+        action="append",
+        dest="case_ids",
+        help="Restrict the pilot to one or more scheduled case IDs.",
+    )
+    parser.add_argument(
+        "--replicate",
+        action="append",
+        type=int,
+        dest="replicates",
+        help="Restrict the pilot to one or more scheduled replicate numbers.",
+    )
     args = parser.parse_args()
 
     if args.output.exists():
         raise RuntimeError(f"Refusing to overwrite pilot evidence directory: {args.output}")
     args.output.mkdir(parents=True)
     schedule, prepared = prepare_pilot(args.manifest)
-    _write_json(args.output / "schedule.json", schedule.model_dump(mode="json"))
+    prepared = _select_pilot_subset(
+        prepared,
+        case_ids=args.case_ids,
+        replicates=args.replicates,
+    )
+    pilot_scope = "full_18_call_pilot" if len(prepared) == len(schedule.items) else "diagnostic_subset_pilot"
+    schedule_payload = schedule.model_dump(mode="json")
+    schedule_metadata = dict(schedule_payload["metadata"])
+    schedule_metadata.update(
+        {
+            "pilot_scope": pilot_scope,
+            "claim_eligible": False,
+            "selected_call_count": len(prepared),
+            "selection": {
+                "case_ids": sorted({item["schedule"]["case_id"] for item in prepared}),
+                "replicates": sorted({item["schedule"]["replicate"] for item in prepared}),
+            },
+        }
+    )
+    schedule_payload.update(
+        {
+            "cases": sorted({item["schedule"]["case_id"] for item in prepared}),
+            "knowledge_conditions": sorted(
+                {item["schedule"]["knowledge_condition"] for item in prepared}
+            ),
+            "replicates": len({item["schedule"]["replicate"] for item in prepared}),
+            "metadata": schedule_metadata,
+        }
+    )
+    schedule_payload["items"] = [item["schedule"] for item in prepared]
+    _write_json(args.output / "schedule.json", schedule_payload)
     _write_json(args.output / "prepared_inputs.json", prepared)
     if not args.execute:
-        _write_json(args.output / "preflight.json", {"status": "prepared", "main_call_count": len(prepared)})
+        _write_json(
+            args.output / "preflight.json",
+            {
+                "status": "prepared",
+                "main_call_count": len(prepared),
+                "pilot_scope": pilot_scope,
+                "claim_eligible": False,
+            },
+        )
         return 0
 
-    results = execute_pilot(prepared, args.output)
+    results = execute_pilot(prepared, args.output, pilot_scope=pilot_scope)
     _write_json(
         args.output / "pilot_summary.json",
         {
@@ -202,6 +261,33 @@ def main() -> int:
         },
     )
     return 0
+
+
+def _select_pilot_subset(
+    prepared: list[dict[str, Any]],
+    *,
+    case_ids: list[str] | None,
+    replicates: list[int] | None,
+) -> list[dict[str, Any]]:
+    known_cases = {item["schedule"]["case_id"] for item in prepared}
+    known_replicates = {item["schedule"]["replicate"] for item in prepared}
+    requested_cases = set(case_ids or known_cases)
+    requested_replicates = set(replicates or known_replicates)
+    unknown_cases = requested_cases - known_cases
+    unknown_replicates = requested_replicates - known_replicates
+    if unknown_cases:
+        raise ValueError(f"Unknown pilot case IDs: {sorted(unknown_cases)}")
+    if unknown_replicates:
+        raise ValueError(f"Unknown pilot replicates: {sorted(unknown_replicates)}")
+    selected = [
+        item
+        for item in prepared
+        if item["schedule"]["case_id"] in requested_cases
+        and item["schedule"]["replicate"] in requested_replicates
+    ]
+    if not selected:
+        raise ValueError("Pilot selection is empty")
+    return selected
 
 
 def _required_env(*names: str) -> str:
