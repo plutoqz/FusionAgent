@@ -116,6 +116,12 @@ def analyze_pilot(root: Path, *, manifest_path: Path = DEFAULT_MANIFEST) -> dict
         blockers.append("evaluation_or_policy_hints_are_visible_to_llm_inputs")
     if any(row["finish_reason"] == "length" for row in rows):
         blockers.append("max_output_tokens_insufficient_for_all_pilot_inputs")
+    if any(
+        not check["passed"]
+        for row in rows
+        for check in row["evaluation"]["automatic_checks"]
+    ):
+        blockers.append("pilot_automatic_rubric_checks_failed")
     blockers.append("formal_protocol_and_evaluator_hash_not_frozen")
     return {
         "diagnostic_only": True,

@@ -144,6 +144,10 @@ pilot 审计曾确认旧 v2 输入的 18/18 LLM 调用暴露 `expected_consequen
 
 当前已为 C01-C06 增加声明式 planning rubric，并实现通用 evaluator v1。自动项只评价 strict schema 前置有效性、decision、grounding、任务集合、gap、顺序、precedence 和 delivery state；provenance、semantic guard、supersession 等语义项保持 `manual_review=pending`，不通过关键词匹配自动判定。聚焦验证为 `26 passed`。旧 18-call pilot 已生成 `pilot_scoring_replay.json`，其中强制记录 `diagnostic_only=true`、`input_leakage=true`、`claim_eligible=false`；其评分只能验证 evaluator 回放链路，不能作为模型质量或组间差异证据。
 
-当前仍为 `formal_ready=false`：v3 无泄漏输入尚未经过真实小规模 pilot，rubric/evaluator 协议与 hash 尚未冻结，且旧真实 pilot 有两次 C06 调用耗尽 8192 output tokens。`max_tokens=16384` 与至少 600,000-token 的同规模批次预算仍是候选参数，不是正式冻结值。planning-only formal 和选择性端到端均未执行。
+当前仍为 `formal_ready=false`：v3 无泄漏输入已完成 C06 真实压力小 pilot，但暴露 C06 输入与 gold 的决策时点不闭合；rubric/evaluator 协议与 hash 也尚未冻结。`max_tokens=16384` 与至少 600,000-token 的同规模批次预算仍是候选参数，不是正式冻结值。planning-only formal 和选择性端到端均未执行。
+
+2026-08-13 已在提交 `d15ed71` 上执行 C06 的 v3 真实压力小 pilot：三种 LLM knowledge condition 各一次，共 3 次 DeepSeek 官方 `deepseek-v4-flash` 调用。3/3 为 HTTP 200、响应模型一致、`finish_reason=stop`、strict JSON/schema 成功，总消耗 32,072 tokens；输入泄漏为 0，未使用 retry、repair、salvage 或 fallback。该结果只说明 `max_tokens=16384` 在这 3 次 C06 调用中未复现旧有截断，不足以冻结参数或证明模型质量。
+
+该小 pilot 同时发现 formal blocker：C06 v3 的 planner observations 只包含初始双源和 recovery source，没有“首次质量门失败”这一运行事实；gold rubric 却要求直接输出 provisional/degraded/gap 恢复状态。`llm_only` 自动检查全部通过，而 capability-KG 与 full-contract-KG 均规划双源 `planned`，decision/state 两项未通过。当前证据支持“案例输入与评分目标不闭合”，不支持通过修改 prompt、放宽评分或补跑来消除失败。正式实验保持暂停，须先重新冻结 C06 的决策时点、可见观察和 gold 语义。
 
 具体优先级、退出条件和论文映射见[论文主张与优先级](claims-and-priorities.md)。

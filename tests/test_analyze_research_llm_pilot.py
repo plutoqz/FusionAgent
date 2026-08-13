@@ -61,4 +61,5 @@ def test_analyzer_recovers_usage_and_detects_input_leakage(tmp_path: Path) -> No
     assert report["input_leakage_audit"]["affected_runs"] == 1
     assert "expected_consequence" in report["input_leakage_audit"]["keys"]
     assert report["runs"][0]["evaluation"]["pre_fallback_valid"] is False
+    assert "pilot_automatic_rubric_checks_failed" in report["formal_blockers"]
     assert report["formal_ready"] is False
