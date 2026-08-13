@@ -1,7 +1,13 @@
 from pathlib import Path
 
 from schemas.research_llm_pilot import ResearchPlanningDecision, build_research_llm_pilot_schedule
-from scripts.run_research_llm_pilot import prepare_pilot
+import pytest
+
+from scripts.run_research_llm_pilot import (
+    _conservative_token_estimate,
+    _validate_batch_token_budget,
+    prepare_pilot,
+)
 
 
 MANIFEST = Path(__file__).parents[1] / "docs" / "current" / "research-case-manifest-v1.json"
@@ -35,3 +41,27 @@ def test_pilot_preflight_materializes_isolated_hashed_inputs() -> None:
             assert "kg_capability" in payload and "kg_contract" not in payload
         else:
             assert "kg_capability" in payload and "kg_contract" in payload
+
+
+def test_pilot_token_estimate_is_conservative_for_utf8_payload() -> None:
+    estimate = _conservative_token_estimate("system", {"message": "test"})
+
+    assert estimate >= 10
+
+
+def test_pilot_batch_budget_must_cover_all_bounded_requests() -> None:
+    prepared = [{"payload": {"message": "test"}} for _ in range(18)]
+
+    bound = _validate_batch_token_budget(
+        prepared,
+        max_output_tokens=8192,
+        token_budget=500_000,
+    )
+
+    assert bound < 500_000
+    with pytest.raises(RuntimeError, match="below the conservative batch bound"):
+        _validate_batch_token_budget(
+            prepared,
+            max_output_tokens=8192,
+            token_budget=100,
+        )

@@ -6,6 +6,7 @@ import os
 import sys
 from pathlib import Path
 from typing import Any
+from urllib.parse import urlsplit
 
 from pydantic import ValidationError
 
@@ -26,6 +27,15 @@ Return exactly one JSON object conforming to the supplied output_schema.
 Use only information present in the input. Do not invent sources, algorithms, contracts, or evidence.
 Rejection, gaps, provisional delivery, degradation, and manual intervention are valid decisions.
 """
+
+FATAL_PILOT_FAILURES = {
+    "http_error",
+    "transport_error",
+    "response_model_mismatch",
+    "usage_missing",
+    "token_budget_exceeded",
+    "token_budget_preflight_exceeded",
+}
 
 
 def prepare_pilot(manifest_path: Path) -> tuple[Any, list[dict[str, Any]]]:
@@ -54,34 +64,96 @@ def prepare_pilot(manifest_path: Path) -> tuple[Any, list[dict[str, Any]]]:
 
 
 def execute_pilot(prepared: list[dict[str, Any]], output_dir: Path) -> list[dict[str, Any]]:
+    model = _required_env("GEOFUSION_LLM_MODEL")
+    base_url = os.getenv("GEOFUSION_LLM_BASE_URL", "https://api.openai.com/v1")
+    max_output_tokens = _required_positive_int("GEOFUSION_LLM_MAX_OUTPUT_TOKENS")
+    token_budget = _required_positive_int("GEOFUSION_LLM_PILOT_TOKEN_BUDGET")
     provider = OpenAICompatibleProvider(
         api_key=_required_env("OPENAI_API_KEY", "GEOFUSION_LLM_API_KEY"),
-        model=_required_env("GEOFUSION_LLM_MODEL"),
-        base_url=os.getenv("GEOFUSION_LLM_BASE_URL", "https://api.openai.com/v1"),
+        model=model,
+        base_url=base_url,
         timeout_sec=int(os.getenv("GEOFUSION_LLM_TIMEOUT_SEC", "60")),
         allow_json_salvage=False,
+        max_output_tokens=max_output_tokens,
+    )
+    conservative_total_bound = _validate_batch_token_budget(
+        prepared,
+        max_output_tokens=max_output_tokens,
+        token_budget=token_budget,
+    )
+    _write_json(
+        output_dir / "execution_config.json",
+        {
+            "provider": "openai_compatible",
+            "base_url_host": urlsplit(base_url).netloc,
+            "requested_model": model,
+            "temperature": 0.1,
+            "response_format": {"type": "json_object"},
+            "max_output_tokens": max_output_tokens,
+            "token_budget": token_budget,
+            "conservative_total_token_bound": conservative_total_bound,
+            "fallback": "forbidden",
+            "json_salvage": "forbidden",
+            "transport_retries": 0,
+        },
     )
     results: list[dict[str, Any]] = []
+    consumed_tokens = 0
     for run in prepared:
         run_id = run["schedule"]["run_id"]
         run_dir = output_dir / "runs" / run_id
         run_dir.mkdir(parents=True, exist_ok=False)
         result: dict[str, Any] = {"run_id": run_id, "input_hash": run["input_hash"], "success": False}
+        estimated_prompt_tokens = _conservative_token_estimate(SYSTEM_PROMPT, run["payload"])
+        if consumed_tokens + estimated_prompt_tokens + max_output_tokens > token_budget:
+            result.update(
+                failure_class="token_budget_preflight_exceeded",
+                error=f"Pilot token budget of {token_budget} cannot cover the next bounded request.",
+            )
+            result["attempt"] = None
+            _write_json(run_dir / "result.json", result)
+            results.append(result)
+            break
         try:
             raw_plan = provider.generate_workflow_plan(SYSTEM_PROMPT, run["payload"])
         except Exception as exc:  # noqa: BLE001
             attempt_failure = (provider.last_attempt or {}).get("failure_class")
             result.update(failure_class=attempt_failure or "provider_failure", error=str(exc))
         else:
-            try:
-                plan = ResearchPlanningDecision.model_validate(raw_plan)
-            except ValidationError as exc:
-                result.update(failure_class="output_schema_validation_failure", error=str(exc))
+            attempt = provider.last_attempt or {}
+            response_model = attempt.get("response_model")
+            usage = attempt.get("usage")
+            total_tokens = usage.get("total_tokens") if isinstance(usage, dict) else None
+            if response_model != model:
+                result.update(
+                    failure_class="response_model_mismatch",
+                    error=f"Requested model {model!r}, provider returned {response_model!r}.",
+                )
+            elif not isinstance(total_tokens, int) or total_tokens < 0:
+                result.update(
+                    failure_class="usage_missing",
+                    error="Provider response did not include a valid usage.total_tokens value.",
+                )
             else:
-                result.update(success=True, plan=plan.model_dump(mode="json"))
+                consumed_tokens += total_tokens
+                if consumed_tokens > token_budget:
+                    result.update(
+                        failure_class="token_budget_exceeded",
+                        error=f"Pilot token budget of {token_budget} was exceeded by the provider response.",
+                    )
+                else:
+                    try:
+                        plan = ResearchPlanningDecision.model_validate(raw_plan)
+                    except ValidationError as exc:
+                        result.update(failure_class="output_schema_validation_failure", error=str(exc))
+                    else:
+                        result.update(success=True, plan=plan.model_dump(mode="json"))
+            result["consumed_tokens_after_call"] = consumed_tokens
         result["attempt"] = provider.last_attempt
         _write_json(run_dir / "result.json", result)
         results.append(result)
+        if result.get("failure_class") in FATAL_PILOT_FAILURES:
+            break
     return results
 
 
@@ -114,6 +186,10 @@ def main() -> int:
             "main_call_count": len(results),
             "successful_calls": sum(1 for item in results if item["success"]),
             "failed_calls": sum(1 for item in results if not item["success"]),
+            "consumed_tokens": sum(
+                int((item.get("attempt") or {}).get("usage", {}).get("total_tokens") or 0)
+                for item in results
+            ),
         },
     )
     return 0
@@ -125,6 +201,40 @@ def _required_env(*names: str) -> str:
         if value:
             return value
     raise RuntimeError(f"Missing required environment variable: {' or '.join(names)}")
+
+
+def _required_positive_int(name: str) -> int:
+    raw = _required_env(name)
+    try:
+        value = int(raw)
+    except ValueError as exc:
+        raise RuntimeError(f"{name} must be an integer.") from exc
+    if value <= 0:
+        raise RuntimeError(f"{name} must be greater than zero.")
+    return value
+
+
+def _conservative_token_estimate(system_prompt: str, context: dict[str, Any]) -> int:
+    encoded = (system_prompt + json.dumps(context, ensure_ascii=False, sort_keys=True)).encode("utf-8")
+    return (len(encoded) + 1) // 2
+
+
+def _validate_batch_token_budget(
+    prepared: list[dict[str, Any]],
+    *,
+    max_output_tokens: int,
+    token_budget: int,
+) -> int:
+    conservative_total_bound = sum(
+        _conservative_token_estimate(SYSTEM_PROMPT, run["payload"]) + max_output_tokens
+        for run in prepared
+    )
+    if conservative_total_bound > token_budget:
+        raise RuntimeError(
+            "GEOFUSION_LLM_PILOT_TOKEN_BUDGET is below the conservative batch bound: "
+            f"budget={token_budget}, bound={conservative_total_bound}."
+        )
+    return conservative_total_bound
 
 
 def _write_json(path: Path, payload: Any) -> None:

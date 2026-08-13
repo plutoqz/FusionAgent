@@ -36,12 +36,14 @@ class OpenAICompatibleProvider(LLMProvider):
         base_url: str = "https://api.openai.com/v1",
         timeout_sec: int = 60,
         allow_json_salvage: bool = True,
+        max_output_tokens: int | None = None,
     ) -> None:
         self.api_key = api_key
         self.model = model
         self.base_url = base_url.rstrip("/")
         self.timeout_sec = timeout_sec
         self.allow_json_salvage = allow_json_salvage
+        self.max_output_tokens = max_output_tokens
 
     def probe_connection(self) -> None:
         parsed_url = urlsplit(self.base_url)
@@ -97,6 +99,8 @@ class OpenAICompatibleProvider(LLMProvider):
                 {"role": "user", "content": json.dumps(context, ensure_ascii=False)},
             ],
         }
+        if self.max_output_tokens is not None:
+            payload["max_tokens"] = self.max_output_tokens
 
         data = json.dumps(payload).encode("utf-8")
         started_at = datetime.now(timezone.utc).isoformat()

@@ -26,6 +26,7 @@ def test_openai_provider_captures_usage_and_response_model(monkeypatch) -> None:
         api_key="test-key",
         model="gpt-test-request",
         base_url="https://example.test/v1",
+        max_output_tokens=8192,
     )
     response_payload = {
         "model": "gpt-test-response",
@@ -43,13 +44,16 @@ def test_openai_provider_captures_usage_and_response_model(monkeypatch) -> None:
             }
         ],
     }
+    requests = []
 
-    monkeypatch.setattr(
-        "llm.providers.openai_compatible.urllib.request.urlopen",
-        lambda request, timeout: _FakeResponse(response_payload),
-    )
+    def fake_urlopen(request, timeout):
+        requests.append(request)
+        return _FakeResponse(response_payload)
+
+    monkeypatch.setattr("llm.providers.openai_compatible.urllib.request.urlopen", fake_urlopen)
 
     plan = provider.generate_workflow_plan("system", {"intent": {"job_type": "building"}})
+    sent_payload = json.loads(requests[0].data.decode("utf-8"))
 
     assert plan == {"workflow_id": "wf_openai", "tasks": []}
     assert provider.last_usage == {"prompt_tokens": 10, "completion_tokens": 4, "total_tokens": 14}
@@ -60,6 +64,7 @@ def test_openai_provider_captures_usage_and_response_model(monkeypatch) -> None:
     assert provider.last_attempt["request_id"] == "req-test-1"
     assert provider.last_attempt["finish_reason"] is None
     assert provider.last_attempt["raw_response"] == json.dumps(response_payload)
+    assert sent_payload["max_tokens"] == 8192
 
 
 def test_openai_provider_resets_usage_before_failed_request(monkeypatch) -> None:
