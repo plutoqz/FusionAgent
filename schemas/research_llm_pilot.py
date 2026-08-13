@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import random
 from typing import TYPE_CHECKING, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, model_validator
@@ -113,5 +114,37 @@ def build_research_llm_pilot_schedule() -> ResearchLLMPilotSchedule:
             "semantic_repairs": 0,
             "transport_retries": 0,
             "fallback": "forbidden",
+        },
+    )
+
+
+def build_research_llm_formal_schedule(*, schedule_seed: int) -> ResearchLLMPilotSchedule:
+    cases = [f"C{index:02d}" for index in range(1, 7)]
+    conditions = ["llm_only", "llm_capability_kg", "llm_full_contract_kg"]
+    items = [
+        PilotScheduleItem(
+            run_id=f"formal-{case_id.lower()}-{condition}-r1",
+            case_id=case_id,
+            knowledge_condition=condition,
+            replicate=1,
+        )
+        for case_id in cases
+        for condition in conditions
+    ]
+    random.Random(schedule_seed).shuffle(items)
+    return ResearchLLMPilotSchedule(
+        protocol_id="fusionagent.planning-formal.v1",
+        status="draft_preflight",
+        cases=cases,
+        knowledge_conditions=conditions,
+        replicates=1,
+        items=items,
+        metadata={
+            "schedule_seed": schedule_seed,
+            "main_call_count": 18,
+            "semantic_repairs": 0,
+            "transport_retries": 0,
+            "fallback": "forbidden",
+            "stability_claim_eligible": False,
         },
     )

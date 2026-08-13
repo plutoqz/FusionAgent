@@ -50,6 +50,10 @@ FATAL_PILOT_FAILURES = {
 def prepare_pilot(manifest_path: Path) -> tuple[Any, list[dict[str, Any]]]:
     manifest = load_research_case_manifest(manifest_path)
     schedule = build_research_llm_pilot_schedule()
+    return schedule, prepare_research_schedule(manifest, schedule)
+
+
+def prepare_research_schedule(manifest: Any, schedule: Any) -> list[dict[str, Any]]:
     repository = InMemoryKGRepository(experience_policy="pinned_snapshot")
     crosswalk_failures = validate_manifest_crosswalk(manifest, repository)
     if crosswalk_failures:
@@ -72,7 +76,7 @@ def prepare_pilot(manifest_path: Path) -> tuple[Any, list[dict[str, Any]]]:
                 "payload": projection.payload,
             }
         )
-    return schedule, prepared
+    return prepared
 
 
 def execute_pilot(
