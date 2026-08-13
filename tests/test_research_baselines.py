@@ -102,4 +102,13 @@ def test_observation_projection_does_not_invent_default_empty_facts() -> None:
     c06 = next(case for case in manifest.cases if case.case_id == "C06")
 
     assert factory.build(c03).observable_facts["observations"] == {}
-    assert set(factory.build(c06).observable_facts["observations"]) == {"initial_sources", "recovery_source"}
+    observations = factory.build(c06).observable_facts["observations"]
+    assert set(observations) == {
+        "initial_sources",
+        "recovery_source",
+        "planning_stage",
+        "observed_failure",
+    }
+    assert observations["planning_stage"] == "recovery_replan"
+    assert observations["observed_failure"]["quality_gate_accepted"] is False
+    assert observations["observed_failure"]["external_uncontrollable_source_ids"] == []

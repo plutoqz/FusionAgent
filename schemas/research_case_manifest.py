@@ -23,6 +23,39 @@ class ResearchRequestScope(BaseModel):
     resource_regime: str = "unspecified"
 
 
+class ResearchObservedFailure(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    stage_id: str
+    task_kind: str
+    failure_category: str
+    quality_gate_accepted: Literal[False]
+    recoverable: bool
+    available_source_ids: list[str] = Field(default_factory=list)
+    external_uncontrollable_source_ids: list[str] = Field(default_factory=list)
+    system_failure_source_ids: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def validate_source_classification(self) -> "ResearchObservedFailure":
+        source_groups = {
+            "available_source_ids": self.available_source_ids,
+            "external_uncontrollable_source_ids": self.external_uncontrollable_source_ids,
+            "system_failure_source_ids": self.system_failure_source_ids,
+        }
+        for field_name, values in source_groups.items():
+            if len(values) != len(set(values)):
+                raise ValueError(f"{field_name} values must be unique")
+        classified: dict[str, str] = {}
+        for field_name, values in source_groups.items():
+            for source_id in values:
+                if source_id in classified:
+                    raise ValueError(
+                        f"source {source_id} is classified by both {classified[source_id]} and {field_name}"
+                    )
+                classified[source_id] = field_name
+        return self
+
+
 class ResearchObservations(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -35,6 +68,8 @@ class ResearchObservations(BaseModel):
     building_partial_coverage_allowed: bool | None = None
     catalog_source_id: str | None = None
     source_conflict: dict[str, Any] | None = None
+    planning_stage: Literal["initial_planning", "recovery_replan"] | None = None
+    observed_failure: ResearchObservedFailure | None = None
 
 
 class ResearchGoldRubric(BaseModel):
@@ -120,6 +155,25 @@ class ResearchCase(BaseModel):
             raise ValueError(f"{self.case_id} requires end_to_end_checkpoints")
         if self.scenario.disaster_type.strip() == "":
             raise ValueError(f"{self.case_id} has an empty disaster_type")
+        if self.observations.planning_stage == "recovery_replan" and self.observations.observed_failure is None:
+            raise ValueError(f"{self.case_id} recovery_replan requires observed_failure")
+        if self.observations.observed_failure is not None and self.observations.planning_stage != "recovery_replan":
+            raise ValueError(f"{self.case_id} observed_failure requires recovery_replan")
+        failure = self.observations.observed_failure
+        if failure is not None and failure.task_kind not in self.request_scope.task_kinds:
+            raise ValueError(f"{self.case_id} observed_failure task is outside request scope")
+        initial_sources = set(self.observations.initial_sources)
+        if self.observations.recovery_source and self.observations.recovery_source not in initial_sources:
+            raise ValueError(f"{self.case_id} recovery_source is not an initial source")
+        if failure is not None:
+            classified_sources = (
+                set(failure.available_source_ids)
+                | set(failure.external_uncontrollable_source_ids)
+                | set(failure.system_failure_source_ids)
+            )
+            unknown_sources = classified_sources - initial_sources
+            if unknown_sources:
+                raise ValueError(f"{self.case_id} failure classifies unknown sources: {sorted(unknown_sources)}")
         return self
 
 class ResearchCaseManifest(BaseModel):

@@ -18,6 +18,10 @@ def test_research_case_manifest_is_valid_and_closed() -> None:
     assert [case.case_id for case in manifest.cases] == ["C01", "C02", "C03", "C04", "C05", "C06"]
     assert set(manifest.end_to_end_case_ids) == {"C02", "C04", "C06"}
     assert set(manifest.negative_control_case_ids) == {"C03"}
+    c06 = next(case for case in manifest.cases if case.case_id == "C06")
+    assert manifest.manifest_version == "1.2.0-draft"
+    assert c06.version == "1.2.0-draft"
+    assert c06.observations.planning_stage == "recovery_replan"
 
 
 def test_manifest_rejects_unknown_partition_case() -> None:
@@ -92,4 +96,42 @@ def test_manifest_rejects_duplicate_scoring_items() -> None:
     payload["cases"][0]["gold_rubric"]["expected_task_kinds"].append("road")
 
     with pytest.raises(ValueError, match="expected_task_kinds values must be unique"):
+        ResearchCaseManifest.model_validate(payload)
+
+
+def test_manifest_recovery_replan_requires_observed_failure() -> None:
+    payload = load_research_case_manifest(MANIFEST).model_dump(mode="json")
+    c06 = next(case for case in payload["cases"] if case["case_id"] == "C06")
+    c06["observations"]["observed_failure"] = None
+
+    with pytest.raises(ValueError, match="recovery_replan requires observed_failure"):
+        ResearchCaseManifest.model_validate(payload)
+
+
+def test_manifest_failure_observation_cannot_leak_into_initial_planning() -> None:
+    payload = load_research_case_manifest(MANIFEST).model_dump(mode="json")
+    c06 = next(case for case in payload["cases"] if case["case_id"] == "C06")
+    c06["observations"]["planning_stage"] = "initial_planning"
+
+    with pytest.raises(ValueError, match="observed_failure requires recovery_replan"):
+        ResearchCaseManifest.model_validate(payload)
+
+
+def test_manifest_rejects_overlapping_failure_source_classification() -> None:
+    payload = load_research_case_manifest(MANIFEST).model_dump(mode="json")
+    c06 = next(case for case in payload["cases"] if case["case_id"] == "C06")
+    c06["observations"]["observed_failure"]["external_uncontrollable_source_ids"] = [
+        "raw.microsoft.road"
+    ]
+
+    with pytest.raises(ValueError, match="classified by both"):
+        ResearchCaseManifest.model_validate(payload)
+
+
+def test_manifest_rejects_recovery_source_outside_initial_sources() -> None:
+    payload = load_research_case_manifest(MANIFEST).model_dump(mode="json")
+    c06 = next(case for case in payload["cases"] if case["case_id"] == "C06")
+    c06["observations"]["recovery_source"] = "raw.unknown.road"
+
+    with pytest.raises(ValueError, match="recovery_source is not an initial source"):
         ResearchCaseManifest.model_validate(payload)

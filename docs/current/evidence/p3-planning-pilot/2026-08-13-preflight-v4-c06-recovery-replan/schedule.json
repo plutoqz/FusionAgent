@@ -1,0 +1,163 @@
+{
+  "cases": [
+    "C02",
+    "C03",
+    "C06"
+  ],
+  "items": [
+    {
+      "case_id": "C02",
+      "input_variant": "canonical_v2",
+      "knowledge_condition": "llm_only",
+      "replicate": 1,
+      "run_id": "pilot-c02-llm_only-r1"
+    },
+    {
+      "case_id": "C02",
+      "input_variant": "canonical_v2",
+      "knowledge_condition": "llm_only",
+      "replicate": 2,
+      "run_id": "pilot-c02-llm_only-r2"
+    },
+    {
+      "case_id": "C02",
+      "input_variant": "canonical_v2",
+      "knowledge_condition": "llm_capability_kg",
+      "replicate": 1,
+      "run_id": "pilot-c02-llm_capability_kg-r1"
+    },
+    {
+      "case_id": "C02",
+      "input_variant": "canonical_v2",
+      "knowledge_condition": "llm_capability_kg",
+      "replicate": 2,
+      "run_id": "pilot-c02-llm_capability_kg-r2"
+    },
+    {
+      "case_id": "C02",
+      "input_variant": "canonical_v2",
+      "knowledge_condition": "llm_full_contract_kg",
+      "replicate": 1,
+      "run_id": "pilot-c02-llm_full_contract_kg-r1"
+    },
+    {
+      "case_id": "C02",
+      "input_variant": "canonical_v2",
+      "knowledge_condition": "llm_full_contract_kg",
+      "replicate": 2,
+      "run_id": "pilot-c02-llm_full_contract_kg-r2"
+    },
+    {
+      "case_id": "C03",
+      "input_variant": "canonical_v2",
+      "knowledge_condition": "llm_only",
+      "replicate": 1,
+      "run_id": "pilot-c03-llm_only-r1"
+    },
+    {
+      "case_id": "C03",
+      "input_variant": "canonical_v2",
+      "knowledge_condition": "llm_only",
+      "replicate": 2,
+      "run_id": "pilot-c03-llm_only-r2"
+    },
+    {
+      "case_id": "C03",
+      "input_variant": "canonical_v2",
+      "knowledge_condition": "llm_capability_kg",
+      "replicate": 1,
+      "run_id": "pilot-c03-llm_capability_kg-r1"
+    },
+    {
+      "case_id": "C03",
+      "input_variant": "canonical_v2",
+      "knowledge_condition": "llm_capability_kg",
+      "replicate": 2,
+      "run_id": "pilot-c03-llm_capability_kg-r2"
+    },
+    {
+      "case_id": "C03",
+      "input_variant": "canonical_v2",
+      "knowledge_condition": "llm_full_contract_kg",
+      "replicate": 1,
+      "run_id": "pilot-c03-llm_full_contract_kg-r1"
+    },
+    {
+      "case_id": "C03",
+      "input_variant": "canonical_v2",
+      "knowledge_condition": "llm_full_contract_kg",
+      "replicate": 2,
+      "run_id": "pilot-c03-llm_full_contract_kg-r2"
+    },
+    {
+      "case_id": "C06",
+      "input_variant": "canonical_v2",
+      "knowledge_condition": "llm_only",
+      "replicate": 1,
+      "run_id": "pilot-c06-llm_only-r1"
+    },
+    {
+      "case_id": "C06",
+      "input_variant": "canonical_v2",
+      "knowledge_condition": "llm_only",
+      "replicate": 2,
+      "run_id": "pilot-c06-llm_only-r2"
+    },
+    {
+      "case_id": "C06",
+      "input_variant": "canonical_v2",
+      "knowledge_condition": "llm_capability_kg",
+      "replicate": 1,
+      "run_id": "pilot-c06-llm_capability_kg-r1"
+    },
+    {
+      "case_id": "C06",
+      "input_variant": "canonical_v2",
+      "knowledge_condition": "llm_capability_kg",
+      "replicate": 2,
+      "run_id": "pilot-c06-llm_capability_kg-r2"
+    },
+    {
+      "case_id": "C06",
+      "input_variant": "canonical_v2",
+      "knowledge_condition": "llm_full_contract_kg",
+      "replicate": 1,
+      "run_id": "pilot-c06-llm_full_contract_kg-r1"
+    },
+    {
+      "case_id": "C06",
+      "input_variant": "canonical_v2",
+      "knowledge_condition": "llm_full_contract_kg",
+      "replicate": 2,
+      "run_id": "pilot-c06-llm_full_contract_kg-r2"
+    }
+  ],
+  "knowledge_conditions": [
+    "llm_capability_kg",
+    "llm_full_contract_kg",
+    "llm_only"
+  ],
+  "metadata": {
+    "claim_eligible": false,
+    "fallback": "forbidden",
+    "main_call_count": 18,
+    "pilot_scope": "full_18_call_pilot",
+    "selected_call_count": 18,
+    "selection": {
+      "case_ids": [
+        "C02",
+        "C03",
+        "C06"
+      ],
+      "replicates": [
+        1,
+        2
+      ]
+    },
+    "semantic_repairs": 0,
+    "transport_retries": 0
+  },
+  "protocol_id": "fusionagent.llm-pilot.v1",
+  "replicates": 2,
+  "status": "draft_preflight"
+}

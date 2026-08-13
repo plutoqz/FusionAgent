@@ -44,6 +44,7 @@ def test_pilot_schedule_is_complete_18_call_cross_product() -> None:
         for replicate in (1, 2)
     }
     assert schedule.metadata["fallback"] == "forbidden"
+    assert {item.input_variant for item in schedule.items} == {"canonical_v2"}
 
 
 def test_pilot_preflight_materializes_isolated_hashed_inputs() -> None:

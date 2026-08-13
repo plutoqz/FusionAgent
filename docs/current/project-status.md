@@ -150,4 +150,6 @@ pilot 审计曾确认旧 v2 输入的 18/18 LLM 调用暴露 `expected_consequen
 
 该小 pilot 同时发现 formal blocker：C06 v3 的 planner observations 只包含初始双源和 recovery source，没有“首次质量门失败”这一运行事实；gold rubric 却要求直接输出 provisional/degraded/gap 恢复状态。`llm_only` 自动检查全部通过，而 capability-KG 与 full-contract-KG 均规划双源 `planned`，decision/state 两项未通过。当前证据支持“案例输入与评分目标不闭合”，不支持通过修改 prompt、放宽评分或补跑来消除失败。正式实验保持暂停，须先重新冻结 C06 的决策时点、可见观察和 gold 语义。
 
+C06 语义现已冻结为两阶段：P3 planning-only 评价“首次质量门拒绝后”的 `recovery_replan`；P4 end-to-end 从初始双源规划开始，实际执行到质量门失败后再构造同一 replan 输入。manifest `1.2.0-draft` 的 `observed_failure` 只记录已发生的质量门拒绝、可恢复性和当时双源均可用，不提前声称 external source failure；source external/system 分类互斥且只能引用 initial sources。v4 离线 preflight 位于 `docs/current/evidence/p3-planning-pilot/2026-08-13-preflight-v4-c06-recovery-replan/`，18 个输入泄漏为 0，相对 v3 仅 C06 的 6 个输入 hash 改变。正式实验仍需先通过 v4 C06 真实小 pilot。
+
 具体优先级、退出条件和论文映射见[论文主张与优先级](claims-and-priorities.md)。

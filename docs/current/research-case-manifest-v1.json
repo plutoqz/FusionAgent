@@ -1,6 +1,6 @@
 {
   "manifest_id": "fusionagent.research.case-set.v1",
-  "manifest_version": "1.1.0-draft",
+  "manifest_version": "1.2.0-draft",
   "status": "draft_before_formal_freeze",
   "kg_release": "kg.v1.0.0",
   "case_selection_basis": "theory_driven_mechanism_coverage",
@@ -217,7 +217,7 @@
     },
     {
       "case_id": "C06",
-      "version": "1.1.0-draft",
+      "version": "1.2.0-draft",
       "status": "planning_and_selective_end_to_end",
       "mechanism": "road_full_fusion_quality_failure_and_single_source_provisional_recovery",
       "research_questions": ["RQ2", "RQ3", "RQ4"],
@@ -233,7 +233,18 @@
       },
       "observations": {
         "initial_sources": ["raw.osm.road", "raw.microsoft.road"],
-        "recovery_source": "raw.osm.road"
+        "recovery_source": "raw.osm.road",
+        "planning_stage": "recovery_replan",
+        "observed_failure": {
+          "stage_id": "full_fusion_quality_gate",
+          "task_kind": "road",
+          "failure_category": "quality_gate_rejected_fusion_output",
+          "quality_gate_accepted": false,
+          "recoverable": true,
+          "available_source_ids": ["raw.osm.road", "raw.microsoft.road"],
+          "external_uncontrollable_source_ids": [],
+          "system_failure_source_ids": []
+        }
       },
       "gold_rubric": {
         "expected_consequence": "retain_raw_quality_failure_then_allow_only_provisional_degraded_recovery",
@@ -256,7 +267,7 @@
         "crosswalk_status": "closed_pending_degradation_semantic_pilot"
       },
       "end_to_end": true,
-      "end_to_end_checkpoints": ["initial_planning", "quality_gate_failure"]
+      "end_to_end_checkpoints": ["initial_planning", "quality_gate_failure", "recovery_replan", "provisional_delivery"]
     }
   ]
 }

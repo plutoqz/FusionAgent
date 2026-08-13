@@ -45,7 +45,7 @@ class PilotScheduleItem(BaseModel):
         "llm_full_contract_kg",
     ]
     replicate: int
-    input_variant: str = "canonical_v1"
+    input_variant: str = "canonical_v2"
 
     @property
     def baseline_group(self) -> "BaselineGroup":
