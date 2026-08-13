@@ -44,7 +44,7 @@ def test_pilot_schedule_is_complete_18_call_cross_product() -> None:
         for replicate in (1, 2)
     }
     assert schedule.metadata["fallback"] == "forbidden"
-    assert {item.input_variant for item in schedule.items} == {"canonical_v2"}
+    assert {item.input_variant for item in schedule.items} == {"canonical_v3"}
 
 
 def test_pilot_preflight_materializes_isolated_hashed_inputs() -> None:
@@ -94,6 +94,41 @@ def test_attempt_total_tokens_tolerates_missing_usage() -> None:
     assert _attempt_total_tokens(None) == 0
     assert _attempt_total_tokens({"usage": None}) == 0
     assert _attempt_total_tokens({"usage": {"total_tokens": 42}}) == 42
+
+
+def test_planning_schema_limits_product_tasks_and_defines_delivery_semantics() -> None:
+    schema = ResearchPlanningDecision.model_json_schema()
+    task_schema = schema["$defs"]["ResearchPlanTask"]["properties"]
+
+    assert task_schema["task_kind"]["enum"] == [
+        "building",
+        "road",
+        "water_polygon",
+        "waterways",
+        "poi",
+    ]
+    assert "internal transform" in task_schema["task_kind"]["description"]
+    assert "not a workflow lifecycle status" in task_schema["delivery_state"]["description"]
+    assert "unrestricted delivery" in schema["properties"]["decision"]["description"]
+
+
+def test_planning_schema_rejects_internal_workflow_step_as_product_task() -> None:
+    with pytest.raises(ValueError, match="task_kind"):
+        ResearchPlanningDecision.model_validate(
+            {
+                "decision": "degraded",
+                "tasks": [
+                    {
+                        "order": 1,
+                        "task_kind": "transform",
+                        "source_ids": ["raw.osm.road"],
+                        "algorithm_id": "algo.transform.raw_to_road_bundle",
+                        "delivery_state": "planned",
+                        "rationale": "internal workflow step",
+                    }
+                ],
+            }
+        )
 
 
 def test_pilot_subset_selects_case_and_replicate_without_changing_conditions() -> None:

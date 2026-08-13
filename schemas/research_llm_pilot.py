@@ -12,17 +12,30 @@ class ResearchPlanTask(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
     order: int
-    task_kind: str
+    task_kind: Literal["building", "road", "water_polygon", "waterways", "poi"] = Field(
+        description="Product task kind. Do not emit internal transform, validation, or workflow steps."
+    )
     source_ids: list[str] = Field(default_factory=list)
     algorithm_id: str | None = None
-    delivery_state: Literal["planned", "pending", "provisional", "degraded", "gap", "rejected"]
+    delivery_state: Literal["planned", "pending", "provisional", "degraded", "gap", "rejected"] = Field(
+        description=(
+            "Expected product delivery state after this plan executes: planned means unrestricted delivery is "
+            "expected; use pending, provisional, degraded, gap, or rejected when an observed constraint prevents "
+            "unrestricted delivery. This is not a workflow lifecycle status."
+        )
+    )
     rationale: str
 
 
 class ResearchPlanningDecision(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
-    decision: Literal["plan", "reject", "partial", "gap", "degraded", "manual_intervention"]
+    decision: Literal["plan", "reject", "partial", "gap", "degraded", "manual_intervention"] = Field(
+        description=(
+            "Overall expected product delivery posture. Use plan only when unrestricted delivery is expected; "
+            "otherwise choose the applicable constrained posture."
+        )
+    )
     tasks: list[ResearchPlanTask] = Field(default_factory=list)
     uncertainties: list[str] = Field(default_factory=list)
     evidence: list[str] = Field(default_factory=list)
@@ -45,7 +58,7 @@ class PilotScheduleItem(BaseModel):
         "llm_full_contract_kg",
     ]
     replicate: int
-    input_variant: str = "canonical_v2"
+    input_variant: str = "canonical_v3"
 
     @property
     def baseline_group(self) -> "BaselineGroup":
