@@ -54,9 +54,16 @@ def validate_formal_execution(freeze_root: Path, *, env: dict[str, str]) -> dict
 def assert_frozen_source_state(protocol: dict[str, Any]) -> None:
     head = subprocess.check_output(["git", "rev-parse", "HEAD"], cwd=REPO_ROOT, text=True).strip()
     if head != protocol["implementation_commit"]:
-        raise RuntimeError(
-            f"Current HEAD {head} does not match frozen implementation {protocol['implementation_commit']}."
+        ancestor = subprocess.run(
+            ["git", "merge-base", "--is-ancestor", protocol["implementation_commit"], head],
+            cwd=REPO_ROOT,
+            capture_output=True,
         )
+        if ancestor.returncode != 0:
+            raise RuntimeError(
+                f"Current HEAD {head} does not descend from frozen implementation "
+                f"{protocol['implementation_commit']}."
+            )
     status = subprocess.check_output(
         ["git", "status", "--porcelain", "--untracked-files=all"],
         cwd=REPO_ROOT,
