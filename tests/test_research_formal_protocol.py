@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 from schemas.research_llm_pilot import build_research_llm_formal_schedule
@@ -46,3 +47,61 @@ def test_formal_freeze_hashes_assets_and_keeps_immutable_model_blocker(tmp_path:
     assert audit["checks"]["prepared_inputs_hash"] is True
     assert audit["checks"]["immutable_model_revision"] is False
     assert audit["passed"] is False
+
+
+def test_formal_freeze_accepts_and_hashes_provider_revision_evidence(tmp_path: Path) -> None:
+    evidence = {
+        "provider": "deepseek_official",
+        "model": "deepseek-v4-flash",
+        "revision": "provider-revision-2026-08-13",
+        "immutable": True,
+        "production_release": True,
+        "evidence_source": "provider-issued model release record",
+        "issued_at": "2026-08-13T00:00:00Z",
+    }
+    evidence_path = tmp_path / "provider-evidence.json"
+    evidence_path.write_text(json.dumps(evidence), encoding="utf-8")
+
+    payload = build_formal_freeze(
+        manifest_path=MANIFEST,
+        implementation_commit="commit-under-test",
+        model_revision_evidence_path=evidence_path,
+    )
+    output = tmp_path / "formal-freeze"
+    write_formal_freeze(output, payload)
+    audit = verify_formal_freeze(output)
+
+    assert payload["protocol"]["formal_ready"] is True
+    assert payload["protocol"]["formal_blockers"] == []
+    assert payload["protocol"]["provider"]["model_revision"] == evidence["revision"]
+    assert audit["checks"]["immutable_model_revision"] is True
+    assert audit["passed"] is True
+
+
+def test_formal_freeze_rejects_unqualified_revision_evidence(tmp_path: Path) -> None:
+    evidence_path = tmp_path / "provider-evidence.json"
+    evidence_path.write_text(
+        json.dumps(
+            {
+                "provider": "deepseek_official",
+                "model": "deepseek-v4-flash",
+                "revision": "mutable-alias",
+                "immutable": False,
+                "production_release": True,
+                "evidence_source": "provider response",
+                "issued_at": "2026-08-13T00:00:00Z",
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    try:
+        build_formal_freeze(
+            manifest_path=MANIFEST,
+            implementation_commit="commit-under-test",
+            model_revision_evidence_path=evidence_path,
+        )
+    except ValueError as exc:
+        assert "does not match" in str(exc)
+    else:
+        raise AssertionError("Expected unqualified revision evidence to be rejected")

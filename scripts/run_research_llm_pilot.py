@@ -84,6 +84,9 @@ def execute_pilot(
     output_dir: Path,
     *,
     pilot_scope: str,
+    claim_eligible: bool = False,
+    protocol_id: str | None = None,
+    model_revision: str | None = None,
 ) -> list[dict[str, Any]]:
     model = _required_env("GEOFUSION_LLM_MODEL")
     base_url = os.getenv("GEOFUSION_LLM_BASE_URL", "https://api.openai.com/v1")
@@ -118,7 +121,9 @@ def execute_pilot(
             "transport_retries": 0,
             "semantic_repairs": 0,
             "pilot_scope": pilot_scope,
-            "claim_eligible": False,
+            "claim_eligible": claim_eligible,
+            "protocol_id": protocol_id,
+            "model_revision": model_revision,
         },
     )
     results: list[dict[str, Any]] = []

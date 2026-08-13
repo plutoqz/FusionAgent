@@ -35,7 +35,12 @@ IMPLEMENTATION_PATHS = (
 )
 
 
-def build_formal_freeze(*, manifest_path: Path, implementation_commit: str) -> dict[str, Any]:
+def build_formal_freeze(
+    *,
+    manifest_path: Path,
+    implementation_commit: str,
+    model_revision_evidence_path: Path | None = None,
+) -> dict[str, Any]:
     manifest = load_research_case_manifest(manifest_path)
     schedule = build_research_llm_formal_schedule(schedule_seed=SCHEDULE_SEED)
     prepared = prepare_research_schedule(manifest, schedule)
@@ -45,10 +50,12 @@ def build_formal_freeze(*, manifest_path: Path, implementation_commit: str) -> d
         _conservative_token_estimate(SYSTEM_PROMPT, item["payload"]) + max_output_tokens
         for item in prepared
     )
+    model_revision_evidence = _load_model_revision_evidence(model_revision_evidence_path)
     blockers = []
     if conservative_bound > token_budget:
         blockers.append("formal_token_budget_below_conservative_bound")
-    blockers.append("provider_immutable_model_revision_not_evidenced")
+    if model_revision_evidence is None:
+        blockers.append("provider_immutable_model_revision_not_evidenced")
     protocol = {
         "protocol_id": PROTOCOL_ID,
         "protocol_status": "blocked_before_formal_execution" if blockers else "frozen",
@@ -61,8 +68,20 @@ def build_formal_freeze(*, manifest_path: Path, implementation_commit: str) -> d
             "base_url_host": "api.deepseek.com",
             "requested_model": "deepseek-v4-flash",
             "required_response_model_exact_match": "deepseek-v4-flash",
-            "model_identity_class": "provider_reported_exact_id",
-            "immutable_model_revision_evidenced": False,
+            "model_identity_class": (
+                "provider_attested_immutable_revision"
+                if model_revision_evidence is not None
+                else "provider_reported_exact_id"
+            ),
+            "immutable_model_revision_evidenced": model_revision_evidence is not None,
+            "model_revision": (
+                model_revision_evidence["revision"] if model_revision_evidence is not None else None
+            ),
+            "model_revision_evidence_sha256": (
+                _semantic_hash(model_revision_evidence)
+                if model_revision_evidence is not None
+                else None
+            ),
             "api_key_storage": "environment_only",
             "model_registry_probe": {
                 "observed_on": "2026-08-13",
@@ -119,13 +138,20 @@ def build_formal_freeze(*, manifest_path: Path, implementation_commit: str) -> d
             "clean_worktree_required": True,
         },
     }
-    return {"protocol": protocol, "schedule": schedule.model_dump(mode="json"), "prepared": prepared}
+    return {
+        "protocol": protocol,
+        "schedule": schedule.model_dump(mode="json"),
+        "prepared": prepared,
+        "model_revision_evidence": model_revision_evidence,
+    }
 
 
 def verify_formal_freeze(root: Path) -> dict[str, Any]:
     protocol = _read_json(root / "formal_protocol.json")
     schedule = _read_json(root / "formal_schedule.json")
     prepared = _read_json(root / "formal_prepared_inputs.json")
+    evidence_path = root / "model_revision_evidence.json"
+    model_revision_evidence = _read_json(evidence_path) if evidence_path.exists() else None
     checks = {
         "protocol_id": protocol.get("protocol_id") == PROTOCOL_ID,
         "schedule_hash": protocol["identities"]["schedule_sha256"] == _semantic_hash(schedule),
@@ -142,7 +168,14 @@ def verify_formal_freeze(root: Path) -> dict[str, Any]:
         ),
         "call_count": len(schedule["items"]) == len(prepared) == 18,
         "budget_bound": protocol["budget"]["bound_within_budget"] is True,
-        "immutable_model_revision": protocol["provider"]["immutable_model_revision_evidenced"] is True,
+        "immutable_model_revision": (
+            model_revision_evidence is not None
+            and _validate_model_revision_evidence(model_revision_evidence)
+            and protocol["provider"]["immutable_model_revision_evidenced"] is True
+            and protocol["provider"]["model_revision"] == model_revision_evidence["revision"]
+            and protocol["provider"]["model_revision_evidence_sha256"]
+            == _semantic_hash(model_revision_evidence)
+        ),
     }
     blockers = [name for name, passed in checks.items() if not passed]
     return {
@@ -158,7 +191,31 @@ def write_formal_freeze(output: Path, payload: dict[str, Any]) -> None:
     _write_json(output / "formal_protocol.json", payload["protocol"])
     _write_json(output / "formal_schedule.json", payload["schedule"])
     _write_json(output / "formal_prepared_inputs.json", payload["prepared"])
+    if payload["model_revision_evidence"] is not None:
+        _write_json(output / "model_revision_evidence.json", payload["model_revision_evidence"])
     _write_json(output / "freeze_audit.json", verify_formal_freeze(output))
+
+
+def _load_model_revision_evidence(path: Path | None) -> dict[str, Any] | None:
+    if path is None:
+        return None
+    evidence = _read_json(path)
+    if not _validate_model_revision_evidence(evidence):
+        raise ValueError("Model revision evidence is incomplete or does not match the frozen provider/model.")
+    return evidence
+
+
+def _validate_model_revision_evidence(evidence: Any) -> bool:
+    if not isinstance(evidence, dict):
+        return False
+    required_strings = ("revision", "evidence_source", "issued_at")
+    return (
+        evidence.get("provider") == "deepseek_official"
+        and evidence.get("model") == "deepseek-v4-flash"
+        and evidence.get("immutable") is True
+        and evidence.get("production_release") is True
+        and all(isinstance(evidence.get(key), str) and evidence[key].strip() for key in required_strings)
+    )
 
 
 def _git_head() -> str:
@@ -190,6 +247,11 @@ def main() -> int:
     parser.add_argument("--output", type=Path)
     parser.add_argument("--verify", type=Path)
     parser.add_argument(
+        "--model-revision-evidence",
+        type=Path,
+        help="Provider-issued JSON evidence for an immutable production model revision.",
+    )
+    parser.add_argument(
         "--manifest",
         type=Path,
         default=REPO_ROOT / "docs/current/research-case-manifest-v1.json",
@@ -203,7 +265,11 @@ def main() -> int:
         return 0 if report["passed"] else 1
     write_formal_freeze(
         args.output,
-        build_formal_freeze(manifest_path=args.manifest, implementation_commit=_git_head()),
+        build_formal_freeze(
+            manifest_path=args.manifest,
+            implementation_commit=_git_head(),
+            model_revision_evidence_path=args.model_revision_evidence,
+        ),
     )
     return 0
 
