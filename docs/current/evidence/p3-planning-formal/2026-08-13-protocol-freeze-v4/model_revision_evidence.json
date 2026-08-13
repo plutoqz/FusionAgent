@@ -1,0 +1,9 @@
+{
+  "evidence_source": "https://huggingface.co/deepseek-ai/DeepSeek-V4-Flash-0731/commits/main",
+  "immutable": true,
+  "issued_at": "2026-08-13T00:00:00Z",
+  "model": "deepseek-v4-flash",
+  "production_release": true,
+  "provider": "deepseek_official",
+  "revision": "7872f01b1d1fe23eabc4c98b48bffcef5a386062"
+}
