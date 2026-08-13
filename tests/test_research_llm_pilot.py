@@ -4,6 +4,7 @@ from schemas.research_llm_pilot import ResearchPlanningDecision, build_research_
 import pytest
 
 from scripts.run_research_llm_pilot import (
+    _attempt_total_tokens,
     _conservative_token_estimate,
     _validate_batch_token_budget,
     prepare_pilot,
@@ -65,3 +66,9 @@ def test_pilot_batch_budget_must_cover_all_bounded_requests() -> None:
             max_output_tokens=8192,
             token_budget=100,
         )
+
+
+def test_attempt_total_tokens_tolerates_missing_usage() -> None:
+    assert _attempt_total_tokens(None) == 0
+    assert _attempt_total_tokens({"usage": None}) == 0
+    assert _attempt_total_tokens({"usage": {"total_tokens": 42}}) == 42

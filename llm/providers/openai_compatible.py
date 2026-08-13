@@ -160,13 +160,15 @@ class OpenAICompatibleProvider(LLMProvider):
             self.last_usage = payload_resp.get("usage")
             self.last_model = str(payload_resp.get("model") or self.model)
             choice = payload_resp["choices"][0]
-            content = choice["message"]["content"]
-            plan, parse_mode = _extract_json_block(content, allow_salvage=self.allow_json_salvage)
             attempt.update(
                 response_model=self.last_model,
                 request_id=attempt["request_id"] or payload_resp.get("id"),
                 finish_reason=choice.get("finish_reason"),
                 usage=self.last_usage,
+            )
+            content = choice["message"]["content"]
+            plan, parse_mode = _extract_json_block(content, allow_salvage=self.allow_json_salvage)
+            attempt.update(
                 parse_mode=parse_mode,
                 success=True,
             )

@@ -112,6 +112,31 @@ def test_openai_provider_strict_mode_rejects_regex_salvage(monkeypatch) -> None:
     assert provider.last_attempt["raw_response"] == json.dumps(response_payload)
 
 
+def test_openai_provider_preserves_usage_when_strict_content_is_empty(monkeypatch) -> None:
+    provider = OpenAICompatibleProvider(
+        api_key="test-key",
+        model="gpt-test",
+        allow_json_salvage=False,
+    )
+    response_payload = {
+        "model": "gpt-test",
+        "usage": {"prompt_tokens": 10, "completion_tokens": 8192, "total_tokens": 8202},
+        "choices": [{"finish_reason": "length", "message": {"content": ""}}],
+    }
+    monkeypatch.setattr(
+        "llm.providers.openai_compatible.urllib.request.urlopen",
+        lambda request, timeout: _FakeResponse(response_payload),
+    )
+
+    with pytest.raises(ValueError, match="strict JSON"):
+        provider.generate_workflow_plan("system", {"case_id": "C06"})
+
+    assert provider.last_attempt is not None
+    assert provider.last_attempt["response_model"] == "gpt-test"
+    assert provider.last_attempt["finish_reason"] == "length"
+    assert provider.last_attempt["usage"] == response_payload["usage"]
+
+
 def test_openai_provider_marks_legacy_regex_salvage(monkeypatch) -> None:
     provider = OpenAICompatibleProvider(api_key="test-key", model="gpt-test")
     response_payload = {

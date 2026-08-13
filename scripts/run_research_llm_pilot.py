@@ -186,10 +186,7 @@ def main() -> int:
             "main_call_count": len(results),
             "successful_calls": sum(1 for item in results if item["success"]),
             "failed_calls": sum(1 for item in results if not item["success"]),
-            "consumed_tokens": sum(
-                int((item.get("attempt") or {}).get("usage", {}).get("total_tokens") or 0)
-                for item in results
-            ),
+            "consumed_tokens": sum(_attempt_total_tokens(item.get("attempt")) for item in results),
         },
     )
     return 0
@@ -235,6 +232,16 @@ def _validate_batch_token_budget(
             f"budget={token_budget}, bound={conservative_total_bound}."
         )
     return conservative_total_bound
+
+
+def _attempt_total_tokens(attempt: Any) -> int:
+    if not isinstance(attempt, dict):
+        return 0
+    usage = attempt.get("usage")
+    if not isinstance(usage, dict):
+        return 0
+    total_tokens = usage.get("total_tokens")
+    return int(total_tokens) if isinstance(total_tokens, int) and total_tokens >= 0 else 0
 
 
 def _write_json(path: Path, payload: Any) -> None:
