@@ -32,7 +32,16 @@
       },
       "gold_rubric": {
         "expected_consequence": "deliver_road_first_and_declare_building_pending_or_gap",
-        "expected_outcome_classes": ["priority_adaptation", "pending", "gap", "no_invalid_partial_building_claim"]
+        "expected_outcome_classes": ["priority_adaptation", "pending", "gap", "no_invalid_partial_building_claim"],
+        "allowed_decisions": ["partial", "gap"],
+        "expected_task_kinds": ["building", "road"],
+        "expected_gap_task_kinds": ["building"],
+        "required_precedence": [["road", "building"]],
+        "allowed_delivery_states": {
+          "road": ["planned", "provisional"],
+          "building": ["pending", "gap"]
+        },
+        "manual_review_items": ["no_invalid_partial_building_claim"]
       },
       "kg_crosswalk": {
         "source_catalog_ids": ["catalog.earthquake.building", "catalog.earthquake.road"],
@@ -65,7 +74,19 @@
       },
       "gold_rubric": {
         "expected_consequence": "prioritize_water_and_road_and_declare_source_risk",
-        "expected_outcome_classes": ["priority_adaptation", "source_mismatch_gap", "partial_or_progressive_delivery", "no_silent_final_claim"]
+        "expected_outcome_classes": ["priority_adaptation", "source_mismatch_gap", "partial_or_progressive_delivery", "no_silent_final_claim"],
+        "allowed_decisions": ["partial", "gap"],
+        "expected_task_kinds": ["building", "road", "water_polygon", "waterways", "poi"],
+        "expected_gap_task_kinds": ["building", "poi"],
+        "required_precedence": [["water_polygon", "building"], ["waterways", "building"], ["road", "building"]],
+        "allowed_delivery_states": {
+          "water_polygon": ["planned", "provisional"],
+          "waterways": ["planned", "provisional"],
+          "road": ["planned", "provisional"],
+          "building": ["gap"],
+          "poi": ["gap"]
+        },
+        "manual_review_items": ["source_mismatch_gap", "no_silent_final_claim"]
       },
       "kg_crosswalk": {
         "source_catalog_ids": ["catalog.flood.building", "catalog.flood.road", "catalog.flood.water", "catalog.flood.water_polygon", "catalog.flood.waterways"],
@@ -96,7 +117,11 @@
       "gold_rubric": {
         "expected_consequence": "reject_before_task_planning_or_source_materialization",
         "expected_outcome_classes": ["correct_rejection", "no_source_materialization", "no_hallucinated_capability"],
-        "unsupported_terms": ["wildfire", "forest fire"]
+        "unsupported_terms": ["wildfire", "forest fire"],
+        "allowed_decisions": ["reject"],
+        "expected_task_kinds": [],
+        "expected_gap_task_kinds": [],
+        "manual_review_items": []
       },
       "kg_crosswalk": {
         "policy_id": "intent.boundary.v1",
@@ -128,7 +153,14 @@
       },
       "gold_rubric": {
         "expected_consequence": "osm_provisional_then_dual_source_final_with_supersession",
-        "expected_outcome_classes": ["provisional", "background_pending", "supersession", "coverage_gap"]
+        "expected_outcome_classes": ["provisional", "background_pending", "supersession", "coverage_gap"],
+        "allowed_decisions": ["partial", "degraded"],
+        "expected_task_kinds": ["road"],
+        "expected_gap_task_kinds": [],
+        "allowed_delivery_states": {
+          "road": ["provisional"]
+        },
+        "manual_review_items": ["background_pending", "supersession", "coverage_gap"]
       },
       "kg_crosswalk": {
         "source_catalog_ids": ["catalog.typhoon.road"],
@@ -166,7 +198,14 @@
       },
       "gold_rubric": {
         "expected_consequence": "retain_lineage_and_explain_fusion_tradeoff",
-        "expected_outcome_classes": ["conflict_aware_fusion", "provenance_complete", "quality_risk_or_unresolved_conflict"]
+        "expected_outcome_classes": ["conflict_aware_fusion", "provenance_complete", "quality_risk_or_unresolved_conflict"],
+        "allowed_decisions": ["plan", "partial", "degraded"],
+        "expected_task_kinds": ["building"],
+        "expected_gap_task_kinds": [],
+        "allowed_delivery_states": {
+          "building": ["planned", "provisional", "degraded"]
+        },
+        "manual_review_items": ["conflict_aware_fusion", "provenance_complete", "quality_risk_or_unresolved_conflict"]
       },
       "kg_crosswalk": {
         "source_role_policy_task_kind": "building",
@@ -200,7 +239,14 @@
         "expected_consequence": "retain_raw_quality_failure_then_allow_only_provisional_degraded_recovery",
         "expected_outcome_classes": ["quality_failed_evidence", "partial_provisional", "degraded_but_usable", "gap", "recovery_trace"],
         "quality_policy_id": "quality.external_degradation.v1",
-        "semantic_guard": "external_source_failure_must_be_distinguished_from_manual_source_removal"
+        "semantic_guard": "external_source_failure_must_be_distinguished_from_manual_source_removal",
+        "allowed_decisions": ["partial", "gap", "degraded", "manual_intervention"],
+        "expected_task_kinds": ["road"],
+        "expected_gap_task_kinds": [],
+        "allowed_delivery_states": {
+          "road": ["provisional", "degraded", "gap"]
+        },
+        "manual_review_items": ["quality_failed_evidence", "semantic_guard", "recovery_trace"]
       },
       "kg_crosswalk": {
         "source_catalog_ids": ["catalog.flood.road"],

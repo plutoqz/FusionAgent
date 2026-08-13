@@ -45,6 +45,47 @@ class ResearchGoldRubric(BaseModel):
     unsupported_terms: list[str] = Field(default_factory=list)
     quality_policy_id: str | None = None
     semantic_guard: str | None = None
+    allowed_decisions: list[
+        Literal["plan", "reject", "partial", "gap", "degraded", "manual_intervention"]
+    ] = Field(min_length=1)
+    expected_task_kinds: list[str] = Field(default_factory=list)
+    expected_gap_task_kinds: list[str] = Field(default_factory=list)
+    required_precedence: list[tuple[str, str]] = Field(default_factory=list)
+    allowed_delivery_states: dict[
+        str,
+        list[Literal["planned", "pending", "provisional", "degraded", "gap", "rejected"]],
+    ] = Field(default_factory=dict)
+    manual_review_items: list[str] = Field(default_factory=list)
+
+    @model_validator(mode="after")
+    def validate_scoring_contract(self) -> "ResearchGoldRubric":
+        for field_name in (
+            "allowed_decisions",
+            "expected_task_kinds",
+            "expected_gap_task_kinds",
+            "required_precedence",
+            "manual_review_items",
+        ):
+            values = getattr(self, field_name)
+            if len(values) != len(set(values)):
+                raise ValueError(f"{field_name} values must be unique")
+        expected = set(self.expected_task_kinds)
+        unknown_gaps = set(self.expected_gap_task_kinds) - expected
+        if unknown_gaps:
+            raise ValueError(f"expected_gap_task_kinds are not expected tasks: {sorted(unknown_gaps)}")
+        unknown_states = set(self.allowed_delivery_states) - expected
+        if unknown_states:
+            raise ValueError(f"allowed_delivery_states reference unknown tasks: {sorted(unknown_states)}")
+        missing_states = expected - set(self.allowed_delivery_states)
+        if missing_states:
+            raise ValueError(f"expected tasks lack allowed_delivery_states: {sorted(missing_states)}")
+        empty_states = sorted(task for task, states in self.allowed_delivery_states.items() if not states)
+        if empty_states:
+            raise ValueError(f"allowed_delivery_states are empty for tasks: {empty_states}")
+        for before, after in self.required_precedence:
+            if before not in expected or after not in expected:
+                raise ValueError(f"required_precedence references unknown task: {(before, after)}")
+        return self
 
 
 class ResearchKGCrosswalk(BaseModel):

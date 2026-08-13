@@ -2,22 +2,39 @@ from __future__ import annotations
 
 import argparse
 import json
+import sys
 from collections import Counter, defaultdict
 from pathlib import Path
 from typing import Any, Iterable
 
+from pydantic import ValidationError
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+if str(REPO_ROOT) not in sys.path:
+    sys.path.insert(0, str(REPO_ROOT))
+
+from schemas.research_case_manifest import load_research_case_manifest
+from schemas.research_llm_pilot import ResearchPlanningDecision
+from services.research_plan_evaluation import EVALUATOR_ID, evaluate_research_plan
+
 
 LEAKAGE_KEYS = {
     "expected_consequence",
+    "expected_outcome_classes",
+    "gold_rubric",
     "quality_policy_id",
     "semantic_guard",
     "unsupported_terms",
 }
 
+DEFAULT_MANIFEST = Path(__file__).parents[1] / "docs" / "current" / "research-case-manifest-v1.json"
 
-def analyze_pilot(root: Path) -> dict[str, Any]:
+
+def analyze_pilot(root: Path, *, manifest_path: Path = DEFAULT_MANIFEST) -> dict[str, Any]:
     schedule = json.loads((root / "schedule.json").read_text(encoding="utf-8"))
     prepared = json.loads((root / "prepared_inputs.json").read_text(encoding="utf-8"))
+    manifest = load_research_case_manifest(manifest_path)
+    cases_by_id = {case.case_id: case for case in manifest.cases}
     schedule_by_run = {item["run_id"]: item for item in schedule["items"]}
     prepared_by_run = {item["schedule"]["run_id"]: item for item in prepared}
     results = [
@@ -40,6 +57,19 @@ def analyze_pilot(root: Path) -> dict[str, Any]:
         allowed_strings = set(_strings(projection["payload"]))
         refs = _plan_refs(result.get("plan"))
         plan = result.get("plan") if isinstance(result.get("plan"), dict) else None
+        validated_plan = None
+        validation_failure = result.get("failure_class")
+        if plan is not None:
+            try:
+                validated_plan = ResearchPlanningDecision.model_validate(plan)
+            except ValidationError:
+                validation_failure = validation_failure or "schema_validation_error"
+        evaluation = evaluate_research_plan(
+            cases_by_id[item["case_id"]],
+            validated_plan,
+            allowed_strings=allowed_strings,
+            failure_class=validation_failure,
+        )
         row = {
             "run_id": run_id,
             "case_id": item["case_id"],
@@ -55,6 +85,7 @@ def analyze_pilot(root: Path) -> dict[str, Any]:
             "decision": plan.get("decision") if plan else None,
             "task_order": [task.get("task_kind") for task in plan.get("tasks", [])] if plan else None,
             "structural_signature": _structural_signature(plan),
+            "evaluation": evaluation.model_dump(mode="json"),
         }
         rows.append(row)
         groups[(item["case_id"], item["knowledge_condition"])].append(row)
@@ -85,8 +116,12 @@ def analyze_pilot(root: Path) -> dict[str, Any]:
         blockers.append("evaluation_or_policy_hints_are_visible_to_llm_inputs")
     if any(row["finish_reason"] == "length" for row in rows):
         blockers.append("max_output_tokens_insufficient_for_all_pilot_inputs")
-    blockers.append("formal_gold_rubric_and_metric_evaluator_not_frozen")
+    blockers.append("formal_protocol_and_evaluator_hash_not_frozen")
     return {
+        "diagnostic_only": True,
+        "input_leakage": bool(leakage),
+        "claim_eligible": False,
+        "evaluator_id": EVALUATOR_ID,
         "pilot_root": str(root.resolve()),
         "call_count": len(rows),
         "successful_calls": sum(row["success"] for row in rows),
@@ -104,7 +139,7 @@ def analyze_pilot(root: Path) -> dict[str, Any]:
                 if row["ungrounded_refs"]
             ],
         },
-        "input_leakage": {
+        "input_leakage_audit": {
             "affected_runs": len({item["run_id"] for item in leakage}),
             "keys": sorted({item["path"].split(".")[-1] for item in leakage}),
             "details": leakage,
@@ -206,8 +241,9 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Audit a completed real-LLM research pilot.")
     parser.add_argument("--root", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--manifest", type=Path, default=DEFAULT_MANIFEST)
     args = parser.parse_args()
-    report = analyze_pilot(args.root)
+    report = analyze_pilot(args.root, manifest_path=args.manifest)
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return 0

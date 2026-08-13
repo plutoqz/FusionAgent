@@ -196,9 +196,10 @@ case manifest/crosswalk
 
 - P3-P0：已形成 `research-case-manifest-v1.json`，并增加 Pydantic schema、案例分区和 negative-control 自动校验。
 - P3-P1：已实现 canonical context、六组字段白名单投影、稳定输入 hash，以及 fixed/rules-only/KG-only 的最小确定性决策器。
-- P3-P2：已完成投影级隔离测试；完整 gold rubric 和正式指标计算器仍待实现。
+- P3-P2：已完成投影级隔离测试，并为 C01-C06 实现声明式 planning rubric 与通用 evaluator v1。自动评分覆盖前置有效性、decision、grounding、任务集合、gap、顺序、precedence 和 delivery state；文本语义与端到端事实保留为 pending 人工审查，不使用关键词判定。
 - P3-P3：provider 已记录 attempt-level 原始响应、模型、request ID、HTTP 状态、token、延迟、hash、parse mode 和失败类别；pilot 路径强制 strict JSON，禁止 regex salvage 和 fallback。
 - 18-call pilot：离线 preflight 位于 `docs/current/evidence/p3-planning-pilot/2026-08-07-preflight-v2/`；DeepSeek 官方 API 的真实批次位于 `D:\code\fusionagent-evidence\p3-planning-pilot\2026-08-13-deepseek-official-v4-flash-r1`。18 次均为 HTTP 200 且响应模型为 `deepseek-v4-flash`，16 次 strict JSON/schema 成功，2 次 C06 知识增强调用以 `finish_reason=length` 失败，总消耗 222,980 tokens；失败未被补跑或 fallback 替换。
 - pilot 审计：全部 source/algorithm 引用均可在各自输入中 grounding，但 18/18 输入暴露 `expected_consequence`，部分案例还暴露 `unsupported_terms`、`quality_policy_id` 或 `semantic_guard`。这些评测/策略字段必须从 formal planner observation 中移除，并只保留在独立 gold rubric 中。
 - v3 隔离修复：case manifest 已升为 `1.1.0-draft`，运行时 `observations` 与 `gold_rubric` 使用互斥的 `extra=forbid` schema，六组 projection 不接收 gold；`prepare_pilot` 对六个禁止字段 fail closed。离线证据位于 `docs/current/evidence/p3-planning-pilot/2026-08-13-preflight-v3-no-gold-leak/`，审计结果为 18 个输入、9 个唯一 hash、泄漏 0，且 18/18 input hash 相对 v2 改变。
-- formal readiness：当前仍为 `false`。v3 输入尚未经过真实小规模 pilot，完整 gold 指标计算器仍待实现；`max_tokens=16384` 和至少 600,000-token 的同规模批次预算只是基于截断现象的候选参数，尚未冻结。不得直接进入 planning-only formal。
+- evaluator 回放：旧 18-call 真实 pilot 已写入外部证据目录的 `pilot_scoring_replay.json`，保留 16 个有效计划和 2 个原始失败。报告强制标记 `diagnostic_only=true`、`input_leakage=true`、`claim_eligible=false`；18/18 泄漏输入的任何分数只用于检查 evaluator 行为，不能作为性能证据。
+- formal readiness：当前仍为 `false`。v3 输入尚未经过真实小规模 pilot，rubric/evaluator 协议与 hash 尚未冻结；`max_tokens=16384` 和至少 600,000-token 的同规模批次预算只是基于截断现象的候选参数，尚未冻结。下一闸门是真实 v3 小 pilot，且继续要求零 transport retry、零 semantic repair、禁止 fallback；不得直接进入 planning-only formal。

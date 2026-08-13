@@ -142,6 +142,8 @@ P0-R/K1/K2 文档与结构验收已经完成。P0-K3 采用“语义退出条件
 
 pilot 审计曾确认旧 v2 输入的 18/18 LLM 调用暴露 `expected_consequence`，部分案例还暴露 `unsupported_terms`、`quality_policy_id` 或 `semantic_guard`。当前 manifest 已升为 `1.1.0-draft`，将这些字段移入独立 `gold_rubric`，planner observation schema 和 `prepare_pilot` 均 fail closed。新的离线 preflight 位于 `docs/current/evidence/p3-planning-pilot/2026-08-13-preflight-v3-no-gold-leak/`：18 个输入的泄漏命中为 0，9 个 canonical input hash 均唯一，18/18 hash 相对 v2 变化，因此不得与旧 pilot 直接混合。
 
-当前仍为 `formal_ready=false`：v3 无泄漏输入尚未经过真实小规模 pilot，完整 gold 指标计算器尚未实现，且旧真实 pilot 有两次 C06 调用耗尽 8192 output tokens。`max_tokens=16384` 与至少 600,000-token 的同规模批次预算仍是候选参数，不是正式冻结值。planning-only formal 和选择性端到端均未执行。
+当前已为 C01-C06 增加声明式 planning rubric，并实现通用 evaluator v1。自动项只评价 strict schema 前置有效性、decision、grounding、任务集合、gap、顺序、precedence 和 delivery state；provenance、semantic guard、supersession 等语义项保持 `manual_review=pending`，不通过关键词匹配自动判定。聚焦验证为 `26 passed`。旧 18-call pilot 已生成 `pilot_scoring_replay.json`，其中强制记录 `diagnostic_only=true`、`input_leakage=true`、`claim_eligible=false`；其评分只能验证 evaluator 回放链路，不能作为模型质量或组间差异证据。
+
+当前仍为 `formal_ready=false`：v3 无泄漏输入尚未经过真实小规模 pilot，rubric/evaluator 协议与 hash 尚未冻结，且旧真实 pilot 有两次 C06 调用耗尽 8192 output tokens。`max_tokens=16384` 与至少 600,000-token 的同规模批次预算仍是候选参数，不是正式冻结值。planning-only formal 和选择性端到端均未执行。
 
 具体优先级、退出条件和论文映射见[论文主张与优先级](claims-and-priorities.md)。

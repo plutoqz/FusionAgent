@@ -77,3 +77,19 @@ def test_manifest_rejects_legacy_top_level_expected_outcomes(tmp_path: Path) -> 
 
     with pytest.raises(ValueError, match="expected_outcome_classes"):
         load_research_case_manifest(candidate)
+
+
+def test_manifest_rejects_incomplete_scoring_contract() -> None:
+    payload = load_research_case_manifest(MANIFEST).model_dump(mode="json")
+    del payload["cases"][0]["gold_rubric"]["allowed_delivery_states"]["building"]
+
+    with pytest.raises(ValueError, match="lack allowed_delivery_states"):
+        ResearchCaseManifest.model_validate(payload)
+
+
+def test_manifest_rejects_duplicate_scoring_items() -> None:
+    payload = load_research_case_manifest(MANIFEST).model_dump(mode="json")
+    payload["cases"][0]["gold_rubric"]["expected_task_kinds"].append("road")
+
+    with pytest.raises(ValueError, match="expected_task_kinds values must be unique"):
+        ResearchCaseManifest.model_validate(payload)
