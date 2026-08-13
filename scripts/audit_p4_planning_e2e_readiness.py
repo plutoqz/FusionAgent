@@ -13,7 +13,8 @@ if str(REPO_ROOT) not in sys.path:
 from agent.tooling import build_default_tool_registry
 from kg.inmemory_repository import InMemoryKGRepository
 from schemas.research_case_manifest import load_research_case_manifest
-from services.source_asset_service import SourceAssetService
+from schemas.research_llm_pilot import ResearchPlanningDecision
+from services.research_plan_runtime_adapter import ResearchPlanRuntimeAdapter
 
 
 P4_CASES = {"C02", "C04", "C06"}
@@ -26,19 +27,13 @@ def audit_p4_readiness(
     manifest_path: Path,
     cache_dir: Path,
 ) -> dict[str, Any]:
-    llm = _read_json(llm_path)
+    llm = _read_llm_runs(llm_path)
     deterministic = _read_json(deterministic_path)
     manifest = load_research_case_manifest(manifest_path)
     cases = {case.case_id: case for case in manifest.cases if case.case_id in P4_CASES}
     repository = InMemoryKGRepository(experience_policy="pinned_snapshot")
     tool_registry = build_default_tool_registry()
-    source_service = SourceAssetService(repo_root=REPO_ROOT, cache_dir=cache_dir)
-    contract_ids = {
-        contract.contract_id
-        for disaster in {case.scenario.disaster_type for case in cases.values()}
-        for contract in repository.get_product_contracts(disaster)
-    }
-    kg_source_ids = {source.source_id for source in repository.list_data_sources()}
+    adapter = ResearchPlanRuntimeAdapter(repository, tool_registry=tool_registry)
     rows = []
     for run in llm["runs"]:
         if run["case_id"] in P4_CASES:
@@ -48,10 +43,7 @@ def audit_p4_readiness(
                     condition=run["knowledge_condition"],
                     plan=run.get("plan") or {},
                     source="llm",
-                    contract_ids=contract_ids,
-                    kg_source_ids=kg_source_ids,
-                    tool_registry=tool_registry,
-                    source_service=source_service,
+                    adapter=adapter,
                 )
             )
     for run in deterministic["runs"]:
@@ -62,10 +54,7 @@ def audit_p4_readiness(
                     condition=run["group"],
                     plan=run["plan"],
                     source="deterministic",
-                    contract_ids=contract_ids,
-                    kg_source_ids=kg_source_ids,
-                    tool_registry=tool_registry,
-                    source_service=source_service,
+                    adapter=adapter,
                 )
             )
     return {
@@ -97,54 +86,35 @@ def _audit_run(
     condition: str,
     plan: dict[str, Any],
     source: str,
-    contract_ids: set[str],
-    kg_source_ids: set[str],
-    tool_registry: Any,
-    source_service: SourceAssetService,
+    adapter: ResearchPlanRuntimeAdapter,
 ) -> dict[str, Any]:
-    blockers = []
-    missing_contracts = sorted(set(case.request_scope.contract_ids) - contract_ids)
-    if missing_contracts:
-        blockers.append("contract_not_resolved_in_kg")
-    task_checks = []
-    for task in plan.get("tasks", []):
-        state = task.get("delivery_state")
-        algorithm_id = task.get("algorithm_id")
-        source_ids = [str(item) for item in task.get("source_ids", [])]
-        executable_state = state in {"planned", "provisional", "degraded"}
-        algorithm_registered = bool(algorithm_id and tool_registry.get(str(algorithm_id)))
-        sources_grounded = all(source_id in kg_source_ids for source_id in source_ids)
-        raw_sources_materializable = all(
-            source_id.startswith("catalog.") or source_service.can_materialize(source_id)
-            for source_id in source_ids
-        )
-        if executable_state and not algorithm_registered:
-            blockers.append("executable_task_missing_registered_algorithm")
-        if executable_state and not source_ids:
-            blockers.append("executable_task_missing_source")
-        if not sources_grounded:
-            blockers.append("source_not_resolved_in_kg")
-        if not raw_sources_materializable:
-            blockers.append("raw_source_not_materializable")
-        if executable_state and len(source_ids) != 1:
-            blockers.append("workflow_task_requires_unambiguous_effective_source")
-        task_checks.append(
-            {
-                "task_kind": task.get("task_kind"),
-                "delivery_state": state,
-                "algorithm_id": algorithm_id,
-                "source_ids": source_ids,
-                "algorithm_registered": algorithm_registered,
-                "sources_grounded_in_kg": sources_grounded,
-                "raw_sources_materializable_or_catalog": raw_sources_materializable,
-            }
-        )
-    blockers.extend(
-        [
-            "research_plan_to_workflow_plan_adapter_missing",
-            "selected_resolved_executed_evaluated_trace_missing",
-        ]
+    try:
+        decision = ResearchPlanningDecision.model_validate(plan)
+    except ValueError as exc:
+        return {
+            "case_id": case.case_id,
+            "condition": condition,
+            "source": source,
+            "decision": plan.get("decision"),
+            "contract_ids": list(case.request_scope.contract_ids),
+            "resolution": None,
+            "blockers": ["invalid_research_planning_decision"],
+            "validation_error": str(exc),
+            "ready": False,
+        }
+
+    resolution = adapter.resolve(case=case, condition=condition, decision=decision)
+    blockers = sorted(
+        {
+            reason.lower()
+            for item in resolution.task_resolutions
+            if item.resolution_status == "rejected"
+            for reason in item.reason_codes
+        }
+        | {reason.lower() for reason in resolution.resolved.get("reason_codes", [])}
     )
+    if resolution.workflow_plan is None:
+        blockers.append("no_executable_workflow_plan")
     unique_blockers = sorted(set(blockers))
     return {
         "case_id": case.case_id,
@@ -152,7 +122,7 @@ def _audit_run(
         "source": source,
         "decision": plan.get("decision"),
         "contract_ids": list(case.request_scope.contract_ids),
-        "task_checks": task_checks,
+        "resolution": resolution.model_dump(mode="json"),
         "blockers": unique_blockers,
         "ready": not unique_blockers,
     }
@@ -165,6 +135,35 @@ def _blocker_counts(rows: list[dict[str, Any]]) -> dict[str, int]:
 
 def _read_json(path: Path) -> Any:
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+def _read_llm_runs(path: Path) -> dict[str, list[dict[str, Any]]]:
+    if path.is_file():
+        return _read_json(path)
+    result_paths = sorted(path.glob("runs/*/result.json"))
+    if not result_paths:
+        raise ValueError(f"No formal result.json files found under {path}")
+    schedule = _read_json(path / "schedule.json")
+    schedule_by_run = {item["run_id"]: item for item in schedule["items"]}
+    if len(schedule_by_run) != len(schedule["items"]):
+        raise ValueError("Formal schedule contains duplicate run_id values")
+    results = [_read_json(result_path) for result_path in result_paths]
+    result_by_run = {item.get("run_id"): item for item in results}
+    if None in result_by_run or len(result_by_run) != len(results):
+        raise ValueError("Formal results contain missing or duplicate run_id values")
+    if set(schedule_by_run) != set(result_by_run):
+        raise ValueError("Formal schedule and result run_id sets do not match")
+    runs = []
+    for run_id, result in result_by_run.items():
+        scheduled = schedule_by_run[run_id]
+        runs.append(
+            {
+                **result,
+                "case_id": scheduled["case_id"],
+                "knowledge_condition": scheduled["knowledge_condition"],
+            }
+        )
+    return {"runs": runs}
 
 
 def main() -> int:
