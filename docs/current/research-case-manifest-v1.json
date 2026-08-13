@@ -1,6 +1,6 @@
 {
   "manifest_id": "fusionagent.research.case-set.v1",
-  "manifest_version": "1.0.0-draft",
+  "manifest_version": "1.1.0-draft",
   "status": "draft_before_formal_freeze",
   "kg_release": "kg.v1.0.0",
   "case_selection_basis": "theory_driven_mechanism_coverage",
@@ -11,7 +11,7 @@
   "cases": [
     {
       "case_id": "C01",
-      "version": "1.0.0-draft",
+      "version": "1.1.0-draft",
       "status": "planning_only",
       "mechanism": "pre_fusion_external_source_delay_under_tight_time",
       "research_questions": ["RQ2", "RQ3"],
@@ -28,8 +28,11 @@
       "observations": {
         "available_sources": ["raw.osm.building", "raw.osm.road", "raw.microsoft.road"],
         "delayed_sources": ["raw.microsoft.building"],
-        "expected_consequence": "deliver_road_first_and_declare_building_pending_or_gap",
         "building_partial_coverage_allowed": false
+      },
+      "gold_rubric": {
+        "expected_consequence": "deliver_road_first_and_declare_building_pending_or_gap",
+        "expected_outcome_classes": ["priority_adaptation", "pending", "gap", "no_invalid_partial_building_claim"]
       },
       "kg_crosswalk": {
         "source_catalog_ids": ["catalog.earthquake.building", "catalog.earthquake.road"],
@@ -37,12 +40,11 @@
         "quality_policy_ids": ["quality.default.building.v1", "quality.default.road.v1"],
         "crosswalk_status": "closed"
       },
-      "expected_outcome_classes": ["priority_adaptation", "pending", "gap", "no_invalid_partial_building_claim"],
       "end_to_end": false
     },
     {
       "case_id": "C02",
-      "version": "1.0.0-draft",
+      "version": "1.1.0-draft",
       "status": "planning_and_selective_end_to_end",
       "mechanism": "flood_semantic_mismatch_and_multi_layer_priority",
       "research_questions": ["RQ2", "RQ3", "RQ4"],
@@ -59,8 +61,11 @@
       "observations": {
         "available_sources": ["catalog.flood.road", "catalog.flood.water", "catalog.flood.water_polygon", "catalog.flood.waterways"],
         "semantic_risk_sources": ["raw.hydrolakes.water", "raw.hydrorivers.water"],
-        "mission_priority": ["water_polygon", "waterways", "road", "building", "poi"],
-        "expected_consequence": "prioritize_water_and_road_and_declare_source_risk"
+        "mission_priority": ["water_polygon", "waterways", "road", "building", "poi"]
+      },
+      "gold_rubric": {
+        "expected_consequence": "prioritize_water_and_road_and_declare_source_risk",
+        "expected_outcome_classes": ["priority_adaptation", "source_mismatch_gap", "partial_or_progressive_delivery", "no_silent_final_claim"]
       },
       "kg_crosswalk": {
         "source_catalog_ids": ["catalog.flood.building", "catalog.flood.road", "catalog.flood.water", "catalog.flood.water_polygon", "catalog.flood.waterways"],
@@ -68,13 +73,12 @@
         "quality_policy_ids": ["quality.default.building.v1", "quality.default.road.v1", "quality.default.water_polygon.v1", "quality.default.waterways.v1"],
         "crosswalk_status": "closed_with_observed_semantic_risk"
       },
-      "expected_outcome_classes": ["priority_adaptation", "source_mismatch_gap", "partial_or_progressive_delivery", "no_silent_final_claim"],
       "end_to_end": true,
       "end_to_end_checkpoints": ["initial_planning"]
     },
     {
       "case_id": "C03",
-      "version": "1.0.0-draft",
+      "version": "1.1.0-draft",
       "status": "negative_control_planning_only",
       "mechanism": "unsupported_disaster_open_set_boundary",
       "research_questions": ["RQ1", "RQ2", "RQ3"],
@@ -88,21 +92,22 @@
         "contract_ids": [],
         "resource_regime": "limited_network_tight_time"
       },
-      "observations": {
+      "observations": {},
+      "gold_rubric": {
         "expected_consequence": "reject_before_task_planning_or_source_materialization",
+        "expected_outcome_classes": ["correct_rejection", "no_source_materialization", "no_hallucinated_capability"],
         "unsupported_terms": ["wildfire", "forest fire"]
       },
       "kg_crosswalk": {
         "policy_id": "intent.boundary.v1",
         "crosswalk_status": "negative_closed_by_boundary_policy"
       },
-      "expected_outcome_classes": ["correct_rejection", "no_source_materialization", "no_hallucinated_capability"],
       "excluded_from_positive_quality_average": true,
       "end_to_end": false
     },
     {
       "case_id": "C04",
-      "version": "1.0.0-draft",
+      "version": "1.1.0-draft",
       "status": "planning_and_selective_end_to_end",
       "mechanism": "typhoon_large_aoi_delayed_source_progressive_delivery",
       "research_questions": ["RQ2", "RQ3", "RQ4"],
@@ -119,8 +124,11 @@
       "observations": {
         "available_sources": ["raw.osm.road"],
         "delayed_sources": ["raw.microsoft.road"],
-        "catalog_source_id": "catalog.typhoon.road",
-        "expected_consequence": "osm_provisional_then_dual_source_final_with_supersession"
+        "catalog_source_id": "catalog.typhoon.road"
+      },
+      "gold_rubric": {
+        "expected_consequence": "osm_provisional_then_dual_source_final_with_supersession",
+        "expected_outcome_classes": ["provisional", "background_pending", "supersession", "coverage_gap"]
       },
       "kg_crosswalk": {
         "source_catalog_ids": ["catalog.typhoon.road"],
@@ -129,13 +137,12 @@
         "quality_policy_ids": ["quality.default.road.v1"],
         "crosswalk_status": "closed"
       },
-      "expected_outcome_classes": ["provisional", "background_pending", "supersession", "coverage_gap"],
       "end_to_end": true,
       "end_to_end_checkpoints": ["initial_planning", "delayed_source_arrival"]
     },
     {
       "case_id": "C05",
-      "version": "1.0.0-draft",
+      "version": "1.1.0-draft",
       "status": "planning_only",
       "mechanism": "generic_building_geometry_attribute_source_conflict",
       "research_questions": ["RQ2", "RQ3"],
@@ -155,8 +162,11 @@
           "geometry_completeness": "osm_primary_observation",
           "attribute_completeness": "microsoft_height_fields_observed",
           "conflict_report_required": true
-        },
-        "expected_consequence": "retain_lineage_and_explain_fusion_tradeoff"
+        }
+      },
+      "gold_rubric": {
+        "expected_consequence": "retain_lineage_and_explain_fusion_tradeoff",
+        "expected_outcome_classes": ["conflict_aware_fusion", "provenance_complete", "quality_risk_or_unresolved_conflict"]
       },
       "kg_crosswalk": {
         "source_role_policy_task_kind": "building",
@@ -164,12 +174,11 @@
         "quality_policy_ids": ["quality.default.building.v1"],
         "crosswalk_status": "closed_with_observed_source_attributes"
       },
-      "expected_outcome_classes": ["conflict_aware_fusion", "provenance_complete", "quality_risk_or_unresolved_conflict"],
       "end_to_end": false
     },
     {
       "case_id": "C06",
-      "version": "1.0.0-draft",
+      "version": "1.1.0-draft",
       "status": "planning_and_selective_end_to_end",
       "mechanism": "road_full_fusion_quality_failure_and_single_source_provisional_recovery",
       "research_questions": ["RQ2", "RQ3", "RQ4"],
@@ -185,9 +194,12 @@
       },
       "observations": {
         "initial_sources": ["raw.osm.road", "raw.microsoft.road"],
-        "recovery_source": "raw.osm.road",
-        "quality_policy_id": "quality.external_degradation.v1",
+        "recovery_source": "raw.osm.road"
+      },
+      "gold_rubric": {
         "expected_consequence": "retain_raw_quality_failure_then_allow_only_provisional_degraded_recovery",
+        "expected_outcome_classes": ["quality_failed_evidence", "partial_provisional", "degraded_but_usable", "gap", "recovery_trace"],
+        "quality_policy_id": "quality.external_degradation.v1",
         "semantic_guard": "external_source_failure_must_be_distinguished_from_manual_source_removal"
       },
       "kg_crosswalk": {
@@ -197,7 +209,6 @@
         "recovery_policy_ids": ["recovery.default.v1"],
         "crosswalk_status": "closed_pending_degradation_semantic_pilot"
       },
-      "expected_outcome_classes": ["quality_failed_evidence", "partial_provisional", "degraded_but_usable", "gap", "recovery_trace"],
       "end_to_end": true,
       "end_to_end_checkpoints": ["initial_planning", "quality_gate_failure"]
     }

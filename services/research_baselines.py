@@ -80,7 +80,11 @@ class CanonicalContextFactory:
             request.update(dict(request_overrides))
         observed = {
             "scenario": case.scenario.model_dump(mode="json"),
-            "observations": case.observations.model_dump(mode="json"),
+            "observations": case.observations.model_dump(
+                mode="json",
+                exclude_none=True,
+                exclude_unset=True,
+            ),
             "resource_regime": case.request_scope.resource_regime,
         }
         task_kind = _job_type(case.request_scope.task_kinds)

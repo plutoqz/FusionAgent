@@ -140,6 +140,8 @@ P0-R/K1/K2 文档与结构验收已经完成。P0-K3 采用“语义退出条件
 
 五项研究语义决策已经完成，P3-P/P4-P 已进入实现阶段。当前已形成版本化案例 manifest、canonical context、六组输入投影和确定性基线隔离测试，并完成 18-call 真实 LLM pilot。pilot 原始证据位于 `D:\code\fusionagent-evidence\p3-planning-pilot\2026-08-13-deepseek-official-v4-flash-r1`，执行源码为 `3231f04108a0dda2d675ad32b1ce19033ffc3bc2`。
 
-pilot 审计明确 `formal_ready=false`：18/18 LLM 输入暴露 `expected_consequence`，部分案例还暴露 `unsupported_terms`、`quality_policy_id` 或 `semantic_guard`；这些字段属于评测真值或策略提示，不能进入正式规划输入。另有两次 C06 调用耗尽 8192 output tokens，且完整 gold rubric/指标计算器尚未冻结。`max_tokens=16384` 与至少 600,000-token 的同规模批次预算目前仅是候选参数，不是正式冻结值。planning-only formal 和选择性端到端均未执行。
+pilot 审计曾确认旧 v2 输入的 18/18 LLM 调用暴露 `expected_consequence`，部分案例还暴露 `unsupported_terms`、`quality_policy_id` 或 `semantic_guard`。当前 manifest 已升为 `1.1.0-draft`，将这些字段移入独立 `gold_rubric`，planner observation schema 和 `prepare_pilot` 均 fail closed。新的离线 preflight 位于 `docs/current/evidence/p3-planning-pilot/2026-08-13-preflight-v3-no-gold-leak/`：18 个输入的泄漏命中为 0，9 个 canonical input hash 均唯一，18/18 hash 相对 v2 变化，因此不得与旧 pilot 直接混合。
+
+当前仍为 `formal_ready=false`：v3 无泄漏输入尚未经过真实小规模 pilot，完整 gold 指标计算器尚未实现，且旧真实 pilot 有两次 C06 调用耗尽 8192 output tokens。`max_tokens=16384` 与至少 600,000-token 的同规模批次预算仍是候选参数，不是正式冻结值。planning-only formal 和选择性端到端均未执行。
 
 具体优先级、退出条件和论文映射见[论文主张与优先级](claims-and-priorities.md)。

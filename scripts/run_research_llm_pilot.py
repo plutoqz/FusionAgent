@@ -28,6 +28,15 @@ Use only information present in the input. Do not invent sources, algorithms, co
 Rejection, gaps, provisional delivery, degradation, and manual intervention are valid decisions.
 """
 
+FORBIDDEN_PLANNER_KEYS = {
+    "expected_consequence",
+    "expected_outcome_classes",
+    "gold_rubric",
+    "quality_policy_id",
+    "semantic_guard",
+    "unsupported_terms",
+}
+
 FATAL_PILOT_FAILURES = {
     "http_error",
     "transport_error",
@@ -51,6 +60,9 @@ def prepare_pilot(manifest_path: Path) -> tuple[Any, list[dict[str, Any]]]:
     for item in schedule.items:
         case = cases[item.case_id]
         projection = factory.project(factory.build(case), item.baseline_group)
+        leaked_keys = sorted(FORBIDDEN_PLANNER_KEYS & set(_nested_keys(projection.payload)))
+        if leaked_keys:
+            raise ValueError(f"{item.run_id} planning input contains forbidden gold keys: {leaked_keys}")
         prepared.append(
             {
                 "schedule": item.model_dump(mode="json"),
@@ -242,6 +254,16 @@ def _attempt_total_tokens(attempt: Any) -> int:
         return 0
     total_tokens = usage.get("total_tokens")
     return int(total_tokens) if isinstance(total_tokens, int) and total_tokens >= 0 else 0
+
+
+def _nested_keys(value: Any):
+    if isinstance(value, dict):
+        for key, item in value.items():
+            yield str(key)
+            yield from _nested_keys(item)
+    elif isinstance(value, list):
+        for item in value:
+            yield from _nested_keys(item)
 
 
 def _write_json(path: Path, payload: Any) -> None:

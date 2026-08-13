@@ -4,6 +4,7 @@ from schemas.research_llm_pilot import ResearchPlanningDecision, build_research_
 import pytest
 
 from scripts.run_research_llm_pilot import (
+    FORBIDDEN_PLANNER_KEYS,
     _attempt_total_tokens,
     _conservative_token_estimate,
     _validate_batch_token_budget,
@@ -12,6 +13,17 @@ from scripts.run_research_llm_pilot import (
 
 
 MANIFEST = Path(__file__).parents[1] / "docs" / "current" / "research-case-manifest-v1.json"
+GOLD_KEYS = {"expected_consequence", "expected_outcome_classes", "unsupported_terms", "quality_policy_id", "semantic_guard"}
+
+
+def _nested_keys(value):
+    if isinstance(value, dict):
+        for key, item in value.items():
+            yield key
+            yield from _nested_keys(item)
+    elif isinstance(value, list):
+        for item in value:
+            yield from _nested_keys(item)
 
 
 def test_pilot_schedule_is_complete_18_call_cross_product() -> None:
@@ -35,6 +47,8 @@ def test_pilot_preflight_materializes_isolated_hashed_inputs() -> None:
     for item in prepared:
         condition = item["schedule"]["knowledge_condition"]
         payload = item["payload"]
+        assert GOLD_KEYS == FORBIDDEN_PLANNER_KEYS - {"gold_rubric"}
+        assert FORBIDDEN_PLANNER_KEYS.isdisjoint(_nested_keys(payload))
         assert payload["output_schema"] == ResearchPlanningDecision.model_json_schema()
         if condition == "llm_only":
             assert "kg_capability" not in payload and "kg_contract" not in payload

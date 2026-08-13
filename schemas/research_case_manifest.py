@@ -24,13 +24,27 @@ class ResearchRequestScope(BaseModel):
 
 
 class ResearchObservations(BaseModel):
-    model_config = ConfigDict(extra="allow")
+    model_config = ConfigDict(extra="forbid")
 
     available_sources: list[str] = Field(default_factory=list)
     delayed_sources: list[str] = Field(default_factory=list)
     initial_sources: list[str] = Field(default_factory=list)
     recovery_source: str | None = None
-    expected_consequence: str | None = None
+    mission_priority: list[str] = Field(default_factory=list)
+    semantic_risk_sources: list[str] = Field(default_factory=list)
+    building_partial_coverage_allowed: bool | None = None
+    catalog_source_id: str | None = None
+    source_conflict: dict[str, Any] | None = None
+
+
+class ResearchGoldRubric(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    expected_consequence: str
+    expected_outcome_classes: list[str] = Field(min_length=1)
+    unsupported_terms: list[str] = Field(default_factory=list)
+    quality_policy_id: str | None = None
+    semantic_guard: str | None = None
 
 
 class ResearchKGCrosswalk(BaseModel):
@@ -43,7 +57,7 @@ class ResearchKGCrosswalk(BaseModel):
 
 
 class ResearchCase(BaseModel):
-    model_config = ConfigDict(extra="allow")
+    model_config = ConfigDict(extra="forbid")
 
     case_id: str
     version: str
@@ -53,16 +67,14 @@ class ResearchCase(BaseModel):
     scenario: ResearchScenario
     request_scope: ResearchRequestScope
     observations: ResearchObservations = Field(default_factory=ResearchObservations)
+    gold_rubric: ResearchGoldRubric
     kg_crosswalk: ResearchKGCrosswalk
-    expected_outcome_classes: list[str] = Field(default_factory=list)
     end_to_end: bool = False
     end_to_end_checkpoints: list[str] = Field(default_factory=list)
     excluded_from_positive_quality_average: bool = False
 
     @model_validator(mode="after")
     def validate_case(self) -> "ResearchCase":
-        if not self.expected_outcome_classes:
-            raise ValueError(f"{self.case_id} must declare expected_outcome_classes")
         if self.end_to_end and not self.end_to_end_checkpoints:
             raise ValueError(f"{self.case_id} requires end_to_end_checkpoints")
         if self.scenario.disaster_type.strip() == "":

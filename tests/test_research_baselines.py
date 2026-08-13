@@ -6,6 +6,17 @@ from services.research_baselines import BaselineGroup, CanonicalContextFactory, 
 
 
 MANIFEST = Path(__file__).parents[1] / "docs" / "current" / "research-case-manifest-v1.json"
+GOLD_KEYS = {"expected_consequence", "expected_outcome_classes", "unsupported_terms", "quality_policy_id", "semantic_guard"}
+
+
+def _nested_keys(value):
+    if isinstance(value, dict):
+        for key, item in value.items():
+            yield key
+            yield from _nested_keys(item)
+    elif isinstance(value, list):
+        for item in value:
+            yield from _nested_keys(item)
 
 
 def test_baseline_projections_have_explicit_input_boundaries() -> None:
@@ -69,3 +80,26 @@ def test_projection_hash_is_stable_for_same_context() -> None:
     second = factory.project(factory.build(case), BaselineGroup.kg_only)
 
     assert first.input_hash == second.input_hash
+
+
+def test_all_planning_projections_exclude_gold_rubric_fields() -> None:
+    manifest = load_research_case_manifest(MANIFEST)
+    factory = CanonicalContextFactory(InMemoryKGRepository(experience_policy="pinned_snapshot"))
+
+    for case in manifest.cases:
+        context = factory.build(case)
+        assert GOLD_KEYS.isdisjoint(_nested_keys(context.observable_facts))
+        for group in BaselineGroup:
+            projection = factory.project(context, group)
+            assert "gold_rubric" not in set(_nested_keys(projection.payload))
+            assert GOLD_KEYS.isdisjoint(_nested_keys(projection.payload))
+
+
+def test_observation_projection_does_not_invent_default_empty_facts() -> None:
+    manifest = load_research_case_manifest(MANIFEST)
+    factory = CanonicalContextFactory(InMemoryKGRepository(experience_policy="pinned_snapshot"))
+    c03 = next(case for case in manifest.cases if case.case_id == "C03")
+    c06 = next(case for case in manifest.cases if case.case_id == "C06")
+
+    assert factory.build(c03).observable_facts["observations"] == {}
+    assert set(factory.build(c06).observable_facts["observations"]) == {"initial_sources", "recovery_source"}

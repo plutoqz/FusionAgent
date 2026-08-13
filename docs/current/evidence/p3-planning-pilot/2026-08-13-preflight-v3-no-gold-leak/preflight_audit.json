@@ -1,0 +1,26 @@
+{
+  "call_count": 18,
+  "conservative_batch_bounds": {
+    "max_output_tokens_16384": 547934,
+    "max_output_tokens_8192": 400478
+  },
+  "conservative_prompt_token_bound": 253022,
+  "forbidden_planner_keys": [
+    "expected_consequence",
+    "expected_outcome_classes",
+    "gold_rubric",
+    "quality_policy_id",
+    "semantic_guard",
+    "unsupported_terms"
+  ],
+  "leak_count": 0,
+  "leaks": [],
+  "manifest_id": "fusionagent.research.case-set.v1",
+  "manifest_version": "1.1.0-draft",
+  "prior_comparison": {
+    "changed_input_hashes": 18,
+    "prior_prepared_path": "docs/current/evidence/p3-planning-pilot/2026-08-07-preflight-v2/prepared_inputs.json"
+  },
+  "status": "passed",
+  "unique_input_hashes": 9
+}

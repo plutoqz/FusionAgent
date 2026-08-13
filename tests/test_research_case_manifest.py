@@ -1,3 +1,4 @@
+import json
 from pathlib import Path
 
 import pytest
@@ -56,3 +57,23 @@ def test_manifest_crosswalk_reports_unknown_kg_id() -> None:
     )
 
     assert "C01.algorithm_ids references unknown KG id: algo.unknown.v1" in failures
+
+
+def test_manifest_rejects_gold_fields_inside_runtime_observations(tmp_path: Path) -> None:
+    payload = json.loads(MANIFEST.read_text(encoding="utf-8"))
+    payload["cases"][0]["observations"]["expected_consequence"] = "leaked answer"
+    candidate = tmp_path / "manifest.json"
+    candidate.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="expected_consequence"):
+        load_research_case_manifest(candidate)
+
+
+def test_manifest_rejects_legacy_top_level_expected_outcomes(tmp_path: Path) -> None:
+    payload = json.loads(MANIFEST.read_text(encoding="utf-8"))
+    payload["cases"][0]["expected_outcome_classes"] = ["legacy_leak"]
+    candidate = tmp_path / "manifest.json"
+    candidate.write_text(json.dumps(payload), encoding="utf-8")
+
+    with pytest.raises(ValueError, match="expected_outcome_classes"):
+        load_research_case_manifest(candidate)
