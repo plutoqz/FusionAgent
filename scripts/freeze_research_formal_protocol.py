@@ -64,6 +64,15 @@ def build_formal_freeze(*, manifest_path: Path, implementation_commit: str) -> d
             "model_identity_class": "provider_reported_exact_id",
             "immutable_model_revision_evidenced": False,
             "api_key_storage": "environment_only",
+            "model_registry_probe": {
+                "observed_on": "2026-08-13",
+                "endpoint": "/models",
+                "id": "deepseek-v4-flash",
+                "object": "model",
+                "owned_by": "deepseek",
+                "created": None,
+                "immutable_revision_field_present": False,
+            },
         },
         "generation": {
             "temperature": 0.1,

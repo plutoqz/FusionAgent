@@ -33,6 +33,15 @@ def test_formal_freeze_hashes_assets_and_keeps_immutable_model_blocker(tmp_path:
     assert payload["protocol"]["formal_blockers"] == [
         "provider_immutable_model_revision_not_evidenced"
     ]
+    assert payload["protocol"]["provider"]["model_registry_probe"] == {
+        "observed_on": "2026-08-13",
+        "endpoint": "/models",
+        "id": "deepseek-v4-flash",
+        "object": "model",
+        "owned_by": "deepseek",
+        "created": None,
+        "immutable_revision_field_present": False,
+    }
     assert audit["checks"]["schedule_hash"] is True
     assert audit["checks"]["prepared_inputs_hash"] is True
     assert audit["checks"]["immutable_model_revision"] is False
