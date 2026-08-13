@@ -156,4 +156,6 @@ v4 C06 真实小 pilot 在提交 `7c29fa3` 上完成：3/3 HTTP 200、模型一�
 
 v5 C06 真实小 pilot 在提交 `8bbf901` 上完成：3/3 HTTP 200、响应模型一致、`finish_reason=stop`、strict JSON/schema 成功，总消耗 38,658 tokens；泄漏与 ungrounded reference 均为 0，三组自动检查均为 1.0。三组都选择 `raw.osm.road` 并输出 `degraded`，同时保留具体失败根因未知的不确定性，没有预写 Microsoft external failure。该结论只覆盖 C06 recovery replan 的结构化自动项；`quality_failed_evidence`、`semantic_guard` 和 `recovery_trace` 仍为 pending manual review，须由 P4 真实端到端证据验证。`formal_ready=false`，下一步是冻结 Provider/model/参数、manifest/output schema/evaluator hash、schedule seed 和 18-call 预算，不再继续根据小 pilot 结果修改协议。
 
+planning-only formal 协议现已生成机器可验证的 freeze v2，位于 `docs/current/evidence/p3-planning-formal/2026-08-13-protocol-freeze-v2/`。已冻结 6 cases × 3 LLM conditions × 1 repetition = 18 calls、seed `20260813`、temperature 0.1、strict JSON、16384 output、600,000-token batch budget、零 retry/repair/salvage/fallback，以及 manifest/output schema/system prompt/evaluator/实现文件/schedule/prepared inputs hash；保守上界为 555,437 tokens。冻结审计除 model immutability 外全部通过。DeepSeek 官方 `/models` 仅返回 `id=deepseek-v4-flash`、`owned_by=deepseek`、`created=null`，未提供 revision/version 字段，因此只能归类为 `provider_reported_exact_id`，不能证明不可变 model revision。协议状态为 `blocked_before_formal_execution`，不会启动 formal。
+
 具体优先级、退出条件和论文映射见[论文主张与优先级](claims-and-priorities.md)。

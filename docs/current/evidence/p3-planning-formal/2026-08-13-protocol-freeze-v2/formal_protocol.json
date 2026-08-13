@@ -1,0 +1,102 @@
+{
+  "budget": {
+    "batch_token_budget": 600000,
+    "bound_within_budget": true,
+    "conservative_batch_bound": 555437
+  },
+  "design": {
+    "cases": [
+      "C01",
+      "C02",
+      "C03",
+      "C04",
+      "C05",
+      "C06"
+    ],
+    "deterministic_groups": [
+      "fixed_workflow",
+      "rules_only",
+      "kg_only"
+    ],
+    "llm_call_count": 18,
+    "llm_conditions": [
+      "llm_only",
+      "llm_capability_kg",
+      "llm_full_contract_kg"
+    ],
+    "llm_repetitions": 1,
+    "negative_control_case_ids": [
+      "C03"
+    ],
+    "schedule_seed": 20260813,
+    "stability_claim_eligible": false
+  },
+  "evidence_policy": {
+    "clean_worktree_required": true,
+    "failed_calls_replaced": false,
+    "failed_calls_retained": true,
+    "manual_review_not_auto_passed": true,
+    "raw_responses_required": true
+  },
+  "formal_blockers": [
+    "provider_immutable_model_revision_not_evidenced"
+  ],
+  "formal_ready": false,
+  "generation": {
+    "fallback": "forbidden",
+    "json_salvage": "forbidden",
+    "max_output_tokens": 16384,
+    "response_format": {
+      "type": "json_object"
+    },
+    "semantic_repairs": 0,
+    "temperature": 0.1,
+    "transport_retries": 0
+  },
+  "identities": {
+    "evaluator_id": "fusionagent.research-plan-evaluator.v1",
+    "evaluator_source_sha256": "sha256:54a89dc48ddd34f15629b2c49cae0b4ae3faa15a4b80cd396e87a08181dbf3f3",
+    "implementation_files": {
+      "llm/providers/openai_compatible.py": "sha256:dc84ec81aa1c6fb6cd622ddfe958a16efff1e29ce0a1ea5bfaf20e67ebf1fd18",
+      "schemas/research_case_manifest.py": "sha256:d8c52d1d3c4336590e8320ef5209e8b8e743c3d5e508f461e2ed61dcf653d659",
+      "schemas/research_llm_pilot.py": "sha256:843bc7e217dcb349c6a66381cfae5afa3f9008949c2f1e09bb2e2c3295759e9e",
+      "scripts/run_research_llm_pilot.py": "sha256:f7c8ced330524dfcbddb939055f80d906c7516029abd3b598d3ccad087c51821",
+      "services/research_baselines.py": "sha256:01e506439ed3d3e295c227d82ec6097337061a592a59599ff4c9eb8c38d12945",
+      "services/research_plan_evaluation.py": "sha256:54a89dc48ddd34f15629b2c49cae0b4ae3faa15a4b80cd396e87a08181dbf3f3"
+    },
+    "kg": {
+      "experience_snapshot_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "knowledge_version": "1.0.0",
+      "ontology_version": "1.0.0",
+      "release_id": "fusionagent-kg-v1.0.0",
+      "semantic_hash": "sha256:50067b9368914c47580707650789c04c78b2e856ccb3ef4d120a31f36c0ad71e"
+    },
+    "manifest_sha256": "sha256:d94892e7f8ee805861ccdfa2c42b122fb12b235bfdf912bc597ed6c70aad41f9",
+    "output_schema_sha256": "sha256:77c027d4a507291e0873be01e9c36c69a3edd22aa88cb1c6a8b3d4ef6679032e",
+    "prepared_inputs_sha256": "sha256:760a27d44d2efa112fe01b77307cb3443d3032fa570e10e00721d2127bbe0a10",
+    "schedule_sha256": "sha256:10827cd421701f11c3d6d79c7365d61159c9b7b4f2cc97863bbe25ae4d2f5038",
+    "system_prompt_sha256": "sha256:4dab6d0d96a3370fc8921afd726915c274f0ff39d91221c6598d8c085d259c48"
+  },
+  "implementation_commit": "a55fdab09800e609112e06ecb68e6a9df5b80e5e",
+  "protocol_id": "fusionagent.planning-formal.v1",
+  "protocol_status": "blocked_before_formal_execution",
+  "provider": {
+    "api_key_storage": "environment_only",
+    "api_protocol": "openai_compatible_chat_completions",
+    "base_url_host": "api.deepseek.com",
+    "immutable_model_revision_evidenced": false,
+    "model_identity_class": "provider_reported_exact_id",
+    "model_registry_probe": {
+      "created": null,
+      "endpoint": "/models",
+      "id": "deepseek-v4-flash",
+      "immutable_revision_field_present": false,
+      "object": "model",
+      "observed_on": "2026-08-13",
+      "owned_by": "deepseek"
+    },
+    "provider": "deepseek_official",
+    "requested_model": "deepseek-v4-flash",
+    "required_response_model_exact_match": "deepseek-v4-flash"
+  }
+}

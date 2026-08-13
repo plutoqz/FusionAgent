@@ -1,0 +1,19 @@
+{
+  "blockers": [
+    "immutable_model_revision"
+  ],
+  "checks": {
+    "budget_bound": true,
+    "call_count": true,
+    "evaluator_hash": true,
+    "immutable_model_revision": false,
+    "implementation_hashes": true,
+    "manifest_hash": true,
+    "output_schema_hash": true,
+    "prepared_inputs_hash": true,
+    "protocol_id": true,
+    "schedule_hash": true
+  },
+  "passed": false,
+  "protocol_id": "fusionagent.planning-formal.v1"
+}
