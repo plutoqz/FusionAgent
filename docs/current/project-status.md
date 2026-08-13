@@ -1,8 +1,8 @@
 # FusionAgent 当前项目状态
 
 > 状态：A0 当前权威状态
-> 基准日期：2026-08-07
-> 当前活动工作区：`D:\code\FusionAgent`，分支 `main`，基准提交 `2bcafaa`
+> 基准日期：2026-08-13
+> 当前活动工作区：`D:\code\FusionAgent`，分支 `main`
 
 ## 1. 总体判断
 
@@ -11,7 +11,7 @@ FusionAgent 已跨过“系统能否运行”的阶段，进入“以冻结知�
 - **工程实现**：产品契约、任务规划、质量门、渐进式交付、降级恢复和证据关联已经形成闭环。
 - **知识图谱实现**：七层 KG v1 的 schema、实体和政策机器源已冻结；模式含 71 个类，静态包含 241 个稳定标识知识对象和 1 条转换边。35 个高风险知识片段已完成唯一真源迁移或执行机制归类，K4 已证明 KG-only 行为扰动、fail-closed、源重新材料化和真实双后端一致性。
 - **研究证据**：P1、P2、P3-G 治理消融和 P4-G 最小外部有效性切片已完成；P3-P 真实规划对照和 P4-P 规划外部有效性未完成。C02/C04/C06 及三 AOI 结果仍是受限证据，不构成广泛有效性证明。
-- **真实 LLM 状态**：OpenAI-compatible provider 已实现并有历史远端调用/token 记录，但当前本机配置解析为 mock；已检查的共享 smoke 记录最终均为 `planning_source=kg_fallback`，现有 P2/P3-G/P4-G 冻结证据也使用 mock，不能证明真实 LLM 计划已被端到端采用。
+- **真实 LLM 状态**：已使用 DeepSeek 官方 API 的 `deepseek-v4-flash` 完成 18-call planning pilot。18 次均为 HTTP 200 且响应模型一致，16 次通过 strict JSON/schema，2 次 C06 知识增强调用因 8192 reasoning tokens 用尽而以 `finish_reason=length` 失败；总消耗 222,980 tokens。该 pilot 未使用 mock、fallback、salvage 或重试，但只验证调用链、隔离记录和失败留痕，不是组间优越性证据。
 - **研究分支资产**：`research/product-contract` 已实现五类规划模式、结构化决策、gold 隔离、重复实验审计和最小端到端运行时，定向套件当前为 `32 passed`。归并审计已确认其 KG 上下文未直接消费当前 KG v1；这些是待适配和选择性提升的开发资产，不是正式实验结论。
 - **论文准备度**：期刊实验与证据准备度约 45%–60%；硕士论文工程核心约 65%–75%，包含写作和补充实验后的整体完成度约 45%–60%。这些比例仅用于项目规划。
 
@@ -138,6 +138,8 @@ P0-R/K1/K2 文档与结构验收已经完成。P0-K3 采用“语义退出条件
 
 `research/product-contract` 资产、当前 KG v1 消费路径、真实 LLM 证据路径和选择性端到端边界的联合审计已经完成，报告见[研究分支成果与当前 KG v1 归并审计](research-branch-kg-v1-merge-audit.md)。结论是禁止整分支合并；保留结构化决策、gold 隔离、失败留痕和审计链等设计资产；KG 上下文、运行映射和质量政策边界必须适配或重写。
 
-五项研究语义决策已经完成，P3-P/P4-P 已进入实现阶段。当前已形成版本化案例 manifest、canonical context、六组输入投影和确定性基线隔离测试，并完成 18-call 真实 LLM pilot 的离线 schedule/input-hash 预检；真实调用、模型/预算冻结、planning-only formal 和选择性端到端仍未执行。
+五项研究语义决策已经完成，P3-P/P4-P 已进入实现阶段。当前已形成版本化案例 manifest、canonical context、六组输入投影和确定性基线隔离测试，并完成 18-call 真实 LLM pilot。pilot 原始证据位于 `D:\code\fusionagent-evidence\p3-planning-pilot\2026-08-13-deepseek-official-v4-flash-r1`，执行源码为 `3231f04108a0dda2d675ad32b1ce19033ffc3bc2`。
+
+pilot 审计明确 `formal_ready=false`：18/18 LLM 输入暴露 `expected_consequence`，部分案例还暴露 `unsupported_terms`、`quality_policy_id` 或 `semantic_guard`；这些字段属于评测真值或策略提示，不能进入正式规划输入。另有两次 C06 调用耗尽 8192 output tokens，且完整 gold rubric/指标计算器尚未冻结。`max_tokens=16384` 与至少 600,000-token 的同规模批次预算目前仅是候选参数，不是正式冻结值。planning-only formal 和选择性端到端均未执行。
 
 具体优先级、退出条件和论文映射见[论文主张与优先级](claims-and-priorities.md)。

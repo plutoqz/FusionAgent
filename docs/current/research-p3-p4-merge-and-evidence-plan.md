@@ -192,10 +192,12 @@ case manifest/crosswalk
 
 在最后一个 evidence freeze 完成前，只能使用“在所测案例和冻结环境下观察到”的限定表述，不能写成普遍性能或生产能力结论。
 
-## 8. 当前实施进度（2026-08-07）
+## 8. 当前实施进度（2026-08-13）
 
 - P3-P0：已形成 `research-case-manifest-v1.json`，并增加 Pydantic schema、案例分区和 negative-control 自动校验。
 - P3-P1：已实现 canonical context、六组字段白名单投影、稳定输入 hash，以及 fixed/rules-only/KG-only 的最小确定性决策器。
 - P3-P2：已完成投影级隔离测试；完整 gold rubric 和正式指标计算器仍待实现。
 - P3-P3：provider 已记录 attempt-level 原始响应、模型、request ID、HTTP 状态、token、延迟、hash、parse mode 和失败类别；pilot 路径强制 strict JSON，禁止 regex salvage 和 fallback。
-- 18-call pilot：已完成离线 schedule、KG crosswalk 和输入投影 dry-run，证据位于 `docs/current/evidence/p3-planning-pilot/2026-08-07-preflight-v2/`；真实调用尚未执行，模型、预算和正式重复次数尚未冻结。
+- 18-call pilot：离线 preflight 位于 `docs/current/evidence/p3-planning-pilot/2026-08-07-preflight-v2/`；DeepSeek 官方 API 的真实批次位于 `D:\code\fusionagent-evidence\p3-planning-pilot\2026-08-13-deepseek-official-v4-flash-r1`。18 次均为 HTTP 200 且响应模型为 `deepseek-v4-flash`，16 次 strict JSON/schema 成功，2 次 C06 知识增强调用以 `finish_reason=length` 失败，总消耗 222,980 tokens；失败未被补跑或 fallback 替换。
+- pilot 审计：全部 source/algorithm 引用均可在各自输入中 grounding，但 18/18 输入暴露 `expected_consequence`，部分案例还暴露 `unsupported_terms`、`quality_policy_id` 或 `semantic_guard`。这些评测/策略字段必须从 formal planner observation 中移除，并只保留在独立 gold rubric 中。
+- formal readiness：当前为 `false`。除输入泄漏外，完整 gold rubric/指标计算器仍待实现；`max_tokens=16384` 和至少 600,000-token 的同规模批次预算只是基于截断现象的候选参数，尚未冻结。不得直接进入 planning-only formal。
