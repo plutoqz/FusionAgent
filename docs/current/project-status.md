@@ -154,4 +154,6 @@ C06 语义现已冻结为两阶段：P3 planning-only 评价“首次质量门�
 
 v4 C06 真实小 pilot 在提交 `7c29fa3` 上完成：3/3 HTTP 200、模型一致、strict JSON/schema 成功、泄漏 0，总消耗 35,578 tokens，但三次自动分均为 0.75。输出显示公共 schema 存在歧义：模型将 `delivery_state=planned` 理解为 workflow 已安排状态，full-contract 还把内部 `transform` 步骤输出为产品 task。该批次保持 diagnostic-only，不通过改 gold 追分。公共输出契约已收紧为五类产品 task，并明确 decision/delivery state 表示执行后的预期产品交付姿态；input variant 升为 `canonical_v3`。v5 离线 preflight 位于 `docs/current/evidence/p3-planning-pilot/2026-08-13-preflight-v5-product-delivery-schema/`，泄漏 0，18/18 hash 因公共 schema 变化更新，`max_tokens=16384` 下保守上界为 554,576。
 
+v5 C06 真实小 pilot 在提交 `8bbf901` 上完成：3/3 HTTP 200、响应模型一致、`finish_reason=stop`、strict JSON/schema 成功，总消耗 38,658 tokens；泄漏与 ungrounded reference 均为 0，三组自动检查均为 1.0。三组都选择 `raw.osm.road` 并输出 `degraded`，同时保留具体失败根因未知的不确定性，没有预写 Microsoft external failure。该结论只覆盖 C06 recovery replan 的结构化自动项；`quality_failed_evidence`、`semantic_guard` 和 `recovery_trace` 仍为 pending manual review，须由 P4 真实端到端证据验证。`formal_ready=false`，下一步是冻结 Provider/model/参数、manifest/output schema/evaluator hash、schedule seed 和 18-call 预算，不再继续根据小 pilot 结果修改协议。
+
 具体优先级、退出条件和论文映射见[论文主张与优先级](claims-and-priorities.md)。
