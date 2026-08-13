@@ -112,3 +112,29 @@ def test_observation_projection_does_not_invent_default_empty_facts() -> None:
     assert observations["planning_stage"] == "recovery_replan"
     assert observations["observed_failure"]["quality_gate_accepted"] is False
     assert observations["observed_failure"]["external_uncontrollable_source_ids"] == []
+
+
+def test_deterministic_groups_emit_public_planning_schema_for_all_cases() -> None:
+    manifest = load_research_case_manifest(MANIFEST)
+    factory = CanonicalContextFactory(InMemoryKGRepository(experience_policy="pinned_snapshot"))
+    runner = DeterministicBaselineRunner()
+
+    for case in manifest.cases:
+        context = factory.build(case)
+        for group in (
+            BaselineGroup.fixed_workflow,
+            BaselineGroup.rules_only,
+            BaselineGroup.kg_only,
+        ):
+            plan = runner.run_planning_decision(factory.project(context, group))
+            assert plan.model_dump(mode="json")
+
+
+def test_kg_only_projection_contains_one_query_per_requested_product_task() -> None:
+    manifest = load_research_case_manifest(MANIFEST)
+    case = next(item for item in manifest.cases if item.case_id == "C02")
+    factory = CanonicalContextFactory(InMemoryKGRepository(experience_policy="pinned_snapshot"))
+
+    projection = factory.project(factory.build(case), BaselineGroup.kg_only)
+
+    assert [item["task_kind"] for item in projection.payload["kg_query"]["task_queries"]] == case.request_scope.task_kinds

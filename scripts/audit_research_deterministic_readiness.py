@@ -36,7 +36,7 @@ def audit_deterministic_readiness(manifest_path: Path) -> dict[str, Any]:
         context = factory.build(case)
         for group in DETERMINISTIC_GROUPS:
             projection = factory.project(context, group)
-            raw_output = runner.run(projection)
+            raw_output = runner.run_planning_decision(projection).model_dump(mode="json")
             schema_error = None
             try:
                 ResearchPlanningDecision.model_validate(raw_output)
@@ -74,8 +74,8 @@ def audit_deterministic_readiness(manifest_path: Path) -> dict[str, Any]:
             ]
         ),
         "claim_boundary": (
-            "Do not combine deterministic outputs with formal LLM rubric scores until all six groups share the "
-            "same planning decision contract. Do not infer missing delivery, gap, source, or algorithm semantics."
+            "All six groups may share the evaluator only when comparison_ready=true. Readiness does not establish "
+            "fairness, superiority, statistical significance, or completion of manual review."
         ),
         "records": records,
     }
