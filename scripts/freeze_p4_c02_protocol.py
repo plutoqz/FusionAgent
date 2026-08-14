@@ -22,11 +22,11 @@ from services.research_plan_runtime_adapter import ResearchPlanRuntimeAdapter
 CASE_ID = "C02"
 CONDITION = "llm_full_contract_kg"
 FORMAL_RUN_ID = "formal-c02-llm_full_contract_kg-r1"
-PROTOCOL_ID = "fusionagent.p4.c02-water-road-e2e.v1"
+PROTOCOL_ID = "fusionagent.p4.c02-water-road-e2e.v2"
 INVENTORY_PROTOCOL_ID = "fusionagent.p4.c02-asset-inventory.s2"
 STAGE_TASK_KINDS = ("water_polygon", "waterways", "road")
 GAP_TASK_KINDS = ("building", "poi")
-EVIDENCE_ROOT = Path(r"D:\code\fusionagent-evidence\p4-planning-e2e\2026-08-14-c02-water-road-e2e-r1")
+EVIDENCE_ROOT = Path(r"D:\code\fusionagent-evidence\p4-planning-e2e\2026-08-14-c02-water-road-e2e-r2")
 DEFAULT_FORMAL_ROOT = Path(r"D:\code\fusionagent-evidence\p3-planning-formal\2026-08-13-deepseek-v4-flash-formal-r1")
 DEFAULT_INVENTORY = Path(r"D:\code\fusionagent-evidence\p4-planning-e2e\2026-08-14-c02-asset-inventory-s2-r3\asset_inventory.json")
 DEFAULT_S1_AUDIT = Path(r"D:\code\fusionagent-evidence\p4-planning-e2e\2026-08-14-c02-selected-resolved-s1-r2\selected_resolved_audit.json")
@@ -111,9 +111,9 @@ def build_p4_c02_freeze(
         "case_identity": {
             "case_id": CASE_ID,
             "case_version": case.version,
-            "variant_id": "formal-llm-full-contract-kg-c02-caracas-r1",
+            "variant_id": "formal-llm-full-contract-kg-c02-caracas-r2",
             "aoi_id": "caracas-capital-district-v1",
-            "run_id": "p4-c02-water-road-caracas-r1",
+            "run_id": "p4-c02-water-road-caracas-r2",
             "formal_run_id": FORMAL_RUN_ID,
         },
         "aoi": {
@@ -184,8 +184,10 @@ def build_p4_c02_freeze(
             "services/domain_fusion_runners.py",
             "services/run_writeback_service.py",
             "services/run_state_store.py",
+            "schemas/task_kind.py",
             "scripts/profile_p4_c02_assets.py",
             "scripts/freeze_p4_c02_protocol.py",
+            "scripts/run_p4_c02_e2e.py",
         )
     }
     protocol = {
@@ -203,6 +205,8 @@ def build_p4_c02_freeze(
             "execution_validation_gate": "workflow_validator_enforce",
             "source_semantic_validation": "normalized_algorithm_input_fail_closed",
             "gap_policy": "building_and_poi_explicit_gap",
+            "generic_grounding_probe": "diagnostic_only",
+            "frozen_plan_persistence": "canonical_no_derived_fields",
         },
         "implementation_commit": implementation_commit,
         "implementation_files": implementation_files,
