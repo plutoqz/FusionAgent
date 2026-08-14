@@ -640,3 +640,120 @@ case manifest/crosswalk
 
 - S1-S4、S6 已完成；S5 依据冻结前置条件合法跳过。当前 worktree、提交链、KG identity、实验根和主张矩阵已由 S6 audit 对齐。
 - C02 未计划 waterways source expansion 是后续工程/研究问题，不在本目标内修复或重跑。任何新 C02/C06 实验都必须使用新的 protocol、candidate/input hash、implementation commit、run identity 和 evidence root。
+
+## 16. 论文实验闭环执行计划（E1-E6）
+
+本节是 S6 之后的唯一执行计划。第 15 节保持为已完成历史，不将 P3 v1、C02 r2、C04 r4 或 C06 screening 结果并入新的重复实验样本。
+
+### 16.1 项目契约
+
+**目标**：在不覆盖既有正式证据的前提下，为 RQ3 建立同一 implementation commit、同一输出合同和三次完整重复的六组 planning comparison，并为 RQ4 增加与主张宽度匹配的选择性多 AOI 真实执行证据；最终生成论文可直接引用的评价表、图和证据索引。
+
+**当前主张边界**：实验不预设 LLM+KG 优于 rules-only 或 KG-only。三次重复只用于描述同一案例内的规划稳定性、失败率和有界效应，不支持统计显著性或总体泛化。C03 继续作为 negative control，不计入正例均值。
+
+**冻结输入**：`docs/current/research-case-manifest-v1.json`、KG v1 identity、`ResearchPlanningDecision` schema、当前 system prompt、evaluator、DeepSeek provider/model revision evidence。任何语义修改必须产生新 protocol，不得在批次中途变更。
+
+**非目标**：不修复或重跑 C02 r2；不人为制造 C06 质量失败；不修改 KG v1、旧 Prompt、旧 rubric、旧 formal result 或旧 evidence root；不把 mock、preflight、确定性测试或历史 P4-G 当作真实 LLM 能力证据。
+
+**共同失败语义**：Provider、HTTP、模型身份、usage、strict JSON、schema、grounding 和 rubric 失败均按观察结果保留；禁止 retry、repair、salvage、fallback、结果替换和只对低分格子补跑。
+
+### 16.2 主张矩阵
+
+| 主张 | 比较对象 | 指标 | 实验单元 | 证据文件 |
+| --- | --- | --- | --- | --- |
+| RQ3-a：知识上下文是否改变计划有效性与合同满足 | LLM-only / capability KG / full-contract KG | pre-fallback validity、automatic score、人工 rubric、禁止行为率 | case x condition x replicate | raw response、result、automatic audit、review records |
+| RQ3-b：LLM 条件相对确定性策略的增量与代价 | fixed / rules / KG-only / 3 LLM groups | 同一 rubric、latency、tokens、失败率 | case x group；LLM replicate 描述随机性 | deterministic report、LLM audit、comparison table |
+| RQ3-c：规划是否稳定 | 三个 LLM condition 的三次重复 | plan structure signature、score range、decision/state agreement | case-condition cell | stability audit |
+| RQ4-a：选定计划是否保持 selected-resolved-executed-evaluated 一致 | 选择性 E2E case/AOI | contract state、质量门、gap、artifact/hash/evidence completeness | frozen case-AOI run | protocol、run evidence、independent audit |
+| RQ4-b：主张是否可独立复核 | 完整方法证据链 | manifest/checksum/audit pass rate | evidence root | unified paper evidence index |
+
+### 16.3 E1：主张与缺口冻结
+
+**阶段目标**：以 A0 研究章程和 S6 audit 为准，冻结本轮只补 RQ3 planning repetition 与 RQ4 external validity，不扩展系统功能。
+
+**实施动作**：
+
+1. 对齐 A0、P3 v1、S6 claim matrix 和人工评价文件。
+2. 将 36 项 v1 manual items 区分为已裁决与必须由 execution evidence 支撑的项目。
+3. 冻结本节项目契约、主张矩阵和 E2-E6 闸门。
+
+**验收标准**：旧证据保持只读；所有新增工作可映射到 RQ3 或 RQ4；明确三次重复不产生显著性主张；状态文档、Git 和证据终态一致。
+
+**退出条件**：若目标变为证明统计显著性、扩大灾种或修改 KG 语义，停止本阶段并新建研究协议，不在本计划内隐式吸收。
+
+### 16.4 E2：统一六组重复协议与无网络预检
+
+**依赖**：E1 通过。
+
+**允许修改**：formal schedule/freeze/runner、对应 tests、本状态文件；不得修改 manifest、KG v1、system prompt、output schema 或 evaluator 语义。
+
+**实施动作**：
+
+1. 新建 `fusionagent.planning-repeated-formal.v2`，包含 C01-C06 x 3 LLM conditions x 3 repetitions，共 54 次真实调用。
+2. 在同一 protocol/commit 下生成 C01-C06 x 3 deterministic groups x 3 repetitions，共 54 行；确定性重复只验证 exact stability，不作为独立随机样本。
+3. 冻结 schedule seed `20260814`、temperature `0.1`、max output `16384`、zero retry/repair/salvage/fallback、model revision 和全部实现 hash。
+4. token 保守预算固定为 `1,700,000`；正式启动前环境值必须逐项匹配。
+5. 预注册扩展闸门：任一 cell 出现 Provider/schema failure、多个 plan structure signature 或 automatic score range >= 0.25 时，才允许通过新协议将所有 case-condition 一致扩至 5 repetitions；禁止选择性补跑。
+6. 执行无网络 preflight，证明 paid provider calls 为 0、54 个 run ID 唯一且完整、所有输入无 gold leakage。
+
+**最小验证**：协议/runner 聚焦 pytest、`compileall`、freeze audit、preflight manifest/hash/count 检查。
+
+**验收标准**：freeze audit 全通过；worktree clean；实现 commit 在当前 HEAD 祖先链；未来 evidence root 不存在；API key 仅来自环境；尚未发生 Provider 调用。
+
+**退出条件**：预算小于 conservative bound、model revision 无法复核、输入/hash 漂移或工作树不干净时，不进入 E3。
+
+### 16.5 E3：确定性重复与真实 LLM 批次
+
+**依赖**：E2 freeze/preflight 通过，运行环境包含匹配的 base URL、model、token budget 和 API key。
+
+**实施动作**：
+
+1. 先执行确定性 54 行并验证同一 case-group 的三个 semantic output hash 完全一致。
+2. 对冻结的 54-call schedule 只启动一次真实批次；按 schedule 顺序执行，不并发修改证据根。
+3. 每次保存 request/input hash、raw response、response model/request ID、usage、latency、finish reason、parse mode、plan 和 failure class。
+4. 批次结束后运行自动 evaluator 和独立 integrity audit；不因 rubric fail 重跑。
+5. 计算每个 cell 的 plan structure signature、decision/state agreement、score range 和失败率，按预注册闸门决定是否提出独立的 5-repetition extension protocol。
+
+**验收标准**：所有已尝试调用均有不可变结果；失败未被替换；总 tokens 不超预算；运行集合与 schedule 精确相等，或在 fatal failure 后保留明确的未执行尾部；claim boundary 写入报告。
+
+**退出条件**：模型身份不匹配、usage 缺失、预算超限或 fatal transport failure 时立即停止；不自动重启。
+
+### 16.6 E4：盲化人工评价与一致性审计
+
+**依赖**：E3 原始结果冻结。
+
+**实施动作**：
+
+1. 生成去除 condition 名称、run ID 暗示和自动分数的盲化 review packet；每条包含可见 planner input、plan、rubric item 和允许的 pass/fail/not-assessable。
+2. 由两名独立人工评审者完成；Codex 或脚本生成的规则裁决只能标为 machine-assisted diagnostic，不冒充 human rating。
+3. 在揭盲前冻结两份原始评价；报告 Cohen's kappa（名义项）及逐项一致率；分歧由第三人或预定义 adjudication 规则解决并保留原始分歧。
+4. C05 `provenance_complete` 若仍需要 execution evidence，记为 not-assessable-at-planning，不强行转为 pass；规划质量与执行完整性分开统计。
+
+**验收标准**：每个适用 manual item 有两份独立裁决或明确 not-assessable；评审身份使用稳定匿名 ID；原始评价、揭盲映射、分歧和裁决均有 hash。
+
+### 16.7 E5：选择性多 AOI 真实端到端
+
+**依赖**：E3/E4 已指出哪些 planning case 真正具有区分度；不得先选表现最好的案例再补协议。
+
+**实施动作**：
+
+1. 先只读清点 Caracas、Abidjan、越南北部沿海走廊及其他仓库已声明 AOI 的真实资产、CRS、feature count、geometry hash、source coverage 和运行能力。
+2. 按预定义规则选择最多 2 个机制、每个至少 2 个可比 AOI；优先选择能验证 progressive delivery、source conflict 或 fail-closed contract 的案例，不复活已失效的 C06 机制。
+3. 每个 case-AOI 使用新 case version、protocol、input hash、implementation commit、run ID 和 evidence root；一次性运行，失败即停。
+4. 复算实际 GPKG/ZIP、CRS、geometry validity、quality report、lineage、contract state 和 evidence hash，执行独立审计。
+
+**验收标准**：每个纳入论文的 case-AOI 都有真实输入、真实 runtime、实际产物或受控失败、独立审计和明确外推边界。资产不足时缩窄主张，不用 mock 补齐。
+
+### 16.8 E6：论文结果流水线与统一审计
+
+**依赖**：E3-E5 达到各自终态，包含合法失败或未运行状态。
+
+**实施动作**：生成六组 comparison table、stability table、manual review agreement、E2E outcome table、案例时间线、claim-evidence matrix、有效性威胁表、环境/命令清单和数据代码可用性材料；所有数字由冻结 JSON 生成，不手工抄写。
+
+**验收标准**：表图中的每个数字可回指 run/evidence file；负结果和失败保留；论文摘要允许表述与统一 claim audit 一致；未支持的 superiority/significance/cross-AOI 主张被机器检查拒绝。
+
+### 16.9 当前恢复点
+
+- 当前阶段：E1 主张与缺口冻结。
+- 下一验收点：E2 v2 runner、测试、implementation commit、freeze audit 和 zero-call preflight 全部通过。
+- 当前外部条件：本 shell 未配置 API key，因此 E2 可完成，E3 真实调用不得启动。

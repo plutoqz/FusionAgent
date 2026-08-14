@@ -148,3 +148,43 @@ def build_research_llm_formal_schedule(*, schedule_seed: int) -> ResearchLLMPilo
             "stability_claim_eligible": False,
         },
     )
+
+
+def build_research_llm_repeated_schedule(
+    *,
+    schedule_seed: int,
+    replicates: int = 3,
+) -> ResearchLLMPilotSchedule:
+    if replicates < 2:
+        raise ValueError("Repeated formal schedule requires at least two replicates")
+    cases = [f"C{index:02d}" for index in range(1, 7)]
+    conditions = ["llm_only", "llm_capability_kg", "llm_full_contract_kg"]
+    items = [
+        PilotScheduleItem(
+            run_id=f"formal-v2-{case_id.lower()}-{condition}-r{replicate}",
+            case_id=case_id,
+            knowledge_condition=condition,
+            replicate=replicate,
+        )
+        for case_id in cases
+        for condition in conditions
+        for replicate in range(1, replicates + 1)
+    ]
+    random.Random(schedule_seed).shuffle(items)
+    return ResearchLLMPilotSchedule(
+        protocol_id="fusionagent.planning-repeated-formal.v2",
+        status="draft_preflight",
+        cases=cases,
+        knowledge_conditions=conditions,
+        replicates=replicates,
+        items=items,
+        metadata={
+            "schedule_seed": schedule_seed,
+            "main_call_count": len(items),
+            "semantic_repairs": 0,
+            "transport_retries": 0,
+            "fallback": "forbidden",
+            "stability_analysis_eligible": True,
+            "statistical_significance_claim_eligible": False,
+        },
+    )
