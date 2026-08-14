@@ -30,8 +30,9 @@ SOURCE_IDS = ("raw.osm.road", "raw.microsoft.road", "aoi.venezuela_capital_distr
 V1_PROTOCOL_ID = "fusionagent.p4.c04-road-e2e.v1"
 V2_PROTOCOL_ID = "fusionagent.p4.c04-road-e2e.v2"
 V3_PROTOCOL_ID = "fusionagent.p4.c04-road-e2e.v3"
-PROTOCOL_ID = "fusionagent.p4.c04-road-e2e.v4"
-SUPPORTED_PROTOCOL_IDS = {V1_PROTOCOL_ID, V2_PROTOCOL_ID, V3_PROTOCOL_ID, PROTOCOL_ID}
+V4_PROTOCOL_ID = "fusionagent.p4.c04-road-e2e.v4"
+PROTOCOL_ID = "fusionagent.p4.c04-road-e2e.v5"
+SUPPORTED_PROTOCOL_IDS = {V1_PROTOCOL_ID, V2_PROTOCOL_ID, V3_PROTOCOL_ID, V4_PROTOCOL_ID, PROTOCOL_ID}
 
 
 def build_p4_c04_freeze(
@@ -42,6 +43,7 @@ def build_p4_c04_freeze(
     case_manifest_path: Path,
     evidence_root: Path,
     prior_failure_path: Path,
+    normalization_replay_path: Path,
     implementation_commit: str,
 ) -> dict[str, Any]:
     formal_root = formal_root.resolve()
@@ -50,8 +52,11 @@ def build_p4_c04_freeze(
     case_manifest_path = case_manifest_path.resolve()
     evidence_root = evidence_root.resolve()
     prior_failure_path = prior_failure_path.resolve()
+    normalization_replay_path = normalization_replay_path.resolve()
     prior_failure = _read_json(prior_failure_path)
-    _validate_prior_failure_correction(prior_failure)
+    normalization_replay = _read_json(normalization_replay_path)
+    _validate_v4_failure(prior_failure)
+    _validate_normalization_replay(normalization_replay, prior_failure=prior_failure)
 
     schedule_path = formal_root / "schedule.json"
     result_path = formal_root / "runs" / RUN_ID / "result.json"
@@ -109,7 +114,7 @@ def build_p4_c04_freeze(
             "case_version": case.version,
             "variant_id": "formal-llm-full-contract-kg",
             "aoi_id": "caracas-capital-district-v1",
-            "run_id": "p4-c04-road-caracas-r3",
+            "run_id": "p4-c04-road-caracas-r4",
             "formal_run_id": RUN_ID,
         },
         "aoi": {
@@ -124,6 +129,10 @@ def build_p4_c04_freeze(
             "primary_component_source_id": "raw.osm.road",
             "reference_component_source_id": "raw.microsoft.road",
             "reference_role_required": False,
+            "normalization_profile": "normalization.road.microsoft_shapefile.v1",
+            "source_feature_id_resolution": "provider_artifact_fid",
+            "road_class_resolution": "declared_default:road",
+            "strict_validation_layer": "normalized_algorithm_input",
             "missing_reference_representation": "empty_reference_bundle_with_explicit_component_coverage",
             "no_source_substitution": True,
         },
@@ -199,6 +208,7 @@ def build_p4_c04_freeze(
             "missing_required_component_or_trace",
             "stage_timeout_or_budget_exceeded",
             "evidence_root_nonempty_before_execution",
+            "normalized_source_semantic_contract_invalid_or_unavailable",
         ],
     }
     _validate_stage_semantics(execution_config)
@@ -216,6 +226,12 @@ def build_p4_c04_freeze(
             "scripts/run_p4_c04_road_e2e.py",
             "services/agent_run_service.py",
             "services/run_state_store.py",
+            "services/source_field_profile_registry.py",
+            "services/source_profile_service.py",
+            "services/source_semantic_contract_service.py",
+            "services/track_b_source_normalization.py",
+            "services/track_b_national_scale_service.py",
+            "scripts/replay_p4_c04_r3_normalization.py",
         )
     }
     protocol = {
@@ -235,6 +251,9 @@ def build_p4_c04_freeze(
             "frozen_plan_persistence": "canonical_no_derived_fields",
             "single_source_road_output": "v7_canonical_contract",
             "repair_availability": "product_contract_authorization_intersect_frozen_kg_strategy_nodes",
+            "source_semantic_validation": "normalized_algorithm_input_fail_closed",
+            "microsoft_identifier_resolution": "provider_artifact_fid",
+            "microsoft_road_class_resolution": "declared_default_road",
         },
         "implementation_commit": implementation_commit,
         "implementation_files": implementation_files,
@@ -246,12 +265,13 @@ def build_p4_c04_freeze(
             "readiness_v2": _input_ref(readiness_path),
             "asset_manifest": _input_ref(asset_manifest_path),
             "prior_failed_attempt": _input_ref(prior_failure_path),
+            "normalization_replay": _input_ref(normalization_replay_path),
         },
         "previous_attempt": {
             "protocol_id": prior_failure["protocol_id"],
             "run_id": prior_failure["failed_run_id"],
             "failed_stage_id": prior_failure["failed_stage_id"],
-            "failure_class": prior_failure["failure_class"],
+            "failure_class": "quality_gate_rejected_dangle_metric",
             "automatic_retry_performed": prior_failure["automatic_retry_performed"],
         },
         "frozen_artifact_hashes": {
@@ -259,6 +279,7 @@ def build_p4_c04_freeze(
             "workflow_plan": _semantic_hash(workflow_plan.model_dump(mode="json")),
             "execution_config": _semantic_hash(execution_config),
             "asset_inventory": _semantic_hash(asset_inventory),
+            "source_normalization_contract": _semantic_hash(normalization_replay["normalized_contract"]),
         },
         "evaluation_boundary": {
             "selected_delivery_state": selected_plan.tasks[0].delivery_state,
@@ -275,6 +296,14 @@ def build_p4_c04_freeze(
             "Only the Caracas source files and AOI boundary are reused from the older Freeze C manifest. "
             "The older C04 water case, runtime outputs, metrics, and claims are not reused."
         ),
+        "normalization_evidence": {
+            "report": _input_ref(normalization_replay_path),
+            "contract_valid": normalization_replay["normalized_contract"]["validation"]["valid"],
+            "microsoft_normalization_profile": normalization_replay["normalized_contract"]["sources"]
+            ["raw.microsoft.road"]["normalization_profile"],
+            "quality_replay_accepted": normalization_replay["quality_replay"]["accepted"],
+            "claim_boundary": normalization_replay["claim_boundary"],
+        },
     }
     return {
         "protocol": protocol,
@@ -319,6 +348,7 @@ def verify_p4_c04_freeze(root: Path) -> dict[str, Any]:
         "workflow_plan_hash": _semantic_hash(workflow_plan) == expected["workflow_plan"],
         "execution_config_hash": _semantic_hash(execution_config) == expected["execution_config"],
         "asset_inventory_hash": _semantic_hash(asset_inventory) == expected["asset_inventory"],
+        "source_normalization_contract_hash": _normalization_contract_hash_valid(protocol, expected),
         "input_evidence_hashes": all(
             Path(item["path"]).is_file() and _file_hash(Path(item["path"])) == item["sha256"]
             for item in protocol["input_evidence"].values()
@@ -368,6 +398,17 @@ def _build_asset_inventory(sources: list[Any]) -> dict[str, Any]:
     }
 
 
+def _normalization_contract_hash_valid(protocol: dict[str, Any], expected: dict[str, str]) -> bool:
+    if protocol.get("protocol_id") != PROTOCOL_ID:
+        return True
+    reference = (protocol.get("input_evidence") or {}).get("normalization_replay") or {}
+    path = Path(str(reference.get("path") or ""))
+    if not path.is_file() or "source_normalization_contract" not in expected:
+        return False
+    replay = _read_json(path)
+    return _semantic_hash(replay.get("normalized_contract")) == expected["source_normalization_contract"]
+
+
 def _validate_asset_overlap(inventory: dict[str, Any]) -> None:
     by_id = {item["source_id"]: item for item in inventory["sources"]}
     boundary = by_id["aoi.venezuela_capital_district"]
@@ -411,6 +452,15 @@ def _validate_stage_semantics(config: dict[str, Any]) -> None:
         raise ValueError(f"The arrival stage action must be {expected_action}")
     if config["runtime"]["llm_calls"] != 0 or config["runtime"]["fallback"] != "forbidden":
         raise ValueError("P4 execution must reuse the frozen plan with no LLM calls or fallback")
+    if config.get("protocol_id") == PROTOCOL_ID:
+        semantics = config.get("source_semantics") or {}
+        if (
+            semantics.get("normalization_profile") != "normalization.road.microsoft_shapefile.v1"
+            or semantics.get("source_feature_id_resolution") != "provider_artifact_fid"
+            or semantics.get("road_class_resolution") != "declared_default:road"
+            or semantics.get("strict_validation_layer") != "normalized_algorithm_input"
+        ):
+            raise ValueError("P4 v5 requires the frozen Microsoft normalized input semantic contract")
 
 
 def _bounds_intersect(left: list[float], right: list[float]) -> bool:
@@ -443,6 +493,15 @@ def _execution_gate_consistent(protocol: dict[str, Any]) -> bool:
         and runner_contract.get("single_source_road_output") == "v7_canonical_contract"
         and runner_contract.get("repair_availability")
         == "product_contract_authorization_intersect_frozen_kg_strategy_nodes"
+        and (
+            protocol.get("protocol_id") != PROTOCOL_ID
+            or (
+                runner_contract.get("source_semantic_validation")
+                == "normalized_algorithm_input_fail_closed"
+                and runner_contract.get("microsoft_identifier_resolution") == "provider_artifact_fid"
+                and runner_contract.get("microsoft_road_class_resolution") == "declared_default_road"
+            )
+        )
     )
 
 
@@ -464,6 +523,49 @@ def _validate_prior_failure_correction(prior_failure: dict[str, Any]) -> None:
         path = Path(str(item.get("path") or ""))
         if not path.is_file() or _file_hash(path) != item.get("sha256"):
             raise ValueError(f"Prior failure correction evidence hash mismatch: {path}")
+
+
+def _validate_v4_failure(prior_failure: dict[str, Any]) -> None:
+    if (
+        prior_failure.get("protocol_id") != V4_PROTOCOL_ID
+        or prior_failure.get("failed_stage_id") != "microsoft_arrival"
+        or prior_failure.get("runtime_runs_created") != 2
+        or prior_failure.get("fusion_algorithm_executions_started") != 2
+        or prior_failure.get("fusion_algorithm_executions_completed") != 2
+        or prior_failure.get("automatic_retry_performed") is not False
+        or prior_failure.get("second_stage_started") is not True
+    ):
+        raise ValueError("Prior failed attempt does not satisfy the v5 remediation evidence contract")
+
+
+def _validate_normalization_replay(
+    replay: dict[str, Any],
+    *,
+    prior_failure: dict[str, Any],
+) -> None:
+    contract = replay.get("normalized_contract") or {}
+    microsoft = (contract.get("sources") or {}).get("raw.microsoft.road") or {}
+    matched = microsoft.get("matched_fields") or {}
+    counts = replay.get("execution_counts") or {}
+    if (
+        replay.get("passed") is not True
+        or replay.get("source_protocol_id") != V4_PROTOCOL_ID
+        or replay.get("source_failed_run_id") != prior_failure.get("failed_run_id")
+        or counts != {"fusion_runs_started": 0, "llm_calls": 0, "provider_network_calls": 0}
+        or (contract.get("validation") or {}).get("valid") is not True
+        or (contract.get("validation") or {}).get("validated_layer") != "normalized_algorithm_input"
+        or microsoft.get("normalization_profile") != "normalization.road.microsoft_shapefile.v1"
+        or (matched.get("source_feature_id") or {}).get("derivation") != "provider_artifact_fid"
+        or (matched.get("road_class") or {}).get("default_value") != "road"
+        or (replay.get("quality_replay") or {}).get("accepted") is not True
+    ):
+        raise ValueError("Normalization replay does not satisfy the v5 source semantic evidence contract")
+    for item in (replay.get("preserved_inputs") or {}).values():
+        references = item.values() if isinstance(item, dict) and "path" not in item else [item]
+        for reference in references:
+            path = Path(str((reference or {}).get("path") or ""))
+            if not path.is_file() or _file_hash(path) != (reference or {}).get("sha256"):
+                raise ValueError(f"Normalization replay preserved input hash mismatch: {path}")
 
 
 def _validate_workflow_repair_closure(plan: WorkflowPlan) -> None:
@@ -514,6 +616,7 @@ def main() -> int:
     parser.add_argument("--readiness", type=Path)
     parser.add_argument("--evidence-root", type=Path)
     parser.add_argument("--prior-failure", type=Path)
+    parser.add_argument("--normalization-replay", type=Path)
     parser.add_argument(
         "--asset-manifest",
         type=Path,
@@ -531,7 +634,7 @@ def main() -> int:
         audit = verify_p4_c04_freeze(args.verify)
         print(json.dumps(audit, ensure_ascii=False, indent=2, sort_keys=True))
         return 0 if audit["passed"] else 1
-    for name in ("formal_root", "readiness", "evidence_root", "prior_failure"):
+    for name in ("formal_root", "readiness", "evidence_root", "prior_failure", "normalization_replay"):
         if getattr(args, name) is None:
             raise ValueError(f"--{name.replace('_', '-')} is required when freezing")
     payload = build_p4_c04_freeze(
@@ -541,6 +644,7 @@ def main() -> int:
         case_manifest_path=args.case_manifest,
         evidence_root=args.evidence_root,
         prior_failure_path=args.prior_failure,
+        normalization_replay_path=args.normalization_replay,
         implementation_commit=_git_head(),
     )
     audit = write_p4_c04_freeze(args.output, payload)
