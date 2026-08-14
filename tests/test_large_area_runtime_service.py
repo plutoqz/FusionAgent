@@ -113,6 +113,10 @@ def test_road_tile_emits_osm_single_source_fallback_when_supplement_is_missing(t
     assert output["source_id"].iloc[0] == "raw.osm.road"
     assert output["fusion_source"].iloc[0] == "base_road_network"
     assert output["match_role"].iloc[0] == "base_single_source"
+    assert output["road_class"].iloc[0] == "primary"
+    assert output["source_layer"].iloc[0] == "base"
+    assert output["osm_name"].iloc[0] == "Main Road"
+    assert output["road_name"].iloc[0] == "Main Road"
     assert stats["stats"]["mode"] == "single_source_fallback"
     assert stats["warnings"] == ["missing supplement road source; emitted base road network"]
 

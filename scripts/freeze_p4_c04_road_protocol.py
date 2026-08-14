@@ -20,6 +20,7 @@ from schemas.agent import WorkflowPlan
 from schemas.research_case_manifest import load_research_case_manifest
 from schemas.research_llm_pilot import ResearchPlanningDecision
 from services.contract_experiment_service import hash_input_declaration, load_experiment_manifest, sha256_file
+from services.research_plan_runtime_adapter import ResearchPlanRuntimeAdapter
 
 
 CASE_ID = "C04"
@@ -28,8 +29,9 @@ RUN_ID = "formal-c04-llm_full_contract_kg-r1"
 SOURCE_IDS = ("raw.osm.road", "raw.microsoft.road", "aoi.venezuela_capital_district")
 V1_PROTOCOL_ID = "fusionagent.p4.c04-road-e2e.v1"
 V2_PROTOCOL_ID = "fusionagent.p4.c04-road-e2e.v2"
-PROTOCOL_ID = "fusionagent.p4.c04-road-e2e.v3"
-SUPPORTED_PROTOCOL_IDS = {V1_PROTOCOL_ID, V2_PROTOCOL_ID, PROTOCOL_ID}
+V3_PROTOCOL_ID = "fusionagent.p4.c04-road-e2e.v3"
+PROTOCOL_ID = "fusionagent.p4.c04-road-e2e.v4"
+SUPPORTED_PROTOCOL_IDS = {V1_PROTOCOL_ID, V2_PROTOCOL_ID, V3_PROTOCOL_ID, PROTOCOL_ID}
 
 
 def build_p4_c04_freeze(
@@ -49,13 +51,7 @@ def build_p4_c04_freeze(
     evidence_root = evidence_root.resolve()
     prior_failure_path = prior_failure_path.resolve()
     prior_failure = _read_json(prior_failure_path)
-    if (
-        prior_failure.get("protocol_id") != V2_PROTOCOL_ID
-        or prior_failure.get("failed_stage_id") != "osm_provisional"
-        or prior_failure.get("fusion_algorithm_executions_started") != 0
-        or prior_failure.get("automatic_retry_performed") is not False
-    ):
-        raise ValueError("Prior failed attempt does not satisfy the v3 remediation evidence contract")
+    _validate_prior_failure_correction(prior_failure)
 
     schedule_path = formal_root / "schedule.json"
     result_path = formal_root / "runs" / RUN_ID / "result.json"
@@ -82,9 +78,16 @@ def build_p4_c04_freeze(
     ]
     if len(ready_rows) != 1 or ready_rows[0].get("ready") is not True:
         raise ValueError("Selected formal result is not wiring-ready in the frozen readiness audit")
-    resolution = ready_rows[0]["resolution"]
-    workflow_plan = WorkflowPlan.model_validate(resolution["workflow_plan"])
     repository = InMemoryKGRepository(experience_policy="pinned_snapshot")
+    resolution = ResearchPlanRuntimeAdapter(repository).resolve(
+        case=case,
+        condition=CONDITION,
+        decision=selected_plan,
+    )
+    if resolution.status != "resolved" or resolution.workflow_plan is None:
+        raise ValueError("Selected formal result no longer resolves through the current runtime adapter")
+    workflow_plan = resolution.workflow_plan
+    _validate_workflow_repair_closure(workflow_plan)
     validated_plan = WorkflowValidator(repository, enforcement_mode="enforce").validate_and_repair(workflow_plan)
     if validated_plan.validation is None or not validated_plan.validation.valid or validated_plan.validation.rejected:
         raise ValueError("Selected workflow plan did not pass WorkflowValidator(enforce)")
@@ -106,7 +109,7 @@ def build_p4_c04_freeze(
             "case_version": case.version,
             "variant_id": "formal-llm-full-contract-kg",
             "aoi_id": "caracas-capital-district-v1",
-            "run_id": "p4-c04-road-caracas-r2",
+            "run_id": "p4-c04-road-caracas-r3",
             "formal_run_id": RUN_ID,
         },
         "aoi": {
@@ -204,6 +207,10 @@ def build_p4_c04_freeze(
         path: _file_hash(REPO_ROOT / path)
         for path in (
             "services/research_plan_runtime_adapter.py",
+            "fusion_algorithms/road_conflation_v7.py",
+            "services/domain_fusion_runners.py",
+            "services/run_writeback_service.py",
+            "services/artifact_repair_service.py",
             "scripts/audit_p4_planning_e2e_readiness.py",
             "scripts/freeze_p4_c04_road_protocol.py",
             "scripts/run_p4_c04_road_e2e.py",
@@ -226,6 +233,8 @@ def build_p4_c04_freeze(
             "execution_validation_gate": "workflow_validator_enforce",
             "generic_grounding_probe": "diagnostic_only",
             "frozen_plan_persistence": "canonical_no_derived_fields",
+            "single_source_road_output": "v7_canonical_contract",
+            "repair_availability": "product_contract_authorization_intersect_frozen_kg_strategy_nodes",
         },
         "implementation_commit": implementation_commit,
         "implementation_files": implementation_files,
@@ -425,7 +434,48 @@ def _execution_gate_consistent(protocol: dict[str, Any]) -> bool:
     )
     if protocol.get("protocol_id") == V2_PROTOCOL_ID:
         return base_valid
-    return base_valid and runner_contract.get("frozen_plan_persistence") == "canonical_no_derived_fields"
+    canonical_persistence = runner_contract.get("frozen_plan_persistence") == "canonical_no_derived_fields"
+    if protocol.get("protocol_id") == V3_PROTOCOL_ID:
+        return base_valid and canonical_persistence
+    return (
+        base_valid
+        and canonical_persistence
+        and runner_contract.get("single_source_road_output") == "v7_canonical_contract"
+        and runner_contract.get("repair_availability")
+        == "product_contract_authorization_intersect_frozen_kg_strategy_nodes"
+    )
+
+
+def _validate_prior_failure_correction(prior_failure: dict[str, Any]) -> None:
+    if (
+        prior_failure.get("correction_type") != "non_destructive_evidence_summary_correction"
+        or prior_failure.get("protocol_id") != V3_PROTOCOL_ID
+        or prior_failure.get("failed_stage_id") != "osm_provisional"
+        or prior_failure.get("fusion_algorithm_executions_started") != 1
+        or prior_failure.get("fusion_algorithm_executions_completed") != 1
+        or prior_failure.get("automatic_retry_performed") is not False
+        or prior_failure.get("second_stage_started") is not False
+    ):
+        raise ValueError("Prior failed attempt does not satisfy the v4 remediation evidence contract")
+    preserved = prior_failure.get("preserved_evidence") or {}
+    if set(preserved) != {"original_failure_summary", "audit_log", "stage_record"}:
+        raise ValueError("Prior failure correction must preserve the original summary, audit, and stage record")
+    for item in preserved.values():
+        path = Path(str(item.get("path") or ""))
+        if not path.is_file() or _file_hash(path) != item.get("sha256"):
+            raise ValueError(f"Prior failure correction evidence hash mismatch: {path}")
+
+
+def _validate_workflow_repair_closure(plan: WorkflowPlan) -> None:
+    if plan.product_contract is None:
+        raise ValueError("Resolved workflow plan has no product contract")
+    authorized = set(plan.product_contract.repair_strategy_ids)
+    available = {strategy.strategy_id for strategy in plan.repair_strategies}
+    if available != authorized:
+        raise ValueError(
+            "Resolved workflow repair strategies do not close the product contract: "
+            f"authorized={sorted(authorized)}, available={sorted(available)}"
+        )
 
 
 def _input_ref(path: Path) -> dict[str, str]:

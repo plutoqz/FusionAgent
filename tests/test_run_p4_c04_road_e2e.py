@@ -3,7 +3,11 @@ from pathlib import Path
 
 import pytest
 
-from scripts.run_p4_c04_road_e2e import _evaluate_stages, preflight_p4_c04_runner
+from scripts.run_p4_c04_road_e2e import (
+    _evaluate_stages,
+    _fusion_execution_counts,
+    preflight_p4_c04_runner,
+)
 
 
 FREEZE_V1 = (
@@ -31,6 +35,25 @@ def test_stage_evaluation_requires_new_artifact_and_exact_plan() -> None:
 
     assert evaluation["passed"] is True
     assert evaluation["evaluated"]["supersession"]["verified"] is True
+
+
+def test_failure_summary_counts_large_area_algorithm_execution_events() -> None:
+    counts = _fusion_execution_counts(
+        [
+            {
+                "events": [
+                    {"kind": "large_area_tile_started"},
+                    {"kind": "large_area_tile_completed"},
+                    {"kind": "large_area_runtime_completed"},
+                ]
+            }
+        ]
+    )
+
+    assert counts == {
+        "fusion_algorithm_executions_started": 1,
+        "fusion_algorithm_executions_completed": 1,
+    }
 
 
 @pytest.mark.parametrize(

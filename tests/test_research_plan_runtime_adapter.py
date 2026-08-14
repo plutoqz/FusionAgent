@@ -52,6 +52,14 @@ def test_grounded_catalog_task_resolves_to_workflow_plan():
     assert result.workflow_plan.tasks[0].input.data_type_id == "dt.road.bundle"
     assert result.workflow_plan.tasks[0].task_id == "task.road.fusion"
     assert result.workflow_plan.product_contract.contract_id == "contract.product.road.v1"
+    assert {
+        "repair.artifact.schema_backfill.v1",
+        "repair.artifact.road_name.v1",
+    } <= {item.strategy_id for item in result.workflow_plan.repair_strategies}
+    assert all(
+        "task.road.fusion" in item.applies_to_task_ids
+        for item in result.workflow_plan.repair_strategies
+    )
     assert result.executed == {"status": "not_executed"}
     assert result.evaluated == {"status": "not_evaluated"}
 

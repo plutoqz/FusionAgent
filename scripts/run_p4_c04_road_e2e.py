@@ -182,14 +182,7 @@ def execute_p4_c04_runner(freeze_root: Path) -> dict[str, Any]:
                             "stages_completed": sum(
                                 1 for item in stage_records if item["runtime_succeeded"]
                             ),
-                            "fusion_algorithm_executions_started": sum(
-                                1
-                                for item in stage_records
-                                if any(
-                                    event.get("kind") == "execution_started"
-                                    for event in item.get("events") or []
-                                )
-                            ),
+                            **_fusion_execution_counts(stage_records),
                             "second_stage_started": any(
                                 item["stage_id"] == "microsoft_arrival" for item in stage_records
                             ),
@@ -214,6 +207,25 @@ def execute_p4_c04_runner(freeze_root: Path) -> dict[str, Any]:
     }
     _write_json(evidence_root / "experiment_result.json", result)
     return result
+
+
+def _fusion_execution_counts(stage_records: list[dict[str, Any]]) -> dict[str, int]:
+    events = [
+        event
+        for record in stage_records
+        for event in (record.get("events") or [])
+        if isinstance(event, dict)
+    ]
+    return {
+        "fusion_algorithm_executions_started": sum(
+            event.get("kind") in {"execution_started", "large_area_tile_started"}
+            for event in events
+        ),
+        "fusion_algorithm_executions_completed": sum(
+            event.get("kind") in {"execution_completed", "large_area_tile_completed"}
+            for event in events
+        ),
+    }
 
 
 def _build_stage_record(

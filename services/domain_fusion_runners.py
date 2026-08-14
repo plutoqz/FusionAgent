@@ -9,7 +9,11 @@ import pandas as pd
 
 from fusion_algorithms.contracts import PoiFusionParams, WaterPolygonFusionParams, params_from_mapping
 from fusion_algorithms.poi_fusion import run_poi_geohash_priority_fusion
-from fusion_algorithms.road_conflation_v7 import RoadConflationV7Config, run_road_conflation_v7
+from fusion_algorithms.road_conflation_v7 import (
+    RoadConflationV7Config,
+    canonicalize_road_output,
+    run_road_conflation_v7,
+)
 from fusion_algorithms.water_fusion import fuse_water_polygons
 from fusion_algorithms.waterways_conflation_v7 import WaterwaysConflationV7Config, run_waterways_conflation_v7
 from kg.knowledge_release import KnowledgeReleaseError
@@ -253,11 +257,10 @@ def run_road_tile(
                 "warning": "required reference_network source role is unsatisfied",
                 "knowledge_refs": ["source_role:road/base_network", "source_role:road/reference_network"],
             }
-        output = base
-        if "fusion_source" not in output.columns:
-            output["fusion_source"] = "base_road_network"
-        if "match_role" not in output.columns:
-            output["match_role"] = "base_single_source"
+        output = base.copy()
+        output["source_layer"] = "base"
+        output = canonicalize_road_output(output)
+        output["match_role"] = "base_single_source"
         return _write(output, output_dir, "road_fused", target_crs), {
             "algorithm_id": "algo.fusion.road.conflation.v7",
             "stats": {"final_count": int(len(output)), "mode": "single_source_fallback"},

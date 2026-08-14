@@ -51,7 +51,7 @@ def _clean_name_values(values: pd.Series) -> pd.Series:
     return cleaned.mask(cleaned.str.lower().isin({"nan", "none", "<na>"}), "")
 
 
-def _canonicalize_road_output(frame: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
+def canonicalize_road_output(frame: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     result = _remap_source_layer(frame)
     residual_mask = result.get("residual_from_matched", pd.Series(False, index=result.index)).fillna(False).astype(bool)
     supplement_mask = result["source_layer"].eq("supplement")
@@ -61,7 +61,11 @@ def _canonicalize_road_output(frame: gpd.GeoDataFrame) -> gpd.GeoDataFrame:
     result["match_role"] = "base"
     result.loc[supplement_mask & ~residual_mask, "match_role"] = "supplement_unmatched"
     result.loc[supplement_mask & residual_mask, "match_role"] = "supplement_uncovered_residual"
-    result["matched_supplement_segment_id"] = result.get("label1", "").fillna("")
+    matched_ids = result.get(
+        "label1",
+        pd.Series([""] * len(result), index=result.index, dtype="object"),
+    )
+    result["matched_supplement_segment_id"] = matched_ids.fillna("")
     result["supplement_segment_id"] = ""
     if "label3" in result.columns:
         result.loc[supplement_mask, "supplement_segment_id"] = result.loc[supplement_mask, "label3"].fillna("").astype(str)
@@ -121,7 +125,7 @@ def run_road_conflation_v7(
         default_supplement_class="road",
     )
     return LineConflationResult(
-        frame=_canonicalize_road_output(result.frame),
+        frame=canonicalize_road_output(result.frame),
         stats=result.stats,
         config=result.config,
         lineage={**result.lineage, "profile": resolved.profile},

@@ -909,6 +909,9 @@ def test_road_large_area_runtime_allows_partial_component_paths_without_keyerror
     assert len(fused) == 1
     assert fused["source_id"].iloc[0] == "raw.osm.road"
     assert fused["match_role"].iloc[0] == "base_single_source"
+    assert fused["road_class"].iloc[0] == "primary"
+    assert fused["source_layer"].iloc[0] == "base"
+    assert {"name", "osm_name", "road_name"} <= set(fused.columns)
     assert stats["tile_stats"][0]["stats"]["stats"]["mode"] == "single_source_fallback"
 
 

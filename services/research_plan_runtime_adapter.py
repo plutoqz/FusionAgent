@@ -10,6 +10,7 @@ from kg.policy_registry import default_policy_registry
 from kg.repository import KGRepository
 from schemas.agent import (
     ProductContractRef,
+    RepairStrategyRef,
     RunTrigger,
     RunTriggerType,
     WorkflowPlan,
@@ -61,6 +62,9 @@ class ResearchPlanRuntimeAdapter:
         self.runtime_contract = RuntimeContractService(kg_repo, tool_registry=self.tool_registry)
         self.sources = {source.source_id: source for source in kg_repo.list_data_sources()}
         self.contracts = {contract.contract_id: contract for contract in kg_repo.get_product_contracts(None)}
+        self.repair_strategies = {
+            strategy.strategy_id: strategy for strategy in kg_repo.list_repair_strategies()
+        }
 
     def resolve(
         self,
@@ -81,6 +85,20 @@ class ResearchPlanRuntimeAdapter:
 
         workflow_plan = None
         if executable and not contract_reasons:
+            executable_task_ids = {
+                item.workflow_task.task_id
+                for item in executable
+                if item.workflow_task is not None and item.workflow_task.task_id
+            }
+            repair_strategies = [
+                RepairStrategyRef.model_validate(asdict(strategy))
+                for strategy_id in contract.repair_strategy_ids
+                if (strategy := self.repair_strategies.get(strategy_id)) is not None
+                and (
+                    not strategy.applies_to_task_ids
+                    or bool(executable_task_ids.intersection(strategy.applies_to_task_ids))
+                )
+            ]
             workflow_plan = WorkflowPlan(
                 workflow_id=f"research-{case.case_id.lower()}-{condition}",
                 trigger=RunTrigger(
@@ -98,6 +116,7 @@ class ResearchPlanRuntimeAdapter:
                 tasks=[item.workflow_task for item in executable if item.workflow_task is not None],
                 expected_output=contract.product_type,
                 product_contract=ProductContractRef.model_validate(asdict(contract)),
+                repair_strategies=repair_strategies,
             )
 
         if rejected or contract_reasons:

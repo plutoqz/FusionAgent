@@ -17,7 +17,7 @@ READINESS = Path(r"D:\code\fusionagent-evidence\p4-planning-e2e\2026-08-13-readi
 ASSET_MANIFEST = REPO_ROOT / "docs" / "thesis" / "manifests" / "2026-07-20-c02-c04-c06-real-data.json"
 CASE_MANIFEST = REPO_ROOT / "docs" / "current" / "research-case-manifest-v1.json"
 PRIOR_FAILURE = Path(
-    r"D:\code\fusionagent-evidence\p4-planning-e2e\2026-08-14-c04-road-e2e-r1\experiment_failure.json"
+    r"D:\code\fusionagent-evidence\p4-planning-e2e\2026-08-14-c04-road-e2e-r2\experiment_failure.correction.json"
 )
 
 
@@ -42,8 +42,9 @@ def test_real_c04_protocol_freeze_hashes_assets_and_fails_closed_on_tamper(tmp_p
     assert payload["protocol"]["protocol_ready"] is True
     assert payload["protocol"]["execution_ready"] is True
     assert payload["protocol"]["execution_blockers"] == []
-    assert payload["protocol"]["previous_attempt"]["run_id"] == "56c6e962ae2044be822dc61d72db026d"
-    assert payload["execution_config"]["case_identity"]["run_id"] == "p4-c04-road-caracas-r2"
+    assert payload["protocol"]["previous_attempt"]["run_id"] == "3c9624f31826468e8308e5bd82580bc4"
+    assert payload["execution_config"]["case_identity"]["run_id"] == "p4-c04-road-caracas-r3"
+    assert payload["workflow_plan"]["repair_strategies"]
     assert payload["protocol"]["evaluation_boundary"]["planning_rubric_mismatch_preserved"] is True
     by_id = {item["source_id"]: item for item in payload["asset_inventory"]["sources"]}
     assert by_id["raw.osm.road"]["feature_count"] == 16279
