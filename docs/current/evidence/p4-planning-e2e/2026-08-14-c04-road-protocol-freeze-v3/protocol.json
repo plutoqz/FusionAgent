@@ -1,0 +1,82 @@
+{
+  "asset_reuse_boundary": "Only the Caracas source files and AOI boundary are reused from the older Freeze C manifest. The older C04 water case, runtime outputs, metrics, and claims are not reused.",
+  "evaluation_boundary": {
+    "claim_boundary": "A single bounded C04 run can provide execution trace and artifact evidence only. It cannot establish comparative superiority, statistical significance, or cross-AOI validity.",
+    "claim_eligible": false,
+    "gold_allowed_delivery_states": [
+      "provisional"
+    ],
+    "planning_rubric_mismatch_preserved": true,
+    "selected_delivery_state": "degraded"
+  },
+  "execution_blockers": [],
+  "execution_ready": true,
+  "frozen_artifact_hashes": {
+    "asset_inventory": "sha256:ec8f0c4fc5ff6f5f91e68de228911d7889fadb2a38904c64f6d01a011493d283",
+    "execution_config": "sha256:dc50b26b36f1cdcca3c967b4480fcf76975cbc1a837a1c1e0e82b355be64818f",
+    "selected_plan": "sha256:89c508508aaf41bc54beeed2277553cbba2caa33cf19b0c1baf0c8dc32710905",
+    "workflow_plan": "sha256:0d407816f53d8e113e8544efd3e81a571a11c790bbf4a60e361ae4c545fe73c7"
+  },
+  "implementation_commit": "db8eaf58c8abe1dc310b77645fab1dab3529d749",
+  "implementation_files": {
+    "scripts/audit_p4_planning_e2e_readiness.py": "sha256:458a98bdde1e8087521930c6a78ff0e79f4ab470bbcc179de83f53a069f81666",
+    "scripts/freeze_p4_c04_road_protocol.py": "sha256:f6d90d3384b9f02e56170e4c4204724a0822643c6a17d80eb281bd6262895e02",
+    "scripts/run_p4_c04_road_e2e.py": "sha256:31b49e6260d30346f6af8f29b189515bf044809a08a48933c43b91e545031cd7",
+    "services/agent_run_service.py": "sha256:d3218f601108547c410e6d75b757149c1b09cd6e24f8c6b701500e5c2505e83e",
+    "services/research_plan_runtime_adapter.py": "sha256:484a75aeb9aeea168978c64a3d288748455d2e2d4746e3a958901ab289f45660",
+    "services/run_state_store.py": "sha256:660bab039a526844f6f791c797febcc59b4e8b39dcadae8f86ccea7fa9a32cfd"
+  },
+  "input_evidence": {
+    "asset_manifest": {
+      "path": "D:\\code\\FusionAgent-formal-f47fbef\\docs\\thesis\\manifests\\2026-07-20-c02-c04-c06-real-data.json",
+      "sha256": "sha256:1796dfa6cf0e5bfa9506b9a314f410e48c1deb33bca49621ed011a94091b75d8"
+    },
+    "case_manifest": {
+      "path": "D:\\code\\FusionAgent-formal-f47fbef\\docs\\current\\research-case-manifest-v1.json",
+      "sha256": "sha256:fed92bc94c44bf601f93eb19276918dfeb9150af019d2e527d47509cdfa88a5f"
+    },
+    "formal_result": {
+      "path": "D:\\code\\fusionagent-evidence\\p3-planning-formal\\2026-08-13-deepseek-v4-flash-formal-r1\\runs\\formal-c04-llm_full_contract_kg-r1\\result.json",
+      "sha256": "sha256:a7ec0652a87cf51c1ffd94aea19cfc816cfba6c04d89e92bcedb754ccc248eba"
+    },
+    "formal_schedule": {
+      "path": "D:\\code\\fusionagent-evidence\\p3-planning-formal\\2026-08-13-deepseek-v4-flash-formal-r1\\schedule.json",
+      "sha256": "sha256:b6104c09e4473fa12b1f9ab99f683fe11c41ce29be17a7f43cc603f4ed5a4718"
+    },
+    "prior_failed_attempt": {
+      "path": "D:\\code\\fusionagent-evidence\\p4-planning-e2e\\2026-08-14-c04-road-e2e-r1\\experiment_failure.json",
+      "sha256": "sha256:7ce1b3c33032da52b1491c82980882656c75d1ea2d32d6b7cceba9bc169100f7"
+    },
+    "readiness_v2": {
+      "path": "D:\\code\\fusionagent-evidence\\p4-planning-e2e\\2026-08-13-readiness-audit-v2.json",
+      "sha256": "sha256:d6df34c518801719cbd524492ea9be8e03ff59b9621b5350a0c8966dfcde1c07"
+    }
+  },
+  "knowledge_identity": {
+    "experience_snapshot_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+    "knowledge_version": "1.0.0",
+    "ontology_version": "1.0.0",
+    "release_id": "fusionagent-kg-v1.0.0",
+    "semantic_hash": "sha256:50067b9368914c47580707650789c04c78b2e856ccb3ef4d120a31f36c0ad71e"
+  },
+  "previous_attempt": {
+    "automatic_retry_performed": false,
+    "failed_stage_id": "osm_provisional",
+    "failure_class": "runtime_integrity_pre_execution",
+    "protocol_id": "fusionagent.p4.c04-road-e2e.v2",
+    "run_id": "56c6e962ae2044be822dc61d72db026d"
+  },
+  "protocol_id": "fusionagent.p4.c04-road-e2e.v3",
+  "protocol_ready": true,
+  "runner_contract": {
+    "entrypoint": "scripts/run_p4_c04_road_e2e.py",
+    "execution_validation_gate": "workflow_validator_enforce",
+    "frozen_plan_persistence": "canonical_no_derived_fields",
+    "generic_grounding_probe": "diagnostic_only",
+    "plan_injection": "semantic_hash_locked",
+    "planner_calls": 0,
+    "replanning": "forbidden",
+    "stage_execution": "independent_runs_with_explicit_supersession"
+  },
+  "status": "protocol_frozen_execution_ready"
+}

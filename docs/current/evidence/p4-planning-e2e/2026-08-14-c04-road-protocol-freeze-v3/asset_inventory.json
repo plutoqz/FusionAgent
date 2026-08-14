@@ -1,0 +1,109 @@
+{
+  "inventory_type": "p4_c04_real_asset_inventory",
+  "real_external_data": true,
+  "sources": [
+    {
+      "bounds": [
+        -67.16071741,
+        10.38806,
+        -66.86143172,
+        10.56244215
+      ],
+      "crs": "GEOGCS[\"GCS_WGS_84_CRS84\",DATUM[\"WGS_1984\",SPHEROID[\"WGS 84\",6378137,298.257223563,AUTHORITY[\"EPSG\",\"7030\"]],AUTHORITY[\"EPSG\",\"6326\"]],PRIMEM[\"Greenwich\",0],UNIT[\"Degree\",0.0174532925199433],AXIS[\"Longitude\",EAST],AXIS[\"Latitude\",NORTH]]",
+      "dataset_version": "caracas-osm-capital-2026-06-25",
+      "empty_geometry_count": 0,
+      "feature_count": 16279,
+      "files": [
+        {
+          "path": "D:\\fyx\\任务\\委内瑞拉数据整合\\output\\capital\\osm\\roads.cpg",
+          "sha256": "3ad3031f5503a4404af825262ee8232cc04d4ea6683d42c5dd0a2f2a27ac9824",
+          "size_bytes": 5
+        },
+        {
+          "path": "D:\\fyx\\任务\\委内瑞拉数据整合\\output\\capital\\osm\\roads.dbf",
+          "sha256": "f451a64a7529574eb0fc4f8a948c0eb93e734e317ceabc5bc0b50e6c8c8399f2",
+          "size_bytes": 29774677
+        },
+        {
+          "path": "D:\\fyx\\任务\\委内瑞拉数据整合\\output\\capital\\osm\\roads.prj",
+          "sha256": "6b38e304d3d1802806ac14ebc72f206bea61b3ed44b121f5a540c3b465ed1dde",
+          "size_bytes": 149
+        },
+        {
+          "path": "D:\\fyx\\任务\\委内瑞拉数据整合\\output\\capital\\osm\\roads.qmd",
+          "sha256": "e1ff5cdf9690398908a312ca8f9f0964e416479412869450db5b5821c295ea42",
+          "size_bytes": 1624
+        },
+        {
+          "path": "D:\\fyx\\任务\\委内瑞拉数据整合\\output\\capital\\osm\\roads.shp",
+          "sha256": "edec477cd1a56f8930ecd3ef67ffcd44b2bc551cd809a137a61078a10122695a",
+          "size_bytes": 3115612
+        },
+        {
+          "path": "D:\\fyx\\任务\\委内瑞拉数据整合\\output\\capital\\osm\\roads.shx",
+          "sha256": "1f6bcd0e885ddebd818b7b461f77571d088b474e21207df0e12475dff677fc52",
+          "size_bytes": 130332
+        }
+      ],
+      "freshness_status": "event_snapshot_25_days_old",
+      "null_geometry_count": 0,
+      "observed_at": "2026-06-25T16:21:00+08:00",
+      "original_path": "D:\\fyx\\任务\\委内瑞拉数据整合\\output\\capital\\osm\\roads.shp",
+      "product": "road",
+      "semantic_status": "road_line_baseline",
+      "source_id": "raw.osm.road"
+    },
+    {
+      "bounds": [
+        -67.16071728,
+        10.38928472,
+        -66.86144928,
+        10.56244097
+      ],
+      "crs": "EPSG:4326",
+      "dataset_version": "microsoft-roads-caracas-capital-2026-06-25",
+      "empty_geometry_count": 0,
+      "feature_count": 11809,
+      "files": [
+        {
+          "path": "D:\\fyx\\任务\\委内瑞拉数据整合\\output\\capital\\microsoft_roads\\microsoft_roads_capital.gpkg",
+          "sha256": "cb81ae84384f381fe368fe55dfe4d8c134f12a40a4bd6bf2c9b3c781bb44544c",
+          "size_bytes": 2605056
+        }
+      ],
+      "freshness_status": "versioned_external_snapshot",
+      "null_geometry_count": 0,
+      "observed_at": "2026-06-25T16:14:00+08:00",
+      "original_path": "D:\\fyx\\任务\\委内瑞拉数据整合\\output\\capital\\microsoft_roads\\microsoft_roads_capital.gpkg",
+      "product": "road",
+      "semantic_status": "road_line_reference",
+      "source_id": "raw.microsoft.road"
+    },
+    {
+      "bounds": [
+        -67.16387166,
+        10.38318025,
+        -66.861346,
+        10.56254802
+      ],
+      "crs": "EPSG:4326",
+      "dataset_version": "venezuela-capital-district-boundary-2026-06-25",
+      "empty_geometry_count": 0,
+      "feature_count": 1,
+      "files": [
+        {
+          "path": "D:\\fyx\\任务\\委内瑞拉数据整合\\output\\boundaries\\venezuela_capital_district.geojson",
+          "sha256": "fd6b54e0fa139f0e6b1e1d48cd86ded7f656ab7b75762e661ba3a09783d2552c",
+          "size_bytes": 55457
+        }
+      ],
+      "freshness_status": "static_boundary",
+      "null_geometry_count": 0,
+      "observed_at": "2026-06-25T16:20:00+08:00",
+      "original_path": "D:\\fyx\\任务\\委内瑞拉数据整合\\output\\boundaries\\venezuela_capital_district.geojson",
+      "product": "aoi_boundary",
+      "semantic_status": "aoi_boundary",
+      "source_id": "aoi.venezuela_capital_district"
+    }
+  ]
+}
