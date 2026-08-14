@@ -370,3 +370,32 @@ case manifest/crosswalk
 - 不执行正式 r4，除非取得新的明确授权。
 - 不覆盖或重解释 r3 失败证据，不复用 r3 run ID/evidence root。
 - 不修改 frozen KG v1、质量阈值、Prompt、rubric、fallback 或自动重试边界。
+
+## 13. 阶段检查点（2026-08-14，C04 r4 正式执行完成）
+
+本节取代第 12 节作为当前恢复点；第 12 节保留为 r4 执行前历史记录。
+
+### 已完成证据
+
+- 已按 v5 冻结协议执行一次正式 C04 两阶段端到端运行：`fusionagent.p4.c04-road-e2e.v5`，运行身份 `p4-c04-road-caracas-r4`。执行 worktree 为提交 `389c9f8391c04bf46fa48449ffb66210ab75c64f`，冻结实现身份仍为 `43042af72a053cc92ee904e700e1b3362696b40e`。
+- R4 证据根为 `D:\code\fusionagent-evidence\p4-planning-e2e\2026-08-14-c04-road-e2e-r4`。preflight 11/11 通过；正式执行无 LLM、无 Provider network、无 fallback、无自动重试或 replanning；终态无残留 runner 进程。
+- `osm_provisional` run `465c2c810bd845c2a0acb14107e02bd1` 成功：OSM 16,279 features，Microsoft 0 features，产物 SHA-256 `28a48cbe3b392578de28b9e1f1dd231f49e104c824707a4e2b3db62e27c3e26f`，质量门 `accepted=true`。
+- `microsoft_arrival` run `296f3476098148c9b37ad1b3bfc85db0` 成功：OSM 16,279 + Microsoft 11,809 features，最终产物 23,760 features，产物 SHA-256 `e2cdf841cfcdcce97bba30fbbf30abada1f02abb59d24ed899aec8a9e1967ced`，质量门 `accepted=true`，目标 CRS `EPSG:32619`。
+- `experiment_result.json` 的 15 项评价检查全部通过：精确 frozen plan 注入、normalized semantic contract、两次独立 runtime、两阶段质量评估、真实产物哈希、Microsoft 到达转换和 supersession 证据均已记录。顶层 `passed=true`。
+- `supersession.json` 已证明 provisional 产物被 Microsoft 到达阶段产物替代；旧 r1/r2/r3 证据未覆盖或重解释。
+
+### 研究边界与残余风险
+
+- R4 证明的是单个 Caracas C04 在冻结输入、KG v1、实现和本地真实矢量数据条件下的执行链路与产物证据；不能支持比较优势、统计显著性或跨 AOI 有效性主张。
+- 两阶段最终交付状态仍为 `degraded`；planning gold 的 `provisional` 期望与端到端结果差异保留为评价结果，不通过改 rubric 或补跑消除。
+- ZIP 内 Shapefile 按 ESRI 10 字段名限制存在字段名规范化警告；质量报告引用的 GPKG 是当前结构化质量产物，后续交付审计需继续核对字段映射。
+
+### 下一验收点
+
+- 对 R4 证据执行独立只读审计，确认两个 GPKG/ZIP 的几何、属性、CRS、质量报告和 hash 链一致；审计通过后再决定是否冻结 C02/C06 的选择性 P4 执行协议。
+- 在新的案例协议、输入和证据根冻结前，不启动 C02/C06，不把 C04 单案例结果扩展为方法级结论。
+
+### 不应自动扩展的事项
+
+- 不修改 R4 结果、质量阈值、frozen KG v1、Prompt、rubric、fallback 或重试边界。
+- 不删除失败证据，不将 R4 的执行通过升级为 comparative capability 或 external validity 结论。
