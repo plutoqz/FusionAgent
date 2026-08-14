@@ -1,0 +1,20 @@
+{
+  "blockers": [],
+  "checks": {
+    "budget_bound": true,
+    "call_count": true,
+    "evaluator_hash": true,
+    "immutable_model_revision": true,
+    "implementation_hashes": true,
+    "manifest_hash": true,
+    "old_v1_not_poolable": true,
+    "output_schema_hash": true,
+    "prepared_inputs_hash": true,
+    "protocol_id": true,
+    "schedule_hash": true,
+    "three_complete_repetitions": true,
+    "unique_run_ids": true
+  },
+  "passed": true,
+  "protocol_id": "fusionagent.planning-repeated-formal.v2"
+}
