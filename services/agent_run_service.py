@@ -50,7 +50,7 @@ from schemas.failure_taxonomy import classify_failure_category, classify_failure
 from schemas.data_requirement import DataRequirementPlan
 from schemas.fusion import JobType
 from schemas.settings import EffectiveLLMSettings
-from schemas.task_kind import TaskKind
+from schemas.task_kind import TaskKind, task_kind_to_job_type
 from services.artifact_registry import ArtifactRecord, ArtifactRegistry
 from services.artifact_reuse_policy import get_artifact_reuse_max_age_seconds
 from services.artifact_reuse_service import ArtifactReuseService, ReuseResult
@@ -1291,7 +1291,7 @@ class AgentRunService:
             task_kind = _task_kind_for_request(request, plan)
         except ValueError as exc:
             raise ValueError(f"FROZEN_PLAN_JOB_TYPE_MISMATCH: {exc}") from exc
-        if task_kind.value != request.job_type.value:
+        if task_kind_to_job_type(task_kind) != request.job_type:
             raise ValueError(
                 "FROZEN_PLAN_JOB_TYPE_MISMATCH: "
                 f"plan_task_kind={task_kind.value} request_job_type={request.job_type.value}"

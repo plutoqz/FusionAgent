@@ -36,6 +36,35 @@ def _request(*, job_type: JobType = JobType.road, disaster_type: str = "typhoon"
     )
 
 
+def _water_plan(task_kind: str) -> WorkflowPlan:
+    semantics = {
+        "water_polygon": {
+            "task_id": "task.water.fusion",
+            "algorithm_id": "algo.fusion.water_polygon.priority_merge.v2",
+            "input_data_source_id": "catalog.flood.water",
+            "input_data_type_id": "dt.water.bundle",
+            "output_data_type_id": "dt.water.fused",
+        },
+        "waterways": {
+            "task_id": "task.waterways.fusion",
+            "algorithm_id": "algo.fusion.waterways.conflation.v7",
+            "input_data_source_id": "catalog.flood.waterways",
+            "input_data_type_id": "dt.waterways.bundle",
+            "output_data_type_id": "dt.waterways.fused",
+        },
+    }[task_kind]
+    plan = _plan().model_copy(deep=True)
+    task = plan.tasks[0]
+    task.task_id = semantics["task_id"]
+    task.algorithm_id = semantics["algorithm_id"]
+    task.input.data_source_id = semantics["input_data_source_id"]
+    task.input.data_type_id = semantics["input_data_type_id"]
+    task.output.data_type_id = semantics["output_data_type_id"]
+    plan.product_contract = None
+    plan.trigger.disaster_type = "flood"
+    return plan
+
+
 def test_frozen_plan_validation_returns_deep_copy_with_exact_hash() -> None:
     plan = _plan()
     expected = _workflow_plan_semantic_hash(plan)
@@ -65,6 +94,30 @@ def test_frozen_plan_validation_rejects_job_type_mismatch() -> None:
     with pytest.raises(ValueError, match="FROZEN_PLAN_JOB_TYPE_MISMATCH"):
         AgentRunService._validate_frozen_plan_input(
             request=_request(job_type=JobType.building),
+            frozen_plan=plan,
+            expected_sha256=_workflow_plan_semantic_hash(plan),
+        )
+
+
+@pytest.mark.parametrize("task_kind", ["water_polygon", "waterways"])
+def test_frozen_plan_validation_accepts_water_task_kinds_for_water_job(task_kind: str) -> None:
+    plan = _water_plan(task_kind)
+
+    validated, actual = AgentRunService._validate_frozen_plan_input(
+        request=_request(job_type=JobType.water, disaster_type="flood"),
+        frozen_plan=plan,
+        expected_sha256=_workflow_plan_semantic_hash(plan),
+    )
+
+    assert actual == _workflow_plan_semantic_hash(plan)
+    assert validated == plan
+
+
+def test_frozen_plan_validation_rejects_water_task_for_road_job() -> None:
+    plan = _water_plan("waterways")
+    with pytest.raises(ValueError, match="FROZEN_PLAN_JOB_TYPE_MISMATCH"):
+        AgentRunService._validate_frozen_plan_input(
+            request=_request(job_type=JobType.road, disaster_type="flood"),
             frozen_plan=plan,
             expected_sha256=_workflow_plan_semantic_hash(plan),
         )
