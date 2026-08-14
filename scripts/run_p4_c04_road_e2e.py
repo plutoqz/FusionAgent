@@ -169,6 +169,33 @@ def execute_p4_c04_runner(freeze_root: Path) -> dict[str, Any]:
                 _write_json(stage_dir / "stage_record.json", record)
                 stage_records.append(record)
                 if not record["runtime_succeeded"]:
+                    _write_json(
+                        evidence_root / "experiment_failure.json",
+                        {
+                            "protocol_id": protocol["protocol_id"],
+                            "case_identity": config["case_identity"],
+                            "failed_stage_id": stage["stage_id"],
+                            "failed_run_id": status.run_id,
+                            "error": current.error,
+                            "runtime_runs_created": len(stage_records),
+                            "stages_completed": sum(
+                                1 for item in stage_records if item["runtime_succeeded"]
+                            ),
+                            "fusion_algorithm_executions_started": sum(
+                                1
+                                for item in stage_records
+                                if any(
+                                    event.get("kind") == "execution_started"
+                                    for event in item.get("events") or []
+                                )
+                            ),
+                            "second_stage_started": any(
+                                item["stage_id"] == "microsoft_arrival" for item in stage_records
+                            ),
+                            "automatic_retry_performed": False,
+                            "stage_records": stage_records,
+                        },
+                    )
                     raise RuntimeError(f"P4 C04 stage failed: {stage['stage_id']} run_id={status.run_id}")
         finally:
             service.shutdown()

@@ -84,9 +84,7 @@ def test_frozen_planning_stage_does_not_mutate_hash_locked_plan(tmp_path: Path, 
     service = AgentRunService(base_dir=tmp_path / "runs", max_workers=1)
     plan = _plan()
     expected = _workflow_plan_semantic_hash(plan)
-    persisted: list[WorkflowPlan] = []
     monkeypatch.setattr(service, "_update_status", lambda *args, **kwargs: None)
-    monkeypatch.setattr(service, "_persist_plan", lambda path, value: persisted.append(value.model_copy(deep=True)))
     try:
         result = service.run_frozen_planning_stage(
             run_id="frozen-plan-test",
@@ -98,4 +96,55 @@ def test_frozen_planning_stage_does_not_mutate_hash_locked_plan(tmp_path: Path, 
         service.shutdown()
 
     assert _workflow_plan_semantic_hash(result) == expected
-    assert [_workflow_plan_semantic_hash(value) for value in persisted] == [expected]
+    persisted = WorkflowPlan.model_validate(
+        json.loads((tmp_path / "runs" / "frozen-plan-test" / "plan.json").read_text(encoding="utf-8"))
+    )
+    assert _workflow_plan_semantic_hash(persisted) == expected
+
+
+def test_plan_persistence_never_mutates_caller(tmp_path: Path) -> None:
+    service = AgentRunService(base_dir=tmp_path / "runs", max_workers=1)
+    plan = _plan()
+    expected = _workflow_plan_semantic_hash(plan)
+    try:
+        service._persist_plan(tmp_path / "persisted-plan.json", plan)
+    finally:
+        service.shutdown()
+
+    assert _workflow_plan_semantic_hash(plan) == expected
+    persisted = WorkflowPlan.model_validate(
+        json.loads((tmp_path / "persisted-plan.json").read_text(encoding="utf-8"))
+    )
+    assert "grounding_report" in persisted.context
+
+
+def test_create_run_preserves_frozen_plan_through_persistence(tmp_path: Path, monkeypatch) -> None:
+    service = AgentRunService(base_dir=tmp_path / "runs", max_workers=1)
+    plan = _plan()
+    expected = _workflow_plan_semantic_hash(plan)
+    captured: dict[str, str] = {}
+
+    def capture_execute_run(**kwargs) -> None:
+        captured["sha256"] = _workflow_plan_semantic_hash(kwargs["frozen_plan"])
+
+    monkeypatch.setattr(service, "execute_run", capture_execute_run)
+    try:
+        status = service.create_run(
+            request=_request(),
+            osm_zip_name=None,
+            osm_zip_bytes=None,
+            ref_zip_name=None,
+            ref_zip_bytes=None,
+            frozen_plan=plan,
+            frozen_plan_sha256=expected,
+        )
+    finally:
+        service.shutdown()
+
+    persisted = WorkflowPlan.model_validate(
+        json.loads(
+            (tmp_path / "runs" / status.run_id / "frozen_plan_input.json").read_text(encoding="utf-8")
+        )
+    )
+    assert captured["sha256"] == expected
+    assert _workflow_plan_semantic_hash(persisted) == expected

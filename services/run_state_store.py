@@ -42,9 +42,17 @@ class RunStateStore:
         _atomic_write_text(path, json.dumps(request.model_dump(mode="json"), ensure_ascii=False, indent=2))
 
     @staticmethod
-    def persist_plan(path: Path, plan: WorkflowPlan, *, revision: int) -> None:
-        ensure_plan_grounding_report(plan)
-        payload = json.dumps(plan.model_dump(mode="json"), ensure_ascii=False, indent=2)
+    def persist_plan(
+        path: Path,
+        plan: WorkflowPlan,
+        *,
+        revision: int,
+        include_grounding_report: bool = True,
+    ) -> None:
+        persisted = plan.model_copy(deep=True)
+        if include_grounding_report:
+            ensure_plan_grounding_report(persisted)
+        payload = json.dumps(persisted.model_dump(mode="json"), ensure_ascii=False, indent=2)
         _atomic_write_text(path, payload)
         if revision > 0:
             _atomic_write_text(path.with_name(f"plan-revision-{revision}.json"), payload)

@@ -478,7 +478,11 @@ class AgentRunService:
             raise ValueError(f"Unsupported input strategy: {request.input_strategy}")
         self._persist_request(run_dir / "request.json", request)
         if frozen_plan is not None:
-            self._persist_plan(run_dir / "frozen_plan_input.json", frozen_plan)
+            self._persist_plan(
+                run_dir / "frozen_plan_input.json",
+                frozen_plan,
+                include_grounding_report=False,
+            )
 
         request_bbox = self._parse_bbox(request.trigger.spatial_extent)
         created_at = _utc_now()
@@ -636,9 +640,20 @@ class AgentRunService:
                 )
             logger.info("Planning stage completed with revision=%s", plan.context.get("plan_revision", 0))
 
-            plan = self.run_validation_stage(run_id=run_id, plan=plan)
+            if frozen_plan is None:
+                plan = self.run_validation_stage(run_id=run_id, plan=plan)
+            else:
+                plan = self.run_validation_stage(
+                    run_id=run_id,
+                    plan=plan,
+                    preserve_plan_semantics=True,
+                )
             plan = _apply_p3_plan_variant(plan)
-            self._persist_plan(self._plan_path(run_id), plan)
+            self._persist_plan(
+                self._plan_path(run_id),
+                plan,
+                include_grounding_report=frozen_plan is None,
+            )
             logger.info("Validation stage completed; valid=%s", getattr(plan.validation, "valid", None))
             runtime_request = self._request_with_effective_target_crs(run_id, request)
 
@@ -1218,7 +1233,7 @@ class AgentRunService:
         grounding_report = ensure_plan_grounding_report(grounding_probe_plan)
         grounding_gate = evaluate_plan_grounding_gate(grounding_report, mode="report")
         plan_path = self._plan_path(run_id)
-        self._persist_plan(plan_path, plan)
+        self._persist_plan(plan_path, plan, include_grounding_report=False)
         planning_telemetry = {
             "planning_mode": "frozen_workflow_plan_injection",
             "injected_plan_sha256": actual_sha256,
@@ -1328,11 +1343,21 @@ class AgentRunService:
         )
         raise RuntimeError(error)
 
-    def run_validation_stage(self, run_id: str, plan: WorkflowPlan) -> WorkflowPlan:
+    def run_validation_stage(
+        self,
+        run_id: str,
+        plan: WorkflowPlan,
+        *,
+        preserve_plan_semantics: bool = False,
+    ) -> WorkflowPlan:
         validated = self.validator.validate_and_repair(plan)
         plan_path = self._plan_path(run_id)
         validation_path = self._validation_path(run_id)
-        self._persist_plan(plan_path, validated)
+        self._persist_plan(
+            plan_path,
+            validated,
+            include_grounding_report=not preserve_plan_semantics,
+        )
         self._persist_validation(validation_path, validated)
         if validated.validation is not None and bool(getattr(validated.validation, "rejected", False)):
             issue_codes = [issue.code for issue in validated.validation.issues]
@@ -4070,8 +4095,19 @@ class AgentRunService:
     def _persist_request(self, path: Path, request: RunCreateRequest) -> None:
         self.run_state_store.persist_request(path, request)
 
-    def _persist_plan(self, path: Path, plan: WorkflowPlan) -> None:
-        self.run_state_store.persist_plan(path, plan, revision=self._extract_plan_revision(plan))
+    def _persist_plan(
+        self,
+        path: Path,
+        plan: WorkflowPlan,
+        *,
+        include_grounding_report: bool = True,
+    ) -> None:
+        self.run_state_store.persist_plan(
+            path,
+            plan,
+            revision=self._extract_plan_revision(plan),
+            include_grounding_report=include_grounding_report,
+        )
 
     def _persist_validation(self, path: Path, plan: WorkflowPlan) -> None:
         self.run_state_store.persist_validation(path, plan)
