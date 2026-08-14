@@ -757,3 +757,33 @@ case manifest/crosswalk
 - 当前阶段：E1 主张与缺口冻结。
 - 下一验收点：E2 v2 runner、测试、implementation commit、freeze audit 和 zero-call preflight 全部通过。
 - 当前外部条件：本 shell 未配置 API key，因此 E2 可完成，E3 真实调用不得启动。
+
+### 16.10 执行检查点（2026-08-14，E1-E2 完成，E3 确定性半段完成）
+
+#### E1 主张与缺口冻结
+
+- 本轮实验只服务 RQ3 planning comparison 与 RQ4 selective E2E；不把旧 P3 v1、P4-G mock、C02 r2、C04 r4 或 C06 screening 混入新的重复样本。
+- P3 v1 的 36 项 manual review 实际状态为 27 pass、6 fail、3 pending；3 项 pending 均为 C05 `provenance_complete`，属于 planning output 无法单独证明的 execution-time property。自动审计中的 36 pending 是待评项生成状态，不再作为当前人工完成度口径。
+- 三次重复只用于 case-condition 内稳定性与有界效应估计；不支持统计显著性或广泛外部有效性。旧 v1 结果不可与 v2 pooling。
+
+#### E2 实现、冻结与 zero-call preflight
+
+- v2 实现提交：`f6837fdc7f01b6ad13b5c8c422278572b069b8bd`；协议冻结提交：`559f22d828270b008497738e2f268da7cd43c73e`；确定性审计入口提交：`d033103`。
+- protocol `fusionagent.planning-repeated-formal.v2`：C01-C06 x 3 LLM conditions x 3 repetitions = 54 paid calls；对应 deterministic grid 也是 54 行。
+- freeze root：`docs/current/evidence/p3-planning-repeated/2026-08-14-protocol-freeze-v1`。freeze audit 13/13 通过；54 个 run ID 唯一，replicate 集合为 1/2/3；implementation、manifest、schema、evaluator、schedule、prepared input、KG identity 和 model revision 均有 hash。
+- conservative token bound 为 `1,666,311`，batch budget 为 `1,700,000`；temperature `0.1`、max output `16384`、retry/repair/salvage/fallback 均为 0/forbidden。
+- zero-call preflight root：`D:\code\fusionagent-evidence\p3-planning-repeated\2026-08-14-deepseek-v4-flash-repeated-v1-preflight`。记录 `paid_provider_calls_made=0`、`api_key_configured=false`、`execution_ready=false`；preflight execution commit 为 `559f22d828270b008497738e2f268da7cd43c73e`，worktree clean。
+
+#### E3 确定性结果与独立审计
+
+- 结果：`D:\code\fusionagent-evidence\p3-planning-repeated\2026-08-14-deterministic-repeated-v1.json`；54/54 行、18 个 case-group cells、每个 cell 三次 input hash 和 output hash 完全一致，所有 `pre_fallback_valid=true`。
+- 结果 SHA-256：`sha256:17880b3a6e21878e1f0a5292fb5a125feb926367504548689637ae8c80de3e17`；execution commit `559f22d828270b008497738e2f268da7cd43c73e`。
+- 独立审计：`D:\code\fusionagent-evidence\p3-planning-repeated\2026-08-14-deterministic-repeated-v1-audit.json`，11/11 checks passed。三组 all-case automatic mean 分别为 fixed `0.729167`、KG-only `0.916667`、rules-only `0.9375`；确定性重复只证明 exact stability，不构成 54 个独立样本。
+- 聚焦回归 50 passed；新增确定性 audit 聚焦测试 7 passed；`python -m compileall -q schemas scripts tests` 通过；`git diff --check` 通过。
+
+#### 当前阻断与下一验收点
+
+- 本进程未配置 `OPENAI_API_KEY` 或 `GEOFUSION_LLM_API_KEY`，因此真实 54-call batch 尚未启动；这不是模型、协议或代码失败。
+- 计划中的正式输出根 `D:\code\fusionagent-evidence\p3-planning-repeated\2026-08-14-deepseek-v4-flash-repeated-v1` 当前不存在，避免与 preflight 混用。
+- 下一验收点：在 clean worktree 与匹配环境中设置 model `deepseek-v4-flash`、base URL `https://api.deepseek.com`、max output `16384`、token budget `1700000` 和 API key，然后对上述正式输出根只执行一次 `scripts/run_research_llm_repeated_formal.py --execute`。任何 fatal failure 按协议停止，不自动重启。
+- E3 完成前不启动 E4 人工评价、E5 多 AOI 或 E6 论文图表，不修改 frozen prompt/schema/evaluator/manifest/KG。
