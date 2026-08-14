@@ -454,8 +454,8 @@ case manifest/crosswalk
 |---|---|---|
 | S0：基线锁定 | 已完成 | C04 R4 与第 14 节冻结闸门保持可复核 |
 | S1：C02 selected/resolved 语义冻结 | 已完成（2026-08-14） | resolver 不隐藏算法选择，且 C02 selected plan 与缺口语义可机械审计 |
-| S2：C02 真实输入预检与协议冻结 | 进行中 | 三个执行层和两个 gap 层的真实输入、语义和预算全部闭合 |
-| S3：C02 单次正式端到端运行与审计 | 待执行 | 新 evidence root 的链路、实际矢量产物和质量报告完整 |
+| S2：C02 真实输入预检与协议冻结 | 已完成（2026-08-14） | 三个执行层和两个 gap 层的真实输入、语义和预算全部闭合 |
+| S3：C02 单次正式端到端运行与审计 | 待执行（需实际空间处理授权） | 新 evidence root 的链路、实际矢量产物和质量报告完整 |
 | S4：C06 真实失败机制发现与案例重设计 | 待执行 | 在预冻结候选集中观察到自然 failure，或明确退役旧机制 |
 | S5：C06 协议冻结、单次运行与审计 | 待执行 | 仅在 S4 通过时产生新的 C06 正式证据 |
 | S6：独立证据审计与受限结论汇总 | 待执行 | 证据链、主张矩阵和论文表述一致 |
@@ -551,7 +551,7 @@ case manifest/crosswalk
 
 ### 15.10 恢复规则与暂停条件
 
-- 当前恢复点为 **S2：C02 真实输入预检与协议冻结**；S1 已完成，S2a semantic contract 修复和真实资产清点已通过，仍待 freeze/preflight，S3-S6 均为 pending。
+- 当前恢复点为 **S3：C02 单次正式端到端运行与审计**；S1、S2 已完成，S3 仍需先固定 runner implementation manifest 并取得实际空间处理授权，S4-S6 均为 pending。
 - 每次恢复先检查 `git status`、当前 commit、相关 evidence root 是否已存在、运行进程、KG semantic hash、protocol/asset hashes；发现已有同名 evidence root 时拒绝覆盖。
 - 任一 paid API、实际 fusion 或长时下载都必须在对应 preflight 通过后、并获得该阶段的明确执行授权才可启动。
 - 连续两次同方向修复不能闭合契约时停止编码，回到数据/schema、KG、workflow、planning、工具环境、评价的诊断顺序；不得以增加 retry、Prompt 或阈值放宽继续推进。
@@ -573,3 +573,10 @@ case manifest/crosswalk
 - S2a 修复提交新增四个按 frozen `field_mapping_profile` 选择的 normalization profile：`normalization.water.osm_polygon_geometry.v1`、`normalization.water.hydrolakes_polygon_geometry.v1`、`normalization.waterways.osm_line_geometry.v1`、`normalization.waterways.hydrorivers_line_geometry.v1`。contract trace 明确记录 `derivation=geometry_type`、规范化值、allowed geometry types 与 provenance；KG v1 semantic hash 未改变。
 - 修复验证：水面/水系 semantic contract 聚焦测试与既有 Track-B normalization 测试 `12 passed`；真实清点新 revision `D:\code\fusionagent-evidence\p4-planning-e2e\2026-08-14-c02-asset-inventory-s2-r3` 通过，三个 C02 bundle contract 均 `valid=true`，仍为 `fusion_runs=0 / llm_calls=0 / provider_calls=0`。
 - 下一动作：创建 C02 专用 freeze/preflight 入口，冻结 selected/resolved plan、asset inventory、semantic contracts、workflow、gap declaration、implementation manifest、预算和 evidence root；freeze/preflight 通过前不启动 S3。
+
+### 15.13 执行检查点（2026-08-14，S2 freeze/preflight 通过）
+
+- C02 freeze 入口：`scripts/freeze_p4_c02_protocol.py`；冻结根：`D:\code\fusionagent-evidence\p4-planning-e2e\2026-08-14-c02-water-road-protocol-freeze-v1`。
+- 协议：`fusionagent.p4.c02-water-road-e2e.v1`；implementation commit `af2dc35`；冻结的三个 stage plan 分别对应 `water_polygon`、`waterways`、`road`，每个 stage 单独通过 `WorkflowValidator(enforce)`。
+- freeze audit：15/15 checks passed；preflight：9/9 checks passed。冻结输入包含 formal result/schedule、S1 selected-resolved audit、S2 r3 inventory、case manifest、KG identity 和 implementation file hashes；未来证据根 `D:\code\fusionagent-evidence\p4-planning-e2e\2026-08-14-c02-water-road-e2e-r1` 保持不存在/空目录。
+- 当前禁止动作：不调用 `scripts/run_p4_c02_e2e.py`，不启动 fusion，不复用 C04/C02 旧运行产物，不用 preflight 结果宣称 C02 端到端成功。S3 需先实现并纳入 runner hash 的正式入口，然后由用户明确授权一次真实空间处理；任何 stage 失败即停止，不自动重试。
