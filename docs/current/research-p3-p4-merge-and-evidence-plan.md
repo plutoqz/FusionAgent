@@ -455,7 +455,7 @@ case manifest/crosswalk
 | S0：基线锁定 | 已完成 | C04 R4 与第 14 节冻结闸门保持可复核 |
 | S1：C02 selected/resolved 语义冻结 | 已完成（2026-08-14） | resolver 不隐藏算法选择，且 C02 selected plan 与缺口语义可机械审计 |
 | S2：C02 真实输入预检与协议冻结 | 已完成（2026-08-14） | 三个执行层和两个 gap 层的真实输入、语义和预算全部闭合 |
-| S3：C02 单次正式端到端运行与审计 | 待执行（需实际空间处理授权） | 新 evidence root 的链路、实际矢量产物和质量报告完整 |
+| S3：C02 单次正式端到端运行与审计 | 已执行，受控失败（2026-08-14） | r2 失败证据与独立审计保持不可覆盖，进入 S4 |
 | S4：C06 真实失败机制发现与案例重设计 | 待执行 | 在预冻结候选集中观察到自然 failure，或明确退役旧机制 |
 | S5：C06 协议冻结、单次运行与审计 | 待执行 | 仅在 S4 通过时产生新的 C06 正式证据 |
 | S6：独立证据审计与受限结论汇总 | 待执行 | 证据链、主张矩阵和论文表述一致 |
@@ -551,7 +551,7 @@ case manifest/crosswalk
 
 ### 15.10 恢复规则与暂停条件
 
-- 当前恢复点为 **S3：C02 单次正式端到端运行与审计**；S1、S2 已完成，S3 仍需先固定 runner implementation manifest 并取得实际空间处理授权，S4-S6 均为 pending。
+- 当前恢复点为 **S4：C06 真实失败机制发现与案例重设计**；S1、S2 已完成，S3 已按 v2/r2 执行一次并受控失败，S4-S6 均为 pending。
 - 每次恢复先检查 `git status`、当前 commit、相关 evidence root 是否已存在、运行进程、KG semantic hash、protocol/asset hashes；发现已有同名 evidence root 时拒绝覆盖。
 - 任一 paid API、实际 fusion 或长时下载都必须在对应 preflight 通过后、并获得该阶段的明确执行授权才可启动。
 - 连续两次同方向修复不能闭合契约时停止编码，回到数据/schema、KG、workflow、planning、工具环境、评价的诊断顺序；不得以增加 retry、Prompt 或阈值放宽继续推进。
@@ -580,3 +580,33 @@ case manifest/crosswalk
 - 协议：`fusionagent.p4.c02-water-road-e2e.v1`；implementation commit `af2dc35`；冻结的三个 stage plan 分别对应 `water_polygon`、`waterways`、`road`，每个 stage 单独通过 `WorkflowValidator(enforce)`。
 - freeze audit：15/15 checks passed；preflight：9/9 checks passed。冻结输入包含 formal result/schedule、S1 selected-resolved audit、S2 r3 inventory、case manifest、KG identity 和 implementation file hashes；未来证据根 `D:\code\fusionagent-evidence\p4-planning-e2e\2026-08-14-c02-water-road-e2e-r1` 保持不存在/空目录。
 - 当前禁止动作：不调用 `scripts/run_p4_c02_e2e.py`，不启动 fusion，不复用 C04/C02 旧运行产物，不用 preflight 结果宣称 C02 端到端成功。S3 需先实现并纳入 runner hash 的正式入口，然后由用户明确授权一次真实空间处理；任何 stage 失败即停止，不自动重试。
+
+### 15.14 执行检查点（2026-08-14，S3 C02 r2 受控失败）
+
+本节取代 15.10 的 S3 恢复状态；S1、S2 保持完成，S3 已按冻结协议执行一次并以真实失败终止，不得重跑或覆盖。
+
+#### 提交、冻结与执行身份
+
+- frozen water task/job 语义修复提交 `89d3989`：`water_polygon`、`waterways` 通过 KG-authoritative `task_kind_to_job_type()` 映射到 `JobType.water`，真正 mismatch 仍 fail closed。
+- C02 runner 与 v2 freeze 实现提交 `e765adc429f64239d0ea668eed95689bf80873b7`；v2 将 `scripts/run_p4_c02_e2e.py`、`schemas/task_kind.py` 和相关 runtime 文件纳入 implementation hash。
+- v2 freeze：`D:\code\fusionagent-evidence\p4-planning-e2e\2026-08-14-c02-water-road-protocol-freeze-v2`；协议 `fusionagent.p4.c02-water-road-e2e.v2`，运行身份 `p4-c02-water-road-caracas-r2`。
+- freeze audit 15/15、runner preflight 13/13 通过；正式启动前计数为 fusion 0、LLM 0、Provider 0，KG semantic hash 保持 `sha256:50067b9368914c47580707650789c04c78b2e856ccb3ef4d120a31f36c0ad71e`。
+
+#### 正式执行事实
+
+- r2 证据根：`D:\code\fusionagent-evidence\p4-planning-e2e\2026-08-14-c02-water-road-e2e-r2`；只启动一次 runner，创建 2 个独立 runtime run，完成 1 次 fusion，未执行 retry、replan、fallback 或 artifact reuse，终态无残留 runner 进程。
+- `water_polygon` run `f2df80b624534375bfe972cee542dcfe` 成功：OSM 38 + HydroLAKES AOI 1，输出 39 个有效 `MultiPolygon`，CRS `EPSG:32619`；GPKG SHA-256 `982d371347598300ed5028dba0298fc99d38ecb8e04321cdac8f5e036bdfc3b9`，ZIP SHA-256 `400628f14b3de63401ee80d31dd04c3c809a0d97be52d3b8209839b151e45488`，`quality.default.water_polygon.v1` 接受。
+- `waterways` run `1854e11850c24dc790f2e94af5b5eeb5` 在算法前被 strict source semantic gate 拒绝；未生成 artifact 或 quality report。正式错误为 `SOURCE_SEMANTIC_CONTRACT_INVALID`。
+- 冻结 stage 只声明 `raw.osm.waterways + raw.hydrorivers.water`，runtime component coverage 却额外物化 `raw.local.pakistan.waterways`，并将 22-feature HydroRIVERS materialization 暴露为该未计划 source；这是冻结 abort condition `unplanned_source_or_algorithm_substitution` 的真实命中。
+- semantic contract 同时记录 OSM/HydroRIVERS `feature_kind` unresolved，以及未计划 local source 的 `source_feature_id/feature_kind/water_class` unresolved。由于失败即停，road 未启动；不存在 `experiment_result.json`，权威终态是 `experiment_failure.json`。
+
+#### 独立审计与研究边界
+
+- `independent_audit.json` 对 freeze copy、run set、plan hash、event attempt、water GPKG/ZIP、质量报告、semantic contract 和 road 未启动状态重新复算，20/20 checks 通过；`evidence_integrity_passed=true`，但 `formal_execution_passed=false`、`claim_eligible=false`。
+- r2 只能支持“C02 在冻结 Caracas 输入上完成 water polygon，随后因未计划 source expansion 与 semantic contract invalid 而 fail closed”的受限事实；不能声称 C02 多层端到端成功、LLM 优越、跨 AOI 有效或 road 已验证。
+- 不修复后补跑 r2，不生成 r2 success correction，不把 S2 原始资产 semantic preflight 当作 runtime materialization contract 成功。若未来研究未计划 source expansion，必须使用新的协议、输入/实现 hash、run identity 和 evidence root。
+
+#### 下一验收点
+
+- 当前阶段转入 S4：先冻结有限 C06 候选集及每个候选的 AOI、双源 snapshot、算法、quality policy、source semantic contract 与 geometry hash；候选集冻结前不启动 screening fusion。
+- S4 只观察自然产生的质量结果。若预冻结候选全部通过质量门，正式退役旧“首个双源必然失败”机制，不得通过删除 source、篡改几何、放宽阈值或重试制造 failure。
