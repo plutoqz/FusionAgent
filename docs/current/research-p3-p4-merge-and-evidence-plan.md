@@ -246,3 +246,46 @@ case manifest/crosswalk
 - 不修改 rubric、Prompt、KG v1、质量阈值或 degradation 语义。
 - 不复用或覆盖 r1/r2 失败证据，不从旧产物冒充 r3 结果。
 - 不在本检查点自动执行 r3，不因 preflight 通过宣称真实能力完成。
+
+## 10. 阶段检查点（2026-08-14，C04 r3 失败后诊断）
+
+本节取代第 9 节作为当前恢复点；第 9 节保留为 r3 执行前历史记录。
+
+### 目标和阶段
+
+- 当前目标不变：执行 `C04 / llm_full_contract_kg` 两阶段真实 road fusion，并保持 frozen plan 精确注入、0 LLM、0 Provider network、禁止 fallback/自动重试/artifact reuse。
+- 当前阶段：v4/r3 已执行一次并停止于第二阶段质量门；失败证据已保留，已完成只读根因诊断，尚未实施修复。
+
+### 已完成证据
+
+- r3 外部证据根为 `D:\code\fusionagent-evidence\p4-planning-e2e\2026-08-14-c04-road-e2e-r3`；`experiment_failure.json` 为权威失败摘要，未生成 `experiment_result.json`，也未写入成功 supersession。
+- 正式命令只启动一次。工具层超时后未重新启动进程；最终统计为 runtime runs 2、stages completed 1、fusion executions started/completed 2/2、second stage started=true、automatic retry=false。
+- 第一阶段 run `f600c6fec1e34cd7bab40d12c8c9cf5e` 成功：OSM 16,279，Microsoft 为 `NO_OFFICIAL_COVERAGE`，单源 V7 输出 16,279；schema 与 external-degradation quality gate 均通过。交付 ZIP SHA-256 为 `a62ebe91c9144ebb7fa23fc6335054a14230fc5ce39e52afcba789b509769f2d`。
+- 第二阶段 run `60df11ce004e4739bf998155406c909d` 真实执行 OSM 16,279 + Microsoft 11,809；V7 最终输出 23,760，其中 matched Microsoft segments 11,629、unmatched 2,916、residual 465。schema validation 通过，但 `quality.default.road.v1` 以唯一 hard failure `dangle_endpoint_rate_per_100km=637.0289291208259 > 500` 拒绝。
+- repair 前后均为 23,760 features、2,633.318399 km、16,775 exact-coordinate dangle endpoints，指标完全不变。repair 实际依次尝试四个获授权策略；仅 `repair.artifact.road_name.v1` 因填充 59 个名称而标记 changed，`repair.artifact.line_topology.v1` 只检查 MultiLineString/零长度线且 changed=false。
+- 对第二阶段真实产物的只读拓扑分解：16,775 个 exact-coordinate dangle 中，10,383 个端点实际精确落在另一条非自身线要素上；现 metric 未把 endpoint-to-line-interior 的 T junction 视为连接。按该线网连接语义排除后剩 6,392 个，约为 `242.7/100km`，无需修改 `500/100km` 阈值即可通过该项。输入基线按现 metric 分别为 OSM `583.57/100km`、Microsoft `204.07/100km`，说明失败不能只归因于 Microsoft 数据质量。
+- 第二阶段 `source_semantic_contract.json` 明确为 `valid=false`：`raw.microsoft.road` 缺少 required `source_feature_id` 和 `road_class` 映射。KG 当前把 Microsoft road 错配为 `fields.road.osm`；实际字段仅为 `WidthMeters/CountryCode/source_country`，但 V7 会在执行时生成位置 ID 并把缺失 class 默认为 `road`。runtime 目前只记录 invalid contract 后继续执行。
+
+### 已验证根因
+
+1. **评价语义错误（直接导致拒绝）**：`dangle_endpoint_rate_per_100km` 只统计完全相同端点坐标的出现次数，没有识别端点落在线内部的有效 junction，导致至少 10,383 个假阳性 dangle。
+2. **repair reason-to-strategy 决策缺失（导致无关产物变更）**：`ArtifactRepairService` 未按 `quality_report.failure_reasons` 过滤策略，而是尝试所有 authorized + available 策略；因此 dangle 失败触发了无关 road-name 修改。现有 line-topology action 也不具备连接真实 dangle 的能力。
+3. **source semantic contract 未 fail closed（独立合同缺陷）**：Microsoft road 的 KG field profile 与实际 provider schema 不符，contract 已判 invalid，但 agent runtime 仍绑定参数并执行。V7 内部默认/生成字段不等于 provider-backed raw field mapping，不能把本次 schema output pass 当作 source semantic contract pass。
+
+### 未完成 / 阻塞
+
+- r3 仍是正式失败，禁止重试、覆盖或改写为成功；C04 的最终 supersession 和端到端研究主张尚未成立。
+- 尚未冻结 Microsoft road 的合法语义路径：必须明确是 provider fid + geometry-only reference contract、预融合规范化，还是拒绝当前 source；不得把 `WidthMeters` 冒充 `road_class`，也不得把未声明的 positional ID 冒充稳定 upstream ID。
+- 尚未修改 topology metric、repair 筛选和 semantic contract enforcement；没有新的回归或真实回放成功证据。
+
+### 下一验收点
+
+- 实施前先冻结三个最小契约：line-network dangle 的 junction 定义；quality reason 到 artifact strategy 的 KG-authoritative 映射；Microsoft reference source 的 identifier/class 解析与 fail-closed 语义。
+- 随后实施最小代码/KG 修复，增加聚焦测试，并用 r3 双源 GPKG 做只读回放；只有回放在原阈值下通过且 source semantic contract 为 valid，才运行扩大回归和 KG release verification。
+- 修复提交后生成全新 `v5/r4` protocol/run/evidence identity，仅执行 freeze audit 与 preflight；正式 r4 仍需用户再次明确授权。
+
+### 不应自动扩展的事项
+
+- 不修改或软化 `dangle_endpoint_rate_per_100km <= 500/100km`，不改变 degradation 语义。
+- 不把无关 road-name backfill 当作 topology repair，不通过自动 retry 或 artifact reuse 掩盖失败。
+- 不重跑 r3，不复用 r3 run ID/evidence root，不在修复前生成 r4 正式结果。
