@@ -1,0 +1,19 @@
+{
+  "checks": {
+    "asset_file_hashes": true,
+    "asset_inventory_hash": true,
+    "evidence_root_empty": true,
+    "execution_config_hash": true,
+    "execution_gate_consistent": true,
+    "implementation_file_hashes": true,
+    "input_evidence_hashes": true,
+    "protocol_id": true,
+    "protocol_ready": true,
+    "selected_plan_hash": true,
+    "semantic_contract": true,
+    "source_normalization_contract_hash": true,
+    "workflow_plan_hash": true
+  },
+  "passed": true,
+  "report_type": "p4_c04_protocol_freeze_audit"
+}

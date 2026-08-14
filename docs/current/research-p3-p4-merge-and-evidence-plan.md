@@ -324,3 +324,49 @@ case manifest/crosswalk
 - 不原地改写 frozen KG v1，不用代码 special-case 覆盖 KG 字段语义。
 - 不把只读 quality replay 升级为 r3 成功，不重跑或覆盖 r3。
 - 未冻结 source semantic 路径前，不创建声称 formal-ready 的 v5/r4。
+
+## 12. 阶段检查点（2026-08-14，Microsoft normalization 修复 / v5-r4 preflight）
+
+本节取代第 11 节作为当前恢复点；第 11 节保留为修复前的语义阻塞记录。
+
+### 已实现
+
+- source semantic contract 已明确分为 `provider raw schema -> deterministic normalization -> algorithm canonical schema` 三层；strict frozen-plan gate 验证 `normalized_algorithm_input`，不再要求 Microsoft raw Shapefile 预先包含 OSM canonical 字段。
+- 新增声明式 `normalization.road.microsoft_shapefile.v1`：`source_feature_id` 由 immutable provider artifact 的 GDAL FID 派生，`road_class` 使用 V7 已声明的 generic supplement default `road`；contract 和 normalized artifact 均记录 resolution 与 provenance。
+- provider FID 只对声明了 derived-FID normalization 的 source 扫描；缺少稳定 FID、CRS、允许的 line geometry 或 normalization 后 required canonical field 未解析时均 fail closed。
+- frozen-plan 路径在 semantic contract invalid 或 unavailable 时阻断；普通 runtime 保持既有兼容边界。
+- frozen KG v1 未修改，semantic hash 保持 `sha256:50067b9368914c47580707650789c04c78b2e856ccb3ef4d120a31f36c0ad71e`。
+
+### 提交与验证
+
+- semantic normalization 修复提交：`3273901 fix: normalize Microsoft road source semantics`。
+- v5 freeze 实现提交：`43042af research: prepare C04 road protocol v5`。
+- 聚焦 semantic/normalization/strict 测试 25 passed；large-area/national-scale 回归 25 passed；扩大 Agent/quality/road/research/P4 回归 228 passed；最终 freeze 相关回归 12 passed，附加聚焦回归 61 passed。
+- `python -m compileall -q services scripts tests` 通过；KG release verification 通过且 failed checks 为空。
+
+### r3 只读回放
+
+- 独立证据根：`D:\code\fusionagent-evidence\p4-planning-e2e\2026-08-14-c04-road-semantic-normalization-replay-v1`；未写入或覆盖 r3，fusion/LLM/Provider 调用计数均为 0。
+- Microsoft raw artifact：11,809 features，ESRI Shapefile，`EPSG:32619`，provider FID 可用；normalized contract `valid=true`。
+- Microsoft normalized input：11,809 个唯一 `source_feature_id`，required fields 无缺失，normalization profile 与两个 provenance 字段齐全。
+- r3 原始双源 GPKG 质量回放：23,760 features，2,633.318399 km，dangle 7,142，`271.2167279750187/100km <= 500`，hard failures `[]`，`accepted=true`。
+- 该结果只证明当前修复对保留输入的 semantic normalization 与质量评价回放成立，不把 r3 改写为成功，也不证明新的端到端执行成功。
+
+### v5/r4 冻结状态
+
+- freeze：`docs/current/evidence/p4-planning-e2e/2026-08-14-c04-road-protocol-freeze-v5/`。
+- 身份：`fusionagent.p4.c04-road-e2e.v5 / p4-c04-road-caracas-r4`；implementation commit `43042af72a053cc92ee904e700e1b3362696b40e`。
+- source normalization contract hash：`sha256:37726c21a6b0a3d82eaa9be2d4270765f9da1fbbbd9bdd52358d4c104845c4be`。
+- freeze audit 13/13 通过；runner preflight 11/11 通过；fusion runs 0、LLM calls 0、Provider calls 0。
+- r4 evidence root `D:\code\fusionagent-evidence\p4-planning-e2e\2026-08-14-c04-road-e2e-r4` 仍不存在，正式 r4 未执行。
+
+### 下一验收点
+
+- 当前阶段任务 1-5 已完成。下一步只有在用户再次明确授权正式 r4 后，才执行一次：`python scripts/run_p4_c04_road_e2e.py --freeze docs/current/evidence/p4-planning-e2e/2026-08-14-c04-road-protocol-freeze-v5 --execute`。
+- 正式执行必须在任一阶段失败时停止，不自动重试；执行后核对两个新 run ID、frozen plan hash、normalized semantic contract、真实产物字段/数量/CRS、质量报告和 supersession 证据。
+
+### 不应自动扩展的事项
+
+- 不执行正式 r4，除非取得新的明确授权。
+- 不覆盖或重解释 r3 失败证据，不复用 r3 run ID/evidence root。
+- 不修改 frozen KG v1、质量阈值、Prompt、rubric、fallback 或自动重试边界。

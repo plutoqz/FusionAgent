@@ -1,0 +1,22 @@
+{
+  "checks": {
+    "evidence_root_empty": true,
+    "execution_ready": true,
+    "fallback_forbidden": true,
+    "freeze_audit": true,
+    "frozen_plan_hash": true,
+    "frozen_validation_mode": true,
+    "local_only": true,
+    "protocol_version": true,
+    "runner_mode": true,
+    "two_stage_contract": true,
+    "zero_llm_calls": true
+  },
+  "evidence_root": "D:\\code\\fusionagent-evidence\\p4-planning-e2e\\2026-08-14-c04-road-e2e-r4",
+  "freeze_root": "D:\\code\\FusionAgent-formal-f47fbef\\docs\\current\\evidence\\p4-planning-e2e\\2026-08-14-c04-road-protocol-freeze-v5",
+  "fusion_runs_started": 0,
+  "llm_calls_made": 0,
+  "passed": true,
+  "provider_calls_made": 0,
+  "report_type": "p4_c04_runner_preflight"
+}

@@ -1,0 +1,112 @@
+{
+  "asset_reuse_boundary": "Only the Caracas source files and AOI boundary are reused from the older Freeze C manifest. The older C04 water case, runtime outputs, metrics, and claims are not reused.",
+  "evaluation_boundary": {
+    "claim_boundary": "A single bounded C04 run can provide execution trace and artifact evidence only. It cannot establish comparative superiority, statistical significance, or cross-AOI validity.",
+    "claim_eligible": false,
+    "gold_allowed_delivery_states": [
+      "provisional"
+    ],
+    "planning_rubric_mismatch_preserved": true,
+    "selected_delivery_state": "degraded"
+  },
+  "execution_blockers": [],
+  "execution_ready": true,
+  "frozen_artifact_hashes": {
+    "asset_inventory": "sha256:ec8f0c4fc5ff6f5f91e68de228911d7889fadb2a38904c64f6d01a011493d283",
+    "execution_config": "sha256:37837fa47709b6e27b48cd1a362c387be7660f0637dc76d8d8981c09de454601",
+    "selected_plan": "sha256:89c508508aaf41bc54beeed2277553cbba2caa33cf19b0c1baf0c8dc32710905",
+    "source_normalization_contract": "sha256:37726c21a6b0a3d82eaa9be2d4270765f9da1fbbbd9bdd52358d4c104845c4be",
+    "workflow_plan": "sha256:a1792cbbaa35c0e69f9b4ae59e15cecd4555215d69acac0271bae16d7de8bc59"
+  },
+  "implementation_commit": "43042af72a053cc92ee904e700e1b3362696b40e",
+  "implementation_files": {
+    "fusion_algorithms/road_conflation_v7.py": "sha256:e80c0a56aeaf11d7ded98e779920dc872b16a8ae72eaf8dfd4759e560aea7467",
+    "scripts/audit_p4_planning_e2e_readiness.py": "sha256:458a98bdde1e8087521930c6a78ff0e79f4ab470bbcc179de83f53a069f81666",
+    "scripts/freeze_p4_c04_road_protocol.py": "sha256:c429685a87d3d964d1b3739b0a615c9c413d7573262079a7fd0ae0c6a3d04bf0",
+    "scripts/replay_p4_c04_r3_normalization.py": "sha256:5d4992aff7a5fd38a903a4bf4fa02ffedb6743f2c32276b521b07669a19f4a5d",
+    "scripts/run_p4_c04_road_e2e.py": "sha256:648d687b4255038e63c180769bfe11e3fe881d5f4fe791d436e54a34e860dd55",
+    "services/agent_run_service.py": "sha256:9c199e12c5c971219856b40acd30926b15b73172356963ee9ed61ac35318b055",
+    "services/artifact_repair_service.py": "sha256:76a708b5dd3ff217b6fc7afc1f028d10f3ca0b1540f987eec89029b81ff6a744",
+    "services/domain_fusion_runners.py": "sha256:08d4d719069e27d8b68864adc6030936fa5094a81f25a9c7425310c4df88b255",
+    "services/research_plan_runtime_adapter.py": "sha256:73972387a29416c665336d7f805000d5e564c53710fb34954500db2744b56d9f",
+    "services/run_state_store.py": "sha256:660bab039a526844f6f791c797febcc59b4e8b39dcadae8f86ccea7fa9a32cfd",
+    "services/run_writeback_service.py": "sha256:4570c164948506ec73736c9502f4959381154aa23669d95a38fc0b8b3c4fbaf5",
+    "services/source_field_profile_registry.py": "sha256:89b9002f8f8c62d48368351ccf1a7b6bee739d6ea62f8b148b61d27c8963d986",
+    "services/source_profile_service.py": "sha256:6b9c90d9982589083764bac86c5f735327f9f6c82d735e909964be826d8c58b4",
+    "services/source_semantic_contract_service.py": "sha256:08d77f84ba75434fe8c358c1164e30dc64b08d4999253e11bef0a2c6b4cdd719",
+    "services/track_b_national_scale_service.py": "sha256:34bd2ab6c8f7ffdcb3273248f1738d8478612e0a2d4d7da6429db836f643e333",
+    "services/track_b_source_normalization.py": "sha256:e410d35aa4bcd528cab60ce14a956ac7313d6c494ef916e1cabbd6267b2c1e4d"
+  },
+  "input_evidence": {
+    "asset_manifest": {
+      "path": "D:\\code\\FusionAgent-formal-f47fbef\\docs\\thesis\\manifests\\2026-07-20-c02-c04-c06-real-data.json",
+      "sha256": "sha256:1796dfa6cf0e5bfa9506b9a314f410e48c1deb33bca49621ed011a94091b75d8"
+    },
+    "case_manifest": {
+      "path": "D:\\code\\FusionAgent-formal-f47fbef\\docs\\current\\research-case-manifest-v1.json",
+      "sha256": "sha256:fed92bc94c44bf601f93eb19276918dfeb9150af019d2e527d47509cdfa88a5f"
+    },
+    "formal_result": {
+      "path": "D:\\code\\fusionagent-evidence\\p3-planning-formal\\2026-08-13-deepseek-v4-flash-formal-r1\\runs\\formal-c04-llm_full_contract_kg-r1\\result.json",
+      "sha256": "sha256:a7ec0652a87cf51c1ffd94aea19cfc816cfba6c04d89e92bcedb754ccc248eba"
+    },
+    "formal_schedule": {
+      "path": "D:\\code\\fusionagent-evidence\\p3-planning-formal\\2026-08-13-deepseek-v4-flash-formal-r1\\schedule.json",
+      "sha256": "sha256:b6104c09e4473fa12b1f9ab99f683fe11c41ce29be17a7f43cc603f4ed5a4718"
+    },
+    "normalization_replay": {
+      "path": "D:\\code\\fusionagent-evidence\\p4-planning-e2e\\2026-08-14-c04-road-semantic-normalization-replay-v1\\replay_report.json",
+      "sha256": "sha256:34a43629b51f117767bcbdf50501ed65e933557a903db5ce697f2d44faadf03b"
+    },
+    "prior_failed_attempt": {
+      "path": "D:\\code\\fusionagent-evidence\\p4-planning-e2e\\2026-08-14-c04-road-e2e-r3\\experiment_failure.json",
+      "sha256": "sha256:84af92146dbdd574f160a07ffbdb8e457c6acfc7ea783f3ac43bdd6f8d308772"
+    },
+    "readiness_v2": {
+      "path": "D:\\code\\fusionagent-evidence\\p4-planning-e2e\\2026-08-13-readiness-audit-v2.json",
+      "sha256": "sha256:d6df34c518801719cbd524492ea9be8e03ff59b9621b5350a0c8966dfcde1c07"
+    }
+  },
+  "knowledge_identity": {
+    "experience_snapshot_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+    "knowledge_version": "1.0.0",
+    "ontology_version": "1.0.0",
+    "release_id": "fusionagent-kg-v1.0.0",
+    "semantic_hash": "sha256:50067b9368914c47580707650789c04c78b2e856ccb3ef4d120a31f36c0ad71e"
+  },
+  "normalization_evidence": {
+    "claim_boundary": "read_only_replay; no r3 result mutation; no fusion execution",
+    "contract_valid": true,
+    "microsoft_normalization_profile": "normalization.road.microsoft_shapefile.v1",
+    "quality_replay_accepted": true,
+    "report": {
+      "path": "D:\\code\\fusionagent-evidence\\p4-planning-e2e\\2026-08-14-c04-road-semantic-normalization-replay-v1\\replay_report.json",
+      "sha256": "sha256:34a43629b51f117767bcbdf50501ed65e933557a903db5ce697f2d44faadf03b"
+    }
+  },
+  "previous_attempt": {
+    "automatic_retry_performed": false,
+    "failed_stage_id": "microsoft_arrival",
+    "failure_class": "quality_gate_rejected_dangle_metric",
+    "protocol_id": "fusionagent.p4.c04-road-e2e.v4",
+    "run_id": "60df11ce004e4739bf998155406c909d"
+  },
+  "protocol_id": "fusionagent.p4.c04-road-e2e.v5",
+  "protocol_ready": true,
+  "runner_contract": {
+    "entrypoint": "scripts/run_p4_c04_road_e2e.py",
+    "execution_validation_gate": "workflow_validator_enforce",
+    "frozen_plan_persistence": "canonical_no_derived_fields",
+    "generic_grounding_probe": "diagnostic_only",
+    "microsoft_identifier_resolution": "provider_artifact_fid",
+    "microsoft_road_class_resolution": "declared_default_road",
+    "plan_injection": "semantic_hash_locked",
+    "planner_calls": 0,
+    "repair_availability": "product_contract_authorization_intersect_frozen_kg_strategy_nodes",
+    "replanning": "forbidden",
+    "single_source_road_output": "v7_canonical_contract",
+    "source_semantic_validation": "normalized_algorithm_input_fail_closed",
+    "stage_execution": "independent_runs_with_explicit_supersession"
+  },
+  "status": "protocol_frozen_execution_ready"
+}

@@ -1,0 +1,287 @@
+{
+  "context": {
+    "case_id": "C04",
+    "condition": "llm_full_contract_kg",
+    "decision": "degraded",
+    "knowledge_identity": {
+      "experience_snapshot_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+      "knowledge_version": "1.0.0",
+      "ontology_version": "1.0.0",
+      "release_id": "fusionagent-kg-v1.0.0",
+      "semantic_hash": "sha256:50067b9368914c47580707650789c04c78b2e856ccb3ef4d120a31f36c0ad71e"
+    },
+    "research_protocol": "fusionagent.research-plan-runtime-resolution.v1"
+  },
+  "data_needs": [],
+  "estimated_time": "unknown",
+  "expected_output": "road_multi_source_vector_fusion",
+  "output_requirement": null,
+  "product_contract": {
+    "contract_id": "contract.product.road.v1",
+    "contract_name": "Fused Road Network Product",
+    "degradation_policy": {
+      "allowed_states": [
+        "partially_satisfied",
+        "degraded_but_usable"
+      ],
+      "degraded_layers_must_be_marked": true,
+      "final_output_may_supersede_provisional": true,
+      "provisional_delivery_allowed": true
+    },
+    "delivery_policy": {
+      "machine_readable_artifacts": [
+        "product_contract.json",
+        "planning_decision.json",
+        "resource_regime.json",
+        "quality_gate_result.json",
+        "gap_declaration.json",
+        "evidence_trace.json",
+        "delivery_manifest.json"
+      ],
+      "provisional_outputs_must_be_marked": true,
+      "supersession_must_be_recorded": true
+    },
+    "disaster_types": [
+      "generic",
+      "flood",
+      "earthquake",
+      "typhoon"
+    ],
+    "evidence_requirements": [
+      "source_provenance",
+      "aoi_coverage",
+      "geometry_validity",
+      "quality_result",
+      "network_topology_result",
+      "duplicate_line_result"
+    ],
+    "gap_declaration_policy": {
+      "gap_types": [
+        "skip",
+        "data_absent",
+        "source_unavailable",
+        "quality_failed",
+        "source_mismatch",
+        "contract_not_satisfied"
+      ],
+      "required_for_unmet_requirements": true,
+      "treat_as_product_output": true
+    },
+    "layer_requirements": [
+      {
+        "criticality": "required",
+        "layer_kind": "road",
+        "output_requirement_id": "or.road.fused.v1"
+      }
+    ],
+    "metadata": {
+      "claim_state": "bounded_supported",
+      "geometry_semantics": "road_centerlines",
+      "ontology_scope": "layer_product",
+      "runtime_role": "product_contract",
+      "runtime_status": "runtime_candidate",
+      "specification_ref": "docs/thesis/product_contract_spec.md"
+    },
+    "output_requirement_ids": [
+      "or.road.fused.v1"
+    ],
+    "product_type": "road_multi_source_vector_fusion",
+    "quality_gates": [
+      "source_materialized",
+      "aoi_coverage_checked",
+      "non_empty_or_justified_empty",
+      "geometry_validity_checked",
+      "minimum_attribute_set_checked",
+      "provenance_recorded",
+      "duplicate_line_rate_checked",
+      "line_topology_checked"
+    ],
+    "repair_strategy_ids": [
+      "repair.source_fallback.v1",
+      "repair.alternative_algorithm.v1",
+      "repair.artifact.schema_backfill.v1",
+      "repair.artifact.road_name.v1",
+      "repair.artifact.line_topology.v1",
+      "repair.artifact.geometry_validity.v1"
+    ],
+    "response_phases": [
+      "preparedness",
+      "rapid_response",
+      "recovery"
+    ],
+    "satisfaction_states": [
+      "fully_satisfied",
+      "partially_satisfied",
+      "degraded_but_usable",
+      "not_satisfied",
+      "not_applicable",
+      "source_mismatch"
+    ]
+  },
+  "qos_policy": null,
+  "repair_strategies": [
+    {
+      "applies_to_task_ids": [
+        "task.building.fusion",
+        "task.road.fusion",
+        "task.water.fusion",
+        "task.waterways.fusion",
+        "task.poi.fusion"
+      ],
+      "from_algorithm_id": null,
+      "metadata": {
+        "claim_state": "runtime_supported",
+        "runtime_role": "repair_strategy",
+        "runtime_status": "runtime_candidate",
+        "strategy": "alternative_source"
+      },
+      "reason_codes": [
+        "source_fallback_selected",
+        "fallback_when_no_safe_reuse_candidate"
+      ],
+      "strategy_id": "repair.source_fallback.v1",
+      "to_algorithm_id": null
+    },
+    {
+      "applies_to_task_ids": [
+        "task.building.fusion",
+        "task.road.fusion",
+        "task.waterways.fusion"
+      ],
+      "from_algorithm_id": null,
+      "metadata": {
+        "claim_state": "runtime_supported",
+        "runtime_role": "repair_strategy",
+        "runtime_status": "runtime_candidate",
+        "strategy": "alternative_algorithm"
+      },
+      "reason_codes": [
+        "primary_execution_failed",
+        "alternative_algorithm_succeeded"
+      ],
+      "strategy_id": "repair.alternative_algorithm.v1",
+      "to_algorithm_id": null
+    },
+    {
+      "applies_to_task_ids": [
+        "task.building.fusion",
+        "task.road.fusion",
+        "task.water.fusion",
+        "task.waterways.fusion",
+        "task.poi.fusion"
+      ],
+      "from_algorithm_id": null,
+      "metadata": {
+        "action": "schema_attribute_backfill",
+        "claim_state": "runtime_supported",
+        "runtime_role": "artifact_repair_strategy",
+        "runtime_status": "runtime_candidate",
+        "strategy": "artifact_transform"
+      },
+      "reason_codes": [
+        "quality_missing_fields"
+      ],
+      "strategy_id": "repair.artifact.schema_backfill.v1",
+      "to_algorithm_id": null
+    },
+    {
+      "applies_to_task_ids": [
+        "task.road.fusion"
+      ],
+      "from_algorithm_id": null,
+      "metadata": {
+        "action": "road_name_preservation",
+        "claim_state": "runtime_supported",
+        "runtime_role": "artifact_repair_strategy",
+        "runtime_status": "runtime_candidate",
+        "strategy": "artifact_transform"
+      },
+      "reason_codes": [
+        "quality_road_name_missing"
+      ],
+      "strategy_id": "repair.artifact.road_name.v1",
+      "to_algorithm_id": null
+    },
+    {
+      "applies_to_task_ids": [
+        "task.road.fusion",
+        "task.waterways.fusion"
+      ],
+      "from_algorithm_id": null,
+      "metadata": {
+        "action": "line_topology_cleanup",
+        "claim_state": "runtime_supported",
+        "runtime_role": "artifact_repair_strategy",
+        "runtime_status": "runtime_candidate",
+        "strategy": "artifact_transform"
+      },
+      "reason_codes": [
+        "quality_line_topology_failed"
+      ],
+      "strategy_id": "repair.artifact.line_topology.v1",
+      "to_algorithm_id": null
+    },
+    {
+      "applies_to_task_ids": [
+        "task.building.fusion",
+        "task.road.fusion",
+        "task.water.fusion",
+        "task.waterways.fusion",
+        "task.poi.fusion"
+      ],
+      "from_algorithm_id": null,
+      "metadata": {
+        "action": "geometry_validity_repair",
+        "claim_state": "runtime_supported",
+        "runtime_role": "artifact_repair_strategy",
+        "runtime_status": "runtime_candidate",
+        "strategy": "artifact_transform"
+      },
+      "reason_codes": [
+        "quality_invalid_geometry"
+      ],
+      "strategy_id": "repair.artifact.geometry_validity.v1",
+      "to_algorithm_id": null
+    }
+  ],
+  "task_bundle": null,
+  "tasks": [
+    {
+      "algorithm_id": "algo.fusion.road.conflation.v7",
+      "alternatives": [],
+      "depends_on": [],
+      "description": "Use the nominal typhoon road bundle pattern with the V7 road conflation algorithm. The road layer is deliverable but degraded because the Microsoft road reference component is delayed and only OSM road is currently available.",
+      "input": {
+        "data_source_id": "catalog.typhoon.road",
+        "data_type_id": "dt.road.bundle",
+        "parameters": {}
+      },
+      "is_transform": false,
+      "kg_validated": true,
+      "name": "research_road",
+      "output": {
+        "data_type_id": "dt.road.fused",
+        "description": "Research road output"
+      },
+      "step": 1,
+      "task_id": "task.road.fusion"
+    }
+  ],
+  "trigger": {
+    "content": "Research case C04",
+    "disaster_type": "typhoon",
+    "force_aoi_resolution": false,
+    "spatial_extent": null,
+    "temporal_end": null,
+    "temporal_start": null,
+    "type": "user_query"
+  },
+  "validation": {
+    "enforcement_mode": "enforce",
+    "inserted_transform_steps": 0,
+    "issues": [],
+    "rejected": false,
+    "valid": true
+  },
+  "workflow_id": "research-c04-llm_full_contract_kg"
+}
