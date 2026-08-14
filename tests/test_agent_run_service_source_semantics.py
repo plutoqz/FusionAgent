@@ -3,6 +3,8 @@ from __future__ import annotations
 import json
 from pathlib import Path
 
+import pytest
+
 from schemas.agent import RunCreateRequest, RunInputStrategy, RunPhase, RunStatus, RunTrigger, RunTriggerType, WorkflowPlan
 from schemas.fusion import JobType
 from services.agent_run_service import AgentRunService
@@ -95,3 +97,20 @@ def test_agent_run_service_persists_source_semantic_contract(tmp_path: Path) -> 
     params = updated.tasks[0].input.parameters
     assert params["match_similarity_threshold"] == 0.7
     assert params["parameter_provenance"]["match_similarity_threshold"]["source"] == "static_seed"
+
+
+def test_agent_run_service_rejects_invalid_source_semantic_contract() -> None:
+    class Contract:
+        validation = {
+            "valid": False,
+            "issues": [
+                {
+                    "source_id": "raw.microsoft.road",
+                    "canonical_field": "source_feature_id",
+                    "code": "required_field_unmatched",
+                }
+            ],
+        }
+
+    with pytest.raises(RuntimeError, match="SOURCE_SEMANTIC_CONTRACT_INVALID"):
+        AgentRunService._require_valid_source_semantic_contract(Contract())

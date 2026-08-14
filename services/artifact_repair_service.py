@@ -12,6 +12,7 @@ from shapely.geometry import GeometryCollection, MultiLineString, MultiPoint, Mu
 from shapely.ops import linemerge
 
 from kg.policy_registry import KnowledgePolicyRegistry, default_policy_registry
+from kg.seed_provider import load_seed_data
 from schemas.agent import RepairRecord
 from schemas.quality_gate import QualityGateReport
 from schemas.task_kind import TaskKind
@@ -39,6 +40,10 @@ class ArtifactRepairResult:
 class ArtifactRepairService:
     def __init__(self, policy_registry: KnowledgePolicyRegistry | None = None) -> None:
         self.policy_registry = policy_registry or default_policy_registry()
+        self.strategy_reason_codes = {
+            str(strategy.strategy_id): {str(reason) for reason in strategy.reason_codes}
+            for strategy in load_seed_data()["repair_strategies"].values()
+        }
 
     def repair(
         self,
@@ -71,11 +76,26 @@ class ArtifactRepairService:
             (dict(item) for item in ordered_policy if isinstance(item, dict)),
             key=lambda item: (int(item.get("order") or 0), str(item.get("strategy_id") or "")),
         )
+        failure_reasons = {str(reason) for reason in (quality_report.failure_reasons or []) if reason}
+        soft_failure_reasons = {str(reason) for reason in (quality_report.soft_failure_reasons or []) if reason}
+        quality_reasons = failure_reasons | soft_failure_reasons
 
         for policy in candidate_policies:
             strategy_id = str(policy.get("strategy_id") or "")
             action = str(policy.get("action") or "")
             if not strategy_id or strategy_id not in authorized or strategy_id not in available:
+                continue
+            declared_reason_codes = self.strategy_reason_codes.get(strategy_id, set())
+            if not declared_reason_codes & _quality_reason_codes(quality_reasons):
+                strategy_reports.append(
+                    {
+                        "strategy_id": strategy_id,
+                        "action": action,
+                        "changed": False,
+                        "skipped": "failure_reason_not_applicable",
+                        "declared_reason_codes": sorted(declared_reason_codes),
+                    }
+                )
                 continue
             frame, changed, details = self._apply_strategy(
                 action,
@@ -106,6 +126,8 @@ class ArtifactRepairService:
                     "output_path": str(artifact_path),
                     "changed": False,
                     "applied_strategies": [],
+                    "trigger_failure_reasons": sorted(failure_reasons),
+                    "trigger_soft_failure_reasons": sorted(soft_failure_reasons),
                     "strategy_reports": strategy_reports,
                     "authorized_strategy_ids": sorted(authorized),
                     "available_strategy_ids": sorted(available),
@@ -140,6 +162,7 @@ class ArtifactRepairService:
             "changed": True,
             "applied_strategies": applied,
             "trigger_failure_reasons": list(quality_report.failure_reasons or []),
+            "trigger_soft_failure_reasons": list(quality_report.soft_failure_reasons or []),
             "strategy_reports": strategy_reports,
             "authorized_strategy_ids": sorted(authorized),
             "available_strategy_ids": sorted(available),
@@ -384,6 +407,23 @@ def _reason_code_for_strategy(strategy: str) -> str:
         "repair.artifact.geometry_validity.v1": "quality_invalid_geometry",
         "repair.artifact.line_topology.v1": "quality_line_topology_failed",
     }.get(strategy, "quality_artifact_repair")
+
+
+def _quality_reason_codes(failure_reasons: set[str]) -> set[str]:
+    reason_codes = set(failure_reasons)
+    if failure_reasons & {"required_fields", "source_lineage"}:
+        reason_codes.add("quality_missing_fields")
+    if failure_reasons & {
+        "field_null_rate:name",
+        "field_null_rate:osm_name",
+        "field_null_rate:road_name",
+    }:
+        reason_codes.add("quality_road_name_missing")
+    if failure_reasons & {"zero_length_geometry_count", "dangle_endpoint_rate_per_100km"}:
+        reason_codes.add("quality_line_topology_failed")
+    if failure_reasons & {"invalid_geometry_rate", "geometry_type", "invalid_geometry"}:
+        reason_codes.add("quality_invalid_geometry")
+    return reason_codes
 
 
 def _missing_mask(series: pd.Series) -> pd.Series:

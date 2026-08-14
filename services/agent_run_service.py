@@ -754,6 +754,8 @@ class AgentRunService:
                     resolved_inputs=resolved_inputs,
                 )
                 if source_semantic_contract is not None:
+                    if frozen_plan is not None:
+                        self._require_valid_source_semantic_contract(source_semantic_contract)
                     multisource_building_sources = self._building_sources_from_semantic_contract(source_semantic_contract)
             should_tile = self._should_use_tiled_building_runtime(
                 request=runtime_request,
@@ -952,6 +954,8 @@ class AgentRunService:
                                 resolved_inputs=resolved_inputs,
                             )
                             if source_semantic_contract is not None:
+                                if frozen_plan is not None:
+                                    self._require_valid_source_semantic_contract(source_semantic_contract)
                                 multisource_building_sources = self._building_sources_from_semantic_contract(
                                     source_semantic_contract
                                 )
@@ -2523,6 +2527,17 @@ class AgentRunService:
             contract=contract,
         ), contract
 
+    @staticmethod
+    def _require_valid_source_semantic_contract(contract) -> None:
+        validation = dict(getattr(contract, "validation", {}) or {})
+        if bool(validation.get("valid")):
+            return
+        issues = list(validation.get("issues") or [])
+        raise RuntimeError(
+            "SOURCE_SEMANTIC_CONTRACT_INVALID: "
+            + json.dumps(issues, ensure_ascii=False, sort_keys=True)
+        )
+
     def _persist_source_semantics(
         self,
         *,
@@ -2543,6 +2558,7 @@ class AgentRunService:
             "issue_count": len(contract.validation.get("issues") or []),
             "height_policy": dict(contract.height_policy),
         }
+        semantic_valid = bool(summary["valid"])
         current = self.get_run(run_id)
         if current is not None:
             current.source_semantic_contract_path = str(path)
@@ -2556,8 +2572,12 @@ class AgentRunService:
                     stage="execution",
                     plan_revision=self._extract_plan_revision(updated_plan),
                 ),
-                event_kind="source_semantics_bound",
-                event_message="Source semantic contract was bound to runtime parameters.",
+                event_kind=("source_semantics_bound" if semantic_valid else "source_semantics_invalid"),
+                event_message=(
+                    "Source semantic contract was bound to runtime parameters."
+                    if semantic_valid
+                    else "Source semantic contract is invalid; strict frozen-plan execution must reject it."
+                ),
                 event_details={"source_semantic_contract_path": str(path), **summary},
             )
         return updated_plan

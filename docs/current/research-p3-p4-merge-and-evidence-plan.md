@@ -289,3 +289,38 @@ case manifest/crosswalk
 - 不修改或软化 `dangle_endpoint_rate_per_100km <= 500/100km`，不改变 degradation 语义。
 - 不把无关 road-name backfill 当作 topology repair，不通过自动 retry 或 artifact reuse 掩盖失败。
 - 不重跑 r3，不复用 r3 run ID/evidence root，不在修复前生成 r4 正式结果。
+
+## 11. 阶段检查点（2026-08-14，质量修复完成 / KG 语义阻塞）
+
+本节取代第 10 节作为当前恢复点；第 10 节保留失败后诊断记录，其中“10,383 个精确落在线上”应以本节的严格 `intersects` 回放结果为准。
+
+### 已实现
+
+- `artifact_evaluation_service` 的 dangle 计算现在把 endpoint 落在另一条 line interior 的 T junction 视为已连接，不再要求目标线必须预先 node 化；未修改 `500/100km` 阈值。
+- `ArtifactRepairService` 先把 quality check ID 归一到 frozen KG 已有 reason code，再使用 KG `RepairStrategyNode.reason_codes` 筛选 authorized + available 策略。dangle failure 不再触发无关 road-name backfill。
+- frozen-plan 严格执行在 source semantic contract `valid=false` 时 fail closed，固定错误前缀为 `SOURCE_SEMANTIC_CONTRACT_INVALID`；普通既有 runtime 仍记录 `source_semantics_invalid`，避免在本阶段扩大产品行为变更。
+- frozen KG v1 内容和 semantic hash 未改变；曾用于验证候选 Microsoft profile 的本地改动已撤回并通过 builder 恢复为 `sha256:50067b9368914c47580707650789c04c78b2e856ccb3ef4d120a31f36c0ad71e`。
+
+### 真实回放与验证
+
+- 对 r3 原始 23,760-feature 双源 GPKG 做只读质量回放：`dangle_endpoint_count=7,142`、`dangle_endpoint_rate_per_100km=271.2167279750187`、threshold `500.0`、`accepted=true`、hard failures `[]`。该回放没有生成或覆盖 r3 成功结果。
+- 同一输入按 frozen KG v1 重建 semantic contract 仍为 `valid=false`：Microsoft 缺 `source_feature_id` 与 `road_class`，因此严格 frozen-plan 路径会在算法前正确阻断。
+- 聚焦回归 33 passed；修正普通 runtime 兼容性后回归 34 passed；最终扩大 Agent/large-area/quality/road/research/P4/frozen-plan 回归 192 passed。仅有既有 GeoPandas/PyProj warning。
+- `python -m compileall -q services tests` 通过；KG release verification 11/11 通过。
+
+### 当前阻塞
+
+- 不能在 `kg/ontology/v1.0.0` 中原地把 Microsoft road 改为新 profile；这会改变 frozen KG semantic hash，却继续冒用 v1 identity。
+- 当前 Microsoft artifact 的 provider FID 和 geometry-only reference 语义可以形成候选新 profile，且 `road_class` 可明确由 V7 默认 `road`，但该语义必须进入新 KG release 并获得独立 protocol identity，不能暗藏在 Python override 中。
+- 另一条合法路径是替换为满足 frozen v1 `fields.road.osm` 的 Microsoft normalized artifact；这会改变正式输入 hash，同样必须使用新 protocol/run/evidence identity。
+
+### 下一验收点
+
+- 先决定并冻结二选一：发布新 KG release 承载 `fields.road.microsoft`，或生成并冻结符合 KG v1 的 Microsoft normalized input。
+- 决策后实现对应最小路径、验证 semantic contract `valid=true`，再生成全新 v5/r4 freeze 与 preflight；本检查点不生成 r4，不执行正式实验。
+
+### 不应自动扩展的事项
+
+- 不原地改写 frozen KG v1，不用代码 special-case 覆盖 KG 字段语义。
+- 不把只读 quality replay 升级为 r3 成功，不重跑或覆盖 r3。
+- 未冻结 source semantic 路径前，不创建声称 formal-ready 的 v5/r4。

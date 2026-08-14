@@ -126,6 +126,48 @@ def test_artifact_repair_returns_unchanged_when_no_strategy_applies(tmp_path: Pa
     assert result.repair_records == []
 
 
+def test_artifact_repair_does_not_apply_road_name_strategy_for_topology_failure(tmp_path: Path) -> None:
+    artifact_path = tmp_path / "road_dangle.gpkg"
+    gpd.GeoDataFrame(
+        {
+            "fusion_source": ["base_road_network"],
+            "match_role": ["base"],
+            "road_class": ["road"],
+            "source_layer": ["base"],
+            "name": [""],
+            "osm_name": [""],
+            "road_name": [""],
+        },
+        geometry=[LineString([(0, 0), (1000, 0)])],
+        crs="EPSG:32631",
+    ).to_file(artifact_path, driver="GPKG")
+    report = QualityGateReport(
+        accepted=False,
+        task_kind=TaskKind.road,
+        artifact_path=str(artifact_path),
+        metrics=evaluate_vector_artifact(artifact_path, required_fields=["geometry"]),
+        failure_reasons=["dangle_endpoint_rate_per_100km"],
+    )
+
+    result = ArtifactRepairService().repair(
+        artifact_path=artifact_path,
+        task_kind=TaskKind.road,
+        quality_report=report,
+        required_fields=["geometry"],
+        output_dir=tmp_path,
+        repair_records=[],
+        authorized_strategy_ids=ROAD_ARTIFACT_REPAIRS,
+        available_strategy_ids=ROAD_ARTIFACT_REPAIRS,
+    )
+
+    road_name_report = next(
+        item for item in result.report["strategy_reports"]
+        if item["strategy_id"] == "repair.artifact.road_name.v1"
+    )
+    assert result.changed is False
+    assert road_name_report["skipped"] == "failure_reason_not_applicable"
+
+
 def test_artifact_repair_fixes_invalid_building_geometry(tmp_path: Path) -> None:
     artifact_path = tmp_path / "building_invalid.gpkg"
     invalid_bowtie = Polygon([(0, 0), (10, 10), (10, 0), (0, 10), (0, 0)])

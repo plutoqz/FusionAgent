@@ -252,6 +252,24 @@ def test_evaluate_vector_artifact_reports_dangle_endpoint_rate_per_100km(tmp_pat
     assert metrics["dangle_endpoint_rate_per_100km"] == 200.0
 
 
+def test_evaluate_vector_artifact_treats_endpoint_on_line_interior_as_connected(tmp_path):
+    path = tmp_path / "t_junction.gpkg"
+    frame = gpd.GeoDataFrame(
+        {"source_id": ["a", "b"]},
+        geometry=[
+            LineString([(0, 0), (1000, 0)]),
+            LineString([(500, 500), (500, 0)]),
+        ],
+        crs="EPSG:32631",
+    )
+    frame.to_file(path, driver="GPKG")
+
+    metrics = evaluate_vector_artifact(path, required_fields=["geometry", "source_id"])
+
+    assert metrics["dangle_endpoint_count"] == 3
+    assert metrics["dangle_endpoint_rate_per_100km"] == 200.0
+
+
 def test_evaluate_vector_artifact_reports_polygon_topology_quality_metrics(tmp_path):
     path = tmp_path / "polygon_quality.gpkg"
     valid = Polygon([(0, 0), (0, 20), (20, 20), (20, 0)])

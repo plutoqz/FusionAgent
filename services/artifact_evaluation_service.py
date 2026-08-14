@@ -7,6 +7,8 @@ import geopandas as gpd
 import pandas as pd
 import pyogrio
 from pyproj import Transformer
+from shapely import STRtree
+from shapely.geometry import Point
 from shapely.validation import explain_validity
 
 from fusion_algorithms.quality import evaluate_feature_alignment
@@ -543,22 +545,43 @@ def _topology_quality_metrics(
 
     zero_length_geometry_count = 0
     sliver_polygon_count = 0
-    dangle_endpoints: dict[tuple[float, float], int] = {}
+    dangle_endpoints: dict[tuple[float, float], list[int]] = {}
+    line_parts: list[Any] = []
 
     for geom in measured.geometry:
         for line in _line_parts(geom):
             if line.length == 0:
                 zero_length_geometry_count += 1
                 continue
+            line_part_index = len(line_parts)
+            line_parts.append(line)
             for endpoint in _line_endpoints(line):
-                dangle_endpoints[endpoint] = dangle_endpoints.get(endpoint, 0) + 1
+                dangle_endpoints.setdefault(endpoint, []).append(line_part_index)
         for polygon in _polygon_parts(geom):
             if polygon.is_valid and polygon.area < sliver_area_threshold_sq_m:
                 sliver_polygon_count += 1
 
     overlap_metrics = _polygon_overlap_metrics(measured)
     total_length_km = _line_length_km(measured)
-    dangle_endpoint_count = sum(1 for count in dangle_endpoints.values() if count == 1)
+    # An endpoint landing on another line's interior is a connected junction,
+    # even when the target line has not been noded at that coordinate.
+    dangle_endpoint_count = 0
+    if line_parts and dangle_endpoints:
+        line_tree = STRtree(line_parts)
+        endpoint_keys = list(dangle_endpoints)
+        endpoint_points = [Point(x, y) for x, y in endpoint_keys]
+        endpoint_pairs = line_tree.query(endpoint_points, predicate="intersects")
+        connected: set[int] = set()
+        for point_index, line_index in zip(endpoint_pairs[0], endpoint_pairs[1]):
+            endpoint = endpoint_keys[int(point_index)]
+            owners = dangle_endpoints[endpoint]
+            if any(int(line_index) != owner for owner in owners):
+                connected.add(int(point_index))
+        dangle_endpoint_count = sum(
+            1
+            for index, owners in enumerate(dangle_endpoints.values())
+            if len(owners) == 1 and index not in connected
+        )
 
     return {
         "zero_length_geometry_count": zero_length_geometry_count,
