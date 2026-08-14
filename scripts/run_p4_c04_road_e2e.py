@@ -38,7 +38,8 @@ def preflight_p4_c04_runner(freeze_root: Path) -> dict[str, Any]:
         "runner_mode": runner_contract.get("stage_execution") == "independent_runs_with_explicit_supersession",
         "frozen_validation_mode": runner_contract.get("execution_validation_gate")
         == "workflow_validator_enforce"
-        and runner_contract.get("generic_grounding_probe") == "diagnostic_only",
+        and runner_contract.get("generic_grounding_probe") == "diagnostic_only"
+        and runner_contract.get("frozen_plan_persistence") == "canonical_no_derived_fields",
         "frozen_plan_hash": _workflow_plan_semantic_hash(plan)
         == protocol["frozen_artifact_hashes"]["workflow_plan"],
         "zero_llm_calls": config["runtime"]["llm_calls"] == 0 and config["budget"]["max_llm_calls"] == 0,

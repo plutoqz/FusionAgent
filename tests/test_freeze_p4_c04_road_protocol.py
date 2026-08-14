@@ -16,11 +16,14 @@ FORMAL_ROOT = Path(r"D:\code\fusionagent-evidence\p3-planning-formal\2026-08-13-
 READINESS = Path(r"D:\code\fusionagent-evidence\p4-planning-e2e\2026-08-13-readiness-audit-v2.json")
 ASSET_MANIFEST = REPO_ROOT / "docs" / "thesis" / "manifests" / "2026-07-20-c02-c04-c06-real-data.json"
 CASE_MANIFEST = REPO_ROOT / "docs" / "current" / "research-case-manifest-v1.json"
+PRIOR_FAILURE = Path(
+    r"D:\code\fusionagent-evidence\p4-planning-e2e\2026-08-14-c04-road-e2e-r1\experiment_failure.json"
+)
 
 
 @pytest.mark.realdata
 def test_real_c04_protocol_freeze_hashes_assets_and_fails_closed_on_tamper(tmp_path: Path) -> None:
-    if not FORMAL_ROOT.exists() or not READINESS.exists():
+    if not FORMAL_ROOT.exists() or not READINESS.exists() or not PRIOR_FAILURE.exists():
         pytest.skip("Formal/readiness evidence is unavailable")
     evidence_root = tmp_path / "future-evidence"
     payload = build_p4_c04_freeze(
@@ -29,6 +32,7 @@ def test_real_c04_protocol_freeze_hashes_assets_and_fails_closed_on_tamper(tmp_p
         asset_manifest_path=ASSET_MANIFEST,
         case_manifest_path=CASE_MANIFEST,
         evidence_root=evidence_root,
+        prior_failure_path=PRIOR_FAILURE,
         implementation_commit="commit-under-test",
     )
     output = tmp_path / "freeze"
@@ -38,6 +42,8 @@ def test_real_c04_protocol_freeze_hashes_assets_and_fails_closed_on_tamper(tmp_p
     assert payload["protocol"]["protocol_ready"] is True
     assert payload["protocol"]["execution_ready"] is True
     assert payload["protocol"]["execution_blockers"] == []
+    assert payload["protocol"]["previous_attempt"]["run_id"] == "56c6e962ae2044be822dc61d72db026d"
+    assert payload["execution_config"]["case_identity"]["run_id"] == "p4-c04-road-caracas-r2"
     assert payload["protocol"]["evaluation_boundary"]["planning_rubric_mismatch_preserved"] is True
     by_id = {item["source_id"]: item for item in payload["asset_inventory"]["sources"]}
     assert by_id["raw.osm.road"]["feature_count"] == 16279

@@ -26,8 +26,10 @@ CASE_ID = "C04"
 CONDITION = "llm_full_contract_kg"
 RUN_ID = "formal-c04-llm_full_contract_kg-r1"
 SOURCE_IDS = ("raw.osm.road", "raw.microsoft.road", "aoi.venezuela_capital_district")
-LEGACY_PROTOCOL_ID = "fusionagent.p4.c04-road-e2e.v1"
-PROTOCOL_ID = "fusionagent.p4.c04-road-e2e.v2"
+V1_PROTOCOL_ID = "fusionagent.p4.c04-road-e2e.v1"
+V2_PROTOCOL_ID = "fusionagent.p4.c04-road-e2e.v2"
+PROTOCOL_ID = "fusionagent.p4.c04-road-e2e.v3"
+SUPPORTED_PROTOCOL_IDS = {V1_PROTOCOL_ID, V2_PROTOCOL_ID, PROTOCOL_ID}
 
 
 def build_p4_c04_freeze(
@@ -37,6 +39,7 @@ def build_p4_c04_freeze(
     asset_manifest_path: Path,
     case_manifest_path: Path,
     evidence_root: Path,
+    prior_failure_path: Path,
     implementation_commit: str,
 ) -> dict[str, Any]:
     formal_root = formal_root.resolve()
@@ -44,6 +47,15 @@ def build_p4_c04_freeze(
     asset_manifest_path = asset_manifest_path.resolve()
     case_manifest_path = case_manifest_path.resolve()
     evidence_root = evidence_root.resolve()
+    prior_failure_path = prior_failure_path.resolve()
+    prior_failure = _read_json(prior_failure_path)
+    if (
+        prior_failure.get("protocol_id") != V2_PROTOCOL_ID
+        or prior_failure.get("failed_stage_id") != "osm_provisional"
+        or prior_failure.get("fusion_algorithm_executions_started") != 0
+        or prior_failure.get("automatic_retry_performed") is not False
+    ):
+        raise ValueError("Prior failed attempt does not satisfy the v3 remediation evidence contract")
 
     schedule_path = formal_root / "schedule.json"
     result_path = formal_root / "runs" / RUN_ID / "result.json"
@@ -94,7 +106,7 @@ def build_p4_c04_freeze(
             "case_version": case.version,
             "variant_id": "formal-llm-full-contract-kg",
             "aoi_id": "caracas-capital-district-v1",
-            "run_id": "p4-c04-road-caracas-r1",
+            "run_id": "p4-c04-road-caracas-r2",
             "formal_run_id": RUN_ID,
         },
         "aoi": {
@@ -196,6 +208,7 @@ def build_p4_c04_freeze(
             "scripts/freeze_p4_c04_road_protocol.py",
             "scripts/run_p4_c04_road_e2e.py",
             "services/agent_run_service.py",
+            "services/run_state_store.py",
         )
     }
     protocol = {
@@ -212,6 +225,7 @@ def build_p4_c04_freeze(
             "replanning": "forbidden",
             "execution_validation_gate": "workflow_validator_enforce",
             "generic_grounding_probe": "diagnostic_only",
+            "frozen_plan_persistence": "canonical_no_derived_fields",
         },
         "implementation_commit": implementation_commit,
         "implementation_files": implementation_files,
@@ -222,6 +236,14 @@ def build_p4_c04_freeze(
             "formal_result": _input_ref(result_path),
             "readiness_v2": _input_ref(readiness_path),
             "asset_manifest": _input_ref(asset_manifest_path),
+            "prior_failed_attempt": _input_ref(prior_failure_path),
+        },
+        "previous_attempt": {
+            "protocol_id": prior_failure["protocol_id"],
+            "run_id": prior_failure["failed_run_id"],
+            "failed_stage_id": prior_failure["failed_stage_id"],
+            "failure_class": prior_failure["failure_class"],
+            "automatic_retry_performed": prior_failure["automatic_retry_performed"],
         },
         "frozen_artifact_hashes": {
             "selected_plan": _semantic_hash(selected_plan.model_dump(mode="json")),
@@ -281,7 +303,7 @@ def verify_p4_c04_freeze(root: Path) -> dict[str, Any]:
     asset_inventory = _read_json(root / "asset_inventory.json")
     expected = protocol["frozen_artifact_hashes"]
     checks = {
-        "protocol_id": protocol.get("protocol_id") in {LEGACY_PROTOCOL_ID, PROTOCOL_ID},
+        "protocol_id": protocol.get("protocol_id") in SUPPORTED_PROTOCOL_IDS,
         "protocol_ready": protocol.get("protocol_ready") is True,
         "execution_gate_consistent": _execution_gate_consistent(protocol),
         "selected_plan_hash": _semantic_hash(selected_plan) == expected["selected_plan"],
@@ -374,7 +396,7 @@ def _validate_stage_semantics(config: dict[str, Any]) -> None:
     if set(stages[1]["active_source_ids"]) != set(SOURCE_IDS):
         raise ValueError("The arrival stage must activate OSM, Microsoft, and the AOI boundary")
     expected_action = (
-        "resume" if config.get("protocol_id") == LEGACY_PROTOCOL_ID else "rerun_with_supersession"
+        "resume" if config.get("protocol_id") == V1_PROTOCOL_ID else "rerun_with_supersession"
     )
     if stages[1].get("action") != expected_action:
         raise ValueError(f"The arrival stage action must be {expected_action}")
@@ -387,12 +409,12 @@ def _bounds_intersect(left: list[float], right: list[float]) -> bool:
 
 
 def _execution_gate_consistent(protocol: dict[str, Any]) -> bool:
-    if protocol.get("protocol_id") == LEGACY_PROTOCOL_ID:
+    if protocol.get("protocol_id") == V1_PROTOCOL_ID:
         return protocol.get("execution_ready") is False and protocol.get("execution_blockers") == [
             "p4_c04_exact_frozen_plan_runner_not_implemented"
         ]
     runner_contract = protocol.get("runner_contract") or {}
-    return (
+    base_valid = (
         protocol.get("execution_ready") is True
         and protocol.get("execution_blockers") == []
         and runner_contract.get("entrypoint") == "scripts/run_p4_c04_road_e2e.py"
@@ -401,6 +423,9 @@ def _execution_gate_consistent(protocol: dict[str, Any]) -> bool:
         and runner_contract.get("execution_validation_gate") == "workflow_validator_enforce"
         and runner_contract.get("generic_grounding_probe") == "diagnostic_only"
     )
+    if protocol.get("protocol_id") == V2_PROTOCOL_ID:
+        return base_valid
+    return base_valid and runner_contract.get("frozen_plan_persistence") == "canonical_no_derived_fields"
 
 
 def _input_ref(path: Path) -> dict[str, str]:
@@ -438,6 +463,7 @@ def main() -> int:
     parser.add_argument("--formal-root", type=Path)
     parser.add_argument("--readiness", type=Path)
     parser.add_argument("--evidence-root", type=Path)
+    parser.add_argument("--prior-failure", type=Path)
     parser.add_argument(
         "--asset-manifest",
         type=Path,
@@ -455,7 +481,7 @@ def main() -> int:
         audit = verify_p4_c04_freeze(args.verify)
         print(json.dumps(audit, ensure_ascii=False, indent=2, sort_keys=True))
         return 0 if audit["passed"] else 1
-    for name in ("formal_root", "readiness", "evidence_root"):
+    for name in ("formal_root", "readiness", "evidence_root", "prior_failure"):
         if getattr(args, name) is None:
             raise ValueError(f"--{name.replace('_', '-')} is required when freezing")
     payload = build_p4_c04_freeze(
@@ -464,6 +490,7 @@ def main() -> int:
         asset_manifest_path=args.asset_manifest,
         case_manifest_path=args.case_manifest,
         evidence_root=args.evidence_root,
+        prior_failure_path=args.prior_failure,
         implementation_commit=_git_head(),
     )
     audit = write_p4_c04_freeze(args.output, payload)
