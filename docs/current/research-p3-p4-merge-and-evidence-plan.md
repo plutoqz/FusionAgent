@@ -426,3 +426,132 @@ case manifest/crosswalk
 
 - 不将 C02/C06 的 runtime resolver 推断、旧 Freeze C 成果或 mock P4-G 结果标为本次正式 LLM P4 证据。
 - 不因 C06 旧机制失效而降低 quality threshold、伪造质量失败、删除 R4 成功证据或重跑任何已冻结 formal call。
+
+## 15. 后续长时实验执行计划（C02/C06）
+
+本节是第 14 节之后的唯一执行计划。它把 C02/C06 的研究设计、实现、真实运行和证据审计拆成可恢复阶段；在本节每个阶段的验收通过前，不得进入下一阶段。
+
+### 15.1 项目契约
+
+**目标**：在不重写 P3 formal 原始响应、不覆盖 C04 R1-R4 或 C06 历史失败证据的条件下，判断 C02 是否可作为“LLM selected plan + KG resolved execution”的受限端到端案例，及 C06 是否存在可由真实输入自然复现的质量失败-恢复机制。只有各自协议、输入和证据冻结后，才执行一次新的正式运行。
+
+**当前事实基线**：C04 R4 是唯一已完成的正式 P4 execution；C02/C06 没有可直接执行的 frozen workflow。P3 formal 的 18 个原始 LLM 响应、model revision、schedule 和 run ID 只读保留。
+
+**非目标**：本计划不重新调用 LLM 来修复旧计划，不修改 KG v1、质量阈值、Prompt、rubric、R4 产物或既有 evidence root；不把 mock、历史 P4-G 或代码单测表述为真实端到端能力。
+
+**共同运行边界**：真实阶段使用本地已声明的实际矢量资产和真实 runtime；禁止 fallback、自动 retry、JSON salvage、人工补齐算法/来源或人为制造质量失败。每次正式运行使用新的 protocol ID、case version、input hash、run ID 和外部 evidence root。任何 paid Provider 调用须在单独 protocol 中重新冻结 provider、不可变 revision、预算和失败保留规则。
+
+### 15.2 主张矩阵
+
+| 工作项 | 可检验主张 | 比较对象/反例 | 实验单元 | 必需证据 | 不可声称 |
+|---|---|---|---|---|---|
+| C02 | 已冻结的 LLM selected priority/gap 可经确定性 KG resolver 显式转换为实际多图层执行与 gap 记录 | selected plan 缺算法、source closure 不足或 resolver 拒绝 | 单个固定 AOI、一个 frozen formal run、三个可执行图层与两个 gap 层 | selected/resolved/executed/evaluated 链、真实产物、质量报告、gap declaration、hash manifest | LLM 独立选择了算法、比较优越性、跨 AOI 有效性 |
+| C06 | 只有真实观察到的双源质量拒绝才能触发保留 raw failure 的受控恢复；若未观察到失败，该机制不成立 | 质量门通过、source 不可用、系统故障、人工移除 source | 预冻结候选 AOI/source snapshot 的单次真实运行 | 首次 raw/adapted quality、failure class、source lineage、recovery plan、最终质量与 supersession/gap | 人为注入失败、C04 成功可证明 C06 恢复能力、跨场景稳健性 |
+
+### 15.3 阶段总览
+
+| 阶段 | 状态 | 下一验收点 |
+|---|---|---|
+| S0：基线锁定 | 已完成 | C04 R4 与第 14 节冻结闸门保持可复核 |
+| S1：C02 selected/resolved 语义冻结 | 待执行 | resolver 不隐藏算法选择，且 C02 selected plan 与缺口语义可机械审计 |
+| S2：C02 真实输入预检与协议冻结 | 待执行 | 三个执行层和两个 gap 层的真实输入、语义和预算全部闭合 |
+| S3：C02 单次正式端到端运行与审计 | 待执行 | 新 evidence root 的链路、实际矢量产物和质量报告完整 |
+| S4：C06 真实失败机制发现与案例重设计 | 待执行 | 在预冻结候选集中观察到自然 failure，或明确退役旧机制 |
+| S5：C06 协议冻结、单次运行与审计 | 待执行 | 仅在 S4 通过时产生新的 C06 正式证据 |
+| S6：独立证据审计与受限结论汇总 | 待执行 | 证据链、主张矩阵和论文表述一致 |
+
+### 15.4 S1：C02 selected/resolved 语义冻结
+
+**依赖**：第 14 节的 formal result 与 KG v1 identity。
+
+**允许修改范围**：仅限 C02 research schema、`ResearchPlanRuntimeAdapter` 的显式 resolution trace、C02 专用冻结器/测试和本计划检查点。不得修改旧 formal result、通用 planning rubric 或 KG v1。
+
+**实施动作**：
+
+1. 固定 C02 正式输入为 `formal-c02-llm_full_contract_kg-r1`，以 schedule `run_id` 连接 result，不按目录名或人工复制选择。
+2. 冻结以下解释：`selected` 只记录 LLM 输出的 task kind、source ID、delivery state、priority/gap；`resolved` 才记录由 KG v1 确定性解析出的 algorithm、effective source、handler 和输入/输出类型。
+3. 在 resolver 不能闭合时把该 layer 记录为 `rejected` 或 `gap`，绝不补填为已执行；building/POI 继续作为显式 gap，不生成空产物。
+4. 为 water polygon、waterways、road 分别验证 task-kind、algorithm、catalog bundle、component roles 和 product-contract layer requirement，特别禁止把 water polygon algorithm 解析为 waterways。
+
+**最小验证集**：C02 selected/resolved contract unit tests、C02 workflow validator test、对 frozen result 的只读 resolution replay。
+
+**验收标准**：每个可执行 layer 有唯一的 KG-backed algorithm/source/handler；每个不可执行 layer 有显式 gap/rejection reason；`selected -> resolved` 差异可机器读取；不存在未记录的默认 algorithm 或 source substitution。
+
+**退出条件**：若 LLM selected fields 本身不足以形成可审计 resolution，停止 C02，不修改原响应或补调模型。
+
+### 15.5 S2：C02 真实输入预检与协议冻结
+
+**依赖**：S1 通过。
+
+**允许修改范围**：C02 专用 asset inventory、freeze/runner 脚本、测试与外部 evidence root；不修改 C04/C06 runner 和既有 KG release。
+
+**实施动作**：
+
+1. 为 Caracas AOI 生成真实 asset inventory：AOI 边界、OSM water/waterways/road、HydroLAKES、HydroRIVERS 和 Microsoft road 的路径、版本、SHA-256、要素数、CRS、source role 与可用性。
+2. 明确 water polygon 的 HydroLAKES 延迟/缺失语义：若正式 selected/resolved contract 要求 HydroLAKES 而它不可用，只允许 provisional 或 gap，不允许将单源结果称为 final。
+3. 冻结 C02 运行顺序为 water polygon -> waterways -> road；冻结 building/POI gap declaration；冻结 source semantic risk 的评价字段与产品合同状态。
+4. 生成新的 `protocol.json`、`execution_config.json`、selected/resolved plan、asset inventory、implementation manifest、freeze audit 和零运行 preflight。计划中的未来入口为 `scripts/freeze_p4_c02_protocol.py` 与 `scripts/run_p4_c02_e2e.py`；在此阶段创建前不得假定其存在。
+
+**最小验证集**：冻结器 hash 复算、WorkflowValidator(enforce)、真实资产只读 profile、source semantic contract、预检 0 runtime/0 LLM/0 Provider 调用。
+
+**验收标准**：所有实际输入与冻结 source role 一致；预检通过；预期 evidence root 不存在；所有质量/contract/gap 输出路径已确定；没有把临时缓存、mock 或旧运行产物登记为输入。
+
+**退出条件**：任一 required source 无法合法物化、CRS/几何/语义不闭合，或 water delayed semantics 与 formal selected plan 冲突时停止并记录 gap，不启动正式 C02。
+
+### 15.6 S3：C02 单次正式端到端运行与审计
+
+**依赖**：S2 freeze audit 和 preflight 全部通过，且用户对实际空间处理再次授权。
+
+**实施动作**：只执行一次冻结 runner；按固定顺序创建独立 runtime run，保留每层 selected/resolved/executed/evaluated、source materialization、raw/adapted quality、product contract、gap declaration 和 artifact hash。失败即停止，不补跑、不跳过失败层、不重用旧 artifact。
+
+**最小验证集**：正式 runner 退出状态、独立重读 stage records、ZIP/GPKG SHA-256 复算、要素数/CRS/字段抽查、质量报告与产品合同一致性审计。
+
+**验收标准**：真实输入可追溯；water/road/waterways 的实际结果或失败各自有证据；building/POI gap 可追溯；优先级、semantic risk、质量和交付状态未被结果回填改写；正式结果不超出 C02 单 AOI 的受限主张。
+
+**退出条件**：任何链条断裂、质量报告缺失、计划哈希漂移、source semantic invalid 或运行时 hidden fallback 均将该 run 记为失败并停止。
+
+### 15.7 S4：C06 真实失败机制发现与案例重设计
+
+**依赖**：S0；可与 C02 文档设计并行，但不得与 C02/C06 正式运行并行。
+
+**允许修改范围**：C06 候选集清单、只读 profile/quality screening、研究 case/protocol draft 和测试。不得篡改输入、调整阈值、注入坏几何或将系统故障改写成质量失败。
+
+**实施动作**：
+
+1. 先冻结有限候选集：每个候选必须有独立真实 source snapshot、AOI、双源 materialization 路径、算法版本和质量 policy；候选集之外的结果不得事后补入。
+2. 对候选执行只读数据 profile 与受控真实 fusion screening，逐项记录 raw quality、adapted quality、failure class、source availability 和 geometry hash。此阶段是机制发现，不是正式能力实验。
+3. 仅当出现 `quality_gate_rejected_fusion_output` 且 source lineage、算法输入和 runtime 环境完整时，才把该输入冻结为新的 C06 case。若所有候选通过质量门，则正式退役“必然失败”机制，改写研究问题而不制造 failure。
+4. 新 C06 case 必须区分 initial dual-source plan、observed failure、recovery replan 和 final delivery；external source failure、system failure 与 quality failure 不得混用。
+
+**最小验证集**：候选清单 hash、真实资产 profile、failure taxonomy test、raw/adapted quality replay、source semantic contract check。
+
+**验收标准**：得到一个真实且可复核的 failure case，或得到“预冻结候选未观察到该机制”的负结果；两种都是有效阶段终态。
+
+**退出条件**：发现需要人工移除 source、篡改几何、放宽阈值或重试才能触发 failure 时，立即排除候选并不得进入 S5。
+
+### 15.8 S5：C06 协议冻结、单次运行与审计
+
+**依赖**：S4 观察到合法 failure case，并完成新的 case version、gold、input schema、implementation manifest 与 evidence root 冻结。
+
+**实施动作**：创建未来专用入口 `scripts/freeze_p4_c06_protocol.py` 与 `scripts/run_p4_c06_e2e.py`，在冻结 runner 中依次执行 initial dual-source、记录真实 quality failure、构造 recovery replan、执行允许的单源恢复。恢复不是 transport retry；其触发条件、source change 和产品状态必须来自冻结 case contract。
+
+**最小验证集**：冻结器与 runner 的 fail-closed 单元/合同测试、真实预检、一次正式运行后的 raw failure/recovery trace/最终 artifact 独立审计。
+
+**验收标准**：首次失败真实存在且未被覆盖；recovery 只在 frozen policy 允许时发生；raw 与 adapted quality 均保存；最终状态为 accepted degraded/provisional、gap 或失败中的一种，不冒充 fully satisfied。
+
+**退出条件**：初始阶段通过质量门、failure 分类不明、source semantics 不合法、recovery 依赖自动 retry 或任何 artifact reuse 时，停止并保存 observed result，不产生成功结论。
+
+### 15.9 S6：独立证据审计与结论汇总
+
+**依赖**：S3 已有 C02 formal result，及 S5 的合法成功或负结果。
+
+**实施动作**：对每个新的 evidence root 重新计算 protocol/input/implementation/artifact hash，验证 run-set、selected/resolved/executed/evaluated 链、质量报告、gap/supersession 和实际矢量产物。更新论文表格时分别列出 C02、C04、C06，负结果和未运行项目不得删除。
+
+**验收标准**：每条研究表述能回指具体 protocol、AOI、run ID 和 evidence file；不将 C04 单案例、C02 resolver 行为或 C06 screening 升格为比较优势、统计显著性或广泛外部有效性。
+
+### 15.10 恢复规则与暂停条件
+
+- 当前唯一 `in_progress` 阶段为 **S1：C02 selected/resolved 语义冻结**；S2-S6 均为 pending。
+- 每次恢复先检查 `git status`、当前 commit、相关 evidence root 是否已存在、运行进程、KG semantic hash、protocol/asset hashes；发现已有同名 evidence root 时拒绝覆盖。
+- 任一 paid API、实际 fusion 或长时下载都必须在对应 preflight 通过后、并获得该阶段的明确执行授权才可启动。
+- 连续两次同方向修复不能闭合契约时停止编码，回到数据/schema、KG、workflow、planning、工具环境、评价的诊断顺序；不得以增加 retry、Prompt 或阈值放宽继续推进。
