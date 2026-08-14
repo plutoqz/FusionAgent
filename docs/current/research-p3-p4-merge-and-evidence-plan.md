@@ -213,3 +213,36 @@ case manifest/crosswalk
 - 下一步：停止协议诊断迭代，冻结 DeepSeek 官方 Provider、`deepseek-v4-flash`、temperature 0.1、strict JSON、16384 output、零 retry/repair/fallback、manifest/output schema/evaluator hash、schedule seed、重复次数和 600,000-token 18-call 预算。冻结审计通过后才可进入 planning-only formal；P4 manual items 不得由 planning-only 自动分代替。
 - formal freeze v2：证据位于 `docs/current/evidence/p3-planning-formal/2026-08-13-protocol-freeze-v2/`。18-call schedule 使用 seed `20260813`，每个 C01-C06 × 三种 LLM knowledge condition 运行 1 次；该设计不支持 stability claim。600,000-token 预算覆盖 555,437-token 保守上界。manifest、output schema、system prompt、evaluator、六个实现文件、schedule 与 prepared inputs 均有 SHA-256 并通过复算。
 - remaining blocker：DeepSeek 官方 `/models` 对 `deepseek-v4-flash` 只返回 provider-reported ID 和 owner，`created=null`，无 immutable revision/version 字段。因此协议保持 `blocked_before_formal_execution`，唯一 freeze audit 失败项为 `immutable_model_revision`。不得把多批响应 model ID 一致提升为不可变版本证明；取得官方固定 revision 或经用户明确改变该研究要求前，不执行 18-call formal。
+
+## 9. 阶段检查点（2026-08-14，C04 v4/r3）
+
+### 目标和阶段
+
+- 当前目标：执行 `C04 / llm_full_contract_kg` 两阶段真实 road fusion，并保留 frozen plan 精确注入、0 LLM、0 Provider network、禁止 fallback/自动重试/artifact reuse 的实验边界。
+- 当前阶段：v3/r2 首阶段真实失败后的 schema/quality 根因修复已完成；v4/r3 已冻结并通过 preflight，尚未执行。
+
+### 已完成证据
+
+- v3/r2 真实 run `3c9624f31826468e8308e5bd82580bc4` 完成 1 次 large-area V7 单源执行，输出 16,279 个 `MultiLineString`，随后仅因 `required_fields` 缺失 `road_class/source_layer/osm_name/road_name` 被质量门拒绝；第二阶段未启动，未重试。
+- r2 原始 `experiment_failure.json`、`audit.jsonl` 和 `stage_record.json` 未覆盖。新增外部证据 `experiment_failure.correction.json`，依据 audit 将算法执行统计校正为 started=1、completed=1，并冻结三份原始证据 hash。
+- 根因修复提交 `76ab5a0`：单源 road 分支复用 V7 canonical output；research adapter 从冻结 KG 水合 product contract 授权的 repair strategy 节点；runner 同时统计普通与 large-area 执行事件。
+- 对 r2 的真实 16,279 要素产物进行回放式质量验证：同一 `contract.road.fused.v1`、同一 external-degradation 语义下 `accepted=true`、`missing_fields=[]`；没有放宽质量合同或改变原有 soft adaptation。
+- 验证：聚焦回归 48 passed；扩大 Agent/quality/road/research/P4 回归 158 passed；`compileall` 通过；KG release verification 11/11 通过。仅保留既有 GeoPandas/PyProj warning。
+- v4 freeze 提交 `3e78976`，目录 `docs/current/evidence/p4-planning-e2e/2026-08-14-c04-road-protocol-freeze-v4/`。身份为 `fusionagent.p4.c04-road-e2e.v4 / p4-c04-road-caracas-r3`，implementation commit `76ab5a0`，workflow hash `sha256:a1792cbbaa35c0e69f9b4ae59e15cecd4555215d69acac0271bae16d7de8bc59`。
+- v4 freeze audit 12/12、runner preflight 11/11 通过；preflight 实际计数为 fusion runs 0、LLM calls 0、Provider calls 0。外部 r3 evidence root 尚不存在。
+
+### 未完成 / 阻塞
+
+- r3 两阶段正式执行尚未开始，因此不能声称 C04 端到端成功、supersession 成功或研究主张成立。
+- Microsoft 到达阶段的真实双源执行、质量复评和 supersession 仍待 r3 首阶段通过后验证。
+
+### 下一验收点
+
+- 用户再次明确“继续”后，唯一下一动作是执行一次：`python scripts/run_p4_c04_road_e2e.py --freeze docs/current/evidence/p4-planning-e2e/2026-08-14-c04-road-protocol-freeze-v4 --execute`。
+- 执行后在任何阶段失败即停止，不自动重试；保留新 r3 evidence root，并核对 run ID、frozen plan hash、事件计数、真实产物字段/数量/CRS、质量报告及第二阶段是否启动。
+
+### 不应自动扩展的事项
+
+- 不修改 rubric、Prompt、KG v1、质量阈值或 degradation 语义。
+- 不复用或覆盖 r1/r2 失败证据，不从旧产物冒充 r3 结果。
+- 不在本检查点自动执行 r3，不因 preflight 通过宣称真实能力完成。
