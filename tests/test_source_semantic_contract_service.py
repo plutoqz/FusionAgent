@@ -156,3 +156,69 @@ def test_microsoft_road_contract_fails_for_unsupported_geometry(tmp_path: Path) 
 
     assert contract.validation["valid"] is False
     assert any(issue["code"] == "normalization_geometry_unsupported" for issue in contract.validation["issues"])
+
+
+def test_water_contract_derives_polygon_feature_kind_from_geometry(tmp_path: Path) -> None:
+    osm_path = tmp_path / "water.gpkg"
+    hydro_path = tmp_path / "hydrolakes.gpkg"
+    gpd.GeoDataFrame(
+        {"osm_id": [1], "fclass": ["reservoir"], "name": ["lake"]},
+        geometry=[Polygon([(0, 0), (0, 1), (1, 1), (1, 0)])],
+        crs="EPSG:4326",
+    ).to_file(osm_path, driver="GPKG")
+    gpd.GeoDataFrame(
+        {"Hylak_id": [2], "Lake_type": [1], "Lake_name": ["reference"]},
+        geometry=[Polygon([(0, 0), (0, 2), (2, 2), (2, 0)])],
+        crs="EPSG:4326",
+    ).to_file(hydro_path, driver="GPKG")
+
+    contract = SourceSemanticContractService(kg_repo=_Repo()).build_contract(
+        run_id="run-water",
+        job_type="water",
+        selected_source_id="catalog.flood.water",
+        component_paths={
+            "raw.osm.water": osm_path,
+            "raw.hydrolakes.water": hydro_path,
+        },
+        target_crs="EPSG:32619",
+    )
+
+    assert contract.validation["valid"] is True
+    for source_id in ("raw.osm.water", "raw.hydrolakes.water"):
+        matched = contract.sources[source_id].matched_fields["feature_kind"]
+        assert matched.resolution == "derived"
+        assert matched.derivation == "geometry_type"
+        assert matched.default_value == "polygon"
+
+
+def test_waterways_contract_derives_line_feature_kind_from_geometry(tmp_path: Path) -> None:
+    osm_path = tmp_path / "waterways.gpkg"
+    hydro_path = tmp_path / "hydrorivers.gpkg"
+    gpd.GeoDataFrame(
+        {"osm_id": [1], "fclass": ["stream"], "name": ["stream"]},
+        geometry=[LineString([(0, 0), (1, 0)])],
+        crs="EPSG:4326",
+    ).to_file(osm_path, driver="GPKG")
+    gpd.GeoDataFrame(
+        {"HYRIV_ID": [2], "ORD_STRA": [1]},
+        geometry=[LineString([(0, 0), (0, 1)])],
+        crs="EPSG:4326",
+    ).to_file(hydro_path, driver="GPKG")
+
+    contract = SourceSemanticContractService(kg_repo=_Repo()).build_contract(
+        run_id="run-waterways",
+        job_type="waterways",
+        selected_source_id="catalog.flood.waterways",
+        component_paths={
+            "raw.osm.waterways": osm_path,
+            "raw.hydrorivers.water": hydro_path,
+        },
+        target_crs="EPSG:32619",
+    )
+
+    assert contract.validation["valid"] is True
+    for source_id in ("raw.osm.waterways", "raw.hydrorivers.water"):
+        matched = contract.sources[source_id].matched_fields["feature_kind"]
+        assert matched.resolution == "derived"
+        assert matched.derivation == "geometry_type"
+        assert matched.default_value == "line"

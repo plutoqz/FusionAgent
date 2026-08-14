@@ -454,7 +454,7 @@ case manifest/crosswalk
 |---|---|---|
 | S0：基线锁定 | 已完成 | C04 R4 与第 14 节冻结闸门保持可复核 |
 | S1：C02 selected/resolved 语义冻结 | 已完成（2026-08-14） | resolver 不隐藏算法选择，且 C02 selected plan 与缺口语义可机械审计 |
-| S2：C02 真实输入预检与协议冻结 | 阻塞（semantic contract） | 三个执行层和两个 gap 层的真实输入、语义和预算全部闭合 |
+| S2：C02 真实输入预检与协议冻结 | 进行中 | 三个执行层和两个 gap 层的真实输入、语义和预算全部闭合 |
 | S3：C02 单次正式端到端运行与审计 | 待执行 | 新 evidence root 的链路、实际矢量产物和质量报告完整 |
 | S4：C06 真实失败机制发现与案例重设计 | 待执行 | 在预冻结候选集中观察到自然 failure，或明确退役旧机制 |
 | S5：C06 协议冻结、单次运行与审计 | 待执行 | 仅在 S4 通过时产生新的 C06 正式证据 |
@@ -551,7 +551,7 @@ case manifest/crosswalk
 
 ### 15.10 恢复规则与暂停条件
 
-- 当前恢复点为 **S2：C02 真实输入预检与协议冻结**；S1 已完成，S2 的真实资产清点已完成但 semantic contract 闸门未通过，S3-S6 均为 pending。
+- 当前恢复点为 **S2：C02 真实输入预检与协议冻结**；S1 已完成，S2a semantic contract 修复和真实资产清点已通过，仍待 freeze/preflight，S3-S6 均为 pending。
 - 每次恢复先检查 `git status`、当前 commit、相关 evidence root 是否已存在、运行进程、KG semantic hash、protocol/asset hashes；发现已有同名 evidence root 时拒绝覆盖。
 - 任一 paid API、实际 fusion 或长时下载都必须在对应 preflight 通过后、并获得该阶段的明确执行授权才可启动。
 - 连续两次同方向修复不能闭合契约时停止编码，回到数据/schema、KG、workflow、planning、工具环境、评价的诊断顺序；不得以增加 retry、Prompt 或阈值放宽继续推进。
@@ -565,10 +565,11 @@ case manifest/crosswalk
 - 验证：`python -m pytest tests/test_research_plan_runtime_adapter.py tests/test_audit_p4_planning_e2e_readiness.py -q`，`9 passed`；`git diff --check` 通过。
 - S2 首个动作：只读清点 Caracas AOI 的真实 water/waterways/road、HydroLAKES/HydroRIVERS、Microsoft road 资产，生成 source/CRS/feature-count/hash inventory；在 inventory 和 semantic contract 闭合前，不启动 fusion、LLM 或 Provider。
 
-### 15.12 执行检查点（2026-08-14，S2 资产清点完成 / semantic contract 阻塞）
+### 15.12 执行检查点（2026-08-14，S2 资产清点与 semantic contract 通过）
 
 - 只读资产 profile 脚本：`scripts/profile_p4_c02_assets.py`。它只读取 manifest 与本地真实矢量，不调用 LLM、Provider 或 fusion runtime；重复运行拒绝覆盖既有 evidence root。
 - 初始资产清点证据：`D:\code\fusionagent-evidence\p4-planning-e2e\2026-08-14-c02-asset-inventory-s2-r1`，所有 7 个 C02 required assets 存在，AOI 相交计数非零，null/invalid geometry 均为 0，HydroLAKES 全库 `1,427,688` 个要素、AOI 相交 `1` 个要素。
-- 增强清点与 semantic contract probe：`D:\code\fusionagent-evidence\p4-planning-e2e\2026-08-14-c02-asset-inventory-s2-r2`。真实 feature counts 为 OSM water `38`、OSM waterways `156`、HydroRIVERS `22`、OSM road `16,279`、Microsoft road `11,809`；road normalized contract `valid=true`。
-- **当前阻塞**：`water_polygon` 的 `catalog.flood.water` 和 `waterways` 的 `catalog.flood.waterways` 均为 `valid=false`，唯一 hard issue 是两个组件的 required `feature_kind` 未解析（OSM/ HydroLAKES/ HydroRIVERS 的实际 geometry type 已由 profile 读取，但尚未形成 frozen normalization resolution）。这不是 source 不存在，也不能在 C02 runner 里写默认值绕过。
-- 因此 S2 freeze audit/preflight 暂不创建，S3 不得启动。恢复时必须先在 KG-authoritative semantic contract 层冻结 `feature_kind` 的 geometry-derived normalization（含 provenance、allowed geometry types、回归测试），或明确将 water/waterways 退回 gap；不得修改旧 formal 响应或使用旧 P4-G 产物替代。
+- 增强清点与 semantic contract 阻塞诊断保留在 `D:\code\fusionagent-evidence\p4-planning-e2e\2026-08-14-c02-asset-inventory-s2-r2`，不得覆盖；它记录了 water/waterways 的原始 `feature_kind` 缺口。
+- S2a 修复提交新增四个按 frozen `field_mapping_profile` 选择的 normalization profile：`normalization.water.osm_polygon_geometry.v1`、`normalization.water.hydrolakes_polygon_geometry.v1`、`normalization.waterways.osm_line_geometry.v1`、`normalization.waterways.hydrorivers_line_geometry.v1`。contract trace 明确记录 `derivation=geometry_type`、规范化值、allowed geometry types 与 provenance；KG v1 semantic hash 未改变。
+- 修复验证：水面/水系 semantic contract 聚焦测试与既有 Track-B normalization 测试 `12 passed`；真实清点新 revision `D:\code\fusionagent-evidence\p4-planning-e2e\2026-08-14-c02-asset-inventory-s2-r3` 通过，三个 C02 bundle contract 均 `valid=true`，仍为 `fusion_runs=0 / llm_calls=0 / provider_calls=0`。
+- 下一动作：创建 C02 专用 freeze/preflight 入口，冻结 selected/resolved plan、asset inventory、semantic contracts、workflow、gap declaration、implementation manifest、预算和 evidence root；freeze/preflight 通过前不启动 S3。

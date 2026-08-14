@@ -84,6 +84,8 @@ def _semantic_values(frame: gpd.GeoDataFrame, source_semantics, canonical_field:
         return pd.Series([pd.NA] * len(frame), index=frame.index, dtype="object")
     if matched.resolution == "derived" and matched.derivation == "provider_artifact_fid":
         return frame["_provider_artifact_fid"].astype(str)
+    if matched.resolution == "derived" and matched.derivation == "geometry_type":
+        return pd.Series([matched.default_value] * len(frame), index=frame.index, dtype="object")
     if matched.resolution == "defaulted":
         return pd.Series([matched.default_value] * len(frame), index=frame.index, dtype="object")
     return _coalesce(frame, _semantic_candidates(source_semantics, canonical_field))
@@ -163,9 +165,15 @@ def _normalize_from_semantics(
             _coalesce(frame, _semantic_candidates(source_semantics, "source_feature_id"))
         )
         frame["name"] = _coalesce(frame, _semantic_candidates(source_semantics, "name"))
+        feature_kind_match = source_semantics.matched_fields.get("feature_kind")
         feature_kind_candidates = _semantic_candidates(source_semantics, "feature_kind")
         literal_kind = next((item for item in feature_kind_candidates if item in {"line", "polygon"}), None)
-        frame["feature_kind"] = literal_kind or _coalesce(frame, feature_kind_candidates, default="water")
+        if feature_kind_match is not None and feature_kind_match.resolution == "derived":
+            frame["feature_kind"] = _stringify(
+                _semantic_values(frame, source_semantics, "feature_kind")
+            )
+        else:
+            frame["feature_kind"] = literal_kind or _coalesce(frame, feature_kind_candidates, default="water")
         frame["water_class"] = _stringify(
             _coalesce(frame, _semantic_candidates(source_semantics, "water_class"), default="water")
         )

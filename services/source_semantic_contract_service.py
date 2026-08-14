@@ -289,6 +289,8 @@ class SourceSemanticContractService:
                 provenance = rule.provenance
                 if rule.resolution == "derived" and rule.derivation == "provider_artifact_fid":
                     available = profile.provider_fid_available
+                elif rule.resolution == "derived" and rule.derivation == "geometry_type":
+                    available = profile.geometry_type in normalization_profile.allowed_geometry_types
                 elif rule.resolution == "defaulted":
                     available = rule.default_value is not None
             matched[canonical] = MatchedField(

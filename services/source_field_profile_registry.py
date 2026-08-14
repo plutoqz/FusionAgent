@@ -347,6 +347,66 @@ PROFILES: dict[str, SourceFieldProfile] = {
 
 NORMALIZATION_PROFILES: tuple[SourceNormalizationProfile, ...] = (
     SourceNormalizationProfile(
+        profile_id="normalization.water.osm_polygon_geometry.v1",
+        theme="water",
+        selector={"field_mapping_profile": "fields.water.osm_polygon"},
+        field_rules={
+            "feature_kind": NormalizationFieldRule(
+                canonical_field="feature_kind",
+                resolution="derived",
+                derivation="geometry_type",
+                default_value="polygon",
+                provenance="provider geometry type normalized to polygon water semantics",
+            )
+        },
+        allowed_geometry_types=("Polygon", "MultiPolygon"),
+    ),
+    SourceNormalizationProfile(
+        profile_id="normalization.water.hydrolakes_polygon_geometry.v1",
+        theme="water",
+        selector={"field_mapping_profile": "fields.water.hydrolakes_polygon"},
+        field_rules={
+            "feature_kind": NormalizationFieldRule(
+                canonical_field="feature_kind",
+                resolution="derived",
+                derivation="geometry_type",
+                default_value="polygon",
+                provenance="provider geometry type normalized to polygon water semantics",
+            )
+        },
+        allowed_geometry_types=("Polygon", "MultiPolygon"),
+    ),
+    SourceNormalizationProfile(
+        profile_id="normalization.waterways.osm_line_geometry.v1",
+        theme="waterways",
+        selector={"field_mapping_profile": "fields.waterways.osm"},
+        field_rules={
+            "feature_kind": NormalizationFieldRule(
+                canonical_field="feature_kind",
+                resolution="derived",
+                derivation="geometry_type",
+                default_value="line",
+                provenance="provider geometry type normalized to line waterways semantics",
+            )
+        },
+        allowed_geometry_types=("LineString", "MultiLineString"),
+    ),
+    SourceNormalizationProfile(
+        profile_id="normalization.waterways.hydrorivers_line_geometry.v1",
+        theme="waterways",
+        selector={"field_mapping_profile": "fields.waterways.hydrorivers"},
+        field_rules={
+            "feature_kind": NormalizationFieldRule(
+                canonical_field="feature_kind",
+                resolution="derived",
+                derivation="geometry_type",
+                default_value="line",
+                provenance="provider geometry type normalized to line waterways semantics",
+            )
+        },
+        allowed_geometry_types=("LineString", "MultiLineString"),
+    ),
+    SourceNormalizationProfile(
         profile_id="normalization.road.microsoft_shapefile.v1",
         theme="road",
         selector={
