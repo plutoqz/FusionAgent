@@ -787,3 +787,35 @@ case manifest/crosswalk
 - 计划中的正式输出根 `D:\code\fusionagent-evidence\p3-planning-repeated\2026-08-14-deepseek-v4-flash-repeated-v1` 当前不存在，避免与 preflight 混用。
 - 下一验收点：在 clean worktree 与匹配环境中设置 model `deepseek-v4-flash`、base URL `https://api.deepseek.com`、max output `16384`、token budget `1700000` 和 API key，然后对上述正式输出根只执行一次 `scripts/run_research_llm_repeated_formal.py --execute`。任何 fatal failure 按协议停止，不自动重启。
 - E3 完成前不启动 E4 人工评价、E5 多 AOI 或 E6 论文图表，不修改 frozen prompt/schema/evaluator/manifest/KG。
+
+### 16.11 执行检查点（2026-08-15，E3/E4 后处理工具就绪）
+
+#### 当前事实
+
+- 2026-08-15 重新核对：正式 worktree clean，HEAD `dd4562bccf0f266e70485534edc217c00632959b`；v2 freeze audit 仍为 13/13 passed，说明新增只读分析代码没有改变 frozen generation path。
+- Process/User/Machine 三层仍未配置 `GEOFUSION_LLM_API_KEY` 或 `OPENAI_API_KEY`；正式 54-call 结果根与 manual-review 根均不存在，没有 Provider 调用或人评被提前执行。
+- 真实调用闸门保持不变；本检查点不把缺少凭据重解释为实验失败，也不创建空的正式结果根。
+
+#### 新增的 E3 只读分析能力
+
+- 提交 `dd4562b` 新增 `scripts/analyze_research_llm_repeated_formal.py`。它只读取完成或受控中止的正式证据，不修改 result。
+- integrity 层重新核对 freeze checks、protocol/schedule/prepared/model-revision semantic hash、execution provider/generation config、implementation ancestry、输入 hash、response model、strict JSON、raw response、zero retry、summary/token 和 schedule-prefix 关系。
+- completion 层单独判断 54 个 run 与 18 个 case-condition x 3 repetitions 是否完整；自动 rubric fail 是研究结果，不被当作 evidence-integrity failure。
+- stability 层按 cell 输出 plan structure signature hash、decision/task-order agreement、automatic score min/max/range 和 failure class；仅在完整批次上评估预注册扩展闸门。任一失败、多个 structure signature 或 score range >= 0.25 时，只允许通过新协议将所有 cell 扩至 5 次，禁止选择性补跑。
+- audit 内置 fixed files 与全部 `result.json` 的 path/size/SHA-256 manifest。相关旧/新分析、协议、runner 和人工评价流水线回归合计 58 passed；`compileall` 与 `git diff --check` 通过。
+
+#### 新增的 E4 工具边界
+
+- `scripts/prepare_research_manual_review.py` 只有在 audit 同时满足 `evidence_integrity_valid=true` 和 `formal_execution_complete=true` 时才生成 packet；因此当前不能运行。
+- 生成物固定为两份不可变 reviewer context、两份独立 decisions template、单独 blind key 和 packet manifest。reviewer context 不包含 condition label、run ID、replicate、automatic score、gold rationale 或既有 machine-assisted decision。
+- 该设计明确是 label/metadata blinding；可见 KG 内容可能使 reviewer 推断 condition，不虚称完全内容盲法。shuffle seed 只写 manifest，不暴露给 reviewer context。
+- `scripts/audit_research_manual_review.py` 验证两位 reviewer ID、context hash、review-record index hash、decision completeness、精确一致率、Cohen's kappa 和逐 rubric item 一致性。分歧原样保留；存在未裁决分歧时 audit 不通过。
+- Codex 和脚本不填写 human decision；当前只证明工具合同，不构成人工评价完成证据。
+
+#### 凭据到位后的连续执行链
+
+1. 按 16.10 的冻结环境只启动一次 `scripts/run_research_llm_repeated_formal.py --execute`，输出到 `D:\code\fusionagent-evidence\p3-planning-repeated\2026-08-14-deepseek-v4-flash-repeated-v1`。
+2. 若 runner 达到合法终态，运行 `scripts/analyze_research_llm_repeated_formal.py`，将 audit 写为该根下新的 `formal_automatic_audit.json`；若批次不完整，保留 audit 并停止，不生成 review packet。
+3. 只有完整 audit 通过后，运行 `scripts/prepare_research_manual_review.py`，输出到新的 `D:\code\fusionagent-evidence\p3-planning-repeated\2026-08-15-manual-review-v1`。
+4. 两名独立人工 reviewer 只编辑各自 `reviewer-*.decisions.json`；冻结两份文件后再运行 `scripts/audit_research_manual_review.py`。blind key 在两份人评冻结前不得揭示。
+5. E3 extension gate 与 E4 agreement audit 均有终态后，才进入 E5 AOI 资产清点和 case selection；不根据单次高分事后选择 E2E 案例。
