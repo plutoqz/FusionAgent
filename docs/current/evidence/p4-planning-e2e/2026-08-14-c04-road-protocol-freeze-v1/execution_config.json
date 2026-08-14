@@ -1,0 +1,113 @@
+{
+  "abort_conditions": [
+    "frozen_workflow_plan_not_injected_exactly",
+    "unplanned_source_or_algorithm_substitution",
+    "microsoft_materialized_during_osm_provisional",
+    "missing_required_component_or_trace",
+    "stage_timeout_or_budget_exceeded",
+    "evidence_root_nonempty_before_execution"
+  ],
+  "aoi": {
+    "bbox": [
+      -67.17,
+      10.38,
+      -66.86,
+      10.57
+    ],
+    "boundary_source_id": "aoi.venezuela_capital_district",
+    "scale_semantics": "bounded_large_urban_aoi_for_single_case_execution",
+    "spatial_extent": "bbox(-67.17,10.38,-66.86,10.57)",
+    "target_crs": "EPSG:32619"
+  },
+  "budget": {
+    "case_count": 1,
+    "max_evidence_bytes": 10737418240,
+    "max_llm_calls": 0,
+    "max_provider_network_calls": 0,
+    "max_total_wall_seconds": 3600,
+    "max_wall_seconds_per_stage": 1800,
+    "stage_count": 2
+  },
+  "case_identity": {
+    "aoi_id": "caracas-capital-district-v1",
+    "case_id": "C04",
+    "case_version": "1.1.0-draft",
+    "formal_run_id": "formal-c04-llm_full_contract_kg-r1",
+    "run_id": "p4-c04-road-caracas-r1",
+    "variant_id": "formal-llm-full-contract-kg"
+  },
+  "evidence_root": "D:\\code\\fusionagent-evidence\\p4-planning-e2e\\2026-08-14-c04-road-e2e-r1",
+  "protocol_id": "fusionagent.p4.c04-road-e2e.v1",
+  "runtime": {
+    "artifact_reuse": false,
+    "automatic_retries": 0,
+    "fallback": "forbidden",
+    "kg_backend": "memory_pinned_snapshot",
+    "llm_calls": 0,
+    "local_only": true,
+    "planner_mode": "frozen_workflow_plan_injection",
+    "workers": 1
+  },
+  "source_semantics": {
+    "logical_source_id": "catalog.typhoon.road",
+    "missing_reference_representation": "empty_reference_bundle_with_explicit_component_coverage",
+    "no_source_substitution": true,
+    "primary_component_source_id": "raw.osm.road",
+    "reference_component_source_id": "raw.microsoft.road",
+    "reference_role_required": false
+  },
+  "stages": [
+    {
+      "acceptance": {
+        "artifact_hash_required": true,
+        "microsoft_not_materialized": true,
+        "provisional_mark_required": true,
+        "raw_osm_non_empty": true
+      },
+      "action": "create",
+      "active_source_ids": [
+        "raw.osm.road",
+        "aoi.venezuela_capital_district"
+      ],
+      "delayed_source_ids": [
+        "raw.microsoft.road"
+      ],
+      "required_trace": [
+        "selected",
+        "resolved",
+        "executed",
+        "evaluated",
+        "component_coverage",
+        "gap_declaration"
+      ],
+      "stage_id": "osm_provisional"
+    },
+    {
+      "acceptance": {
+        "microsoft_non_empty": true,
+        "new_artifact_hash_required": true,
+        "quality_re_evaluation_required": true,
+        "raw_osm_non_empty": true,
+        "supersedes_stage": "osm_provisional"
+      },
+      "action": "resume",
+      "active_source_ids": [
+        "raw.osm.road",
+        "raw.microsoft.road",
+        "aoi.venezuela_capital_district"
+      ],
+      "delayed_source_ids": [],
+      "required_trace": [
+        "selected",
+        "resolved",
+        "executed",
+        "evaluated",
+        "component_coverage",
+        "quality_result",
+        "supersession"
+      ],
+      "retry_failed": false,
+      "stage_id": "microsoft_arrival"
+    }
+  ]
+}
