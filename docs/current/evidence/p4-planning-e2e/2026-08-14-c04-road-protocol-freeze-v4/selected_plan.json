@@ -1,0 +1,26 @@
+{
+  "decision": "degraded",
+  "evidence": [
+    "Requested road product for typhoon is supported by catalog.typhoon.road with conflation algorithm algo.fusion.road.conflation.v7 (pattern wp.typhoon.road.default).",
+    "Available source raw.osm.road is present; raw.microsoft.road is delayed, so the nominal dual-source road bundle cannot be fully materialized.",
+    "No alternative road algorithm or road source is available in the supplied knowledge graph for this scenario.",
+    "catalog.typhoon.road is selectable_now and runtime_candidate, but its component source raw.microsoft.road is delayed."
+  ],
+  "tasks": [
+    {
+      "algorithm_id": "algo.fusion.road.conflation.v7",
+      "delivery_state": "degraded",
+      "order": 1,
+      "rationale": "Use the nominal typhoon road bundle pattern with the V7 road conflation algorithm. The road layer is deliverable but degraded because the Microsoft road reference component is delayed and only OSM road is currently available.",
+      "source_ids": [
+        "catalog.typhoon.road"
+      ],
+      "task_kind": "road"
+    }
+  ],
+  "uncertainties": [
+    "Whether catalog.typhoon.road materialization falls back to OSM-only input or fails without raw.microsoft.road.",
+    "Whether road output quality remains above the typhoon QoS threshold (min_success_rate 0.74) with only raw.osm.road available.",
+    "Whether the delayed raw.microsoft.road source is expected to become available during execution."
+  ]
+}
