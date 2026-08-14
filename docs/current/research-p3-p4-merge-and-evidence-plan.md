@@ -399,3 +399,30 @@ case manifest/crosswalk
 
 - 不修改 R4 结果、质量阈值、frozen KG v1、Prompt、rubric、fallback 或重试边界。
 - 不删除失败证据，不将 R4 的执行通过升级为 comparative capability 或 external validity 结论。
+
+## 14. 阶段检查点（2026-08-14，C02/C06 选择性 P4 冻结闸门）
+
+本节取代第 13 节作为当前恢复点；第 13 节保留 R4 的成功执行证据。
+
+### 冻结前审计事实
+
+- 当前正式 planning 18-run readiness audit 仅有 `C04 / llm_full_contract_kg` 一项 wiring-ready；不能从“C04 已完成”推断 C02 或 C06 可执行。
+- `formal-c02-llm_full_contract_kg-r1` 的五个任务均未给出 `algorithm_id`。它描述 water polygon、waterways、road 的优先顺序以及 building/POI gap，但不能直接形成被冻结的 executable workflow；运行时补填 algorithm 会改变 `selected` 层含义，不能被记为该 LLM plan 的端到端成功。
+- `formal-c06-llm_full_contract_kg-r1` 只表达质量门拒绝之后的 `recovery_replan`，选择 `raw.osm.road` 交给输入类型为 `dt.road.bundle` 的 V7。它既不包含首个双源质量门阶段，也不能在 adapter 中解析为 executable workflow。
+- KG v1 对 `catalog.flood.road` 和 `catalog.typhoon.road` 都声明相同的 `raw.osm.road + raw.microsoft.road` component candidates。R4 在 Caracas 的相同双源道路条件和 V7 下完成 Microsoft arrival，并以 `quality.default.road.v1` 通过质量门；因此 C06 旧机制“首个双源融合必然质量门失败”已不再由当前冻结实现和数据支持。
+
+### 决策
+
+- **不冻结、不执行 C02/C06 P4 正式运行。** 这是研究语义与可执行性阻断，不是可由重试、Prompt 调整、运行时补全或阈值放宽解决的失败。
+- C06 的历史失败和原始 recovery evidence 保留为历史观察；不得用 R4 的成功结果反写为 C06 成功，也不得人为注入失败来维持旧机制。
+
+### 下一验收点
+
+- 先形成一个新的研究设计决策：C02 是将“algorithm resolution”显式纳入 `resolved` 层并把它与 LLM selected plan 分开评价，还是将缺少 algorithm 的正式 LLM 计划作为不可执行结果保留；两种选择不能混用。
+- C06 需要先以新的、可证伪且由真实输入支撑的 failure mechanism 或非失败 recovery research question 重写案例、gold 和 protocol。新的案例必须使用新版本、输入 hash、执行身份和证据根，不能覆盖 C06 v1.2.0-draft 或既有 formal run。
+- 在上述设计冻结和独立预检通过前，不创建 C02/C06 runner，不调用 LLM/provider，不启动新的空间处理运行。
+
+### 不应自动扩展的事项
+
+- 不将 C02/C06 的 runtime resolver 推断、旧 Freeze C 成果或 mock P4-G 结果标为本次正式 LLM P4 证据。
+- 不因 C06 旧机制失效而降低 quality threshold、伪造质量失败、删除 R4 成功证据或重跑任何已冻结 formal call。
