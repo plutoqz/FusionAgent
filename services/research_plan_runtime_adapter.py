@@ -72,9 +72,24 @@ class ResearchPlanRuntimeAdapter:
         case: ResearchCase,
         condition: str,
         decision: ResearchPlanningDecision,
+        complete_from_kg: bool = False,
     ) -> ResearchPlanRuntimeResolution:
         contract, contract_reasons = self._resolve_contract(case)
-        task_resolutions = [self._resolve_task(task) for task in sorted(decision.tasks, key=lambda item: item.order)]
+        task_resolutions = []
+        for task in sorted(decision.tasks, key=lambda item: item.order):
+            selected = self._selected_payload(task)
+            resolved_task, resolution_metadata = (
+                self._complete_task_from_kg(task, case=case)
+                if complete_from_kg
+                else (task, {})
+            )
+            task_resolutions.append(
+                self._resolve_task(
+                    resolved_task,
+                    selected_override=selected,
+                    resolution_metadata=resolution_metadata,
+                )
+            )
         executable = [item for item in task_resolutions if item.resolution_status == "resolved"]
         rejected = [item for item in task_resolutions if item.resolution_status == "rejected"]
         unresolved_reasons = sorted({reason for item in rejected for reason in item.reason_codes} | set(contract_reasons))
@@ -140,6 +155,11 @@ class ResearchPlanRuntimeAdapter:
                 "workflow_task_count": len(executable),
                 "reason_codes": unresolved_reasons,
                 "knowledge_identity": self.kg_repo.get_knowledge_identity(),
+                "completion_policy": "kg_workflow_pattern" if complete_from_kg else "none",
+                "kg_completion_count": sum(
+                    item.resolved.get("resolution_basis") == "kg_workflow_pattern"
+                    for item in task_resolutions
+                ),
             },
             task_resolutions=task_resolutions,
             workflow_plan=workflow_plan,
@@ -156,13 +176,95 @@ class ResearchPlanRuntimeAdapter:
             return None, ["PRODUCT_CONTRACT_DISASTER_MISMATCH"]
         return contract, []
 
-    def _resolve_task(self, task: ResearchPlanTask) -> ResearchTaskResolution:
-        selected = {
+    @staticmethod
+    def _selected_payload(task: ResearchPlanTask) -> dict[str, Any]:
+        return {
             "task_kind": task.task_kind,
             "source_ids": list(task.source_ids),
             "algorithm_id": task.algorithm_id,
             "delivery_state": task.delivery_state,
         }
+
+    def _complete_task_from_kg(
+        self,
+        task: ResearchPlanTask,
+        *,
+        case: ResearchCase,
+    ) -> tuple[ResearchPlanTask, dict[str, Any]]:
+        """Complete an underspecified selected task only from frozen KG patterns.
+
+        The returned task is an execution candidate; callers must preserve the
+        original selected payload separately so KG completion is never reported
+        as an LLM-selected algorithm or source.
+        """
+        if task.delivery_state in NON_EXECUTABLE_DELIVERY_STATES:
+            return task, {}
+        if task.algorithm_id and len(task.source_ids) == 1:
+            return task, {}
+        if not task.source_ids:
+            return task, {}
+
+        task_kind = TaskKind(task.task_kind)
+        expected_output = task_kind_output_type(task_kind)
+        candidates: list[tuple[float, str, int, str, str]] = []
+        for pattern in self.kg_repo.get_candidate_patterns(
+            job_type=task_kind_to_job_type(task_kind),
+            disaster_type=case.scenario.disaster_type,
+            limit=20,
+        ):
+            for step in pattern.steps:
+                if step.output_data_type != expected_output:
+                    continue
+                if step.data_source_id not in task.source_ids:
+                    continue
+                candidates.append(
+                    (
+                        float(pattern.success_rate),
+                        pattern.pattern_id,
+                        int(step.order),
+                        step.data_source_id,
+                        step.algorithm_id,
+                    )
+                )
+
+        if not candidates:
+            return task, {
+                "resolution_basis": "kg_workflow_pattern",
+                "completion_status": "rejected",
+                "completion_reason": "NO_KG_WORKFLOW_PATTERN_CANDIDATE",
+            }
+
+        candidates.sort(key=lambda item: (-item[0], item[1], item[2], item[3], item[4]))
+        best_score = candidates[0][0]
+        best_pairs = {(item[3], item[4]) for item in candidates if item[0] == best_score}
+        if len(best_pairs) != 1:
+            return task, {
+                "resolution_basis": "kg_workflow_pattern",
+                "completion_status": "rejected",
+                "completion_reason": "AMBIGUOUS_KG_WORKFLOW_PATTERN_CANDIDATE",
+                "candidate_pairs": sorted([list(pair) for pair in best_pairs]),
+            }
+
+        _, pattern_id, step_order, source_id, algorithm_id = candidates[0]
+        return task.model_copy(
+            update={"source_ids": [source_id], "algorithm_id": algorithm_id}
+        ), {
+            "resolution_basis": "kg_workflow_pattern",
+            "completion_status": "completed",
+            "pattern_id": pattern_id,
+            "pattern_step_order": step_order,
+            "selected_source_ids": list(task.source_ids),
+            "selected_algorithm_id": task.algorithm_id,
+        }
+
+    def _resolve_task(
+        self,
+        task: ResearchPlanTask,
+        *,
+        selected_override: dict[str, Any] | None = None,
+        resolution_metadata: dict[str, Any] | None = None,
+    ) -> ResearchTaskResolution:
+        selected = selected_override or self._selected_payload(task)
         if task.delivery_state in NON_EXECUTABLE_DELIVERY_STATES:
             return ResearchTaskResolution(
                 order=task.order,
@@ -232,6 +334,10 @@ class ResearchPlanRuntimeAdapter:
             "output_data_type": output_type,
             "handler_name": handler_name,
         }
+        if resolution_metadata:
+            resolved["resolution_metadata"] = dict(resolution_metadata)
+            if resolution_metadata.get("resolution_basis"):
+                resolved["resolution_basis"] = resolution_metadata["resolution_basis"]
         if unique_reasons:
             return ResearchTaskResolution(
                 order=task.order,

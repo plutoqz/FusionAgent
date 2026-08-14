@@ -453,8 +453,8 @@ case manifest/crosswalk
 | 阶段 | 状态 | 下一验收点 |
 |---|---|---|
 | S0：基线锁定 | 已完成 | C04 R4 与第 14 节冻结闸门保持可复核 |
-| S1：C02 selected/resolved 语义冻结 | 待执行 | resolver 不隐藏算法选择，且 C02 selected plan 与缺口语义可机械审计 |
-| S2：C02 真实输入预检与协议冻结 | 待执行 | 三个执行层和两个 gap 层的真实输入、语义和预算全部闭合 |
+| S1：C02 selected/resolved 语义冻结 | 已完成（2026-08-14） | resolver 不隐藏算法选择，且 C02 selected plan 与缺口语义可机械审计 |
+| S2：C02 真实输入预检与协议冻结 | 进行中 | 三个执行层和两个 gap 层的真实输入、语义和预算全部闭合 |
 | S3：C02 单次正式端到端运行与审计 | 待执行 | 新 evidence root 的链路、实际矢量产物和质量报告完整 |
 | S4：C06 真实失败机制发现与案例重设计 | 待执行 | 在预冻结候选集中观察到自然 failure，或明确退役旧机制 |
 | S5：C06 协议冻结、单次运行与审计 | 待执行 | 仅在 S4 通过时产生新的 C06 正式证据 |
@@ -551,7 +551,16 @@ case manifest/crosswalk
 
 ### 15.10 恢复规则与暂停条件
 
-- 当前唯一 `in_progress` 阶段为 **S1：C02 selected/resolved 语义冻结**；S2-S6 均为 pending。
+- 当前唯一 `in_progress` 阶段为 **S2：C02 真实输入预检与协议冻结**；S1 已完成，S3-S6 均为 pending。
 - 每次恢复先检查 `git status`、当前 commit、相关 evidence root 是否已存在、运行进程、KG semantic hash、protocol/asset hashes；发现已有同名 evidence root 时拒绝覆盖。
 - 任一 paid API、实际 fusion 或长时下载都必须在对应 preflight 通过后、并获得该阶段的明确执行授权才可启动。
 - 连续两次同方向修复不能闭合契约时停止编码，回到数据/schema、KG、workflow、planning、工具环境、评价的诊断顺序；不得以增加 retry、Prompt 或阈值放宽继续推进。
+
+### 15.11 执行检查点（2026-08-14，S1 完成 / S2 进行中）
+
+- S1 实现已提交：`services/research_plan_runtime_adapter.py` 增加显式 `complete_from_kg=False`；默认路径仍 fail-closed，只有 C02 专用调用可启用 frozen KG workflow pattern completion。
+- `selected` 保留 formal LLM 原始字段；`resolved` 记录 `resolution_basis=kg_workflow_pattern`、pattern/step、effective source/algorithm 和 completion metadata。无法闭合的任务保持 rejected/gap，不生成执行任务。
+- 新增只读审计入口 `scripts/audit_c02_selected_resolved.py`，按 immutable `run_id` 连接 formal result 与 schedule，不调用 LLM、Provider 或 fusion runtime，输出 `claim_eligible=false`。
+- S1 证据根：`D:\code\fusionagent-evidence\p4-planning-e2e\2026-08-14-c02-selected-resolved-s1-r2`。3 个执行层为 `water_polygon`、`waterways`、`road`；`building`、`poi` 为显式 gap；`kg_completion_count=3`；调用计数为 `0/0/0`。
+- 验证：`python -m pytest tests/test_research_plan_runtime_adapter.py tests/test_audit_p4_planning_e2e_readiness.py -q`，`9 passed`；`git diff --check` 通过。
+- S2 首个动作：只读清点 Caracas AOI 的真实 water/waterways/road、HydroLAKES/HydroRIVERS、Microsoft road 资产，生成 source/CRS/feature-count/hash inventory；在 inventory 和 semantic contract 闭合前，不启动 fusion、LLM 或 Provider。

@@ -160,3 +160,63 @@ def test_raw_source_is_not_treated_as_algorithm_bundle_input():
     assert "SOURCE_ALGORITHM_INPUT_TYPE_MISMATCH" in task.reason_codes
     assert task.resolved["effective_source_id"] == "raw.osm.road"
     assert task.resolved["effective_algorithm_id"] == "algo.fusion.road.conflation.v7"
+
+
+def test_c02_explicit_kg_completion_preserves_selected_and_records_resolved_basis():
+    result = _adapter().resolve(
+        case=_case("C02"),
+        condition="llm_full_contract_kg",
+        decision=_decision(
+            [
+                {
+                    "order": 1,
+                    "task_kind": "water_polygon",
+                    "source_ids": ["catalog.flood.water_polygon", "catalog.flood.water"],
+                    "algorithm_id": None,
+                    "delivery_state": "planned",
+                    "rationale": "LLM selected the water polygon priority layer.",
+                }
+            ]
+        ),
+        complete_from_kg=True,
+    )
+
+    assert result.status == "resolved"
+    task = result.task_resolutions[0]
+    assert task.selected["algorithm_id"] is None
+    assert task.selected["source_ids"] == ["catalog.flood.water_polygon", "catalog.flood.water"]
+    assert task.resolution_status == "resolved"
+    assert task.resolved["effective_algorithm_id"] == "algo.fusion.water_polygon.priority_merge.v2"
+    assert task.resolved["effective_source_id"] == "catalog.flood.water"
+    assert task.resolved["resolution_basis"] == "kg_workflow_pattern"
+    assert task.resolved["resolution_metadata"]["pattern_id"] == "wp.flood.water.default"
+    assert result.resolved["completion_policy"] == "kg_workflow_pattern"
+    assert result.resolved["kg_completion_count"] == 1
+
+
+def test_c02_kg_completion_rejects_when_no_frozen_pattern_matches():
+    result = _adapter().resolve(
+        case=_case("C02"),
+        condition="llm_full_contract_kg",
+        decision=_decision(
+            [
+                {
+                    "order": 1,
+                    "task_kind": "water_polygon",
+                    "source_ids": ["catalog.unknown.water"],
+                    "algorithm_id": None,
+                    "delivery_state": "planned",
+                    "rationale": "Unknown source must not be inferred.",
+                }
+            ]
+        ),
+        complete_from_kg=True,
+    )
+
+    assert result.workflow_plan is None
+    task = result.task_resolutions[0]
+    assert task.selected["algorithm_id"] is None
+    assert task.resolution_status == "rejected"
+    assert "MISSING_ALGORITHM" in task.reason_codes
+    assert "UNKNOWN_DATA_SOURCE" in task.reason_codes
+    assert task.resolved["resolution_metadata"]["completion_reason"] == "NO_KG_WORKFLOW_PATTERN_CANDIDATE"
