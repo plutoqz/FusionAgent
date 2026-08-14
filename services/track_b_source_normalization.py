@@ -7,6 +7,7 @@ import geopandas as gpd
 import pandas as pd
 
 from kg.track_b_source_contract import get_track_b_source_contract
+from services.source_field_profile_registry import SourceFieldProfileRegistry
 
 
 _GEOHASH_BASE32 = "0123456789bcdefghjkmnpqrstuvwxyz"
@@ -24,8 +25,18 @@ def normalize_track_b_source_frame(
     if contract is None:
         raise KeyError(f"Unknown Track B source_id={source_id}")
 
+    normalization_profile = SourceFieldProfileRegistry().resolve_normalization(
+        theme=contract.theme,
+        metadata={
+            "track_b_role": contract.role,
+            "format_hint": contract.format_hint,
+        },
+    )
     normalized = frame.copy()
+    normalized["_provider_artifact_fid"] = _stable_provider_fids(normalized, required=normalization_profile is not None)
     if normalized.crs is None:
+        if normalization_profile is not None and normalization_profile.requires_crs:
+            raise ValueError("SOURCE_NORMALIZATION_CRS_UNRESOLVED")
         normalized = normalized.set_crs("EPSG:4326")
     normalized = normalized.to_crs(target_crs)
     normalized = normalized[normalized.geometry.notna() & ~normalized.geometry.is_empty].copy()
@@ -43,10 +54,16 @@ def normalize_track_b_source_frame(
             geohash_precision,
         )
     else:
-        handler = _PROFILE_HANDLERS.get(contract.field_mapping_profile)
-        if handler is None:
-            raise KeyError(f"Unsupported Track B field mapping profile={contract.field_mapping_profile}")
-        normalized = handler(normalized, geohash_precision=geohash_precision)
+        if normalization_profile is not None:
+            normalized = _normalize_from_declared_profile(normalized, normalization_profile)
+        else:
+            handler = _PROFILE_HANDLERS.get(contract.field_mapping_profile)
+            if handler is None:
+                raise KeyError(f"Unsupported Track B field mapping profile={contract.field_mapping_profile}")
+            normalized = handler(normalized, geohash_precision=geohash_precision)
+    if normalization_profile is not None and len(frame.index) > 0 and normalized.empty:
+        raise ValueError("SOURCE_NORMALIZATION_GEOMETRY_UNSUPPORTED")
+    normalized = normalized.drop(columns=["_provider_artifact_fid"], errors="ignore")
     return normalized.reset_index(drop=True)
 
 
@@ -59,6 +76,50 @@ def _semantic_candidates(source_semantics, canonical_field: str) -> list[str]:
         ordered.append(matched.matched_field)
     ordered.extend(item for item in matched.candidate_fields if item not in ordered)
     return ordered
+
+
+def _semantic_values(frame: gpd.GeoDataFrame, source_semantics, canonical_field: str) -> pd.Series:
+    matched = source_semantics.matched_fields.get(canonical_field)
+    if matched is None:
+        return pd.Series([pd.NA] * len(frame), index=frame.index, dtype="object")
+    if matched.resolution == "derived" and matched.derivation == "provider_artifact_fid":
+        return frame["_provider_artifact_fid"].astype(str)
+    if matched.resolution == "defaulted":
+        return pd.Series([matched.default_value] * len(frame), index=frame.index, dtype="object")
+    return _coalesce(frame, _semantic_candidates(source_semantics, canonical_field))
+
+
+def _normalize_from_declared_profile(frame: gpd.GeoDataFrame, profile) -> gpd.GeoDataFrame:
+    if profile.theme != "road":
+        raise KeyError(f"Unsupported declared normalization profile={profile.profile_id}")
+    identifier_rule = profile.field_rules["source_feature_id"]
+    class_rule = profile.field_rules["road_class"]
+    frame["source_feature_id"] = frame["_provider_artifact_fid"].astype(str)
+    frame["FID_1"] = frame["_provider_artifact_fid"].astype("int64")
+    frame["source_feature_id_provenance"] = identifier_rule.derivation
+    frame["road_class"] = str(class_rule.default_value)
+    frame["fclass"] = frame["road_class"]
+    frame["road_class_provenance"] = f"declared_default:{class_rule.default_value}"
+    frame["normalization_profile"] = profile.profile_id
+    frame["name"] = pd.NA
+    frame["surface"] = pd.NA
+    frame["lanes"] = pd.NA
+    return _filter_geometry(frame, set(profile.allowed_geometry_types))
+
+
+def _stable_provider_fids(frame: gpd.GeoDataFrame, *, required: bool) -> pd.Series:
+    identifiers = pd.Series(list(frame.index), index=frame.index)
+    numeric = pd.to_numeric(identifiers, errors="coerce")
+    valid = (
+        numeric.notna().all()
+        and numeric.astype("int64").ge(0).all()
+        and numeric.astype("int64").is_unique
+    )
+    if required and not valid:
+        raise ValueError("SOURCE_NORMALIZATION_STABLE_FID_UNAVAILABLE")
+    if valid:
+        return numeric.astype("int64")
+    return pd.Series(range(len(frame)), index=frame.index, dtype="int64")
 
 
 def _normalize_from_semantics(
@@ -81,13 +142,18 @@ def _normalize_from_semantics(
         frame["confidence"] = _coalesce(frame, _semantic_candidates(source_semantics, "confidence"), default=1.0)
         return _filter_geometry(frame, {"Polygon", "MultiPolygon"})
     if theme == "road":
-        frame["source_feature_id"] = _stringify(
-            _coalesce(frame, _semantic_candidates(source_semantics, "source_feature_id"))
-        )
+        frame["source_feature_id"] = _stringify(_semantic_values(frame, source_semantics, "source_feature_id"))
+        source_id_match = source_semantics.matched_fields.get("source_feature_id")
+        if source_id_match is not None and source_id_match.derivation == "provider_artifact_fid":
+            frame["FID_1"] = frame["_provider_artifact_fid"].astype("int64")
+            frame["source_feature_id_provenance"] = source_id_match.derivation
         frame["name"] = _coalesce(frame, _semantic_candidates(source_semantics, "name"))
-        frame["road_class"] = _stringify(
-            _coalesce(frame, _semantic_candidates(source_semantics, "road_class"), default="road")
-        )
+        frame["road_class"] = _stringify(_semantic_values(frame, source_semantics, "road_class"))
+        class_match = source_semantics.matched_fields.get("road_class")
+        if class_match is not None and class_match.resolution == "defaulted":
+            frame["road_class_provenance"] = f"declared_default:{class_match.default_value}"
+        if source_semantics.normalization_profile:
+            frame["normalization_profile"] = source_semantics.normalization_profile
         frame["fclass"] = frame["road_class"]
         frame["surface"] = _coalesce(frame, _semantic_candidates(source_semantics, "surface"))
         frame["lanes"] = _coalesce(frame, _semantic_candidates(source_semantics, "lanes"))

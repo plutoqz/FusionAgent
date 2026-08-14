@@ -114,3 +114,20 @@ def test_agent_run_service_rejects_invalid_source_semantic_contract() -> None:
 
     with pytest.raises(RuntimeError, match="SOURCE_SEMANTIC_CONTRACT_INVALID"):
         AgentRunService._require_valid_source_semantic_contract(Contract())
+
+
+def test_agent_run_service_accepts_valid_normalized_source_semantic_contract() -> None:
+    class Contract:
+        validation = {
+            "valid": True,
+            "validated_layer": "normalized_algorithm_input",
+            "raw_schema_required": False,
+            "issues": [],
+        }
+
+    AgentRunService._require_valid_source_semantic_contract(Contract())
+
+
+def test_agent_run_service_rejects_unavailable_strict_source_semantic_contract() -> None:
+    with pytest.raises(RuntimeError, match="SOURCE_SEMANTIC_CONTRACT_UNAVAILABLE"):
+        AgentRunService._require_valid_source_semantic_contract(None)

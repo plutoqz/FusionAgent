@@ -28,6 +28,25 @@ class SourceFieldProfileOverride:
     expected_null_rates: dict[str, float] = field(default_factory=dict)
 
 
+@dataclass(frozen=True)
+class NormalizationFieldRule:
+    canonical_field: str
+    resolution: str
+    derivation: str | None = None
+    default_value: object | None = None
+    provenance: str = ""
+
+
+@dataclass(frozen=True)
+class SourceNormalizationProfile:
+    profile_id: str
+    theme: str
+    selector: dict[str, str]
+    field_rules: dict[str, NormalizationFieldRule]
+    allowed_geometry_types: tuple[str, ...]
+    requires_crs: bool = True
+
+
 def _field(name: str, meaning: str, *, required: bool = True, value_type: str = "string") -> CanonicalField:
     return CanonicalField(name=name, meaning=meaning, required=required, value_type=value_type)
 
@@ -325,6 +344,33 @@ PROFILES: dict[str, SourceFieldProfile] = {
     ),
 }
 
+
+NORMALIZATION_PROFILES: tuple[SourceNormalizationProfile, ...] = (
+    SourceNormalizationProfile(
+        profile_id="normalization.road.microsoft_shapefile.v1",
+        theme="road",
+        selector={
+            "track_b_role": "reference_manual",
+            "format_hint": "shapefile_bundle",
+        },
+        field_rules={
+            "source_feature_id": NormalizationFieldRule(
+                canonical_field="source_feature_id",
+                resolution="derived",
+                derivation="provider_artifact_fid",
+                provenance="GDAL feature identifier from the immutable provider artifact",
+            ),
+            "road_class": NormalizationFieldRule(
+                canonical_field="road_class",
+                resolution="defaulted",
+                default_value="road",
+                provenance="declared generic supplement class used by road conflation V7",
+            ),
+        },
+        allowed_geometry_types=("LineString", "MultiLineString"),
+    ),
+)
+
 _COUNTRY_CODE_ALIASES = {
     "np": "npl",
 }
@@ -365,6 +411,23 @@ class SourceFieldProfileRegistry:
     def profile_ids_for_theme(self, theme: str) -> list[str]:
         requested = theme.strip().lower()
         return sorted(profile_id for profile_id, profile in self._profiles.items() if profile.theme == requested)
+
+    def resolve_normalization(
+        self,
+        *,
+        theme: str,
+        metadata: dict[str, object],
+    ) -> SourceNormalizationProfile | None:
+        requested = theme.strip().lower()
+        matches = [
+            profile
+            for profile in NORMALIZATION_PROFILES
+            if profile.theme == requested
+            and all(str(metadata.get(key) or "") == value for key, value in profile.selector.items())
+        ]
+        if len(matches) > 1:
+            raise ValueError(f"Ambiguous source normalization profiles for theme={theme}")
+        return matches[0] if matches else None
 
 
 def _normalize_country_code(country_code: str | None) -> str:

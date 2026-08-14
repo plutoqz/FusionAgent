@@ -753,9 +753,9 @@ class AgentRunService:
                     plan=plan,
                     resolved_inputs=resolved_inputs,
                 )
+                if frozen_plan is not None:
+                    self._require_valid_source_semantic_contract(source_semantic_contract)
                 if source_semantic_contract is not None:
-                    if frozen_plan is not None:
-                        self._require_valid_source_semantic_contract(source_semantic_contract)
                     multisource_building_sources = self._building_sources_from_semantic_contract(source_semantic_contract)
             should_tile = self._should_use_tiled_building_runtime(
                 request=runtime_request,
@@ -953,9 +953,9 @@ class AgentRunService:
                                 plan=plan,
                                 resolved_inputs=resolved_inputs,
                             )
+                            if frozen_plan is not None:
+                                self._require_valid_source_semantic_contract(source_semantic_contract)
                             if source_semantic_contract is not None:
-                                if frozen_plan is not None:
-                                    self._require_valid_source_semantic_contract(source_semantic_contract)
                                 multisource_building_sources = self._building_sources_from_semantic_contract(
                                     source_semantic_contract
                                 )
@@ -2529,6 +2529,8 @@ class AgentRunService:
 
     @staticmethod
     def _require_valid_source_semantic_contract(contract) -> None:
+        if contract is None:
+            raise RuntimeError("SOURCE_SEMANTIC_CONTRACT_UNAVAILABLE")
         validation = dict(getattr(contract, "validation", {}) or {})
         if bool(validation.get("valid")):
             return

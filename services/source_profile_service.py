@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import subprocess
 from dataclasses import asdict, dataclass, field
@@ -26,6 +27,11 @@ class SourceProfile:
     field_names: list[str] = field(default_factory=list)
     height_fields: list[str] = field(default_factory=list)
     height_semantics: str = "unknown"
+    driver: str | None = None
+    geometry_type: str | None = None
+    provider_fid_available: bool = False
+    provider_fid_count: int | None = None
+    provider_fid_sha256: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -48,6 +54,32 @@ def classify_height_semantics(
     if "height" in description or "height" in lowered_name:
         return "estimated_height"
     return "unknown"
+
+
+def _profile_provider_fids(
+    path: Path,
+    *,
+    driver: str,
+    expected_count: int | None,
+) -> tuple[bool, int | None, str | None]:
+    if driver not in {"ESRI Shapefile", "GPKG"}:
+        return False, None, None
+    try:
+        frame = pyogrio.read_dataframe(
+            path,
+            columns=[],
+            read_geometry=False,
+            fid_as_index=True,
+        )
+    except Exception:  # noqa: BLE001
+        return False, None, None
+    identifiers = list(frame.index)
+    if expected_count is not None and len(identifiers) != int(expected_count):
+        return False, len(identifiers), None
+    if any(value is None for value in identifiers) or len(set(identifiers)) != len(identifiers):
+        return False, len(identifiers), None
+    payload = json.dumps(identifiers, ensure_ascii=True, separators=(",", ":")).encode("utf-8")
+    return True, len(identifiers), "sha256:" + hashlib.sha256(payload).hexdigest()
 
 
 @dataclass(frozen=True)
@@ -76,12 +108,14 @@ class SourceProfileService:
         feature_count: int | None = None,
         crs: str | None = None,
         field_names: list[str] | None = None,
+        inspect_provider_fids: bool = False,
         metadata: dict[str, Any] | None = None,
     ) -> SourceProfile:
         vector_path = Path(path)
         resolved_feature_count = feature_count
         resolved_crs = crs
         resolved_field_names = list(field_names or [])
+        info: dict[str, Any] = {}
 
         if resolved_feature_count is None or resolved_crs is None or not resolved_field_names:
             info = pyogrio.read_info(vector_path)
@@ -89,6 +123,17 @@ class SourceProfileService:
             resolved_crs = str(info["crs"]) if resolved_crs is None else resolved_crs
             if not resolved_field_names:
                 resolved_field_names = [str(item) for item in list(info["fields"])]
+
+        if not info:
+            info = pyogrio.read_info(vector_path)
+        if inspect_provider_fids:
+            fid_available, fid_count, fid_sha256 = _profile_provider_fids(
+                vector_path,
+                driver=str(info.get("driver") or ""),
+                expected_count=resolved_feature_count,
+            )
+        else:
+            fid_available, fid_count, fid_sha256 = False, None, None
 
         height_fields = [name for name in resolved_field_names if "height" in name.casefold()]
         semantics = classify_height_semantics(
@@ -107,6 +152,11 @@ class SourceProfileService:
             field_names=resolved_field_names,
             height_fields=height_fields,
             height_semantics=semantics,
+            driver=str(info.get("driver") or "") or None,
+            geometry_type=str(info.get("geometry_type") or "") or None,
+            provider_fid_available=fid_available,
+            provider_fid_count=fid_count,
+            provider_fid_sha256=fid_sha256,
             metadata=dict(metadata or {}),
         )
 

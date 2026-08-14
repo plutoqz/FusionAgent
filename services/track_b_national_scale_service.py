@@ -218,11 +218,15 @@ class TrackBNationalScaleService:
         normalized_dir.mkdir(parents=True, exist_ok=True)
         osm_normalized = normalize_track_b_source_frame(
             osm_source_id,
-            gpd.read_file(osm_shp),
+            gpd.read_file(osm_shp, engine="pyogrio", fid_as_index=True),
             target_crs=target_crs,
         )
         ref_normalized = (
-            normalize_track_b_source_frame(ref_source_id, gpd.read_file(ref_shp), target_crs=target_crs)
+            normalize_track_b_source_frame(
+                ref_source_id,
+                gpd.read_file(ref_shp, engine="pyogrio", fid_as_index=True),
+                target_crs=target_crs,
+            )
             if ref_source_id is not None
             else _empty_frame(target_crs)
         )

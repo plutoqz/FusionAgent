@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Any
 
 from kg.track_b_source_contract import get_track_b_source_contract
-from services.source_field_profile_registry import SourceFieldProfileRegistry
+from services.source_field_profile_registry import SourceFieldProfileRegistry, SourceNormalizationProfile
 from services.source_profile_service import SourceProfile, SourceProfileService
 from services.runtime_source_aliases import (
     BUILDING_HEIGHT_RASTER_PRIORITY_ORDER,
@@ -22,6 +22,10 @@ class MatchedField:
     candidate_fields: list[str]
     matched_field: str | None
     available: bool
+    resolution: str = "unresolved"
+    derivation: str | None = None
+    default_value: Any | None = None
+    provenance: str = ""
 
     def to_dict(self) -> dict[str, Any]:
         return asdict(self)
@@ -40,6 +44,7 @@ class SourceSemanticEntry:
     height_fields: list[str]
     height_semantics: str
     matched_fields: dict[str, MatchedField]
+    normalization_profile: str | None = None
     metadata: dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> dict[str, Any]:
@@ -114,8 +119,6 @@ class SourceSemanticContractService:
             )
             if not profile_id:
                 profile_id = self.registry.profile_ids_for_theme(job_type)[0]
-            field_profile = self.registry.get(profile_id)
-
             metadata = dict(getattr(node, "metadata", {}) or {})
             if track_b_contract is not None:
                 metadata.update(
@@ -127,15 +130,30 @@ class SourceSemanticContractService:
                         "license_boundary": track_b_contract.license_boundary,
                     }
                 )
+            normalization_profile = self.registry.resolve_normalization(
+                theme=job_type,
+                metadata=metadata,
+            )
             profile = self.profile_service.profile_vector_source(
                 source_id=source_id,
                 path=path,
                 source_name=getattr(node, "source_name", source_id),
                 runtime_status=str(metadata.get("runtime_status") or "runtime_candidate"),
                 selectable_now=bool(metadata.get("selectable_now", True)),
+                inspect_provider_fids=bool(
+                    normalization_profile is not None
+                    and any(
+                        rule.derivation == "provider_artifact_fid"
+                        for rule in normalization_profile.field_rules.values()
+                    )
+                ),
                 metadata=metadata,
             )
-            matched_fields = self._match_fields(profile=profile, profile_id=profile_id)
+            matched_fields = self._match_fields(
+                profile=profile,
+                profile_id=profile_id,
+                normalization_profile=normalization_profile,
+            )
             for canonical, matched in matched_fields.items():
                 if matched.required and not matched.available:
                     issues.append(
@@ -145,6 +163,13 @@ class SourceSemanticContractService:
                             "code": "required_field_unmatched",
                         }
                     )
+            issues.extend(
+                self._normalization_input_issues(
+                    source_id=source_id,
+                    profile=profile,
+                    normalization_profile=normalization_profile,
+                )
+            )
             height_match = matched_fields.get("height_m")
             if height_match is not None and height_match.matched_field:
                 vector_height_fields[source_id] = height_match.matched_field
@@ -161,7 +186,19 @@ class SourceSemanticContractService:
                 height_fields=profile.height_fields,
                 height_semantics=profile.height_semantics,
                 matched_fields=matched_fields,
-                metadata=metadata,
+                normalization_profile=(
+                    normalization_profile.profile_id if normalization_profile is not None else None
+                ),
+                metadata={
+                    **metadata,
+                    "raw_profile": {
+                        "driver": profile.driver,
+                        "geometry_type": profile.geometry_type,
+                        "provider_fid_available": profile.provider_fid_available,
+                        "provider_fid_count": profile.provider_fid_count,
+                        "provider_fid_sha256": profile.provider_fid_sha256,
+                    },
+                },
             )
 
         raster_height_sources: dict[str, str] = {}
@@ -199,11 +236,28 @@ class SourceSemanticContractService:
             sources=sources,
             height_policy=height_policy,
             parameter_hints=parameter_hints,
-            validation={"valid": not issues, "issues": issues},
-            metadata={},
+            validation={
+                "valid": not issues,
+                "validated_layer": "normalized_algorithm_input",
+                "raw_schema_required": False,
+                "issues": issues,
+            },
+            metadata={
+                "contract_layers": [
+                    "provider_raw_schema",
+                    "deterministic_normalization",
+                    "algorithm_canonical_schema",
+                ]
+            },
         )
 
-    def _match_fields(self, *, profile: SourceProfile, profile_id: str) -> dict[str, MatchedField]:
+    def _match_fields(
+        self,
+        *,
+        profile: SourceProfile,
+        profile_id: str,
+        normalization_profile: SourceNormalizationProfile | None = None,
+    ) -> dict[str, MatchedField]:
         field_profile = self.registry.get(profile_id)
         available_by_casefold = {field.casefold(): field for field in profile.field_names}
         matched: dict[str, MatchedField] = {}
@@ -218,15 +272,60 @@ class SourceSemanticContractService:
                 if normalized_candidate in available_by_casefold:
                     matched_field = available_by_casefold[normalized_candidate]
                     break
+            rule = (
+                normalization_profile.field_rules.get(canonical)
+                if normalization_profile is not None
+                else None
+            )
+            resolution = "matched" if matched_field is not None else "unresolved"
+            available = matched_field is not None
+            derivation = None
+            default_value = None
+            provenance = f"raw attribute {matched_field}" if matched_field is not None else ""
+            if matched_field is None and rule is not None:
+                resolution = rule.resolution
+                derivation = rule.derivation
+                default_value = rule.default_value
+                provenance = rule.provenance
+                if rule.resolution == "derived" and rule.derivation == "provider_artifact_fid":
+                    available = profile.provider_fid_available
+                elif rule.resolution == "defaulted":
+                    available = rule.default_value is not None
             matched[canonical] = MatchedField(
                 canonical_field=canonical,
                 meaning=canonical_spec.meaning,
                 required=canonical_spec.required,
                 candidate_fields=candidates,
                 matched_field=matched_field,
-                available=matched_field is not None,
+                available=available,
+                resolution=resolution if available else "unresolved",
+                derivation=derivation,
+                default_value=default_value,
+                provenance=provenance,
             )
         return matched
+
+    @staticmethod
+    def _normalization_input_issues(
+        *,
+        source_id: str,
+        profile: SourceProfile,
+        normalization_profile: SourceNormalizationProfile | None,
+    ) -> list[dict[str, str]]:
+        if normalization_profile is None:
+            return []
+        issues: list[dict[str, str]] = []
+        if normalization_profile.requires_crs and not profile.crs:
+            issues.append({"source_id": source_id, "code": "normalization_crs_unresolved"})
+        if profile.geometry_type not in normalization_profile.allowed_geometry_types:
+            issues.append(
+                {
+                    "source_id": source_id,
+                    "code": "normalization_geometry_unsupported",
+                    "geometry_type": str(profile.geometry_type or ""),
+                }
+            )
+        return issues
 
     def _data_sources_by_id(self) -> dict[str, Any]:
         list_data_sources = getattr(self.kg_repo, "list_data_sources", None)

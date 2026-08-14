@@ -3,7 +3,7 @@ from __future__ import annotations
 from pathlib import Path
 
 import geopandas as gpd
-from shapely.geometry import Polygon
+from shapely.geometry import LineString, Polygon
 
 from kg.source_catalog import build_data_sources
 from services.source_semantic_contract_service import SourceSemanticContract, SourceSemanticContractService
@@ -90,3 +90,69 @@ def test_semantic_contract_to_dict_includes_top_level_metadata() -> None:
     payload = contract.to_dict()
 
     assert payload["metadata"] == {"country_name": "Nepal", "aoi_size_bucket": "small"}
+
+
+def test_microsoft_road_contract_validates_normalized_fields_not_raw_osm_fields(tmp_path: Path) -> None:
+    path = tmp_path / "microsoft-road.gpkg"
+    gpd.GeoDataFrame(
+        {"WidthMeters": [7.0], "CountryCode": ["VEN"]},
+        geometry=[LineString([(0, 0), (1, 0)])],
+        crs="EPSG:4326",
+    ).to_file(path, driver="GPKG")
+
+    contract = SourceSemanticContractService(kg_repo=_Repo()).build_contract(
+        run_id="run-road",
+        job_type="road",
+        selected_source_id="catalog.typhoon.road",
+        component_paths={"raw.microsoft.road": path},
+        target_crs="EPSG:32619",
+    )
+
+    source = contract.sources["raw.microsoft.road"]
+    assert contract.validation["valid"] is True
+    assert contract.validation["validated_layer"] == "normalized_algorithm_input"
+    assert source.normalization_profile == "normalization.road.microsoft_shapefile.v1"
+    assert source.matched_fields["source_feature_id"].resolution == "derived"
+    assert source.matched_fields["source_feature_id"].derivation == "provider_artifact_fid"
+    assert source.matched_fields["road_class"].resolution == "defaulted"
+    assert source.matched_fields["road_class"].default_value == "road"
+
+
+def test_microsoft_road_contract_fails_when_stable_provider_fid_is_unavailable(tmp_path: Path) -> None:
+    path = tmp_path / "microsoft-road.geojson"
+    gpd.GeoDataFrame(
+        {"WidthMeters": [7.0]},
+        geometry=[LineString([(0, 0), (1, 0)])],
+        crs="EPSG:4326",
+    ).to_file(path, driver="GeoJSON")
+
+    contract = SourceSemanticContractService(kg_repo=_Repo()).build_contract(
+        run_id="run-road-no-fid",
+        job_type="road",
+        selected_source_id="catalog.typhoon.road",
+        component_paths={"raw.microsoft.road": path},
+        target_crs="EPSG:32619",
+    )
+
+    assert contract.validation["valid"] is False
+    assert contract.sources["raw.microsoft.road"].matched_fields["source_feature_id"].resolution == "unresolved"
+
+
+def test_microsoft_road_contract_fails_for_unsupported_geometry(tmp_path: Path) -> None:
+    path = tmp_path / "microsoft-road-polygon.gpkg"
+    gpd.GeoDataFrame(
+        {"WidthMeters": [7.0]},
+        geometry=[Polygon([(0, 0), (0, 1), (1, 1), (1, 0)])],
+        crs="EPSG:4326",
+    ).to_file(path, driver="GPKG")
+
+    contract = SourceSemanticContractService(kg_repo=_Repo()).build_contract(
+        run_id="run-road-polygon",
+        job_type="road",
+        selected_source_id="catalog.typhoon.road",
+        component_paths={"raw.microsoft.road": path},
+        target_crs="EPSG:32619",
+    )
+
+    assert contract.validation["valid"] is False
+    assert any(issue["code"] == "normalization_geometry_unsupported" for issue in contract.validation["issues"])
