@@ -456,9 +456,9 @@ case manifest/crosswalk
 | S1：C02 selected/resolved 语义冻结 | 已完成（2026-08-14） | resolver 不隐藏算法选择，且 C02 selected plan 与缺口语义可机械审计 |
 | S2：C02 真实输入预检与协议冻结 | 已完成（2026-08-14） | 三个执行层和两个 gap 层的真实输入、语义和预算全部闭合 |
 | S3：C02 单次正式端到端运行与审计 | 已执行，受控失败（2026-08-14） | r2 失败证据与独立审计保持不可覆盖，进入 S4 |
-| S4：C06 真实失败机制发现与案例重设计 | 待执行 | 在预冻结候选集中观察到自然 failure，或明确退役旧机制 |
-| S5：C06 协议冻结、单次运行与审计 | 待执行 | 仅在 S4 通过时产生新的 C06 正式证据 |
-| S6：独立证据审计与受限结论汇总 | 待执行 | 证据链、主张矩阵和论文表述一致 |
+| S4：C06 真实失败机制发现与案例重设计 | 已完成，未观察到自然 failure（2026-08-14） | 退役旧“必然失败”机制 |
+| S5：C06 协议冻结、单次运行与审计 | 未运行，前置条件不成立 | `not_run_precondition_unsatisfied` |
+| S6：独立证据审计与受限结论汇总 | 已完成（2026-08-14） | 13/13 统一审计通过，保留受限主张 |
 
 ### 15.4 S1：C02 selected/resolved 语义冻结
 
@@ -551,7 +551,7 @@ case manifest/crosswalk
 
 ### 15.10 恢复规则与暂停条件
 
-- 当前恢复点为 **S4：C06 真实失败机制发现与案例重设计**；S1、S2 已完成，S3 已按 v2/r2 执行一次并受控失败，S4-S6 均为 pending。
+- 当前恢复点为 **S6 已完成后的证据冻结终态**；S1-S4 与 S6 已完成，S5 因 S4 未观察到合法 failure 而按协议未运行。
 - 每次恢复先检查 `git status`、当前 commit、相关 evidence root 是否已存在、运行进程、KG semantic hash、protocol/asset hashes；发现已有同名 evidence root 时拒绝覆盖。
 - 任一 paid API、实际 fusion 或长时下载都必须在对应 preflight 通过后、并获得该阶段的明确执行授权才可启动。
 - 连续两次同方向修复不能闭合契约时停止编码，回到数据/schema、KG、workflow、planning、工具环境、评价的诊断顺序；不得以增加 retry、Prompt 或阈值放宽继续推进。
@@ -610,3 +610,33 @@ case manifest/crosswalk
 
 - 当前阶段转入 S4：先冻结有限 C06 候选集及每个候选的 AOI、双源 snapshot、算法、quality policy、source semantic contract 与 geometry hash；候选集冻结前不启动 screening fusion。
 - S4 只观察自然产生的质量结果。若预冻结候选全部通过质量门，正式退役旧“首个双源必然失败”机制，不得通过删除 source、篡改几何、放宽阈值或重试制造 failure。
+
+### 15.15 执行检查点（2026-08-14，S4-S6 完成）
+
+本节取代 15.14 的下一阶段状态，作为 S1-S6 长时实验目标的最终恢复点。
+
+#### S4 候选冻结与真实 screening
+
+- 仓库只存在一个同时声明 OSM 与 Microsoft road、且具有可复算真实 snapshot 的 AOI，因此候选集在运行前冻结为唯一候选 `c06-screen-caracas-dual-road-v1`；没有为增加失败概率临时下载或事后添加候选。
+- 实现提交 `5fd4aa3ccea7390c84f3c7c461db435824ae0ebe`；协议 `fusionagent.p4.c06-failure-screening.v1`；freeze 根 `D:\code\fusionagent-evidence\p4-planning-e2e\2026-08-14-c06-failure-screening-freeze-v1`。freeze audit 10/10、preflight 9/9 通过，启动前 fusion/LLM/Provider 均为 0。
+- screening 证据根 `D:\code\fusionagent-evidence\p4-planning-e2e\2026-08-14-c06-failure-screening-r1`；唯一 run `8846dcd1bd5b4f92950bf26f34c751af` 使用 `catalog.flood.road`、V7、`quality.default.road.v1` 和 frozen OSM 16,279 + Microsoft 11,809 输入。
+- source semantic contract `valid=true`；输出 23,760 个有效 `LineString`，CRS `EPSG:32619`，GPKG SHA-256 `d35dba0c25078af027d2b722e2be2d066029f2b425cb7aa12041685b8cc10a1f`，geometry SHA-256 `sha256:8e71aa487d1c68a98e42c4f2c8774c25d5641be6fc4c9cf4314b698d13611e93`。
+- 质量门 `accepted=true`、`raw_quality_passed=true`、`adapted_quality_passed=true`；dangle `271.2167279750187/100km <= 500`，duplicate/invalid geometry rate 均为 0。独立审计 14/14 通过，screening outcome 为 `no_quality_failure_observed`。
+
+#### S5 终态
+
+- S4 未观察到 `quality_gate_rejected_fusion_output`，因此 `eligible_for_s5=false`。S5 状态固定为 `not_run_precondition_unsatisfied`；没有创建 recovery protocol、没有执行 recovery run，也没有删除 Microsoft source 或制造 failure。
+- 旧 C06 “首个双源融合必然质量失败”机制正式退役。历史失败仍保留为历史观察，但不再作为当前实现和输入下的案例前提。
+
+#### S6 统一证据审计
+
+- 统一审计根：`D:\code\fusionagent-evidence\p4-planning-e2e\2026-08-14-s6-selective-e2e-audit-v1`；`audit.json` 的 13/13 checks 通过，`claim_matrix.json` 和 `manifest.json` 固定三条案例结果及关键 evidence SHA-256。
+- C04：v5/r4 两阶段 road 执行与 supersession 是单 Caracas AOI 成功证据；两个实际 GPKG/ZIP 和质量报告在 S6 重新读取、复算 hash，不能外推为比较优势或跨 AOI 有效性。
+- C02：v2/r2 是正式受控失败；仅 water polygon 完成，waterways 因未计划 source expansion 与 semantic contract invalid 在算法前阻断，road 未运行。
+- C06：只完成机制 screening，得到负结果；没有执行正式 recovery E2E，不能声称 recovery capability。
+- 总体不支持方法比较优越、统计显著性或广泛外部有效性。可用表述必须逐条回指冻结 protocol、AOI、run ID 和 evidence file。
+
+#### 最终状态与后续边界
+
+- S1-S4、S6 已完成；S5 依据冻结前置条件合法跳过。当前 worktree、提交链、KG identity、实验根和主张矩阵已由 S6 audit 对齐。
+- C02 未计划 waterways source expansion 是后续工程/研究问题，不在本目标内修复或重跑。任何新 C02/C06 实验都必须使用新的 protocol、candidate/input hash、implementation commit、run identity 和 evidence root。
