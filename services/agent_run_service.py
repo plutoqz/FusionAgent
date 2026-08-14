@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import json
 import logging
 import math
@@ -435,10 +436,22 @@ class AgentRunService:
         ref_zip_name: str | None,
         ref_zip_bytes: bytes | None,
         runtime_dependencies: RuntimeDependencies | None = None,
+        frozen_plan: WorkflowPlan | None = None,
+        frozen_plan_sha256: str | None = None,
     ) -> RunStatus:
         issues = classify_unsupported_intent(request.trigger.content, job_type=request.job_type)
         if issues:
             raise ValueError(f"Unsupported intent: {json.dumps(issues, ensure_ascii=False)}")
+        if (frozen_plan is None) != (frozen_plan_sha256 is None):
+            raise ValueError("frozen_plan and frozen_plan_sha256 must be provided together")
+        if frozen_plan is not None:
+            if not self.dispatch_eager:
+                raise ValueError("frozen plan injection requires eager in-process execution")
+            self._validate_frozen_plan_input(
+                request=request,
+                frozen_plan=frozen_plan,
+                expected_sha256=str(frozen_plan_sha256),
+            )
 
         run_id = uuid.uuid4().hex
         run_dir = self.base_dir / run_id
@@ -464,6 +477,8 @@ class AgentRunService:
         else:
             raise ValueError(f"Unsupported input strategy: {request.input_strategy}")
         self._persist_request(run_dir / "request.json", request)
+        if frozen_plan is not None:
+            self._persist_plan(run_dir / "frozen_plan_input.json", frozen_plan)
 
         request_bbox = self._parse_bbox(request.trigger.spatial_extent)
         created_at = _utc_now()
@@ -548,6 +563,8 @@ class AgentRunService:
                 log_dir=log_dir,
                 runtime_snapshot_id=runtime_snapshot_id,
                 runtime_dependencies=runtime_dependencies,
+                frozen_plan=frozen_plan,
+                frozen_plan_sha256=frozen_plan_sha256,
             )
         else:
             # RuntimeDependencies contains process-local provider/planner/executor objects.
@@ -576,6 +593,8 @@ class AgentRunService:
         runtime_snapshot_id: str | None = None,
         runtime_settings: EffectiveLLMSettings | Dict[str, Any] | None = None,
         runtime_dependencies: RuntimeDependencies | None = None,
+        frozen_plan: WorkflowPlan | None = None,
+        frozen_plan_sha256: str | None = None,
     ) -> None:
         logger = self._build_logger(run_id, log_dir / "run.log")
         plan: Optional[WorkflowPlan] = None
@@ -606,7 +625,15 @@ class AgentRunService:
             )
             logger.info("Run started: %s (%s)", run_id, request.job_type.value)
 
-            plan = self.run_planning_stage(run_id=run_id, request=request, runtime_dependencies=runtime_dependencies)
+            if frozen_plan is None:
+                plan = self.run_planning_stage(run_id=run_id, request=request, runtime_dependencies=runtime_dependencies)
+            else:
+                plan = self.run_frozen_planning_stage(
+                    run_id=run_id,
+                    request=request,
+                    frozen_plan=frozen_plan,
+                    expected_sha256=str(frozen_plan_sha256),
+                )
             logger.info("Planning stage completed with revision=%s", plan.context.get("plan_revision", 0))
 
             plan = self.run_validation_stage(run_id=run_id, plan=plan)
@@ -749,7 +776,11 @@ class AgentRunService:
                     failed_step = self._infer_failed_step(repair_records)
                     current_revision = self._extract_plan_revision(plan)
                     failure_message = f"{type(exec_error).__name__}: {exec_error}"
-                    can_replan = failed_step is not None and current_revision < self.max_plan_revisions
+                    can_replan = (
+                        frozen_plan is None
+                        and failed_step is not None
+                        and current_revision < self.max_plan_revisions
+                    )
                     replan_decision = self._build_replan_decision(
                         can_replan=can_replan,
                         failed_step=failed_step,
@@ -1155,6 +1186,105 @@ class AgentRunService:
             event_details=event_details,
         )
         return plan
+
+    def run_frozen_planning_stage(
+        self,
+        *,
+        run_id: str,
+        request: RunCreateRequest,
+        frozen_plan: WorkflowPlan,
+        expected_sha256: str,
+    ) -> WorkflowPlan:
+        plan, actual_sha256 = self._validate_frozen_plan_input(
+            request=request,
+            frozen_plan=frozen_plan,
+            expected_sha256=expected_sha256,
+        )
+        request_bbox = self._parse_bbox(request.trigger.spatial_extent)
+        effective_target_crs = resolve_target_crs(request.target_crs, bbox=request_bbox)
+        self._update_status(
+            run_id,
+            RunPhase.planning,
+            progress=14,
+            target_crs=effective_target_crs,
+            checkpoint=self._checkpoint(stage="planning"),
+            event_kind="target_crs_resolved",
+            event_message=f"Resolved target CRS {effective_target_crs} for frozen plan execution.",
+            event_details={"target_crs": effective_target_crs, "source": "frozen_execution_request"},
+        )
+
+        planning_decisions = self._build_planning_decisions(plan)
+        grounding_probe_plan = plan.model_copy(deep=True)
+        grounding_report = ensure_plan_grounding_report(grounding_probe_plan)
+        grounding_gate = evaluate_plan_grounding_gate(grounding_report, mode="report")
+        plan_path = self._plan_path(run_id)
+        self._persist_plan(plan_path, plan)
+        planning_telemetry = {
+            "planning_mode": "frozen_workflow_plan_injection",
+            "injected_plan_sha256": actual_sha256,
+            "llm_calls": 0,
+        }
+        self._update_status(
+            run_id,
+            RunPhase.validating,
+            progress=25,
+            plan_path=str(plan_path),
+            plan_revision=self._extract_plan_revision(plan),
+            decision_records=planning_decisions,
+            planning_telemetry=planning_telemetry,
+            checkpoint=self._checkpoint(stage="validation", plan_revision=self._extract_plan_revision(plan)),
+            event_kind="frozen_plan_injected",
+            event_message="Hash-locked workflow plan injected without invoking the planner.",
+            event_details={
+                "workflow_id": plan.workflow_id,
+                "injected_plan_sha256": actual_sha256,
+                "expected_plan_sha256": expected_sha256,
+                "grounded": grounding_report["grounded"],
+                "grounding_score": grounding_report["grounding_score"],
+                "grounding_gate": grounding_gate.model_dump(mode="json"),
+                "grounding_gate_applied": False,
+                "grounding_probe_scope": "diagnostic_only_missing_live_planner_retrieval_context",
+                "execution_validation_gate": "workflow_validator_enforce",
+                "request_spatial_extent": request.trigger.spatial_extent,
+                "request_target_crs": effective_target_crs,
+                "llm_calls": 0,
+            },
+        )
+        return plan
+
+    @staticmethod
+    def _validate_frozen_plan_input(
+        *,
+        request: RunCreateRequest,
+        frozen_plan: WorkflowPlan,
+        expected_sha256: str,
+    ) -> tuple[WorkflowPlan, str]:
+        if request.input_strategy != RunInputStrategy.task_driven_auto:
+            raise ValueError("frozen plan injection requires task_driven_auto input strategy")
+        plan = frozen_plan.model_copy(deep=True)
+        actual_sha256 = _workflow_plan_semantic_hash(plan)
+        if actual_sha256 != expected_sha256:
+            raise ValueError(
+                "FROZEN_PLAN_HASH_MISMATCH: "
+                f"expected={expected_sha256} actual={actual_sha256}"
+            )
+        try:
+            task_kind = _task_kind_for_request(request, plan)
+        except ValueError as exc:
+            raise ValueError(f"FROZEN_PLAN_JOB_TYPE_MISMATCH: {exc}") from exc
+        if task_kind.value != request.job_type.value:
+            raise ValueError(
+                "FROZEN_PLAN_JOB_TYPE_MISMATCH: "
+                f"plan_task_kind={task_kind.value} request_job_type={request.job_type.value}"
+            )
+        plan_disaster = str(plan.trigger.disaster_type or "").strip().lower()
+        request_disaster = str(request.trigger.disaster_type or "").strip().lower()
+        if plan_disaster != request_disaster:
+            raise ValueError(
+                "FROZEN_PLAN_DISASTER_MISMATCH: "
+                f"plan={plan_disaster or '<missing>'} request={request_disaster or '<missing>'}"
+            )
+        return plan, actual_sha256
 
     def _apply_plan_grounding_gate(self, run_id: str, plan: WorkflowPlan, *, stage: str):
         grounding_report = ensure_plan_grounding_report(plan)
@@ -5023,6 +5153,16 @@ class AgentRunService:
 
 def _p3_variant() -> str:
     return os.getenv("GEOFUSION_P3_VARIANT", "full_method").strip().lower()
+
+
+def _workflow_plan_semantic_hash(plan: WorkflowPlan) -> str:
+    payload = json.dumps(
+        plan.model_dump(mode="json"),
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return "sha256:" + hashlib.sha256(payload).hexdigest()
 
 
 def _apply_p3_plan_variant(plan: WorkflowPlan) -> WorkflowPlan:

@@ -26,7 +26,8 @@ CASE_ID = "C04"
 CONDITION = "llm_full_contract_kg"
 RUN_ID = "formal-c04-llm_full_contract_kg-r1"
 SOURCE_IDS = ("raw.osm.road", "raw.microsoft.road", "aoi.venezuela_capital_district")
-PROTOCOL_ID = "fusionagent.p4.c04-road-e2e.v1"
+LEGACY_PROTOCOL_ID = "fusionagent.p4.c04-road-e2e.v1"
+PROTOCOL_ID = "fusionagent.p4.c04-road-e2e.v2"
 
 
 def build_p4_c04_freeze(
@@ -134,7 +135,7 @@ def build_p4_c04_freeze(
             },
             {
                 "stage_id": "microsoft_arrival",
-                "action": "resume",
+                "action": "rerun_with_supersession",
                 "active_source_ids": list(SOURCE_IDS),
                 "delayed_source_ids": [],
                 "retry_failed": False,
@@ -193,14 +194,25 @@ def build_p4_c04_freeze(
             "services/research_plan_runtime_adapter.py",
             "scripts/audit_p4_planning_e2e_readiness.py",
             "scripts/freeze_p4_c04_road_protocol.py",
+            "scripts/run_p4_c04_road_e2e.py",
+            "services/agent_run_service.py",
         )
     }
     protocol = {
         "protocol_id": PROTOCOL_ID,
-        "status": "protocol_frozen_execution_blocked",
+        "status": "protocol_frozen_execution_ready",
         "protocol_ready": True,
-        "execution_ready": False,
-        "execution_blockers": ["p4_c04_exact_frozen_plan_runner_not_implemented"],
+        "execution_ready": True,
+        "execution_blockers": [],
+        "runner_contract": {
+            "entrypoint": "scripts/run_p4_c04_road_e2e.py",
+            "plan_injection": "semantic_hash_locked",
+            "stage_execution": "independent_runs_with_explicit_supersession",
+            "planner_calls": 0,
+            "replanning": "forbidden",
+            "execution_validation_gate": "workflow_validator_enforce",
+            "generic_grounding_probe": "diagnostic_only",
+        },
         "implementation_commit": implementation_commit,
         "implementation_files": implementation_files,
         "knowledge_identity": repository.get_knowledge_identity(),
@@ -269,10 +281,9 @@ def verify_p4_c04_freeze(root: Path) -> dict[str, Any]:
     asset_inventory = _read_json(root / "asset_inventory.json")
     expected = protocol["frozen_artifact_hashes"]
     checks = {
-        "protocol_id": protocol.get("protocol_id") == PROTOCOL_ID,
+        "protocol_id": protocol.get("protocol_id") in {LEGACY_PROTOCOL_ID, PROTOCOL_ID},
         "protocol_ready": protocol.get("protocol_ready") is True,
-        "execution_blocked_until_runner": protocol.get("execution_ready") is False
-        and protocol.get("execution_blockers") == ["p4_c04_exact_frozen_plan_runner_not_implemented"],
+        "execution_gate_consistent": _execution_gate_consistent(protocol),
         "selected_plan_hash": _semantic_hash(selected_plan) == expected["selected_plan"],
         "workflow_plan_hash": _semantic_hash(workflow_plan) == expected["workflow_plan"],
         "execution_config_hash": _semantic_hash(execution_config) == expected["execution_config"],
@@ -362,12 +373,34 @@ def _validate_stage_semantics(config: dict[str, Any]) -> None:
         raise ValueError("The provisional stage must explicitly record Microsoft as delayed")
     if set(stages[1]["active_source_ids"]) != set(SOURCE_IDS):
         raise ValueError("The arrival stage must activate OSM, Microsoft, and the AOI boundary")
+    expected_action = (
+        "resume" if config.get("protocol_id") == LEGACY_PROTOCOL_ID else "rerun_with_supersession"
+    )
+    if stages[1].get("action") != expected_action:
+        raise ValueError(f"The arrival stage action must be {expected_action}")
     if config["runtime"]["llm_calls"] != 0 or config["runtime"]["fallback"] != "forbidden":
         raise ValueError("P4 execution must reuse the frozen plan with no LLM calls or fallback")
 
 
 def _bounds_intersect(left: list[float], right: list[float]) -> bool:
     return left[0] <= right[2] and left[2] >= right[0] and left[1] <= right[3] and left[3] >= right[1]
+
+
+def _execution_gate_consistent(protocol: dict[str, Any]) -> bool:
+    if protocol.get("protocol_id") == LEGACY_PROTOCOL_ID:
+        return protocol.get("execution_ready") is False and protocol.get("execution_blockers") == [
+            "p4_c04_exact_frozen_plan_runner_not_implemented"
+        ]
+    runner_contract = protocol.get("runner_contract") or {}
+    return (
+        protocol.get("execution_ready") is True
+        and protocol.get("execution_blockers") == []
+        and runner_contract.get("entrypoint") == "scripts/run_p4_c04_road_e2e.py"
+        and runner_contract.get("plan_injection") == "semantic_hash_locked"
+        and runner_contract.get("replanning") == "forbidden"
+        and runner_contract.get("execution_validation_gate") == "workflow_validator_enforce"
+        and runner_contract.get("generic_grounding_probe") == "diagnostic_only"
+    )
 
 
 def _input_ref(path: Path) -> dict[str, str]:

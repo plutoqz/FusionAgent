@@ -36,7 +36,8 @@ def test_real_c04_protocol_freeze_hashes_assets_and_fails_closed_on_tamper(tmp_p
 
     assert audit["passed"] is True
     assert payload["protocol"]["protocol_ready"] is True
-    assert payload["protocol"]["execution_ready"] is False
+    assert payload["protocol"]["execution_ready"] is True
+    assert payload["protocol"]["execution_blockers"] == []
     assert payload["protocol"]["evaluation_boundary"]["planning_rubric_mismatch_preserved"] is True
     by_id = {item["source_id"]: item for item in payload["asset_inventory"]["sources"]}
     assert by_id["raw.osm.road"]["feature_count"] == 16279
