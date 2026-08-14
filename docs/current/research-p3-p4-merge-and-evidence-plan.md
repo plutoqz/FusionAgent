@@ -819,3 +819,27 @@ case manifest/crosswalk
 3. 只有完整 audit 通过后，运行 `scripts/prepare_research_manual_review.py`，输出到新的 `D:\code\fusionagent-evidence\p3-planning-repeated\2026-08-15-manual-review-v1`。
 4. 两名独立人工 reviewer 只编辑各自 `reviewer-*.decisions.json`；冻结两份文件后再运行 `scripts/audit_research_manual_review.py`。blind key 在两份人评冻结前不得揭示。
 5. E3 extension gate 与 E4 agreement audit 均有终态后，才进入 E5 AOI 资产清点和 case selection；不根据单次高分事后选择 E2E 案例。
+
+### 16.12 执行检查点（2026-08-15，多 AOI 候选宇宙清点完成）
+
+#### E5 候选清点事实与边界
+
+- 候选证据：`D:\code\fusionagent-evidence\p4-planning-e2e\2026-08-15-multi-aoi-candidate-inventory-v1\candidate_inventory.json`，文件大小 `88,350` bytes，SHA-256 `sha256:5cb4f1fe9821cbc575cf3784dab042cc6d29f5759e7531e789d1844b258b032c`。
+- 协议为 `fusionagent.p4.multi-aoi-candidate-inventory.v1`，实现提交 `bce1ad7f6c798b3abf91da3bdeb0c1e9995e84d7`；清单完整性、资产存在性、AOI 相交性、几何有效性、可用历史 hash 一致性和 zero-call checks 全部通过。
+- 三个已声明 AOI 中，Caracas 对 C01/C02/C04/C05 各自 source-closed；Abidjan 与越南北部沿海走廊均缺少相应 Microsoft building/road 源。四个正式案例的 `source_closed_aoi_count` 均为 `1`，因此 `e5_multi_aoi_source_coverage_ready=false`。
+- 当前结论是候选宇宙已审计但没有可选择的双 AOI 正式案例；`claim_eligible=false`、`selection_status=candidate_universe_only_no_case_selected`。不得用历史 P4-G mock 运行补齐跨 AOI，也不得把单 AOI 资产清点写成 external-validity 结果。
+- 清单只证明候选可行性，不证明 planning E2E 能力；其 `runtime_calls` 为 `fusion_runs=0, llm_calls=0, provider_calls=0`。该负结果保留进入 E5/E6 的证据索引。
+
+#### 可执行恢复顺序（唯一允许的推进路径）
+
+1. 凭据到位后先在 clean worktree 复查 `OPENAI_API_KEY`/`GEOFUSION_LLM_API_KEY`、model `deepseek-v4-flash`、base URL、temperature `0.1`、max output `16384`、budget `1700000` 和 freeze audit `13/13`；任一不匹配则停止。
+2. 仅执行一次 `scripts/run_research_llm_repeated_formal.py --execute` 到既定正式根；不预创建根、不重跑、不 retry。记录 runner 退出码、进程状态和已写入 run 数。
+3. 对同一根运行 `scripts/analyze_research_llm_repeated_formal.py`。只有 `evidence_integrity_valid=true` 且 `formal_execution_complete=true` 才允许生成 E4 packet；不完整批次保留原始失败和 audit，终止后续步骤。
+4. 生成 packet 后由两名独立 reviewer 完成各自 decisions 文件；冻结文件 hash 后运行 `scripts/audit_research_manual_review.py`。任何缺项或未裁决分歧均保持非终态，不揭盲、不进入 E5。
+5. 只有 E3 extension gate 与 E4 agreement audit 都有终态，才重新读取本清单并按预注册规则选择 case-AOI。当前清单无双 AOI 候选时，E5 以“未运行/不可行”终止，不下载新源、不改机制、不复活 C06。
+6. E6 只消费冻结 JSON 和审计 manifest，生成 comparison/stability/manual-agreement/E2E outcome/claim-evidence 表；统一 claim audit 必须把跨 AOI 主张标记为 unsupported，除非未来新增来源后形成新的、独立冻结的协议与证据根。
+
+#### 当前阻断
+
+- 本 shell 的 Process/User/Machine scope 仍未配置 `OPENAI_API_KEY` 或 `GEOFUSION_LLM_API_KEY`；因此 E3 真实半段、E4 人评和 E5 runtime 均未执行。这是外部凭据阻断，不是 runner 或候选清点失败。
+- 在凭据到位前，允许的工作仅限于只读审计、计划/证据索引维护和测试；不得创建正式结果根或调用 Provider。
