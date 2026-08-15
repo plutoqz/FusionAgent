@@ -859,3 +859,24 @@ case manifest/crosswalk
 
 - 本批次是合法的受控不完整证据，不是完整 E3 结果；不得计算 stability/extension gate，不得启动 E4 manual review，不得进入 E5 case selection，也不得把 43/54 当作正式比较样本。
 - 下一步只能先定位 runner 为何在 45 个 scheduled items 后正常退出，再制定新 protocol。禁止对这 9 个 run 或 2 个失败 run 做选择性补跑；若要重新获得完整批次，必须新建、重新冻结并一次性执行完整协议。
+
+### 16.14 执行检查点（2026-08-15，v3 完整 54-call 批次）
+
+#### v3 协议与执行
+
+- v3 实现提交 `a1682d7`；freeze 提交 `e95afb1`。协议 `fusionagent.planning-repeated-formal.v3` 使用新的 `formal-v3-*` run IDs、schedule seed `20260815`，明确不与不完整 v2 混池。
+- freeze root：`docs/current/evidence/p3-planning-repeated/2026-08-15-protocol-freeze-v3`；15 项 freeze checks 全部通过。Provider/model/revision、prompt/schema/evaluator/manifest/implementation/input hash 与 `1,700,000` token budget 保持原冻结语义，唯一执行参数变化是显式冻结单请求 timeout `600` 秒；transport retries 仍为 `0`。
+- zero-call preflight：`D:\code\fusionagent-evidence\p3-planning-repeated\2026-08-15-deepseek-v4-flash-repeated-v3-preflight`；`execution_ready=true`、`paid_provider_calls_made=0`、timeout `600`、54 calls，preflight SHA-256 `sha256:25d8c3ea3284b425be29dc37e01d6e5740e112316b6a78923419c7e586450cdb`。
+- 正式根：`D:\code\fusionagent-evidence\p3-planning-repeated\2026-08-15-deepseek-v4-flash-repeated-v3`。`formal_summary.json` 记录 scheduled/executed/successful `54/54/54`、failed `0`、consumed tokens `708460`、zero retry/repair/salvage/fallback、`prior_incomplete_v2_pooled=false`。
+
+#### 自动审计与 extension gate
+
+- `formal_automatic_audit.json` SHA-256 `sha256:3656537a16c1caccf908af2cfa748dd8d3bc77bfe71ee68ea7f1237614ce56ec`；全部 integrity 与 completion checks 通过，`evidence_integrity_valid=true`、`formal_execution_complete=true`。
+- 三组 automatic mean：`llm_only=0.923611`、`llm_full_contract_kg=0.909722`、`llm_capability_kg=0.895833`。这些只是自动 rubric 描述性结果；39 个 automatic checks 失败、108 个 manual items 待评，不支持 superiority 结论。
+- extension gate 已评估且 `extension_required=true`。C01 三组、C02 三组、C04 capability/LLM-only、C05 三组、C06 capability 出现多个 plan structure signatures；C01/C02 多个 cell 的 automatic score range 为 `0.25-0.50`。
+- 按预注册规则，下一步只能通过新协议将全部 `6 cases x 3 LLM conditions` 从 3 repetitions 一致扩展至 5 repetitions；不得只补不稳定 cell。E4 manual packet 延后到 extension 终态，避免对 3-repetition packet 重复人评。
+
+#### 当前下一验收点
+
+- 先新建并冻结 5-repetition extension protocol，新增 repetitions 4/5 共 36 次真实调用，并明确与 v3 的 54 个已冻结 run 组合为每 cell 5 次的分析集合；旧 v2 仍不混池。
+- extension freeze/zero-call preflight 完成后需要新的付费执行授权；未授权前不发起额外 36 次调用。
