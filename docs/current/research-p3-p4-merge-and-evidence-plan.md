@@ -880,3 +880,27 @@ case manifest/crosswalk
 
 - 先新建并冻结 5-repetition extension protocol，新增 repetitions 4/5 共 36 次真实调用，并明确与 v3 的 54 个已冻结 run 组合为每 cell 5 次的分析集合；旧 v2 仍不混池。
 - extension freeze/zero-call preflight 完成后需要新的付费执行授权；未授权前不发起额外 36 次调用。
+
+### 16.15 执行检查点（2026-08-15，五次重复扩展与 90-run 自动审计完成）
+
+#### extension 协议与付费执行
+
+- extension 实现提交为 `85a03b681644c77fb1e9ef939cfdfc09348aac89`，freeze 提交为 `1a05417`；协议 `fusionagent.planning-repeated-extension-formal.v1` 只新增全部 18 个 LLM case-condition cells 的 repetitions 4/5，共 36 calls，禁止选择性补跑。
+- freeze root：`docs/current/evidence/p3-planning-repeated/2026-08-15-protocol-freeze-extension-v1`。19 项协议检查与 13 项 v3 base binding 检查全部通过；绑定的 v3 audit SHA-256 为 `sha256:3656537a16c1caccf908af2cfa748dd8d3bc77bfe71ee68ea7f1237614ce56ec`，并逐一复核 54 个 base result hash。
+- generation 保持官方 `deepseek-v4-flash`、revision `7872f01b1d1fe23eabc4c98b48bffcef5a386062`、temperature `0.1`、max output `16384`、timeout `600` 秒、retry/repair `0`、salvage/fallback forbidden。36-call conservative bound 为 `1,110,874`，batch budget 为 `1,200,000`。
+- zero-call preflight root：`D:\code\fusionagent-evidence\p3-planning-repeated\2026-08-15-deepseek-v4-flash-repeated-extension-v1-preflight`；`execution_ready=true`、`base_evidence_binding_valid=true`、`paid_provider_calls_made=0`，preflight SHA-256 为 `sha256:8bc915fdfeb16271994f70e5588b1bd5eb9ff9fa71a8eaa4d769eae95e8f424f`。
+- 正式 extension root：`D:\code\fusionagent-evidence\p3-planning-repeated\2026-08-15-deepseek-v4-flash-repeated-extension-v1`。runner 单实例正常退出；scheduled/executed/successful 为 `36/36/36`、failed `0`、consumed tokens `462719`，所有成功响应均为 exact model、strict JSON、transport retry `0`，且未与 v2 混池。
+
+#### extension 与 90-run combined 自动审计
+
+- extension automatic audit 位于正式 extension root 的 `formal_automatic_audit.json`，SHA-256 为 `sha256:7c7b69aed93076ff8d459227633ccf7c069be752fd72b20415f69db0646c9756`；`evidence_integrity_valid=true`、`formal_execution_complete=true`。33 个 automatic rubric failures 与 72 个 manual items 原样保留，不视为 transport/integrity failure。
+- combined analysis root：`D:\code\fusionagent-evidence\p3-planning-repeated\2026-08-15-deepseek-v4-flash-repeated-combined-v1`；只读组合 v3 repetitions 1/2/3 与 extension repetitions 4/5，旧 v2 继续排除。
+- combined audit `formal_combined_automatic_audit.json` SHA-256 为 `sha256:4bfdc65db36c23d571f28b17f8d9a02db94638e85a4704c1d060092ca585457f`。15 项 integrity checks 与 3 项 completion checks 全部通过；90/90 runs 成功、18 cells 均精确包含 repetitions `{1,2,3,4,5}`、total tokens `1,171,179`、extension gate 状态为 `fulfilled`。
+- 五次重复的 all-case automatic mean 为 `llm_capability_kg=0.883333`、`llm_full_contract_kg=0.908333`、`llm_only=0.908333`；排除 C03 后的 positive-case mean 分别为 `0.865`、`0.895`、`0.895`。72 个 automatic checks 失败，17/18 cells 存在多个 plan structure signatures，7/18 cells 的 automatic score range >= `0.25`。这些是描述性稳定性结果，不支持 KG superiority、显著性或广泛外推主张。
+
+#### combined 人工评价准备与当前闸门
+
+- combined manual-review root：`D:\code\fusionagent-evidence\p3-planning-repeated\2026-08-15-manual-review-combined-v1`；packet ID 为 `packet-dc1cf0ac217aff3d7c3d`，source audit hash 与 combined audit 一致，共 180 items。
+- 两份 reviewer context 各 180 records；顶层 condition、run ID、replicate 与 automatic score 已移除。两份 decisions template 的 180 个 decision 均为 `null`，Codex 未填写或冒充 human rating。packet manifest SHA-256 为 `sha256:16e8e2541c91571e71c69cf79861f1dcf077f8584b396297e98c062d8b3584ab`。
+- 当前阶段进入 E4 外部人工评价：必须由两名独立 reviewer 分别完成 `reviewer-a.decisions.json` 与 `reviewer-b.decisions.json`，冻结两份文件 hash 后才能运行 agreement audit 和揭盲。任何缺项或分歧都保留；不得根据 automatic score 引导 reviewer。
+- E5 多 AOI 仍受 16.12 的 source coverage 事实约束：当前没有双 AOI source-closed case，因此以不可行负结果保留，不用 mock 或临时新增来源补齐。E6 可继续生成标记为 pending-human-review 的自动描述表和 evidence index，但论文 comparative claim 在 E4 终态前保持 `not ready`。
