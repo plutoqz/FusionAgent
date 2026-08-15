@@ -21,7 +21,11 @@ EXPECTED_CALL_COUNT = 54
 EXPECTED_REPLICATES = {1, 2, 3}
 
 
-def analyze_repeated_formal(root: Path) -> dict[str, Any]:
+def analyze_repeated_formal(
+    root: Path,
+    *,
+    expected_protocol_id: str = PROTOCOL_ID,
+) -> dict[str, Any]:
     protocol = _read_json(root / "formal_protocol.json")
     freeze_audit = _read_json(root / "freeze_audit.json")
     execution = _read_json(root / "execution_config.json")
@@ -50,8 +54,10 @@ def analyze_repeated_formal(root: Path) -> dict[str, Any]:
         and all(freeze_audit["checks"].values()),
         "formal_protocol_ready": protocol.get("formal_ready") is True
         and protocol.get("protocol_status") == "frozen",
-        "protocol_id_match": protocol.get("protocol_id") == execution.get("protocol_id") == PROTOCOL_ID,
-        "schedule_protocol_id_match": schedule.get("protocol_id") == PROTOCOL_ID,
+        "protocol_id_match": (
+            protocol.get("protocol_id") == execution.get("protocol_id") == expected_protocol_id
+        ),
+        "schedule_protocol_id_match": schedule.get("protocol_id") == expected_protocol_id,
         "model_revision_match": execution.get("model_revision")
         == protocol["provider"].get("model_revision"),
         "copied_schedule_hash_matches_protocol": (
@@ -76,9 +82,14 @@ def analyze_repeated_formal(root: Path) -> dict[str, Any]:
         and execution.get("semantic_repairs") == protocol["generation"]["semantic_repairs"]
         and execution.get("json_salvage") == protocol["generation"]["json_salvage"]
         and execution.get("fallback") == protocol["generation"]["fallback"],
+        "execution_timeout_matches_protocol": (
+            "request_timeout_seconds" not in protocol["generation"]
+            or execution.get("request_timeout_seconds")
+            == protocol["generation"]["request_timeout_seconds"]
+        ),
         "old_v1_pooling_forbidden": protocol["design"].get("old_v1_results_may_be_pooled")
         is False,
-        "execution_identity_matches": identity.get("protocol_id") == PROTOCOL_ID
+        "execution_identity_matches": identity.get("protocol_id") == expected_protocol_id
         and identity.get("frozen_implementation_commit") == protocol.get("implementation_commit")
         and identity.get("execution_commit_descends_from_frozen_implementation") is True
         and identity.get("worktree_clean_at_start") is True
@@ -160,7 +171,7 @@ def analyze_repeated_formal(root: Path) -> dict[str, Any]:
     ]
     return {
         "report_type": "planning_only_repeated_formal_automatic_audit",
-        "protocol_id": PROTOCOL_ID,
+        "protocol_id": expected_protocol_id,
         "model": expected_model,
         "model_revision": protocol["provider"]["model_revision"],
         "evidence_manifest": _evidence_manifest(root, result_paths),
@@ -373,10 +384,14 @@ def main() -> int:
     parser = argparse.ArgumentParser(description="Audit a completed 54-call repeated planning batch.")
     parser.add_argument("--root", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--expected-protocol-id", default=PROTOCOL_ID)
     args = parser.parse_args()
     if args.output.exists():
         raise RuntimeError(f"Refusing to overwrite repeated formal audit: {args.output}")
-    report = analyze_repeated_formal(args.root)
+    report = analyze_repeated_formal(
+        args.root,
+        expected_protocol_id=args.expected_protocol_id,
+    )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(
         json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True) + "\n",
