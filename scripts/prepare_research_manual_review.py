@@ -19,19 +19,46 @@ def prepare_manual_review(
     output_root: Path,
     packet_seed: int = 20260815,
 ) -> dict[str, Any]:
+    return prepare_manual_review_from_roots(
+        formal_roots=[formal_root],
+        audit_path=audit_path,
+        output_root=output_root,
+        packet_seed=packet_seed,
+        completion_requirement="a complete 54-call formal batch",
+    )
+
+
+def prepare_manual_review_from_roots(
+    *,
+    formal_roots: list[Path],
+    audit_path: Path,
+    output_root: Path,
+    packet_seed: int = 20260815,
+    completion_requirement: str = "a complete formal batch",
+) -> dict[str, Any]:
     if output_root.exists():
         raise RuntimeError(f"Refusing to overwrite review packet root: {output_root}")
     audit = _read_json(audit_path)
     if audit.get("evidence_integrity_valid") is not True:
         raise RuntimeError("Manual review requires evidence_integrity_valid=true")
     if audit.get("formal_execution_complete") is not True:
-        raise RuntimeError("Manual review requires a complete 54-call formal batch")
-    prepared = _read_json(formal_root / "prepared_inputs.json")
-    prepared_by_id = {item["schedule"]["run_id"]: item for item in prepared}
+        raise RuntimeError(f"Manual review requires {completion_requirement}")
+    prepared_by_id: dict[str, dict[str, Any]] = {}
+    result_path_by_id: dict[str, Path] = {}
+    for formal_root in formal_roots:
+        prepared = _read_json(formal_root / "prepared_inputs.json")
+        for item in prepared:
+            run_id = item["schedule"]["run_id"]
+            if run_id in prepared_by_id:
+                raise RuntimeError(f"Duplicate run_id across formal roots: {run_id}")
+            prepared_by_id[run_id] = item
+            result_path_by_id[run_id] = formal_root / "runs" / run_id / "result.json"
     items = []
     blind_key = []
     for row in audit["runs"]:
-        result = _read_json(formal_root / "runs" / row["run_id"] / "result.json")
+        if row["run_id"] not in prepared_by_id:
+            raise RuntimeError(f"No formal evidence root contains run_id {row['run_id']}")
+        result = _read_json(result_path_by_id[row["run_id"]])
         plan = result.get("plan")
         for manual_item in row["evaluation"]["manual_review_items"]:
             packet_item_id = _packet_item_id(

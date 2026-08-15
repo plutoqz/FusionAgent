@@ -25,6 +25,9 @@ def analyze_repeated_formal(
     root: Path,
     *,
     expected_protocol_id: str = PROTOCOL_ID,
+    expected_call_count: int = EXPECTED_CALL_COUNT,
+    expected_replicates: set[int] | frozenset[int] = frozenset(EXPECTED_REPLICATES),
+    evaluate_extension_gate: bool = True,
 ) -> dict[str, Any]:
     protocol = _read_json(root / "formal_protocol.json")
     freeze_audit = _read_json(root / "freeze_audit.json")
@@ -32,6 +35,8 @@ def analyze_repeated_formal(
     identity = _read_json(root / "execution_identity.json")
     summary = _read_json(root / "formal_summary.json")
     revision_evidence = _read_json(root / "model_revision_evidence.json")
+    base_binding_path = root / "base_evidence_binding.json"
+    base_binding = _read_json(base_binding_path) if base_binding_path.exists() else None
     schedule = _read_json(root / "schedule.json")
     prepared = _read_json(root / "prepared_inputs.json")
     base = analyze_pilot(root)
@@ -94,10 +99,10 @@ def analyze_repeated_formal(
         and identity.get("execution_commit_descends_from_frozen_implementation") is True
         and identity.get("worktree_clean_at_start") is True
         and identity.get("execute_provider_calls") is True,
-        "schedule_count_and_ids_unique": len(schedule_ids) == EXPECTED_CALL_COUNT
-        and len(set(schedule_ids)) == EXPECTED_CALL_COUNT,
+        "schedule_count_and_ids_unique": len(schedule_ids) == expected_call_count
+        and len(set(schedule_ids)) == expected_call_count,
         "prepared_inputs_match_schedule": set(prepared_by_id) == set(schedule_ids)
-        and len(prepared) == EXPECTED_CALL_COUNT,
+        and len(prepared) == expected_call_count,
         "result_run_ids_unique": len(raw_by_id) == len(raw_results),
         "attempted_results_form_schedule_prefix": result_ids == attempted_prefix,
         "result_input_hashes_match_frozen_inputs": all(
@@ -132,26 +137,53 @@ def analyze_repeated_formal(
         and summary.get("consumed_tokens") == observed_tokens,
         "token_budget_respected": observed_tokens <= protocol["budget"]["batch_token_budget"],
         "input_leakage_zero": base["input_leakage"] is False,
+        "base_evidence_binding_matches_protocol": (
+            (base_binding is None and "base_evidence" not in protocol)
+            or (
+                base_binding is not None
+                and protocol.get("base_evidence") == base_binding
+                and protocol.get("identities", {}).get("base_evidence_binding_sha256")
+                == _semantic_hash(base_binding)
+                and execution.get("base_audit_sha256")
+                == base_binding.get("formal_automatic_audit_sha256")
+            )
+        ),
     }
     evidence_integrity_valid = all(integrity_checks.values())
     completion_checks = {
-        "all_scheduled_runs_attempted": attempted_count == EXPECTED_CALL_COUNT
+        "all_scheduled_runs_attempted": attempted_count == expected_call_count
         and result_ids == set(schedule_ids),
-        "summary_scheduled_count": summary.get("scheduled_calls") == EXPECTED_CALL_COUNT,
-        "all_case_condition_replicates_present": _complete_cell_grid(base["runs"]),
+        "summary_scheduled_count": summary.get("scheduled_calls") == expected_call_count,
+        "all_case_condition_replicates_present": _complete_cell_grid(
+            base["runs"], expected_replicates
+        ),
     }
     formal_execution_complete = evidence_integrity_valid and all(completion_checks.values())
 
     cells = _cell_stability(base["runs"])
-    extension_reasons = _extension_reasons(cells) if formal_execution_complete else []
-    extension_gate = {
-        "status": "evaluated" if formal_execution_complete else "not_evaluable_batch_incomplete",
-        "extension_required": bool(extension_reasons) if formal_execution_complete else None,
-        "target_repetitions": (5 if extension_reasons else 3) if formal_execution_complete else None,
-        "scope": "all_cases_and_all_llm_conditions" if extension_reasons else None,
-        "reasons": extension_reasons,
-        "selective_reruns_allowed": False,
-    }
+    extension_reasons = (
+        _extension_reasons(cells)
+        if formal_execution_complete and evaluate_extension_gate
+        else []
+    )
+    if evaluate_extension_gate:
+        extension_gate = {
+            "status": "evaluated" if formal_execution_complete else "not_evaluable_batch_incomplete",
+            "extension_required": bool(extension_reasons) if formal_execution_complete else None,
+            "target_repetitions": (5 if extension_reasons else 3) if formal_execution_complete else None,
+            "scope": "all_cases_and_all_llm_conditions" if extension_reasons else None,
+            "reasons": extension_reasons,
+            "selective_reruns_allowed": False,
+        }
+    else:
+        extension_gate = {
+            "status": "not_applicable_extension_batch",
+            "extension_required": False,
+            "target_repetitions": max(expected_replicates),
+            "scope": None,
+            "reasons": [],
+            "selective_reruns_allowed": False,
+        }
     failed_automatic = [
         {"run_id": row["run_id"], "check_id": check["check_id"], "details": check["details"]}
         for row in base["runs"]
@@ -180,7 +212,7 @@ def analyze_repeated_formal(
         "completion_checks": completion_checks,
         "formal_execution_complete": formal_execution_complete,
         "attempted_call_count": attempted_count,
-        "scheduled_call_count": EXPECTED_CALL_COUNT,
+        "scheduled_call_count": expected_call_count,
         "successful_calls": base["successful_calls"],
         "failed_calls": base["failed_calls"],
         "failure_counts": base["failure_counts"],
@@ -204,11 +236,16 @@ def analyze_repeated_formal(
     }
 
 
-def _complete_cell_grid(rows: list[dict[str, Any]]) -> bool:
+def _complete_cell_grid(
+    rows: list[dict[str, Any]],
+    expected_replicates: set[int] | frozenset[int] = frozenset(EXPECTED_REPLICATES),
+) -> bool:
     grouped: dict[tuple[str, str], set[int]] = defaultdict(set)
     for row in rows:
         grouped[(row["case_id"], row["knowledge_condition"])].add(row["replicate"])
-    return len(grouped) == 18 and all(replicates == EXPECTED_REPLICATES for replicates in grouped.values())
+    return len(grouped) == 18 and all(
+        replicates == set(expected_replicates) for replicates in grouped.values()
+    )
 
 
 def _cell_stability(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -337,6 +374,8 @@ def _evidence_manifest(root: Path, result_paths: list[Path]) -> dict[str, Any]:
         "execution_identity.json",
         "formal_summary.json",
     ]
+    if (root / "base_evidence_binding.json").exists():
+        fixed_files.append("base_evidence_binding.json")
     return {
         "root": str(root.resolve()),
         "fixed_files": [_file_profile(root / name) for name in fixed_files],
@@ -385,12 +424,18 @@ def main() -> int:
     parser.add_argument("--root", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
     parser.add_argument("--expected-protocol-id", default=PROTOCOL_ID)
+    parser.add_argument("--expected-call-count", type=int, default=EXPECTED_CALL_COUNT)
+    parser.add_argument("--expected-replicates", default="1,2,3")
+    parser.add_argument("--skip-extension-gate", action="store_true")
     args = parser.parse_args()
     if args.output.exists():
         raise RuntimeError(f"Refusing to overwrite repeated formal audit: {args.output}")
     report = analyze_repeated_formal(
         args.root,
         expected_protocol_id=args.expected_protocol_id,
+        expected_call_count=args.expected_call_count,
+        expected_replicates={int(value) for value in args.expected_replicates.split(",")},
+        evaluate_extension_gate=not args.skip_extension_gate,
     )
     args.output.parent.mkdir(parents=True, exist_ok=True)
     args.output.write_text(

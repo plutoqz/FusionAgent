@@ -6,6 +6,7 @@ import pytest
 from scripts.analyze_research_llm_repeated_formal import analyze_repeated_formal
 from scripts.audit_research_manual_review import audit_manual_review
 from scripts.prepare_research_manual_review import prepare_manual_review
+from scripts.prepare_research_combined_manual_review import prepare_combined_manual_review
 from test_analyze_research_llm_repeated_formal import _build_completed_root
 
 
@@ -108,3 +109,67 @@ def test_manual_review_agreement_audit_preserves_disagreement(tmp_path: Path) ->
     assert report["passed"] is False
     assert report["disagreement_count"] == 1
     assert report["checks"]["no_unresolved_disagreements"] is False
+
+
+def test_combined_manual_review_routes_runs_across_two_evidence_roots(tmp_path: Path) -> None:
+    base_root = tmp_path / "base"
+    extension_root = tmp_path / "extension"
+    rows = []
+    for root, run_id, replicate in (
+        (base_root, "formal-v3-c01-llm_only-r1", 1),
+        (extension_root, "formal-ext-v1-c01-llm_only-r4", 4),
+    ):
+        root.mkdir()
+        (root / "prepared_inputs.json").write_text(
+            json.dumps(
+                [
+                    {
+                        "schedule": {"run_id": run_id},
+                        "payload": {"task": "visible planner input", "replicate": replicate},
+                    }
+                ]
+            ),
+            encoding="utf-8",
+        )
+        run_dir = root / "runs" / run_id
+        run_dir.mkdir(parents=True)
+        (run_dir / "result.json").write_text(
+            json.dumps({"run_id": run_id, "plan": {"decision": "plan", "tasks": []}}),
+            encoding="utf-8",
+        )
+        rows.append(
+            {
+                "run_id": run_id,
+                "case_id": "C01",
+                "knowledge_condition": "llm_only",
+                "replicate": replicate,
+                "evaluation": {
+                    "manual_review_items": [
+                        {"item_id": "manual-fixture", "description": "review this plan"}
+                    ]
+                },
+            }
+        )
+    audit_path = tmp_path / "combined-audit.json"
+    audit_path.write_text(
+        json.dumps(
+            {
+                "evidence_integrity_valid": True,
+                "formal_execution_complete": True,
+                "runs": rows,
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    output = tmp_path / "combined-review"
+    manifest = prepare_combined_manual_review(
+        base_root=base_root,
+        extension_root=extension_root,
+        audit_path=audit_path,
+        output_root=output,
+    )
+
+    assert manifest["item_count"] == 2
+    key = json.loads((output / "blind-key.json").read_text(encoding="utf-8"))
+    assert {item["run_id"] for item in key["mapping"]} == {row["run_id"] for row in rows}
