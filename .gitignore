@@ -14,6 +14,7 @@ env/
 .env
 .env.*
 !.env.example
+/.env.formal.local
 依赖.txt
 !依赖.txt.example
 文档/Proposal.pdf
