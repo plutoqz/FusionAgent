@@ -843,3 +843,19 @@ case manifest/crosswalk
 
 - 本 shell 的 Process/User/Machine scope 仍未配置 `OPENAI_API_KEY` 或 `GEOFUSION_LLM_API_KEY`；因此 E3 真实半段、E4 人评和 E5 runtime 均未执行。这是外部凭据阻断，不是 runner 或候选清点失败。
 - 在凭据到位前，允许的工作仅限于只读审计、计划/证据索引维护和测试；不得创建正式结果根或调用 Provider。
+
+### 16.13 执行检查点（2026-08-15，官方 DeepSeek 批次受控不完整）
+
+#### 执行事实
+
+- 本地凭据文件为 `.env.formal.local`，已由 `.gitignore` 明确忽略；忽略规则提交为 `6f5d82c`。key 未写入协议、结果或 Git 追踪文件。
+- 正式根：`D:\code\fusionagent-evidence\p3-planning-repeated\2026-08-14-deepseek-v4-flash-repeated-v1`。使用冻结的官方 endpoint/model/revision，runner 付款前 clean-worktree 检查通过，正式调用已实际发生。
+- `formal_summary.json`：scheduled `54`，executed `45`，successful `43`，failed `2`，consumed tokens `564012`，`failed_calls_replaced=false`，状态为 `completed_with_observed_failures`。
+- 自动审计：`formal_automatic_audit.json`，SHA-256 `sha256:25176b02f9fce8838a0da768760ba809d941df4f76ad6474d053895d01c98388`；`evidence_integrity_valid=true`，但 `formal_execution_complete=false`。
+- 两个失败均原样保留：C01 `llm_full_contract_kg-r1` 为 `output_schema_validation_failure`；C05 `llm_capability_kg-r3` 为 `transport_error`（read timeout）。两者均无 retry、repair、salvage 或替换。
+- 以下 9 个计划 run 未产生 `result.json`：`formal-v2-c01-llm_only-r3`、`formal-v2-c03-llm_capability_kg-r1`、`formal-v2-c03-llm_capability_kg-r3`、`formal-v2-c04-llm_capability_kg-r3`、`formal-v2-c04-llm_full_contract_kg-r1`、`formal-v2-c05-llm_only-r3`、`formal-v2-c06-llm_capability_kg-r2`、`formal-v2-c06-llm_only-r2`、`formal-v2-c06-llm_only-r3`。
+
+#### 终态与后续闸门
+
+- 本批次是合法的受控不完整证据，不是完整 E3 结果；不得计算 stability/extension gate，不得启动 E4 manual review，不得进入 E5 case selection，也不得把 43/54 当作正式比较样本。
+- 下一步只能先定位 runner 为何在 45 个 scheduled items 后正常退出，再制定新 protocol。禁止对这 9 个 run 或 2 个失败 run 做选择性补跑；若要重新获得完整批次，必须新建、重新冻结并一次性执行完整协议。
