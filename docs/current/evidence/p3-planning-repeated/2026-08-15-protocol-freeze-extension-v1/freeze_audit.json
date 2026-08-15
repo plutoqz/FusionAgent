@@ -1,0 +1,45 @@
+{
+  "base_evidence_checks": {
+    "blockers": [],
+    "checks": {
+      "audit_hash": true,
+      "base_complete": true,
+      "base_model_identity": true,
+      "base_protocol_id": true,
+      "extension_gate_triggered": true,
+      "extension_reasons_hash": true,
+      "manifest_hash": true,
+      "physical_result_hashes": true,
+      "prepared_inputs_hash": true,
+      "protocol_hash": true,
+      "result_index_hash": true,
+      "schedule_hash": true,
+      "summary_hash": true
+    },
+    "passed": true
+  },
+  "blockers": [],
+  "checks": {
+    "base_binding_hash": true,
+    "base_evidence_valid": true,
+    "budget_bound": true,
+    "call_count": true,
+    "evaluator_hash": true,
+    "extension_repetitions": true,
+    "full_grid_extension": true,
+    "immutable_model_revision": true,
+    "implementation_hashes": true,
+    "manifest_hash": true,
+    "output_schema_hash": true,
+    "prepared_inputs_hash": true,
+    "prior_evidence_not_poolable": true,
+    "protocol_id": true,
+    "request_timeout_frozen": true,
+    "schedule_hash": true,
+    "schedule_protocol_id": true,
+    "unique_extension_run_ids": true,
+    "zero_recovery_paths": true
+  },
+  "passed": true,
+  "protocol_id": "fusionagent.planning-repeated-extension-formal.v1"
+}

@@ -1,0 +1,21 @@
+{
+  "base_call_count": 54,
+  "base_evidence_root_name": "2026-08-15-deepseek-v4-flash-repeated-v3",
+  "base_protocol_id": "fusionagent.planning-repeated-formal.v3",
+  "base_replicates": [
+    1,
+    2,
+    3
+  ],
+  "evidence_manifest_sha256": "sha256:201e8786cd033463206399b79e939526528f32924c1eb89ef0bc04529da85f83",
+  "extension_gate_reasons_sha256": "sha256:8d2649ea29777524710ec9ddfbfa213dda31398afd32c8e06ba988e8e108cdaf",
+  "formal_automatic_audit_sha256": "sha256:3656537a16c1caccf908af2cfa748dd8d3bc77bfe71ee68ea7f1237614ce56ec",
+  "formal_protocol_sha256": "sha256:2a113a329e2d6723622f5844062965a27bd72cd9e52c3c348de66bbb3d6fdfa8",
+  "formal_summary_sha256": "sha256:1e297b15657f100645b28f569c2419fca0fa854b08f7fcaa3d0471e4de03c12b",
+  "model": "deepseek-v4-flash",
+  "model_revision": "7872f01b1d1fe23eabc4c98b48bffcef5a386062",
+  "prepared_inputs_sha256": "sha256:ae65ae7d834ff2991bb85406fb2704ed357b3ae6e39316bdec4ebccbe9955d77",
+  "result_count": 54,
+  "result_index_sha256": "sha256:9b453443fa77e7efa2cc10a53a4774882fc4ddf92402f76d8ac91df46c264693",
+  "schedule_sha256": "sha256:72f2fa11097f131aba8443a3f66a4630e3cf92876ab0623490e867b76fd01103"
+}
