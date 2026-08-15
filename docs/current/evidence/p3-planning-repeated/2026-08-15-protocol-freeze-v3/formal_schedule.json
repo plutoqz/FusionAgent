@@ -1,0 +1,407 @@
+{
+  "cases": [
+    "C01",
+    "C02",
+    "C03",
+    "C04",
+    "C05",
+    "C06"
+  ],
+  "items": [
+    {
+      "case_id": "C05",
+      "input_variant": "canonical_v3",
+      "knowledge_condition": "llm_full_contract_kg",
+      "replicate": 1,
+      "run_id": "formal-v3-c05-llm_full_contract_kg-r1"
+    },
+    {
+      "case_id": "C05",
+      "input_variant": "canonical_v3",
+      "knowledge_condition": "llm_capability_kg",
+      "replicate": 1,
+      "run_id": "formal-v3-c05-llm_capability_kg-r1"
+    },
+    {
+      "case_id": "C03",
+      "input_variant": "canonical_v3",
+      "knowledge_condition": "llm_capability_kg",
+      "replicate": 3,
+      "run_id": "formal-v3-c03-llm_capability_kg-r3"
+    },
+    {
+      "case_id": "C02",
+      "input_variant": "canonical_v3",
+      "knowledge_condition": "llm_only",
+      "replicate": 3,
+      "run_id": "formal-v3-c02-llm_only-r3"
+    },
+    {
+      "case_id": "C03",
+      "input_variant": "canonical_v3",
+      "knowledge_condition": "llm_only",
+      "replicate": 2,
+      "run_id": "formal-v3-c03-llm_only-r2"
+    },
+    {
+      "case_id": "C06",
+      "input_variant": "canonical_v3",
+      "knowledge_condition": "llm_only",
+      "replicate": 3,
+      "run_id": "formal-v3-c06-llm_only-r3"
+    },
+    {
+      "case_id": "C05",
+      "input_variant": "canonical_v3",
+      "knowledge_condition": "llm_only",
+      "replicate": 2,
+      "run_id": "formal-v3-c05-llm_only-r2"
+    },
+    {
+      "case_id": "C06",
+      "input_variant": "canonical_v3",
+      "knowledge_condition": "llm_only",
+      "replicate": 2,
+      "run_id": "formal-v3-c06-llm_only-r2"
+    },
+    {
+      "case_id": "C02",
+      "input_variant": "canonical_v3",
+      "knowledge_condition": "llm_full_contract_kg",
+      "replicate": 1,
+      "run_id": "formal-v3-c02-llm_full_contract_kg-r1"
+    },
+    {
+      "case_id": "C02",
+      "input_variant": "canonical_v3",
+      "knowledge_condition": "llm_capability_kg",
+      "replicate": 3,
+      "run_id": "formal-v3-c02-llm_capability_kg-r3"
+    },
+    {
+      "case_id": "C02",
+      "input_variant": "canonical_v3",
+      "knowledge_condition": "llm_capability_kg",
+      "replicate": 1,
+      "run_id": "formal-v3-c02-llm_capability_kg-r1"
+    },
+    {
+      "case_id": "C05",
+      "input_variant": "canonical_v3",
+      "knowledge_condition": "llm_only",
+      "replicate": 1,
+      "run_id": "formal-v3-c05-llm_only-r1"
+    },
+    {
+      "case_id": "C01",
+      "input_variant": "canonical_v3",
+      "knowledge_condition": "llm_full_contract_kg",
+      "replicate": 2,
+      "run_id": "formal-v3-c01-llm_full_contract_kg-r2"
+    },
+    {
+      "case_id": "C05",
+      "input_variant": "canonical_v3",
+      "knowledge_condition": "llm_capability_kg",
+      "replicate": 3,
+      "run_id": "formal-v3-c05-llm_capability_kg-r3"
+    },
+    {
+      "case_id": "C04",
+      "input_variant": "canonical_v3",
+      "knowledge_condition": "llm_only",
+      "replicate": 1,
+      "run_id": "formal-v3-c04-llm_only-r1"
+    },
+    {
+      "case_id": "C03",
+      "input_variant": "canonical_v3",
+      "knowledge_condition": "llm_capability_kg",
+      "replicate": 2,
+      "run_id": "formal-v3-c03-llm_capability_kg-r2"
+    },
+    {
+      "case_id": "C06",
+      "input_variant": "canonical_v3",
+      "knowledge_condition": "llm_capability_kg",
+      "replicate": 2,
+      "run_id": "formal-v3-c06-llm_capability_kg-r2"
+    },
+    {
+      "case_id": "C03",
+      "input_variant": "canonical_v3",
+      "knowledge_condition": "llm_full_contract_kg",
+      "replicate": 1,
+      "run_id": "formal-v3-c03-llm_full_contract_kg-r1"
+    },
+    {
+      "case_id": "C01",
+      "input_variant": "canonical_v3",
+      "knowledge_condition": "llm_full_contract_kg",
+      "replicate": 3,
+      "run_id": "formal-v3-c01-llm_full_contract_kg-r3"
+    },
+    {
+      "case_id": "C05",
+      "input_variant": "canonical_v3",
+      "knowledge_condition": "llm_only",
+      "replicate": 3,
+      "run_id": "formal-v3-c05-llm_only-r3"
+    },
+    {
+      "case_id": "C03",
+      "input_variant": "canonical_v3",
+      "knowledge_condition": "llm_capability_kg",
+      "replicate": 1,
+      "run_id": "formal-v3-c03-llm_capability_kg-r1"
+    },
+    {
+      "case_id": "C02",
+      "input_variant": "canonical_v3",
+      "knowledge_condition": "llm_full_contract_kg",
+      "replicate": 3,
+      "run_id": "formal-v3-c02-llm_full_contract_kg-r3"
+    },
+    {
+      "case_id": "C02",
+      "input_variant": "canonical_v3",
+      "knowledge_condition": "llm_only",
+      "replicate": 2,
+      "run_id": "formal-v3-c02-llm_only-r2"
+    },
+    {
+      "case_id": "C06",
+      "input_variant": "canonical_v3",
+      "knowledge_condition": "llm_full_contract_kg",
+      "replicate": 2,
+      "run_id": "formal-v3-c06-llm_full_contract_kg-r2"
+    },
+    {
+      "case_id": "C01",
+      "input_variant": "canonical_v3",
+      "knowledge_condition": "llm_only",
+      "replicate": 1,
+      "run_id": "formal-v3-c01-llm_only-r1"
+    },
+    {
+      "case_id": "C02",
+      "input_variant": "canonical_v3",
+      "knowledge_condition": "llm_capability_kg",
+      "replicate": 2,
+      "run_id": "formal-v3-c02-llm_capability_kg-r2"
+    },
+    {
+      "case_id": "C06",
+      "input_variant": "canonical_v3",
+      "knowledge_condition": "llm_capability_kg",
+      "replicate": 3,
+      "run_id": "formal-v3-c06-llm_capability_kg-r3"
+    },
+    {
+      "case_id": "C03",
+      "input_variant": "canonical_v3",
+      "knowledge_condition": "llm_only",
+      "replicate": 3,
+      "run_id": "formal-v3-c03-llm_only-r3"
+    },
+    {
+      "case_id": "C04",
+      "input_variant": "canonical_v3",
+      "knowledge_condition": "llm_capability_kg",
+      "replicate": 1,
+      "run_id": "formal-v3-c04-llm_capability_kg-r1"
+    },
+    {
+      "case_id": "C05",
+      "input_variant": "canonical_v3",
+      "knowledge_condition": "llm_full_contract_kg",
+      "replicate": 3,
+      "run_id": "formal-v3-c05-llm_full_contract_kg-r3"
+    },
+    {
+      "case_id": "C04",
+      "input_variant": "canonical_v3",
+      "knowledge_condition": "llm_only",
+      "replicate": 3,
+      "run_id": "formal-v3-c04-llm_only-r3"
+    },
+    {
+      "case_id": "C03",
+      "input_variant": "canonical_v3",
+      "knowledge_condition": "llm_full_contract_kg",
+      "replicate": 2,
+      "run_id": "formal-v3-c03-llm_full_contract_kg-r2"
+    },
+    {
+      "case_id": "C01",
+      "input_variant": "canonical_v3",
+      "knowledge_condition": "llm_full_contract_kg",
+      "replicate": 1,
+      "run_id": "formal-v3-c01-llm_full_contract_kg-r1"
+    },
+    {
+      "case_id": "C04",
+      "input_variant": "canonical_v3",
+      "knowledge_condition": "llm_capability_kg",
+      "replicate": 3,
+      "run_id": "formal-v3-c04-llm_capability_kg-r3"
+    },
+    {
+      "case_id": "C02",
+      "input_variant": "canonical_v3",
+      "knowledge_condition": "llm_only",
+      "replicate": 1,
+      "run_id": "formal-v3-c02-llm_only-r1"
+    },
+    {
+      "case_id": "C01",
+      "input_variant": "canonical_v3",
+      "knowledge_condition": "llm_capability_kg",
+      "replicate": 1,
+      "run_id": "formal-v3-c01-llm_capability_kg-r1"
+    },
+    {
+      "case_id": "C03",
+      "input_variant": "canonical_v3",
+      "knowledge_condition": "llm_full_contract_kg",
+      "replicate": 3,
+      "run_id": "formal-v3-c03-llm_full_contract_kg-r3"
+    },
+    {
+      "case_id": "C06",
+      "input_variant": "canonical_v3",
+      "knowledge_condition": "llm_full_contract_kg",
+      "replicate": 3,
+      "run_id": "formal-v3-c06-llm_full_contract_kg-r3"
+    },
+    {
+      "case_id": "C04",
+      "input_variant": "canonical_v3",
+      "knowledge_condition": "llm_full_contract_kg",
+      "replicate": 2,
+      "run_id": "formal-v3-c04-llm_full_contract_kg-r2"
+    },
+    {
+      "case_id": "C01",
+      "input_variant": "canonical_v3",
+      "knowledge_condition": "llm_only",
+      "replicate": 3,
+      "run_id": "formal-v3-c01-llm_only-r3"
+    },
+    {
+      "case_id": "C06",
+      "input_variant": "canonical_v3",
+      "knowledge_condition": "llm_full_contract_kg",
+      "replicate": 1,
+      "run_id": "formal-v3-c06-llm_full_contract_kg-r1"
+    },
+    {
+      "case_id": "C02",
+      "input_variant": "canonical_v3",
+      "knowledge_condition": "llm_full_contract_kg",
+      "replicate": 2,
+      "run_id": "formal-v3-c02-llm_full_contract_kg-r2"
+    },
+    {
+      "case_id": "C05",
+      "input_variant": "canonical_v3",
+      "knowledge_condition": "llm_capability_kg",
+      "replicate": 2,
+      "run_id": "formal-v3-c05-llm_capability_kg-r2"
+    },
+    {
+      "case_id": "C05",
+      "input_variant": "canonical_v3",
+      "knowledge_condition": "llm_full_contract_kg",
+      "replicate": 2,
+      "run_id": "formal-v3-c05-llm_full_contract_kg-r2"
+    },
+    {
+      "case_id": "C04",
+      "input_variant": "canonical_v3",
+      "knowledge_condition": "llm_capability_kg",
+      "replicate": 2,
+      "run_id": "formal-v3-c04-llm_capability_kg-r2"
+    },
+    {
+      "case_id": "C01",
+      "input_variant": "canonical_v3",
+      "knowledge_condition": "llm_capability_kg",
+      "replicate": 2,
+      "run_id": "formal-v3-c01-llm_capability_kg-r2"
+    },
+    {
+      "case_id": "C03",
+      "input_variant": "canonical_v3",
+      "knowledge_condition": "llm_only",
+      "replicate": 1,
+      "run_id": "formal-v3-c03-llm_only-r1"
+    },
+    {
+      "case_id": "C04",
+      "input_variant": "canonical_v3",
+      "knowledge_condition": "llm_only",
+      "replicate": 2,
+      "run_id": "formal-v3-c04-llm_only-r2"
+    },
+    {
+      "case_id": "C04",
+      "input_variant": "canonical_v3",
+      "knowledge_condition": "llm_full_contract_kg",
+      "replicate": 3,
+      "run_id": "formal-v3-c04-llm_full_contract_kg-r3"
+    },
+    {
+      "case_id": "C04",
+      "input_variant": "canonical_v3",
+      "knowledge_condition": "llm_full_contract_kg",
+      "replicate": 1,
+      "run_id": "formal-v3-c04-llm_full_contract_kg-r1"
+    },
+    {
+      "case_id": "C06",
+      "input_variant": "canonical_v3",
+      "knowledge_condition": "llm_only",
+      "replicate": 1,
+      "run_id": "formal-v3-c06-llm_only-r1"
+    },
+    {
+      "case_id": "C06",
+      "input_variant": "canonical_v3",
+      "knowledge_condition": "llm_capability_kg",
+      "replicate": 1,
+      "run_id": "formal-v3-c06-llm_capability_kg-r1"
+    },
+    {
+      "case_id": "C01",
+      "input_variant": "canonical_v3",
+      "knowledge_condition": "llm_only",
+      "replicate": 2,
+      "run_id": "formal-v3-c01-llm_only-r2"
+    },
+    {
+      "case_id": "C01",
+      "input_variant": "canonical_v3",
+      "knowledge_condition": "llm_capability_kg",
+      "replicate": 3,
+      "run_id": "formal-v3-c01-llm_capability_kg-r3"
+    }
+  ],
+  "knowledge_conditions": [
+    "llm_only",
+    "llm_capability_kg",
+    "llm_full_contract_kg"
+  ],
+  "metadata": {
+    "fallback": "forbidden",
+    "main_call_count": 54,
+    "schedule_seed": 20260815,
+    "semantic_repairs": 0,
+    "stability_analysis_eligible": true,
+    "statistical_significance_claim_eligible": false,
+    "transport_retries": 0
+  },
+  "protocol_id": "fusionagent.planning-repeated-formal.v3",
+  "replicates": 3,
+  "status": "draft_preflight"
+}
