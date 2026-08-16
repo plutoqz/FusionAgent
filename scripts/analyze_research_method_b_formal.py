@@ -29,6 +29,8 @@ def analyze_formal(
     schedule = _read_json(root / "schedule.json")
     prepared = _read_json(root / "prepared_inputs.json")
     results = [_read_json(path) for path in sorted((root / "runs").glob("*/result.json"))]
+    base_freeze_audit = _read_json(root / "freeze_audit.json")
+    evidence_integrity_valid = base_freeze_audit.get("passed") is True
     evidence_sources = {
         "base_evidence_root": str(root.resolve()),
         "method_b_repair_root": None,
@@ -43,6 +45,7 @@ def analyze_formal(
         repair_audit = verify_repair_freeze(method_b_repair_root, manifest_path)
         if not repair_audit["passed"]:
             raise RuntimeError(f"Method B repair freeze verification failed: {repair_audit['checks']}")
+        evidence_integrity_valid = evidence_integrity_valid and repair_audit["passed"]
         repair_schedule = _read_json(method_b_repair_root / "schedule.json")
         repair_prepared = _read_json(method_b_repair_root / "prepared_inputs.json")
         repair_results = [
@@ -161,22 +164,46 @@ def analyze_formal(
         >= _mean(item["mean_automatic_score"] for item in llm_cells),
         "negative_control_b_rejects": _negative_control_rejects(rows),
     }
+    manual_review_item_count = sum(
+        len(row["evaluation"]["manual_review_items"]) for row in rows
+    )
+    formal_execution_complete = (
+        evidence_integrity_valid
+        and checks["complete_54_call_grid"]
+        and checks["all_calls_successful"]
+    )
+    claim_boundary = (
+        "Read-only frozen baselines combined with a post-held-out method B repair validation. "
+        "The automatic screen can validate the generic contract fix and comparative planning behavior, "
+        "but it is not a pristine independent confirmatory test because H06 triggered the intervention. "
+        "Superiority remains unclaimed until blinded manual review, stability audit, and a new independent "
+        "confirmation set if a formal claim is required."
+        if method_b_repair_root is not None
+        else (
+            "Held-out automatic planning evidence only. Superiority remains unclaimed until blinded manual "
+            "review, stability audit, and any required end-to-end validation are complete."
+        )
+    )
     return {
         "report_type": "method_b_heldout_formal_analysis",
         "protocol_id": schedule["protocol_id"],
+        "evidence_integrity_valid": evidence_integrity_valid,
+        "formal_execution_complete": formal_execution_complete,
+        "scheduled_call_count": 54,
+        "attempted_call_count": len(rows),
+        "successful_calls": sum(row["success"] for row in rows),
+        "failed_calls": sum(not row["success"] for row in rows),
         "automatic_checks": checks,
         "automatic_screen_passed": all(checks.values()),
         "manual_review_status": "pending",
+        "manual_review_item_count": manual_review_item_count,
         "claim_eligible": False,
         "analysis_mode": analysis_mode,
         "evidence_sources": evidence_sources,
         "positive_case_ids": sorted(positive_case_ids),
         "grouped_cells": grouped,
         "rows": sorted(rows, key=lambda item: item["run_id"]),
-        "claim_boundary": (
-            "Held-out automatic planning evidence only. Superiority remains unclaimed until blinded manual review, "
-            "stability audit, and any required end-to-end validation are complete."
-        ),
+        "claim_boundary": claim_boundary,
     }
 
 

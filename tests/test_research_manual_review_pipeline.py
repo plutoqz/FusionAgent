@@ -173,3 +173,51 @@ def test_combined_manual_review_routes_runs_across_two_evidence_roots(tmp_path: 
     assert manifest["item_count"] == 2
     key = json.loads((output / "blind-key.json").read_text(encoding="utf-8"))
     assert {item["run_id"] for item in key["mapping"]} == {row["run_id"] for row in rows}
+
+
+def test_manual_review_accepts_method_b_rows_field(tmp_path: Path) -> None:
+    formal_root = tmp_path / "formal"
+    run_id = "formal-heldout-repair-h01-method-b-r1"
+    (formal_root / "runs" / run_id).mkdir(parents=True)
+    (formal_root / "prepared_inputs.json").write_text(
+        json.dumps([{"schedule": {"run_id": run_id}, "payload": {"task": "visible input"}}]),
+        encoding="utf-8",
+    )
+    (formal_root / "runs" / run_id / "result.json").write_text(
+        json.dumps({"run_id": run_id, "plan": {"decision": "partial", "tasks": []}}),
+        encoding="utf-8",
+    )
+    audit_path = tmp_path / "method-b-audit.json"
+    audit_path.write_text(
+        json.dumps(
+            {
+                "evidence_integrity_valid": True,
+                "formal_execution_complete": True,
+                "rows": [
+                    {
+                        "run_id": run_id,
+                        "case_id": "H01",
+                        "knowledge_condition": "task_conditioned_contract_aware_kg",
+                        "replicate": 1,
+                        "evaluation": {
+                            "manual_review_items": [
+                                {"item_id": "manual-fixture", "description": "review this plan"}
+                            ]
+                        },
+                    }
+                ],
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    packet_root = tmp_path / "method-b-review"
+    manifest = prepare_manual_review(
+        formal_root=formal_root,
+        audit_path=audit_path,
+        output_root=packet_root,
+    )
+
+    assert manifest["item_count"] == 1
+    packet = json.loads((packet_root / "reviewer-a.packet.json").read_text(encoding="utf-8"))
+    assert "knowledge_condition" not in packet["records"][0]

@@ -55,7 +55,8 @@ def prepare_manual_review_from_roots(
             result_path_by_id[run_id] = formal_root / "runs" / run_id / "result.json"
     items = []
     blind_key = []
-    for row in audit["runs"]:
+    audit_rows = audit.get("runs", audit.get("rows", []))
+    for row in audit_rows:
         if row["run_id"] not in prepared_by_id:
             raise RuntimeError(f"No formal evidence root contains run_id {row['run_id']}")
         result = _read_json(result_path_by_id[row["run_id"]])
