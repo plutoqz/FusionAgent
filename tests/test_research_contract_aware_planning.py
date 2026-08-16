@@ -79,6 +79,9 @@ def test_method_b_c01_prioritizes_deliverable_road_and_constrains_building() -> 
     assert context["task_precedence"] == ["road", "building"]
     assert rows["road"]["decision_constraints"]["preferred_delivery_state"] == "planned"
     assert rows["building"]["decision_constraints"]["allowed_delivery_states"] == ["pending", "gap"]
+    assert rows["building"]["decision_constraints"]["preferred_delivery_state"] == "gap"
+    assert rows["building"]["decision_constraints"]["allowed_source_ids"] == ["raw.osm.building"]
+    assert rows["building"]["decision_constraints"]["delayed_source_ids"] == ["raw.microsoft.building"]
     assert context["overall_decision"]["allowed_decisions"] == ["partial", "gap"]
 
 

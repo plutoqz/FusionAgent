@@ -286,7 +286,7 @@ def _delivery_constraints(
         observation_refs.append("observations.available_sources")
     elif observations.get(partial_key) is False and source_state["delayed"]:
         allowed = ["pending", "gap"]
-        preferred = "pending"
+        preferred = "gap"
         reason_codes.extend(["partial_coverage_forbidden", "required_source_delayed"])
         observation_refs.extend([f"observations.{partial_key}", "observations.delayed_sources"])
     elif source_state["delayed"]:
@@ -314,6 +314,9 @@ def _delivery_constraints(
     return {
         "allowed_delivery_states": allowed,
         "preferred_delivery_state": preferred,
+        "allowed_source_ids": list(source_state["available"]),
+        "delayed_source_ids": list(source_state["delayed"]),
+        "risk_source_ids": list(source_state["risk"]),
         "reason_codes": reason_codes,
         "observation_refs": _ordered_unique(observation_refs),
         "contract_refs": contract_refs,
