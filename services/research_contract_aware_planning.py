@@ -51,17 +51,25 @@ def build_contract_aware_projection(
         repository,
         disaster_type=case.scenario.disaster_type,
     )
-    task_rows = [
-        _compile_task_row(
-            task_kind,
-            request_contract_ids=set(case.request_scope.contract_ids),
-            disaster_type=case.scenario.disaster_type,
-            observations=observations,
-            repository=repository,
-        )
-        for task_kind in requested_tasks
-    ]
-    ordered_tasks = _ordered_tasks(requested_tasks, observations, task_rows)
+    task_rows = (
+        [
+            _compile_task_row(
+                task_kind,
+                request_contract_ids=set(case.request_scope.contract_ids),
+                disaster_type=case.scenario.disaster_type,
+                observations=observations,
+                repository=repository,
+            )
+            for task_kind in requested_tasks
+        ]
+        if scenario_supported
+        else []
+    )
+    ordered_tasks = (
+        _ordered_tasks(requested_tasks, observations, task_rows)
+        if scenario_supported
+        else []
+    )
     overall = _overall_decision_constraints(
         scenario_supported=scenario_supported,
         requested_tasks=requested_tasks,
@@ -84,6 +92,7 @@ def build_contract_aware_projection(
             "retry_repair_fallback": "forbidden",
             "use_only_listed_source_and_algorithm_ids": True,
             "preserve_observation_and_kg_refs_in_evidence": True,
+            "unsupported_scenario_requires_reject_with_no_tasks": True,
         },
     }
     payload = {

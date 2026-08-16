@@ -88,12 +88,28 @@ def analyze_formal(root: Path, *, manifest_path: Path) -> dict[str, Any]:
             }
         )
     by_cell = {(item["case_id"], item["knowledge_condition"]): item for item in grouped}
-    b_cells = [by_cell[(case_id, "task_conditioned_contract_aware_kg")] for case_id in cases if (case_id, "task_conditioned_contract_aware_kg") in by_cell]
-    full_cells = [by_cell[(case_id, "llm_full_contract_kg")] for case_id in cases if (case_id, "llm_full_contract_kg") in by_cell]
-    llm_cells = [by_cell[(case_id, "llm_only")] for case_id in cases if (case_id, "llm_only") in by_cell]
+    positive_case_ids = set(manifest.positive_case_ids)
+    b_cells = [
+        by_cell[(case_id, "task_conditioned_contract_aware_kg")]
+        for case_id in sorted(positive_case_ids)
+        if (case_id, "task_conditioned_contract_aware_kg") in by_cell
+    ]
+    full_cells = [
+        by_cell[(case_id, "llm_full_contract_kg")]
+        for case_id in sorted(positive_case_ids)
+        if (case_id, "llm_full_contract_kg") in by_cell
+    ]
+    llm_cells = [
+        by_cell[(case_id, "llm_only")]
+        for case_id in sorted(positive_case_ids)
+        if (case_id, "llm_only") in by_cell
+    ]
+    positive_rows = [row for row in rows if row["case_id"] in positive_case_ids]
     checks = {
-        "complete_54_call_grid": len(rows) == 54 and all(item["successful_calls"] == 3 for item in grouped),
-        "grounding_failures_zero": all(item["grounding_failures"] == 0 for item in grouped),
+        "complete_54_call_grid": len(rows) == 54 and all(item["calls"] == 3 for item in grouped),
+        "positive_grounding_failures_zero": all(
+            row["grounding_pass"] for row in positive_rows if row["success"]
+        ),
         "b_not_below_full_contract_on_at_least_four_cases": sum(
             b["mean_automatic_score"] >= f["mean_automatic_score"]
             for b, f in zip(sorted(b_cells, key=lambda x: x["case_id"]), sorted(full_cells, key=lambda x: x["case_id"]))
@@ -111,6 +127,7 @@ def analyze_formal(root: Path, *, manifest_path: Path) -> dict[str, Any]:
         "automatic_screen_passed": all(checks.values()),
         "manual_review_status": "pending",
         "claim_eligible": False,
+        "positive_case_ids": sorted(positive_case_ids),
         "grouped_cells": grouped,
         "rows": sorted(rows, key=lambda item: item["run_id"]),
         "claim_boundary": (

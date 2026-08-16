@@ -8,6 +8,7 @@ from services.research_contract_aware_planning import build_contract_aware_proje
 
 
 MANIFEST = Path(__file__).parents[1] / "docs" / "current" / "research-case-manifest-v1.json"
+HELDOUT_MANIFEST = Path(__file__).parents[1] / "docs" / "current" / "research-case-manifest-heldout-method-b-v1.json"
 FORBIDDEN = {
     "expected_consequence",
     "expected_outcome_classes",
@@ -20,6 +21,11 @@ FORBIDDEN = {
 
 def _case(case_id):
     manifest = load_research_case_manifest(MANIFEST)
+    return next(case for case in manifest.cases if case.case_id == case_id)
+
+
+def _heldout_case(case_id):
+    manifest = load_research_case_manifest(HELDOUT_MANIFEST)
     return next(case for case in manifest.cases if case.case_id == case_id)
 
 
@@ -92,6 +98,18 @@ def test_method_b_c03_rejects_unsupported_empty_scope_without_materializing_task
     assert rows == {}
     assert context["scenario"]["supported"] is False
     assert context["overall_decision"]["allowed_decisions"] == ["reject"]
+
+
+def test_method_b_unsupported_nonempty_scope_also_removes_executable_task_rows() -> None:
+    projection = build_contract_aware_projection(
+        _heldout_case("H06"),
+        InMemoryKGRepository(experience_policy="pinned_snapshot"),
+    )
+    context = projection.payload["contract_decision_context"]
+    rows = {row["task_kind"]: row for row in context["tasks"]}
+    assert rows == {}
+    assert context["overall_decision"]["preferred_decision"] == "reject"
+    assert context["generation_contract"]["unsupported_scenario_requires_reject_with_no_tasks"] is True
 
 
 def test_method_b_c06_uses_recovery_source_and_quality_failure_states() -> None:
