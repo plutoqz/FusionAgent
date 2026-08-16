@@ -18,14 +18,54 @@ from schemas.research_llm_pilot import ResearchPlanningDecision
 from services.research_plan_evaluation import evaluate_research_plan
 
 
-def analyze_formal(root: Path, *, manifest_path: Path) -> dict[str, Any]:
+def analyze_formal(
+    root: Path,
+    *,
+    manifest_path: Path,
+    method_b_repair_root: Path | None = None,
+) -> dict[str, Any]:
     manifest = load_research_case_manifest(manifest_path)
     cases = {case.case_id: case for case in manifest.cases}
     schedule = _read_json(root / "schedule.json")
     prepared = _read_json(root / "prepared_inputs.json")
+    results = [_read_json(path) for path in sorted((root / "runs").glob("*/result.json"))]
+    evidence_sources = {
+        "base_evidence_root": str(root.resolve()),
+        "method_b_repair_root": None,
+    }
+    analysis_mode = "original_heldout"
+    if method_b_repair_root is not None:
+        from scripts.run_research_method_b_repair_formal import (
+            METHOD_B_CONDITION,
+            verify_freeze as verify_repair_freeze,
+        )
+
+        repair_audit = verify_repair_freeze(method_b_repair_root, manifest_path)
+        if not repair_audit["passed"]:
+            raise RuntimeError(f"Method B repair freeze verification failed: {repair_audit['checks']}")
+        repair_schedule = _read_json(method_b_repair_root / "schedule.json")
+        repair_prepared = _read_json(method_b_repair_root / "prepared_inputs.json")
+        repair_results = [
+            _read_json(path)
+            for path in sorted((method_b_repair_root / "runs").glob("*/result.json"))
+        ]
+        retained_items = [
+            item for item in schedule["items"] if item["knowledge_condition"] != METHOD_B_CONDITION
+        ]
+        retained_run_ids = {item["run_id"] for item in retained_items}
+        schedule = {
+            **schedule,
+            "protocol_id": f"{schedule['protocol_id']}+{repair_schedule['protocol_id']}",
+            "items": retained_items + repair_schedule["items"],
+        }
+        prepared = [
+            item for item in prepared if item["schedule"]["run_id"] in retained_run_ids
+        ] + repair_prepared
+        results = [item for item in results if item["run_id"] in retained_run_ids] + repair_results
+        evidence_sources["method_b_repair_root"] = str(method_b_repair_root.resolve())
+        analysis_mode = "read_only_baselines_plus_post_heldout_method_b_repair"
     prepared_by_run = {item["schedule"]["run_id"]: item for item in prepared}
     schedule_by_run = {item["run_id"]: item for item in schedule["items"]}
-    results = [_read_json(path) for path in sorted((root / "runs").glob("*/result.json"))]
     rows = []
     for result in results:
         run_id = result["run_id"]
@@ -107,6 +147,7 @@ def analyze_formal(root: Path, *, manifest_path: Path) -> dict[str, Any]:
     positive_rows = [row for row in rows if row["case_id"] in positive_case_ids]
     checks = {
         "complete_54_call_grid": len(rows) == 54 and all(item["calls"] == 3 for item in grouped),
+        "all_calls_successful": all(row["success"] for row in rows),
         "positive_grounding_failures_zero": all(
             row["grounding_pass"] for row in positive_rows if row["success"]
         ),
@@ -127,6 +168,8 @@ def analyze_formal(root: Path, *, manifest_path: Path) -> dict[str, Any]:
         "automatic_screen_passed": all(checks.values()),
         "manual_review_status": "pending",
         "claim_eligible": False,
+        "analysis_mode": analysis_mode,
+        "evidence_sources": evidence_sources,
         "positive_case_ids": sorted(positive_case_ids),
         "grouped_cells": grouped,
         "rows": sorted(rows, key=lambda item: item["run_id"]),
@@ -190,8 +233,13 @@ def main() -> int:
     parser.add_argument("--root", type=Path, required=True)
     parser.add_argument("--manifest", type=Path, required=True)
     parser.add_argument("--output", type=Path, required=True)
+    parser.add_argument("--method-b-repair-root", type=Path)
     args = parser.parse_args()
-    report = analyze_formal(args.root, manifest_path=args.manifest)
+    report = analyze_formal(
+        args.root,
+        manifest_path=args.manifest,
+        method_b_repair_root=args.method_b_repair_root,
+    )
     args.output.write_text(json.dumps(report, ensure_ascii=False, indent=2, sort_keys=True) + "\n", encoding="utf-8")
     return 0
 
