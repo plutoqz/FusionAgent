@@ -9,6 +9,10 @@ from scripts.run_research_method_confirmation import (
     build_freeze,
     prepare_confirmation_inputs,
 )
+from scripts.analyze_research_method_confirmation import (
+    _has_response_envelope,
+    _parse_raw_response,
+)
 from services.research_manifest_validation import validate_manifest_crosswalk
 
 
@@ -152,3 +156,11 @@ def test_freeze_build_binds_27_inputs_and_stays_within_registered_budget(tmp_pat
     assert protocol["budget"]["conservative_batch_bound"] <= 850000
     assert protocol["budget"]["bound_within_budget"] is True
     assert protocol["formal_ready"] is True
+
+
+def test_confirmation_analyzer_accepts_string_encoded_response_envelope() -> None:
+    envelope = {"choices": [{"finish_reason": "stop"}]}
+
+    assert _parse_raw_response(json.dumps(envelope)) == envelope
+    assert _has_response_envelope(_parse_raw_response(json.dumps(envelope))) is True
+    assert _has_response_envelope({"choices": []}) is False
