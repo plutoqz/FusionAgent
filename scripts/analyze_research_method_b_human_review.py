@@ -82,6 +82,7 @@ def analyze_human_review(
     adjudicated_count = sum(
         row["resolution_source"] == "independent_adjudicator_c" for row in rows
     )
+    overall_counts = Counter(row["decision"] for row in rows)
     report = {
         "report_type": "method_b_unblinded_human_planning_review",
         "packet_id": packet_manifest["packet_id"],
@@ -99,7 +100,10 @@ def analyze_human_review(
             "original_reviewer_agreement": agreement.get("agreement"),
             "adjudication_audit_passed": adjudication_audit["passed"],
         },
-        "overall_decision_counts": dict(Counter(row["decision"] for row in rows)),
+        "overall_decision_counts": {
+            decision: overall_counts.get(decision, 0)
+            for decision in ("pass", "fail", "not_assessable")
+        },
         "by_condition": by_condition,
         "by_case_condition": by_case_condition,
         "by_condition_rubric": by_condition_rubric,
