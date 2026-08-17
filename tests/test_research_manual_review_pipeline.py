@@ -4,7 +4,9 @@ from pathlib import Path
 import pytest
 
 from scripts.analyze_research_llm_repeated_formal import analyze_repeated_formal
+from scripts.audit_research_manual_adjudication import audit_manual_adjudication
 from scripts.audit_research_manual_review import audit_manual_review
+from scripts.prepare_research_manual_adjudication import prepare_manual_adjudication
 from scripts.prepare_research_manual_review import prepare_manual_review
 from scripts.prepare_research_combined_manual_review import prepare_combined_manual_review
 from test_analyze_research_llm_repeated_formal import _build_completed_root
@@ -221,3 +223,53 @@ def test_manual_review_accepts_method_b_rows_field(tmp_path: Path) -> None:
     assert manifest["item_count"] == 1
     packet = json.loads((packet_root / "reviewer-a.packet.json").read_text(encoding="utf-8"))
     assert "knowledge_condition" not in packet["records"][0]
+
+
+def test_manual_adjudication_resolves_only_frozen_disagreements_without_unblinding(
+    tmp_path: Path,
+) -> None:
+    _, _, packet_root, _ = _prepare(tmp_path)
+    reviewer_a = packet_root / "reviewer-a.decisions.json"
+    reviewer_b = packet_root / "reviewer-b.decisions.json"
+    _complete_decisions(reviewer_a)
+    _complete_decisions(reviewer_b, disagreement_first=True)
+    agreement_path = packet_root / "manual-review-agreement-audit.json"
+    agreement = audit_manual_review(
+        packet_manifest=packet_root / "packet-manifest.json",
+        reviewer_a=reviewer_a,
+        reviewer_b=reviewer_b,
+        output=agreement_path,
+    )
+    assert agreement["passed"] is False
+    assert agreement["disagreement_count"] == 1
+
+    adjudication_root = tmp_path / "adjudication"
+    manifest = prepare_manual_adjudication(
+        review_root=packet_root,
+        output_root=adjudication_root,
+    )
+    packet = json.loads(
+        (adjudication_root / "adjudicator-c.packet.json").read_text(encoding="utf-8")
+    )
+    assert manifest["item_count"] == len(packet["records"]) == 1
+    assert "knowledge_condition" not in json.dumps(packet["records"][0])
+    assert "decision_a" not in json.dumps(packet["records"][0])
+    assert "decision_b" not in json.dumps(packet["records"][0])
+
+    decisions_path = adjudication_root / "adjudicator-c.decisions.json"
+    decisions = json.loads(decisions_path.read_text(encoding="utf-8"))
+    decisions["records"][0]["decision"] = "pass"
+    decisions["records"][0]["notes"] = "Independent adjudicator fixture decision."
+    decisions["status"] = "human_adjudication_complete"
+    decisions_path.write_text(json.dumps(decisions), encoding="utf-8")
+    report = audit_manual_adjudication(
+        adjudication_manifest=adjudication_root / "adjudication-manifest.json",
+        adjudicator_decisions=decisions_path,
+        output=adjudication_root / "adjudication-audit.json",
+    )
+
+    assert report["passed"] is True
+    assert report["adjudicated_item_count"] == 1
+    assert report["final_item_count"] == 108
+    assert report["planning_claim_review_ready"] is True
+    assert sum(report["final_decision_counts"].values()) == 108
