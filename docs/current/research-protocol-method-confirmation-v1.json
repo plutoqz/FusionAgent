@@ -1,0 +1,169 @@
+{
+  "protocol_id": "fusionagent.method-b-independent-confirmation.v1",
+  "protocol_version": "1.0.0",
+  "protocol_status": "frozen",
+  "formal_ready": false,
+  "execution_authorization_required": true,
+  "zero_call_preflight_required": true,
+  "method_id": "fusionagent.task-conditioned-contract-aware-kg-planning.v1",
+  "frozen_at": "2026-08-17T21:00:00+08:00",
+  "design": {
+    "case_manifest": "docs/current/research-case-manifest-confirmation-v1.json",
+    "case_ids": ["H07", "H08", "H09"],
+    "conditions": [
+      "task_conditioned_contract_aware_kg",
+      "llm_only",
+      "llm_full_contract_kg"
+    ],
+    "condition_labels": {
+      "task_conditioned_contract_aware_kg": "B",
+      "llm_only": "LLM-only",
+      "llm_full_contract_kg": "Full KG"
+    },
+    "repetitions": 3,
+    "call_count": 27,
+    "schedule_seed": 20260817,
+    "randomization_unit": "case-condition-repetition",
+    "planning_only": true,
+    "development_and_prior_validation_cases_excluded": [
+      "C01",
+      "C02",
+      "C03",
+      "C04",
+      "C05",
+      "C06",
+      "H01",
+      "H02",
+      "H03",
+      "H04",
+      "H05",
+      "H06"
+    ]
+  },
+  "provider": {
+    "provider": "deepseek_official",
+    "base_url_host": "api.deepseek.com",
+    "model": "deepseek-v4-flash",
+    "model_revision": "7872f01b1d1fe23eabc4c98b48bffcef5a386062",
+    "model_revision_evidence_file_sha256": "sha256:ed77c4b41736ebe1a110b67a84306fd22dfe7828b75da61917e5f8dbf73c822c"
+  },
+  "generation": {
+    "temperature": 0.1,
+    "response_format": {"type": "json_object"},
+    "max_output_tokens": 16384,
+    "request_timeout_seconds": 600,
+    "batch_token_budget": 850000,
+    "transport_retries": 0,
+    "semantic_repairs": 0,
+    "json_salvage": "forbidden",
+    "fallback": "forbidden"
+  },
+  "identities": {
+    "method_freeze_commit": "446a7dd843e67623c7ad5337336b6da14473731c",
+    "manifest_file_sha256": "sha256:037517c6f840cd41476fc01aa2b5b37ef9a1aa2b877c0e961d89ad7d4ebe22ed",
+    "system_prompt_sha256": "sha256:6d9df058f15215bc99f59c46e769da05058abd1e4cd927e81a29fefdd84d2e85",
+    "output_schema_sha256": "sha256:2cd1a18bf1ba1232ed30a13d3a0a2a2cc7f42e0a0af8c7fdd2d6202c97dcdd17",
+    "evaluator_id": "fusionagent.research-plan-evaluator.v1",
+    "evaluator_source_sha256": "sha256:68371c02611fb2d8276b52db67d3c85a03ba91134546ac8770d6a975e642ec7c",
+    "method_source_sha256": "sha256:e9f953ec09b5b259a6c062f52b559df12ad3953f263d51c55f1e587ebba9e9d5",
+    "kg_identity": {
+      "release_id": "fusionagent-kg-v1.0.0",
+      "ontology_version": "1.0.0",
+      "knowledge_version": "1.0.0",
+      "semantic_hash": "sha256:50067b9368914c47580707650789c04c78b2e856ccb3ef4d120a31f36c0ad71e",
+      "experience_snapshot_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000"
+    }
+  },
+  "primary_metric": {
+    "metric_id": "blinded_manual_run_pass_rate.v1",
+    "unit": "case-condition-repetition",
+    "denominator_per_condition": 9,
+    "run_pass_rule": "pass only when every frozen case-specific manual rubric item passes after agreement or independent third-reviewer adjudication",
+    "not_assessable_rule": "any not_assessable item makes the confirmation ineligible for a superiority claim",
+    "direction": "higher_is_better",
+    "confirmation_success_rule": [
+      "B pass rate is strictly greater than LLM-only pass rate",
+      "B pass rate is strictly greater than Full KG pass rate",
+      "for each case, B pass count is not below either comparator pass count",
+      "all 27 runs have a final assessable manual decision"
+    ],
+    "statistical_interpretation": "descriptive bounded confirmation across three pre-registered cases; no population-level significance claim"
+  },
+  "automatic_gates": {
+    "execution_integrity": [
+      "exactly 27 unique scheduled calls and 27 retained terminal results",
+      "all 27 calls return the frozen model name with usage telemetry",
+      "all 27 outputs parse without salvage and validate against the frozen schema",
+      "no retry, repair, fallback, result replacement, or protocol deviation"
+    ],
+    "planning_quality": [
+      "B has zero grounding failures and zero failed automatic checks",
+      "B mean automatic score is strictly greater than LLM-only and Full KG",
+      "for every case, B mean automatic score is not below either comparator",
+      "all expected task, gap, precedence, and delivery-state checks use the frozen evaluator"
+    ],
+    "gate_semantics": "all execution-integrity and planning-quality gates must pass before manual results can support the scoped claim"
+  },
+  "manual_review": {
+    "reviewers": 2,
+    "reviewer_independence": "two independent human reviewers",
+    "blind_packet_excludes": [
+      "condition",
+      "condition label",
+      "run_id",
+      "replicate",
+      "automatic score",
+      "automatic check results"
+    ],
+    "decision_values": ["pass", "fail", "not_assessable"],
+    "rubric": {
+      "H07": {
+        "task_contract_and_state_isolation": "road and poi remain planned from their own current sources while the building task alone reflects the delayed mandatory reference and forbidden partial coverage",
+        "mission_priority_and_building_gap_trace": "the plan preserves poi before road before building and explicitly traces the building pending or gap state to the delayed reference and contract constraint"
+      },
+      "H08": {
+        "polygon_and_line_source_semantics_separated": "water polygon evidence is not used as waterways evidence and both requested task kinds remain distinct",
+        "delayed_waterways_source_not_claimed_current": "the delayed OSM waterways source is not described as available and waterways is pending or gap while water_polygon remains planned"
+      },
+      "H09": {
+        "poi_recovery_trace": "the output identifies recovery planning after the rejected POI merge quality gate",
+        "prior_poi_failure_preserved": "the failed prior merge remains explicit evidence and is not rewritten as a successful or final plan",
+        "declared_recovery_source_only": "the recovery task uses raw.gns.poi and does not reintroduce raw.osm.poi as an executable recovery source"
+      }
+    },
+    "agreement_reporting": ["exact agreement", "Cohen kappa"],
+    "agreement_gate": "all disagreements must be resolved before unblinding; agreement statistics are diagnostic, not efficacy gates",
+    "adjudication": "an independent third human reviewer sees only disagreement items in blinded form and supplies the final decision"
+  },
+  "stopping_conditions": {
+    "before_first_call": [
+      "stop if any manifest, method, prompt, schema, evaluator, KG, model-revision, schedule, or prepared-input identity check fails",
+      "stop if KG crosswalk validation is not closed",
+      "stop if the worktree is dirty, the output root exists, provider settings differ, credentials are absent, or the conservative token bound exceeds 850000"
+    ],
+    "during_execution": [
+      "retain the current failed result and stop new calls on HTTP or transport failure, response-model mismatch, missing usage, or token-budget failure",
+      "retain schema-invalid outputs without repair and continue unless a hard-stop condition also occurs",
+      "do not stop early for favorable or unfavorable efficacy results"
+    ],
+    "terminal": [
+      "stop after the 27 pre-registered calls; no extension calls",
+      "a partial grid, protocol deviation, missing blind decision, or unresolved disagreement makes the superiority claim ineligible"
+    ]
+  },
+  "evidence_policy": {
+    "new_evidence_root_required": true,
+    "raw_requests_and_responses_required": true,
+    "failed_calls_retained": true,
+    "failed_calls_replaced": false,
+    "historical_H01_H06_evidence_read_only": true,
+    "historical_results_may_not_fill_confirmation_cells": true,
+    "manual_review_required": true,
+    "independent_adjudication_required_for_disagreements": true
+  },
+  "claim_decision_rule": {
+    "pass": "If every frozen integrity and automatic gate passes and the primary manual metric satisfies all four success rules, claim only that method B outperformed LLM-only and Full KG for planning on the three pre-registered confirmation mechanisms under this frozen provider and protocol.",
+    "fail": "Otherwise retain the H01-H06 result as post-held-out mechanism support and repair validation, without a general or independent superiority claim."
+  },
+  "claim_boundary": "This protocol can support a bounded planning-method comparison only. It cannot establish end-to-end product quality, cross-AOI validity, provider-independent generality, population-level statistical significance, or universal superiority."
+}

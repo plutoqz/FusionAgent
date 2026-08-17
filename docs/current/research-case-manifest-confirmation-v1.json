@@ -1,0 +1,234 @@
+{
+  "manifest_id": "fusionagent.research.case-set.independent-confirmation.v1",
+  "manifest_version": "1.0.0",
+  "status": "frozen",
+  "kg_release": "kg.v1.0.0",
+  "case_selection_basis": "selected_after_method-b repair and H01-H06 adjudication; never used for method design, repair, prompt or evaluator changes, or prior human analysis",
+  "selection_governance": {
+    "selection_frozen_at": "2026-08-17T21:00:00+08:00",
+    "method_freeze_commit": "446a7dd843e67623c7ad5337336b6da14473731c",
+    "excluded_case_ids": [
+      "C01",
+      "C02",
+      "C03",
+      "C04",
+      "C05",
+      "C06",
+      "H01",
+      "H02",
+      "H03",
+      "H04",
+      "H05",
+      "H06"
+    ],
+    "exclusion_rules": [
+      "exclude any case or expected decision inspected during method B design, repair, or H01-H06 human review",
+      "exclude semantic copies that only rename an H01-H06 disaster, task, or source while preserving the same state interaction",
+      "exclude cases requiring changes to the frozen KG release, method B, system prompt, output schema, evaluator, or manual rubric after selection",
+      "exclude cases with KG identifiers that do not close against kg.v1.0.0",
+      "exclude cases whose expected result depends on unavailable external truth or end-to-end execution"
+    ],
+    "leakage_controls": [
+      "gold_rubric is excluded from every planner payload",
+      "case-specific manual rubric is sealed before any provider call",
+      "no H01-H06 output or decision may be used as a confirmation result",
+      "no case-specific repair, retry, fallback, or post-call rubric change is permitted"
+    ],
+    "mechanism_coverage": {
+      "H07": "multi-task contract constraints with task-local source states",
+      "H08": "source unavailable or delayed with polygon-line semantic separation",
+      "H09": "failure recovery with preserved prior failure evidence"
+    }
+  },
+  "confirmation_success_criteria": {
+    "case_unit": "case-condition-repetition",
+    "H07": [
+      "retain exactly building, road, and poi",
+      "keep road and poi planned while building is pending or gap",
+      "do not let the delayed building reference source degrade unrelated tasks",
+      "preserve poi before road before building precedence"
+    ],
+    "H08": [
+      "retain both water_polygon and waterways",
+      "keep water_polygon planned and declare waterways pending or gap",
+      "do not reuse a polygon source as waterways evidence",
+      "do not claim the delayed waterways source as currently available"
+    ],
+    "H09": [
+      "retain the observed POI quality-gate failure",
+      "select only the declared recovery source for the recovery plan",
+      "mark delivery provisional, degraded, or gap rather than final planned"
+    ]
+  },
+  "positive_case_ids": ["H07", "H08", "H09"],
+  "negative_control_case_ids": [],
+  "planning_only_case_ids": ["H07", "H08", "H09"],
+  "end_to_end_case_ids": [],
+  "cases": [
+    {
+      "case_id": "H07",
+      "version": "1.0.0",
+      "status": "independent_confirmation_planning_only",
+      "mechanism": "generic_three_task_contract_isolation_with_building_reference_delayed_and_partial_coverage_forbidden",
+      "research_questions": ["RQ2", "RQ3"],
+      "scenario": {
+        "disaster_type": "generic",
+        "profile_id": "scenario.default.task",
+        "task_bundle_id": "task_bundle.direct_request"
+      },
+      "request_scope": {
+        "task_kinds": ["building", "road", "poi"],
+        "contract_ids": [
+          "contract.product.building.v1",
+          "contract.product.road.v1",
+          "contract.product.poi.v1"
+        ],
+        "resource_regime": "moderate_network_fixed_delivery_window"
+      },
+      "observations": {
+        "available_sources": ["raw.osm.building", "raw.osm.road", "raw.gns.poi"],
+        "delayed_sources": ["raw.microsoft.building"],
+        "mission_priority": ["poi", "road", "building"],
+        "building_partial_coverage_allowed": false
+      },
+      "gold_rubric": {
+        "expected_consequence": "isolate_contract_and_source_state_per_task_while_declaring_building_gap",
+        "expected_outcome_classes": ["task_local_contract_constraint", "mixed_delivery_state", "priority_adaptation"],
+        "allowed_decisions": ["partial", "gap"],
+        "expected_task_kinds": ["building", "road", "poi"],
+        "expected_gap_task_kinds": ["building"],
+        "required_precedence": [["poi", "road"], ["road", "building"]],
+        "allowed_delivery_states": {
+          "building": ["pending", "gap"],
+          "road": ["planned"],
+          "poi": ["planned"]
+        },
+        "manual_review_items": [
+          "task_contract_and_state_isolation",
+          "mission_priority_and_building_gap_trace"
+        ]
+      },
+      "kg_crosswalk": {
+        "source_catalog_ids": [
+          "raw.osm.building",
+          "raw.microsoft.building",
+          "raw.osm.road",
+          "raw.gns.poi"
+        ],
+        "algorithm_ids": [
+          "algo.fusion.building.v1",
+          "algo.fusion.road.conflation.v7",
+          "algo.fusion.poi.v1"
+        ],
+        "quality_policy_ids": ["quality.default.building.v1", "quality.default.road.v1"],
+        "crosswalk_status": "closed_independent_confirmation"
+      },
+      "end_to_end": false
+    },
+    {
+      "case_id": "H08",
+      "version": "1.0.0",
+      "status": "independent_confirmation_planning_only",
+      "mechanism": "flood_polygon_available_while_line_waterways_source_is_delayed",
+      "research_questions": ["RQ2", "RQ3"],
+      "scenario": {
+        "disaster_type": "flood",
+        "profile_id": "scenario.flood.default",
+        "task_bundle_id": "task_bundle.direct_request"
+      },
+      "request_scope": {
+        "task_kinds": ["water_polygon", "waterways"],
+        "contract_ids": ["contract.product.water_polygon.v1", "contract.product.waterways.v1"],
+        "resource_regime": "tight_time_delayed_line_source"
+      },
+      "observations": {
+        "available_sources": ["raw.osm.water"],
+        "delayed_sources": ["raw.osm.waterways"],
+        "mission_priority": ["water_polygon", "waterways"]
+      },
+      "gold_rubric": {
+        "expected_consequence": "plan_polygon_from_current_evidence_and_declare_line_waterways_gap",
+        "expected_outcome_classes": ["source_unavailable", "semantic_type_separation", "mixed_delivery_state"],
+        "allowed_decisions": ["partial", "gap"],
+        "expected_task_kinds": ["water_polygon", "waterways"],
+        "expected_gap_task_kinds": ["waterways"],
+        "required_precedence": [["water_polygon", "waterways"]],
+        "allowed_delivery_states": {
+          "water_polygon": ["planned"],
+          "waterways": ["pending", "gap"]
+        },
+        "manual_review_items": [
+          "polygon_and_line_source_semantics_separated",
+          "delayed_waterways_source_not_claimed_current"
+        ]
+      },
+      "kg_crosswalk": {
+        "source_catalog_ids": ["raw.osm.water", "raw.osm.waterways"],
+        "algorithm_ids": [
+          "algo.fusion.water_polygon.priority_merge.v2",
+          "algo.fusion.waterways.conflation.v7"
+        ],
+        "quality_policy_ids": ["quality.default.water_polygon.v1", "quality.default.waterways.v1"],
+        "crosswalk_status": "closed_independent_confirmation"
+      },
+      "end_to_end": false
+    },
+    {
+      "case_id": "H09",
+      "version": "1.0.0",
+      "status": "independent_confirmation_planning_only",
+      "mechanism": "generic_poi_recovery_replan_switches_to_gns_after_merge_quality_failure",
+      "research_questions": ["RQ2", "RQ3"],
+      "scenario": {
+        "disaster_type": "generic",
+        "profile_id": "scenario.default.task",
+        "task_bundle_id": "task_bundle.direct_request"
+      },
+      "request_scope": {
+        "task_kinds": ["poi"],
+        "contract_ids": ["contract.product.poi.v1"],
+        "resource_regime": "tight_time_recovery_only"
+      },
+      "observations": {
+        "initial_sources": ["raw.osm.poi", "raw.gns.poi"],
+        "recovery_source": "raw.gns.poi",
+        "planning_stage": "recovery_replan",
+        "observed_failure": {
+          "stage_id": "poi_merge_quality_gate",
+          "task_kind": "poi",
+          "failure_category": "quality_gate_rejected_merged_poi_output",
+          "quality_gate_accepted": false,
+          "recoverable": true,
+          "available_source_ids": ["raw.osm.poi", "raw.gns.poi"],
+          "external_uncontrollable_source_ids": [],
+          "system_failure_source_ids": []
+        }
+      },
+      "gold_rubric": {
+        "expected_consequence": "preserve_failed_merge_trace_and_plan_gns_only_as_recovery_evidence",
+        "expected_outcome_classes": ["quality_failed_evidence", "recovery_trace", "degraded_but_usable"],
+        "quality_policy_id": "quality.external_degradation.v1",
+        "semantic_guard": "recovery_source_selection_must_not_erase_prior_quality_failure_or_reintroduce_failed_osm_input",
+        "allowed_decisions": ["partial", "degraded", "gap", "manual_intervention"],
+        "expected_task_kinds": ["poi"],
+        "expected_gap_task_kinds": [],
+        "required_precedence": [],
+        "allowed_delivery_states": {
+          "poi": ["provisional", "degraded", "gap"]
+        },
+        "manual_review_items": [
+          "poi_recovery_trace",
+          "prior_poi_failure_preserved",
+          "declared_recovery_source_only"
+        ]
+      },
+      "kg_crosswalk": {
+        "source_catalog_ids": ["raw.osm.poi", "raw.gns.poi"],
+        "algorithm_ids": ["algo.fusion.poi.v1"],
+        "quality_policy_ids": ["quality.external_degradation.v1"],
+        "crosswalk_status": "closed_independent_confirmation"
+      },
+      "end_to_end": false
+    }
+  ]
+}
