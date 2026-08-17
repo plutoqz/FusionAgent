@@ -1,0 +1,195 @@
+{
+  "freeze_id": "fusionagent.method-b-post-heldout-repair-evidence-freeze.v1",
+  "status": "frozen",
+  "frozen_at": "2026-08-17T21:00:00+08:00",
+  "source_branch": "codex/kg-llm-method-r1",
+  "source_commit": "446a7dd843e67623c7ad5337336b6da14473731c",
+  "historical_case_manifest": {
+    "path": "docs/current/research-case-manifest-heldout-method-b-v1.json",
+    "sha256": "sha256:b9f33be76f8b3af043d13136860975cd190460239150881ff1a55bb0a7a3868f",
+    "case_ids": ["H01", "H02", "H03", "H04", "H05", "H06"],
+    "mutation_forbidden": true
+  },
+  "claim_boundary_zh": "方案 B 在 post-held-out repair 后的 planning validation 中优于 LLM-only 和 Full KG；该结果不作为完全独立的 confirmatory superiority evidence。",
+  "claim_boundary": "After the post-held-out repair, method B outperformed LLM-only and Full KG in planning validation; this result is not fully independent confirmatory superiority evidence.",
+  "interpretation_limits": [
+    "planning validation only",
+    "post-held-out repair evidence, not pristine independent confirmation",
+    "not end-to-end product quality evidence",
+    "not cross-AOI evidence",
+    "not a statistical significance or population-generalization claim"
+  ],
+  "execution_accounting": {
+    "original_protocol": {
+      "scheduled_calls": 54,
+      "executed_calls": 54,
+      "successful_calls": 51,
+      "failed_calls": 3,
+      "failure_context": "the three original H06 method B outputs triggered the generic reject-only repair"
+    },
+    "post_repair_protocol": {
+      "scheduled_new_calls": 18,
+      "executed_new_calls": 18,
+      "successful_new_calls": 18,
+      "failed_new_calls": 0,
+      "read_only_baseline_calls_reused": 36
+    },
+    "merged_automatic_grid": {
+      "cells": 54,
+      "conditions": ["llm_only", "llm_full_contract_kg", "task_conditioned_contract_aware_kg"],
+      "repetitions": 3,
+      "automatic_audit_passed": true,
+      "claim_eligible": false
+    }
+  },
+  "tree_digest_contract": {
+    "algorithm": "sha256",
+    "canonicalization": "recursively sort normalized forward-slash relative paths; encode each line as relative_path<TAB>size_bytes<TAB>lowercase_sha256_hex<LF>; hash UTF-8 bytes without BOM"
+  },
+  "evidence_roots": [
+    {
+      "role": "original_54_call_results",
+      "path": "D:/code/fusionagent-evidence/p3-planning-method-b/2026-08-16-method-b-heldout-formal-v1",
+      "file_count": 62,
+      "result_file_count": 54,
+      "size_bytes": 3606607,
+      "tree_sha256": "sha256:73fdd0f5502a58a5d3649ef6ccb17337b630f51954aa726d112457fca9d404e8"
+    },
+    {
+      "role": "post_heldout_repair_18_call_results_and_merged_analysis",
+      "path": "D:/code/fusionagent-evidence/p3-planning-method-b/2026-08-16-method-b-heldout-formal-repair-v1",
+      "file_count": 28,
+      "result_file_count": 18,
+      "size_bytes": 1056303,
+      "tree_sha256": "sha256:494280431e12794a46b8d8c44b2bbacf1d66beebf8c9826c21ddb7081307622b"
+    },
+    {
+      "role": "two_reviewer_blinded_packets_decisions_and_blind_key",
+      "path": "D:/code/fusionagent-evidence/p3-planning-method-b/2026-08-16-method-b-manual-review-v1",
+      "file_count": 10,
+      "result_file_count": 0,
+      "size_bytes": 4857002,
+      "tree_sha256": "sha256:bbe3de1c6d74fc21f032597838e559e29626a1516d8ea5152a7d6f97bab5d080"
+    },
+    {
+      "role": "independent_third_reviewer_adjudication_and_final_human_analysis",
+      "path": "D:/code/fusionagent-evidence/p3-planning-method-b/2026-08-17-method-b-manual-adjudication-v1",
+      "file_count": 7,
+      "result_file_count": 0,
+      "size_bytes": 647164,
+      "tree_sha256": "sha256:78c35014eb8fed74d95e54251080abb1407d12b027c662716cac8540002605df"
+    }
+  ],
+  "critical_artifacts": [
+    {
+      "role": "original_protocol",
+      "path": "D:/code/fusionagent-evidence/p3-planning-method-b/2026-08-16-method-b-heldout-formal-v1/formal_protocol.json",
+      "size_bytes": 3200,
+      "sha256": "sha256:5a464927ea052b5f6dfc90c3f8d4c0d9466c5dcf9f662dfacfa3caad30ee0696"
+    },
+    {
+      "role": "original_summary",
+      "path": "D:/code/fusionagent-evidence/p3-planning-method-b/2026-08-16-method-b-heldout-formal-v1/formal_summary.json",
+      "size_bytes": 238,
+      "sha256": "sha256:49f1bdc83616b611a405618fe505858e35b0652c542e89941b9c473d5fa793ec"
+    },
+    {
+      "role": "original_automatic_analysis",
+      "path": "D:/code/fusionagent-evidence/p3-planning-method-b/2026-08-16-method-b-heldout-formal-v1/formal_analysis.json",
+      "size_bytes": 216981,
+      "sha256": "sha256:882718bceac7b3c4e6e3ff5bbb072d48dbd733c3caf1c5d1eac4f50fe3cac90c"
+    },
+    {
+      "role": "repair_protocol",
+      "path": "D:/code/fusionagent-evidence/p3-planning-method-b/2026-08-16-method-b-heldout-formal-repair-v1/formal_protocol.json",
+      "size_bytes": 3734,
+      "sha256": "sha256:c95afc1b94ff2c913485a5b15cccd5b7fbfc1080dbc4f40b1a1f41755956bc4f"
+    },
+    {
+      "role": "repair_summary",
+      "path": "D:/code/fusionagent-evidence/p3-planning-method-b/2026-08-16-method-b-heldout-formal-repair-v1/formal_summary.json",
+      "size_bytes": 245,
+      "sha256": "sha256:6273c627ac188c978fe211b890e50632bba5e6d84fdbaa4b402f41ac85577566"
+    },
+    {
+      "role": "read_only_baseline_binding",
+      "path": "D:/code/fusionagent-evidence/p3-planning-method-b/2026-08-16-method-b-heldout-formal-repair-v1/baseline_binding.json",
+      "size_bytes": 5156,
+      "sha256": "sha256:c22000dad541965617065a42296e96d5409b284bad51c44ae489c55264a38297"
+    },
+    {
+      "role": "merged_automatic_audit",
+      "path": "D:/code/fusionagent-evidence/p3-planning-method-b/2026-08-16-method-b-heldout-formal-repair-v1/formal_automatic_audit.json",
+      "size_bytes": 216394,
+      "sha256": "sha256:ade588534e049897a04b0a5aac1a5fbebfdd6e6649b63b8242bd23a7083b218b"
+    },
+    {
+      "role": "merged_automatic_analysis",
+      "path": "D:/code/fusionagent-evidence/p3-planning-method-b/2026-08-16-method-b-heldout-formal-repair-v1/formal_analysis_merged.json",
+      "size_bytes": 215925,
+      "sha256": "sha256:bfff6604ebc97aae7cca979901073cc38122dc6595eafdafadcb0b0afb170aae"
+    },
+    {
+      "role": "blind_packet_manifest",
+      "path": "D:/code/fusionagent-evidence/p3-planning-method-b/2026-08-16-method-b-manual-review-v1/packet-manifest.json",
+      "size_bytes": 1985,
+      "sha256": "sha256:2fd344b32f0a36fd7d33c7b29c5d5a744b478a3fa2f8f9d8f67ed8e5bd5b2d7c"
+    },
+    {
+      "role": "reviewer_a_decisions",
+      "path": "D:/code/fusionagent-evidence/p3-planning-method-b/2026-08-16-method-b-manual-review-v1/reviewer-a.decisions.json",
+      "size_bytes": 21501,
+      "sha256": "sha256:20365707fa291281d38f6f9cf8fc478274fc4930ac8d3470c36d536ec1f86672"
+    },
+    {
+      "role": "reviewer_b_decisions",
+      "path": "D:/code/fusionagent-evidence/p3-planning-method-b/2026-08-16-method-b-manual-review-v1/reviewer-b.decisions.json",
+      "size_bytes": 22516,
+      "sha256": "sha256:57cfa28aa6da74da0b0e804bdf872deab44a61db3ca854e8d839895b7915d10c"
+    },
+    {
+      "role": "reviewer_agreement_audit",
+      "path": "D:/code/fusionagent-evidence/p3-planning-method-b/2026-08-16-method-b-manual-review-v1/manual-review-agreement-audit.json",
+      "size_bytes": 4950,
+      "sha256": "sha256:b88e7297dabc318b939271306d5af5c42e476f6db7c3d068756c1ac36b3cf020"
+    },
+    {
+      "role": "blind_key",
+      "path": "D:/code/fusionagent-evidence/p3-planning-method-b/2026-08-16-method-b-manual-review-v1/blind-key.json",
+      "size_bytes": 16025,
+      "sha256": "sha256:8499d67ffeb83a99ed277f76c04b1d858454d5e53f8d2bd982abe92f9548b4ea"
+    },
+    {
+      "role": "third_reviewer_adjudication_manifest",
+      "path": "D:/code/fusionagent-evidence/p3-planning-method-b/2026-08-17-method-b-manual-adjudication-v1/adjudication-manifest.json",
+      "size_bytes": 2125,
+      "sha256": "sha256:f8bcb8b593e632fd48c74470db00e690e715472347b117908cb5686df474a9dc"
+    },
+    {
+      "role": "third_reviewer_decisions",
+      "path": "D:/code/fusionagent-evidence/p3-planning-method-b/2026-08-17-method-b-manual-adjudication-v1/adjudicator-c.decisions.json",
+      "size_bytes": 5368,
+      "sha256": "sha256:8e77027bc6fd7d9d9d06da1b77be9c9a518f1dbdb353ac45f9c5a33ea8c78eec"
+    },
+    {
+      "role": "third_reviewer_adjudication_audit",
+      "path": "D:/code/fusionagent-evidence/p3-planning-method-b/2026-08-17-method-b-manual-adjudication-v1/adjudication-audit.json",
+      "size_bytes": 14176,
+      "sha256": "sha256:3d4f4a524ec5f77fad85fe290be17637d6b69d8050d77a3facf8517ee9f598fd"
+    },
+    {
+      "role": "final_adjudicated_human_analysis",
+      "path": "D:/code/fusionagent-evidence/p3-planning-method-b/2026-08-17-method-b-manual-adjudication-v1/human-review-analysis-v2.json",
+      "size_bytes": 27726,
+      "sha256": "sha256:e3a17d2a7bf86d1f01a79a23bcf6b04bb3be9ddc717ada023d5f6697a4e481e5"
+    }
+  ],
+  "mutation_policy": {
+    "historical_roots_read_only": true,
+    "historical_decisions_read_only": true,
+    "blind_key_read_only": true,
+    "H01_H06_rerun_forbidden": true,
+    "prompt_evaluator_historical_decision_changes_forbidden": true,
+    "new_confirmation_results_must_use_a_new_evidence_root": true
+  }
+}
