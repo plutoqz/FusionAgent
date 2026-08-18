@@ -1,7 +1,8 @@
 # 仓库、分支与 Worktree 角色
 
-> 状态：A0 当前权威工作流
+> 状态：2026-08-04 仓库布局快照；当前分支职责已被继承
 > 更新日期：2026-08-04
+> 继承说明（2026-08-18）：当前实际 worktree、formal/method/confirmation/governance 分支职责见 `research-governance-index.md` 第 4 节。本文保留旧布局和稳定成果提升原则，不再作为路径、HEAD 或 dirty 状态的当前事实来源。
 
 ## 1. 当前布局
 

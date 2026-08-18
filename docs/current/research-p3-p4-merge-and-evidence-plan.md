@@ -1,6 +1,8 @@
 # P3-P/P4-P 研究归并与证据冻结计划
 
-状态：五项实验语义已讨论确定；本文是实施入口，不是正式运行协议。正式协议、模型、重复次数和预算须在真实 LLM pilot 通过后另行冻结。
+状态：历史实施计划与 append-only checkpoint 日志；不再是当前实施入口。
+
+继承说明（2026-08-18）：本文保留 P3-P/P4-P 的协议演进、失败和执行记录，不删除或回写历史“下一步”。当前研究阶段与唯一下一验收点见 `research-governance-index.md`；实验角色和主张状态分别见 `research-experiment-ledger.md` 与 `research-claim-evidence-ledger.md`。不得从本文最后一个 checkpoint 自动恢复实验或启动调用。
 
 ## 1. 研究边界
 

@@ -1,8 +1,9 @@
 # FusionAgent 当前项目状态
 
-> 状态：A0 当前权威状态
+> 状态：2026-08-13 历史状态快照；当前状态已被继承
 > 基准日期：2026-08-13
 > 当前活动工作区：`D:\code\FusionAgent`，分支 `main`
+> 继承说明（2026-08-18）：当前研究阶段、分支职责和下一验收点见 `research-governance-index.md`；当前主张与实验状态分别见 `research-claim-evidence-ledger.md` 和 `research-experiment-ledger.md`。本文保留当时事实，不再追加新的实验 checkpoint。
 
 ## 1. 总体判断
 

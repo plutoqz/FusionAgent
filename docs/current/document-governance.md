@@ -1,7 +1,7 @@
 # 文档治理与归档规则
 
 > 状态：A0 当前权威规则
-> 更新日期：2026-07-28
+> 更新日期：2026-08-18
 
 ## 1. 治理目标
 
@@ -16,8 +16,8 @@
 
 | 级别 | 定义 | 典型位置 |
 | --- | --- | --- |
-| A0 | 研究章程、当前项目状态、主张边界和治理规则 | `docs/current/` |
-| A1 | 当前工程/研究规范、协议和机器可读清单 | `docs/thesis/`、`docs/research/` |
+| A0 | 研究章程和治理规则 | `docs/current/research-charter.md`、本文件 |
+| A1 | 当前执行状态、主张/实验账本、工程/研究规范、协议和机器可读清单 | `docs/current/`、`docs/thesis/`、`docs/research/` |
 | A2 | 运行手册、演示说明和辅助材料 | `docs/demo/`、各类 runbook |
 | A3 | 历史计划、旧证据、会话交接和已替代版本 | `docs/archive/`、`docs/pasted/`、`docs/superpowers/**/done/` |
 
@@ -29,7 +29,15 @@
 - `historical`：历史材料，仅用于追溯。
 - `superseded`：已有明确替代文件。
 
-`docs/current/research-charter.md` 是研究对象、目标、研究问题、创新点和非主张的唯一最高权威。其他 A0 文档负责状态和执行治理，不得另行定义相互冲突的研究主体。
+`docs/current/research-charter.md` 是研究对象、目标、研究问题、创新点和非主张的唯一最高权威。本文件只规定文档治理规则；当前状态和执行入口由下列 A1 文档管理，均不得另行定义相互冲突的研究主体。
+
+当前研究执行采用以下固定入口：
+
+- `research-governance-index.md`：唯一当前阶段和下一验收点。
+- `research-claim-evidence-ledger.md`：唯一当前主张状态和允许表述。
+- `research-experiment-ledger.md`：唯一当前实验角色、状态和复用范围。
+
+旧 `project-status.md`、`claims-and-priorities.md` 和长篇实验计划可以保留历史事实，但不得与上述三个 A1 入口竞争当前状态权威。对它们优先添加 superseded 指针，不批量重写历史 checkpoint。
 
 ## 3. 目录职责
 
@@ -71,6 +79,12 @@ docs/
 ## 6. 过时和错误内容处理
 
 对当前文档：直接修正事实、链接和主张边界，并在必要时更新日期。
+
+当名为 `current` 的旧文档同时包含大量已完成 checkpoint，且继续追加会造成“最后一节决定当前口径”时，应停止追加并执行以下操作：
+
+1. 在文件顶部标记其快照日期和继承文档。
+2. 将当前状态拆入稳定入口或结构化账本。
+3. 历史正文保持不变，避免回写当时的实验语义。
 
 对历史证据：不批量重写当时内容。采用以下方式：
 
