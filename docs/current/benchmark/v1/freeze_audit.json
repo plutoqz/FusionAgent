@@ -1,0 +1,366 @@
+{
+  "audit_id": "fusionagent.benchmark-design-freeze-audit.v1",
+  "design_id": "fusionagent.benchmark-design.v1",
+  "generated_at": "2026-08-19T04:11:24.706022Z",
+  "repo_root": "D:\\code\\FusionAgent-benchmark-design",
+  "design_root": "D:\\code\\FusionAgent-benchmark-design\\docs\\current\\benchmark\\v1",
+  "base_commit": "8c5302f0b30ceccd353ca442bec40daa0a884b8b",
+  "checks": [
+    {
+      "check_id": "required_design_files",
+      "required": true,
+      "passed": true,
+      "details": {
+        "missing": []
+      }
+    },
+    {
+      "check_id": "asset_identities",
+      "required": true,
+      "passed": true,
+      "details": {
+        "expected": {
+          "matrix": "fusionagent.benchmark-capability-matrix.v1",
+          "evaluation": "fusionagent.benchmark-evaluation-contract.v1",
+          "selection": "fusionagent.benchmark-selection-governance.v1",
+          "manifest": "fusionagent.benchmark-design-freeze.v1"
+        },
+        "actual": {
+          "matrix": "fusionagent.benchmark-capability-matrix.v1",
+          "evaluation": "fusionagent.benchmark-evaluation-contract.v1",
+          "selection": "fusionagent.benchmark-selection-governance.v1",
+          "manifest": "fusionagent.benchmark-design-freeze.v1"
+        }
+      }
+    },
+    {
+      "check_id": "freeze_manifest_contract",
+      "required": true,
+      "passed": true,
+      "details": {
+        "file_paths": [
+          "docs/current/benchmark/v1/README.md",
+          "docs/current/benchmark/v1/benchmark_charter.md",
+          "docs/current/benchmark/v1/capability_matrix.json",
+          "docs/current/benchmark/v1/evaluation_contract.json",
+          "docs/current/benchmark/v1/human_review_rubric.md",
+          "docs/current/benchmark/v1/protocol_review.json",
+          "docs/current/benchmark/v1/selection_governance.json",
+          "docs/current/benchmark/v1/template.schema.json",
+          "scripts/audit_benchmark_design_freeze.py",
+          "tests/test_benchmark_design_freeze.py"
+        ],
+        "missing_file_paths": [],
+        "unexpected_file_paths": [],
+        "duplicate_file_paths": [],
+        "authoritative_inputs": {
+          "docs/current/research-charter.md": "sha256:223d3ca0719a69c373a4e6a95853c1c55b23a18ae5cef40eb1267fe10c855207",
+          "docs/current/research-claim-evidence-ledger.md": "sha256:afa05fcb8e496c8bda528837e50d86b8f942eaa93967b59f59580a0443e282ef",
+          "docs/current/research-experiment-ledger.md": "sha256:a1f859e306701cc2293287168c29d70254800a05ecf9bfe166419d1f4f50ec14",
+          "docs/current/research-governance-index.md": "sha256:f1080d9961a6cab16e21f85e4b5b04bd9458d9eca1a4336522f8aea4045d06d6",
+          "kg/ontology/v1.0.0/release.json": "sha256:8d0d801331a4c57b062442f2b7cc9b836de207ee3792d0de2db75b65bbbeb35b"
+        },
+        "zero_call_accounting": {
+          "instances_generated": 0,
+          "provider_call_count": 0,
+          "judge_call_count": 0,
+          "formal_result_root_count": 0
+        },
+        "integrity_assertions": {
+          "kg_release_changed": false,
+          "historical_evidence_mutated": false,
+          "confirmation_unsealed": false,
+          "selective_e2e_selected": false
+        }
+      }
+    },
+    {
+      "check_id": "capability_matrix_coverage",
+      "required": true,
+      "passed": true,
+      "details": {
+        "cell_count": 17,
+        "unique_cell_count": 17,
+        "claim_ids": [
+          "CL-BENCH-CAUSAL",
+          "CL-BENCH-COMPOSE",
+          "CL-BENCH-DIAG",
+          "CL-BENCH-INVARIANT",
+          "CL-BENCH-RECOVERY"
+        ],
+        "mechanisms_per_claim": {
+          "CL-BENCH-CAUSAL": 3,
+          "CL-BENCH-COMPOSE": 3,
+          "CL-BENCH-DIAG": 5,
+          "CL-BENCH-INVARIANT": 3,
+          "CL-BENCH-RECOVERY": 3
+        },
+        "capability_layers": [
+          "execution_evidence",
+          "kg",
+          "planning",
+          "projection",
+          "validator"
+        ],
+        "complexity_levels": [
+          "L0",
+          "L1",
+          "L2",
+          "L3",
+          "L4"
+        ]
+      }
+    },
+    {
+      "check_id": "historical_case_exclusion",
+      "required": true,
+      "passed": true,
+      "details": {
+        "matrix": [
+          "C01",
+          "C02",
+          "C03",
+          "C04",
+          "C05",
+          "C06",
+          "H01",
+          "H02",
+          "H03",
+          "H04",
+          "H05",
+          "H06",
+          "H07",
+          "H08",
+          "H09"
+        ],
+        "selection": [
+          "C01",
+          "C02",
+          "C03",
+          "C04",
+          "C05",
+          "C06",
+          "H01",
+          "H02",
+          "H03",
+          "H04",
+          "H05",
+          "H06",
+          "H07",
+          "H08",
+          "H09"
+        ],
+        "charter": [
+          "C01",
+          "C02",
+          "C03",
+          "C04",
+          "C05",
+          "C06",
+          "H01",
+          "H02",
+          "H03",
+          "H04",
+          "H05",
+          "H06",
+          "H07",
+          "H08",
+          "H09"
+        ]
+      }
+    },
+    {
+      "check_id": "template_schema_contract",
+      "required": true,
+      "passed": true,
+      "details": {
+        "draft": "https://json-schema.org/draft/2020-12/schema",
+        "definition_count": 20,
+        "local_refs": [
+          "crosswalk",
+          "crosswalkReference",
+          "deliveryEvent",
+          "e2eEligibility",
+          "experimentUnit",
+          "generation",
+          "hashing",
+          "observedFailure",
+          "oracle",
+          "partitionPolicy",
+          "provenance",
+          "relationAssertion",
+          "sourceState",
+          "task",
+          "taskOracle",
+          "taskState",
+          "variable",
+          "variables",
+          "veto",
+          "views"
+        ],
+        "missing_refs": [],
+        "open_object_paths": [],
+        "unknown_root_key_rejected": true,
+        "maximum_causal_mutations_per_pair": 1
+      }
+    },
+    {
+      "check_id": "evaluation_contract_coverage",
+      "required": true,
+      "passed": true,
+      "details": {
+        "gate_ids": [
+          "G0",
+          "G1",
+          "G2",
+          "G3",
+          "G4",
+          "G5",
+          "G6"
+        ],
+        "missing_matrix_gates": [],
+        "metric_count": 16,
+        "rate_metric_count": 13,
+        "missing_denominators": [],
+        "overall_composite_score": "forbidden"
+      }
+    },
+    {
+      "check_id": "human_rubric_completeness",
+      "required": true,
+      "passed": true,
+      "details": {
+        "missing_tokens": []
+      }
+    },
+    {
+      "check_id": "selection_governance",
+      "required": true,
+      "passed": true,
+      "details": {
+        "partition_ids": [
+          "development",
+          "independent_confirmation",
+          "selective_e2e"
+        ],
+        "unique_seed_count": 3,
+        "forbidden_exclusions_enabled": [],
+        "accounting": {
+          "instances_generated": 0,
+          "provider_calls": 0,
+          "judge_calls": 0,
+          "formal_result_roots_created": 0,
+          "confirmation_unsealed": false,
+          "selective_e2e_selected": false
+        }
+      }
+    },
+    {
+      "check_id": "freeze_manifest_hashes",
+      "required": true,
+      "passed": true,
+      "details": {
+        "errors": [],
+        "file_count": 10
+      }
+    },
+    {
+      "check_id": "design_directory_inventory",
+      "required": true,
+      "passed": true,
+      "details": {
+        "files": [
+          "README.md",
+          "benchmark_charter.md",
+          "capability_matrix.json",
+          "evaluation_contract.json",
+          "freeze_audit.json",
+          "freeze_manifest.json",
+          "human_review_rubric.md",
+          "protocol_review.json",
+          "selection_governance.json",
+          "template.schema.json"
+        ],
+        "unexpected_files": [],
+        "nested_directories": []
+      }
+    },
+    {
+      "check_id": "markdown_links",
+      "required": true,
+      "passed": true,
+      "details": {
+        "errors": []
+      }
+    },
+    {
+      "check_id": "kg_release_unchanged",
+      "required": true,
+      "passed": true,
+      "details": {
+        "release_id": "fusionagent-kg-v1.0.0",
+        "semantic_hash": "sha256:50067b9368914c47580707650789c04c78b2e856ccb3ef4d120a31f36c0ad71e",
+        "file_sha256": "sha256:8d0d801331a4c57b062442f2b7cc9b836de207ee3792d0de2db75b65bbbeb35b"
+      }
+    },
+    {
+      "check_id": "bounded_change_set",
+      "required": true,
+      "passed": true,
+      "details": {
+        "changed_paths": [
+          "docs/current/benchmark/v1/README.md",
+          "docs/current/benchmark/v1/benchmark_charter.md",
+          "docs/current/benchmark/v1/capability_matrix.json",
+          "docs/current/benchmark/v1/evaluation_contract.json",
+          "docs/current/benchmark/v1/freeze_audit.json",
+          "docs/current/benchmark/v1/freeze_manifest.json",
+          "docs/current/benchmark/v1/human_review_rubric.md",
+          "docs/current/benchmark/v1/protocol_review.json",
+          "docs/current/benchmark/v1/selection_governance.json",
+          "docs/current/benchmark/v1/template.schema.json",
+          "scripts/audit_benchmark_design_freeze.py",
+          "tests/test_benchmark_design_freeze.py"
+        ],
+        "forbidden_paths": [],
+        "historical_mutations": []
+      }
+    },
+    {
+      "check_id": "human_protocol_review",
+      "required": true,
+      "passed": false,
+      "details": {
+        "status": "pending_human_review",
+        "decision": null,
+        "reviewer": {
+          "name": null,
+          "role": null,
+          "independent_of_authoring": null,
+          "reviewed_at": null
+        },
+        "pending_items": [
+          "PR-CHARTER",
+          "PR-MATRIX",
+          "PR-ORACLE-VETO",
+          "PR-HUMAN-RUBRIC",
+          "PR-SELECTION",
+          "PR-CLAIM-BOUNDARY"
+        ]
+      }
+    }
+  ],
+  "required_check_count": 15,
+  "passed_required_check_count": 14,
+  "required_failures": [
+    "human_protocol_review"
+  ],
+  "overall_passed": false,
+  "milestone_status": "blocked_before_freeze",
+  "accounting": {
+    "instances_generated": 0,
+    "provider_calls": 0,
+    "judge_calls": 0,
+    "formal_result_roots_created": 0
+  }
+}
