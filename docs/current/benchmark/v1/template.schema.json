@@ -1,0 +1,681 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fusionagent.local/schemas/benchmark-template.v1.json",
+  "title": "FusionAgent Parameterized Benchmark Template V1",
+  "description": "Closed design contract for parameterized benchmark template families. This schema defines templates, not generated instances or experiment results.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "template_family_id",
+    "version",
+    "status",
+    "claim_ids",
+    "capability_cell_ids",
+    "mechanism_family",
+    "complexity_level",
+    "experiment_unit",
+    "provenance",
+    "task_state",
+    "variables",
+    "oracle",
+    "vetoes",
+    "views",
+    "crosswalk",
+    "partition_policy",
+    "generation",
+    "hashing"
+  ],
+  "properties": {
+    "template_family_id": {
+      "type": "string",
+      "pattern": "^TF-[A-Z0-9-]+$"
+    },
+    "version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$"
+    },
+    "status": {
+      "const": "frozen_template_family"
+    },
+    "claim_ids": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "enum": [
+          "CL-BENCH-CAUSAL",
+          "CL-BENCH-INVARIANT",
+          "CL-BENCH-COMPOSE",
+          "CL-BENCH-RECOVERY",
+          "CL-BENCH-DIAG"
+        ]
+      }
+    },
+    "capability_cell_ids": {
+      "type": "array",
+      "minItems": 1,
+      "uniqueItems": true,
+      "items": {
+        "type": "string",
+        "pattern": "^BC-[A-Z0-9-]+$"
+      }
+    },
+    "mechanism_family": {
+      "type": "string",
+      "minLength": 1
+    },
+    "complexity_level": {
+      "enum": ["L0", "L1", "L2", "L3", "L4"]
+    },
+    "experiment_unit": {
+      "$ref": "#/$defs/experimentUnit"
+    },
+    "provenance": {
+      "$ref": "#/$defs/provenance"
+    },
+    "task_state": {
+      "$ref": "#/$defs/taskState"
+    },
+    "variables": {
+      "$ref": "#/$defs/variables"
+    },
+    "oracle": {
+      "$ref": "#/$defs/oracle"
+    },
+    "vetoes": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/veto"
+      }
+    },
+    "views": {
+      "$ref": "#/$defs/views"
+    },
+    "crosswalk": {
+      "$ref": "#/$defs/crosswalk"
+    },
+    "partition_policy": {
+      "$ref": "#/$defs/partitionPolicy"
+    },
+    "generation": {
+      "$ref": "#/$defs/generation"
+    },
+    "hashing": {
+      "$ref": "#/$defs/hashing"
+    },
+    "e2e_eligibility": {
+      "$ref": "#/$defs/e2eEligibility"
+    }
+  },
+  "$defs": {
+    "experimentUnit": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["unit_type", "relation_id", "minimum_members", "relation_assertions"],
+      "properties": {
+        "unit_type": {
+          "enum": ["single", "counterfactual_pair", "invariant_set", "composition_family", "temporal_trace"]
+        },
+        "relation_id": {
+          "type": "string",
+          "pattern": "^REL-[A-Z0-9-]+$"
+        },
+        "minimum_members": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "relation_assertions": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/relationAssertion"
+          }
+        }
+      }
+    },
+    "relationAssertion": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["assertion_id", "kind", "left_path", "operator"],
+      "properties": {
+        "assertion_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "kind": {
+          "enum": ["causal_change", "semantic_equivalence", "task_local_composition", "temporal_transition", "evidence_presence"]
+        },
+        "left_path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "right_path": {
+          "type": ["string", "null"]
+        },
+        "operator": {
+          "enum": ["equals", "not_equals", "contains", "excludes", "subset", "superset", "precedes", "transitions_to", "present"]
+        },
+        "expected_value": {}
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["design_id", "charter_id", "matrix_id", "kg_release_id", "kg_semantic_hash", "authoring_basis"],
+      "properties": {
+        "design_id": {
+          "const": "fusionagent.benchmark-design.v1"
+        },
+        "charter_id": {
+          "const": "fusionagent.benchmark-charter.v1"
+        },
+        "matrix_id": {
+          "const": "fusionagent.benchmark-capability-matrix.v1"
+        },
+        "kg_release_id": {
+          "const": "fusionagent-kg-v1.0.0"
+        },
+        "kg_semantic_hash": {
+          "const": "sha256:50067b9368914c47580707650789c04c78b2e856ccb3ef4d120a31f36c0ad71e"
+        },
+        "authoring_basis": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "historical_case_similarity_review": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "taskState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["disaster_type", "resource_regime", "tasks", "global_observations"],
+      "properties": {
+        "disaster_type": {
+          "type": "string",
+          "minLength": 1
+        },
+        "resource_regime": {
+          "type": "string",
+          "minLength": 1
+        },
+        "tasks": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/task"
+          }
+        },
+        "global_observations": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "mission_priority": {
+              "type": "array",
+              "uniqueItems": true,
+              "items": {
+                "type": "string"
+              }
+            },
+            "time_budget_class": {
+              "type": "string"
+            },
+            "network_state": {
+              "type": "string"
+            }
+          }
+        }
+      }
+    },
+    "task": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["task_id", "task_kind", "contract_ids", "source_states", "observed_failures", "delivery_history", "precedence_after"],
+      "properties": {
+        "task_id": {
+          "type": "string",
+          "pattern": "^TASK-[A-Z0-9-]+$"
+        },
+        "task_kind": {
+          "enum": ["building", "road", "water_polygon", "waterways", "poi"]
+        },
+        "contract_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "minLength": 1
+          }
+        },
+        "source_states": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/sourceState"
+          }
+        },
+        "observed_failures": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/observedFailure"
+          }
+        },
+        "delivery_history": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/deliveryEvent"
+          }
+        },
+        "precedence_after": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string",
+            "pattern": "^TASK-[A-Z0-9-]+$"
+          }
+        }
+      }
+    },
+    "sourceState": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_id", "availability", "semantic_status", "legal_for_task"],
+      "properties": {
+        "source_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "availability": {
+          "enum": ["available", "delayed", "missing", "failed", "unknown"]
+        },
+        "semantic_status": {
+          "enum": ["compatible", "requires_normalization", "mismatch", "unknown"]
+        },
+        "legal_for_task": {
+          "type": "boolean"
+        },
+        "normalization_contract_id": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "observedFailure": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["failure_id", "stage", "failure_class", "observed_at_step", "evidence_ref"],
+      "properties": {
+        "failure_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "stage": {
+          "enum": ["materialization", "execution", "quality_gate", "delivery", "evidence"]
+        },
+        "failure_class": {
+          "type": "string",
+          "minLength": 1
+        },
+        "observed_at_step": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "evidence_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "recoverable": {
+          "type": "boolean"
+        }
+      }
+    },
+    "deliveryEvent": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["step", "state", "evidence_ref"],
+      "properties": {
+        "step": {
+          "type": "integer",
+          "minimum": 1
+        },
+        "state": {
+          "enum": ["planned", "pending", "gap", "provisional", "degraded", "final", "rejected", "superseded"]
+        },
+        "evidence_ref": {
+          "type": "string",
+          "minLength": 1
+        },
+        "supersedes_ref": {
+          "type": ["string", "null"]
+        }
+      }
+    },
+    "variables": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["causal_variables", "invariants", "nuisance_variables", "maximum_causal_mutations_per_pair"],
+      "properties": {
+        "causal_variables": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/variable"
+          }
+        },
+        "invariants": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/variable"
+          }
+        },
+        "nuisance_variables": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/variable"
+          }
+        },
+        "maximum_causal_mutations_per_pair": {
+          "const": 1
+        }
+      }
+    },
+    "variable": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["variable_id", "json_path", "value_type", "allowed_values", "mutation_role"],
+      "properties": {
+        "variable_id": {
+          "type": "string",
+          "pattern": "^VAR-[A-Z0-9-]+$"
+        },
+        "json_path": {
+          "type": "string",
+          "pattern": "^\\$.+"
+        },
+        "value_type": {
+          "enum": ["string", "integer", "number", "boolean", "array", "object", "null"]
+        },
+        "allowed_values": {
+          "type": "array",
+          "minItems": 1
+        },
+        "mutation_role": {
+          "enum": ["causal", "invariant", "nuisance"]
+        }
+      }
+    },
+    "oracle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["allowed_decisions", "task_constraints", "relation_assertion_ids", "manual_review_item_ids", "allows_multiple_valid_plans"],
+      "properties": {
+        "allowed_decisions": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": ["plan", "partial", "degraded", "gap", "reject"]
+          }
+        },
+        "task_constraints": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/taskOracle"
+          }
+        },
+        "relation_assertion_ids": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "manual_review_item_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "allows_multiple_valid_plans": {
+          "type": "boolean"
+        }
+      }
+    },
+    "taskOracle": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["task_id", "required", "allowed_delivery_states", "allowed_source_ids", "forbidden_source_ids"],
+      "properties": {
+        "task_id": {
+          "type": "string"
+        },
+        "required": {
+          "type": "boolean"
+        },
+        "allowed_delivery_states": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": ["planned", "pending", "gap", "provisional", "degraded", "final", "rejected", "superseded"]
+          }
+        },
+        "allowed_source_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "forbidden_source_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "veto": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["veto_id", "failure_class", "condition", "evidence_path"],
+      "properties": {
+        "veto_id": {
+          "type": "string",
+          "pattern": "^VETO-[A-Z0-9-]+$"
+        },
+        "failure_class": {
+          "type": "string",
+          "minLength": 1
+        },
+        "condition": {
+          "type": "string",
+          "minLength": 1
+        },
+        "evidence_path": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "views": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["planner_visible_paths", "evaluator_only_paths", "human_blind_paths", "planner_forbidden_path_prefixes"],
+      "properties": {
+        "planner_visible_paths": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "evaluator_only_paths": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "human_blind_paths": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        },
+        "planner_forbidden_path_prefixes": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": ["$.oracle", "$.vetoes", "$.experiment_unit.relation_assertions", "$.partition_policy", "$.hashing"]
+          }
+        }
+      }
+    },
+    "crosswalk": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["kg_release_id", "references", "missing_reference_policy"],
+      "properties": {
+        "kg_release_id": {
+          "const": "fusionagent-kg-v1.0.0"
+        },
+        "references": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/crosswalkReference"
+          }
+        },
+        "missing_reference_policy": {
+          "const": "fail_closed"
+        }
+      }
+    },
+    "crosswalkReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["reference_id", "reference_type", "used_by_task_ids"],
+      "properties": {
+        "reference_id": {
+          "type": "string",
+          "minLength": 1
+        },
+        "reference_type": {
+          "enum": ["scenario", "task_bundle", "contract", "source", "algorithm", "workflow_pattern", "quality_policy", "normalization_contract", "intent_policy"]
+        },
+        "used_by_task_ids": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "partitionPolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["allowed_partitions", "historical_case_ids_forbidden_in_confirmation", "semantic_copy_forbidden"],
+      "properties": {
+        "allowed_partitions": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": ["development", "independent_confirmation", "selective_e2e"]
+          }
+        },
+        "historical_case_ids_forbidden_in_confirmation": {
+          "type": "array",
+          "minItems": 15,
+          "uniqueItems": true,
+          "items": {
+            "pattern": "^[CH][0-9]{2}$"
+          }
+        },
+        "semantic_copy_forbidden": {
+          "const": true
+        }
+      }
+    },
+    "generation": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["generator_id", "template_first", "seed_namespace", "instance_id_pattern", "stopping_rule_id"],
+      "properties": {
+        "generator_id": {
+          "type": "string"
+        },
+        "template_first": {
+          "const": true
+        },
+        "seed_namespace": {
+          "type": "string",
+          "minLength": 1
+        },
+        "instance_id_pattern": {
+          "type": "string",
+          "minLength": 1
+        },
+        "stopping_rule_id": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "hashing": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["algorithm", "canonicalization", "template_hash_field", "instance_hash_field"],
+      "properties": {
+        "algorithm": {
+          "const": "sha256"
+        },
+        "canonicalization": {
+          "const": "utf8-json-sorted-keys-compact-no-bom"
+        },
+        "template_hash_field": {
+          "const": "template_sha256"
+        },
+        "instance_hash_field": {
+          "const": "instance_sha256"
+        }
+      }
+    },
+    "e2eEligibility": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["eligible", "source_closed_required", "truth_or_quality_evaluable_required", "selection_independent_of_method_result"],
+      "properties": {
+        "eligible": {
+          "type": "boolean"
+        },
+        "source_closed_required": {
+          "const": true
+        },
+        "truth_or_quality_evaluable_required": {
+          "const": true
+        },
+        "selection_independent_of_method_result": {
+          "const": true
+        }
+      }
+    }
+  }
+}
