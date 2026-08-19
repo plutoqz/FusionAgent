@@ -348,10 +348,25 @@
           "PR-CLAIM-BOUNDARY"
         ]
       }
+    },
+    {
+      "check_id": "milestone_state_consistency",
+      "required": true,
+      "passed": true,
+      "details": {
+        "milestone": {
+          "milestone_id": "M-BENCH-DESIGN-FREEZE-V1",
+          "status": "blocked_before_freeze",
+          "complete": false,
+          "blocking_gate": "human_protocol_review"
+        },
+        "review_status": "pending_human_review",
+        "review_decision": null
+      }
     }
   ],
-  "required_check_count": 15,
-  "passed_required_check_count": 14,
+  "required_check_count": 16,
+  "passed_required_check_count": 15,
   "required_failures": [
     "human_protocol_review"
   ],

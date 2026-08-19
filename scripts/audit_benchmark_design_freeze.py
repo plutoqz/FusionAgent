@@ -173,6 +173,29 @@ def local_markdown_link_errors(markdown_paths: Iterable[Path]) -> list[dict[str,
     return errors
 
 
+def milestone_state_matches_review(manifest: dict[str, Any], review: dict[str, Any]) -> bool:
+    milestone = manifest.get("milestone", {})
+    review_approved = (
+        review.get("status") == "approved"
+        and review.get("decision") == "approved"
+        and review.get("reviewer", {}).get("role") in {"user", "independent_reviewer"}
+        and review.get("reviewer", {}).get("independent_of_authoring") is True
+        and review.get("checklist")
+        and all(item.get("decision") == "approved" for item in review["checklist"])
+    )
+    if review_approved:
+        return (
+            milestone.get("status") == "complete"
+            and milestone.get("complete") is True
+            and milestone.get("blocking_gate") is None
+        )
+    return (
+        milestone.get("status") == "blocked_before_freeze"
+        and milestone.get("complete") is False
+        and milestone.get("blocking_gate") == "human_protocol_review"
+    )
+
+
 def _git_lines(repo_root: Path, *args: str) -> list[str]:
     completed = subprocess.run(
         ["git", *args],
@@ -472,6 +495,12 @@ def audit_design(repo_root: Path, design_root: Path) -> dict[str, Any]:
             "reviewer": review.get("reviewer"),
             "pending_items": [item.get("item_id") for item in review_items if item.get("decision") != "approved"],
         },
+    )
+    _check(
+        checks,
+        "milestone_state_consistency",
+        milestone_state_matches_review(manifest, review),
+        {"milestone": manifest.get("milestone"), "review_status": review.get("status"), "review_decision": review.get("decision")},
     )
 
     required_failures = [check["check_id"] for check in checks if check["required"] and not check["passed"]]

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import copy
 import json
 from pathlib import Path
 
@@ -12,6 +13,7 @@ from scripts.audit_benchmark_design_freeze import (
     local_schema_refs,
     manifest_file_map,
     manifest_hash_errors,
+    milestone_state_matches_review,
     open_object_schema_paths,
     root_key_errors,
 )
@@ -91,6 +93,34 @@ def test_manifest_file_set_is_complete_and_unique() -> None:
     file_map, duplicates = manifest_file_map(manifest)
     assert set(file_map) == EXPECTED_MANIFEST_FILES
     assert duplicates == []
+
+
+def test_manifest_milestone_cannot_lag_an_approved_review() -> None:
+    manifest = load_json(DESIGN_ROOT / "freeze_manifest.json")
+    review = load_json(DESIGN_ROOT / "protocol_review.json")
+    assert milestone_state_matches_review(manifest, review)
+
+    approved_review = copy.deepcopy(review)
+    approved_review["status"] = "approved"
+    approved_review["decision"] = "approved"
+    approved_review["reviewer"] = {
+        "name": "independent reviewer",
+        "role": "independent_reviewer",
+        "independent_of_authoring": True,
+        "reviewed_at": "2026-08-19T00:00:00Z",
+    }
+    for item in approved_review["checklist"]:
+        item["decision"] = "approved"
+    assert not milestone_state_matches_review(manifest, approved_review)
+
+    complete_manifest = copy.deepcopy(manifest)
+    complete_manifest["milestone"] = {
+        "milestone_id": "M-BENCH-DESIGN-FREEZE-V1",
+        "status": "complete",
+        "complete": True,
+        "blocking_gate": None,
+    }
+    assert milestone_state_matches_review(complete_manifest, approved_review)
 
 
 def test_local_markdown_links_resolve() -> None:

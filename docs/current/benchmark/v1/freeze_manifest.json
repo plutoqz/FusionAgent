@@ -81,11 +81,11 @@
     },
     {
       "path": "scripts/audit_benchmark_design_freeze.py",
-      "sha256": "sha256:516cd62bac041f8965aa5330ed2aa9317e980680d4a1e97412fb9026bc83d49d"
+      "sha256": "sha256:22cfec438b917b92345525d8e490deff4873faa444293491d2b510389062cce8"
     },
     {
       "path": "tests/test_benchmark_design_freeze.py",
-      "sha256": "sha256:b6c1254451e3afda45236c9b7d0f047a448bae561e2302df741a150cad3f0588"
+      "sha256": "sha256:e087759bc6bb7ab072036d9f54a9f5ba1ac740155b318401b78df42ae2b140cf"
     }
   ],
   "self_hash_policy": {
