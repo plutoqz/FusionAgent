@@ -1,7 +1,7 @@
 # FusionAgent 研究治理入口
 
 > 状态：A1 当前唯一执行入口
-> 更新日期：2026-08-18
+> 更新日期：2026-08-19
 > 所在分支：`codex/research-governance-r1`
 > A0 研究基线：[研究章程](research-charter.md)
 
@@ -26,6 +26,8 @@
 
 上述五项被明确验收前，不进入案例平台实现，不运行自动 judge，不生成新的正式结果根。
 
+逐阶段执行顺序、产物合同、验收、回滚和恢复检查点见 [`benchmark-design-freeze-execution-plan.md`](benchmark-design-freeze-execution-plan.md)。该计划终止于 `M-BENCH-DESIGN-FREEZE-V1`，不授权后续平台实现或 Provider 调用。
+
 ## 3. 文档权威顺序
 
 | 顺序 | 文档 | 权威范围 |
@@ -35,7 +37,8 @@
 | A1-1 | 本文件 | 当前阶段、唯一下一验收点、分支和文档入口 |
 | A1-2 | `research-claim-evidence-ledger.md` | 当前主张状态、允许表述、缺口和证据边界 |
 | A1-3 | `research-experiment-ledger.md` | 每个实验集、方法版本、案例角色和复用范围 |
-| A1-4 | 当前明确冻结的 protocol/manifest | 单次实验的输入、模型、指标、预算和停止条件 |
+| A1-4 | `benchmark-design-freeze-execution-plan.md` | 当前里程碑的阶段、产物、验收、回滚和恢复合同 |
+| A1-5 | 当前明确冻结的 protocol/manifest | 单次实验的输入、模型、指标、预算和停止条件 |
 | A3 | 旧状态、旧计划、历史 checkpoint 和 evidence root | 仅用于追溯，不决定当前下一动作 |
 
 当旧文档与本入口冲突时：A0 语义由 `research-charter.md` 决定；执行状态由本入口决定；证据可用范围由两个账本决定。
@@ -48,7 +51,7 @@
 | `origin/codex/p3-planning-formal-r1` | `ce37073` | 原六组正式 planning 证据 checkpoint | 只读，不改写历史证据 |
 | `origin/codex/kg-llm-method-r1` | `446a7dd` | B 开发、H01-H06 repair 与人工评价 checkpoint | 只读，不作为 confirmation 分支 |
 | `codex/kg-llm-confirmation-r1` | `bfd5308` | H07-H09 独立 confirmation checkpoint | 只读，不继续追加方法修改 |
-| `codex/research-governance-r1` | 从 `bfd5308` 分出 | 当前文档、口径、账本和 benchmark 协议设计 | 不写正式实验结果，不改历史 evidence root |
+| `codex/research-governance-r1` | 从 `bfd5308` 分出 | 当前文档、口径、账本和执行方案 checkpoint | 本批次推送后只读；实际设计从其远程 HEAD 新建 `codex/benchmark-design-r1` |
 | `D:\code\FusionAgent-head-baseline` | detached `db256d5` | 独立基线复核 | 只读 |
 
 任何 KG v1.1、案例平台或方法实现都必须从治理分支再建立独立实现分支，不能直接追加到 formal、method 或 confirmation checkpoint。

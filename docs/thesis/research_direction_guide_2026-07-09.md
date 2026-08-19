@@ -1,5 +1,8 @@
 # FusionAgent 后续研究方向与工作指引
 
+> 状态：A3 历史研究方向快照
+> 继承说明（2026-08-19）：当前研究主体与主张边界见 [`research-charter.md`](../current/research-charter.md)，当前阶段与下一验收点见 [`research-governance-index.md`](../current/research-governance-index.md)。本文仅用于追溯 2026-07-09 时点的讨论，不定义当前计划。
+
 版本: 2026-07-09
 
 本文档整理三部分内容:

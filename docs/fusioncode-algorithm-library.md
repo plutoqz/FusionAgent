@@ -1,5 +1,9 @@
 # FusionCode Algorithm Library
 
+> Status: A2 engineering reference
+> Snapshot date: 2026-06-14
+> Governance note: runtime support and research claims must be checked against the current code and [`research-claim-evidence-ledger.md`](./current/research-claim-evidence-ledger.md).
+
 This document records how `E:\vscode\fusioncode` is represented in FusionAgent without treating the external pipeline as one monolithic function.
 
 ## Inventory Mapping

@@ -1,9 +1,9 @@
 # 分支与 Worktree 工作流
 
-> 状态：active，兼容入口
-> 更新日期：2026-07-28
+> 状态：A3 历史兼容入口
+> 更新日期：2026-08-19
 
-当前权威说明已经迁移到 [`docs/current/repository-worktrees.md`](current/repository-worktrees.md)。本文件保留为旧链接兼容入口。
+当前分支、worktree 角色和修改规则见 [`docs/current/research-governance-index.md`](current/research-governance-index.md#4-当前分支与-worktree-角色)。[`docs/current/repository-worktrees.md`](current/repository-worktrees.md) 也是历史布局快照。本文件只保留旧链接兼容，不得据此判断当前 HEAD、路径或 dirty 状态。
 
 核心规则：
 

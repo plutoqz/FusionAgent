@@ -1,7 +1,7 @@
 # FusionAgent 文档入口
 
 > 状态：当前权威入口
-> 更新日期：2026-08-18
+> 更新日期：2026-08-19
 
 本文件是仓库文档的唯一导航入口。项目状态、论文主张、工作优先级或分支角色发生冲突时，先读取 `docs/current/research-governance-index.md`，再按其中的 A0/A1 顺序回到具体规范和证据文件核对。
 
@@ -14,12 +14,15 @@
 | [研究治理入口](current/research-governance-index.md) | 当前阶段、唯一下一验收点、分支和文档职责是什么 | A1-current |
 | [主张-证据账本](current/research-claim-evidence-ledger.md) | 每项主张目前支持到什么程度、允许怎样表述 | A1-current |
 | [实验账本](current/research-experiment-ledger.md) | 每个实验集的角色、版本、状态和复用范围是什么 | A1-current |
+| [Benchmark 设计冻结执行方案](current/benchmark-design-freeze-execution-plan.md) | 如何逐阶段完成下一个零调用设计冻结里程碑 | A1-active |
+| [证据目录索引](current/evidence/README.md) | 仓库内冻结协议、preflight 和证据快照分别承担什么角色 | A1-index |
 | [研究分支与 KG v1 归并审计](current/research-branch-kg-v1-merge-audit.md) | 研究资产分类、KG 对齐缺口、归并约束和讨论闸门 | A3 |
 | [2026-08-13 项目状态快照](current/project-status.md) | 当时已经完成什么、尚未证明什么 | A3 |
 | [2026-08-04 主张与优先级快照](current/claims-and-priorities.md) | 当时的论文主张和优先级 | A3 |
 | [2026-08-04 仓库与 Worktree 快照](current/repository-worktrees.md) | 旧 worktree 布局和稳定成果提升原则 | A3 |
 | [产品契约规范](thesis/product_contract_spec.md) | 产品契约的工程语义、交付状态和图谱映射 | A1 |
-| [实验案例矩阵](thesis/experiment_case_matrix.md) | 契约案例、对照维度和实验输入 | A1 |
+| [论文材料索引](thesis/README.md) | thesis 目录中规范、机器合同和历史草案的当前分类 | A1-index |
+| [2026-07-10 实验案例矩阵草案](thesis/experiment_case_matrix.md) | 旧五组案例设计，仅用于历史追溯 | A3 |
 | [KG v1 冻结发布](../kg/ontology/v1.0.0/README.md) | 当前机器真源、冻结发布身份和独立校验入口 | A1 |
 | [知识图谱本体层](research/ontology/ontology-layer.md) | 七层、71 个类、42 类关系、属性、约束和 CQ | A1 |
 | [知识图谱实体层](research/ontology/entity-layer.md) | 241 个静态对象、政策记录及运行实例边界 | A1 |
@@ -29,13 +32,25 @@
 
 当前 formal、method、confirmation 和 governance 分支的职责见[研究治理入口](current/research-governance-index.md)。`research/product-contract` 只作为更早的开发资产来源保留；不得从旧分支说明推断当前 HEAD、正式证据状态或下一实验动作。
 
+## 工程与运行材料
+
+| 文档 | 当前角色 | 权威级别 |
+| --- | --- | --- |
+| [本机直跑说明](local-direct-run.md) | 本机开发运行手册；能力主张须回到 A1 账本核对 | A2 |
+| [No-UI Operations](no-ui-agent-operations.md) | 无 UI 运行与证据操作手册 | A2 |
+| [v2 Operations](v2-operations.md) | 详细运行合同和排障参考 | A2 |
+| [Windows Local Runtime](windows-local-runtime.md) | Windows 本机运行参考 | A2 |
+| [FusionCode Algorithm Library](fusioncode-algorithm-library.md) | 算法库映射工程参考 | A2 |
+| [分支与 Worktree 兼容入口](branch-worktree-workflow.md) | 旧链接兼容；当前分支职责以研究治理入口为准 | A3 |
+| [鲁棒性循环任务剧本](loop-testing-prompt.md) | 2026-07 历史长程任务脚本，不授权当前执行 | A3 |
+
 ## 目录分类
 
 | 目录 | 用途 | 默认状态 |
 | --- | --- | --- |
 | `docs/current/` | 当前状态、主张边界、优先级和治理规则 | 权威 |
 | `docs/research/` | 本体导出、实验材料、当前汇报材料 | 当前研究资产 |
-| `docs/thesis/` | 论文规范、案例矩阵和章节材料 | 当前或草案，以文件状态为准 |
+| `docs/thesis/` | 论文规范、机器合同和历史草案 | 以 `docs/thesis/README.md` 分类为准 |
 | `docs/archive/` | 已被替代但需要保留来源链的文档和演示材料 | 历史/非权威 |
 | `docs/pasted/` | 外部粘贴、会话交接和旧论文材料 | 历史/非权威 |
 | `docs/superpowers/` | 历史计划、规格、测试夹具和执行记录 | 兼容/历史，不能单独定义当前结论 |

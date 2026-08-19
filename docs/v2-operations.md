@@ -1,5 +1,9 @@
 # FusionAgent v2 Operations
 
+> Status: A2 operational reference
+> Snapshot date: 2026-08-12
+> Governance note: current research priorities and claim boundaries are defined by [`research-governance-index.md`](./current/research-governance-index.md) and [`research-claim-evidence-ledger.md`](./current/research-claim-evidence-ledger.md).
+
 ## Current Position
 
 `v2` is the current agentic runtime line in this repo. It is not a full product surface yet, but it now has:
@@ -68,7 +72,7 @@ The no-UI maturity path can generate lightweight GeoJSON previews from artifact 
 The next system-improvement chain is controlled by:
 
 - [System-Next Improvement Review](./superpowers/specs/2026-04-23-system-next-improvement-review.md), which maps each review challenge to required evidence before claims can be promoted.
-- [Complexity Boundary Ledger](./superpowers/specs/2026-04-23-complexity-boundary-ledger.md), which separates core runtime proof from deferred or optional complexity.
+- [Research Claim-Evidence Ledger](./current/research-claim-evidence-ledger.md), which separates implemented mechanisms, bounded evidence, unsupported claims, and remaining gaps.
 
 The authorized next additions are registered tool contracts, KG grounding reports, unsupported-intent rejection, token/latency telemetry, checkpoint recovery redispatch, runtime source semantics, and ablation evidence. In runtime terms, that means a `ToolSpec` registry, per-step grounding artifacts, unsupported-request guards, run telemetry, per-run recovery leases, stale-run redispatch from persisted request/checkpoint state, and task-driven source semantic contracts. These additions strengthen the current no-UI operating layer; they do not authorize production SaaS, auth or multitenant claims, final UI completion claims, external event-feed integration claims, live trajectory-to-road ingestion claims, or autonomous durable learning claims beyond bounded policy hints.
 

@@ -1,5 +1,9 @@
 # Windows Local Runtime Guide
 
+> Status: A2 Windows runtime reference
+> Snapshot date: 2026-06-14
+> Governance note: verify commands against the current checkout before use; this guide does not establish research evidence or capability claims.
+
 ## Scope
 
 This guide covers the current Windows local runtime used for thesis evidence and operator validation. Cross-platform compatibility, production deployment, authentication, multi-tenant operation, and cloud process supervision are out of scope.

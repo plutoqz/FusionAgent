@@ -1,6 +1,8 @@
 # Experiment Case Matrix
 
-Status: initial working draft, 2026-07-10.
+Status: A3 historical five-group working draft, 2026-07-10.
+
+Superseded for current execution on 2026-08-19. The current six-group main experiment, consumed case sets, and zero-call benchmark-design gate are defined by [`research-governance-index.md`](../current/research-governance-index.md) and [`research-experiment-ledger.md`](../current/research-experiment-ledger.md). The body below is preserved as the original case-design snapshot and must not be used to authorize new runs.
 
 This document defines the first research experiment cases. The cases should test product-contract satisfaction under complex combinations, not just demonstrate that the pipeline can run.
 

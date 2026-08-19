@@ -1,5 +1,9 @@
 # FusionAgent 本机直跑说明
 
+> 状态：A2 本机运行手册
+> 文档快照：2026-08-12
+> 边界：本文描述运行操作，不定义当前研究阶段或能力主张；相关结论以 [`research-governance-index.md`](current/research-governance-index.md) 和 [`research-claim-evidence-ledger.md`](current/research-claim-evidence-ledger.md) 为准。
+
 ## 文档定位
 
 这份文档只描述“当前已实现的本机可用 MVP”，不描述最终完整目标形态。

@@ -1,5 +1,7 @@
 # FusionAgent 工程化鲁棒性循环测试与优化
 
+> 状态：A3 历史长程任务剧本，不是当前执行入口，不授权启动服务、实验或代码修改。
+> 当前入口：[`research-governance-index.md`](current/research-governance-index.md)
 > **定位**：本文件是 Codex 主会话的长程任务剧本。每轮循环开始前应重新读入关键段落（Step 0-9），防止上下文漂移遗忘约束。
 >
 > **最后更新**：2026-07-14

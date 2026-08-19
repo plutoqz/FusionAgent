@@ -1,6 +1,7 @@
 # 研究分支成果与当前 KG v1 归并审计
 
-> 状态：A0 归并审计已完成，尚未开始代码归并
+> 状态：A3 历史归并审计；不再是当前执行入口
+> 继承说明（2026-08-19）：当前阶段、分支职责和下一验收点见 [`research-governance-index.md`](research-governance-index.md)；当前主张与实验状态分别见 [`research-claim-evidence-ledger.md`](research-claim-evidence-ledger.md) 和 [`research-experiment-ledger.md`](research-experiment-ledger.md)。本文保留当时的资产分类与归并约束，不覆盖当前治理结论。
 > 审计日期：2026-08-04
 > 主线基准：`main@2bcafaa`
 > 研究基准：`research/product-contract@1aba2f3`

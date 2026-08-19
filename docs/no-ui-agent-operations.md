@@ -1,5 +1,9 @@
 # FusionAgent No-UI Operations
 
+> Status: A2 operational reference
+> Snapshot date: 2026-08-12
+> Governance note: this runbook does not define current research priorities or evidence eligibility; use [`research-governance-index.md`](./current/research-governance-index.md) and [`research-experiment-ledger.md`](./current/research-experiment-ledger.md).
+
 ## Purpose
 
 This runbook consolidates the no-UI maturity operations path for FusionAgent before any final visualization frontend is introduced. It covers local runtime modes, scenario triggers, scenario regression, real-data evidence, evidence freezes, operator read APIs, artifact preview, cleanup, retention, and current boundaries.

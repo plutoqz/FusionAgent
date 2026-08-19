@@ -1,7 +1,7 @@
 # 文档治理与归档规则
 
 > 状态：A0 当前权威规则
-> 更新日期：2026-08-18
+> 更新日期：2026-08-19
 
 ## 1. 治理目标
 
@@ -44,6 +44,7 @@
 ```text
 docs/
   README.md                 唯一导航入口
+  *.md                      已在 README 中逐项分类的运行手册或历史兼容入口
   current/                  当前状态、主张、优先级、工作流和治理
   research/
     ontology/YYYY-MM-DD/    同版本本体 JSON、CSV、Markdown 和校验摘要
@@ -53,6 +54,8 @@ docs/
   pasted/                   外部粘贴、会话交接和旧草稿
   superpowers/              工具生成的计划、规格、夹具和历史执行材料
 ```
+
+`docs/current/evidence/` 和 `docs/thesis/` 必须各自维护目录级 `README.md`，使冻结协议、机器合同、当前规范与历史草案无需依赖文件名猜测角色。根目录长期 Markdown 必须在 `docs/README.md` 中逐项登记，不得依赖“位于 docs 根目录”隐式获得当前权威性。
 
 不立即大规模搬迁全部旧文档。先通过入口和状态解决权威冲突，再在真实使用或修改时逐步迁移。
 

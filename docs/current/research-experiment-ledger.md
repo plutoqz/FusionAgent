@@ -1,7 +1,7 @@
 # FusionAgent 实验账本
 
 > 状态：A1 当前权威实验索引
-> 更新日期：2026-08-18
+> 更新日期：2026-08-19
 > 当前执行入口：`research-governance-index.md`
 > 当前主张状态：`research-claim-evidence-ledger.md`
 
@@ -67,6 +67,8 @@
 | `P-BENCH-JUDGE` | 多模型开发 judge 平台 | `not_authorized` | 先完成人工校准协议、模型角色、预算和非正式用途边界 |
 | `P-BENCH-FORMAL` | 新 held-out 六组规划实验 | `not_authorized` | 冻结 KG/method/template/evaluator/seed，完成 development/confirmation 隔离 |
 | `P-BENCH-E2E` | 新案例选择性真实执行 | `not_authorized` | 先由 planning 机制结果和 source-closed inventory 预注册选例 |
+
+`P-BENCH-DESIGN` 的唯一详细执行方案为 [`benchmark-design-freeze-execution-plan.md`](benchmark-design-freeze-execution-plan.md)。其下一重大里程碑是 `M-BENCH-DESIGN-FREEZE-V1`；计划文档存在不等于该里程碑已完成。
 
 ## 7. 更新规则
 
