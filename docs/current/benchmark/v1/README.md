@@ -2,7 +2,7 @@
 
 > 状态：active_zero_call_design
 > Design ID：`fusionagent.benchmark-design.v1`
-> 当前阶段：阶段 4 已完成，阶段 5 待执行
+> 当前阶段：阶段 5 已完成，阶段 6 待执行
 > 基线日期：2026-08-19
 > 执行方案：[`benchmark-design-freeze-execution-plan.md`](../../benchmark-design-freeze-execution-plan.md)
 
@@ -18,7 +18,7 @@
 | [`capability_matrix.json`](capability_matrix.json) | `G2-MATRIX-FROZEN` |
 | [`template.schema.json`](template.schema.json) | `G3-SCHEMA-FROZEN` |
 | [`evaluation_contract.json`](evaluation_contract.json) / [`human_review_rubric.md`](human_review_rubric.md) | `G4-EVAL-FROZEN` |
-| `selection_governance.json` | pending |
+| [`selection_governance.json`](selection_governance.json) | `G5-SELECTION-FROZEN` |
 
 ## 阶段 0 基线
 
@@ -57,8 +57,8 @@
 
 ```text
 current_goal: M-BENCH-DESIGN-FREEZE-V1
-current_stage: 5 - selection governance
-next_acceptance: G5-SELECTION-FROZEN
+current_stage: 6 - cross-audit and milestone freeze
+next_acceptance: M-BENCH-DESIGN-FREEZE-V1
 worktree: D:\code\FusionAgent-benchmark-design
 branch: codex/benchmark-design-r1
 parent: 8c5302f0b30ceccd353ca442bec40daa0a884b8b

@@ -1,0 +1,219 @@
+{
+  "selection_governance_id": "fusionagent.benchmark-selection-governance.v1",
+  "design_id": "fusionagent.benchmark-design.v1",
+  "version": "1.0.0",
+  "status": "frozen_design_asset",
+  "frozen_at": "2026-08-19",
+  "selection_principles": [
+    "freeze template families before generating any instance",
+    "separate development, independent confirmation, and selective E2E namespaces",
+    "never select, exclude, replace, or stop based on method performance",
+    "retain invalid generation, negative results, transport failures, and external blockers",
+    "require a new version after any post-unseal method, template, oracle, rubric, evaluator, or selection change"
+  ],
+  "historical_exclusion": {
+    "case_ids": [
+      "C01",
+      "C02",
+      "C03",
+      "C04",
+      "C05",
+      "C06",
+      "H01",
+      "H02",
+      "H03",
+      "H04",
+      "H05",
+      "H06",
+      "H07",
+      "H08",
+      "H09"
+    ],
+    "semantic_copy_definition": "a template that only renames disaster, task, AOI, contract, or source while preserving the same state interaction, causal variable, oracle, and veto",
+    "semantic_copy_forbidden_in_confirmation": true,
+    "historical_material_allowed_roles": ["mechanism_discovery", "risk_catalog", "development_regression", "gate_rationale"],
+    "historical_material_forbidden_roles": ["confirmation_instance", "confirmation_seed", "formal_aggregation", "oracle_optimization"]
+  },
+  "partitions": [
+    {
+      "partition_id": "development",
+      "status": "design_frozen_execution_not_started",
+      "seed_namespace": "fusionagent-benchmark-v1-development",
+      "master_seed": 2026081901,
+      "instance_id_pattern": "^BDV1-DEV-BC-[A-Z0-9-]+-[0-9]{3}$",
+      "eligible_cell_rule": "all frozen capability cells",
+      "target_units_per_eligible_cell": 2,
+      "maximum_generation_attempts_per_target_unit": 3,
+      "method_or_evaluator_changes_allowed": true,
+      "formal_claim_eligible": false,
+      "result_root_policy": "new versioned development root only after implementation protocol",
+      "unseal_requires": ["design_freeze_complete", "generator_implementation_protocol_frozen"]
+    },
+    {
+      "partition_id": "independent_confirmation",
+      "status": "not_authorized",
+      "seed_namespace": "fusionagent-benchmark-v1-confirmation",
+      "master_seed": 2026081902,
+      "instance_id_pattern": "^BDV1-CONF-BC-[A-Z0-9-]+-[0-9]{3}$",
+      "eligible_cell_rule": "all frozen capability cells except role=selective_e2e_only",
+      "target_units_per_eligible_cell": 2,
+      "maximum_generation_attempts_per_target_unit": 3,
+      "method_or_evaluator_changes_allowed": false,
+      "formal_claim_eligible": true,
+      "result_root_policy": "new immutable confirmation root after formal protocol freeze",
+      "unseal_requires": [
+        "development_complete",
+        "method_commit_frozen",
+        "kg_release_frozen",
+        "generator_commit_frozen",
+        "template_hashes_frozen",
+        "evaluation_contract_hash_frozen",
+        "human_rubric_hash_frozen",
+        "selection_hash_frozen",
+        "provider_model_revision_budget_and_stopping_rule_frozen",
+        "zero_overlap_audit_passed"
+      ]
+    },
+    {
+      "partition_id": "selective_e2e",
+      "status": "not_authorized",
+      "seed_namespace": "fusionagent-benchmark-v1-selective-e2e",
+      "master_seed": 2026081903,
+      "instance_id_pattern": "^BDV1-E2E-BC-[A-Z0-9-]+-[0-9]{3}$",
+      "eligible_cell_rule": "cell.e2e_eligibility=true and all source-closure and evaluation requirements pass",
+      "target_units_per_eligible_cell": null,
+      "maximum_selected_template_families": 4,
+      "method_or_evaluator_changes_allowed": false,
+      "formal_claim_eligible": true,
+      "result_root_policy": "one immutable root per frozen E2E protocol",
+      "unseal_requires": [
+        "planning_confirmation_analysis_frozen",
+        "source_inventory_frozen",
+        "source_closed_aoi_count_at_least_one",
+        "truth_or_quality_evaluation_path_frozen",
+        "execution_budget_frozen",
+        "selection_independent_of_method_winner_audited"
+      ]
+    }
+  ],
+  "generation_order": [
+    "freeze template family list and hashes",
+    "freeze eligible capability cell list",
+    "derive partition-specific seed stream",
+    "generate candidate unit without method output",
+    "validate schema, crosswalk, single-causal-variable, and historical similarity",
+    "assign immutable instance ID and hash",
+    "retain valid or invalid generation record",
+    "stop at pre-registered target or blocker"
+  ],
+  "stopping_rules": {
+    "development": {
+      "stop_when": "every eligible cell reaches target_units_per_eligible_cell or a recorded design blocker prevents completion",
+      "performance_based_early_stopping": false,
+      "invalid_generation_counts_toward_target": false,
+      "invalid_generation_must_be_retained": true
+    },
+    "independent_confirmation": {
+      "stop_when": "every eligible cell reaches the frozen target or the formal budget/external blocker is exhausted",
+      "performance_based_early_stopping": false,
+      "sequential_peeking_allowed": false,
+      "partial_batch_claim_policy": "retain and report incomplete; no superiority claim"
+    },
+    "selective_e2e": {
+      "stop_when": "all pre-registered selected units reach terminal execution or a retained external blocker",
+      "performance_based_early_stopping": false,
+      "replacement_after_result_allowed": false,
+      "partial_batch_claim_policy": "bounded observation only"
+    }
+  },
+  "exclusion_rules": [
+    {
+      "rule_id": "EX-INPUT-INTEGRITY",
+      "allowed": true,
+      "condition": "candidate cannot satisfy frozen schema or required identity/hash contract before any method execution",
+      "decision_time": "pre_execution"
+    },
+    {
+      "rule_id": "EX-CROSSWALK-OPEN",
+      "allowed": true,
+      "condition": "one or more required KG/source/contract references do not close against the frozen KG release",
+      "decision_time": "pre_execution"
+    },
+    {
+      "rule_id": "EX-HISTORICAL-COPY",
+      "allowed": true,
+      "condition": "confirmation candidate is a historical case or semantic copy under the frozen definition",
+      "decision_time": "pre_unseal"
+    },
+    {
+      "rule_id": "EX-E2E-NOT-SOURCE-CLOSED",
+      "allowed": true,
+      "condition": "E2E candidate lacks frozen source assets, legal acquisition path, or truth/quality evaluation path",
+      "decision_time": "pre_execution"
+    },
+    {
+      "rule_id": "EX-METHOD-PERFORMANCE",
+      "allowed": false,
+      "condition": "candidate is hard, lowers a method score, creates a tie, or contradicts the expected direction",
+      "decision_time": "never"
+    },
+    {
+      "rule_id": "EX-HUMAN-DISAGREEMENT",
+      "allowed": false,
+      "condition": "reviewers disagree or mark an item unscorable",
+      "decision_time": "never; adjudicate or retain pending"
+    }
+  ],
+  "replacement_policy": {
+    "replacement_allowed_only_for": ["EX-INPUT-INTEGRITY", "EX-CROSSWALK-OPEN", "EX-HISTORICAL-COPY", "EX-E2E-NOT-SOURCE-CLOSED"],
+    "replacement_requires": ["new_instance_id", "new_seed_index", "reason_code", "old_and_new_hashes", "pre_execution_timestamp", "audit_record"],
+    "reuse_old_instance_id": false,
+    "overwrite_old_record": false,
+    "replacement_after_method_output": false
+  },
+  "confirmation_seal": {
+    "generation_before_unseal_allowed": false,
+    "viewing_instances_before_method_freeze_allowed": false,
+    "viewing_gold_before_final_decisions_allowed": false,
+    "changes_after_unseal": "invalidate current confirmation version; preserve all results; create new development and confirmation version with new seed namespace",
+    "negative_result_retention_required": true
+  },
+  "e2e_selection": {
+    "selection_inputs_allowed": [
+      "pre_registered_mechanism_coverage",
+      "capability_cell_e2e_eligibility",
+      "source_closure",
+      "truth_or_quality_evaluability",
+      "runtime_compatibility",
+      "frozen_cost_ceiling"
+    ],
+    "selection_inputs_forbidden": [
+      "method_winner",
+      "automatic_score_gap",
+      "human_review_winner",
+      "desired_recovery_story",
+      "desired_significance"
+    ],
+    "natural_failure_required_for_recovery_claim": true,
+    "manufactured_failure_may_be_used_as_formal_natural_failure": false,
+    "source_closed_required": true,
+    "single_aoi_claim_boundary_required": true
+  },
+  "audit_requirements": {
+    "seed_collision_count": 0,
+    "partition_instance_overlap_count": 0,
+    "historical_case_id_overlap_count": 0,
+    "semantic_copy_review_required": true,
+    "selection_after_result_count": 0,
+    "unrecorded_replacement_count": 0,
+    "excluded_failure_record_count": 0
+  },
+  "current_design_freeze_accounting": {
+    "instances_generated": 0,
+    "provider_calls": 0,
+    "judge_calls": 0,
+    "formal_result_roots_created": 0,
+    "confirmation_unsealed": false,
+    "selective_e2e_selected": false
+  }
+}
