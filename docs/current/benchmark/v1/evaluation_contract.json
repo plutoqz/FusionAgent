@@ -1,0 +1,264 @@
+{
+  "evaluation_contract_id": "fusionagent.benchmark-evaluation-contract.v1",
+  "design_id": "fusionagent.benchmark-design.v1",
+  "version": "1.0.0",
+  "status": "frozen_design_asset",
+  "frozen_at": "2026-08-19",
+  "evaluation_principles": [
+    "evaluate pre-fallback output before any application recovery",
+    "keep planning, execution, quality, and external validity as separate evidence layers",
+    "use pair, invariant set, composition family, temporal trace, or capability cell as the claim unit",
+    "retain transport, parse, schema, grounding, veto, execution, and review failures",
+    "do not use automatic or LLM-judge results as formal human truth"
+  ],
+  "gates": [
+    {
+      "gate_id": "G0",
+      "name": "input_integrity",
+      "layer": "protocol_input",
+      "required_inputs": ["template_hash", "instance_hash", "partition", "seed", "method_condition", "view_hashes"],
+      "outputs": ["integrity_pass", "leakage_hits", "version_mismatches"],
+      "failure_classes": ["protocol.input_integrity", "protocol.gold_leakage", "protocol.version_mismatch"],
+      "not_applicable_allowed": false
+    },
+    {
+      "gate_id": "G1",
+      "name": "strict_structure",
+      "layer": "planning",
+      "required_inputs": ["raw_response", "strict_parse_record", "output_schema"],
+      "outputs": ["transport_success", "strict_json_success", "schema_success", "pre_fallback_valid"],
+      "failure_classes": ["provider.transport", "planning.parse_invalid", "planning.structure_invalid"],
+      "not_applicable_allowed": false
+    },
+    {
+      "gate_id": "G2",
+      "name": "grounding_and_crosswalk",
+      "layer": "kg_projection",
+      "required_inputs": ["plan", "allowed_reference_set", "kg_release_id", "projection_trace"],
+      "outputs": ["grounding_pass", "ungrounded_references", "crosswalk_pass", "task_binding_pass"],
+      "failure_classes": ["kg.crosswalk_missing", "projection.task_binding", "planning.ungrounded_reference"],
+      "not_applicable_allowed": false
+    },
+    {
+      "gate_id": "G3",
+      "name": "contract_and_veto",
+      "layer": "planning_validator",
+      "required_inputs": ["plan", "oracle", "vetoes", "task_state"],
+      "outputs": ["decision_allowed", "task_set_pass", "source_legality_pass", "precedence_pass", "delivery_state_pass", "veto_pass"],
+      "failure_classes": ["planning.contract_precedence", "planning.source_state", "planning.cross_task_precedence", "validator.illegal_recovery_source", "validator.veto_violation"],
+      "not_applicable_allowed": false
+    },
+    {
+      "gate_id": "G4",
+      "name": "relational_behavior",
+      "layer": "method_behavior",
+      "required_inputs": ["member_evaluations", "relation_assertions", "canonical_plan_semantics"],
+      "outputs": ["causal_relation_pass", "invariant_relation_pass", "composition_relation_pass", "temporal_relation_pass"],
+      "failure_classes": ["planning.causal_response", "planning.wording_instability", "projection.first_task_bias", "planning.noise_sensitivity", "projection.cross_task_source_pollution", "projection.cross_task_contract_pollution", "planning.failure_history_loss", "planning.invalid_delivery_transition"],
+      "not_applicable_allowed": true
+    },
+    {
+      "gate_id": "G5",
+      "name": "human_semantic_review",
+      "layer": "human_review",
+      "required_inputs": ["blind_packet", "human_review_rubric", "two_reviewer_decisions"],
+      "outputs": ["review_status", "item_decisions", "disagreements", "adjudication"],
+      "failure_classes": ["review.semantic_failure", "review.unscorable", "review.pending_adjudication"],
+      "not_applicable_allowed": true
+    },
+    {
+      "gate_id": "G6",
+      "name": "selective_end_to_end",
+      "layer": "execution_quality_evidence",
+      "required_inputs": ["frozen_plan", "input_artifacts", "execution_trace", "quality_report", "delivery_record", "evidence_manifest"],
+      "outputs": ["materialization_pass", "execution_status", "quality_status", "delivery_contract_pass", "evidence_complete"],
+      "failure_classes": ["execution.materialization", "execution.algorithm", "quality.rejected", "delivery.contract_mismatch", "execution_evidence.missing_artifact", "external.blocker"],
+      "not_applicable_allowed": true
+    }
+  ],
+  "failure_taxonomy": {
+    "primary_layers": ["protocol_input", "kg", "projection", "planning", "validator", "execution", "quality", "delivery", "evidence", "human_review", "external"],
+    "single_primary_failure_required": true,
+    "secondary_risks_separate": true,
+    "fallback_may_clear_primary_failure": false,
+    "unknown_failure_policy": "retain_as_unclassified_and_block_claim_upgrade"
+  },
+  "metrics": [
+    {
+      "metric_id": "pre_fallback_valid_rate",
+      "role": "primary",
+      "gate_id": "G1",
+      "unit": "run",
+      "numerator": "runs with transport, strict JSON, and schema success before fallback",
+      "denominator": "all scheduled runs, including provider and parse failures",
+      "not_applicable_rule": "never"
+    },
+    {
+      "metric_id": "grounding_pass_rate",
+      "role": "primary",
+      "gate_id": "G2",
+      "unit": "run",
+      "numerator": "pre-fallback valid runs with zero ungrounded references and closed crosswalk",
+      "denominator": "all scheduled runs",
+      "not_applicable_rule": "never"
+    },
+    {
+      "metric_id": "contract_satisfaction_rate",
+      "role": "primary",
+      "gate_id": "G3",
+      "unit": "experiment_unit",
+      "numerator": "units whose required members pass decision, task, source, precedence, delivery, and veto checks",
+      "denominator": "all scheduled units",
+      "not_applicable_rule": "never"
+    },
+    {
+      "metric_id": "forbidden_behavior_rate",
+      "role": "primary",
+      "gate_id": "G3",
+      "unit": "experiment_unit",
+      "numerator": "units with one or more veto violations",
+      "denominator": "all scheduled units",
+      "not_applicable_rule": "never",
+      "direction": "lower_is_better"
+    },
+    {
+      "metric_id": "causal_pair_accuracy",
+      "role": "primary",
+      "gate_id": "G4",
+      "unit": "counterfactual_pair",
+      "numerator": "pairs with exactly one declared causal mutation and all causal relation assertions passed",
+      "denominator": "all scheduled valid counterfactual pairs; invalid generation remains separately reported",
+      "not_applicable_rule": "only for counterfactual_pair"
+    },
+    {
+      "metric_id": "invariant_consistency_rate",
+      "role": "primary",
+      "gate_id": "G4",
+      "unit": "invariant_set",
+      "numerator": "sets whose members have equivalent canonical plan semantics",
+      "denominator": "all scheduled valid invariant sets",
+      "not_applicable_rule": "only for invariant_set"
+    },
+    {
+      "metric_id": "composition_locality_rate",
+      "role": "primary",
+      "gate_id": "G4",
+      "unit": "composition_family",
+      "numerator": "families with task-local source and contract decisions plus valid cross-task precedence",
+      "denominator": "all scheduled valid composition families",
+      "not_applicable_rule": "only for composition_family"
+    },
+    {
+      "metric_id": "recovery_trace_consistency_rate",
+      "role": "primary",
+      "gate_id": "G4",
+      "unit": "temporal_trace",
+      "numerator": "traces preserving observed failure, legal sources, and valid delivery-state transitions",
+      "denominator": "all scheduled valid temporal traces",
+      "not_applicable_rule": "only for temporal_trace"
+    },
+    {
+      "metric_id": "diagnostic_attribution_coverage",
+      "role": "primary",
+      "gate_id": "G0-G6",
+      "unit": "failed_experiment_unit",
+      "numerator": "failed units with exactly one primary failure layer and evidence reference",
+      "denominator": "all failed units",
+      "not_applicable_rule": "not_applicable when no unit failed; report denominator zero"
+    },
+    {
+      "metric_id": "human_semantic_pass_rate",
+      "role": "primary_after_review",
+      "gate_id": "G5",
+      "unit": "review_item",
+      "numerator": "adjudicated pass items",
+      "denominator": "all required review items, including adjudicated fail and unscorable",
+      "not_applicable_rule": "not available until two reviews and required adjudication complete"
+    },
+    {
+      "metric_id": "first_quality_gate_pass_rate",
+      "role": "primary_e2e",
+      "gate_id": "G6",
+      "unit": "e2e_run",
+      "numerator": "runs whose first quality gate passed",
+      "denominator": "runs in which the quality gate was enabled and executed",
+      "not_applicable_rule": "quality gate disabled or not reached is not_applicable, never pass"
+    },
+    {
+      "metric_id": "delivery_contract_correct_rate",
+      "role": "primary_e2e",
+      "gate_id": "G6",
+      "unit": "e2e_run",
+      "numerator": "runs whose final delivered, rejected, gap, provisional, or degraded state matches the contract",
+      "denominator": "all scheduled E2E runs",
+      "not_applicable_rule": "never"
+    },
+    {
+      "metric_id": "evidence_completeness_rate",
+      "role": "primary_e2e",
+      "gate_id": "G6",
+      "unit": "e2e_run",
+      "numerator": "runs containing every contract-required evidence artifact with verified hash",
+      "denominator": "all scheduled E2E runs",
+      "not_applicable_rule": "never"
+    },
+    {
+      "metric_id": "latency_ms",
+      "role": "cost_auxiliary",
+      "gate_id": "G1",
+      "unit": "run",
+      "aggregation": ["median", "p95", "failure_inclusive_count"]
+    },
+    {
+      "metric_id": "token_usage",
+      "role": "cost_auxiliary",
+      "gate_id": "G1",
+      "unit": "run",
+      "aggregation": ["input_sum", "output_sum", "reasoning_sum", "total_sum"]
+    },
+    {
+      "metric_id": "provider_cost",
+      "role": "cost_auxiliary",
+      "gate_id": "G1",
+      "unit": "run",
+      "aggregation": ["total_by_condition", "cost_per_valid_unit"],
+      "price_source_required": true
+    }
+  ],
+  "aggregation": {
+    "primary_grouping": ["method_condition", "claim_id", "template_family_id", "complexity_level"],
+    "cluster_repetitions_by_experiment_unit": true,
+    "deterministic_repetitions_are_independent_samples": false,
+    "pool_development_and_confirmation": false,
+    "pool_planning_and_e2e": false,
+    "report_failures_by_primary_layer": true,
+    "overall_composite_score": "forbidden"
+  },
+  "statistical_contract": {
+    "confirmation_unit": "experiment_unit",
+    "paired_design_required_where_applicable": true,
+    "confidence_intervals": "report effect estimate and 95 percent interval by pre-registered unit; method chosen in future formal protocol",
+    "multiple_comparisons": "define claim families before formal execution; no post-result regrouping",
+    "significance_is_required_for_broad_superiority_claim": true,
+    "negative_and_null_results_retained": true
+  },
+  "human_review": {
+    "rubric_path": "docs/current/benchmark/v1/human_review_rubric.md",
+    "reviewers_required": 2,
+    "independent_review_required": true,
+    "adjudicator_required_for_disagreement": true,
+    "missing_decision_policy": "pending_not_pass",
+    "blind_fields": ["method_condition", "run_id", "replicate", "automatic_scores", "historical_group_results"],
+    "llm_judge_role": "development_triage_only",
+    "llm_judge_formal_truth_allowed": false
+  },
+  "acceptance": {
+    "all_matrix_primary_gates_defined": true,
+    "metric_denominators_explicit": true,
+    "pre_fallback_preserved": true,
+    "planning_e2e_layers_separate": true,
+    "keyword_only_semantic_scoring_forbidden": true,
+    "provider_calls": 0,
+    "judge_calls": 0
+  }
+}
