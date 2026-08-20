@@ -3,7 +3,7 @@
   "design_id": "fusionagent.benchmark-design.v1",
   "manifest_version": "1.0.0",
   "created_at": "2026-08-19T04:05:28.2090363Z",
-  "audit_generated_at": "2026-08-19T04:11:24.706022Z",
+  "audit_generated_at": "2026-08-20T06:24:29.7106124Z",
   "file_hash_canonicalization": "normalize_crlf_to_lf",
   "milestone": {
     "milestone_id": "M-BENCH-DESIGN-FREEZE-V1",
@@ -77,7 +77,7 @@
     },
     {
       "path": "docs/current/benchmark/v1/protocol_review.json",
-      "sha256": "sha256:0d5fac3c63ddbfa813911335a2e72c00e23479ae1bb73475e51f6817a86a3b2b"
+      "sha256": "sha256:c4dee72a84541031f28e1d46a7c61a8e2255134f6a044424aad7682248b3784b"
     },
     {
       "path": "scripts/audit_benchmark_design_freeze.py",

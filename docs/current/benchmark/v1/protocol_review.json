@@ -1,52 +1,52 @@
 {
   "review_id": "fusionagent.benchmark-design-protocol-review.v1",
   "design_id": "fusionagent.benchmark-design.v1",
-  "status": "pending_human_review",
+  "status": "rejected",
   "reviewer": {
-    "name": null,
-    "role": null,
-    "independent_of_authoring": null,
-    "reviewed_at": null
+    "name": "pluto",
+    "role": "user",
+    "independent_of_authoring": true,
+    "reviewed_at": "2026-08-20T06:24:29.7106124Z"
   },
   "checklist": [
     {
       "item_id": "PR-CHARTER",
       "question": "Do the candidate claims, six-group identity, Scheme B role, support conditions, and falsification conditions match the frozen research charter?",
-      "decision": "pending",
+      "decision": "approved",
       "comment": null
     },
     {
       "item_id": "PR-MATRIX",
       "question": "Does the capability matrix cover the intended mechanisms and layers without reusing historical confirmation cases or creating proxy claims?",
-      "decision": "pending",
-      "comment": null
+      "decision": "rejected",
+      "comment": "BC-CAUSAL-03 declares primary_gate G4 but uses planning.failure_state, which is absent from G4.failure_classes. The semantically intended class planning.causal_response is otherwise unused, so the matrix-to-evaluation taxonomy does not close."
     },
     {
       "item_id": "PR-ORACLE-VETO",
       "question": "Does the template contract separate causal variables, invariants, nuisance variables, oracle, veto, and task-local state without gold leakage?",
-      "decision": "pending",
+      "decision": "approved",
       "comment": null
     },
     {
       "item_id": "PR-HUMAN-RUBRIC",
       "question": "Is the human rubric sufficient for allowed multiple plans, semantic source trade-offs, recovery history, disagreement, and unscorable items?",
-      "decision": "pending",
+      "decision": "approved",
       "comment": null
     },
     {
       "item_id": "PR-SELECTION",
       "question": "Do the partition, seed, stopping, exclusion, replacement, confirmation-unseal, and E2E selection rules prevent result-driven case selection?",
-      "decision": "pending",
+      "decision": "approved",
       "comment": null
     },
     {
       "item_id": "PR-CLAIM-BOUNDARY",
       "question": "Does the design keep planning, execution, quality, and external-validity claims separate and retain negative or incomplete results?",
-      "decision": "pending",
-      "comment": null
+      "decision": "rejected",
+      "comment": "The missing matrix-to-gate failure-class validation allows BC-CAUSAL-03 failures to become unclassified under unknown_failure_policy, blocking a determinate CL-BENCH-CAUSAL diagnostic conclusion."
     }
   ],
-  "decision": null,
-  "overall_comment": null,
+  "decision": "rejected",
+  "overall_comment": "Core issue: 16 of 17 capability cells map primary_failure_class into their primary gate's failure_classes, but BC-CAUSAL-03 maps G4 to planning.failure_state, which G4 does not declare. G4 declares the semantically matching planning.causal_response, yet no cell uses it. Under unknown_failure_policy=retain_as_unclassified_and_block_claim_upgrade, failures for this observed-failure counterfactual would remain unclassified and block the CL-BENCH-CAUSAL claim upgrade. The audit only checks primary_gate IDs and must also verify primary_failure_class membership.",
   "instructions": "A user or independent reviewer must set every checklist decision and the overall decision to approved or rejected, provide comments for any rejection, identify themselves, confirm independence from authoring, and set status accordingly. Automatic audit must not fill this file."
 }

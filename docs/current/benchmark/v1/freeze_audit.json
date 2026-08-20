@@ -1,7 +1,7 @@
 {
   "audit_id": "fusionagent.benchmark-design-freeze-audit.v1",
   "design_id": "fusionagent.benchmark-design.v1",
-  "generated_at": "2026-08-19T04:11:24.706022Z",
+  "generated_at": "2026-08-20T06:24:29.7106124Z",
   "repo_root": "D:\\code\\FusionAgent-benchmark-design",
   "design_root": "D:\\code\\FusionAgent-benchmark-design\\docs\\current\\benchmark\\v1",
   "base_commit": "8c5302f0b30ceccd353ca442bec40daa0a884b8b",
@@ -331,20 +331,16 @@
       "required": true,
       "passed": false,
       "details": {
-        "status": "pending_human_review",
-        "decision": null,
+        "status": "rejected",
+        "decision": "rejected",
         "reviewer": {
-          "name": null,
-          "role": null,
-          "independent_of_authoring": null,
-          "reviewed_at": null
+          "name": "pluto",
+          "role": "user",
+          "independent_of_authoring": true,
+          "reviewed_at": "2026-08-20T06:24:29.7106124Z"
         },
         "pending_items": [
-          "PR-CHARTER",
           "PR-MATRIX",
-          "PR-ORACLE-VETO",
-          "PR-HUMAN-RUBRIC",
-          "PR-SELECTION",
           "PR-CLAIM-BOUNDARY"
         ]
       }
@@ -360,8 +356,8 @@
           "complete": false,
           "blocking_gate": "human_protocol_review"
         },
-        "review_status": "pending_human_review",
-        "review_decision": null
+        "review_status": "rejected",
+        "review_decision": "rejected"
       }
     }
   ],
