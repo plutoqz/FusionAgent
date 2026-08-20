@@ -1,12 +1,12 @@
 {
   "review_id": "fusionagent.benchmark-design-protocol-review.v1",
   "design_id": "fusionagent.benchmark-design.v1",
-  "status": "rejected",
+  "status": "approved",
   "reviewer": {
     "name": "pluto",
     "role": "user",
     "independent_of_authoring": true,
-    "reviewed_at": "2026-08-20T06:24:29.7106124Z"
+    "reviewed_at": "2026-08-20T06:54:30.8423733Z"
   },
   "checklist": [
     {
@@ -18,8 +18,8 @@
     {
       "item_id": "PR-MATRIX",
       "question": "Does the capability matrix cover the intended mechanisms and layers without reusing historical confirmation cases or creating proxy claims?",
-      "decision": "rejected",
-      "comment": "BC-CAUSAL-03 declares primary_gate G4 but uses planning.failure_state, which is absent from G4.failure_classes. The semantically intended class planning.causal_response is otherwise unused, so the matrix-to-evaluation taxonomy does not close."
+      "decision": "approved",
+      "comment": "Approved on review round 2 after BC-CAUSAL-03 was corrected to planning.causal_response and the matrix-to-gate failure-class closure audit was added."
     },
     {
       "item_id": "PR-ORACLE-VETO",
@@ -42,11 +42,55 @@
     {
       "item_id": "PR-CLAIM-BOUNDARY",
       "question": "Does the design keep planning, execution, quality, and external-validity claims separate and retain negative or incomplete results?",
-      "decision": "rejected",
-      "comment": "The missing matrix-to-gate failure-class validation allows BC-CAUSAL-03 failures to become unclassified under unknown_failure_policy, blocking a determinate CL-BENCH-CAUSAL diagnostic conclusion."
+      "decision": "approved",
+      "comment": "Approved on review round 2 after the audit was strengthened to reject any primary_failure_class absent from its primary gate."
     }
   ],
-  "decision": "rejected",
-  "overall_comment": "Core issue: 16 of 17 capability cells map primary_failure_class into their primary gate's failure_classes, but BC-CAUSAL-03 maps G4 to planning.failure_state, which G4 does not declare. G4 declares the semantically matching planning.causal_response, yet no cell uses it. Under unknown_failure_policy=retain_as_unclassified_and_block_claim_upgrade, failures for this observed-failure counterfactual would remain unclassified and block the CL-BENCH-CAUSAL claim upgrade. The audit only checks primary_gate IDs and must also verify primary_failure_class membership.",
-  "instructions": "A user or independent reviewer must set every checklist decision and the overall decision to approved or rejected, provide comments for any rejection, identify themselves, confirm independence from authoring, and set status accordingly. Automatic audit must not fill this file."
+  "decision": "approved",
+  "overall_comment": "The only substantive round-1 defect was corrected without new inconsistency or side effect. BC-CAUSAL-03 now uses the defined and previously unused planning.causal_response class, manifest hashes were synchronized, and all six protocol items satisfy the approval conditions.",
+  "unresolved_disagreements": [],
+  "review_rounds": [
+    {
+      "round": 1,
+      "reviewed_at": "2026-08-20T06:24:29.7106124Z",
+      "reviewer": {
+        "name": "pluto",
+        "role": "user",
+        "independent_of_authoring": true
+      },
+      "decision": "rejected",
+      "item_decisions": {
+        "PR-CHARTER": "approved",
+        "PR-MATRIX": "rejected",
+        "PR-ORACLE-VETO": "approved",
+        "PR-HUMAN-RUBRIC": "approved",
+        "PR-SELECTION": "approved",
+        "PR-CLAIM-BOUNDARY": "rejected"
+      },
+      "finding": "BC-CAUSAL-03 used planning.failure_state, which was absent from G4.failure_classes; the audit did not validate cell failure-class membership in its primary gate."
+    },
+    {
+      "round": 2,
+      "reviewed_at": "2026-08-20T06:54:30.8423733Z",
+      "reviewer": {
+        "name": "pluto",
+        "role": "user",
+        "independent_of_authoring": true
+      },
+      "reviewed_commit": "bdceae2c008ef5cd4e215abac5c128bc8d1699d5",
+      "decision": "approved",
+      "re_reviewed_items": {
+        "PR-MATRIX": "approved",
+        "PR-CLAIM-BOUNDARY": "approved"
+      },
+      "carried_forward_approvals": [
+        "PR-CHARTER",
+        "PR-ORACLE-VETO",
+        "PR-HUMAN-RUBRIC",
+        "PR-SELECTION"
+      ],
+      "finding": "The taxonomy mismatch and missing closure audit were corrected; no new inconsistency or side effect was found."
+    }
+  ],
+  "instructions": "Human decisions are recorded verbatim in outcome and preserved by review round. Automatic audit may validate this file but must not author or infer approval."
 }

@@ -1,14 +1,14 @@
 # FusionAgent Benchmark Design V1
 
-> 状态：active_zero_call_design
+> 状态：frozen_complete
 > Design ID：`fusionagent.benchmark-design.v1`
-> 当前阶段：阶段 5 已完成，阶段 6 待执行
+> 当前阶段：阶段 6 已完成
 > 基线日期：2026-08-19
 > 执行方案：[`benchmark-design-freeze-execution-plan.md`](../../benchmark-design-freeze-execution-plan.md)
 
 ## 当前目标
 
-完成 `M-BENCH-DESIGN-FREEZE-V1`：冻结 benchmark charter、能力矩阵、template schema、评价合同和选择治理。当前目录尚未形成冻结包，不能用于生成实例、运行 judge、调用 Provider 或支持效果主张。
+`M-BENCH-DESIGN-FREEZE-V1` 已完成：benchmark charter、能力矩阵、template schema、评价合同和选择治理已通过机器审计与两轮独立人工协议复核。该里程碑只证明零调用设计包已冻结，不是效果结果，也不授权生成实例、运行 judge、调用 Provider、平台实现或正式实验。
 
 ## 当前设计资产
 
@@ -19,6 +19,9 @@
 | [`template.schema.json`](template.schema.json) | `G3-SCHEMA-FROZEN` |
 | [`evaluation_contract.json`](evaluation_contract.json) / [`human_review_rubric.md`](human_review_rubric.md) | `G4-EVAL-FROZEN` |
 | [`selection_governance.json`](selection_governance.json) | `G5-SELECTION-FROZEN` |
+| [`freeze_manifest.json`](freeze_manifest.json) | `M-BENCH-DESIGN-FREEZE-V1` manifest |
+| [`freeze_audit.json`](freeze_audit.json) | required checks passed |
+| [`protocol_review.json`](protocol_review.json) | Round 1 rejected, Round 2 approved, unresolved disagreements `0` |
 
 ## 阶段 0 基线
 
@@ -56,9 +59,9 @@
 ## 恢复点
 
 ```text
-current_goal: M-BENCH-DESIGN-FREEZE-V1
-current_stage: 6 - cross-audit and milestone freeze
-next_acceptance: M-BENCH-DESIGN-FREEZE-V1
+completed_goal: M-BENCH-DESIGN-FREEZE-V1
+completed_stage: 6 - cross-audit and milestone freeze
+next_acceptance: separate benchmark platform implementation protocol
 worktree: D:\code\FusionAgent-benchmark-design
 branch: codex/benchmark-design-r1
 parent: 8c5302f0b30ceccd353ca442bec40daa0a884b8b
@@ -72,3 +75,10 @@ git merge-base --is-ancestor origin/codex/research-governance-r1 HEAD
 ```
 
 若 parent、权威输入或 KG release 与本记录不一致，必须停止并解释差异，不能自动混用旧设计。
+
+## 冻结后变更规则
+
+1. 本目录的语义修改必须创建新版本，不得原地改写 V1。
+2. 参数化实例生成与校验平台必须使用独立实施方案、分支和明确启动指令。
+3. `P-BENCH-JUDGE`、`P-BENCH-FORMAL`、`P-BENCH-E2E` 与任何 Provider 调用仍为 `not_authorized`。
+4. 本设计包不得用于升级任何现有效果主张；后续结论必须绑定新的冻结协议和证据根。

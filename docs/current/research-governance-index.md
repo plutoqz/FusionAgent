@@ -1,8 +1,8 @@
 # FusionAgent 研究治理入口
 
 > 状态：A1 当前唯一执行入口
-> 更新日期：2026-08-19
-> 所在分支：`codex/research-governance-r1`
+> 更新日期：2026-08-20
+> 所在分支：`codex/benchmark-design-r1`
 > A0 研究基线：[研究章程](research-charter.md)
 
 ## 1. 一分钟当前口径
@@ -12,21 +12,21 @@
 3. 方案 B 只属于 I2/RQ3 的 KG-LLM 接口消融。H01-H06 是开发及 post-held-out repair 证据；H07-H09 是独立 planning confirmation。两者不得混池，也不得替代原六组。
 4. 原六组的三类 LLM 条件已完成 90 次冻结调用，但 180-item 双人盲评仍未开始，比较性主张保持 `pending_human_review`。
 5. 当前 C02/C04/C06 端到端证据只支持单 AOI、指定案例事实；不支持六组执行优势、恢复率改善或跨 AOI 结论。
-6. 当前工作重点转为参数化、分层、可诊断的案例与评价体系。该工作处于协议设计阶段，不授权新 Provider 调用、KG 语义修改或正式实验。
+6. 参数化 benchmark V1 已完成零调用设计冻结与独立人工复核；它是设计 checkpoint，不是效果证据。平台实现、实例生成、judge、Provider 调用和正式实验仍未授权。
 
 ## 2. 当前唯一下一验收点
 
-在任何平台实现或新模型调用前，冻结以下零调用设计资产：
+`M-BENCH-DESIGN-FREEZE-V1` 已完成。冻结入口为 [`benchmark/v1/README.md`](benchmark/v1/README.md)，其 manifest、audit 和人工协议复核共同证明五项设计资产内部一致、零调用且未改变 KG v1 或历史 evidence。
 
-1. `benchmark charter`：服务的 O/RQ/I/claim、非目标、开发集与正式集边界。
-2. 案例能力矩阵：机制族、复杂度层级、陷阱类型和所诊断能力。
-3. 参数化 template schema：语义不变量、因果变量、干扰变量、oracle、veto 和 KG crosswalk。
-4. 评价合同：分层 gate、主指标、辅助指标、人工 rubric 和 LLM judge 的非正式角色。
-5. 选择治理：禁止按当前方法胜负选例；冻结模板、seed、停止条件和 held-out 生成规则。
+当前唯一下一验收点是建立并批准**独立的参数化实例生成与校验平台实施协议**。该协议至少需要冻结：
 
-上述五项被明确验收前，不进入案例平台实现，不运行自动 judge，不生成新的正式结果根。
+1. 服务的 O/RQ/I/claim、明确非目标和与 benchmark V1 的版本绑定。
+2. 实现分支、允许修改范围、组件输入输出和 fail-closed 行为。
+3. development-only 实例生成、schema 校验、hash、provenance 和恢复检查点。
+4. 不调用 Provider、不解封 confirmation、不运行 judge 或正式实验的实施边界。
+5. 聚焦测试、验收证据、回滚条件以及后续另行授权真实调用的闸门。
 
-逐阶段执行顺序、产物合同、验收、回滚和恢复检查点见 [`benchmark-design-freeze-execution-plan.md`](benchmark-design-freeze-execution-plan.md)。该计划终止于 `M-BENCH-DESIGN-FREEZE-V1`，不授权后续平台实现或 Provider 调用。
+该实施协议目前尚未创建，也未授权开始平台实现。`P-BENCH-JUDGE`、`P-BENCH-FORMAL`、`P-BENCH-E2E` 继续保持 `not_authorized`。已完成的 [`benchmark-design-freeze-execution-plan.md`](benchmark-design-freeze-execution-plan.md) 只用于追溯设计冻结过程，不再决定下一执行动作。
 
 ## 3. 文档权威顺序
 
@@ -37,8 +37,9 @@
 | A1-1 | 本文件 | 当前阶段、唯一下一验收点、分支和文档入口 |
 | A1-2 | `research-claim-evidence-ledger.md` | 当前主张状态、允许表述、缺口和证据边界 |
 | A1-3 | `research-experiment-ledger.md` | 每个实验集、方法版本、案例角色和复用范围 |
-| A1-4 | `benchmark-design-freeze-execution-plan.md` | 当前里程碑的阶段、产物、验收、回滚和恢复合同 |
+| A1-4 | `benchmark/v1/` | 已冻结 benchmark V1 的 charter、矩阵、schema、评价、选择、manifest、audit 和人工复核 |
 | A1-5 | 当前明确冻结的 protocol/manifest | 单次实验的输入、模型、指标、预算和停止条件 |
+| A2 | `benchmark-design-freeze-execution-plan.md` | 已完成里程碑的执行、验收、回滚和恢复合同；用于追溯 |
 | A3 | 旧状态、旧计划、历史 checkpoint 和 evidence root | 仅用于追溯，不决定当前下一动作 |
 
 当旧文档与本入口冲突时：A0 语义由 `research-charter.md` 决定；执行状态由本入口决定；证据可用范围由两个账本决定。
@@ -52,6 +53,7 @@
 | `origin/codex/kg-llm-method-r1` | `446a7dd` | B 开发、H01-H06 repair 与人工评价 checkpoint | 只读，不作为 confirmation 分支 |
 | `codex/kg-llm-confirmation-r1` | `bfd5308` | H07-H09 独立 confirmation checkpoint | 只读，不继续追加方法修改 |
 | `codex/research-governance-r1` | 从 `bfd5308` 分出 | 当前文档、口径、账本和执行方案 checkpoint | 本批次推送后只读；实际设计从其远程 HEAD 新建 `codex/benchmark-design-r1` |
+| `D:\code\FusionAgent-benchmark-design` / `codex/benchmark-design-r1` | `8c5302f` 基线，tag `benchmark-design-freeze-v1` | Benchmark V1 零调用设计冻结 checkpoint 与当前治理入口 | 冻结后只读；语义修改升版本，平台实现从该 tag 新建独立分支 |
 | `D:\code\FusionAgent-head-baseline` | detached `db256d5` | 独立基线复核 | 只读 |
 
 任何 KG v1.1、案例平台或方法实现都必须从治理分支再建立独立实现分支，不能直接追加到 formal、method 或 confirmation checkpoint。
@@ -64,6 +66,8 @@
 | `research-case-manifest-heldout-method-b-v1.json` | H01-H06 B 开发与修复案例；禁止重新用于 confirmation |
 | `research-case-manifest-confirmation-v1.json` | H07-H09 B 接口确认案例；只回答 planning 接口机制 |
 | `research-p3-p4-merge-and-evidence-plan.md` | 历史实施与 checkpoint 日志；不再是当前下一步入口 |
+| `benchmark/v1/` | 已冻结参数化 benchmark 设计包；只证明设计与治理完整，不证明方法效果 |
+| `benchmark-design-freeze-execution-plan.md` | `M-BENCH-DESIGN-FREEZE-V1` 已完成的执行计划；不授权后续平台实现 |
 | `claims-and-priorities.md` | 2026-08-04 A0 口径与旧状态快照；当前 claim status 由新账本继承 |
 | `project-status.md` | 2026-08-13 项目状态快照；当前执行状态由本入口继承 |
 

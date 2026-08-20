@@ -1,9 +1,9 @@
 {
   "audit_id": "fusionagent.benchmark-design-freeze-audit.v1",
   "design_id": "fusionagent.benchmark-design.v1",
-  "generated_at": "2026-08-20T06:28:56.9559826Z",
-  "repo_root": "D:\\code\\FusionAgent-benchmark-design",
-  "design_root": "D:\\code\\FusionAgent-benchmark-design\\docs\\current\\benchmark\\v1",
+  "generated_at": "2026-08-20T06:54:30.8423733Z",
+  "repo_root": ".",
+  "design_root": "docs/current/benchmark/v1",
   "base_commit": "8c5302f0b30ceccd353ca442bec40daa0a884b8b",
   "checks": [
     {
@@ -60,6 +60,7 @@
           "docs/current/research-governance-index.md": "sha256:f1080d9961a6cab16e21f85e4b5b04bd9458d9eca1a4336522f8aea4045d06d6",
           "kg/ontology/v1.0.0/release.json": "sha256:8d0d801331a4c57b062442f2b7cc9b836de207ee3792d0de2db75b65bbbeb35b"
         },
+        "authoritative_input_blob_errors": [],
         "zero_call_accounting": {
           "instances_generated": 0,
           "provider_call_count": 0,
@@ -310,6 +311,7 @@
       "passed": true,
       "details": {
         "changed_paths": [
+          "docs/README.md",
           "docs/current/benchmark/v1/README.md",
           "docs/current/benchmark/v1/benchmark_charter.md",
           "docs/current/benchmark/v1/capability_matrix.json",
@@ -320,6 +322,8 @@
           "docs/current/benchmark/v1/protocol_review.json",
           "docs/current/benchmark/v1/selection_governance.json",
           "docs/current/benchmark/v1/template.schema.json",
+          "docs/current/research-experiment-ledger.md",
+          "docs/current/research-governance-index.md",
           "scripts/audit_benchmark_design_freeze.py",
           "tests/test_benchmark_design_freeze.py"
         ],
@@ -330,20 +334,23 @@
     {
       "check_id": "human_protocol_review",
       "required": true,
-      "passed": false,
+      "passed": true,
       "details": {
-        "status": "rejected",
-        "decision": "rejected",
+        "status": "approved",
+        "decision": "approved",
         "reviewer": {
           "name": "pluto",
           "role": "user",
           "independent_of_authoring": true,
-          "reviewed_at": "2026-08-20T06:24:29.7106124Z"
+          "reviewed_at": "2026-08-20T06:54:30.8423733Z"
         },
-        "pending_items": [
-          "PR-MATRIX",
-          "PR-CLAIM-BOUNDARY"
-        ]
+        "pending_items": [],
+        "review_round_count": 2,
+        "review_round_decisions": [
+          "rejected",
+          "approved"
+        ],
+        "unresolved_disagreements": []
       }
     },
     {
@@ -353,22 +360,20 @@
       "details": {
         "milestone": {
           "milestone_id": "M-BENCH-DESIGN-FREEZE-V1",
-          "status": "blocked_before_freeze",
-          "complete": false,
-          "blocking_gate": "human_protocol_review"
+          "status": "complete",
+          "complete": true,
+          "blocking_gate": null
         },
-        "review_status": "rejected",
-        "review_decision": "rejected"
+        "review_status": "approved",
+        "review_decision": "approved"
       }
     }
   ],
   "required_check_count": 16,
-  "passed_required_check_count": 15,
-  "required_failures": [
-    "human_protocol_review"
-  ],
-  "overall_passed": false,
-  "milestone_status": "blocked_before_freeze",
+  "passed_required_check_count": 16,
+  "required_failures": [],
+  "overall_passed": true,
+  "milestone_status": "complete",
   "accounting": {
     "instances_generated": 0,
     "provider_calls": 0,

@@ -1,7 +1,7 @@
 # FusionAgent 实验账本
 
 > 状态：A1 当前权威实验索引
-> 更新日期：2026-08-19
+> 更新日期：2026-08-20
 > 当前执行入口：`research-governance-index.md`
 > 当前主张状态：`research-claim-evidence-ledger.md`
 
@@ -59,16 +59,25 @@
 4. 旧 C02/C04/C06 E2E 可作为机制和工程风险依据，但不能计入未来新协议的重复样本。
 5. 新 template、KG、method、evaluator 或信息边界产生新版本后，必须创建新 evidence root 和新 Evidence ID。
 
-## 6. 当前未启动实验
+## 6. Benchmark 设计与后续计划
+
+### 已冻结设计里程碑
+
+| Evidence ID | 设计包 | 状态 | 审计与调用边界 | 允许用途 | 禁止用途 |
+| --- | --- | --- | --- | --- | --- |
+| `E-BENCH-DESIGN-V1` | `docs/current/benchmark/v1/`，tag `benchmark-design-freeze-v1` | `frozen_complete` | 机器审计 `16/16`；两轮人工复核最终批准；Provider/judge/实例/正式结果根均为 `0` | 后续平台协议、development 实例和正式协议的版本化设计输入 | 方法效果、正式 gold、平台能力、execution/quality/external-validity 证据 |
+
+### 未启动项
 
 | Planned ID | 目标 | 当前状态 | 启动闸门 |
 | --- | --- | --- | --- |
-| `P-BENCH-DESIGN` | 参数化、分层、可诊断案例与评价体系 | `active_zero_call_design` | 冻结 charter、能力矩阵、schema、评价合同、选择治理 |
+| `P-BENCH-DESIGN` | 参数化、分层、可诊断案例与评价体系 | `frozen_complete` | `M-BENCH-DESIGN-FREEZE-V1` 已通过；冻结后语义修改必须升版本 |
+| `P-BENCH-PLATFORM` | 参数化实例生成与校验平台最小实现 | `not_authorized` | 先建立并批准独立实施协议、分支、组件合同、测试与恢复闸门 |
 | `P-BENCH-JUDGE` | 多模型开发 judge 平台 | `not_authorized` | 先完成人工校准协议、模型角色、预算和非正式用途边界 |
 | `P-BENCH-FORMAL` | 新 held-out 六组规划实验 | `not_authorized` | 冻结 KG/method/template/evaluator/seed，完成 development/confirmation 隔离 |
 | `P-BENCH-E2E` | 新案例选择性真实执行 | `not_authorized` | 先由 planning 机制结果和 source-closed inventory 预注册选例 |
 
-`P-BENCH-DESIGN` 的唯一详细执行方案为 [`benchmark-design-freeze-execution-plan.md`](benchmark-design-freeze-execution-plan.md)。其下一重大里程碑是 `M-BENCH-DESIGN-FREEZE-V1`；计划文档存在不等于该里程碑已完成。
+`P-BENCH-DESIGN` 的执行方案 [`benchmark-design-freeze-execution-plan.md`](benchmark-design-freeze-execution-plan.md) 已在 `M-BENCH-DESIGN-FREEZE-V1` 终止。当前下一验收点仅为 `P-BENCH-PLATFORM` 的独立实施协议；写出或批准该协议也不自动授权 Provider、judge、confirmation、正式实验或 E2E。
 
 ## 7. 更新规则
 

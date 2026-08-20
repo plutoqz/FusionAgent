@@ -58,6 +58,17 @@ AUTHORITATIVE_INPUT_HASHES = {
     "docs/current/research-governance-index.md": "sha256:f1080d9961a6cab16e21f85e4b5b04bd9458d9eca1a4336522f8aea4045d06d6",
     "kg/ontology/v1.0.0/release.json": "sha256:8d0d801331a4c57b062442f2b7cc9b836de207ee3792d0de2db75b65bbbeb35b",
 }
+AUTHORITATIVE_INPUT_GIT_BLOB_HASHES = {
+    "docs/current/research-charter.md": "sha256:423e9d66929577da0d1156ce114d8e1bbd59053dff3cf5d159bff700a6bb9ac1",
+    "docs/current/research-claim-evidence-ledger.md": "sha256:76bb7287c38afde5f0de705e412385e1b10c37d3d26eec68b4ed879f552b53f2",
+    "docs/current/research-experiment-ledger.md": "sha256:2437311f97764655252b55bade941046f0b58e66e6d6affe1a922fdfa01a74b7",
+    "docs/current/research-governance-index.md": "sha256:19fa005fa4d699a7661136ce33e22105576773aba252b42d1621d07cafc3a121",
+    "kg/ontology/v1.0.0/release.json": "sha256:85b1e42ffc97898877255b087eb2d2c1237170a5afafea30a3c19a2aad9314a6",
+}
+FINALIZATION_MUTABLE_INPUTS = {
+    "docs/current/research-experiment-ledger.md",
+    "docs/current/research-governance-index.md",
+}
 ALLOWED_CHANGED_PREFIXES = (
     "docs/current/benchmark/v1/",
     "scripts/audit_benchmark_design_freeze.py",
@@ -228,6 +239,16 @@ def _git_lines(repo_root: Path, *args: str) -> list[str]:
     return [line.strip().replace("\\", "/") for line in completed.stdout.splitlines() if line.strip()]
 
 
+def git_blob_sha256(repo_root: Path, commit: str, path: str) -> str:
+    completed = subprocess.run(
+        ["git", "show", f"{commit}:{path}"],
+        cwd=repo_root,
+        check=True,
+        capture_output=True,
+    )
+    return f"sha256:{hashlib.sha256(completed.stdout).hexdigest()}"
+
+
 def changed_paths(repo_root: Path) -> list[str]:
     committed = _git_lines(repo_root, "diff", "--name-only", BASE_COMMIT, "HEAD")
     unstaged = _git_lines(repo_root, "diff", "--name-only")
@@ -279,6 +300,33 @@ def audit_design(repo_root: Path, design_root: Path) -> dict[str, Any]:
         for item in manifest.get("authoritative_inputs", [])
         if isinstance(item, dict) and isinstance(item.get("path"), str)
     }
+    manifest_input_metadata = {
+        item.get("path"): {
+            "source_commit": item.get("source_commit"),
+            "git_blob_sha256": item.get("git_blob_sha256"),
+            "mutable_at_finalization": item.get("mutable_at_finalization"),
+        }
+        for item in manifest.get("authoritative_inputs", [])
+        if isinstance(item, dict) and isinstance(item.get("path"), str)
+    }
+    input_blob_errors = []
+    for path, expected_blob_hash in AUTHORITATIVE_INPUT_GIT_BLOB_HASHES.items():
+        metadata = manifest_input_metadata.get(path, {})
+        actual_blob_hash = git_blob_sha256(repo_root, BASE_COMMIT, path)
+        if (
+            metadata.get("source_commit") != BASE_COMMIT
+            or metadata.get("git_blob_sha256") != expected_blob_hash
+            or actual_blob_hash != expected_blob_hash
+            or metadata.get("mutable_at_finalization") != (path in FINALIZATION_MUTABLE_INPUTS)
+        ):
+            input_blob_errors.append(
+                {
+                    "path": path,
+                    "manifest": metadata,
+                    "expected_git_blob_sha256": expected_blob_hash,
+                    "actual_git_blob_sha256": actual_blob_hash,
+                }
+            )
     manifest_accounting = manifest.get("zero_call_accounting", {})
     manifest_integrity = manifest.get("integrity_assertions", {})
     manifest_git = manifest.get("git", {})
@@ -289,6 +337,7 @@ def audit_design(repo_root: Path, design_root: Path) -> dict[str, Any]:
         "unexpected_file_paths": sorted(set(manifest_files) - EXPECTED_MANIFEST_FILES),
         "duplicate_file_paths": duplicate_manifest_paths,
         "authoritative_inputs": manifest_inputs,
+        "authoritative_input_blob_errors": input_blob_errors,
         "zero_call_accounting": manifest_accounting,
         "integrity_assertions": manifest_integrity,
     }
@@ -296,6 +345,7 @@ def audit_design(repo_root: Path, design_root: Path) -> dict[str, Any]:
         set(manifest_files) == EXPECTED_MANIFEST_FILES
         and not duplicate_manifest_paths
         and manifest_inputs == AUTHORITATIVE_INPUT_HASHES
+        and not input_blob_errors
         and manifest_git.get("base_commit") == BASE_COMMIT
         and manifest_git.get("branch") == "codex/benchmark-design-r1"
         and manifest_kg.get("release_id") == KG_RELEASE_ID
@@ -500,6 +550,7 @@ def audit_design(repo_root: Path, design_root: Path) -> dict[str, Any]:
     )
 
     review_items = review.get("checklist", [])
+    review_rounds = review.get("review_rounds", [])
     review_pass = (
         review.get("status") == "approved"
         and review.get("decision") == "approved"
@@ -507,6 +558,10 @@ def audit_design(repo_root: Path, design_root: Path) -> dict[str, Any]:
         and review.get("reviewer", {}).get("independent_of_authoring") is True
         and review_items
         and all(item.get("decision") == "approved" for item in review_items)
+        and len(review_rounds) >= 2
+        and review_rounds[0].get("decision") == "rejected"
+        and review_rounds[-1].get("decision") == "approved"
+        and review.get("unresolved_disagreements") == []
     )
     _check(
         checks,
@@ -517,6 +572,9 @@ def audit_design(repo_root: Path, design_root: Path) -> dict[str, Any]:
             "decision": review.get("decision"),
             "reviewer": review.get("reviewer"),
             "pending_items": [item.get("item_id") for item in review_items if item.get("decision") != "approved"],
+            "review_round_count": len(review_rounds),
+            "review_round_decisions": [item.get("decision") for item in review_rounds],
+            "unresolved_disagreements": review.get("unresolved_disagreements"),
         },
     )
     _check(
@@ -531,8 +589,8 @@ def audit_design(repo_root: Path, design_root: Path) -> dict[str, Any]:
         "audit_id": AUDIT_ID,
         "design_id": DESIGN_ID,
         "generated_at": manifest.get("audit_generated_at"),
-        "repo_root": str(repo_root),
-        "design_root": str(design_root),
+        "repo_root": ".",
+        "design_root": design_root.relative_to(repo_root).as_posix(),
         "base_commit": BASE_COMMIT,
         "checks": checks,
         "required_check_count": sum(1 for check in checks if check["required"]),

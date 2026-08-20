@@ -9,6 +9,7 @@ from scripts.audit_benchmark_design_freeze import (
     HISTORICAL_CASE_IDS,
     audit_design,
     failure_class_mapping_errors,
+    git_blob_sha256,
     load_json,
     local_markdown_link_errors,
     local_schema_refs,
@@ -123,27 +124,42 @@ def test_manifest_milestone_cannot_lag_an_approved_review() -> None:
     review = load_json(DESIGN_ROOT / "protocol_review.json")
     assert milestone_state_matches_review(manifest, review)
 
-    approved_review = copy.deepcopy(review)
-    approved_review["status"] = "approved"
-    approved_review["decision"] = "approved"
-    approved_review["reviewer"] = {
-        "name": "independent reviewer",
-        "role": "independent_reviewer",
-        "independent_of_authoring": True,
-        "reviewed_at": "2026-08-19T00:00:00Z",
-    }
-    for item in approved_review["checklist"]:
-        item["decision"] = "approved"
-    assert not milestone_state_matches_review(manifest, approved_review)
-
-    complete_manifest = copy.deepcopy(manifest)
-    complete_manifest["milestone"] = {
+    blocked_manifest = copy.deepcopy(manifest)
+    blocked_manifest["milestone"] = {
         "milestone_id": "M-BENCH-DESIGN-FREEZE-V1",
-        "status": "complete",
-        "complete": True,
-        "blocking_gate": None,
+        "status": "blocked_before_freeze",
+        "complete": False,
+        "blocking_gate": "human_protocol_review",
     }
-    assert milestone_state_matches_review(complete_manifest, approved_review)
+    assert not milestone_state_matches_review(blocked_manifest, review)
+
+    rejected_review = copy.deepcopy(review)
+    rejected_review["status"] = "rejected"
+    rejected_review["decision"] = "rejected"
+    rejected_review["checklist"][1]["decision"] = "rejected"
+    assert not milestone_state_matches_review(manifest, rejected_review)
+    assert milestone_state_matches_review(blocked_manifest, rejected_review)
+
+
+def test_protocol_review_preserves_rejection_and_reapproval_history() -> None:
+    review = load_json(DESIGN_ROOT / "protocol_review.json")
+    assert review["status"] == "approved"
+    assert review["decision"] == "approved"
+    assert review["unresolved_disagreements"] == []
+    assert [item["decision"] for item in review["review_rounds"]] == ["rejected", "approved"]
+    assert review["review_rounds"][1]["reviewed_commit"] == "bdceae2c008ef5cd4e215abac5c128bc8d1699d5"
+
+
+def test_authoritative_inputs_are_bound_to_base_git_blobs() -> None:
+    manifest = load_json(DESIGN_ROOT / "freeze_manifest.json")
+    for item in manifest["authoritative_inputs"]:
+        assert git_blob_sha256(REPO_ROOT, item["source_commit"], item["path"]) == item["git_blob_sha256"]
+
+
+def test_audit_report_paths_are_checkout_portable() -> None:
+    result = audit_design(REPO_ROOT, DESIGN_ROOT)
+    assert result["repo_root"] == "."
+    assert result["design_root"] == "docs/current/benchmark/v1"
 
 
 def test_local_markdown_links_resolve() -> None:

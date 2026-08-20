@@ -3,13 +3,13 @@
   "design_id": "fusionagent.benchmark-design.v1",
   "manifest_version": "1.0.0",
   "created_at": "2026-08-19T04:05:28.2090363Z",
-  "audit_generated_at": "2026-08-20T06:28:56.9559826Z",
+  "audit_generated_at": "2026-08-20T06:54:30.8423733Z",
   "file_hash_canonicalization": "normalize_crlf_to_lf",
   "milestone": {
     "milestone_id": "M-BENCH-DESIGN-FREEZE-V1",
-    "status": "blocked_before_freeze",
-    "complete": false,
-    "blocking_gate": "human_protocol_review"
+    "status": "complete",
+    "complete": true,
+    "blocking_gate": null
   },
   "git": {
     "branch": "codex/benchmark-design-r1",
@@ -27,29 +27,44 @@
   "authoritative_inputs": [
     {
       "path": "docs/current/research-charter.md",
-      "sha256": "sha256:223d3ca0719a69c373a4e6a95853c1c55b23a18ae5cef40eb1267fe10c855207"
+      "sha256": "sha256:223d3ca0719a69c373a4e6a95853c1c55b23a18ae5cef40eb1267fe10c855207",
+      "source_commit": "8c5302f0b30ceccd353ca442bec40daa0a884b8b",
+      "git_blob_sha256": "sha256:423e9d66929577da0d1156ce114d8e1bbd59053dff3cf5d159bff700a6bb9ac1",
+      "mutable_at_finalization": false
     },
     {
       "path": "docs/current/research-claim-evidence-ledger.md",
-      "sha256": "sha256:afa05fcb8e496c8bda528837e50d86b8f942eaa93967b59f59580a0443e282ef"
+      "sha256": "sha256:afa05fcb8e496c8bda528837e50d86b8f942eaa93967b59f59580a0443e282ef",
+      "source_commit": "8c5302f0b30ceccd353ca442bec40daa0a884b8b",
+      "git_blob_sha256": "sha256:76bb7287c38afde5f0de705e412385e1b10c37d3d26eec68b4ed879f552b53f2",
+      "mutable_at_finalization": false
     },
     {
       "path": "docs/current/research-experiment-ledger.md",
-      "sha256": "sha256:a1f859e306701cc2293287168c29d70254800a05ecf9bfe166419d1f4f50ec14"
+      "sha256": "sha256:a1f859e306701cc2293287168c29d70254800a05ecf9bfe166419d1f4f50ec14",
+      "source_commit": "8c5302f0b30ceccd353ca442bec40daa0a884b8b",
+      "git_blob_sha256": "sha256:2437311f97764655252b55bade941046f0b58e66e6d6affe1a922fdfa01a74b7",
+      "mutable_at_finalization": true
     },
     {
       "path": "docs/current/research-governance-index.md",
-      "sha256": "sha256:f1080d9961a6cab16e21f85e4b5b04bd9458d9eca1a4336522f8aea4045d06d6"
+      "sha256": "sha256:f1080d9961a6cab16e21f85e4b5b04bd9458d9eca1a4336522f8aea4045d06d6",
+      "source_commit": "8c5302f0b30ceccd353ca442bec40daa0a884b8b",
+      "git_blob_sha256": "sha256:19fa005fa4d699a7661136ce33e22105576773aba252b42d1621d07cafc3a121",
+      "mutable_at_finalization": true
     },
     {
       "path": "kg/ontology/v1.0.0/release.json",
-      "sha256": "sha256:8d0d801331a4c57b062442f2b7cc9b836de207ee3792d0de2db75b65bbbeb35b"
+      "sha256": "sha256:8d0d801331a4c57b062442f2b7cc9b836de207ee3792d0de2db75b65bbbeb35b",
+      "source_commit": "8c5302f0b30ceccd353ca442bec40daa0a884b8b",
+      "git_blob_sha256": "sha256:85b1e42ffc97898877255b087eb2d2c1237170a5afafea30a3c19a2aad9314a6",
+      "mutable_at_finalization": false
     }
   ],
   "files": [
     {
       "path": "docs/current/benchmark/v1/README.md",
-      "sha256": "sha256:fb2444ea208c1378bcc8d186bf85dc038a49a178d4170affb859cdd4cbfefd6e"
+      "sha256": "sha256:3e46434380e205264d4810ca8fdb0327eb95aec96f2ab5f1b1846d97d7e31598"
     },
     {
       "path": "docs/current/benchmark/v1/benchmark_charter.md",
@@ -77,15 +92,15 @@
     },
     {
       "path": "docs/current/benchmark/v1/protocol_review.json",
-      "sha256": "sha256:c4dee72a84541031f28e1d46a7c61a8e2255134f6a044424aad7682248b3784b"
+      "sha256": "sha256:16f7c1328783eeb3b83bfbfef5e076810d8f01719bd3ca9b90e60777e89fe28d"
     },
     {
       "path": "scripts/audit_benchmark_design_freeze.py",
-      "sha256": "sha256:e750d2befc2897043e635c64149d638576e4d0ddbcb4b8252edbb2be1cff642e"
+      "sha256": "sha256:e0b1f9f987f484203f8b265f6790de73e25164ef93a0377c4a61750ccff89339"
     },
     {
       "path": "tests/test_benchmark_design_freeze.py",
-      "sha256": "sha256:254e27abfa75b0f82ddaaf36a932465abf6c87df8b609dc9b23850105e92e4ba"
+      "sha256": "sha256:9ba46bb456750aa7b332053f09929bee0e604c0fa73f47ea0ad342aeaf0431d3"
     }
   ],
   "self_hash_policy": {

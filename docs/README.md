@@ -1,7 +1,7 @@
 # FusionAgent 文档入口
 
 > 状态：当前权威入口
-> 更新日期：2026-08-19
+> 更新日期：2026-08-20
 
 本文件是仓库文档的唯一导航入口。项目状态、论文主张、工作优先级或分支角色发生冲突时，先读取 `docs/current/research-governance-index.md`，再按其中的 A0/A1 顺序回到具体规范和证据文件核对。
 
@@ -14,7 +14,8 @@
 | [研究治理入口](current/research-governance-index.md) | 当前阶段、唯一下一验收点、分支和文档职责是什么 | A1-current |
 | [主张-证据账本](current/research-claim-evidence-ledger.md) | 每项主张目前支持到什么程度、允许怎样表述 | A1-current |
 | [实验账本](current/research-experiment-ledger.md) | 每个实验集的角色、版本、状态和复用范围是什么 | A1-current |
-| [Benchmark 设计冻结执行方案](current/benchmark-design-freeze-execution-plan.md) | 如何逐阶段完成下一个零调用设计冻结里程碑 | A1-active |
+| [Benchmark V1 冻结包](current/benchmark/v1/README.md) | 已冻结设计资产、manifest、audit、人工复核和后续边界是什么 | A1-frozen |
+| [Benchmark 设计冻结执行方案](current/benchmark-design-freeze-execution-plan.md) | `M-BENCH-DESIGN-FREEZE-V1` 如何完成 | A2-completed |
 | [证据目录索引](current/evidence/README.md) | 仓库内冻结协议、preflight 和证据快照分别承担什么角色 | A1-index |
 | [研究分支与 KG v1 归并审计](current/research-branch-kg-v1-merge-audit.md) | 研究资产分类、KG 对齐缺口、归并约束和讨论闸门 | A3 |
 | [2026-08-13 项目状态快照](current/project-status.md) | 当时已经完成什么、尚未证明什么 | A3 |
@@ -70,7 +71,7 @@
 2. 已完成 P1 独立审计、P2 三次稳定性重跑、P3-G 最小治理消融和 P4-G 最小多 AOI 治理外部有效性切片。
 3. 原六组的三类 LLM 条件已完成 90 次冻结调用，但 180-item 双人盲评尚未开始，比较性结论未闭环。
 4. B 只作为 I2/RQ3 接口消融；H01-H06 与 H07-H09 分层保留，不替代原六组。
-5. 当前唯一下一验收点是零调用冻结参数化 benchmark charter、能力矩阵、template schema、评价合同和选择治理；未验收前不实现平台、不运行 judge、不启动新正式实验。
+5. 参数化 Benchmark V1 零调用设计冻结已完成；当前唯一下一验收点是建立并批准独立的平台实施协议。平台实现、实例生成、judge、Provider 调用、新正式实验和 E2E 仍未授权。
 
 详细验收条件见[研究治理入口](current/research-governance-index.md)。
 
