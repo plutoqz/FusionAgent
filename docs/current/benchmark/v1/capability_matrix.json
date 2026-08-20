@@ -101,7 +101,7 @@
       "causal_variable": "observed_failure.present",
       "invariants": ["task_kind", "contract_id", "available_sources", "quality_policy"],
       "primary_gate": "G4",
-      "primary_failure_class": "planning.failure_state",
+      "primary_failure_class": "planning.causal_response",
       "secondary_risks": ["projection.failure_history"],
       "evidence_types": ["pair_relation", "human_review"],
       "e2e_eligibility": true

@@ -5,7 +5,7 @@ import hashlib
 import json
 import re
 import subprocess
-from collections import Counter, defaultdict
+from collections import defaultdict
 from pathlib import Path
 from typing import Any, Iterable
 from urllib.parse import unquote
@@ -196,6 +196,26 @@ def milestone_state_matches_review(manifest: dict[str, Any], review: dict[str, A
     )
 
 
+def failure_class_mapping_errors(cells: Iterable[dict[str, Any]], gates: Iterable[dict[str, Any]]) -> list[dict[str, str]]:
+    failure_classes_by_gate = {
+        str(gate.get("gate_id")): {str(value) for value in gate.get("failure_classes", [])}
+        for gate in gates
+    }
+    errors: list[dict[str, str]] = []
+    for cell in cells:
+        gate_id = str(cell.get("primary_gate"))
+        failure_class = str(cell.get("primary_failure_class"))
+        if failure_class not in failure_classes_by_gate.get(gate_id, set()):
+            errors.append(
+                {
+                    "capability_cell_id": str(cell.get("capability_cell_id")),
+                    "primary_gate": gate_id,
+                    "primary_failure_class": failure_class,
+                }
+            )
+    return errors
+
+
 def _git_lines(repo_root: Path, *args: str) -> list[str]:
     completed = subprocess.run(
         ["git", *args],
@@ -359,6 +379,7 @@ def audit_design(repo_root: Path, design_root: Path) -> dict[str, Any]:
 
     gate_ids = {gate.get("gate_id") for gate in evaluation.get("gates", [])}
     referenced_gates = {cell.get("primary_gate") for cell in cells}
+    failure_mapping_errors = failure_class_mapping_errors(cells, evaluation.get("gates", []))
     rate_metrics = [
         metric
         for metric in evaluation.get("metrics", [])
@@ -368,6 +389,7 @@ def audit_design(repo_root: Path, design_root: Path) -> dict[str, Any]:
     evaluation_details = {
         "gate_ids": sorted(str(value) for value in gate_ids),
         "missing_matrix_gates": sorted(str(value) for value in referenced_gates - gate_ids),
+        "failure_class_mapping_errors": failure_mapping_errors,
         "metric_count": len(evaluation.get("metrics", [])),
         "rate_metric_count": len(rate_metrics),
         "missing_denominators": missing_denominators,
@@ -376,6 +398,7 @@ def audit_design(repo_root: Path, design_root: Path) -> dict[str, Any]:
     evaluation_pass = (
         gate_ids == GATE_IDS
         and not (referenced_gates - gate_ids)
+        and not failure_mapping_errors
         and not missing_denominators
         and evaluation.get("aggregation", {}).get("overall_composite_score") == "forbidden"
         and evaluation.get("human_review", {}).get("llm_judge_formal_truth_allowed") is False

@@ -3,7 +3,7 @@
   "design_id": "fusionagent.benchmark-design.v1",
   "manifest_version": "1.0.0",
   "created_at": "2026-08-19T04:05:28.2090363Z",
-  "audit_generated_at": "2026-08-20T06:24:29.7106124Z",
+  "audit_generated_at": "2026-08-20T06:28:56.9559826Z",
   "file_hash_canonicalization": "normalize_crlf_to_lf",
   "milestone": {
     "milestone_id": "M-BENCH-DESIGN-FREEZE-V1",
@@ -57,7 +57,7 @@
     },
     {
       "path": "docs/current/benchmark/v1/capability_matrix.json",
-      "sha256": "sha256:0b3338b9369b3a7ec1b20bf04f2c0dc79bcdd16e4d460bcf3de22db3ae7e1cbc"
+      "sha256": "sha256:9fe385320a03533a2579499e7a9f34363313491c853c7a1ee0a784aa79acdc77"
     },
     {
       "path": "docs/current/benchmark/v1/template.schema.json",
@@ -81,11 +81,11 @@
     },
     {
       "path": "scripts/audit_benchmark_design_freeze.py",
-      "sha256": "sha256:22cfec438b917b92345525d8e490deff4873faa444293491d2b510389062cce8"
+      "sha256": "sha256:e750d2befc2897043e635c64149d638576e4d0ddbcb4b8252edbb2be1cff642e"
     },
     {
       "path": "tests/test_benchmark_design_freeze.py",
-      "sha256": "sha256:e087759bc6bb7ab072036d9f54a9f5ba1ac740155b318401b78df42ae2b140cf"
+      "sha256": "sha256:254e27abfa75b0f82ddaaf36a932465abf6c87df8b609dc9b23850105e92e4ba"
     }
   ],
   "self_hash_policy": {

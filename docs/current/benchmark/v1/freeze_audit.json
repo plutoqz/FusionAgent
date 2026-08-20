@@ -1,7 +1,7 @@
 {
   "audit_id": "fusionagent.benchmark-design-freeze-audit.v1",
   "design_id": "fusionagent.benchmark-design.v1",
-  "generated_at": "2026-08-20T06:24:29.7106124Z",
+  "generated_at": "2026-08-20T06:28:56.9559826Z",
   "repo_root": "D:\\code\\FusionAgent-benchmark-design",
   "design_root": "D:\\code\\FusionAgent-benchmark-design\\docs\\current\\benchmark\\v1",
   "base_commit": "8c5302f0b30ceccd353ca442bec40daa0a884b8b",
@@ -219,6 +219,7 @@
           "G6"
         ],
         "missing_matrix_gates": [],
+        "failure_class_mapping_errors": [],
         "metric_count": 16,
         "rate_metric_count": 13,
         "missing_denominators": [],

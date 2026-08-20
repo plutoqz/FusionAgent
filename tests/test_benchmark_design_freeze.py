@@ -8,6 +8,7 @@ from scripts.audit_benchmark_design_freeze import (
     EXPECTED_MANIFEST_FILES,
     HISTORICAL_CASE_IDS,
     audit_design,
+    failure_class_mapping_errors,
     load_json,
     local_markdown_link_errors,
     local_schema_refs,
@@ -56,6 +57,28 @@ def test_historical_cases_are_excluded_consistently() -> None:
     assert set(matrix["historical_exclusions"]["case_ids"]) == HISTORICAL_CASE_IDS
     assert set(selection["historical_exclusion"]["case_ids"]) == HISTORICAL_CASE_IDS
     assert selection["historical_exclusion"]["semantic_copy_forbidden_in_confirmation"] is True
+
+
+def test_every_cell_failure_class_belongs_to_its_primary_gate() -> None:
+    matrix = load_json(DESIGN_ROOT / "capability_matrix.json")
+    evaluation = load_json(DESIGN_ROOT / "evaluation_contract.json")
+    assert failure_class_mapping_errors(matrix["cells"], evaluation["gates"]) == []
+    observed_failure_cell = next(
+        cell for cell in matrix["cells"] if cell["capability_cell_id"] == "BC-CAUSAL-03"
+    )
+    assert observed_failure_cell["causal_variable"] == "observed_failure.present"
+    assert observed_failure_cell["primary_gate"] == "G4"
+    assert observed_failure_cell["primary_failure_class"] == "planning.causal_response"
+
+    invalid_cells = copy.deepcopy(matrix["cells"])
+    invalid_cells[0]["primary_failure_class"] = "planning.unknown_failure"
+    assert failure_class_mapping_errors(invalid_cells, evaluation["gates"]) == [
+        {
+            "capability_cell_id": invalid_cells[0]["capability_cell_id"],
+            "primary_gate": invalid_cells[0]["primary_gate"],
+            "primary_failure_class": "planning.unknown_failure",
+        }
+    ]
 
 
 def test_manifest_detects_tampered_design_asset(tmp_path: Path) -> None:
