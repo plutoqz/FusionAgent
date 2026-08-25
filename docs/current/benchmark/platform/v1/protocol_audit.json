@@ -1,0 +1,394 @@
+{
+  "audit_id": "fusionagent.benchmark-platform-protocol-audit.v1",
+  "protocol_id": "fusionagent.benchmark-platform-implementation-protocol.v1",
+  "generated_at": "2026-08-25T12:27:27.1353328Z",
+  "repo_root": ".",
+  "protocol_root": "docs/current/benchmark/platform/v1",
+  "base_tag": "benchmark-design-freeze-v1",
+  "base_commit": "08b55f7e03eabb74721979153df57aeee3200538",
+  "checks": [
+    {
+      "check_id": "required_protocol_files",
+      "required": true,
+      "passed": true,
+      "details": {
+        "missing": []
+      }
+    },
+    {
+      "check_id": "protocol_identities",
+      "required": true,
+      "passed": true,
+      "details": {
+        "actual": {
+          "contract_id": "fusionagent.benchmark-platform-component-contract.v1",
+          "contract_protocol_id": "fusionagent.benchmark-platform-implementation-protocol.v1",
+          "manifest_id": "fusionagent.benchmark-platform-protocol-manifest.v1",
+          "manifest_protocol_id": "fusionagent.benchmark-platform-implementation-protocol.v1",
+          "review_protocol_id": "fusionagent.benchmark-platform-implementation-protocol.v1"
+        },
+        "expected": {
+          "contract_id": "fusionagent.benchmark-platform-component-contract.v1",
+          "contract_protocol_id": "fusionagent.benchmark-platform-implementation-protocol.v1",
+          "manifest_id": "fusionagent.benchmark-platform-protocol-manifest.v1",
+          "manifest_protocol_id": "fusionagent.benchmark-platform-implementation-protocol.v1",
+          "review_protocol_id": "fusionagent.benchmark-platform-implementation-protocol.v1"
+        }
+      }
+    },
+    {
+      "check_id": "manifest_state",
+      "required": true,
+      "passed": true,
+      "details": {
+        "git": {
+          "branch": "codex/benchmark-platform-protocol-r1",
+          "base_tag": "benchmark-design-freeze-v1",
+          "base_commit": "08b55f7e03eabb74721979153df57aeee3200538"
+        },
+        "milestone": {
+          "milestone_id": "M-BENCH-PLATFORM-PROTOCOL-V1",
+          "status": "blocked_before_protocol_freeze",
+          "complete": false,
+          "blocking_gate": "human_protocol_review"
+        },
+        "review_approved": false
+      }
+    },
+    {
+      "check_id": "frozen_design_binding",
+      "required": true,
+      "passed": true,
+      "details": {
+        "tag_commit": "08b55f7e03eabb74721979153df57aeee3200538",
+        "contract": {
+          "tag": "benchmark-design-freeze-v1",
+          "commit": "08b55f7e03eabb74721979153df57aeee3200538",
+          "design_id": "fusionagent.benchmark-design.v1",
+          "freeze_id": "fusionagent.benchmark-design-freeze.v1",
+          "kg_release_id": "fusionagent-kg-v1.0.0",
+          "kg_semantic_hash": "sha256:50067b9368914c47580707650789c04c78b2e856ccb3ef4d120a31f36c0ad71e"
+        },
+        "manifest": {
+          "tag": "benchmark-design-freeze-v1",
+          "commit": "08b55f7e03eabb74721979153df57aeee3200538",
+          "design_id": "fusionagent.benchmark-design.v1",
+          "freeze_id": "fusionagent.benchmark-design-freeze.v1",
+          "kg_release_id": "fusionagent-kg-v1.0.0",
+          "kg_semantic_hash": "sha256:50067b9368914c47580707650789c04c78b2e856ccb3ef4d120a31f36c0ad71e"
+        }
+      }
+    },
+    {
+      "check_id": "protocol_manifest_contract",
+      "required": true,
+      "passed": true,
+      "details": {
+        "file_paths": [
+          "docs/current/benchmark-platform-implementation-protocol.md",
+          "docs/current/benchmark/platform/v1/README.md",
+          "docs/current/benchmark/platform/v1/component_contract.json",
+          "docs/current/benchmark/platform/v1/protocol_review.json",
+          "scripts/audit_benchmark_platform_protocol.py",
+          "tests/test_benchmark_platform_protocol.py"
+        ],
+        "missing_files": [],
+        "unexpected_files": [],
+        "file_duplicates": [],
+        "frozen_input_paths": [
+          "docs/current/benchmark/v1/README.md",
+          "docs/current/benchmark/v1/benchmark_charter.md",
+          "docs/current/benchmark/v1/capability_matrix.json",
+          "docs/current/benchmark/v1/evaluation_contract.json",
+          "docs/current/benchmark/v1/freeze_audit.json",
+          "docs/current/benchmark/v1/freeze_manifest.json",
+          "docs/current/benchmark/v1/human_review_rubric.md",
+          "docs/current/benchmark/v1/protocol_review.json",
+          "docs/current/benchmark/v1/selection_governance.json",
+          "docs/current/benchmark/v1/template.schema.json"
+        ],
+        "missing_frozen_inputs": [],
+        "unexpected_frozen_inputs": [],
+        "frozen_duplicates": []
+      }
+    },
+    {
+      "check_id": "protocol_file_hashes",
+      "required": true,
+      "passed": true,
+      "details": {
+        "errors": []
+      }
+    },
+    {
+      "check_id": "frozen_input_hashes",
+      "required": true,
+      "passed": true,
+      "details": {
+        "errors": []
+      }
+    },
+    {
+      "check_id": "research_mapping",
+      "required": true,
+      "passed": true,
+      "details": {
+        "objectives": [
+          "O2",
+          "O3"
+        ],
+        "research_questions": [
+          "RQ2",
+          "RQ3"
+        ],
+        "innovations": [
+          "I2",
+          "I4"
+        ],
+        "candidate_claim_ids": [
+          "CL-BENCH-CAUSAL",
+          "CL-BENCH-INVARIANT",
+          "CL-BENCH-COMPOSE",
+          "CL-BENCH-RECOVERY",
+          "CL-BENCH-DIAG"
+        ],
+        "new_research_claim_created": false,
+        "scheme_b_role_changed": false
+      }
+    },
+    {
+      "check_id": "component_contract",
+      "required": true,
+      "passed": true,
+      "details": {
+        "component_ids": [
+          "BP-DESIGN-LOADER",
+          "BP-MODELS",
+          "BP-CANONICAL",
+          "BP-CROSSWALK",
+          "BP-GENERATOR",
+          "BP-RELATIONS",
+          "BP-VIEWS",
+          "BP-STORE",
+          "BP-CLI"
+        ],
+        "incomplete": []
+      }
+    },
+    {
+      "check_id": "implementation_boundary",
+      "required": true,
+      "passed": true,
+      "details": {
+        "identity": {
+          "package": "benchmark_platform",
+          "branch": "codex/benchmark-platform-dev-r1",
+          "milestone": "M-BENCH-PLATFORM-CORE-V1",
+          "authorization_required_after_protocol_freeze": true,
+          "strongest_completion_status": "implementation_validated_offline"
+        },
+        "allowed": [
+          "benchmark_platform/",
+          "scripts/audit_benchmark_platform_core.py",
+          "tests/test_benchmark_platform_",
+          "tests/fixtures/benchmark_platform/",
+          "docs/current/benchmark/platform/v1/implementation/",
+          "requirements.txt"
+        ],
+        "forbidden": [
+          "docs/current/benchmark/v1/",
+          "kg/ontology/v1.0.0/",
+          "docs/current/evidence/",
+          "llm/",
+          "agent/",
+          "services/",
+          "schemas/benchmark.py"
+        ]
+      }
+    },
+    {
+      "check_id": "platform_mechanics_contract",
+      "required": true,
+      "passed": true,
+      "details": {
+        "units": [
+          "single",
+          "counterfactual_pair",
+          "invariant_set",
+          "composition_family",
+          "temporal_trace"
+        ],
+        "cli": [
+          "validate-design",
+          "validate-template",
+          "generate-development",
+          "validate-run",
+          "project-views",
+          "audit-run",
+          "resume-development"
+        ],
+        "cli_violations": [],
+        "states": [
+          "created",
+          "design_bound",
+          "templates_validated",
+          "generated",
+          "relations_validated",
+          "views_projected",
+          "audited",
+          "development_complete"
+        ],
+        "stages": [
+          [
+            "P0",
+            "BP0"
+          ],
+          [
+            "P1",
+            "BP1"
+          ],
+          [
+            "P2",
+            "BP2"
+          ],
+          [
+            "P3",
+            "BP3"
+          ],
+          [
+            "P4",
+            "BP4"
+          ],
+          [
+            "P5",
+            "BP5"
+          ],
+          [
+            "P6",
+            "BP6"
+          ],
+          [
+            "P7",
+            "BP7"
+          ]
+        ]
+      }
+    },
+    {
+      "check_id": "zero_call_accounting",
+      "required": true,
+      "passed": true,
+      "details": {
+        "contract": {
+          "benchmark_instances_generated": 0,
+          "provider_calls": 0,
+          "judge_calls": 0,
+          "formal_result_roots_created": 0,
+          "confirmation_unsealed": false,
+          "selective_e2e_selected": false,
+          "platform_implementation_started": false
+        },
+        "manifest": {
+          "benchmark_instances_generated": 0,
+          "provider_calls": 0,
+          "judge_calls": 0,
+          "formal_result_roots_created": 0,
+          "confirmation_unsealed": false,
+          "selective_e2e_selected": false,
+          "platform_implementation_started": false
+        }
+      }
+    },
+    {
+      "check_id": "implementation_plan_completeness",
+      "required": true,
+      "passed": true,
+      "details": {
+        "missing_tokens": []
+      }
+    },
+    {
+      "check_id": "bounded_protocol_change_set",
+      "required": true,
+      "passed": true,
+      "details": {
+        "changed_paths": [
+          "docs/current/benchmark-platform-implementation-protocol.md",
+          "docs/current/benchmark/platform/v1/README.md",
+          "docs/current/benchmark/platform/v1/component_contract.json",
+          "docs/current/benchmark/platform/v1/protocol_audit.json",
+          "docs/current/benchmark/platform/v1/protocol_manifest.json",
+          "docs/current/benchmark/platform/v1/protocol_review.json",
+          "scripts/audit_benchmark_platform_protocol.py",
+          "tests/test_benchmark_platform_protocol.py"
+        ],
+        "forbidden_paths": [],
+        "implementation_directory_exists": false
+      }
+    },
+    {
+      "check_id": "protocol_directory_inventory",
+      "required": true,
+      "passed": true,
+      "details": {
+        "files": [
+          "README.md",
+          "component_contract.json",
+          "protocol_audit.json",
+          "protocol_manifest.json",
+          "protocol_review.json"
+        ],
+        "unexpected": [],
+        "nested_directories": []
+      }
+    },
+    {
+      "check_id": "markdown_links",
+      "required": true,
+      "passed": true,
+      "details": {
+        "errors": []
+      }
+    },
+    {
+      "check_id": "human_protocol_review",
+      "required": true,
+      "passed": false,
+      "details": {
+        "status": "pending_human_review",
+        "decision": null,
+        "reviewer": {
+          "name": null,
+          "role": null,
+          "independent_of_authoring": null,
+          "reviewed_at": null
+        },
+        "pending_items": [
+          "BPR-SCOPE",
+          "BPR-DESIGN-BINDING",
+          "BPR-COMPONENTS",
+          "BPR-PARTITION-SAFETY",
+          "BPR-VIEW-FAIL-CLOSED",
+          "BPR-RECOVERY",
+          "BPR-ACCEPTANCE"
+        ]
+      }
+    }
+  ],
+  "required_check_count": 17,
+  "passed_required_check_count": 16,
+  "required_failures": [
+    "human_protocol_review"
+  ],
+  "overall_passed": false,
+  "milestone_status": "blocked_before_protocol_freeze",
+  "accounting": {
+    "benchmark_instances_generated": 0,
+    "provider_calls": 0,
+    "judge_calls": 0,
+    "formal_result_roots_created": 0,
+    "confirmation_unsealed": false,
+    "selective_e2e_selected": false,
+    "platform_implementation_started": false
+  }
+}

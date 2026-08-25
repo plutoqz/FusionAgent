@@ -1,0 +1,58 @@
+{
+  "review_id": "fusionagent.benchmark-platform-protocol-review.v1",
+  "protocol_id": "fusionagent.benchmark-platform-implementation-protocol.v1",
+  "status": "pending_human_review",
+  "reviewer": {
+    "name": null,
+    "role": null,
+    "independent_of_authoring": null,
+    "reviewed_at": null
+  },
+  "checklist": [
+    {
+      "item_id": "BPR-SCOPE",
+      "question": "Does the protocol serve existing O/RQ/I/claims without creating a new research mainline or changing Scheme B?",
+      "decision": "pending",
+      "comment": null
+    },
+    {
+      "item_id": "BPR-DESIGN-BINDING",
+      "question": "Are the design tag, commit, frozen assets, KG identity and post-freeze version boundary bound precisely?",
+      "decision": "pending",
+      "comment": null
+    },
+    {
+      "item_id": "BPR-COMPONENTS",
+      "question": "Are component responsibilities, inputs, outputs, failures and dependencies complete without reusing incompatible legacy benchmark models?",
+      "decision": "pending",
+      "comment": null
+    },
+    {
+      "item_id": "BPR-PARTITION-SAFETY",
+      "question": "Does the protocol enforce development-only generation and exclude confirmation, E2E, Provider, judge and formal result creation?",
+      "decision": "pending",
+      "comment": null
+    },
+    {
+      "item_id": "BPR-VIEW-FAIL-CLOSED",
+      "question": "Are crosswalk, relation, oracle/veto and view leakage failures fail-closed and attributable?",
+      "decision": "pending",
+      "comment": null
+    },
+    {
+      "item_id": "BPR-RECOVERY",
+      "question": "Are write-new storage, checkpoints, resume hash binding, tamper handling and rollback rules sufficient?",
+      "decision": "pending",
+      "comment": null
+    },
+    {
+      "item_id": "BPR-ACCEPTANCE",
+      "question": "Do P0-P7 gates and evidence distinguish offline implementation validation from benchmark effects, production capability and formal evidence?",
+      "decision": "pending",
+      "comment": null
+    }
+  ],
+  "decision": null,
+  "overall_comment": null,
+  "instructions": "A user or independent reviewer must decide every item and the overall decision. Automatic audit must not author, infer or approve human decisions."
+}

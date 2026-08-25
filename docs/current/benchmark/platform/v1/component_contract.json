@@ -1,0 +1,221 @@
+{
+  "component_contract_id": "fusionagent.benchmark-platform-component-contract.v1",
+  "protocol_id": "fusionagent.benchmark-platform-implementation-protocol.v1",
+  "version": "1.0.0",
+  "status": "draft_pending_human_review",
+  "research_mapping": {
+    "objectives": ["O2", "O3"],
+    "research_questions": ["RQ2", "RQ3"],
+    "innovations": ["I2", "I4"],
+    "candidate_claim_ids": [
+      "CL-BENCH-CAUSAL",
+      "CL-BENCH-INVARIANT",
+      "CL-BENCH-COMPOSE",
+      "CL-BENCH-RECOVERY",
+      "CL-BENCH-DIAG"
+    ],
+    "new_research_claim_created": false,
+    "scheme_b_role_changed": false
+  },
+  "design_binding": {
+    "tag": "benchmark-design-freeze-v1",
+    "commit": "08b55f7e03eabb74721979153df57aeee3200538",
+    "design_id": "fusionagent.benchmark-design.v1",
+    "freeze_id": "fusionagent.benchmark-design-freeze.v1",
+    "kg_release_id": "fusionagent-kg-v1.0.0",
+    "kg_semantic_hash": "sha256:50067b9368914c47580707650789c04c78b2e856ccb3ef4d120a31f36c0ad71e"
+  },
+  "implementation_identity": {
+    "package": "benchmark_platform",
+    "branch": "codex/benchmark-platform-dev-r1",
+    "milestone": "M-BENCH-PLATFORM-CORE-V1",
+    "authorization_required_after_protocol_freeze": true,
+    "strongest_completion_status": "implementation_validated_offline"
+  },
+  "allowed_change_paths": [
+    "benchmark_platform/",
+    "scripts/audit_benchmark_platform_core.py",
+    "tests/test_benchmark_platform_",
+    "tests/fixtures/benchmark_platform/",
+    "docs/current/benchmark/platform/v1/implementation/",
+    "requirements.txt"
+  ],
+  "forbidden_change_prefixes": [
+    "docs/current/benchmark/v1/",
+    "kg/ontology/v1.0.0/",
+    "docs/current/evidence/",
+    "llm/",
+    "agent/",
+    "services/",
+    "schemas/benchmark.py"
+  ],
+  "dependency_policy": {
+    "allowed_additions": ["jsonschema>=4.23,<5"],
+    "all_other_dependency_changes_forbidden": true,
+    "network_install_is_environment_setup_not_runtime_behavior": true
+  },
+  "components": [
+    {
+      "component_id": "BP-DESIGN-LOADER",
+      "module": "benchmark_platform.design_loader",
+      "responsibility": "Load and verify the frozen design bundle before any template or generation operation.",
+      "inputs": ["design_root", "expected_tag", "expected_commit"],
+      "outputs": ["FrozenDesignBundle"],
+      "fail_closed_on": ["tag_mismatch", "asset_hash_mismatch", "identity_mismatch", "missing_reference"],
+      "forbidden_dependencies": ["network", "llm", "provider", "judge"]
+    },
+    {
+      "component_id": "BP-MODELS",
+      "module": "benchmark_platform.models",
+      "responsibility": "Provide Pydantic V2 closed runtime models and typed failure records independent of legacy Freeze B models.",
+      "inputs": ["json_objects"],
+      "outputs": ["validated_runtime_models", "typed_validation_failures"],
+      "fail_closed_on": ["unknown_field", "invalid_state", "unknown_enum", "duplicate_id"],
+      "forbidden_dependencies": ["schemas.benchmark", "network", "llm"]
+    },
+    {
+      "component_id": "BP-CANONICAL",
+      "module": "benchmark_platform.canonical",
+      "responsibility": "Produce canonical UTF-8 JSON, stable IDs, derived seeds and SHA-256 digests.",
+      "inputs": ["validated_object", "seed_namespace", "master_seed", "unit_index"],
+      "outputs": ["canonical_bytes", "content_sha256", "stable_id", "derived_seed"],
+      "fail_closed_on": ["nan_or_infinity", "unsupported_type", "missing_identity_field"],
+      "forbidden_dependencies": ["global_random_state", "network"]
+    },
+    {
+      "component_id": "BP-CROSSWALK",
+      "module": "benchmark_platform.crosswalk",
+      "responsibility": "Validate KG, source, contract, algorithm and quality-policy IDs against frozen read-only registries.",
+      "inputs": ["FrozenDesignBundle", "DevelopmentTemplate"],
+      "outputs": ["CrosswalkReport"],
+      "fail_closed_on": ["unknown_id", "wrong_kg_release", "duplicate_binding", "ambiguous_binding"],
+      "forbidden_dependencies": ["kg_write", "neo4j_write", "network"]
+    },
+    {
+      "component_id": "BP-GENERATOR",
+      "module": "benchmark_platform.generator",
+      "responsibility": "Generate deterministic development-only experiment units and retain every attempt.",
+      "inputs": ["FrozenDesignBundle", "DevelopmentTemplate", "GenerationRequest"],
+      "outputs": ["GenerationAttempt", "GeneratedUnit"],
+      "fail_closed_on": ["non_development_partition", "seed_mismatch", "attempt_limit", "invalid_member"],
+      "forbidden_dependencies": ["confirmation", "selective_e2e", "network", "llm", "provider", "judge"]
+    },
+    {
+      "component_id": "BP-RELATIONS",
+      "module": "benchmark_platform.relations",
+      "responsibility": "Validate counterfactual, invariant, composition and temporal relations with one primary failure.",
+      "inputs": ["GeneratedUnit", "relation_assertions", "frozen_failure_taxonomy"],
+      "outputs": ["RelationValidationReport"],
+      "fail_closed_on": ["multi_causal_drift", "invariant_drift", "cross_task_pollution", "illegal_transition", "unknown_failure_class"],
+      "forbidden_dependencies": ["keyword_semantic_scoring", "llm_judge"]
+    },
+    {
+      "component_id": "BP-VIEWS",
+      "module": "benchmark_platform.views",
+      "responsibility": "Project planner, evaluator and human-blind packets from explicit allowlists and audit leakage.",
+      "inputs": ["GeneratedUnit", "frozen_view_contract"],
+      "outputs": ["PlannerPacket", "EvaluatorPacket", "HumanBlindPacket", "LeakageAudit"],
+      "fail_closed_on": ["forbidden_path_visible", "gold_value_leak", "condition_label_leak", "run_identity_leak"],
+      "forbidden_dependencies": ["blacklist_only_projection", "llm"]
+    },
+    {
+      "component_id": "BP-STORE",
+      "module": "benchmark_platform.store",
+      "responsibility": "Write new atomic run artifacts and checkpoints and validate resume bindings.",
+      "inputs": ["run_request", "stage_outputs", "resume_request"],
+      "outputs": ["run_root", "checkpoint", "checksums"],
+      "fail_closed_on": ["output_exists", "resume_hash_drift", "illegal_stage", "partial_publish"],
+      "forbidden_dependencies": ["service_runtime", "celery", "redis", "database", "network"]
+    },
+    {
+      "component_id": "BP-CLI",
+      "module": "benchmark_platform.cli",
+      "responsibility": "Expose only the bounded offline commands declared by this contract.",
+      "inputs": ["command", "validated_arguments"],
+      "outputs": ["structured_stdout", "structured_stderr", "exit_code"],
+      "fail_closed_on": ["unknown_command", "forbidden_partition", "invalid_argument", "unhandled_failure"],
+      "forbidden_dependencies": ["web_ui", "api_server", "network", "llm", "provider", "judge"]
+    }
+  ],
+  "experiment_unit_types": ["single", "counterfactual_pair", "invariant_set", "composition_family", "temporal_trace"],
+  "allowed_cli_commands": [
+    "validate-design",
+    "validate-template",
+    "generate-development",
+    "validate-run",
+    "project-views",
+    "audit-run",
+    "resume-development"
+  ],
+  "forbidden_cli_tokens": ["confirmation", "e2e", "judge", "provider", "model", "execute"],
+  "run_artifacts": [
+    "run_manifest.json",
+    "design_binding.json",
+    "template_snapshots/",
+    "generation_attempts.jsonl",
+    "instances.jsonl",
+    "validation_report.json",
+    "planner_packets.jsonl",
+    "evaluator_packets.jsonl",
+    "human_blind_packets.jsonl",
+    "leakage_audit.json",
+    "checkpoint.json",
+    "checksums.json"
+  ],
+  "state_machine": [
+    "created",
+    "design_bound",
+    "templates_validated",
+    "generated",
+    "relations_validated",
+    "views_projected",
+    "audited",
+    "development_complete"
+  ],
+  "terminal_failure_state": "failed_retained",
+  "recovery_invariants": [
+    "resume_requires_explicit_checkpoint",
+    "all_input_hashes_must_match",
+    "code_revision_must_match",
+    "output_root_is_never_overwritten",
+    "hash_drift_requires_new_run_id"
+  ],
+  "implementation_stages": [
+    {"stage_id": "P0", "gate": "BP0", "name": "baseline"},
+    {"stage_id": "P1", "gate": "BP1", "name": "closed_models_and_canonicalization"},
+    {"stage_id": "P2", "gate": "BP2", "name": "design_loader_and_crosswalk"},
+    {"stage_id": "P3", "gate": "BP3", "name": "development_generator"},
+    {"stage_id": "P4", "gate": "BP4", "name": "relations_and_views"},
+    {"stage_id": "P5", "gate": "BP5", "name": "store_checkpoint_resume"},
+    {"stage_id": "P6", "gate": "BP6", "name": "offline_cli_and_tests"},
+    {"stage_id": "P7", "gate": "BP7", "name": "implementation_audit_and_freeze"}
+  ],
+  "test_contract": {
+    "required_categories": [
+      "closed_schema",
+      "canonical_hash",
+      "design_tamper",
+      "crosswalk",
+      "deterministic_generation",
+      "relation_negative",
+      "view_leakage",
+      "write_new",
+      "checkpoint_resume",
+      "no_network",
+      "forbidden_import",
+      "cli_exit_codes"
+    ],
+    "contract_fixtures_are_benchmark_instances": false,
+    "fixture_claim_eligible": false,
+    "temporary_directory_required": true
+  },
+  "accounting": {
+    "benchmark_instances_generated": 0,
+    "provider_calls": 0,
+    "judge_calls": 0,
+    "formal_result_roots_created": 0,
+    "confirmation_unsealed": false,
+    "selective_e2e_selected": false,
+    "platform_implementation_started": false
+  }
+}

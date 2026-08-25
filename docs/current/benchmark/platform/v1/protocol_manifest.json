@@ -1,0 +1,108 @@
+{
+  "manifest_id": "fusionagent.benchmark-platform-protocol-manifest.v1",
+  "protocol_id": "fusionagent.benchmark-platform-implementation-protocol.v1",
+  "version": "1.0.0",
+  "created_at": "2026-08-25T12:27:27.1353328Z",
+  "audit_generated_at": "2026-08-25T12:27:27.1353328Z",
+  "file_hash_canonicalization": "normalize_crlf_to_lf",
+  "milestone": {
+    "milestone_id": "M-BENCH-PLATFORM-PROTOCOL-V1",
+    "status": "blocked_before_protocol_freeze",
+    "complete": false,
+    "blocking_gate": "human_protocol_review"
+  },
+  "git": {
+    "branch": "codex/benchmark-platform-protocol-r1",
+    "base_tag": "benchmark-design-freeze-v1",
+    "base_commit": "08b55f7e03eabb74721979153df57aeee3200538"
+  },
+  "design_binding": {
+    "tag": "benchmark-design-freeze-v1",
+    "commit": "08b55f7e03eabb74721979153df57aeee3200538",
+    "design_id": "fusionagent.benchmark-design.v1",
+    "freeze_id": "fusionagent.benchmark-design-freeze.v1",
+    "kg_release_id": "fusionagent-kg-v1.0.0",
+    "kg_semantic_hash": "sha256:50067b9368914c47580707650789c04c78b2e856ccb3ef4d120a31f36c0ad71e"
+  },
+  "frozen_inputs": [
+    {
+      "path": "docs/current/benchmark/v1/README.md",
+      "sha256": "sha256:3e46434380e205264d4810ca8fdb0327eb95aec96f2ab5f1b1846d97d7e31598"
+    },
+    {
+      "path": "docs/current/benchmark/v1/benchmark_charter.md",
+      "sha256": "sha256:2272c0afd22de5288d7a3ab385ce4ed113b8c87041bfc862330358d46e17060a"
+    },
+    {
+      "path": "docs/current/benchmark/v1/capability_matrix.json",
+      "sha256": "sha256:9fe385320a03533a2579499e7a9f34363313491c853c7a1ee0a784aa79acdc77"
+    },
+    {
+      "path": "docs/current/benchmark/v1/template.schema.json",
+      "sha256": "sha256:e05049958c8ffeec2c237a6fa5629de0544ea0ed16b772eb90c4775a743081ce"
+    },
+    {
+      "path": "docs/current/benchmark/v1/evaluation_contract.json",
+      "sha256": "sha256:28d554450d8485e3439473f0cc9c78db517f533c345af3cf028c371653a4be95"
+    },
+    {
+      "path": "docs/current/benchmark/v1/human_review_rubric.md",
+      "sha256": "sha256:d3f1070ded1b39d8b4b76a71631e0f3b8fc6347fc25fd405fb21f5224faa86a2"
+    },
+    {
+      "path": "docs/current/benchmark/v1/selection_governance.json",
+      "sha256": "sha256:72a2850e2076d6c8ee5cb74cb5b06c15f9b51bb381b114a37777f93f3b69dcc3"
+    },
+    {
+      "path": "docs/current/benchmark/v1/freeze_manifest.json",
+      "sha256": "sha256:cd927a55c4b744ff9bcf8e72fb7aeafd1b1a9fa56c2f3ffec720a56ed6afeacc"
+    },
+    {
+      "path": "docs/current/benchmark/v1/freeze_audit.json",
+      "sha256": "sha256:13f31c6b9078a879d341d8e1f320b1acc3e2d097fe76645c73bb7958ed01d0e4"
+    },
+    {
+      "path": "docs/current/benchmark/v1/protocol_review.json",
+      "sha256": "sha256:16f7c1328783eeb3b83bfbfef5e076810d8f01719bd3ca9b90e60777e89fe28d"
+    }
+  ],
+  "files": [
+    {
+      "path": "docs/current/benchmark/platform/v1/README.md",
+      "sha256": "sha256:98eb22504746b2b689ef536872d17acab605addbdd761c159d05cabe16c91332"
+    },
+    {
+      "path": "docs/current/benchmark/platform/v1/component_contract.json",
+      "sha256": "sha256:82e5ba3293083b22e0e3d91484c7e2f38dfff030c1df248b9be98e01b93de329"
+    },
+    {
+      "path": "docs/current/benchmark/platform/v1/protocol_review.json",
+      "sha256": "sha256:4aac0fd487b89893f2393168bc1823ac64ce8c6a9bb5a861fdf398ffef693bdc"
+    },
+    {
+      "path": "docs/current/benchmark-platform-implementation-protocol.md",
+      "sha256": "sha256:36aba2efb14d63e6d0ceafffd6e9cca2844f706dd72b55e58d3e7ae6ca48956a"
+    },
+    {
+      "path": "scripts/audit_benchmark_platform_protocol.py",
+      "sha256": "sha256:f896447754bc918870713aafede87c31c1ab3fec4cbb686ab07a9ccc3049dcd4"
+    },
+    {
+      "path": "tests/test_benchmark_platform_protocol.py",
+      "sha256": "sha256:2e92755aa8743f257a0b2e8b30684dd701ae370f28e2cdf8ff09f2892d49d8e5"
+    }
+  ],
+  "self_hash_policy": {
+    "protocol_manifest.json": "excluded_to_avoid_recursive_hashing",
+    "protocol_audit.json": "excluded_because_it_is_generated_from_this_manifest"
+  },
+  "accounting": {
+    "benchmark_instances_generated": 0,
+    "provider_calls": 0,
+    "judge_calls": 0,
+    "formal_result_roots_created": 0,
+    "confirmation_unsealed": false,
+    "selective_e2e_selected": false,
+    "platform_implementation_started": false
+  }
+}
