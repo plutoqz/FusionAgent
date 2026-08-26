@@ -1,0 +1,93 @@
+{
+  "audit_id": "fusionagent.benchmark-platform-core.p4-audit.v1",
+  "checkpoint_id": "fusionagent.benchmark-platform-core.p4-checkpoint.v1",
+  "protocol_id": "fusionagent.benchmark-platform-implementation-protocol.v1",
+  "stage": "P4",
+  "gate": "BP4",
+  "checks": [
+    {
+      "check_id": "p4_checkpoint_identity",
+      "required": true,
+      "passed": true,
+      "details": {
+        "checkpoint_id": "fusionagent.benchmark-platform-core.p4-checkpoint.v1",
+        "protocol_id": "fusionagent.benchmark-platform-implementation-protocol.v1",
+        "stage": "P4",
+        "gate": "BP4",
+        "status": "stage_validated_offline"
+      }
+    },
+    {
+      "check_id": "relations_and_allowlist_views",
+      "required": true,
+      "passed": true,
+      "details": {
+        "relation_passed": true,
+        "leakage_passed": true,
+        "planner_keys": [
+          "task_state"
+        ]
+      }
+    },
+    {
+      "check_id": "offline_import_boundary",
+      "required": true,
+      "passed": true,
+      "details": {
+        "forbidden_imports": []
+      }
+    },
+    {
+      "check_id": "p4_artifact_hashes",
+      "required": true,
+      "passed": true,
+      "details": {
+        "errors": [],
+        "count": 7
+      }
+    },
+    {
+      "check_id": "zero_call_and_no_output_root",
+      "required": true,
+      "passed": true,
+      "details": {
+        "accounting": {
+          "benchmark_instances_generated": 0,
+          "provider_calls": 0,
+          "judge_calls": 0,
+          "formal_result_roots_created": 0,
+          "confirmation_unsealed": false,
+          "selective_e2e_selected": false,
+          "platform_implementation_started": true
+        },
+        "future_output_root": "D:\\code\\fusionagent-evidence\\benchmark-platform\\development-v1"
+      }
+    },
+    {
+      "check_id": "next_gate_boundary",
+      "required": true,
+      "passed": true,
+      "details": {
+        "stage": "P5",
+        "gate": "BP5",
+        "automatic_progression": false
+      }
+    }
+  ],
+  "required_check_count": 6,
+  "passed_required_check_count": 6,
+  "required_failures": [],
+  "overall_passed": true,
+  "stage_status": "complete",
+  "accounting": {
+    "benchmark_instances_generated": 0,
+    "provider_calls": 0,
+    "judge_calls": 0,
+    "formal_result_roots_created": 0,
+    "confirmation_unsealed": false,
+    "selective_e2e_selected": false,
+    "platform_implementation_started": true
+  },
+  "next_stage": "P5/BP5",
+  "automatic_progression": false
+}

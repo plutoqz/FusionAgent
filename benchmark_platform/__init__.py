@@ -36,6 +36,22 @@ from benchmark_platform.generator import (
     generate_development,
     generate_development_unit,
 )
+from benchmark_platform.relations import (
+    AssertionResult,
+    RelationValidationError,
+    RelationValidationReport,
+    parse_json_path,
+    resolve_json_path,
+    validate_relations,
+)
+from benchmark_platform.views import (
+    LeakageAudit,
+    ProjectedViews,
+    ViewPacket,
+    ViewProjectionError,
+    project_allowlist,
+    project_views,
+)
 from benchmark_platform.models import (
     BenchmarkPlatformValidationError,
     CanonicalIdentity,
@@ -82,4 +98,16 @@ __all__ = [
     "GeneratorError",
     "generate_development",
     "generate_development_unit",
+    "AssertionResult",
+    "RelationValidationError",
+    "RelationValidationReport",
+    "parse_json_path",
+    "resolve_json_path",
+    "validate_relations",
+    "LeakageAudit",
+    "ProjectedViews",
+    "ViewPacket",
+    "ViewProjectionError",
+    "project_allowlist",
+    "project_views",
 ]

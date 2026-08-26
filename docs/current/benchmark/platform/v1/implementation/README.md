@@ -1,6 +1,6 @@
 # Benchmark Platform Core V1 Implementation
 
-> 当前阶段：P3/BP3 complete
+> 当前阶段：P4/BP4 complete
 > 实现分支：`codex/benchmark-platform-dev-r1`
 > Worktree：`D:\code\FusionAgent-benchmark-platform-dev`
 > 协议基线：`benchmark-platform-protocol-v1@4db9f51f261d61ecb5c17b726d9897a09773eec2`
@@ -17,6 +17,8 @@
 | [`p2_audit.json`](p2_audit.json) | BP2 机器审计结果 |
 | [`p3_checkpoint.json`](p3_checkpoint.json) | P3 development-only 生成与验证证据清单 |
 | [`p3_audit.json`](p3_audit.json) | BP3 机器审计结果 |
+| [`p4_checkpoint.json`](p4_checkpoint.json) | P4 relation/view isolation 验证证据清单 |
+| [`p4_audit.json`](p4_audit.json) | BP4 机器审计结果 |
 
 P0 只证明开发分支精确继承冻结协议，环境与输入身份已记录，未来 output root 尚不存在，且平台代码、实例、Provider、judge、confirmation、formal 和 E2E 均未启动。
 
@@ -28,10 +30,10 @@ P0 首次按协议示例运行 `tests/test_benchmark_platform_*.py` 时，PowerS
 
 ```text
 current_goal: M-BENCH-PLATFORM-CORE-V1
-completed_stage: P3
-completed_gate: BP3
-next_stage: P4 relations and views
-next_gate: BP4
+completed_stage: P4
+completed_gate: BP4
+next_stage: P5 artifact store and recovery
+next_gate: BP5
 automatic_progression: false
 ```
 
@@ -50,6 +52,8 @@ P2 新增的 `benchmark_platform.design_loader` 与 `benchmark_platform.crosswal
 
 P3 新增的 `benchmark_platform.generator` 仅在内存中生成 development unit，绑定冻结 seed namespace、master seed、cell 和 attempt 上限，输出稳定的成员 hash 与 development instance ID。它拒绝 confirmation/E2E/错误 seed/未知 cell，不调用 Provider/LLM，不写入 benchmark corpus 或 future output root。
 
+P4 新增的 `benchmark_platform.relations` 与 `benchmark_platform.views` 使用受限 JSONPath、完整 payload mutation audit 和显式 failure taxonomy 校验五类 experiment unit；三类 view 均由 allowlist 重建，planner forbidden/evaluator-only 路径、gold subtree 和 condition/run identity 泄漏均 fail closed。P4 不写入 run root。
+
 P1 首次全核心回归有 `30 passed, 1 failed`：P0 测试错误地把 P0 时的依赖哈希与已获准变更依赖的 P1 工作树比较。失败保留在 P1 checkpoint；修复后 P0 依赖快照改由 `e71c106` Git blob 验证，设计、协议和 KG 冻结输入仍校验当前文件。
 
-不得从 P3 自动进入 P4。P4 需要新的明确执行指令；在此之前不得实现关系验证或 view 投影。
+不得从 P4 自动进入 P5。P5 需要新的明确执行指令；在此之前不得创建 artifact store、checkpoint resume 或任何持久 run root。
