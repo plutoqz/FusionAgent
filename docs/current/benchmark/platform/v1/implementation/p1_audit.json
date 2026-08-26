@@ -1,0 +1,225 @@
+{
+  "audit_id": "fusionagent.benchmark-platform-core-audit.v1",
+  "checkpoint_id": "fusionagent.benchmark-platform-core.p1-checkpoint.v1",
+  "protocol_id": "fusionagent.benchmark-platform-implementation-protocol.v1",
+  "generated_at": "2026-08-26T06:56:27Z",
+  "stage": "P1",
+  "gate": "BP1",
+  "checks": [
+    {
+      "check_id": "p1_checkpoint_identity",
+      "required": true,
+      "passed": true,
+      "details": {
+        "checkpoint_id": "fusionagent.benchmark-platform-core.p1-checkpoint.v1",
+        "protocol_id": "fusionagent.benchmark-platform-implementation-protocol.v1",
+        "milestone_id": "M-BENCH-PLATFORM-CORE-V1",
+        "stage": "P1",
+        "gate": "BP1",
+        "status": "stage_validated_offline"
+      }
+    },
+    {
+      "check_id": "p0_checkpoint_inheritance",
+      "required": true,
+      "passed": true,
+      "details": {
+        "branch": "codex/benchmark-platform-dev-r1",
+        "p0_is_ancestor": true,
+        "checkpoint": {
+          "branch": "codex/benchmark-platform-dev-r1",
+          "worktree": "D:\\code\\FusionAgent-benchmark-platform-dev",
+          "protocol_commit": "4db9f51f261d61ecb5c17b726d9897a09773eec2",
+          "p0_commit": "e71c1064e4d5e60e5c1ef76829a65a314d3e8544",
+          "starting_head": "e71c1064e4d5e60e5c1ef76829a65a314d3e8544"
+        }
+      }
+    },
+    {
+      "check_id": "p0_evidence_immutable",
+      "required": true,
+      "passed": true,
+      "details": {
+        "audit_hash": "sha256:1118a2acccc8bf6ca80bcf929a13d076a85fd1cbd2732697a4178fa311889d4b",
+        "audit_commit_hash": "sha256:1118a2acccc8bf6ca80bcf929a13d076a85fd1cbd2732697a4178fa311889d4b",
+        "baseline_hash": "sha256:8b69f16fcb9cb34ad710a8e00148be56c1fa257e3786f093ca7d8c944cdc1035",
+        "baseline_commit_hash": "sha256:8b69f16fcb9cb34ad710a8e00148be56c1fa257e3786f093ca7d8c944cdc1035"
+      }
+    },
+    {
+      "check_id": "p1_dependency_boundary",
+      "required": true,
+      "passed": true,
+      "details": {
+        "added": [
+          "jsonschema>=4.23,<5"
+        ],
+        "removed": [],
+        "installed_jsonschema": "4.23.0"
+      }
+    },
+    {
+      "check_id": "p1_change_boundary",
+      "required": true,
+      "passed": true,
+      "details": {
+        "changed_paths": [
+          "benchmark_platform/__init__.py",
+          "benchmark_platform/canonical.py",
+          "benchmark_platform/models.py",
+          "docs/current/benchmark/platform/v1/implementation/README.md",
+          "docs/current/benchmark/platform/v1/implementation/p0_audit.json",
+          "docs/current/benchmark/platform/v1/implementation/p0_baseline.json",
+          "docs/current/benchmark/platform/v1/implementation/p1_audit.json",
+          "docs/current/benchmark/platform/v1/implementation/p1_checkpoint.json",
+          "requirements.txt",
+          "scripts/audit_benchmark_platform_core.py",
+          "tests/fixtures/benchmark_platform/README.md",
+          "tests/fixtures/benchmark_platform/template_contract_valid.json",
+          "tests/test_benchmark_platform_canonical.py",
+          "tests/test_benchmark_platform_models.py",
+          "tests/test_benchmark_platform_p0.py",
+          "tests/test_benchmark_platform_p1_audit.py"
+        ],
+        "unexpected": [],
+        "missing": []
+      }
+    },
+    {
+      "check_id": "closed_package_and_import_boundary",
+      "required": true,
+      "passed": true,
+      "details": {
+        "package_files": [
+          "benchmark_platform/__init__.py",
+          "benchmark_platform/canonical.py",
+          "benchmark_platform/models.py"
+        ],
+        "import_errors": []
+      }
+    },
+    {
+      "check_id": "p1_artifact_hashes",
+      "required": true,
+      "passed": true,
+      "details": {
+        "paths": [
+          "benchmark_platform/__init__.py",
+          "benchmark_platform/canonical.py",
+          "benchmark_platform/models.py",
+          "requirements.txt",
+          "scripts/audit_benchmark_platform_core.py",
+          "tests/fixtures/benchmark_platform/README.md",
+          "tests/fixtures/benchmark_platform/template_contract_valid.json",
+          "tests/test_benchmark_platform_canonical.py",
+          "tests/test_benchmark_platform_models.py",
+          "tests/test_benchmark_platform_p0.py",
+          "tests/test_benchmark_platform_p1_audit.py"
+        ],
+        "duplicates": [],
+        "errors": [],
+        "missing_manifest_entries": [],
+        "unexpected_manifest_entries": []
+      }
+    },
+    {
+      "check_id": "closed_schema_and_canonical_contract",
+      "required": true,
+      "passed": true,
+      "details": {
+        "schema_contract": {
+          "draft": "2020-12",
+          "schema_path": "docs/current/benchmark/v1/template.schema.json",
+          "contract_fixture": "tests/fixtures/benchmark_platform/template_contract_valid.json",
+          "fixture_claim_eligible": false,
+          "unknown_fields": "fail_closed",
+          "invalid_schema": "fail_closed"
+        },
+        "actual_canonical_contract": {
+          "canonicalization_id": "utf8-json-sorted-keys-compact-no-bom-no-newline.v1",
+          "utf8_golden_hex": "7b2261223a22e6b4aae6b0b4222c227a223a5b322c315d7d",
+          "payload_sha256": "sha256:e8a68b3ea7ab1099d918c62ec9308844d696f37abee8462846399e632ad2bd24",
+          "stable_id": "bpi-sha256-fc58a3dd3e89926f64a798206d680b3355f1d0e7d8133638c2055cc3cf77d9da",
+          "derived_seed": 18402870587084893168
+        }
+      }
+    },
+    {
+      "check_id": "p1_zero_call_and_no_instance_accounting",
+      "required": true,
+      "passed": true,
+      "details": {
+        "accounting": {
+          "benchmark_instances_generated": 0,
+          "provider_calls": 0,
+          "judge_calls": 0,
+          "formal_result_roots_created": 0,
+          "confirmation_unsealed": false,
+          "selective_e2e_selected": false,
+          "platform_implementation_started": true
+        },
+        "output_root": "D:\\code\\fusionagent-evidence\\benchmark-platform\\development-v1",
+        "output_root_exists": false
+      }
+    },
+    {
+      "check_id": "p1_validation_and_next_gate",
+      "required": true,
+      "passed": true,
+      "details": {
+        "validation": {
+          "focused_test_files": [
+            "tests/test_benchmark_platform_models.py",
+            "tests/test_benchmark_platform_canonical.py",
+            "tests/test_benchmark_platform_p1_audit.py"
+          ],
+          "focused_test_command": "python -m pytest tests/test_benchmark_platform_models.py tests/test_benchmark_platform_canonical.py tests/test_benchmark_platform_p1_audit.py -q --basetemp tmp/pytest-benchmark-platform-p1",
+          "focused_tests_passed": 23,
+          "core_test_command": "python -m pytest tests -q -k benchmark_platform --ignore=tests/test_benchmark_platform_protocol.py --basetemp tmp/pytest-benchmark-platform-core",
+          "core_tests_passed": 32,
+          "failed_attempts": [
+            {
+              "attempt_id": "P1-CORE-01",
+              "status": "failed_retained",
+              "exit_code": 1,
+              "failure_class": "test_scope.p0_dependency_snapshot_compared_to_p1_worktree",
+              "observed_output": "30 passed, 1 failed, 1478 deselected; P0 requirements hash was compared to the authorized P1 dependency state",
+              "resolution": "Validate the P0 requirements snapshot against the e71c106 Git blob while retaining live checks for design, protocol and KG inputs."
+            }
+          ]
+        },
+        "next_stage": {
+          "stage": "P2",
+          "gate": "BP2",
+          "name": "design_loader_and_crosswalk",
+          "automatic_progression": false
+        }
+      }
+    },
+    {
+      "check_id": "no_active_platform_processes",
+      "required": true,
+      "passed": true,
+      "details": {
+        "live": [],
+        "live_probe_executed": true
+      }
+    }
+  ],
+  "required_check_count": 11,
+  "passed_required_check_count": 11,
+  "required_failures": [],
+  "overall_passed": true,
+  "stage_status": "complete",
+  "accounting": {
+    "benchmark_instances_generated": 0,
+    "provider_calls": 0,
+    "judge_calls": 0,
+    "formal_result_roots_created": 0,
+    "confirmation_unsealed": false,
+    "selective_e2e_selected": false,
+    "platform_implementation_started": true
+  },
+  "next_stage": "P2/BP2",
+  "automatic_progression": false
+}

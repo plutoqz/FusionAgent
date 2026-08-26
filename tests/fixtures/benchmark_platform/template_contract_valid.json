@@ -1,0 +1,140 @@
+{
+  "template_family_id": "TF-CONTRACT-FIXTURE",
+  "version": "1.0.0",
+  "status": "frozen_template_family",
+  "claim_ids": ["CL-BENCH-CAUSAL"],
+  "capability_cell_ids": ["BC-CAUSAL-01"],
+  "mechanism_family": "contract_fixture_only",
+  "complexity_level": "L0",
+  "experiment_unit": {
+    "unit_type": "single",
+    "relation_id": "REL-CONTRACT-FIXTURE",
+    "minimum_members": 1,
+    "relation_assertions": [
+      {
+        "assertion_id": "ASSERT-EVIDENCE",
+        "kind": "evidence_presence",
+        "left_path": "$.task_state.tasks[0].source_states",
+        "operator": "present"
+      }
+    ]
+  },
+  "provenance": {
+    "design_id": "fusionagent.benchmark-design.v1",
+    "charter_id": "fusionagent.benchmark-charter.v1",
+    "matrix_id": "fusionagent.benchmark-capability-matrix.v1",
+    "kg_release_id": "fusionagent-kg-v1.0.0",
+    "kg_semantic_hash": "sha256:50067b9368914c47580707650789c04c78b2e856ccb3ef4d120a31f36c0ad71e",
+    "authoring_basis": ["contract-fixture-not-claim-eligible"]
+  },
+  "task_state": {
+    "disaster_type": "contract_fixture",
+    "resource_regime": "offline",
+    "tasks": [
+      {
+        "task_id": "TASK-ROAD-01",
+        "task_kind": "road",
+        "contract_ids": ["contract.road.fixture.v1"],
+        "source_states": [],
+        "observed_failures": [],
+        "delivery_history": [],
+        "precedence_after": []
+      }
+    ],
+    "global_observations": {}
+  },
+  "variables": {
+    "causal_variables": [],
+    "invariants": [
+      {
+        "variable_id": "VAR-TASK-KIND",
+        "json_path": "$.task_state.tasks[0].task_kind",
+        "value_type": "string",
+        "allowed_values": ["road"],
+        "mutation_role": "invariant"
+      }
+    ],
+    "nuisance_variables": [],
+    "maximum_causal_mutations_per_pair": 1
+  },
+  "oracle": {
+    "allowed_decisions": ["plan"],
+    "task_constraints": [
+      {
+        "task_id": "TASK-ROAD-01",
+        "required": true,
+        "allowed_delivery_states": ["planned"],
+        "allowed_source_ids": [],
+        "forbidden_source_ids": []
+      }
+    ],
+    "relation_assertion_ids": ["ASSERT-EVIDENCE"],
+    "manual_review_item_ids": [],
+    "allows_multiple_valid_plans": false
+  },
+  "vetoes": [
+    {
+      "veto_id": "VETO-CONTRACT-FIXTURE",
+      "failure_class": "fixture.invalid",
+      "condition": "fixture contract is violated",
+      "evidence_path": "$.task_state"
+    }
+  ],
+  "views": {
+    "planner_visible_paths": ["$.task_state"],
+    "evaluator_only_paths": ["$.oracle"],
+    "human_blind_paths": ["$.task_state"],
+    "planner_forbidden_path_prefixes": [
+      "$.oracle",
+      "$.vetoes",
+      "$.experiment_unit.relation_assertions",
+      "$.partition_policy",
+      "$.hashing"
+    ]
+  },
+  "crosswalk": {
+    "kg_release_id": "fusionagent-kg-v1.0.0",
+    "references": [
+      {
+        "reference_id": "contract.road.fixture.v1",
+        "reference_type": "contract",
+        "used_by_task_ids": ["TASK-ROAD-01"]
+      }
+    ],
+    "missing_reference_policy": "fail_closed"
+  },
+  "partition_policy": {
+    "allowed_partitions": ["development"],
+    "historical_case_ids_forbidden_in_confirmation": [
+      "C01",
+      "C02",
+      "C03",
+      "C04",
+      "C05",
+      "C06",
+      "H01",
+      "H02",
+      "H03",
+      "H04",
+      "H05",
+      "H06",
+      "H07",
+      "H08",
+      "H09"
+    ],
+    "semantic_copy_forbidden": true
+  },
+  "generation": {
+    "generator_id": "generator.contract-fixture.v1",
+    "template_first": true,
+    "seed_namespace": "contract-fixture",
+    "instance_id_pattern": "fixture-{unit_index}",
+    "stopping_rule_id": "stop.contract-fixture.v1"
+  },
+  "hashing": {
+    "algorithm": "sha256",
+    "canonicalization": "utf8-json-sorted-keys-compact-no-bom",
+    "template_hash_field": "template_sha256",
+    "instance_hash_field": "instance_sha256"
+  }
+}

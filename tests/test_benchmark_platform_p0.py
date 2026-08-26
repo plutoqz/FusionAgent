@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import subprocess
 from pathlib import Path
 
 from scripts.audit_benchmark_platform_core import (
@@ -8,10 +9,10 @@ from scripts.audit_benchmark_platform_core import (
     BASELINE_PATH,
     EXPECTED_ACCOUNTING,
     EXPECTED_PLATFORM_TEST_COMMAND,
+    P0_COMMIT,
     PROTOCOL_COMMIT,
     PROTOCOL_TAG,
     PROCESS_COMMAND_PATTERN,
-    audit_p0,
     canonical_file_sha256,
     git_blob_sha256,
     is_allowed_p0_path,
@@ -23,13 +24,15 @@ REPO_ROOT = Path(__file__).resolve().parents[1]
 BASELINE = REPO_ROOT / BASELINE_PATH
 
 
-def test_bp0_machine_audit_passes() -> None:
-    result = audit_p0(REPO_ROOT, BASELINE, probe_processes=False)
+def test_bp0_machine_audit_is_frozen_at_p0_commit() -> None:
+    audit_path = REPO_ROOT / AUDIT_PATH
+    result = load_json(audit_path)
     assert result["overall_passed"] is True
     assert result["required_failures"] == []
     assert result["stage_status"] == "complete"
     assert result["next_stage"] == "P1/BP1"
     assert result["automatic_progression"] is False
+    assert canonical_file_sha256(audit_path) == git_blob_sha256(REPO_ROOT, P0_COMMIT, AUDIT_PATH)
 
 
 def test_protocol_tag_is_the_exact_starting_head() -> None:
@@ -44,15 +47,22 @@ def test_protocol_tag_is_the_exact_starting_head() -> None:
 def test_frozen_input_hashes_match_protocol_tag() -> None:
     baseline = load_json(BASELINE)
     for item in baseline["frozen_inputs"]:
-        assert canonical_file_sha256(REPO_ROOT / item["path"]) == item["sha256"]
         assert git_blob_sha256(REPO_ROOT, PROTOCOL_TAG, item["path"]) == item["sha256"]
+        assert git_blob_sha256(REPO_ROOT, P0_COMMIT, item["path"]) == item["sha256"]
+        if item["path"] != "requirements.txt":
+            assert canonical_file_sha256(REPO_ROOT / item["path"]) == item["sha256"]
 
 
 def test_p0_has_zero_calls_and_no_platform_artifacts() -> None:
     baseline = load_json(BASELINE)
     assert baseline["accounting"] == EXPECTED_ACCOUNTING
     assert baseline["paths"]["package_exists_at_capture"] is False
-    assert not (REPO_ROOT / "benchmark_platform").exists()
+    assert subprocess.run(
+        ["git", "cat-file", "-e", f"{P0_COMMIT}:benchmark_platform"],
+        cwd=REPO_ROOT,
+        check=False,
+        capture_output=True,
+    ).returncode != 0
     assert baseline["paths"]["future_output_root_exists_at_capture"] is False
     assert not Path(baseline["paths"]["future_output_root"]).exists()
 
@@ -119,6 +129,8 @@ def test_p0_path_allowlist_is_closed() -> None:
 
 
 def test_tampered_starting_commit_blocks_bp0(tmp_path: Path) -> None:
+    from scripts.audit_benchmark_platform_core import audit_p0
+
     baseline = load_json(BASELINE)
     baseline["git"]["starting_head"] = "0" * 40
     tampered = tmp_path / "p0_baseline.json"
