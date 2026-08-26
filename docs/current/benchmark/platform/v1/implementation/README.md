@@ -1,6 +1,6 @@
 # Benchmark Platform Core V1 Implementation
 
-> 当前阶段：P1/BP1 complete
+> 当前阶段：P2/BP2 complete
 > 实现分支：`codex/benchmark-platform-dev-r1`
 > Worktree：`D:\code\FusionAgent-benchmark-platform-dev`
 > 协议基线：`benchmark-platform-protocol-v1@4db9f51f261d61ecb5c17b726d9897a09773eec2`
@@ -13,6 +13,8 @@
 | [`p0_audit.json`](p0_audit.json) | BP0 机器审计结果 |
 | [`p1_checkpoint.json`](p1_checkpoint.json) | P1 closed models、schema、canonical 与验证证据清单 |
 | [`p1_audit.json`](p1_audit.json) | BP1 机器审计结果 |
+| [`p2_checkpoint.json`](p2_checkpoint.json) | P2 design loader、crosswalk 与离线验证证据清单 |
+| [`p2_audit.json`](p2_audit.json) | BP2 机器审计结果 |
 
 P0 只证明开发分支精确继承冻结协议，环境与输入身份已记录，未来 output root 尚不存在，且平台代码、实例、Provider、judge、confirmation、formal 和 E2E 均未启动。
 
@@ -24,10 +26,10 @@ P0 首次按协议示例运行 `tests/test_benchmark_platform_*.py` 时，PowerS
 
 ```text
 current_goal: M-BENCH-PLATFORM-CORE-V1
-completed_stage: P1
-completed_gate: BP1
-next_stage: P2 design loader and crosswalk
-next_gate: BP2
+completed_stage: P2
+completed_gate: BP2
+next_stage: P3 development generator
+next_gate: BP3
 automatic_progression: false
 ```
 
@@ -42,6 +44,8 @@ python -m pytest tests -q -k benchmark_platform --ignore=tests/test_benchmark_pl
 
 P1 新增的 `benchmark_platform.models` 与 `benchmark_platform.canonical` 只提供关闭式 runtime envelope、typed failures、Draft 2020-12 校验和确定性 canonical primitives。它们尚未加载/绑定完整冻结设计或 KG registries，也不生成 benchmark 实例。
 
+P2 新增的 `benchmark_platform.design_loader` 与 `benchmark_platform.crosswalk` 仅加载并校验冻结设计身份、manifest 哈希、KG release identity 和只读 registry crosswalk。tamper、tag/commit 漂移、错误 KG release、未知/重复/歧义引用均 fail closed；P2 没有生成实例、写入 KG 或创建 future output root。
+
 P1 首次全核心回归有 `30 passed, 1 failed`：P0 测试错误地把 P0 时的依赖哈希与已获准变更依赖的 P1 工作树比较。失败保留在 P1 checkpoint；修复后 P0 依赖快照改由 `e71c106` Git blob 验证，设计、协议和 KG 冻结输入仍校验当前文件。
 
-不得从 P1 自动进入 P2。P2 只允许实现冻结设计加载和只读 crosswalk；不得生成 benchmark 实例。
+不得从 P2 自动进入 P3。P3 需要新的明确执行指令；在此之前不得生成 benchmark 实例。

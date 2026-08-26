@@ -1,0 +1,72 @@
+{
+  "checkpoint_id": "fusionagent.benchmark-platform-core.p2-checkpoint.v1",
+  "protocol_id": "fusionagent.benchmark-platform-implementation-protocol.v1",
+  "milestone_id": "M-BENCH-PLATFORM-CORE-V1",
+  "stage": "P2",
+  "gate": "BP2",
+  "status": "stage_validated_offline",
+  "captured_at": "2026-08-26T00:00:00+08:00",
+  "authorization": {
+    "instruction": "进入下一阶段",
+    "authorized_through": "P2/BP2",
+    "p3_automatic_progression": false,
+    "provider_or_experiment_authorized": false
+  },
+  "git": {
+    "branch": "codex/benchmark-platform-dev-r1",
+    "worktree": "D:\\code\\FusionAgent-benchmark-platform-dev",
+    "protocol_commit": "4db9f51f261d61ecb5c17b726d9897a09773eec2",
+    "p0_commit": "e71c1064e4d5e60e5c1ef76829a65a314d3e8544",
+    "p1_commit": "c8bd8157fcbcd59b2c09a9d4271cd50f92f43bb2"
+  },
+  "scope": {
+    "modules": ["benchmark_platform.design_loader", "benchmark_platform.crosswalk"],
+    "design_binding": "tag, commit, manifest and protocol frozen-input hashes",
+    "kg_binding": "release_id and semantic_hash; entities/policies read-only",
+    "network_allowed": false,
+    "llm_or_provider_allowed": false,
+    "instance_generation_allowed": false,
+    "legacy_schema_reuse": false
+  },
+  "validation": {
+    "focused_test_command": "python -m pytest tests/test_benchmark_platform_p2.py -q --basetemp tmp/pytest-benchmark-platform-p2",
+    "focused_tests_passed": 10,
+    "test_files": ["tests/test_benchmark_platform_p2.py", "tests/test_benchmark_platform_p2_audit.py"],
+    "covered_boundaries": ["normal_load", "asset_tamper", "tag_or_commit_mismatch", "wrong_kg_release", "unknown_id", "duplicate_binding", "ambiguous_binding", "no_output_root"],
+    "failed_attempts": []
+  },
+  "files": [
+    {"path": "benchmark_platform/__init__.py", "sha256": "sha256:6b1030db0e56b72c85dc94dcef585cfb587a9a07c24c47e45a12ec71a3d377c0"},
+    {"path": "benchmark_platform/design_loader.py", "sha256": "sha256:9930c34341a47f62572c32accd31f2c3213e52e3fbaa77d283333068ab81a95a"},
+    {"path": "benchmark_platform/crosswalk.py", "sha256": "sha256:1d1d7ed004110467bd350ccf8071753c35c96ab26a1489c24ebf119bf6fbbe97"},
+    {"path": "scripts/audit_benchmark_platform_p2.py", "sha256": "sha256:b6ce1d18d757c66528e9c170fd093d31b1ce5b7697f3c5d9e96a57e5abeeb726"},
+    {"path": "tests/test_benchmark_platform_p2.py", "sha256": "sha256:0f539c01ec3bce886abf6be40755d953102d2a899744bae36b084d0cb39067c4"},
+    {"path": "tests/test_benchmark_platform_p2_audit.py", "sha256": "sha256:0f49bffcc2573f7d74545a5f7a33dec417dcf756b0cc5aec46b9aa548e122937"},
+    {"path": "docs/current/benchmark/platform/v1/implementation/README.md", "sha256": "sha256:56c7c5f5f9d447db02634af8c72eddbd49f9de8422be915f9d965c1e57ad75e4"}
+  ],
+  "accounting": {
+    "benchmark_instances_generated": 0,
+    "provider_calls": 0,
+    "judge_calls": 0,
+    "formal_result_roots_created": 0,
+    "confirmation_unsealed": false,
+    "selective_e2e_selected": false,
+    "platform_implementation_started": true
+  },
+  "paths": {
+    "future_output_root": "D:\\code\\fusionagent-evidence\\benchmark-platform\\development-v1",
+    "future_output_root_exists": false
+  },
+  "changed_paths": [
+    "benchmark_platform/__init__.py",
+    "benchmark_platform/crosswalk.py",
+    "benchmark_platform/design_loader.py",
+    "docs/current/benchmark/platform/v1/implementation/README.md",
+    "docs/current/benchmark/platform/v1/implementation/p2_audit.json",
+    "docs/current/benchmark/platform/v1/implementation/p2_checkpoint.json",
+    "scripts/audit_benchmark_platform_p2.py",
+    "tests/test_benchmark_platform_p2.py",
+    "tests/test_benchmark_platform_p2_audit.py"
+  ],
+  "next_stage": {"stage": "P3", "gate": "BP3", "automatic_progression": false}
+}
