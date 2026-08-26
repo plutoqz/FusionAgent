@@ -1,0 +1,25 @@
+{
+  "checkpoint_id": "fusionagent.benchmark-platform-core.p3-checkpoint.v1",
+  "protocol_id": "fusionagent.benchmark-platform-implementation-protocol.v1",
+  "milestone_id": "M-BENCH-PLATFORM-CORE-V1",
+  "stage": "P3",
+  "gate": "BP3",
+  "status": "stage_validated_offline",
+  "captured_at": "2026-08-26T00:00:00+08:00",
+  "authorization": {"instruction": "进入下一阶段", "authorized_through": "P3/BP3", "p4_automatic_progression": false, "provider_or_experiment_authorized": false},
+  "git": {"branch": "codex/benchmark-platform-dev-r1", "worktree": "D:\\code\\FusionAgent-benchmark-platform-dev", "protocol_commit": "4db9f51f261d61ecb5c17b726d9897a09773eec2", "p2_commit": "379544f"},
+  "scope": {"modules": ["benchmark_platform.generator"], "partition": "development_only", "master_seed": 2026081901, "seed_namespace": "fusionagent-benchmark-v1-development", "max_attempts_per_target": 3, "in_memory_generation": true, "network_allowed": false, "llm_or_provider_allowed": false, "legacy_schema_reuse": false},
+  "validation": {"focused_test_command": "python -m pytest tests/test_benchmark_platform_p3.py tests/test_benchmark_platform_p3_audit.py -q --basetemp tmp/pytest-benchmark-platform-p3", "focused_tests_passed": 9, "covered_boundaries": ["deterministic_repeated_generation", "stable_instance_id", "stable_member_hash", "non_development_partition", "seed_mismatch", "unknown_cell", "attempt_limit", "invalid_member", "no_persisted_output"], "failed_attempts": []},
+  "files": [
+    {"path": "benchmark_platform/__init__.py", "sha256": "sha256:316c644121815514ff920978a1382cd32bfdee93a6bd17c1950ae501fe0699ca"},
+    {"path": "benchmark_platform/generator.py", "sha256": "sha256:97baced0c88086326f43f82d5def1354db55b162fd66da4a737272e4de1908a1"},
+    {"path": "scripts/audit_benchmark_platform_p3.py", "sha256": "sha256:b9e6b1011ab6eea8018246d0bc69be884d4a802d46e3f590d94d192c9be2ca99"},
+    {"path": "tests/test_benchmark_platform_p3.py", "sha256": "sha256:4d337f7fb0c01df2cee932fe8572cf575fdf24bac869ec9a302eedb5525992e4"},
+    {"path": "tests/test_benchmark_platform_p3_audit.py", "sha256": "sha256:795def2f9d0ffaf191f878b849aa2f746f09cd3d49352004c4b2fbb8a9a1b813"},
+    {"path": "docs/current/benchmark/platform/v1/implementation/README.md", "sha256": "sha256:739416cc654ca598765a3a1507abc00d8a01b4cc7b8df389254f82cc584a2a03"}
+  ],
+  "accounting": {"benchmark_instances_generated": 0, "provider_calls": 0, "judge_calls": 0, "formal_result_roots_created": 0, "confirmation_unsealed": false, "selective_e2e_selected": false, "platform_implementation_started": true},
+  "paths": {"future_output_root": "D:\\code\\fusionagent-evidence\\benchmark-platform\\development-v1", "future_output_root_exists": false},
+  "changed_paths": ["benchmark_platform/__init__.py", "benchmark_platform/generator.py", "docs/current/benchmark/platform/v1/implementation/README.md", "docs/current/benchmark/platform/v1/implementation/p3_audit.json", "docs/current/benchmark/platform/v1/implementation/p3_checkpoint.json", "scripts/audit_benchmark_platform_p3.py", "tests/test_benchmark_platform_p3.py", "tests/test_benchmark_platform_p3_audit.py"],
+  "next_stage": {"stage": "P4", "gate": "BP4", "automatic_progression": false}
+}

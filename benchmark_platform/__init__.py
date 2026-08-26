@@ -26,6 +26,16 @@ from benchmark_platform.design_loader import (
     FrozenDesignBundle,
     load_frozen_design_bundle,
 )
+from benchmark_platform.generator import (
+    GenerationAttempt,
+    GenerationRequest,
+    GenerationResult,
+    GeneratedMember,
+    GeneratedUnit,
+    GeneratorError,
+    generate_development,
+    generate_development_unit,
+)
 from benchmark_platform.models import (
     BenchmarkPlatformValidationError,
     CanonicalIdentity,
@@ -64,4 +74,12 @@ __all__ = [
     "FREEZE_ID",
     "KG_RELEASE_ID",
     "KG_SEMANTIC_HASH",
+    "GenerationAttempt",
+    "GenerationRequest",
+    "GenerationResult",
+    "GeneratedMember",
+    "GeneratedUnit",
+    "GeneratorError",
+    "generate_development",
+    "generate_development_unit",
 ]
