@@ -1,0 +1,254 @@
+{
+  "audit_id": "fusionagent.benchmark-platform-core-audit.v1",
+  "baseline_id": "fusionagent.benchmark-platform-core.p0-baseline.v1",
+  "protocol_id": "fusionagent.benchmark-platform-implementation-protocol.v1",
+  "generated_at": "2026-08-26T06:24:50Z",
+  "stage": "P0",
+  "gate": "BP0",
+  "checks": [
+    {
+      "check_id": "p0_baseline_identity",
+      "required": true,
+      "passed": true,
+      "details": {
+        "baseline_id": "fusionagent.benchmark-platform-core.p0-baseline.v1",
+        "protocol_id": "fusionagent.benchmark-platform-implementation-protocol.v1",
+        "milestone_id": "M-BENCH-PLATFORM-CORE-V1",
+        "stage": "P0",
+        "gate": "BP0",
+        "status": "captured"
+      }
+    },
+    {
+      "check_id": "protocol_tag_inheritance",
+      "required": true,
+      "passed": true,
+      "details": {
+        "tag_commit": "4db9f51f261d61ecb5c17b726d9897a09773eec2",
+        "branch": "codex/benchmark-platform-dev-r1",
+        "tag_is_ancestor": true,
+        "capture": {
+          "branch": "codex/benchmark-platform-dev-r1",
+          "worktree": "D:\\code\\FusionAgent-benchmark-platform-dev",
+          "protocol_tag": "benchmark-platform-protocol-v1",
+          "protocol_commit": "4db9f51f261d61ecb5c17b726d9897a09773eec2",
+          "starting_head": "4db9f51f261d61ecb5c17b726d9897a09773eec2",
+          "working_tree_clean_at_capture": true,
+          "status_at_capture": []
+        }
+      }
+    },
+    {
+      "check_id": "frozen_protocol_approved",
+      "required": true,
+      "passed": true,
+      "details": {
+        "audit_overall": true,
+        "audit_count": 17,
+        "review_status": "approved",
+        "contract_status": "frozen_complete"
+      }
+    },
+    {
+      "check_id": "frozen_input_hashes",
+      "required": true,
+      "passed": true,
+      "details": {
+        "errors": []
+      }
+    },
+    {
+      "check_id": "design_and_kg_binding",
+      "required": true,
+      "passed": true,
+      "details": {
+        "baseline": {
+          "design_tag": "benchmark-design-freeze-v1",
+          "design_commit": "08b55f7e03eabb74721979153df57aeee3200538",
+          "design_id": "fusionagent.benchmark-design.v1",
+          "kg_release_id": "fusionagent-kg-v1.0.0",
+          "kg_semantic_hash": "sha256:50067b9368914c47580707650789c04c78b2e856ccb3ef4d120a31f36c0ad71e"
+        },
+        "release": {
+          "experience_snapshot_hash": "sha256:0000000000000000000000000000000000000000000000000000000000000000",
+          "files": {
+            "entities.json": "sha256:f95726c55cde0b499043dd2cb9841a5355e0c6ffd8c267c86ecf891293d82920",
+            "policies.json": "sha256:3af64e00db8ea7627e8941d5e7bd5593c929784a773d615bd4e724d5a741d0de",
+            "schema.json": "sha256:d30c5f00cafc62c792e55f03f49f4eb9563c13d1ebf3a204288add29d15dfa15"
+          },
+          "frozen_at": "2026-07-28T00:00:00+08:00",
+          "knowledge_version": "1.0.0",
+          "ontology_version": "1.0.0",
+          "release_id": "fusionagent-kg-v1.0.0",
+          "semantic_hash": "sha256:50067b9368914c47580707650789c04c78b2e856ccb3ef4d120a31f36c0ad71e",
+          "status": "frozen"
+        }
+      }
+    },
+    {
+      "check_id": "environment_binding",
+      "required": true,
+      "passed": true,
+      "details": {
+        "actual": {
+          "python_executable": "E:\\Users\\lenovo\\anaconda3\\python.exe",
+          "python_version": "3.12.7",
+          "python_implementation": "CPython",
+          "platform": "Windows-11-10.0.22631-SP0",
+          "pip_version": "pip 24.2 from E:\\Users\\lenovo\\anaconda3\\Lib\\site-packages\\pip (python 3.12)",
+          "git_version": "git version 2.38.1.windows.1",
+          "installed_packages": {
+            "jsonschema": "4.23.0",
+            "pydantic": "2.13.4",
+            "pytest": "9.1.1"
+          }
+        }
+      }
+    },
+    {
+      "check_id": "p0_change_boundary",
+      "required": true,
+      "passed": true,
+      "details": {
+        "changed_paths": [
+          "docs/current/benchmark/platform/v1/implementation/README.md",
+          "docs/current/benchmark/platform/v1/implementation/p0_audit.json",
+          "docs/current/benchmark/platform/v1/implementation/p0_baseline.json",
+          "scripts/audit_benchmark_platform_core.py",
+          "tests/test_benchmark_platform_p0.py"
+        ],
+        "forbidden_paths": [],
+        "missing_expected": [],
+        "package_exists": false
+      }
+    },
+    {
+      "check_id": "future_output_root_absent",
+      "required": true,
+      "passed": true,
+      "details": {
+        "path": "D:\\code\\fusionagent-evidence\\benchmark-platform\\development-v1",
+        "exists": false
+      }
+    },
+    {
+      "check_id": "zero_call_accounting",
+      "required": true,
+      "passed": true,
+      "details": {
+        "baseline": {
+          "benchmark_instances_generated": 0,
+          "provider_calls": 0,
+          "judge_calls": 0,
+          "formal_result_roots_created": 0,
+          "confirmation_unsealed": false,
+          "selective_e2e_selected": false,
+          "platform_implementation_started": false
+        },
+        "contract": {
+          "benchmark_instances_generated": 0,
+          "provider_calls": 0,
+          "judge_calls": 0,
+          "formal_result_roots_created": 0,
+          "confirmation_unsealed": false,
+          "selective_e2e_selected": false,
+          "platform_implementation_started": false
+        }
+      }
+    },
+    {
+      "check_id": "authorization_boundary",
+      "required": true,
+      "passed": true,
+      "details": {
+        "authorization": {
+          "instruction": "进入下一验收点的执行",
+          "authorized_through": "P0/BP0",
+          "p1_automatic_progression": false,
+          "provider_or_experiment_authorized": false
+        },
+        "next_stage": {
+          "stage": "P1",
+          "gate": "BP1",
+          "name": "closed_models_and_canonicalization",
+          "automatic_progression": false
+        }
+      }
+    },
+    {
+      "check_id": "validation_command_freeze",
+      "required": true,
+      "passed": true,
+      "details": {
+        "active_command": "python -m pytest tests -q -k benchmark_platform --ignore=tests/test_benchmark_platform_protocol.py --basetemp tmp/pytest-benchmark-platform-core",
+        "failed_attempts": [
+          {
+            "attempt_id": "P0-TEST-01",
+            "command": "python -m pytest tests/test_benchmark_platform_*.py -q --basetemp tmp/pytest-benchmark-platform-core",
+            "status": "failed_retained",
+            "exit_code": 4,
+            "failure_class": "tooling.powershell_native_glob_not_expanded",
+            "observed_output": "ERROR: file or directory not found: tests/test_benchmark_platform_*.py; no tests ran"
+          },
+          {
+            "attempt_id": "P0-TEST-02",
+            "command": "python -m pytest tests -q -k benchmark_platform --basetemp tmp/pytest-benchmark-platform-core",
+            "status": "failed_retained",
+            "exit_code": 1,
+            "failure_class": "test_scope.protocol_freeze_tests_not_applicable_to_implementation_branch",
+            "observed_output": "1 failed, 15 passed, 1478 deselected; protocol audit rejected the expected implementation directory and P0 change set"
+          },
+          {
+            "attempt_id": "P0-TEST-03",
+            "command": "python -m pytest tests -q -k \"benchmark_platform and not protocol\" --basetemp tmp/pytest-benchmark-platform-core",
+            "status": "rejected_incomplete",
+            "exit_code": 0,
+            "failure_class": "test_scope.keyword_exclusion_dropped_p0_tests",
+            "observed_output": "6 passed, 1488 deselected; two P0 tests containing protocol in their node IDs were not run"
+          }
+        ]
+      }
+    },
+    {
+      "check_id": "no_active_platform_processes",
+      "required": true,
+      "passed": true,
+      "details": {
+        "pattern": "FusionAgent-benchmark-platform-dev|benchmark_platform|audit_benchmark_platform_core|test_benchmark_platform",
+        "capture": [],
+        "failed_attempts": [
+          {
+            "attempt_id": "P0-AUDIT-01",
+            "observed_at": "2026-08-26T06:36:19Z",
+            "status": "failed_retained",
+            "exit_code": 1,
+            "failure_class": "tooling.process_probe_scope_false_positive",
+            "observed_process": {
+              "process_id": 175332,
+              "command_line": "python.exe -m pytest -q tests/test_p3_attempt_repository.py tests/test_p3_resource_slots.py"
+            },
+            "resolution": "Narrow the probe to benchmark platform paths, modules, audit command and test names; do not terminate unrelated processes."
+          }
+        ],
+        "live": [],
+        "live_probe_executed": true
+      }
+    }
+  ],
+  "required_check_count": 12,
+  "passed_required_check_count": 12,
+  "required_failures": [],
+  "overall_passed": true,
+  "stage_status": "complete",
+  "accounting": {
+    "benchmark_instances_generated": 0,
+    "provider_calls": 0,
+    "judge_calls": 0,
+    "formal_result_roots_created": 0,
+    "confirmation_unsealed": false,
+    "selective_e2e_selected": false,
+    "platform_implementation_started": false
+  },
+  "next_stage": "P1/BP1",
+  "automatic_progression": false
+}

@@ -1,0 +1,149 @@
+{
+  "baseline_id": "fusionagent.benchmark-platform-core.p0-baseline.v1",
+  "protocol_id": "fusionagent.benchmark-platform-implementation-protocol.v1",
+  "milestone_id": "M-BENCH-PLATFORM-CORE-V1",
+  "stage": "P0",
+  "gate": "BP0",
+  "status": "captured",
+  "captured_at": "2026-08-26T06:24:50Z",
+  "authorization": {
+    "instruction": "进入下一验收点的执行",
+    "authorized_through": "P0/BP0",
+    "p1_automatic_progression": false,
+    "provider_or_experiment_authorized": false
+  },
+  "git": {
+    "branch": "codex/benchmark-platform-dev-r1",
+    "worktree": "D:\\code\\FusionAgent-benchmark-platform-dev",
+    "protocol_tag": "benchmark-platform-protocol-v1",
+    "protocol_commit": "4db9f51f261d61ecb5c17b726d9897a09773eec2",
+    "starting_head": "4db9f51f261d61ecb5c17b726d9897a09773eec2",
+    "working_tree_clean_at_capture": true,
+    "status_at_capture": []
+  },
+  "environment": {
+    "python_executable": "E:\\Users\\lenovo\\anaconda3\\python.exe",
+    "python_version": "3.12.7",
+    "python_implementation": "CPython",
+    "platform": "Windows-11-10.0.22631-SP0",
+    "pip_version": "pip 24.2 from E:\\Users\\lenovo\\anaconda3\\Lib\\site-packages\\pip (python 3.12)",
+    "git_version": "git version 2.38.1.windows.1",
+    "installed_packages": {
+      "jsonschema": "4.23.0",
+      "pydantic": "2.13.4",
+      "pytest": "9.1.1"
+    }
+  },
+  "frozen_inputs": [
+    {
+      "path": "requirements.txt",
+      "sha256": "sha256:f303d50fd029c751bc551214cac36abefaece4cb894cf88f0af0bea9fb4f8143"
+    },
+    {
+      "path": "docs/current/benchmark/v1/freeze_manifest.json",
+      "sha256": "sha256:cd927a55c4b744ff9bcf8e72fb7aeafd1b1a9fa56c2f3ffec720a56ed6afeacc"
+    },
+    {
+      "path": "docs/current/benchmark/platform/v1/protocol_manifest.json",
+      "sha256": "sha256:0d04282ade4fe0ccfac3e0a6672c7fa8ba3f53ce029349a57401def44e1e5bdc"
+    },
+    {
+      "path": "kg/ontology/v1.0.0/release.json",
+      "sha256": "sha256:85b1e42ffc97898877255b087eb2d2c1237170a5afafea30a3c19a2aad9314a6"
+    }
+  ],
+  "design_binding": {
+    "design_tag": "benchmark-design-freeze-v1",
+    "design_commit": "08b55f7e03eabb74721979153df57aeee3200538",
+    "design_id": "fusionagent.benchmark-design.v1",
+    "kg_release_id": "fusionagent-kg-v1.0.0",
+    "kg_semantic_hash": "sha256:50067b9368914c47580707650789c04c78b2e856ccb3ef4d120a31f36c0ad71e"
+  },
+  "paths": {
+    "package": "benchmark_platform",
+    "package_exists_at_capture": false,
+    "future_output_root": "D:\\code\\fusionagent-evidence\\benchmark-platform\\development-v1",
+    "future_output_root_exists_at_capture": false
+  },
+  "process_probe": {
+    "names": ["python", "pythonw", "uvicorn", "celery", "node"],
+    "command_line_pattern": "FusionAgent-benchmark-platform-dev|benchmark_platform|audit_benchmark_platform_core|test_benchmark_platform",
+    "matching_processes_at_capture": []
+  },
+  "validation_contract": {
+    "test_file_glob": "tests/test_benchmark_platform_*.py",
+    "focused_test": "tests/test_benchmark_platform_p0.py",
+    "pytest_basetemp": "tmp/pytest-benchmark-platform-core",
+    "future_output_root": "D:\\code\\fusionagent-evidence\\benchmark-platform\\development-v1",
+    "commands": [
+      "python -m pytest tests -q -k benchmark_platform --ignore=tests/test_benchmark_platform_protocol.py --basetemp tmp/pytest-benchmark-platform-core",
+      "python scripts/audit_benchmark_platform_core.py --stage P0 --baseline docs/current/benchmark/platform/v1/implementation/p0_baseline.json --output docs/current/benchmark/platform/v1/implementation/p0_audit.json",
+      "python -m benchmark_platform.cli validate-design --design-root docs/current/benchmark/v1",
+      "git diff --check",
+      "git status --short --branch"
+    ]
+  },
+  "validation_attempts": [
+    {
+      "attempt_id": "P0-TEST-01",
+      "command": "python -m pytest tests/test_benchmark_platform_*.py -q --basetemp tmp/pytest-benchmark-platform-core",
+      "status": "failed_retained",
+      "exit_code": 4,
+      "failure_class": "tooling.powershell_native_glob_not_expanded",
+      "observed_output": "ERROR: file or directory not found: tests/test_benchmark_platform_*.py; no tests ran"
+    },
+    {
+      "attempt_id": "P0-TEST-02",
+      "command": "python -m pytest tests -q -k benchmark_platform --basetemp tmp/pytest-benchmark-platform-core",
+      "status": "failed_retained",
+      "exit_code": 1,
+      "failure_class": "test_scope.protocol_freeze_tests_not_applicable_to_implementation_branch",
+      "observed_output": "1 failed, 15 passed, 1478 deselected; protocol audit rejected the expected implementation directory and P0 change set"
+    },
+    {
+      "attempt_id": "P0-TEST-03",
+      "command": "python -m pytest tests -q -k \"benchmark_platform and not protocol\" --basetemp tmp/pytest-benchmark-platform-core",
+      "status": "rejected_incomplete",
+      "exit_code": 0,
+      "failure_class": "test_scope.keyword_exclusion_dropped_p0_tests",
+      "observed_output": "6 passed, 1488 deselected; two P0 tests containing protocol in their node IDs were not run"
+    }
+  ],
+  "audit_attempts": [
+    {
+      "attempt_id": "P0-AUDIT-01",
+      "observed_at": "2026-08-26T06:36:19Z",
+      "status": "failed_retained",
+      "exit_code": 1,
+      "failure_class": "tooling.process_probe_scope_false_positive",
+      "observed_process": {
+        "process_id": 175332,
+        "command_line": "python.exe -m pytest -q tests/test_p3_attempt_repository.py tests/test_p3_resource_slots.py"
+      },
+      "resolution": "Narrow the probe to benchmark platform paths, modules, audit command and test names; do not terminate unrelated processes."
+    }
+  ],
+  "accounting": {
+    "benchmark_instances_generated": 0,
+    "provider_calls": 0,
+    "judge_calls": 0,
+    "formal_result_roots_created": 0,
+    "confirmation_unsealed": false,
+    "selective_e2e_selected": false,
+    "platform_implementation_started": false
+  },
+  "non_goals": [
+    "benchmark_platform package creation",
+    "requirements modification",
+    "development instance generation",
+    "confirmation or selective E2E",
+    "Provider or judge calls",
+    "formal result creation"
+  ],
+  "next_stage": {
+    "stage": "P1",
+    "gate": "BP1",
+    "name": "closed_models_and_canonicalization",
+    "automatic_progression": false
+  }
+}
