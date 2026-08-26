@@ -1,6 +1,6 @@
 # FusionAgent 参数化 Benchmark 平台实施协议 V1
 
-> 状态：draft_pending_human_review
+> 状态：frozen_complete
 > Protocol ID：`fusionagent.benchmark-platform-implementation-protocol.v1`
 > 当前里程碑：`M-BENCH-PLATFORM-PROTOCOL-V1`
 > 未来实施里程碑：`M-BENCH-PLATFORM-CORE-V1`

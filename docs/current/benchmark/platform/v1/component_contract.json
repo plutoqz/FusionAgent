@@ -2,7 +2,7 @@
   "component_contract_id": "fusionagent.benchmark-platform-component-contract.v1",
   "protocol_id": "fusionagent.benchmark-platform-implementation-protocol.v1",
   "version": "1.0.0",
-  "status": "draft_pending_human_review",
+  "status": "frozen_complete",
   "research_mapping": {
     "objectives": ["O2", "O3"],
     "research_questions": ["RQ2", "RQ3"],

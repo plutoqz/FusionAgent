@@ -1,7 +1,7 @@
 # FusionAgent 实验账本
 
 > 状态：A1 当前权威实验索引
-> 更新日期：2026-08-20
+> 更新日期：2026-08-26
 > 当前执行入口：`research-governance-index.md`
 > 当前主张状态：`research-claim-evidence-ledger.md`
 
@@ -18,6 +18,7 @@
 - `negative_result`：预注册机制未出现或主张未获支持。
 - `historical_only`：仅用于追溯，不进入当前比较性结论。
 - `active_zero_call_design`：只授权零调用协议设计，不授权平台实现或实验运行。
+- `frozen_protocol`：协议及人工复核已冻结，但所约束的实现仍需另行明确授权。
 - `not_authorized`：尚未通过启动闸门，不得实施或调用 Provider。
 
 ## 2. RQ3 原六组主实验
@@ -66,18 +67,19 @@
 | Evidence ID | 设计包 | 状态 | 审计与调用边界 | 允许用途 | 禁止用途 |
 | --- | --- | --- | --- | --- | --- |
 | `E-BENCH-DESIGN-V1` | `docs/current/benchmark/v1/`，tag `benchmark-design-freeze-v1` | `frozen_complete` | 机器审计 `16/16`；两轮人工复核最终批准；Provider/judge/实例/正式结果根均为 `0` | 后续平台协议、development 实例和正式协议的版本化设计输入 | 方法效果、正式 gold、平台能力、execution/quality/external-validity 证据 |
+| `E-BENCH-PLATFORM-PROTOCOL-V1` | `docs/current/benchmark/platform/v1/` 与 `benchmark-platform-implementation-protocol.md` | `frozen_protocol` | 机器审计 `17/17`；`pluto` 独立复核七项批准；Provider/judge/实例/正式结果根均为 `0` | `M-BENCH-PLATFORM-CORE-V1` 的版本化实现合同与 P0-P7 验收输入 | 平台已实现、实例已生成、方法效果、生产能力、正式实验或 E2E 证据 |
 
 ### 未启动项
 
 | Planned ID | 目标 | 当前状态 | 启动闸门 |
 | --- | --- | --- | --- |
 | `P-BENCH-DESIGN` | 参数化、分层、可诊断案例与评价体系 | `frozen_complete` | `M-BENCH-DESIGN-FREEZE-V1` 已通过；冻结后语义修改必须升版本 |
-| `P-BENCH-PLATFORM` | 参数化实例生成与校验平台最小实现 | `not_authorized` | 先建立并批准独立实施协议、分支、组件合同、测试与恢复闸门 |
+| `P-BENCH-PLATFORM` | 参数化实例生成与校验平台最小实现 | `protocol_frozen_awaiting_authorization` | 协议已批准；仍需用户明确发出“按照平台协议开始实施”或等价指令，随后先过 P0/BP0 |
 | `P-BENCH-JUDGE` | 多模型开发 judge 平台 | `not_authorized` | 先完成人工校准协议、模型角色、预算和非正式用途边界 |
 | `P-BENCH-FORMAL` | 新 held-out 六组规划实验 | `not_authorized` | 冻结 KG/method/template/evaluator/seed，完成 development/confirmation 隔离 |
 | `P-BENCH-E2E` | 新案例选择性真实执行 | `not_authorized` | 先由 planning 机制结果和 source-closed inventory 预注册选例 |
 
-`P-BENCH-DESIGN` 的执行方案 [`benchmark-design-freeze-execution-plan.md`](benchmark-design-freeze-execution-plan.md) 已在 `M-BENCH-DESIGN-FREEZE-V1` 终止。当前下一验收点仅为 `P-BENCH-PLATFORM` 的独立实施协议；写出或批准该协议也不自动授权 Provider、judge、confirmation、正式实验或 E2E。
+`P-BENCH-DESIGN` 的执行方案 [`benchmark-design-freeze-execution-plan.md`](benchmark-design-freeze-execution-plan.md) 已在 `M-BENCH-DESIGN-FREEZE-V1` 终止；平台协议也已在 `M-BENCH-PLATFORM-PROTOCOL-V1` 冻结。当前等待独立的实施授权，授权后下一验收点仅为 P0/BP0 基线。协议批准不自动授权平台代码、实例、Provider、judge、confirmation、正式实验或 E2E。
 
 ## 7. 更新规则
 

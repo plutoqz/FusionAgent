@@ -1,7 +1,7 @@
 {
   "audit_id": "fusionagent.benchmark-platform-protocol-audit.v1",
   "protocol_id": "fusionagent.benchmark-platform-implementation-protocol.v1",
-  "generated_at": "2026-08-25T12:27:27.1353328Z",
+  "generated_at": "2026-08-26T06:12:02Z",
   "repo_root": ".",
   "protocol_root": "docs/current/benchmark/platform/v1",
   "base_tag": "benchmark-design-freeze-v1",
@@ -48,11 +48,11 @@
         },
         "milestone": {
           "milestone_id": "M-BENCH-PLATFORM-PROTOCOL-V1",
-          "status": "blocked_before_protocol_freeze",
-          "complete": false,
-          "blocking_gate": "human_protocol_review"
+          "status": "complete",
+          "complete": true,
+          "blocking_gate": null
         },
-        "review_approved": false
+        "review_approved": true
       }
     },
     {
@@ -313,12 +313,15 @@
       "passed": true,
       "details": {
         "changed_paths": [
+          "docs/README.md",
           "docs/current/benchmark-platform-implementation-protocol.md",
           "docs/current/benchmark/platform/v1/README.md",
           "docs/current/benchmark/platform/v1/component_contract.json",
           "docs/current/benchmark/platform/v1/protocol_audit.json",
           "docs/current/benchmark/platform/v1/protocol_manifest.json",
           "docs/current/benchmark/platform/v1/protocol_review.json",
+          "docs/current/research-experiment-ledger.md",
+          "docs/current/research-governance-index.md",
           "scripts/audit_benchmark_platform_protocol.py",
           "tests/test_benchmark_platform_protocol.py"
         ],
@@ -353,35 +356,25 @@
     {
       "check_id": "human_protocol_review",
       "required": true,
-      "passed": false,
+      "passed": true,
       "details": {
-        "status": "pending_human_review",
-        "decision": null,
+        "status": "approved",
+        "decision": "approved",
         "reviewer": {
-          "name": null,
-          "role": null,
-          "independent_of_authoring": null,
-          "reviewed_at": null
+          "name": "pluto",
+          "role": "independent_reviewer",
+          "independent_of_authoring": true,
+          "reviewed_at": "2026-08-26T06:12:02Z"
         },
-        "pending_items": [
-          "BPR-SCOPE",
-          "BPR-DESIGN-BINDING",
-          "BPR-COMPONENTS",
-          "BPR-PARTITION-SAFETY",
-          "BPR-VIEW-FAIL-CLOSED",
-          "BPR-RECOVERY",
-          "BPR-ACCEPTANCE"
-        ]
+        "pending_items": []
       }
     }
   ],
   "required_check_count": 17,
-  "passed_required_check_count": 16,
-  "required_failures": [
-    "human_protocol_review"
-  ],
-  "overall_passed": false,
-  "milestone_status": "blocked_before_protocol_freeze",
+  "passed_required_check_count": 17,
+  "required_failures": [],
+  "overall_passed": true,
+  "milestone_status": "complete",
   "accounting": {
     "benchmark_instances_generated": 0,
     "provider_calls": 0,

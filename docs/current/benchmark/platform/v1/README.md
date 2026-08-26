@@ -1,6 +1,6 @@
 # FusionAgent Benchmark Platform Protocol V1
 
-> 状态：draft_pending_human_review
+> 状态：frozen_complete
 > Protocol ID：`fusionagent.benchmark-platform-implementation-protocol.v1`
 > 当前里程碑：`M-BENCH-PLATFORM-PROTOCOL-V1`
 > 分支：`codex/benchmark-platform-protocol-r1`
@@ -37,8 +37,8 @@ formal_result_roots: 0
 
 ```text
 current_goal: M-BENCH-PLATFORM-PROTOCOL-V1
-current_stage: protocol authoring and audit
-next_acceptance: independent human protocol approval
+current_stage: protocol frozen; implementation not authorized
+next_acceptance: explicit implementation authorization, then P0 baseline
 implementation_authorized: false
 ```
 

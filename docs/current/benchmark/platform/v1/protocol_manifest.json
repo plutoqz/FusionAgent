@@ -3,13 +3,13 @@
   "protocol_id": "fusionagent.benchmark-platform-implementation-protocol.v1",
   "version": "1.0.0",
   "created_at": "2026-08-25T12:27:27.1353328Z",
-  "audit_generated_at": "2026-08-25T12:27:27.1353328Z",
+  "audit_generated_at": "2026-08-26T06:12:02Z",
   "file_hash_canonicalization": "normalize_crlf_to_lf",
   "milestone": {
     "milestone_id": "M-BENCH-PLATFORM-PROTOCOL-V1",
-    "status": "blocked_before_protocol_freeze",
-    "complete": false,
-    "blocking_gate": "human_protocol_review"
+    "status": "complete",
+    "complete": true,
+    "blocking_gate": null
   },
   "git": {
     "branch": "codex/benchmark-platform-protocol-r1",
@@ -69,19 +69,19 @@
   "files": [
     {
       "path": "docs/current/benchmark/platform/v1/README.md",
-      "sha256": "sha256:98eb22504746b2b689ef536872d17acab605addbdd761c159d05cabe16c91332"
+      "sha256": "sha256:fa3336e895cb3e68829a2b6a201cc19e70fa181118d261de87aa6ddc625e2106"
     },
     {
       "path": "docs/current/benchmark/platform/v1/component_contract.json",
-      "sha256": "sha256:82e5ba3293083b22e0e3d91484c7e2f38dfff030c1df248b9be98e01b93de329"
+      "sha256": "sha256:af6b56cfdde532d65ee494548826fdf46f3429f014b8f93997e775b27da90b3f"
     },
     {
       "path": "docs/current/benchmark/platform/v1/protocol_review.json",
-      "sha256": "sha256:4aac0fd487b89893f2393168bc1823ac64ce8c6a9bb5a861fdf398ffef693bdc"
+      "sha256": "sha256:823187c2795b177b01faff0ade6ee38ca819af389973e05f44f2922ddfe4d2a9"
     },
     {
       "path": "docs/current/benchmark-platform-implementation-protocol.md",
-      "sha256": "sha256:36aba2efb14d63e6d0ceafffd6e9cca2844f706dd72b55e58d3e7ae6ca48956a"
+      "sha256": "sha256:18ffbb874aefb3dd1265f480e965ca09b7e76fb581c36fa3951f927bf683ed4b"
     },
     {
       "path": "scripts/audit_benchmark_platform_protocol.py",

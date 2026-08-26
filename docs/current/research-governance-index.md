@@ -1,8 +1,8 @@
 # FusionAgent 研究治理入口
 
 > 状态：A1 当前唯一执行入口
-> 更新日期：2026-08-20
-> 所在分支：`codex/benchmark-design-r1`
+> 更新日期：2026-08-26
+> 所在分支：`codex/benchmark-platform-protocol-r1`
 > A0 研究基线：[研究章程](research-charter.md)
 
 ## 1. 一分钟当前口径
@@ -12,21 +12,15 @@
 3. 方案 B 只属于 I2/RQ3 的 KG-LLM 接口消融。H01-H06 是开发及 post-held-out repair 证据；H07-H09 是独立 planning confirmation。两者不得混池，也不得替代原六组。
 4. 原六组的三类 LLM 条件已完成 90 次冻结调用，但 180-item 双人盲评仍未开始，比较性主张保持 `pending_human_review`。
 5. 当前 C02/C04/C06 端到端证据只支持单 AOI、指定案例事实；不支持六组执行优势、恢复率改善或跨 AOI 结论。
-6. 参数化 benchmark V1 已完成零调用设计冻结与独立人工复核；它是设计 checkpoint，不是效果证据。平台实现、实例生成、judge、Provider 调用和正式实验仍未授权。
+6. 参数化 benchmark V1 与平台实施协议 V1 均已完成零调用冻结及独立人工复核；它们是设计和实施合同 checkpoint，不是平台能力或效果证据。平台实现、实例生成、judge、Provider 调用和正式实验仍未授权。
 
 ## 2. 当前唯一下一验收点
 
-`M-BENCH-DESIGN-FREEZE-V1` 已完成。冻结入口为 [`benchmark/v1/README.md`](benchmark/v1/README.md)，其 manifest、audit 和人工协议复核共同证明五项设计资产内部一致、零调用且未改变 KG v1 或历史 evidence。
+`M-BENCH-PLATFORM-PROTOCOL-V1` 已完成。冻结入口为 [`benchmark/platform/v1/README.md`](benchmark/platform/v1/README.md)，实施步骤以 [`benchmark-platform-implementation-protocol.md`](benchmark-platform-implementation-protocol.md) 为权威；component contract、manifest、audit 和 `pluto` 的七项独立人工批准共同证明协议内部一致且零调用。
 
-当前唯一下一验收点是建立并批准**独立的参数化实例生成与校验平台实施协议**。该协议至少需要冻结：
+当前唯一下一验收点是：用户另行明确授权后，进入 `M-BENCH-PLATFORM-CORE-V1` 的 `P0/BP0` 实施基线验收。P0 只允许从协议 tag 创建 `codex/benchmark-platform-dev-r1` 与独立 worktree，冻结环境、输入身份、允许修改范围和零调用计数；尚不生成 development 实例。
 
-1. 服务的 O/RQ/I/claim、明确非目标和与 benchmark V1 的版本绑定。
-2. 实现分支、允许修改范围、组件输入输出和 fail-closed 行为。
-3. development-only 实例生成、schema 校验、hash、provenance 和恢复检查点。
-4. 不调用 Provider、不解封 confirmation、不运行 judge 或正式实验的实施边界。
-5. 聚焦测试、验收证据、回滚条件以及后续另行授权真实调用的闸门。
-
-该实施协议目前尚未创建，也未授权开始平台实现。`P-BENCH-JUDGE`、`P-BENCH-FORMAL`、`P-BENCH-E2E` 继续保持 `not_authorized`。已完成的 [`benchmark-design-freeze-execution-plan.md`](benchmark-design-freeze-execution-plan.md) 只用于追溯设计冻结过程，不再决定下一执行动作。
+当前人工批准只冻结协议，不等于实施授权。收到“按照平台协议开始实施”或等价明确指令前，不得创建 `benchmark_platform/`、修改 `requirements.txt` 或启动 P0。即使未来获准实施，confirmation、E2E、Provider、judge、正式结果根和正式实验仍不在授权范围；`P-BENCH-JUDGE`、`P-BENCH-FORMAL`、`P-BENCH-E2E` 继续保持 `not_authorized`。
 
 ## 3. 文档权威顺序
 
@@ -38,7 +32,8 @@
 | A1-2 | `research-claim-evidence-ledger.md` | 当前主张状态、允许表述、缺口和证据边界 |
 | A1-3 | `research-experiment-ledger.md` | 每个实验集、方法版本、案例角色和复用范围 |
 | A1-4 | `benchmark/v1/` | 已冻结 benchmark V1 的 charter、矩阵、schema、评价、选择、manifest、audit 和人工复核 |
-| A1-5 | 当前明确冻结的 protocol/manifest | 单次实验的输入、模型、指标、预算和停止条件 |
+| A1-5 | `benchmark/platform/v1/` 与 `benchmark-platform-implementation-protocol.md` | 已冻结平台实现边界、组件合同、P0-P7 验收、manifest、audit 和人工复核 |
+| A1-6 | 当前明确冻结的实验 protocol/manifest | 单次实验的输入、模型、指标、预算和停止条件 |
 | A2 | `benchmark-design-freeze-execution-plan.md` | 已完成里程碑的执行、验收、回滚和恢复合同；用于追溯 |
 | A3 | 旧状态、旧计划、历史 checkpoint 和 evidence root | 仅用于追溯，不决定当前下一动作 |
 
@@ -53,7 +48,8 @@
 | `origin/codex/kg-llm-method-r1` | `446a7dd` | B 开发、H01-H06 repair 与人工评价 checkpoint | 只读，不作为 confirmation 分支 |
 | `codex/kg-llm-confirmation-r1` | `bfd5308` | H07-H09 独立 confirmation checkpoint | 只读，不继续追加方法修改 |
 | `codex/research-governance-r1` | 从 `bfd5308` 分出 | 当前文档、口径、账本和执行方案 checkpoint | 本批次推送后只读；实际设计从其远程 HEAD 新建 `codex/benchmark-design-r1` |
-| `D:\code\FusionAgent-benchmark-design` / `codex/benchmark-design-r1` | `8c5302f` 基线，tag `benchmark-design-freeze-v1` | Benchmark V1 零调用设计冻结 checkpoint 与当前治理入口 | 冻结后只读；语义修改升版本，平台实现从该 tag 新建独立分支 |
+| `D:\code\FusionAgent-benchmark-design` / `codex/benchmark-design-r1` | tag `benchmark-design-freeze-v1`，commit `08b55f7` | Benchmark V1 零调用设计冻结 checkpoint | 冻结后只读；语义修改升版本 |
+| `D:\code\FusionAgent-benchmark-platform-protocol` / `codex/benchmark-platform-protocol-r1` | 从 `benchmark-design-freeze-v1` 分出；tag `benchmark-platform-protocol-v1` | 平台实施协议 V1 冻结与当前治理入口 | 协议冻结后只读；平台实现须明确授权并从协议 tag 新建独立分支 |
 | `D:\code\FusionAgent-head-baseline` | detached `db256d5` | 独立基线复核 | 只读 |
 
 任何 KG v1.1、案例平台或方法实现都必须从治理分支再建立独立实现分支，不能直接追加到 formal、method 或 confirmation checkpoint。
@@ -68,6 +64,8 @@
 | `research-p3-p4-merge-and-evidence-plan.md` | 历史实施与 checkpoint 日志；不再是当前下一步入口 |
 | `benchmark/v1/` | 已冻结参数化 benchmark 设计包；只证明设计与治理完整，不证明方法效果 |
 | `benchmark-design-freeze-execution-plan.md` | `M-BENCH-DESIGN-FREEZE-V1` 已完成的执行计划；不授权后续平台实现 |
+| `benchmark/platform/v1/` | 已批准的平台实施协议冻结包；只证明实现合同完整，不证明平台能力 |
+| `benchmark-platform-implementation-protocol.md` | `M-BENCH-PLATFORM-CORE-V1` 的 P0-P7 实施、验收、回滚与恢复合同；仍需明确实施授权 |
 | `claims-and-priorities.md` | 2026-08-04 A0 口径与旧状态快照；当前 claim status 由新账本继承 |
 | `project-status.md` | 2026-08-13 项目状态快照；当前执行状态由本入口继承 |
 
