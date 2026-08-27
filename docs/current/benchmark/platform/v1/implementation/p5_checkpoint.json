@@ -29,7 +29,11 @@
   },
   "validation": {
     "focused_test_command": "$env:PYTEST_DISABLE_PLUGIN_AUTOLOAD='1'; python -m pytest tests/test_benchmark_platform_p5.py tests/test_benchmark_platform_p5_audit.py -q --basetemp tmp/pytest-benchmark-platform-p5",
-    "focused_tests_passed": 4,
+    "focused_tests_passed": 6,
+    "p4_behavior_regression": {
+      "command": "$env:PYTEST_DISABLE_PLUGIN_AUTOLOAD='1'; python -m pytest tests/test_benchmark_platform_p4.py -q --basetemp tmp/pytest-benchmark-platform-p4-regression",
+      "result": "10 passed in 3.72s"
+    },
     "covered_boundaries": ["write_new_root", "atomic_publish", "checkpoint_resume", "duplicate_valid_instance", "retained_output_tamper", "binding_code_revision_drift", "terminal_checksums", "external_terminal_binding"],
     "environment_observations": [
       {
@@ -39,6 +43,10 @@
       {
         "command": "$env:PYTEST_DISABLE_PLUGIN_AUTOLOAD='1'; python -m pytest tests/test_benchmark_platform_p5.py -q --basetemp tmp/pytest-benchmark-platform-p5",
         "result": "4 passed in 2.93s"
+      },
+      {
+        "command": "historical P1-P3 stage-audit regression after P5 files were present",
+        "result": "mechanism tests passed, but four historical audit tests failed because those stage-local audits intentionally freeze the package file set and mutable README/__init__ hashes at their own checkpoints; not accepted as current-stage regression evidence"
       }
     ]
   },
