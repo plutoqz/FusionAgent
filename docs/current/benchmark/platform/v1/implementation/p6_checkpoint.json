@@ -1,0 +1,84 @@
+{
+  "checkpoint_id": "fusionagent.benchmark-platform-core.p6-checkpoint.v1",
+  "protocol_id": "fusionagent.benchmark-platform-implementation-protocol.v1",
+  "milestone_id": "M-BENCH-PLATFORM-CORE-V1",
+  "stage": "P6",
+  "gate": "BP6",
+  "status": "stage_validated_offline",
+  "captured_at": "2026-08-30T00:00:00+08:00",
+  "authorization": {
+    "instruction": "进入p6/bp6",
+    "authorized_through": "P6/BP6",
+    "p7_automatic_progression": false,
+    "provider_or_experiment_authorized": false
+  },
+  "git": {
+    "branch": "codex/benchmark-platform-dev-r1",
+    "worktree": "D:\\code\\FusionAgent-benchmark-platform-dev",
+    "protocol_commit": "4db9f51f261d61ecb5c17b726d9897a09773eec2",
+    "p5_commit": "85e475588846f9919d3adc58599887a5ca4ad8c9"
+  },
+  "scope": {
+    "modules": ["benchmark_platform.cli"],
+    "allowed_commands": ["validate-design", "validate-template", "generate-development", "validate-run", "project-views", "audit-run", "resume-development"],
+    "exit_codes": {"success": 0, "usage": 2, "validation": 3, "internal": 4},
+    "output_contract": "single_line_structured_json",
+    "temporary_directory_required": true,
+    "network_allowed": false,
+    "llm_or_judge_allowed": false,
+    "real_development_corpus_allowed": false,
+    "p7_freeze_allowed": false
+  },
+  "validation": {
+    "focused_test_command": "$env:PYTEST_DISABLE_PLUGIN_AUTOLOAD='1'; python -m pytest tests/test_benchmark_platform_p6.py tests/test_benchmark_platform_p6_audit.py -q --basetemp tmp/pytest-benchmark-platform-p6",
+    "focused_tests_expected": 8,
+    "focused_tests_passed": 8,
+    "focused_test_result": "8 passed in 19.10s",
+    "p4_p5_behavior_regression": {
+      "command": "$env:PYTEST_DISABLE_PLUGIN_AUTOLOAD='1'; python -m pytest tests/test_benchmark_platform_p5.py tests/test_benchmark_platform_p4.py -q --basetemp tmp/pytest-benchmark-platform-p4-p5-regression",
+      "result": "14 passed in 2.42s"
+    },
+    "covered_boundaries": ["exact_command_allowlist", "forbidden_help_tokens", "structured_stdout_stderr", "stable_exit_codes", "explicit_development_lifecycle", "existing_output_root", "tampered_resume", "socket_disabled_subprocess", "forbidden_imports", "temporary_outputs_only"],
+    "failed_attempts": [
+      {
+        "attempt_id": "P6-FOCUSED-01",
+        "status": "failed_retained",
+        "result": "5 passed, 1 failed",
+        "failure_class": "test_fixture.socket_type_replaced",
+        "observed_output": "sitecustomize replaced socket.socket with a function, causing the standard ssl module class definition to fail before CLI startup",
+        "resolution": "Preserve the socket class and replace only connect, connect_ex and create_connection; rerun passed 6/6 P6 CLI tests."
+      }
+    ]
+  },
+  "files": [
+    {"path": "benchmark_platform/cli.py", "sha256": "sha256:49ad09d24fcec5154e93f45bf63437f8b265f4c01a0db4ebf503ca44c59e020d"},
+    {"path": "scripts/audit_benchmark_platform_p6.py", "sha256": "sha256:257fc6e93e9884aef7d3c8c0ef213310f4e89c5eed2732fbff5fee47120ce082"},
+    {"path": "tests/test_benchmark_platform_p6.py", "sha256": "sha256:1c750fa248422593f34d1378950e72ecd463b0e134aa6393558243551754474a"},
+    {"path": "tests/test_benchmark_platform_p6_audit.py", "sha256": "sha256:9e87c2084dee49dc280459238205411c1d22e9cfad9f660184017fa23b99bece"},
+    {"path": "docs/current/benchmark/platform/v1/implementation/README.md", "sha256": "sha256:13f046f1ad2ce34337cb5da37d8370163fec0bb3ec61c17675680a611b3f7072"}
+  ],
+  "accounting": {
+    "benchmark_instances_generated": 0,
+    "provider_calls": 0,
+    "judge_calls": 0,
+    "formal_result_roots_created": 0,
+    "confirmation_unsealed": false,
+    "selective_e2e_selected": false,
+    "platform_implementation_started": true
+  },
+  "paths": {
+    "future_output_root": "D:\\code\\fusionagent-evidence\\benchmark-platform\\development-v1",
+    "future_output_root_exists": false,
+    "test_output_policy": "pytest temporary directories only"
+  },
+  "changed_paths": [
+    "benchmark_platform/cli.py",
+    "scripts/audit_benchmark_platform_p6.py",
+    "tests/test_benchmark_platform_p6.py",
+    "tests/test_benchmark_platform_p6_audit.py",
+    "docs/current/benchmark/platform/v1/implementation/README.md",
+    "docs/current/benchmark/platform/v1/implementation/p6_checkpoint.json",
+    "docs/current/benchmark/platform/v1/implementation/p6_audit.json"
+  ],
+  "next_stage": {"stage": "P7", "gate": "BP7", "automatic_progression": false}
+}
