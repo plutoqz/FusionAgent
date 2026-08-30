@@ -1,6 +1,6 @@
 # Benchmark Platform Core V1 Implementation
 
-> 当前阶段：P6/BP6 complete
+> 当前阶段：P7/BP7 awaiting human review
 > 实现分支：`codex/benchmark-platform-dev-r1`
 > Worktree：`D:\code\FusionAgent-benchmark-platform-dev`
 > 协议基线：`benchmark-platform-protocol-v1@4db9f51f261d61ecb5c17b726d9897a09773eec2`
@@ -23,6 +23,10 @@
 | [`p5_audit.json`](p5_audit.json) | BP5 机器审计结果 |
 | [`p6_checkpoint.json`](p6_checkpoint.json) | P6 离线 CLI、退出码与边界测试证据清单 |
 | [`p6_audit.json`](p6_audit.json) | BP6 机器审计结果 |
+| [`implementation_manifest.json`](implementation_manifest.json) | P7 源码、依赖、fixture、测试与阶段证据哈希清单 |
+| [`p7_checkpoint.json`](p7_checkpoint.json) | P7 机器闭环与人工复核等待状态 |
+| [`p7_audit.json`](p7_audit.json) | BP7 机器审计及人工门状态 |
+| [`p7_review.json`](p7_review.json) | 必须由用户或独立人工审阅者明确填写的实现复核决策 |
 
 P0 只证明开发分支精确继承冻结协议，环境与输入身份已记录，未来 output root 尚不存在，且平台代码、实例、Provider、judge、confirmation、formal 和 E2E 均未启动。
 
@@ -35,9 +39,10 @@ P0 首次按协议示例运行 `tests/test_benchmark_platform_*.py` 时，PowerS
 ```text
 current_goal: M-BENCH-PLATFORM-CORE-V1
 completed_stage: P6
-completed_gate: BP6
-next_stage: P7 implementation audit and freeze
-next_gate: BP7
+current_stage: P7
+current_gate: BP7
+current_status: awaiting_human_review
+next_action: explicit human implementation review
 automatic_progression: false
 ```
 
@@ -62,6 +67,8 @@ P5 新增的 `benchmark_platform.store` 仅提供 development run root 的 write
 
 P6 新增的 `benchmark_platform.cli` 只暴露冻结合同中的七个离线命令，采用结构化单行 JSON 输出和稳定退出码：成功 `0`、用法错误 `2`、输入或合同失败 `3`、未处理内部错误 `4`。CLI 的 development 生命周期必须按 `generate-development -> validate-run -> project-views -> audit-run` 显式推进，`resume-development` 重新加载冻结设计和模板并重算 code revision binding。subprocess、tamper、resume、no-network 与 forbidden-import 测试均只使用 pytest 临时目录；未创建仓库内 corpus 或 future output root。
 
+P7 已进入实现验收阶段。完整行为合同测试、implementation manifest、机器 audit 和人工复核包必须共同构成冻结证据；机器 audit 不得填写或推断人工决策。人工复核通过前，P7 状态只能是 `awaiting_human_review`，不得更新治理账本、创建实现 tag 或宣称 `M-BENCH-PLATFORM-CORE-V1` 完成。
+
 P1 首次全核心回归有 `30 passed, 1 failed`：P0 测试错误地把 P0 时的依赖哈希与已获准变更依赖的 P1 工作树比较。失败保留在 P1 checkpoint；修复后 P0 依赖快照改由 `e71c106` Git blob 验证，设计、协议和 KG 冻结输入仍校验当前文件。
 
-不得从 P6 自动进入 P7。P7 需要新的明确执行指令；在此之前不得创建实现 freeze tag、修改治理账本、开展人工最终复核或进入 template authoring、confirmation、E2E、Provider/judge 阶段。
+人工复核通过后仍只允许完成 P7 冻结动作：更新治理入口与实验账本、提交最终证据、创建并推送 `benchmark-platform-core-v1` tag。不得自动进入 template authoring、实例批量生成、confirmation、E2E、Provider/judge 或正式实验。

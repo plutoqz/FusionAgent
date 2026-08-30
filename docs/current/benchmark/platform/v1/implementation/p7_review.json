@@ -1,0 +1,24 @@
+{
+  "review_id": "fusionagent.benchmark-platform-core.p7-review.v1",
+  "manifest_id": "fusionagent.benchmark-platform-core.implementation-manifest.v1",
+  "protocol_id": "fusionagent.benchmark-platform-implementation-protocol.v1",
+  "status": "pending_human_review",
+  "reviewer": {
+    "name": null,
+    "role": "user_or_independent_reviewer",
+    "reviewed_at": null
+  },
+  "checklist": [
+    {"item_id": "BPI-COMPONENTS", "question": "Do the implemented component boundaries match the frozen component contract without moving benchmark semantics into legacy runtime modules?", "decision": null, "comment": null},
+    {"item_id": "BPI-FAIL-CLOSED", "question": "Are schema, design, crosswalk, generation, relation, storage and CLI failures attributable and fail closed without fallback or silent repair?", "decision": null, "comment": null},
+    {"item_id": "BPI-VIEWS", "question": "Do planner, evaluator and human-blind projections use allowlists and preserve the frozen leakage boundary?", "decision": null, "comment": null},
+    {"item_id": "BPI-RECOVERY", "question": "Do write-new storage, checkpoint progression, explicit resume binding, tamper rejection and terminal checksums satisfy BP5?", "decision": null, "comment": null},
+    {"item_id": "BPI-CLI", "question": "Does the CLI expose only the seven frozen offline commands with stable structured exit behavior and no network dependency?", "decision": null, "comment": null},
+    {"item_id": "BPI-EVIDENCE", "question": "Are tests, hashes, failed attempts, zero-call accounting and the implementation_validated_offline claim boundary recorded accurately?", "decision": null, "comment": null},
+    {"item_id": "BPI-NO-EXPANSION", "question": "Does this closure avoid template authoring, real corpus generation, confirmation, E2E, Provider, judge and formal experiment authorization?", "decision": null, "comment": null}
+  ],
+  "decision": null,
+  "overall_comment": null,
+  "unresolved_disagreements": [],
+  "instructions": "A user or independent human reviewer must decide every checklist item and the overall decision. Machine audit and the implementation author must not infer or approve these decisions."
+}

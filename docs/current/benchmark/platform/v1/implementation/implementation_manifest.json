@@ -1,0 +1,283 @@
+{
+  "manifest_id": "fusionagent.benchmark-platform-core.implementation-manifest.v1",
+  "protocol_id": "fusionagent.benchmark-platform-implementation-protocol.v1",
+  "milestone_id": "M-BENCH-PLATFORM-CORE-V1",
+  "version": "1.0.0",
+  "status": "pending_human_review",
+  "generated_at": "2026-08-30T10:01:22.875719+00:00",
+  "file_hash_canonicalization": "normalize_crlf_to_lf",
+  "git": {
+    "branch": "codex/benchmark-platform-dev-r1",
+    "implementation_source_commit": "35e1641c9b573657663b3733d5c94d082fedb8b6",
+    "expected_freeze_tag": "benchmark-platform-core-v1"
+  },
+  "design_binding": {
+    "tag": "benchmark-design-freeze-v1",
+    "commit": "08b55f7e03eabb74721979153df57aeee3200538",
+    "design_id": "fusionagent.benchmark-design.v1",
+    "kg_release_id": "fusionagent-kg-v1.0.0",
+    "kg_semantic_hash": "sha256:50067b9368914c47580707650789c04c78b2e856ccb3ef4d120a31f36c0ad71e"
+  },
+  "files": {
+    "source": [
+      {
+        "path": "benchmark_platform/__init__.py",
+        "sha256": "sha256:0a42565073a043e1da4c38e8236caa022bc82bad2d4f5576a31cb7696bd363ee"
+      },
+      {
+        "path": "benchmark_platform/canonical.py",
+        "sha256": "sha256:bf7fdc64bd7a975afe97b48b9e652f1fa499598f700a42893219825699715978"
+      },
+      {
+        "path": "benchmark_platform/cli.py",
+        "sha256": "sha256:49ad09d24fcec5154e93f45bf63437f8b265f4c01a0db4ebf503ca44c59e020d"
+      },
+      {
+        "path": "benchmark_platform/crosswalk.py",
+        "sha256": "sha256:1d1d7ed004110467bd350ccf8071753c35c96ab26a1489c24ebf119bf6fbbe97"
+      },
+      {
+        "path": "benchmark_platform/design_loader.py",
+        "sha256": "sha256:9930c34341a47f62572c32accd31f2c3213e52e3fbaa77d283333068ab81a95a"
+      },
+      {
+        "path": "benchmark_platform/generator.py",
+        "sha256": "sha256:97baced0c88086326f43f82d5def1354db55b162fd66da4a737272e4de1908a1"
+      },
+      {
+        "path": "benchmark_platform/models.py",
+        "sha256": "sha256:ba974fe9b043fe3467c954a5ab0e612a9d60f15b9a8d4049bb6fa2cc4de236bc"
+      },
+      {
+        "path": "benchmark_platform/relations.py",
+        "sha256": "sha256:f2e61b59b0f2de0ce80fa3361330dca963a11a2ed34b9fa341fa4dbb583806a4"
+      },
+      {
+        "path": "benchmark_platform/store.py",
+        "sha256": "sha256:ac7e646a567942990c24d08d9f0f16b6a354b8072fb8b802d73c1061df34993e"
+      },
+      {
+        "path": "benchmark_platform/views.py",
+        "sha256": "sha256:daa811cf382d39b8d2e3c9305e39d565feeb244708c047ac4af45a4e25f8d1f3"
+      }
+    ],
+    "dependencies": [
+      {
+        "path": "requirements.txt",
+        "sha256": "sha256:fadc7dfb2df7a74c3bf6f6a8a403694840ec5911312806ca6e657b1374c464ed"
+      }
+    ],
+    "fixtures": [
+      {
+        "path": "tests/fixtures/benchmark_platform/README.md",
+        "sha256": "sha256:ba883cd9bf0225016ecc26b7137ed8c91a0c4a0e0e03b0dbd234acae03f80f89"
+      },
+      {
+        "path": "tests/fixtures/benchmark_platform/template_contract_valid.json",
+        "sha256": "sha256:966889489394a529f493241de61eb762577bdf18e701dfa81adeca3bd47f8dcb"
+      }
+    ],
+    "core_contract_tests": [
+      {
+        "path": "tests/test_benchmark_platform_canonical.py",
+        "sha256": "sha256:a3ba3d0819a3e15103c915df3601d3a5c5dfe2ce062b0c17c607da42db303683"
+      },
+      {
+        "path": "tests/test_benchmark_platform_models.py",
+        "sha256": "sha256:3e76d62ba80aec33d4406ff833d8b70b9ea7634ea46e17552e98463043465343"
+      },
+      {
+        "path": "tests/test_benchmark_platform_p0.py",
+        "sha256": "sha256:deaea0c2000ae92c2d34b1c56577c9393a07888a36f9315dbdec9ab1b4c331ca"
+      },
+      {
+        "path": "tests/test_benchmark_platform_p2.py",
+        "sha256": "sha256:0f539c01ec3bce886abf6be40755d953102d2a899744bae36b084d0cb39067c4"
+      },
+      {
+        "path": "tests/test_benchmark_platform_p3.py",
+        "sha256": "sha256:4d337f7fb0c01df2cee932fe8572cf575fdf24bac869ec9a302eedb5525992e4"
+      },
+      {
+        "path": "tests/test_benchmark_platform_p4.py",
+        "sha256": "sha256:92617f967462e7f358245191e3f47428ab47bff97b3656513faa4f9d21839b2c"
+      },
+      {
+        "path": "tests/test_benchmark_platform_p5.py",
+        "sha256": "sha256:7b4b4bc4559348f4de54cdfb4ac2894b2065a22cc7f2b3193251ea2676d3ec32"
+      },
+      {
+        "path": "tests/test_benchmark_platform_p6.py",
+        "sha256": "sha256:1c750fa248422593f34d1378950e72ecd463b0e134aa6393558243551754474a"
+      }
+    ],
+    "historical_stage_tests": [
+      {
+        "path": "tests/test_benchmark_platform_p1_audit.py",
+        "sha256": "sha256:ab817842644882723932f737212916a77ff44773e2332c1568dcfeff579d1895"
+      },
+      {
+        "path": "tests/test_benchmark_platform_p2_audit.py",
+        "sha256": "sha256:0f49bffcc2573f7d74545a5f7a33dec417dcf756b0cc5aec46b9aa548e122937"
+      },
+      {
+        "path": "tests/test_benchmark_platform_p3_audit.py",
+        "sha256": "sha256:795def2f9d0ffaf191f878b849aa2f746f09cd3d49352004c4b2fbb8a9a1b813"
+      },
+      {
+        "path": "tests/test_benchmark_platform_p4_audit.py",
+        "sha256": "sha256:5f33c951b2f97d14dbed20b1ee4dad483775628dba6b48a5cb066fed65910ae4"
+      },
+      {
+        "path": "tests/test_benchmark_platform_p5_audit.py",
+        "sha256": "sha256:6cdca4a615a3986d756b229b64974f07a215f4e61569d72d1653f96784730169"
+      },
+      {
+        "path": "tests/test_benchmark_platform_p6_audit.py",
+        "sha256": "sha256:9e87c2084dee49dc280459238205411c1d22e9cfad9f660184017fa23b99bece"
+      },
+      {
+        "path": "tests/test_benchmark_platform_protocol.py",
+        "sha256": "sha256:2e92755aa8743f257a0b2e8b30684dd701ae370f28e2cdf8ff09f2892d49d8e5"
+      }
+    ],
+    "p7_audit_assets": [
+      {
+        "path": "scripts/audit_benchmark_platform_core.py",
+        "sha256": "sha256:47d120a4e2c48e6dbdc08bec49f9f0d0316ca0706679e4bde6f04d8e4379acf0"
+      },
+      {
+        "path": "scripts/audit_benchmark_platform_p2.py",
+        "sha256": "sha256:b6ce1d18d757c66528e9c170fd093d31b1ce5b7697f3c5d9e96a57e5abeeb726"
+      },
+      {
+        "path": "scripts/audit_benchmark_platform_p3.py",
+        "sha256": "sha256:b9e6b1011ab6eea8018246d0bc69be884d4a802d46e3f590d94d192c9be2ca99"
+      },
+      {
+        "path": "scripts/audit_benchmark_platform_p4.py",
+        "sha256": "sha256:60e74866659fdeb340b36ea126778d7d902bfcbf1b0180fc37323c4aabc91219"
+      },
+      {
+        "path": "scripts/audit_benchmark_platform_p5.py",
+        "sha256": "sha256:1691f856254d7be6c85fd248fbd7c0c124c087bc9746ee72c3960e1e24bca3d9"
+      },
+      {
+        "path": "scripts/audit_benchmark_platform_p6.py",
+        "sha256": "sha256:257fc6e93e9884aef7d3c8c0ef213310f4e89c5eed2732fbff5fee47120ce082"
+      },
+      {
+        "path": "scripts/audit_benchmark_platform_p7.py",
+        "sha256": "sha256:487fedab93321175614532dbf2a1674ff48fa87a126e5c86f8851eb3e3ffbec6"
+      },
+      {
+        "path": "scripts/audit_benchmark_platform_protocol.py",
+        "sha256": "sha256:f896447754bc918870713aafede87c31c1ab3fec4cbb686ab07a9ccc3049dcd4"
+      },
+      {
+        "path": "tests/test_benchmark_platform_p7.py",
+        "sha256": "sha256:f077b6ecce09ed278b856a4fc07c6609d1ea2c1bf91121f2dd21d182bde6a5c6"
+      }
+    ],
+    "stage_evidence": [
+      {
+        "path": "docs/current/benchmark/platform/v1/implementation/README.md",
+        "sha256": "sha256:c98af87f32fdd1a25efe13f8567bf1783798adf1151a55dd4cdfd804069c2b58"
+      },
+      {
+        "path": "docs/current/benchmark/platform/v1/implementation/p0_audit.json",
+        "sha256": "sha256:1118a2acccc8bf6ca80bcf929a13d076a85fd1cbd2732697a4178fa311889d4b"
+      },
+      {
+        "path": "docs/current/benchmark/platform/v1/implementation/p0_baseline.json",
+        "sha256": "sha256:8b69f16fcb9cb34ad710a8e00148be56c1fa257e3786f093ca7d8c944cdc1035"
+      },
+      {
+        "path": "docs/current/benchmark/platform/v1/implementation/p1_audit.json",
+        "sha256": "sha256:d98347a1a33f341beaf8939d708a72abb50595c8276f0485714bf7846acadccf"
+      },
+      {
+        "path": "docs/current/benchmark/platform/v1/implementation/p1_checkpoint.json",
+        "sha256": "sha256:07593e1e98d56c5026a7763f38ffc5ac61cda12e866035c48236f7ab1e12d836"
+      },
+      {
+        "path": "docs/current/benchmark/platform/v1/implementation/p2_audit.json",
+        "sha256": "sha256:c8984de180d2bc8aa1062e8262a17385903d6d738d6c39ce05926fd012bc96c4"
+      },
+      {
+        "path": "docs/current/benchmark/platform/v1/implementation/p2_checkpoint.json",
+        "sha256": "sha256:89f81cfbac03cf3401085619434e1454c8cfb5ac369e328c040a21941160da7d"
+      },
+      {
+        "path": "docs/current/benchmark/platform/v1/implementation/p3_audit.json",
+        "sha256": "sha256:a296562b0f63a721ba7fff50438e6016210b6295cdee1e09af1db8e8c81bbe37"
+      },
+      {
+        "path": "docs/current/benchmark/platform/v1/implementation/p3_checkpoint.json",
+        "sha256": "sha256:24f7e59b08e94db78cdb90cee2b70685e4cbcd10156d2954777f22c027b2bb4b"
+      },
+      {
+        "path": "docs/current/benchmark/platform/v1/implementation/p4_audit.json",
+        "sha256": "sha256:1ea6d8f0cef02fc25ec64ddabd2f7aae1d0c77f7a7c59c5b51877af99c25247d"
+      },
+      {
+        "path": "docs/current/benchmark/platform/v1/implementation/p4_checkpoint.json",
+        "sha256": "sha256:b3bd998f3710e4dc6b04b035737044ea576a729ca28376d13cbca7b187928d71"
+      },
+      {
+        "path": "docs/current/benchmark/platform/v1/implementation/p5_audit.json",
+        "sha256": "sha256:0b17e3cb741300a474574399bd836e0b88c731c04221dbf846c30def45c2dd28"
+      },
+      {
+        "path": "docs/current/benchmark/platform/v1/implementation/p5_checkpoint.json",
+        "sha256": "sha256:eb3c41c6584bd2738e62765f45f27e4769b9411cdd25166df1181af987d57ea3"
+      },
+      {
+        "path": "docs/current/benchmark/platform/v1/implementation/p6_audit.json",
+        "sha256": "sha256:2435367ad425d6e5298245538c6694d6a90271a92a64ed785e1619a23420778a"
+      },
+      {
+        "path": "docs/current/benchmark/platform/v1/implementation/p6_checkpoint.json",
+        "sha256": "sha256:ab4ffca8e114c7416924c8310847564698a64deb6e98429e48f950a75d0cca8d"
+      }
+    ]
+  },
+  "installed_dependencies": {
+    "jsonschema": "4.23.0",
+    "pydantic": "2.13.4",
+    "pytest": "9.1.1"
+  },
+  "validation": {
+    "core_test_command": "$env:PYTEST_DISABLE_PLUGIN_AUTOLOAD='1'; python -m pytest tests/test_benchmark_platform_p0.py tests/test_benchmark_platform_models.py tests/test_benchmark_platform_canonical.py tests/test_benchmark_platform_p2.py tests/test_benchmark_platform_p3.py tests/test_benchmark_platform_p4.py tests/test_benchmark_platform_p5.py tests/test_benchmark_platform_p6.py -q --basetemp tmp/pytest-benchmark-platform-p7-core",
+    "core_tests_passed": 64,
+    "core_test_result": "64 passed in 24.63s",
+    "historical_stage_tests_policy": "hashed_for_lineage_not_rerun_against_later_worktree"
+  },
+  "accounting": {
+    "benchmark_instances_generated": 0,
+    "provider_calls": 0,
+    "judge_calls": 0,
+    "formal_result_roots_created": 0,
+    "confirmation_unsealed": false,
+    "selective_e2e_selected": false,
+    "platform_implementation_started": true
+  },
+  "claim_boundary": {
+    "strongest_status": "implementation_validated_offline",
+    "supports_method_effect": false,
+    "supports_production_capability": false,
+    "supports_formal_experiment": false,
+    "supports_e2e": false
+  },
+  "review": {
+    "review_id": "fusionagent.benchmark-platform-core.p7-review.v1",
+    "status": "pending_human_review",
+    "automatic_approval_forbidden": true
+  },
+  "self_hash_policy": {
+    "implementation_manifest.json": "excluded_to_avoid_recursive_hashing",
+    "p7_audit.json": "excluded_as_generated_output",
+    "p7_review.json": "separately_verified_human_decision",
+    "p7_checkpoint.json": "separately_verified_stage_state"
+  }
+}

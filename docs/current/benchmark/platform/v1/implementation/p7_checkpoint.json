@@ -1,0 +1,88 @@
+{
+  "checkpoint_id": "fusionagent.benchmark-platform-core.p7-checkpoint.v1",
+  "protocol_id": "fusionagent.benchmark-platform-implementation-protocol.v1",
+  "milestone_id": "M-BENCH-PLATFORM-CORE-V1",
+  "stage": "P7",
+  "gate": "BP7",
+  "status": "awaiting_human_review",
+  "captured_at": "2026-08-30T00:00:00+08:00",
+  "authorization": {
+    "instruction": "进入P7/BP7",
+    "authorized_through": "P7 machine closure and human review gate",
+    "human_decision_inferred": false,
+    "provider_or_experiment_authorized": false
+  },
+  "git": {
+    "branch": "codex/benchmark-platform-dev-r1",
+    "worktree": "D:\\code\\FusionAgent-benchmark-platform-dev",
+    "implementation_source_commit": "35e1641c9b573657663b3733d5c94d082fedb8b6",
+    "expected_freeze_tag": "benchmark-platform-core-v1"
+  },
+  "scope": {
+    "machine_manifest_allowed": true,
+    "machine_audit_allowed": true,
+    "human_review_packet_allowed": true,
+    "automatic_human_approval_allowed": false,
+    "template_authoring_allowed": false,
+    "real_corpus_allowed": false,
+    "network_allowed": false,
+    "llm_or_judge_allowed": false
+  },
+  "validation": {
+    "core_test_command": "$env:PYTEST_DISABLE_PLUGIN_AUTOLOAD='1'; python -m pytest tests/test_benchmark_platform_p0.py tests/test_benchmark_platform_models.py tests/test_benchmark_platform_canonical.py tests/test_benchmark_platform_p2.py tests/test_benchmark_platform_p3.py tests/test_benchmark_platform_p4.py tests/test_benchmark_platform_p5.py tests/test_benchmark_platform_p6.py -q --basetemp tmp/pytest-benchmark-platform-p7-core",
+    "core_tests_passed": 64,
+    "core_test_result": "64 passed in 24.63s",
+    "p7_focused_test_command": "$env:PYTEST_DISABLE_PLUGIN_AUTOLOAD='1'; python -m pytest tests/test_benchmark_platform_p7.py -q --basetemp tmp/pytest-benchmark-platform-p7",
+    "p7_focused_tests_passed": 5,
+    "p7_focused_test_result": "5 passed in 1.97s",
+    "machine_audit_passed": true,
+    "machine_checks_passed": 10,
+    "machine_checks_required": 10,
+    "audit_exit_code": 2,
+    "audit_exit_semantics": "expected while the only required failure is human_implementation_review",
+    "human_review_passed": false,
+    "failed_attempts": [
+      {
+        "attempt_id": "P7-FOCUSED-01",
+        "status": "failed_retained",
+        "result": "3 passed, 2 failed",
+        "failure_class": "audit_scope.p6_stage_local_hash_replayed_on_p7_worktree",
+        "observed_output": "P6 audit rejected the P7-updated shared README, so the P7 machine gate and approved-review simulation remained closed.",
+        "resolution": "Verify the passing P6 audit and its hash against the frozen implementation source commit 35e1641 instead of replaying stage-local hashes on the later P7 evidence worktree."
+      }
+    ]
+  },
+  "accounting": {
+    "benchmark_instances_generated": 0,
+    "provider_calls": 0,
+    "judge_calls": 0,
+    "formal_result_roots_created": 0,
+    "confirmation_unsealed": false,
+    "selective_e2e_selected": false,
+    "platform_implementation_started": true
+  },
+  "paths": {
+    "future_output_root": "D:\\code\\fusionagent-evidence\\benchmark-platform\\development-v1",
+    "future_output_root_exists": false
+  },
+  "files": [
+    {"path": "scripts/audit_benchmark_platform_p7.py", "sha256": "sha256:487fedab93321175614532dbf2a1674ff48fa87a126e5c86f8851eb3e3ffbec6"},
+    {"path": "tests/test_benchmark_platform_p7.py", "sha256": "sha256:f077b6ecce09ed278b856a4fc07c6609d1ea2c1bf91121f2dd21d182bde6a5c6"},
+    {"path": "docs/current/benchmark/platform/v1/implementation/implementation_manifest.json", "sha256": "sha256:a01f2fcb16ce50b9a4c6a6e23a61507effa71d304e2a6fc1806e3458d7601929"},
+    {"path": "docs/current/benchmark/platform/v1/implementation/p7_review.json", "sha256": "sha256:fa9b486317e3d418cc59762416db2bf7418d8f6853ff924d9dec9175e90cf66f"},
+    {"path": "docs/current/benchmark/platform/v1/implementation/p7_audit.json", "sha256": "sha256:31b4352bc196ba480a52bf11f8f9697b4845b3c65b42cdd3dbece66c7396418c"},
+    {"path": "docs/current/benchmark/platform/v1/implementation/README.md", "sha256": "sha256:c98af87f32fdd1a25efe13f8567bf1783798adf1151a55dd4cdfd804069c2b58"}
+  ],
+  "freeze": {
+    "tag": "benchmark-platform-core-v1",
+    "tag_created": false,
+    "tag_pushed": false,
+    "blocked_by": "human_implementation_review"
+  },
+  "governance": {
+    "updated": false,
+    "blocked_by": "human_implementation_review"
+  },
+  "next_action": "explicit_human_implementation_review",
+  "automatic_progression": false
+}

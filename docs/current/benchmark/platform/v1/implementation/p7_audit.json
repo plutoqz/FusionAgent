@@ -1,0 +1,257 @@
+{
+  "audit_id": "fusionagent.benchmark-platform-core.p7-audit.v1",
+  "manifest_id": "fusionagent.benchmark-platform-core.implementation-manifest.v1",
+  "checkpoint_id": "fusionagent.benchmark-platform-core.p7-checkpoint.v1",
+  "protocol_id": "fusionagent.benchmark-platform-implementation-protocol.v1",
+  "stage": "P7",
+  "gate": "BP7",
+  "checks": [
+    {
+      "check_id": "implementation_manifest_identity",
+      "required": true,
+      "human": false,
+      "passed": true,
+      "details": {
+        "manifest_id": "fusionagent.benchmark-platform-core.implementation-manifest.v1",
+        "protocol_id": "fusionagent.benchmark-platform-implementation-protocol.v1",
+        "milestone_id": "M-BENCH-PLATFORM-CORE-V1",
+        "version": "1.0.0",
+        "status": "pending_human_review"
+      }
+    },
+    {
+      "check_id": "implementation_git_binding",
+      "required": true,
+      "human": false,
+      "passed": true,
+      "details": {
+        "branch": "codex/benchmark-platform-dev-r1",
+        "source_ancestor": true,
+        "manifest_git": {
+          "branch": "codex/benchmark-platform-dev-r1",
+          "implementation_source_commit": "35e1641c9b573657663b3733d5c94d082fedb8b6",
+          "expected_freeze_tag": "benchmark-platform-core-v1"
+        }
+      }
+    },
+    {
+      "check_id": "implementation_file_sets_and_hashes",
+      "required": true,
+      "human": false,
+      "passed": true,
+      "details": {
+        "errors": [],
+        "category_counts": {
+          "source": 10,
+          "dependencies": 1,
+          "fixtures": 2,
+          "core_contract_tests": 8,
+          "historical_stage_tests": 7,
+          "p7_audit_assets": 9,
+          "stage_evidence": 15
+        }
+      }
+    },
+    {
+      "check_id": "dependency_identity",
+      "required": true,
+      "human": false,
+      "passed": true,
+      "details": {
+        "manifest": {
+          "jsonschema": "4.23.0",
+          "pydantic": "2.13.4",
+          "pytest": "9.1.1"
+        },
+        "installed": {
+          "jsonschema": "4.23.0",
+          "pydantic": "2.13.4",
+          "pytest": "9.1.1"
+        }
+      }
+    },
+    {
+      "check_id": "p0_p6_stage_chain",
+      "required": true,
+      "human": false,
+      "passed": true,
+      "details": {
+        "P0": {
+          "overall_passed": true,
+          "stage": "P0",
+          "gate": "BP0"
+        },
+        "P1": {
+          "overall_passed": true,
+          "stage": "P1",
+          "gate": "BP1"
+        },
+        "P2": {
+          "overall_passed": true,
+          "stage": "P2",
+          "gate": "BP2"
+        },
+        "P3": {
+          "overall_passed": true,
+          "stage": "P3",
+          "gate": "BP3"
+        },
+        "P4": {
+          "overall_passed": true,
+          "stage": "P4",
+          "gate": "BP4"
+        },
+        "P5": {
+          "overall_passed": true,
+          "stage": "P5",
+          "gate": "BP5"
+        },
+        "P6": {
+          "overall_passed": true,
+          "stage": "P6",
+          "gate": "BP6"
+        }
+      }
+    },
+    {
+      "check_id": "full_core_contract_validation",
+      "required": true,
+      "human": false,
+      "passed": true,
+      "details": {
+        "core_test_command": "$env:PYTEST_DISABLE_PLUGIN_AUTOLOAD='1'; python -m pytest tests/test_benchmark_platform_p0.py tests/test_benchmark_platform_models.py tests/test_benchmark_platform_canonical.py tests/test_benchmark_platform_p2.py tests/test_benchmark_platform_p3.py tests/test_benchmark_platform_p4.py tests/test_benchmark_platform_p5.py tests/test_benchmark_platform_p6.py -q --basetemp tmp/pytest-benchmark-platform-p7-core",
+        "core_tests_passed": 64,
+        "core_test_result": "64 passed in 24.63s",
+        "historical_stage_tests_policy": "hashed_for_lineage_not_rerun_against_later_worktree"
+      }
+    },
+    {
+      "check_id": "offline_import_boundary",
+      "required": true,
+      "human": false,
+      "passed": true,
+      "details": {
+        "forbidden_imports": []
+      }
+    },
+    {
+      "check_id": "p6_cli_boundary_frozen_at_source_commit",
+      "required": true,
+      "human": false,
+      "passed": true,
+      "details": {
+        "overall_passed": true,
+        "required_failures": [],
+        "current_hash": "sha256:2435367ad425d6e5298245538c6694d6a90271a92a64ed785e1619a23420778a",
+        "source_commit_hash": "sha256:2435367ad425d6e5298245538c6694d6a90271a92a64ed785e1619a23420778a"
+      }
+    },
+    {
+      "check_id": "zero_call_and_claim_boundary",
+      "required": true,
+      "human": false,
+      "passed": true,
+      "details": {
+        "manifest_accounting": {
+          "benchmark_instances_generated": 0,
+          "provider_calls": 0,
+          "judge_calls": 0,
+          "formal_result_roots_created": 0,
+          "confirmation_unsealed": false,
+          "selective_e2e_selected": false,
+          "platform_implementation_started": true
+        },
+        "checkpoint_accounting": {
+          "benchmark_instances_generated": 0,
+          "provider_calls": 0,
+          "judge_calls": 0,
+          "formal_result_roots_created": 0,
+          "confirmation_unsealed": false,
+          "selective_e2e_selected": false,
+          "platform_implementation_started": true
+        },
+        "future_output_root": "D:\\code\\fusionagent-evidence\\benchmark-platform\\development-v1",
+        "future_output_root_exists": false,
+        "claim_boundary": {
+          "strongest_status": "implementation_validated_offline",
+          "supports_method_effect": false,
+          "supports_production_capability": false,
+          "supports_formal_experiment": false,
+          "supports_e2e": false
+        }
+      }
+    },
+    {
+      "check_id": "p7_checkpoint_boundary",
+      "required": true,
+      "human": false,
+      "passed": true,
+      "details": {
+        "identity": {
+          "checkpoint_id": "fusionagent.benchmark-platform-core.p7-checkpoint.v1",
+          "protocol_id": "fusionagent.benchmark-platform-implementation-protocol.v1",
+          "stage": "P7",
+          "gate": "BP7",
+          "status": "awaiting_human_review"
+        },
+        "freeze": {
+          "tag": "benchmark-platform-core-v1",
+          "tag_created": false,
+          "tag_pushed": false,
+          "blocked_by": "human_implementation_review"
+        },
+        "governance": {
+          "updated": false,
+          "blocked_by": "human_implementation_review"
+        }
+      }
+    },
+    {
+      "check_id": "human_implementation_review",
+      "required": true,
+      "human": true,
+      "passed": false,
+      "details": {
+        "status": "pending_human_review",
+        "decision": null,
+        "decisions": {
+          "BPI-COMPONENTS": null,
+          "BPI-FAIL-CLOSED": null,
+          "BPI-VIEWS": null,
+          "BPI-RECOVERY": null,
+          "BPI-CLI": null,
+          "BPI-EVIDENCE": null,
+          "BPI-NO-EXPANSION": null
+        },
+        "reviewer": {
+          "name": null,
+          "role": "user_or_independent_reviewer",
+          "reviewed_at": null
+        },
+        "unresolved_disagreements": []
+      }
+    }
+  ],
+  "required_check_count": 11,
+  "passed_required_check_count": 10,
+  "machine_check_count": 10,
+  "passed_machine_check_count": 10,
+  "machine_required_failures": [],
+  "required_failures": [
+    "human_implementation_review"
+  ],
+  "machine_checks_passed": true,
+  "overall_passed": false,
+  "stage_status": "awaiting_human_review",
+  "accounting": {
+    "benchmark_instances_generated": 0,
+    "provider_calls": 0,
+    "judge_calls": 0,
+    "formal_result_roots_created": 0,
+    "confirmation_unsealed": false,
+    "selective_e2e_selected": false,
+    "platform_implementation_started": true
+  },
+  "freeze_authorized": false,
+  "automatic_progression": false
+}
