@@ -4,7 +4,7 @@
   "milestone_id": "M-BENCH-PLATFORM-CORE-V1",
   "version": "1.0.0",
   "status": "approved",
-  "generated_at": "2026-08-31T06:14:33.538248+00:00",
+  "generated_at": "2026-08-31T06:25:25.743945+00:00",
   "file_hash_canonicalization": "normalize_crlf_to_lf",
   "git": {
     "branch": "codex/benchmark-platform-dev-r1",
@@ -168,7 +168,7 @@
       },
       {
         "path": "scripts/audit_benchmark_platform_p7.py",
-        "sha256": "sha256:b6780bb9791d5a4cd1aee19f198080ce9162ae61ebc4558f75cf6fb491773739"
+        "sha256": "sha256:78cb24df7b307d86afa9c50907fc14b3d30341e6d9edabb2d1e1712ac768bc36"
       },
       {
         "path": "scripts/audit_benchmark_platform_protocol.py",
@@ -176,13 +176,13 @@
       },
       {
         "path": "tests/test_benchmark_platform_p7.py",
-        "sha256": "sha256:0506a0f08b3e646aff5949ada8e031fd96659f2c813878e6f8014214ac8f3a0a"
+        "sha256": "sha256:664fbcd1fb456b9cd449a04cf80b067fe1798f1701c854881fef1a46fdf46422"
       }
     ],
     "stage_evidence": [
       {
         "path": "docs/current/benchmark/platform/v1/implementation/README.md",
-        "sha256": "sha256:c47cf9243e2d0e98f3675c95f62f8e765452934efcca1bffb377ba50701957a7"
+        "sha256": "sha256:0ccff07ffcb6b420284e9eb205b78657dd318eeea066c21896d3dd398c5ff5f8"
       },
       {
         "path": "docs/current/benchmark/platform/v1/implementation/p0_audit.json",

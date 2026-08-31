@@ -71,4 +71,4 @@ P7 已完成实现验收。完整行为合同测试、implementation manifest、
 
 P1 首次全核心回归有 `30 passed, 1 failed`：P0 测试错误地把 P0 时的依赖哈希与已获准变更依赖的 P1 工作树比较。失败保留在 P1 checkpoint；修复后 P0 依赖快照改由 `e71c106` Git blob 验证，设计、协议和 KG 冻结输入仍校验当前文件。
 
-人工复核通过后仅完成 P7 冻结动作：更新治理入口与实验账本、提交最终证据、创建并推送 `benchmark-platform-core-v1` tag。不得自动进入 template authoring、实例批量生成、confirmation、E2E、Provider/judge 或正式实验；下一步必须等待新的明确协议授权。
+人工复核通过后仅完成 P7 冻结动作：更新治理入口与实验账本、提交最终证据并创建本地 `benchmark-platform-core-v1` tag。远端 tag 推送因当前网络不可达而待恢复；不得自动进入 template authoring、实例批量生成、confirmation、E2E、Provider/judge 或正式实验。

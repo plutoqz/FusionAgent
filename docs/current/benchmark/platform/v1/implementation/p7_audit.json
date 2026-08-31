@@ -221,8 +221,8 @@
         "freeze": {
           "tag": "benchmark-platform-core-v1",
           "tag_created": true,
-          "tag_pushed": true,
-          "blocked_by": null
+          "tag_pushed": false,
+          "blocked_by": "remote_tag_push_unverified"
         },
         "governance": {
           "updated": true,
