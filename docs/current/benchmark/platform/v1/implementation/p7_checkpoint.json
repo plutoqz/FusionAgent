@@ -67,22 +67,22 @@
   },
   "files": [
     {"path": "scripts/audit_benchmark_platform_p7.py", "sha256": "sha256:78cb24df7b307d86afa9c50907fc14b3d30341e6d9edabb2d1e1712ac768bc36"},
-    {"path": "tests/test_benchmark_platform_p7.py", "sha256": "sha256:664fbcd1fb456b9cd449a04cf80b067fe1798f1701c854881fef1a46fdf46422"},
-    {"path": "docs/current/benchmark/platform/v1/implementation/implementation_manifest.json", "sha256": "sha256:e440cdeb21ad0735548edce7d8465383e2a68521d8bf35ba5e499247566a3760"},
+    {"path": "tests/test_benchmark_platform_p7.py", "sha256": "sha256:4e4878c5603d666af875bfdd177551bc95c18e1f613c2f48d0c2309320342cef"},
+    {"path": "docs/current/benchmark/platform/v1/implementation/implementation_manifest.json", "sha256": "sha256:ab082f83794dc4a8830e8e5b638e209249eafdfac3bddb9a00f251382fffd98a"},
     {"path": "docs/current/benchmark/platform/v1/implementation/p7_review.json", "sha256": "sha256:fc018cf89830c1060e743238e9b6292640278db718a082d0573146886bb61b64"},
     {"path": "docs/current/benchmark/platform/v1/implementation/p7_audit.json", "sha256": "sha256:056e1d6d7454ab4678265be80dabfec015c696ec17ed3b2040c7244e309b6407"},
-    {"path": "docs/current/benchmark/platform/v1/implementation/README.md", "sha256": "sha256:0ccff07ffcb6b420284e9eb205b78657dd318eeea066c21896d3dd398c5ff5f8"}
+    {"path": "docs/current/benchmark/platform/v1/implementation/README.md", "sha256": "sha256:82356121b6c4660318800381f7966214b899fdf825cb9dbcd761346c6f40db87"}
   ],
   "freeze": {
     "tag": "benchmark-platform-core-v1",
     "tag_created": true,
-    "tag_pushed": false,
-    "blocked_by": "remote_tag_push_unverified"
+    "tag_pushed": true,
+    "blocked_by": null
   },
   "governance": {
     "updated": true,
     "blocked_by": null
   },
-  "next_action": "push_freeze_tag_when_remote_available",
+  "next_action": "explicit_next_protocol_authorization",
   "automatic_progression": false
 }

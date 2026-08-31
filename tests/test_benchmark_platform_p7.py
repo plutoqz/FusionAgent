@@ -77,6 +77,6 @@ def test_p7_accounting_and_next_action_remain_bounded() -> None:
     assert checkpoint["accounting"]["judge_calls"] == 0
     assert checkpoint["accounting"]["benchmark_instances_generated"] == 0
     assert checkpoint["freeze"]["tag_created"] is True
-    assert checkpoint["freeze"]["tag_pushed"] is False
+    assert checkpoint["freeze"]["tag_pushed"] is True
     assert checkpoint["governance"]["updated"] is True
-    assert checkpoint["next_action"] == "push_freeze_tag_when_remote_available"
+    assert checkpoint["next_action"] == "explicit_next_protocol_authorization"

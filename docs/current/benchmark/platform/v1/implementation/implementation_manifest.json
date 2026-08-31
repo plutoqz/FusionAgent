@@ -4,7 +4,7 @@
   "milestone_id": "M-BENCH-PLATFORM-CORE-V1",
   "version": "1.0.0",
   "status": "approved",
-  "generated_at": "2026-08-31T06:25:25.743945+00:00",
+  "generated_at": "2026-08-31T06:31:37.506183+00:00",
   "file_hash_canonicalization": "normalize_crlf_to_lf",
   "git": {
     "branch": "codex/benchmark-platform-dev-r1",
@@ -176,13 +176,13 @@
       },
       {
         "path": "tests/test_benchmark_platform_p7.py",
-        "sha256": "sha256:664fbcd1fb456b9cd449a04cf80b067fe1798f1701c854881fef1a46fdf46422"
+        "sha256": "sha256:4e4878c5603d666af875bfdd177551bc95c18e1f613c2f48d0c2309320342cef"
       }
     ],
     "stage_evidence": [
       {
         "path": "docs/current/benchmark/platform/v1/implementation/README.md",
-        "sha256": "sha256:0ccff07ffcb6b420284e9eb205b78657dd318eeea066c21896d3dd398c5ff5f8"
+        "sha256": "sha256:82356121b6c4660318800381f7966214b899fdf825cb9dbcd761346c6f40db87"
       },
       {
         "path": "docs/current/benchmark/platform/v1/implementation/p0_audit.json",
