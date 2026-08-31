@@ -1,7 +1,7 @@
 # FusionAgent 文档入口
 
 > 状态：当前权威入口
-> 更新日期：2026-08-26
+> 更新日期：2026-08-31
 
 本文件是仓库文档的唯一导航入口。项目状态、论文主张、工作优先级或分支角色发生冲突时，先读取 `docs/current/research-governance-index.md`，再按其中的 A0/A1 顺序回到具体规范和证据文件核对。
 
@@ -17,12 +17,15 @@
 | [Benchmark V1 冻结包](current/benchmark/v1/README.md) | 已冻结设计资产、manifest、audit、人工复核和后续边界是什么 | A1-frozen |
 | [Benchmark 平台协议 V1 冻结包](current/benchmark/platform/v1/README.md) | 平台实现边界、组件合同、manifest、audit 和人工复核是什么 | A1-frozen |
 | [Benchmark 平台实施协议](current/benchmark-platform-implementation-protocol.md) | `M-BENCH-PLATFORM-CORE-V1` 的 P0-P7 如何实施、验收、回滚和恢复 | A1-frozen |
-| [Benchmark 设计冻结执行方案](current/benchmark-design-freeze-execution-plan.md) | `M-BENCH-DESIGN-FREEZE-V1` 如何完成 | A2-completed |
+| [Benchmark 设计冻结执行方案（归档）](archive/plans/benchmark-design-freeze-execution-plan-2026-08-19.md) | `M-BENCH-DESIGN-FREEZE-V1` 的历史执行、验收和恢复记录 | A3 |
 | [证据目录索引](current/evidence/README.md) | 仓库内冻结协议、preflight 和证据快照分别承担什么角色 | A1-index |
 | [研究分支与 KG v1 归并审计](current/research-branch-kg-v1-merge-audit.md) | 研究资产分类、KG 对齐缺口、归并约束和讨论闸门 | A3 |
-| [2026-08-13 项目状态快照](current/project-status.md) | 当时已经完成什么、尚未证明什么 | A3 |
-| [2026-08-04 主张与优先级快照](current/claims-and-priorities.md) | 当时的论文主张和优先级 | A3 |
-| [2026-08-04 仓库与 Worktree 快照](current/repository-worktrees.md) | 旧 worktree 布局和稳定成果提升原则 | A3 |
+| [2026-08-13 项目状态快照（归档）](archive/status/project-status-2026-08-13.md) | 当时已经完成什么、尚未证明什么 | A3 |
+| [2026-08-04 主张与优先级快照（归档）](archive/status/claims-and-priorities-2026-08-04.md) | 当时的论文主张和优先级 | A3 |
+| [2026-08-04 仓库与 Worktree 快照（归档）](archive/status/repository-worktrees-2026-08-04.md) | 旧 worktree 布局和稳定成果提升原则 | A3 |
+| [证据支持性整理](current/research-evidence-supporting-conclusions.md) | 当前数据分别支撑哪些创新点和研究核心 | A1-current |
+| [非支持性与负结果整理](current/research-evidence-non-supporting.md) | 哪些数据不能支撑主张或提示方向可能无效 | A1-current |
+| [后续设计与补充实验](current/research-evidence-next-design.md) | 完全支撑主张所需的设计优化、实验和表述升级 | A1-current |
 | [产品契约规范](thesis/product_contract_spec.md) | 产品契约的工程语义、交付状态和图谱映射 | A1 |
 | [论文材料索引](thesis/README.md) | thesis 目录中规范、机器合同和历史草案的当前分类 | A1-index |
 | [2026-07-10 实验案例矩阵草案](thesis/experiment_case_matrix.md) | 旧五组案例设计，仅用于历史追溯 | A3 |

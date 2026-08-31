@@ -6,4 +6,4 @@
 
 旧版本仍包含“产品契约尚未成为完整图谱实体”等已过时表述，已移入 `docs/archive/presentations/2026-07-27/superseded/`。
 
-PPT 用于汇报，不替代 `docs/current/project-status.md` 和机器可读本体导出。
+PPT 用于汇报，不替代 `docs/current/research-governance-index.md` 和机器可读本体导出。

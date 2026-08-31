@@ -81,7 +81,7 @@
 | `P-BENCH-FORMAL` | 新 held-out 六组规划实验 | `not_authorized` | 冻结 KG/method/template/evaluator/seed，完成 development/confirmation 隔离 |
 | `P-BENCH-E2E` | 新案例选择性真实执行 | `not_authorized` | 先由 planning 机制结果和 source-closed inventory 预注册选例 |
 
-`P-BENCH-DESIGN` 的执行方案 [`benchmark-design-freeze-execution-plan.md`](benchmark-design-freeze-execution-plan.md) 已在 `M-BENCH-DESIGN-FREEZE-V1` 终止；平台协议和 core V1 实现也已分别冻结。当前唯一下一验收点是用户另行授权后的下一版本 template/development 协议 P0；在此之前不得生成实例或启动 Provider/judge/confirmation/E2E/正式实验。
+`P-BENCH-DESIGN` 的执行方案 [`archive/plans/benchmark-design-freeze-execution-plan-2026-08-19.md`](../archive/plans/benchmark-design-freeze-execution-plan-2026-08-19.md) 已在 `M-BENCH-DESIGN-FREEZE-V1` 终止；平台协议和 core V1 实现也已分别冻结。当前唯一下一验收点是用户另行授权后的下一版本 template/development 协议 P0；在此之前不得生成实例或启动 Provider/judge/confirmation/E2E/正式实验。
 
 ## 7. 更新规则
 

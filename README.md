@@ -104,7 +104,7 @@ FusionAgent 当前定位是“面向灾害应急多源地理空间融合的契�
 - 场景层面的 live event-feed 编排或 full digital twin 模拟
 - 任意数据源自动接入与任意任务族无限扩展
 
-P1 独立审计、P2 三次稳定性重跑、P3-G 最小治理消融和 P4-G 最小多 AOI 治理切片已经完成。P3-P 真实规划对照和 P4-P 规划外部有效性尚未完成；当前先审计并选择性提升研究分支已有实验 runner，使其直接消费 KG v1，再开展正式重复、选择性端到端和人工真值评价。详见 [`docs/current/claims-and-priorities.md`](./docs/current/claims-and-priorities.md)。
+P1 独立审计、P2 三次稳定性重跑、P3-G 最小治理消融、P4-G 最小多 AOI 治理切片以及 Benchmark Platform Core V1 离线实现冻结已经完成。原六组真实 LLM 规划的 90 次调用已冻结，但 180-item 双人盲评尚未闭环；P3-P/P4-P 的比较性效果、真实端到端和正式 benchmark 证据仍未完成。当前唯一下一验收点是用户另行授权后的下一版本 template/development 协议 P0。详见 [`docs/current/research-governance-index.md`](./docs/current/research-governance-index.md)、[`docs/current/research-claim-evidence-ledger.md`](./docs/current/research-claim-evidence-ledger.md) 和 [`docs/current/research-experiment-ledger.md`](./docs/current/research-experiment-ledger.md)。
 
 ## 系统架构
 
@@ -433,9 +433,15 @@ python scripts/smoke_agentic_region.py --base-url http://127.0.0.1:8000 --job-ty
 ## 参考文档
 
 - [文档总入口](./docs/README.md)
-- [当前项目状态](./docs/current/project-status.md)
-- [论文主张与优先级](./docs/current/claims-and-priorities.md)
-- [仓库与 Worktree](./docs/current/repository-worktrees.md)
+- [当前项目状态与下一验收点](./docs/current/research-governance-index.md)
+- [当前论文主张与证据](./docs/current/research-claim-evidence-ledger.md)
+- [当前实验账本](./docs/current/research-experiment-ledger.md)
+- [证据支持性整理](./docs/current/research-evidence-supporting-conclusions.md)
+- [非支持性与负结果整理](./docs/current/research-evidence-non-supporting.md)
+- [后续设计与补充实验](./docs/current/research-evidence-next-design.md)
+- [历史项目状态快照](./docs/archive/status/project-status-2026-08-13.md)
+- [历史主张与优先级快照](./docs/archive/status/claims-and-priorities-2026-08-04.md)
+- [历史仓库与 Worktree 快照](./docs/archive/status/repository-worktrees-2026-08-04.md)
 - [docs/v2-operations.md](./docs/v2-operations.md)
 - [docs/local-direct-run.md](./docs/local-direct-run.md)
 - [docs/no-ui-agent-operations.md](./docs/no-ui-agent-operations.md)

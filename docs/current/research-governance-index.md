@@ -34,7 +34,7 @@
 | A1-4 | `benchmark/v1/` | 已冻结 benchmark V1 的 charter、矩阵、schema、评价、选择、manifest、audit 和人工复核 |
 | A1-5 | `benchmark/platform/v1/` 与 `benchmark-platform-implementation-protocol.md` | 已冻结平台实现边界、组件合同、P0-P7 验收、manifest、audit 和人工复核 |
 | A1-6 | 当前明确冻结的实验 protocol/manifest | 单次实验的输入、模型、指标、预算和停止条件 |
-| A2 | `benchmark-design-freeze-execution-plan.md` | 已完成里程碑的执行、验收、回滚和恢复合同；用于追溯 |
+| A2 | `benchmark-platform-implementation-protocol.md` | 平台 core V1 的实施、验收、回滚和恢复合同；已冻结并仅供追溯 |
 | A3 | 旧状态、旧计划、历史 checkpoint 和 evidence root | 仅用于追溯，不决定当前下一动作 |
 
 当旧文档与本入口冲突时：A0 语义由 `research-charter.md` 决定；执行状态由本入口决定；证据可用范围由两个账本决定。
@@ -47,9 +47,9 @@
 | `origin/codex/p3-planning-formal-r1` | `ce37073` | 原六组正式 planning 证据 checkpoint | 只读，不改写历史证据 |
 | `origin/codex/kg-llm-method-r1` | `446a7dd` | B 开发、H01-H06 repair 与人工评价 checkpoint | 只读，不作为 confirmation 分支 |
 | `codex/kg-llm-confirmation-r1` | `bfd5308` | H07-H09 独立 confirmation checkpoint | 只读，不继续追加方法修改 |
-| `codex/research-governance-r1` | 从 `bfd5308` 分出 | 当前文档、口径、账本和执行方案 checkpoint | 本批次推送后只读；实际设计从其远程 HEAD 新建 `codex/benchmark-design-r1` |
-| `D:\code\FusionAgent-benchmark-design` / `codex/benchmark-design-r1` | tag `benchmark-design-freeze-v1`，commit `08b55f7` | Benchmark V1 零调用设计冻结 checkpoint | 冻结后只读；语义修改升版本 |
-| `D:\code\FusionAgent-benchmark-platform-protocol` / `codex/benchmark-platform-protocol-r1` | 从 `benchmark-design-freeze-v1` 分出；tag `benchmark-platform-protocol-v1` | 平台实施协议 V1 冻结与当前治理入口 | 协议冻结后只读；平台实现须明确授权并从协议 tag 新建独立分支 |
+| `codex/research-governance-r1` | 从 `bfd5308` 分出 | 文档、口径、账本和执行方案历史 checkpoint | 只读；设计冻结已由 `benchmark-design-freeze-v1` tag 保留 |
+| `benchmark-design-freeze-v1` tag (`08b55f7`) | 已归档的 Benchmark V1 设计冻结 checkpoint | 零调用设计资产；对应 worktree/分支已清理 | 语义修改升版本，不在此 tag 上追加 |
+| `benchmark-platform-protocol-v1` tag (`4db9f51`) | 已归档的平台实施协议 V1 冻结 checkpoint | 零调用协议资产；对应 worktree/分支已清理 | 协议修改升版本，不在此 tag 上追加 |
 | `D:\code\FusionAgent-benchmark-platform-dev` / `codex/benchmark-platform-dev-r1` | 从 `benchmark-platform-protocol-v1` 分出；tag `benchmark-platform-core-v1` | 平台 core V1 离线实现冻结 checkpoint | 冻结后只读；下一版本 template/development 协议须另行授权 |
 | `D:\code\FusionAgent-head-baseline` | detached `db256d5` | 独立基线复核 | 只读 |
 
@@ -62,9 +62,9 @@
 | `research-case-manifest-v1.json` | C01-C06 原主实验开发/正式历史案例；不得作为未来独立确认集 |
 | `research-case-manifest-heldout-method-b-v1.json` | H01-H06 B 开发与修复案例；禁止重新用于 confirmation |
 | `research-case-manifest-confirmation-v1.json` | H07-H09 B 接口确认案例；只回答 planning 接口机制 |
-| `research-p3-p4-merge-and-evidence-plan.md` | 历史实施与 checkpoint 日志；不再是当前下一步入口 |
+| `archive/plans/research-p3-p4-merge-and-evidence-plan.md` | 历史实施与 checkpoint 日志；不再是当前下一步入口 |
 | `benchmark/v1/` | 已冻结参数化 benchmark 设计包；只证明设计与治理完整，不证明方法效果 |
-| `benchmark-design-freeze-execution-plan.md` | `M-BENCH-DESIGN-FREEZE-V1` 已完成的执行计划；不授权后续平台实现 |
+| `archive/plans/benchmark-design-freeze-execution-plan-2026-08-19.md` | `M-BENCH-DESIGN-FREEZE-V1` 已完成的执行计划；不授权后续平台实现 |
 | `benchmark/platform/v1/` | 已批准的平台实施协议与 core V1 实现冻结包；实现包只证明离线实现验证，不证明平台效果或生产能力 |
 | `benchmark-platform-implementation-protocol.md` | `M-BENCH-PLATFORM-CORE-V1` 的 P0-P7 实施、验收、回滚与恢复合同；core V1 已按该合同冻结 |
 | `claims-and-priorities.md` | 2026-08-04 A0 口径与旧状态快照；当前 claim status 由新账本继承 |

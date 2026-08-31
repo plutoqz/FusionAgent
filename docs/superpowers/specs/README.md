@@ -5,10 +5,12 @@
 
 本目录混合保存仍被脚本/测试读取的兼容规格、旧 evidence freeze、历史能力清单和阶段性研究材料。文件存在于 `specs/` 不代表它仍能定义当前论文主张。
 
-当前项目状态、论文主张和优先级以以下文档为准：
+当前项目状态、论文主张和优先级以以下文档为准；旧路径仍保留兼容指针：
 
-- [`docs/current/project-status.md`](../../current/project-status.md)
-- [`docs/current/claims-and-priorities.md`](../../current/claims-and-priorities.md)
+- [`docs/current/research-governance-index.md`](../../current/research-governance-index.md)
+- [`docs/current/research-claim-evidence-ledger.md`](../../current/research-claim-evidence-ledger.md)
+- [`docs/current/research-experiment-ledger.md`](../../current/research-experiment-ledger.md)
+- 兼容入口：[`docs/current/project-status.md`](../../current/project-status.md)、[`docs/current/claims-and-priorities.md`](../../current/claims-and-priorities.md)
 - [`docs/README.md`](../../README.md)
 
 ## 目录规则
