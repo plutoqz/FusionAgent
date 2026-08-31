@@ -3,8 +3,8 @@
   "protocol_id": "fusionagent.benchmark-platform-implementation-protocol.v1",
   "milestone_id": "M-BENCH-PLATFORM-CORE-V1",
   "version": "1.0.0",
-  "status": "pending_human_review",
-  "generated_at": "2026-08-30T10:01:22.875719+00:00",
+  "status": "approved",
+  "generated_at": "2026-08-31T06:14:33.538248+00:00",
   "file_hash_canonicalization": "normalize_crlf_to_lf",
   "git": {
     "branch": "codex/benchmark-platform-dev-r1",
@@ -168,7 +168,7 @@
       },
       {
         "path": "scripts/audit_benchmark_platform_p7.py",
-        "sha256": "sha256:487fedab93321175614532dbf2a1674ff48fa87a126e5c86f8851eb3e3ffbec6"
+        "sha256": "sha256:b6780bb9791d5a4cd1aee19f198080ce9162ae61ebc4558f75cf6fb491773739"
       },
       {
         "path": "scripts/audit_benchmark_platform_protocol.py",
@@ -176,13 +176,13 @@
       },
       {
         "path": "tests/test_benchmark_platform_p7.py",
-        "sha256": "sha256:f077b6ecce09ed278b856a4fc07c6609d1ea2c1bf91121f2dd21d182bde6a5c6"
+        "sha256": "sha256:0506a0f08b3e646aff5949ada8e031fd96659f2c813878e6f8014214ac8f3a0a"
       }
     ],
     "stage_evidence": [
       {
         "path": "docs/current/benchmark/platform/v1/implementation/README.md",
-        "sha256": "sha256:c98af87f32fdd1a25efe13f8567bf1783798adf1151a55dd4cdfd804069c2b58"
+        "sha256": "sha256:c47cf9243e2d0e98f3675c95f62f8e765452934efcca1bffb377ba50701957a7"
       },
       {
         "path": "docs/current/benchmark/platform/v1/implementation/p0_audit.json",
@@ -271,7 +271,7 @@
   },
   "review": {
     "review_id": "fusionagent.benchmark-platform-core.p7-review.v1",
-    "status": "pending_human_review",
+    "status": "approved",
     "automatic_approval_forbidden": true
   },
   "self_hash_policy": {

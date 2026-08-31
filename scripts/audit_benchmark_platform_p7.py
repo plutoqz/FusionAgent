@@ -70,6 +70,15 @@ def _stage_evidence_paths() -> set[str]:
 
 
 def build_manifest(repo_root: Path, output: Path) -> dict[str, Any]:
+    existing_status = None
+    if output.is_file():
+        try:
+            candidate = load(output).get("status")
+            if candidate in {"pending_human_review", "approved"}:
+                existing_status = candidate
+        except (OSError, ValueError, TypeError):
+            existing_status = None
+    manifest_status = existing_status or "pending_human_review"
     all_tests = {path.relative_to(repo_root).as_posix() for path in (repo_root / "tests").glob("test_benchmark_platform*.py")}
     audit_tests = {"tests/test_benchmark_platform_p7.py"}
     historical_tests = all_tests - CORE_TEST_FILES - audit_tests
@@ -78,7 +87,7 @@ def build_manifest(repo_root: Path, output: Path) -> dict[str, Any]:
         "protocol_id": PROTOCOL_ID,
         "milestone_id": "M-BENCH-PLATFORM-CORE-V1",
         "version": "1.0.0",
-        "status": "pending_human_review",
+        "status": manifest_status,
         "generated_at": datetime.now(timezone.utc).isoformat(),
         "file_hash_canonicalization": "normalize_crlf_to_lf",
         "git": {"branch": "codex/benchmark-platform-dev-r1", "implementation_source_commit": SOURCE_COMMIT, "expected_freeze_tag": EXPECTED_TAG},
@@ -96,7 +105,7 @@ def build_manifest(repo_root: Path, output: Path) -> dict[str, Any]:
         "validation": {"core_test_command": CORE_TEST_COMMAND, "core_tests_passed": 64, "core_test_result": "64 passed in 24.63s", "historical_stage_tests_policy": "hashed_for_lineage_not_rerun_against_later_worktree"},
         "accounting": ACCOUNTING,
         "claim_boundary": {"strongest_status": "implementation_validated_offline", "supports_method_effect": False, "supports_production_capability": False, "supports_formal_experiment": False, "supports_e2e": False},
-        "review": {"review_id": REVIEW_ID, "status": "pending_human_review", "automatic_approval_forbidden": True},
+        "review": {"review_id": REVIEW_ID, "status": manifest_status, "automatic_approval_forbidden": True},
         "self_hash_policy": {"implementation_manifest.json": "excluded_to_avoid_recursive_hashing", "p7_audit.json": "excluded_as_generated_output", "p7_review.json": "separately_verified_human_decision", "p7_checkpoint.json": "separately_verified_stage_state"},
     }
     output.parent.mkdir(parents=True, exist_ok=True)
@@ -183,7 +192,7 @@ def _git_blob_hash(repo_root: Path, commit: str, relative_path: str) -> str:
 def _review_pass(review: dict[str, Any]) -> tuple[bool, dict[str, Any]]:
     checklist = review.get("checklist", [])
     decisions = {item.get("item_id"): item.get("decision") for item in checklist if isinstance(item, dict)}
-    passed = review.get("review_id") == REVIEW_ID and review.get("decision") == "approved" and set(decisions) == REVIEW_ITEMS and all(value == "approved" for value in decisions.values()) and review.get("unresolved_disagreements") == [] and isinstance(review.get("reviewer", {}).get("name"), str) and bool(review["reviewer"]["name"].strip())
+    passed = review.get("review_id") == REVIEW_ID and review.get("status") == "approved" and review.get("decision") == "approved" and set(decisions) == REVIEW_ITEMS and all(value == "approved" for value in decisions.values()) and review.get("unresolved_disagreements") == [] and isinstance(review.get("reviewer", {}).get("name"), str) and bool(review["reviewer"]["name"].strip())
     return passed, {"status": review.get("status"), "decision": review.get("decision"), "decisions": decisions, "reviewer": review.get("reviewer"), "unresolved_disagreements": review.get("unresolved_disagreements")}
 
 
@@ -197,7 +206,7 @@ def audit_p7(repo_root: Path, manifest_path: Path, review_path: Path, checkpoint
         checks.append({"check_id": check_id, "required": True, "human": human, "passed": bool(passed), "details": details})
 
     identity = {key: manifest.get(key) for key in ("manifest_id", "protocol_id", "milestone_id", "version", "status")}
-    check("implementation_manifest_identity", identity == {"manifest_id": MANIFEST_ID, "protocol_id": PROTOCOL_ID, "milestone_id": "M-BENCH-PLATFORM-CORE-V1", "version": "1.0.0", "status": "pending_human_review"}, identity)
+    check("implementation_manifest_identity", identity == {"manifest_id": MANIFEST_ID, "protocol_id": PROTOCOL_ID, "milestone_id": "M-BENCH-PLATFORM-CORE-V1", "version": "1.0.0", "status": "approved"}, identity)
 
     branch = subprocess.run(["git", "branch", "--show-current"], cwd=repo_root, capture_output=True, text=True, encoding="utf-8", check=True).stdout.strip()
     source_ancestor = subprocess.run(["git", "merge-base", "--is-ancestor", SOURCE_COMMIT, "HEAD"], cwd=repo_root, check=False).returncode == 0
@@ -230,7 +239,7 @@ def audit_p7(repo_root: Path, manifest_path: Path, review_path: Path, checkpoint
     check("zero_call_and_claim_boundary", manifest.get("accounting") == ACCOUNTING and checkpoint.get("accounting") == ACCOUNTING and future_root.is_absolute() and not future_root.exists() and manifest.get("claim_boundary", {}).get("strongest_status") == "implementation_validated_offline" and all(manifest.get("claim_boundary", {}).get(key) is False for key in ("supports_method_effect", "supports_production_capability", "supports_formal_experiment", "supports_e2e")), {"manifest_accounting": manifest.get("accounting"), "checkpoint_accounting": checkpoint.get("accounting"), "future_output_root": str(future_root), "future_output_root_exists": future_root.exists(), "claim_boundary": manifest.get("claim_boundary")})
 
     checkpoint_identity = {key: checkpoint.get(key) for key in ("checkpoint_id", "protocol_id", "stage", "gate", "status")}
-    check("p7_checkpoint_boundary", checkpoint_identity == {"checkpoint_id": CHECKPOINT_ID, "protocol_id": PROTOCOL_ID, "stage": "P7", "gate": "BP7", "status": "awaiting_human_review"} and checkpoint.get("freeze", {}).get("tag_created") is False and checkpoint.get("governance", {}).get("updated") is False, {"identity": checkpoint_identity, "freeze": checkpoint.get("freeze"), "governance": checkpoint.get("governance")})
+    check("p7_checkpoint_boundary", checkpoint_identity == {"checkpoint_id": CHECKPOINT_ID, "protocol_id": PROTOCOL_ID, "stage": "P7", "gate": "BP7", "status": "complete"} and checkpoint.get("validation", {}).get("human_review_passed") is True and checkpoint.get("freeze", {}).get("tag_created") is True and checkpoint.get("freeze", {}).get("tag_pushed") is True and checkpoint.get("governance", {}).get("updated") is True and checkpoint.get("freeze", {}).get("blocked_by") is None and checkpoint.get("governance", {}).get("blocked_by") is None, {"identity": checkpoint_identity, "validation": checkpoint.get("validation"), "freeze": checkpoint.get("freeze"), "governance": checkpoint.get("governance")})
 
     review_passed, review_details = _review_pass(review)
     check("human_implementation_review", review_passed, review_details, human=True)
@@ -251,8 +260,8 @@ def main() -> int:
     root = Path(__file__).resolve().parents[1]
     manifest_path = args.manifest if args.manifest.is_absolute() else root / args.manifest
     if args.build_manifest:
-        build_manifest(root, manifest_path)
-        print(json.dumps({"manifest": str(manifest_path), "status": "pending_human_review"}))
+        manifest = build_manifest(root, manifest_path)
+        print(json.dumps({"manifest": str(manifest_path), "status": manifest["status"]}))
         return 0
     if args.review is None or args.checkpoint is None or args.output is None:
         parser.error("--review, --checkpoint and --output are required for audit mode")

@@ -14,14 +14,14 @@ REVIEW = IMPLEMENTATION / "p7_review.json"
 CHECKPOINT = IMPLEMENTATION / "p7_checkpoint.json"
 
 
-def test_p7_machine_checks_pass_and_human_review_remains() -> None:
+def test_p7_final_machine_and_human_checks_pass() -> None:
     result = audit_p7(ROOT, MANIFEST, REVIEW, CHECKPOINT)
     assert result["machine_checks_passed"] is True
     assert result["machine_required_failures"] == []
-    assert result["required_failures"] == ["human_implementation_review"]
-    assert result["overall_passed"] is False
-    assert result["stage_status"] == "awaiting_human_review"
-    assert result["freeze_authorized"] is False
+    assert result["required_failures"] == []
+    assert result["overall_passed"] is True
+    assert result["stage_status"] == "complete"
+    assert result["freeze_authorized"] is True
 
 
 def test_manifest_file_categories_are_complete_and_hash_bound() -> None:
@@ -60,11 +60,22 @@ def test_explicit_approved_review_would_open_freeze_gate(tmp_path: Path) -> None
     assert result["freeze_authorized"] is True
 
 
+def test_review_without_explicit_approved_status_remains_closed(tmp_path: Path) -> None:
+    review = copy.deepcopy(load(REVIEW))
+    review["status"] = "pending_human_review"
+    pending = tmp_path / "p7_review.json"
+    pending.write_text(json.dumps(review, ensure_ascii=False, indent=2) + "\n", encoding="utf-8")
+    result = audit_p7(ROOT, MANIFEST, pending, CHECKPOINT)
+    assert result["machine_checks_passed"] is True
+    assert result["required_failures"] == ["human_implementation_review"]
+    assert result["freeze_authorized"] is False
+
+
 def test_p7_accounting_and_next_action_remain_bounded() -> None:
     checkpoint = load(CHECKPOINT)
     assert checkpoint["accounting"]["provider_calls"] == 0
     assert checkpoint["accounting"]["judge_calls"] == 0
     assert checkpoint["accounting"]["benchmark_instances_generated"] == 0
-    assert checkpoint["freeze"]["tag_created"] is False
-    assert checkpoint["governance"]["updated"] is False
-    assert checkpoint["next_action"] == "explicit_human_implementation_review"
+    assert checkpoint["freeze"]["tag_created"] is True
+    assert checkpoint["governance"]["updated"] is True
+    assert checkpoint["next_action"] == "explicit_next_protocol_authorization"

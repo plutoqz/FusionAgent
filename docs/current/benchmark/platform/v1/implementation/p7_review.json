@@ -2,23 +2,23 @@
   "review_id": "fusionagent.benchmark-platform-core.p7-review.v1",
   "manifest_id": "fusionagent.benchmark-platform-core.implementation-manifest.v1",
   "protocol_id": "fusionagent.benchmark-platform-implementation-protocol.v1",
-  "status": "pending_human_review",
+  "status": "approved",
   "reviewer": {
-    "name": null,
+    "name": "用户（人工复核）",
     "role": "user_or_independent_reviewer",
-    "reviewed_at": null
+    "reviewed_at": "2026-08-31T00:00:00+08:00"
   },
   "checklist": [
-    {"item_id": "BPI-COMPONENTS", "question": "Do the implemented component boundaries match the frozen component contract without moving benchmark semantics into legacy runtime modules?", "decision": null, "comment": null},
-    {"item_id": "BPI-FAIL-CLOSED", "question": "Are schema, design, crosswalk, generation, relation, storage and CLI failures attributable and fail closed without fallback or silent repair?", "decision": null, "comment": null},
-    {"item_id": "BPI-VIEWS", "question": "Do planner, evaluator and human-blind projections use allowlists and preserve the frozen leakage boundary?", "decision": null, "comment": null},
-    {"item_id": "BPI-RECOVERY", "question": "Do write-new storage, checkpoint progression, explicit resume binding, tamper rejection and terminal checksums satisfy BP5?", "decision": null, "comment": null},
-    {"item_id": "BPI-CLI", "question": "Does the CLI expose only the seven frozen offline commands with stable structured exit behavior and no network dependency?", "decision": null, "comment": null},
-    {"item_id": "BPI-EVIDENCE", "question": "Are tests, hashes, failed attempts, zero-call accounting and the implementation_validated_offline claim boundary recorded accurately?", "decision": null, "comment": null},
-    {"item_id": "BPI-NO-EXPANSION", "question": "Does this closure avoid template authoring, real corpus generation, confirmation, E2E, Provider, judge and formal experiment authorization?", "decision": null, "comment": null}
+    {"item_id": "BPI-COMPONENTS", "question": "Do the implemented component boundaries match the frozen component contract without moving benchmark semantics into legacy runtime modules?", "decision": "approved", "comment": "已对照冻结 component contract、源码清单和 P0-P6 证据；边界保持在 benchmark_platform，未迁移旧运行时语义。"},
+    {"item_id": "BPI-FAIL-CLOSED", "question": "Are schema, design, crosswalk, generation, relation, storage and CLI failures attributable and fail closed without fallback or silent repair?", "decision": "approved", "comment": "合同测试覆盖 schema、design/crosswalk、generation、relation、storage 和 CLI 的可归因失败；未发现静默修复或隐式 fallback。"},
+    {"item_id": "BPI-VIEWS", "question": "Do planner, evaluator and human-blind projections use allowlists and preserve the frozen leakage boundary?", "decision": "approved", "comment": "P4 视图由 allowlist 重建并拒绝 planner/evaluator 越界、gold 和 condition/run identity 泄漏。"},
+    {"item_id": "BPI-RECOVERY", "question": "Do write-new storage, checkpoint progression, explicit resume binding, tamper rejection and terminal checksums satisfy BP5?", "decision": "approved", "comment": "P5 证据覆盖 write-new、checkpoint、显式 resume binding、篡改拒绝和终态 checksum 校验。"},
+    {"item_id": "BPI-CLI", "question": "Does the CLI expose only the seven frozen offline commands with stable structured exit behavior and no network dependency?", "decision": "approved", "comment": "P6 CLI 仅暴露冻结的七个离线命令，结构化输出和退出码稳定，导入边界及 no-network 测试通过。"},
+    {"item_id": "BPI-EVIDENCE", "question": "Are tests, hashes, failed attempts, zero-call accounting and the implementation_validated_offline claim boundary recorded accurately?", "decision": "approved", "comment": "manifest、阶段审计、失败尝试、零调用计数和 claim boundary 已绑定并保留；最强表述限定为 implementation_validated_offline。"},
+    {"item_id": "BPI-NO-EXPANSION", "question": "Does this closure avoid template authoring, real corpus generation, confirmation, E2E, Provider, judge and formal experiment authorization?", "decision": "approved", "comment": "本次批准仅开放 P7 冻结动作；template authoring、实例生成、confirmation、E2E、Provider、judge 和正式实验仍未授权。"}
   ],
-  "decision": null,
-  "overall_comment": null,
+  "decision": "approved",
+  "overall_comment": "批准 P7 全部七项人工复核。批准范围仅为 benchmark platform core V1 的离线实现闭环与冻结，不支持方法效果、生产能力、正式实验或 E2E 主张。",
   "unresolved_disagreements": [],
   "instructions": "A user or independent human reviewer must decide every checklist item and the overall decision. Machine audit and the implementation author must not infer or approve these decisions."
 }
