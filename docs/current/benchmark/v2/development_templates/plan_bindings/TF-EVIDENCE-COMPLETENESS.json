@@ -1,0 +1,46 @@
+{
+  "plan_id": "PLAN-AUTHORING-EVIDENCE-COMPLETENESS",
+  "status": "authoring_fixture_not_executed",
+  "template_family_id": "TF-EVIDENCE-COMPLETENESS",
+  "task_ids": [
+    "TASK-BUILDING",
+    "TASK-ROAD",
+    "TASK-WATER-POLYGON",
+    "TASK-WATERWAYS",
+    "TASK-POI"
+  ],
+  "contract_ids": [
+    "contract.product.building.v1",
+    "contract.product.road.v1",
+    "contract.product.water_polygon.v1",
+    "contract.product.waterways.v1",
+    "contract.product.poi.v1"
+  ],
+  "source_ids": [
+    "raw.osm.building",
+    "raw.microsoft.building",
+    "raw.osm.road",
+    "raw.microsoft.road",
+    "raw.osm.water",
+    "raw.hydrolakes.water",
+    "raw.osm.waterways",
+    "raw.hydrorivers.water",
+    "raw.osm.poi",
+    "raw.gns.poi",
+    "raw.google.poi"
+  ],
+  "algorithm_ids": [
+    "algo.fusion.building.v1",
+    "algo.fusion.road.conflation.v7",
+    "algo.fusion.water_polygon.priority_merge.v2",
+    "algo.fusion.waterways.conflation.v7",
+    "algo.fusion.poi.v1"
+  ],
+  "delivery_states": {
+    "TASK-BUILDING": "final",
+    "TASK-ROAD": "final",
+    "TASK-WATER-POLYGON": "final",
+    "TASK-WATERWAYS": "final",
+    "TASK-POI": "final"
+  }
+}

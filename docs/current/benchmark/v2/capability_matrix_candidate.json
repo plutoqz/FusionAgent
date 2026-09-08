@@ -1,0 +1,23 @@
+{
+  "matrix_id": "fusionagent.benchmark-capability-matrix.v2-candidate",
+  "base_matrix_id": "fusionagent.benchmark-capability-matrix.v1",
+  "version": "2.0.0-candidate",
+  "status": "v2_candidate",
+  "kg_release_id": "fusionagent-kg-v1.0.0",
+  "scope": "extension_only",
+  "historical_exclusions_inherited": true,
+  "capability_layers_inherited": ["kg", "projection", "planning", "validator", "execution_evidence"],
+  "candidate_capability_layers_added": [],
+  "stage_to_capability_layer": {
+    "region": "planning",
+    "delivery": "execution_evidence"
+  },
+  "cells": [
+    {"capability_cell_id":"BC-V2-ALGORITHM-01","template_family_id":"TF-ALGORITHM-CAPABILITY-GROUNDING","claim_id":"CL-BENCH-DIAG","capability_layer":"planning","mechanism_family":"algorithm_capability_grounding","complexity_level":"L2","role":"positive_and_veto","primary_gate":"G3","e2e_eligibility":false},
+    {"capability_cell_id":"BC-V2-AOI-01","template_family_id":"TF-AOI-RESOLUTION-BOUNDARY","claim_id":"CL-BENCH-CAUSAL","capability_layer":"planning","mechanism_family":"aoi_resolution_boundary","complexity_level":"L2","role":"positive_and_reject","primary_gate":"G2","e2e_eligibility":false},
+    {"capability_cell_id":"BC-V2-ACQUISITION-01","template_family_id":"TF-VECTOR-ACQUISITION-FAILURE","claim_id":"CL-BENCH-RECOVERY","capability_layer":"execution_evidence","mechanism_family":"vector_acquisition_failure","complexity_level":"L4","role":"failure_and_recovery","primary_gate":"G6","e2e_eligibility":true},
+    {"capability_cell_id":"BC-V2-QUALITY-01","template_family_id":"TF-QUALITY-GATE-EVIDENCE","claim_id":"CL-BENCH-RECOVERY","capability_layer":"execution_evidence","mechanism_family":"quality_gate_evidence","complexity_level":"L4","role":"hard_gate_and_soft_degradation","primary_gate":"G6","e2e_eligibility":true},
+    {"capability_cell_id":"BC-V2-EVIDENCE-01","template_family_id":"TF-EVIDENCE-COMPLETENESS","claim_id":"CL-BENCH-DIAG","capability_layer":"execution_evidence","mechanism_family":"evidence_completeness","complexity_level":"L4","role":"artifact_presence_and_lineage","primary_gate":"G6","e2e_eligibility":true},
+    {"capability_cell_id":"BC-V2-DELIVERY-01","extends_capability_cell_id":"BC-RECOVERY-03","template_family_id":"TF-DELIVERY-STATE-TRACE","claim_id":"CL-BENCH-RECOVERY","capability_layer":"execution_evidence","mechanism_family":"delivery_state_transition","complexity_level":"L4","role":"execution_evidence_transition_trace","primary_gate":"G6","secondary_gate":"G4","e2e_eligibility":true}
+  ]
+}

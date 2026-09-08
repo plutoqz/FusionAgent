@@ -1,0 +1,118 @@
+{
+  "review_id": "fusionagent.method-selection-template-authoring-review.v2-candidate",
+  "status": "user_approved_authoring_in_progress",
+  "review_scope": "v2 candidate schema extension, capability matrix extension, and 15 development authoring contracts",
+  "approved_semantics_manifest": "docs/current/method-selection-template-families-v2-candidate.json",
+  "candidate_artifacts": [
+    "schemas/benchmark_template_v2_candidate_extension.schema.json",
+    "docs/current/benchmark/v2/capability_matrix_candidate.json",
+    "docs/current/method-selection-template-authoring-contracts-v2-candidate.json"
+  ],
+  "audit_artifacts": [
+    "docs/current/method-selection-template-semantics-audit-v2-candidate.json",
+    "docs/current/method-selection-template-authoring-contract-audit-v2-candidate.json"
+  ],
+  "machine_checks": {
+    "semantic_family_count": 15,
+    "authoring_contract_count": 15,
+    "v2_matrix_cell_count": 6,
+    "product_types": ["building", "road", "water_polygon", "waterways", "poi"],
+    "full_chain_covered": true,
+    "kg_id_closure": "passed",
+    "historical_exclusion_declared": true,
+    "frozen_v1_modified": false,
+    "focused_tests": "32 passed",
+    "compileall": "passed",
+    "diff_check": "passed"
+  },
+  "independent_review_history": [
+    {
+      "round": 1,
+      "decision": "needs_revision",
+      "blocking_findings": [
+        "cross-field fail-closed constraints were not encoded",
+        "extension lacked base template and lineage bindings",
+        "audit could produce false-positive passes",
+        "per-family chain coverage was overstated",
+        "L4 eligibility and five-product source closure were incomplete",
+        "v2 capability-layer and delivery-cell mappings drifted from v1"
+      ],
+      "preserved_correction": "raw-to-building and raw-to-road transforms are KG-registered but runtime execution remains unverified"
+    },
+    {
+      "round": 2,
+      "decision": "needs_revision",
+      "blocking_findings": [
+        "cross-extension hard-failure-to-final path remained open",
+        "lineage and required-input set consistency was not enforced",
+        "registered raster sources and non-KG quality check IDs could pass"
+      ]
+    },
+    {
+      "round": 3,
+      "decision": "pass",
+      "verified": [
+        "all 11 adversarial counterexamples rejected",
+        "frozen v1 and KG identity valid",
+        "five-product source-role and forbidden-domain checks pass",
+        "L4 eligibility and v2 matrix mappings close",
+        "JSON Schema and platform semantic validator are both required"
+      ]
+    }
+  ],
+  "round_1_remediation": [
+    "added base template, frozen plan and lineage hash bindings",
+    "encoded AOI, acquisition, hard-soft quality and delivery transition constraints",
+    "added algorithm grounding extension",
+    "replaced hard-coded family count with approved_family_ids closure",
+    "added frozen design, KG, source-role, algorithm-product, policy, schema-probe and matrix audits",
+    "reduced family chain coverage to the evidence-bearing stages",
+    "made TF-EVIDENCE-COMPLETENESS the five-product full-chain family with full source closure",
+    "restored TF-SOURCE-AVAILABILITY to L1 and mapped delivery v2 as a G6 extension of BC-RECOVERY-03",
+    "required raw_plan, pre_veto, post_veto and final_system_state observations"
+  ],
+  "residual_boundaries": [
+    "Every future v2 template must pass both Draft202012Validator and benchmark_platform.template_v2.validate_v2_extension_document.",
+    "L4 eligible is a protocol admission requirement, not evidence of current real E2E capability.",
+    "algo.transform.raw_to_building_bundle and algo.transform.raw_to_road_bundle are KG-registered but remain runtime-unverified."
+  ],
+  "authorization_accounting": {
+    "provider_calls": 0,
+    "judge_calls": 0,
+    "instances_generated": 0,
+    "formal_result_roots_created": 0,
+    "confirmation_unsealed": false,
+    "selective_e2e_selected": false
+  },
+  "review_questions": [
+    {
+      "item_id": "TA-V2-01",
+      "question": "Does the v2 candidate remain limited to the five registered vector product types and exclude InSAR and raster products?",
+      "decision": "approved_by_user"
+    },
+    {
+      "item_id": "TA-V2-02",
+      "question": "Do the AOI, acquisition, quality evidence, and delivery extensions preserve the approved semantics without modifying frozen v1 assets?",
+      "decision": "approved_by_user"
+    },
+    {
+      "item_id": "TA-V2-03",
+      "question": "Do all 15 authoring contracts preserve their approved causal, invariant, nuisance, oracle, veto, coverage and KG bindings?",
+      "decision": "approved_by_user"
+    },
+    {
+      "item_id": "TA-V2-04",
+      "question": "May the project author concrete development template documents while retaining invalid attempts and zero Provider/judge calls?",
+      "decision": "approved_by_user_for_template_authoring_only"
+    }
+  ],
+  "not_authorized": [
+    "development instance generation",
+    "provider",
+    "judge",
+    "confirmation",
+    "selective_e2e",
+    "formal_experiment",
+    "development_instance_generation_until_materializer_review"
+  ]
+}

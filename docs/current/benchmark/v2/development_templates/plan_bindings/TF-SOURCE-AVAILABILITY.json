@@ -1,0 +1,24 @@
+{
+  "plan_id": "PLAN-AUTHORING-SOURCE-AVAILABILITY",
+  "status": "authoring_fixture_not_executed",
+  "template_family_id": "TF-SOURCE-AVAILABILITY",
+  "task_ids": [
+    "TASK-POI"
+  ],
+  "contract_ids": [
+    "contract.product.poi.v1"
+  ],
+  "source_ids": [
+    "catalog.generic.poi",
+    "raw.osm.poi",
+    "raw.gns.poi",
+    "raw.google.poi"
+  ],
+  "algorithm_ids": [
+    "algo.fusion.poi.v1",
+    "algo.fusion.poi.geohash_neighbor_match.v1"
+  ],
+  "delivery_states": {
+    "TASK-POI": "planned"
+  }
+}

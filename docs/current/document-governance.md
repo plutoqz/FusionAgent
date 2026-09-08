@@ -1,7 +1,7 @@
 # 文档治理与归档规则
 
 > 状态：A0 当前权威规则
-> 更新日期：2026-08-19
+> 更新日期：2026-09-06
 
 ## 1. 治理目标
 
@@ -36,8 +36,12 @@
 - `research-governance-index.md`：唯一当前阶段和下一验收点。
 - `research-claim-evidence-ledger.md`：唯一当前主张状态和允许表述。
 - `research-experiment-ledger.md`：唯一当前实验角色、状态和复用范围。
+- `research-evidence-next-design.md`：当前 Q1 快速方法判别计划；N0/N1 冻结复核路线已替代，不作为快速实验前置。
+- `research-evidence-supporting-conclusions.md` 与 `research-evidence-non-supporting.md`：配套证据解释，不独立升级主张。
 
-旧 `project-status.md`、`claims-and-priorities.md` 和长篇实验计划可以保留历史事实，但不得与上述三个 A1 入口竞争当前状态权威。对它们优先添加 superseded 指针，不批量重写历史 checkpoint。
+`method-selection-protocol-v1.md`、`method-selection-implementation-plan-v1.md` 和 `method-selection-development-protocol-v1.md` 自 2026-09-06 起为 `A3/superseded`。保留正文和原路径供追溯，不能再作为当前执行入口。其历史批准只对应当时范围，不自动授权新实验。冻结平台包保留原身份，但只证明其冻结时的零调用基础设施状态。
+
+旧 `project-status.md`、`claims-and-priorities.md` 和长篇实验计划可以保留历史事实，但不得与上述当前 A1 入口竞争当前状态权威。对它们优先添加 superseded 指针，不批量重写历史 checkpoint。
 
 ## 3. 目录职责
 
@@ -58,6 +62,10 @@ docs/
 `docs/current/evidence/` 和 `docs/thesis/` 必须各自维护目录级 `README.md`，使冻结协议、机器合同、当前规范与历史草案无需依赖文件名猜测角色。根目录长期 Markdown 必须在 `docs/README.md` 中逐项登记，不得依赖“位于 docs 根目录”隐式获得当前权威性。
 
 不立即大规模搬迁全部旧文档。先通过入口和状态解决权威冲突，再在真实使用或修改时逐步迁移。
+
+当前研究文档权威工作树为 `D:\code\FusionAgent-benchmark-platform-dev`。`D:\code\FusionAgent` 的较旧文档入口通过本地路由指向它，不复制第二份当前计划。两处源码与未提交修改均须独立核对；跨工作树指针是本机导航，不是可移植论文证据。
+
+本轮编辑前的 12 份文档（包括已有未提交改动）原样复制至 `docs/archive/plans/2026-09-06-before-research-replan/`，复制时逐文件核验 SHA-256。其正文中的 current/next 等旧状态均受该目录 `index.md` 的历史边界约束。
 
 ## 4. 当前材料迁移规则
 

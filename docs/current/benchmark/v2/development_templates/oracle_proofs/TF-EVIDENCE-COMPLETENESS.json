@@ -1,0 +1,154 @@
+{
+  "solver_id": "finite-state-task-contract.v1",
+  "template_family_id": "TF-EVIDENCE-COMPLETENESS",
+  "allowed_decisions": [
+    "plan"
+  ],
+  "task_plans": [
+    {
+      "task_id": "TASK-BUILDING",
+      "required": true,
+      "legal_source_ids": [
+        "raw.microsoft.building",
+        "raw.osm.building"
+      ],
+      "allowed_delivery_states": [
+        "final"
+      ],
+      "valid_combinations": [
+        {
+          "decision": "plan",
+          "delivery_state": "final",
+          "source_id": "raw.microsoft.building"
+        },
+        {
+          "decision": "plan",
+          "delivery_state": "final",
+          "source_id": "raw.osm.building"
+        }
+      ],
+      "must": [
+        "task_present"
+      ],
+      "forbidden": []
+    },
+    {
+      "task_id": "TASK-ROAD",
+      "required": true,
+      "legal_source_ids": [
+        "raw.microsoft.road",
+        "raw.osm.road"
+      ],
+      "allowed_delivery_states": [
+        "final"
+      ],
+      "valid_combinations": [
+        {
+          "decision": "plan",
+          "delivery_state": "final",
+          "source_id": "raw.microsoft.road"
+        },
+        {
+          "decision": "plan",
+          "delivery_state": "final",
+          "source_id": "raw.osm.road"
+        }
+      ],
+      "must": [
+        "task_present"
+      ],
+      "forbidden": []
+    },
+    {
+      "task_id": "TASK-WATER-POLYGON",
+      "required": true,
+      "legal_source_ids": [
+        "raw.hydrolakes.water",
+        "raw.osm.water"
+      ],
+      "allowed_delivery_states": [
+        "final"
+      ],
+      "valid_combinations": [
+        {
+          "decision": "plan",
+          "delivery_state": "final",
+          "source_id": "raw.hydrolakes.water"
+        },
+        {
+          "decision": "plan",
+          "delivery_state": "final",
+          "source_id": "raw.osm.water"
+        }
+      ],
+      "must": [
+        "task_present"
+      ],
+      "forbidden": []
+    },
+    {
+      "task_id": "TASK-WATERWAYS",
+      "required": true,
+      "legal_source_ids": [
+        "raw.hydrorivers.water",
+        "raw.osm.waterways"
+      ],
+      "allowed_delivery_states": [
+        "final"
+      ],
+      "valid_combinations": [
+        {
+          "decision": "plan",
+          "delivery_state": "final",
+          "source_id": "raw.hydrorivers.water"
+        },
+        {
+          "decision": "plan",
+          "delivery_state": "final",
+          "source_id": "raw.osm.waterways"
+        }
+      ],
+      "must": [
+        "task_present"
+      ],
+      "forbidden": []
+    },
+    {
+      "task_id": "TASK-POI",
+      "required": true,
+      "legal_source_ids": [
+        "raw.gns.poi",
+        "raw.google.poi",
+        "raw.osm.poi"
+      ],
+      "allowed_delivery_states": [
+        "final"
+      ],
+      "valid_combinations": [
+        {
+          "decision": "plan",
+          "delivery_state": "final",
+          "source_id": "raw.gns.poi"
+        },
+        {
+          "decision": "plan",
+          "delivery_state": "final",
+          "source_id": "raw.google.poi"
+        },
+        {
+          "decision": "plan",
+          "delivery_state": "final",
+          "source_id": "raw.osm.poi"
+        }
+      ],
+      "must": [
+        "task_present"
+      ],
+      "forbidden": []
+    }
+  ],
+  "veto_ids": [
+    "VETO-EVIDENCE-COMPLETENESS"
+  ],
+  "proof_hash": "sha256:1a3995f513bbe1f31469c1711c1f3a66cc4e065a448b2bbeda4fb8e3af5fe56f"
+}

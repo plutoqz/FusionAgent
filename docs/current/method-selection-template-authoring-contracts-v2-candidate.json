@@ -1,0 +1,984 @@
+{
+  "contract_manifest_id": "fusionagent.method-selection-template-authoring-contracts.v2-candidate",
+  "status": "v2_candidate",
+  "source_manifest": "fusionagent.method-selection-template-families.v2-candidate",
+  "source_manifest_sha256": "sha256:df87c3304a9b898728fc8bf3e6809d8729f0aed5f6997c340bef039a20f0a579",
+  "kg_release_id": "fusionagent-kg-v1.0.0",
+  "template_schema_id": "https://fusionagent.local/schemas/benchmark-template-v2-candidate-extension.json",
+  "matrix_id": "fusionagent.benchmark-capability-matrix.v2-candidate",
+  "partition": "development",
+  "evaluation_observation_points": [
+    "raw_plan",
+    "pre_veto",
+    "post_veto",
+    "final_system_state"
+  ],
+  "families": [
+    {
+      "template_family_id": "TF-CONTRACT-REQUIREDNESS",
+      "status": "v1_ready",
+      "product_types": [
+        "building"
+      ],
+      "complexity_level": "L1",
+      "coverage_tags": [
+        "building",
+        "planning",
+        "contract_criticality",
+        "BC-CAUSAL-01",
+        "veto",
+        "gap"
+      ],
+      "causal_variable_ids": [
+        "VAR-CONTRACT-REQUIREDNESS"
+      ],
+      "invariant_variable_ids": [
+        "VAR-TASK-KIND",
+        "VAR-OBSERVABLE-SOURCES"
+      ],
+      "nuisance_variable_ids": [],
+      "contract_ids": [
+        "contract.product.building.v1"
+      ],
+      "source_ids": [
+        "catalog.earthquake.building",
+        "raw.osm.building",
+        "raw.microsoft.building"
+      ],
+      "algorithm_ids": [
+        "algo.fusion.building.v1",
+        "algo.fusion.building.safe"
+      ],
+      "quality_policy_ids": [
+        "quality.default.building.v1"
+      ],
+      "other_policy_ids": [],
+      "oracle_summary": "closed_sources=planned|provisional; missing_required_source=gap; no_legal_contract=reject",
+      "veto_summary": "geometry_or_lineage_hard_failure; missing_required_knowledge; missing_source_materialization",
+      "chain_coverage": [
+        "planning"
+      ],
+      "required_v2_fields": [],
+      "required_v2_extensions": [],
+      "base_template_binding_required": false,
+      "e2e_eligibility": null,
+      "historical_exclusion_checked": true
+    },
+    {
+      "template_family_id": "TF-WORDING-PARAPHRASE",
+      "status": "v1_ready",
+      "product_types": [
+        "poi"
+      ],
+      "complexity_level": "L1",
+      "coverage_tags": [
+        "poi",
+        "planning",
+        "wording_invariance",
+        "BC-INVARIANT-01",
+        "veto"
+      ],
+      "causal_variable_ids": [],
+      "invariant_variable_ids": [
+        "VAR-CANONICAL-REQUEST",
+        "VAR-OBSERVABLE-FACTS"
+      ],
+      "nuisance_variable_ids": [
+        "VAR-REQUEST-SURFACE-FORM"
+      ],
+      "contract_ids": [
+        "contract.product.poi.v1"
+      ],
+      "source_ids": [
+        "catalog.generic.poi",
+        "raw.osm.poi",
+        "raw.gns.poi",
+        "raw.google.poi"
+      ],
+      "algorithm_ids": [
+        "algo.fusion.poi.v1",
+        "algo.fusion.poi.geohash_neighbor_match.v1"
+      ],
+      "quality_policy_ids": [
+        "quality.default.poi.v1"
+      ],
+      "other_policy_ids": [],
+      "oracle_summary": "equivalent_bounded_request=poi_task_with_planned_or_provisional",
+      "veto_summary": "unbounded_entity_alignment; wording_expands_task_or_source",
+      "chain_coverage": [
+        "planning"
+      ],
+      "required_v2_fields": [],
+      "required_v2_extensions": [],
+      "base_template_binding_required": false,
+      "e2e_eligibility": null,
+      "historical_exclusion_checked": true
+    },
+    {
+      "template_family_id": "TF-INPUT-ORDER",
+      "status": "v1_ready",
+      "product_types": [
+        "building",
+        "road",
+        "water_polygon",
+        "waterways",
+        "poi"
+      ],
+      "complexity_level": "L2",
+      "coverage_tags": [
+        "flood",
+        "multi_product",
+        "projection",
+        "input_order",
+        "BC-INVARIANT-02",
+        "veto",
+        "gap"
+      ],
+      "causal_variable_ids": [],
+      "invariant_variable_ids": [
+        "VAR-TASK-SET",
+        "VAR-TASK-LOCAL-FACTS"
+      ],
+      "nuisance_variable_ids": [
+        "VAR-REQUEST-TASK-ORDER",
+        "VAR-CONTEXT-RECORD-ORDER"
+      ],
+      "contract_ids": [
+        "contract.product.building.v1",
+        "contract.product.road.v1",
+        "contract.product.water_polygon.v1",
+        "contract.product.waterways.v1",
+        "contract.product.poi.v1"
+      ],
+      "source_ids": [
+        "catalog.flood.building",
+        "catalog.flood.road",
+        "catalog.flood.water_polygon",
+        "catalog.flood.waterways",
+        "catalog.generic.poi"
+      ],
+      "algorithm_ids": [
+        "algo.fusion.building.v1",
+        "algo.fusion.road.conflation.v7",
+        "algo.fusion.water_polygon.priority_merge.v2",
+        "algo.fusion.waterways.conflation.v7",
+        "algo.fusion.poi.v1"
+      ],
+      "quality_policy_ids": [
+        "quality.default.building.v1",
+        "quality.default.road.v1",
+        "quality.default.water_polygon.v1",
+        "quality.default.waterways.v1",
+        "quality.default.poi.v1"
+      ],
+      "other_policy_ids": [],
+      "oracle_summary": "five_tasks_preserved; task-local algorithms preserved; planned|provisional|gap allowed",
+      "veto_summary": "task_loss; cross_task_pollution; unregistered_precedence; silent_final",
+      "chain_coverage": [
+        "projection",
+        "planning"
+      ],
+      "required_v2_fields": [],
+      "required_v2_extensions": [],
+      "base_template_binding_required": false,
+      "e2e_eligibility": null,
+      "historical_exclusion_checked": true
+    },
+    {
+      "template_family_id": "TF-IRRELEVANT-NOISE",
+      "status": "v1_ready",
+      "product_types": [
+        "water_polygon"
+      ],
+      "complexity_level": "L1",
+      "coverage_tags": [
+        "water_polygon",
+        "flood",
+        "noise_robustness",
+        "BC-INVARIANT-03",
+        "veto"
+      ],
+      "causal_variable_ids": [],
+      "invariant_variable_ids": [
+        "VAR-REQUEST",
+        "VAR-OBSERVABLE-FACTS"
+      ],
+      "nuisance_variable_ids": [
+        "VAR-IRRELEVANT-METADATA",
+        "VAR-UNRELATED-CATALOG-ENTRY"
+      ],
+      "contract_ids": [
+        "contract.product.water_polygon.v1"
+      ],
+      "source_ids": [
+        "catalog.flood.water_polygon",
+        "raw.osm.water",
+        "raw.hydrolakes.water"
+      ],
+      "algorithm_ids": [
+        "algo.fusion.water_polygon.priority_merge.v2"
+      ],
+      "quality_policy_ids": [
+        "quality.default.water_polygon.v1"
+      ],
+      "other_policy_ids": [],
+      "oracle_summary": "water_polygon_only_planned_or_provisional",
+      "veto_summary": "over_retrieval; unknown_task_or_source; rescue_terms_reinterpreted_as_product",
+      "chain_coverage": [
+        "planning"
+      ],
+      "required_v2_fields": [],
+      "required_v2_extensions": [],
+      "base_template_binding_required": false,
+      "e2e_eligibility": null,
+      "historical_exclusion_checked": true
+    },
+    {
+      "template_family_id": "TF-CROSS-TASK-PRECEDENCE",
+      "status": "v1_ready",
+      "product_types": [
+        "building",
+        "road",
+        "water_polygon",
+        "waterways",
+        "poi"
+      ],
+      "complexity_level": "L2",
+      "coverage_tags": [
+        "flood",
+        "multi_product",
+        "precedence",
+        "composition",
+        "BC-COMPOSE-03",
+        "veto",
+        "gap"
+      ],
+      "causal_variable_ids": [
+        "VAR-MISSION-PRIORITY"
+      ],
+      "invariant_variable_ids": [
+        "VAR-TASK-SET",
+        "VAR-TASK-LOCAL-CONTRACTS"
+      ],
+      "nuisance_variable_ids": [],
+      "contract_ids": [
+        "contract.product.building.v1",
+        "contract.product.road.v1",
+        "contract.product.water_polygon.v1",
+        "contract.product.waterways.v1",
+        "contract.product.poi.v1"
+      ],
+      "source_ids": [
+        "catalog.flood.building",
+        "catalog.flood.road",
+        "catalog.flood.water_polygon",
+        "catalog.flood.waterways",
+        "catalog.generic.poi"
+      ],
+      "algorithm_ids": [
+        "algo.fusion.building.v1",
+        "algo.fusion.road.conflation.v7",
+        "algo.fusion.water_polygon.priority_merge.v2",
+        "algo.fusion.waterways.conflation.v7",
+        "algo.fusion.poi.v1"
+      ],
+      "quality_policy_ids": [
+        "quality.default.building.v1",
+        "quality.default.road.v1",
+        "quality.default.water_polygon.v1",
+        "quality.default.waterways.v1",
+        "quality.default.poi.v1"
+      ],
+      "other_policy_ids": [],
+      "oracle_summary": "registered_precedence_respected; required_tasks_retained; missing_source_gap; multiple_plans_allowed",
+      "veto_summary": "required_task_drop; precedence_violation; silent_final",
+      "chain_coverage": [
+        "planning"
+      ],
+      "required_v2_fields": [],
+      "required_v2_extensions": [],
+      "base_template_binding_required": false,
+      "e2e_eligibility": null,
+      "historical_exclusion_checked": true
+    },
+    {
+      "template_family_id": "TF-KG-CROSSWALK-MISSING",
+      "status": "v1_ready",
+      "product_types": [
+        "waterways"
+      ],
+      "complexity_level": "L0",
+      "coverage_tags": [
+        "waterways",
+        "flood",
+        "kg",
+        "negative",
+        "BC-DIAG-01",
+        "veto"
+      ],
+      "causal_variable_ids": [
+        "VAR-CROSSWALK-REFERENCE-EXISTS"
+      ],
+      "invariant_variable_ids": [
+        "VAR-REQUEST",
+        "VAR-CONTRACT"
+      ],
+      "nuisance_variable_ids": [],
+      "contract_ids": [
+        "contract.product.waterways.v1"
+      ],
+      "source_ids": [
+        "catalog.flood.waterways",
+        "raw.osm.waterways",
+        "raw.hydrorivers.water"
+      ],
+      "algorithm_ids": [
+        "algo.fusion.waterways.conflation.v7"
+      ],
+      "quality_policy_ids": [
+        "quality.default.waterways.v1"
+      ],
+      "other_policy_ids": [],
+      "oracle_summary": "closed=candidate_plan; missing_or_ambiguous=reject_before_materialization",
+      "veto_summary": "alias_default_repair; unknown_source_or_algorithm",
+      "chain_coverage": [
+        "planning"
+      ],
+      "required_v2_fields": [],
+      "required_v2_extensions": [],
+      "base_template_binding_required": false,
+      "e2e_eligibility": null,
+      "historical_exclusion_checked": true
+    },
+    {
+      "template_family_id": "TF-PLAN-STRUCTURE-INVALID",
+      "status": "v1_ready",
+      "product_types": [
+        "poi"
+      ],
+      "complexity_level": "L0",
+      "coverage_tags": [
+        "poi",
+        "planning",
+        "validator",
+        "negative",
+        "BC-DIAG-03",
+        "veto"
+      ],
+      "causal_variable_ids": [
+        "VAR-PLAN-SCHEMA-VALID"
+      ],
+      "invariant_variable_ids": [
+        "VAR-PLANNER-INPUT",
+        "VAR-OUTPUT-SCHEMA"
+      ],
+      "nuisance_variable_ids": [],
+      "contract_ids": [
+        "contract.product.poi.v1"
+      ],
+      "source_ids": [
+        "catalog.generic.poi"
+      ],
+      "algorithm_ids": [
+        "algo.fusion.poi.v1"
+      ],
+      "quality_policy_ids": [
+        "quality.default.poi.v1"
+      ],
+      "other_policy_ids": [],
+      "oracle_summary": "valid_schema=grounding; invalid_schema=reject_no_execution",
+      "veto_summary": "unknown_field; unknown_task; strict_salvage",
+      "chain_coverage": [
+        "planning"
+      ],
+      "required_v2_fields": [],
+      "required_v2_extensions": [],
+      "base_template_binding_required": false,
+      "e2e_eligibility": null,
+      "historical_exclusion_checked": true
+    },
+    {
+      "template_family_id": "TF-VALIDATOR-VETO",
+      "status": "v1_ready",
+      "product_types": [
+        "building"
+      ],
+      "complexity_level": "L1",
+      "coverage_tags": [
+        "building",
+        "validator",
+        "contract_veto",
+        "BC-DIAG-04",
+        "veto"
+      ],
+      "causal_variable_ids": [
+        "VAR-CANDIDATE-PLAN-VETO-VIOLATION"
+      ],
+      "invariant_variable_ids": [
+        "VAR-REQUEST",
+        "VAR-OBSERVABLE-FACTS",
+        "VAR-CONTRACT"
+      ],
+      "nuisance_variable_ids": [],
+      "contract_ids": [
+        "contract.product.building.v1"
+      ],
+      "source_ids": [
+        "catalog.earthquake.building",
+        "raw.osm.building",
+        "raw.microsoft.building"
+      ],
+      "algorithm_ids": [
+        "algo.fusion.building.v1",
+        "algo.fusion.building.safe"
+      ],
+      "quality_policy_ids": [
+        "quality.default.building.v1"
+      ],
+      "other_policy_ids": [],
+      "oracle_summary": "valid_geometry_and_algorithm=plan; mismatch_or_reserved=reject",
+      "veto_summary": "polygon_line_mismatch; deprecated_or_reservation_algorithm; backend_fallback",
+      "chain_coverage": [
+        "planning"
+      ],
+      "required_v2_fields": [],
+      "required_v2_extensions": [],
+      "base_template_binding_required": false,
+      "e2e_eligibility": null,
+      "historical_exclusion_checked": true
+    },
+    {
+      "template_family_id": "TF-ALGORITHM-CAPABILITY-GROUNDING",
+      "status": "v2_candidate",
+      "product_types": [
+        "water_polygon",
+        "waterways"
+      ],
+      "complexity_level": "L2",
+      "coverage_tags": [
+        "water_polygon",
+        "waterways",
+        "algorithm",
+        "grounding",
+        "veto"
+      ],
+      "causal_variable_ids": [
+        "VAR-ALGORITHM-TASK-COMPATIBILITY"
+      ],
+      "invariant_variable_ids": [
+        "VAR-CONTRACT",
+        "VAR-SOURCE-SEMANTICS"
+      ],
+      "nuisance_variable_ids": [],
+      "contract_ids": [
+        "contract.product.water_polygon.v1",
+        "contract.product.waterways.v1"
+      ],
+      "source_ids": [
+        "catalog.flood.water_polygon",
+        "catalog.flood.waterways",
+        "raw.osm.water",
+        "raw.hydrolakes.water",
+        "raw.osm.waterways",
+        "raw.hydrorivers.water"
+      ],
+      "algorithm_ids": [
+        "algo.fusion.water_polygon.priority_merge.v2",
+        "algo.fusion.waterways.conflation.v7"
+      ],
+      "quality_policy_ids": [
+        "quality.default.water_polygon.v1",
+        "quality.default.waterways.v1"
+      ],
+      "other_policy_ids": [],
+      "oracle_summary": "water_polygon->priority_merge.v2; waterways->conflation.v7; mismatch=reject",
+      "veto_summary": "polygon_line_mismatch; absent_or_reserved_algorithm",
+      "chain_coverage": [
+        "planning",
+        "algorithm"
+      ],
+      "required_v2_fields": [],
+      "required_v2_extensions": [
+        "algorithm_grounding"
+      ],
+      "base_template_binding_required": true,
+      "e2e_eligibility": null,
+      "historical_exclusion_checked": true
+    },
+    {
+      "template_family_id": "TF-SOURCE-AVAILABILITY",
+      "status": "v1_ready",
+      "product_types": [
+        "poi"
+      ],
+      "complexity_level": "L1",
+      "coverage_tags": [
+        "poi",
+        "source_availability",
+        "optional_reference",
+        "BC-CAUSAL-02",
+        "veto",
+        "gap"
+      ],
+      "causal_variable_ids": [
+        "VAR-SOURCE-AVAILABILITY"
+      ],
+      "invariant_variable_ids": [
+        "VAR-TASK-KIND",
+        "VAR-CONTRACT",
+        "VAR-SOURCE-SEMANTICS"
+      ],
+      "nuisance_variable_ids": [],
+      "contract_ids": [
+        "contract.product.poi.v1"
+      ],
+      "source_ids": [
+        "catalog.generic.poi",
+        "raw.osm.poi",
+        "raw.gns.poi",
+        "raw.google.poi"
+      ],
+      "algorithm_ids": [
+        "algo.fusion.poi.v1",
+        "algo.fusion.poi.geohash_neighbor_match.v1"
+      ],
+      "quality_policy_ids": [
+        "quality.default.poi.v1"
+      ],
+      "other_policy_ids": [],
+      "oracle_summary": "base_only=planned|provisional; optional_missing_not_required_final; base_missing=gap|reject",
+      "veto_summary": "manual_preload_as_remote_success; optional_as_required; unknown_source",
+      "chain_coverage": [
+        "planning"
+      ],
+      "required_v2_fields": [],
+      "required_v2_extensions": [],
+      "base_template_binding_required": false,
+      "e2e_eligibility": null,
+      "historical_exclusion_checked": true
+    },
+    {
+      "template_family_id": "TF-AOI-RESOLUTION-BOUNDARY",
+      "status": "v2_candidate",
+      "product_types": [
+        "building",
+        "road",
+        "water_polygon",
+        "waterways",
+        "poi"
+      ],
+      "complexity_level": "L2",
+      "coverage_tags": [
+        "region",
+        "AOI",
+        "boundary",
+        "v2_candidate",
+        "veto"
+      ],
+      "causal_variable_ids": [
+        "VAR-AOI-RESOLUTION-STATUS"
+      ],
+      "invariant_variable_ids": [
+        "VAR-TASK-SET",
+        "VAR-KG-RELEASE"
+      ],
+      "nuisance_variable_ids": [
+        "VAR-AOI-SURFACE-FORM"
+      ],
+      "contract_ids": [
+        "contract.product.building.v1",
+        "contract.product.road.v1",
+        "contract.product.water_polygon.v1",
+        "contract.product.waterways.v1",
+        "contract.product.poi.v1"
+      ],
+      "source_ids": [],
+      "algorithm_ids": [],
+      "quality_policy_ids": [],
+      "other_policy_ids": [
+        "aoi.resolution.v1"
+      ],
+      "oracle_summary": "resolved_in_domain=enter_plan; ambiguous_or_out_of_domain=reject|request_clarification",
+      "veto_summary": "unresolved_as_resolved; cross_aoi_source_swap",
+      "chain_coverage": [
+        "region",
+        "planning"
+      ],
+      "required_v2_fields": [
+        "aoi_candidate_set",
+        "resolution_status",
+        "ambiguity_class",
+        "resolved_geometry_hash",
+        "boundary_provenance",
+        "cross_aoi_isolation"
+      ],
+      "required_v2_extensions": [
+        "aoi"
+      ],
+      "base_template_binding_required": true,
+      "e2e_eligibility": null,
+      "historical_exclusion_checked": true
+    },
+    {
+      "template_family_id": "TF-VECTOR-ACQUISITION-FAILURE",
+      "status": "v2_candidate",
+      "product_types": [
+        "building",
+        "road",
+        "water_polygon",
+        "waterways",
+        "poi"
+      ],
+      "complexity_level": "L4",
+      "coverage_tags": [
+        "execution",
+        "acquisition",
+        "L4",
+        "external_blocker",
+        "recovery",
+        "veto",
+        "gap"
+      ],
+      "causal_variable_ids": [
+        "VAR-SOURCE-ATTEMPT-STATUS"
+      ],
+      "invariant_variable_ids": [
+        "VAR-AOI-GEOMETRY",
+        "VAR-CONTRACT",
+        "VAR-ALGORITHM"
+      ],
+      "nuisance_variable_ids": [
+        "VAR-RETRY-BUDGET"
+      ],
+      "contract_ids": [
+        "contract.product.building.v1",
+        "contract.product.road.v1",
+        "contract.product.water_polygon.v1",
+        "contract.product.waterways.v1",
+        "contract.product.poi.v1"
+      ],
+      "source_ids": [
+        "raw.osm.building",
+        "raw.microsoft.building",
+        "raw.osm.road",
+        "raw.microsoft.road",
+        "raw.osm.water",
+        "raw.hydrolakes.water",
+        "raw.osm.waterways",
+        "raw.hydrorivers.water",
+        "raw.osm.poi",
+        "raw.gns.poi",
+        "raw.google.poi"
+      ],
+      "algorithm_ids": [
+        "algo.transform.raw_to_building_bundle",
+        "algo.transform.raw_to_road_bundle",
+        "algo.fusion.building.v1",
+        "algo.fusion.road.conflation.v7",
+        "algo.fusion.water_polygon.priority_merge.v2",
+        "algo.fusion.waterways.conflation.v7",
+        "algo.fusion.poi.v1"
+      ],
+      "quality_policy_ids": [
+        "quality.default.building.v1",
+        "quality.default.road.v1",
+        "quality.default.water_polygon.v1",
+        "quality.default.waterways.v1",
+        "quality.default.poi.v1"
+      ],
+      "other_policy_ids": [],
+      "oracle_summary": "materialized=transform_and_fusion; blocker=retained_failure+gap|provisional|manual_intervention; no_final",
+      "veto_summary": "manual_preload_without_flag; retry_policy_violation; algorithm_without_materialized_input",
+      "chain_coverage": [
+        "planning",
+        "acquisition",
+        "delivery"
+      ],
+      "required_v2_fields": [
+        "attempt_id",
+        "attempt_status",
+        "materialization_mode",
+        "remote_success",
+        "manual_preload",
+        "failure_code",
+        "artifact_hash"
+      ],
+      "required_v2_extensions": [
+        "acquisition",
+        "delivery"
+      ],
+      "base_template_binding_required": true,
+      "e2e_eligibility": {
+        "eligible": true,
+        "source_closed_required": true,
+        "truth_or_quality_evaluable_required": true,
+        "selection_independent_of_method_result": true
+      },
+      "historical_exclusion_checked": true
+    },
+    {
+      "template_family_id": "TF-QUALITY-GATE-EVIDENCE",
+      "status": "v2_candidate",
+      "product_types": [
+        "building",
+        "road",
+        "water_polygon",
+        "waterways",
+        "poi"
+      ],
+      "complexity_level": "L4",
+      "coverage_tags": [
+        "execution",
+        "quality",
+        "L4",
+        "quality_gate",
+        "artifact_lineage",
+        "veto",
+        "gap"
+      ],
+      "causal_variable_ids": [
+        "VAR-QUALITY-GATE-ACCEPTED"
+      ],
+      "invariant_variable_ids": [
+        "VAR-CONTRACT",
+        "VAR-HARD-CHECKS",
+        "VAR-ARTIFACT-LINEAGE"
+      ],
+      "nuisance_variable_ids": [
+        "VAR-SOFT-ADAPTATION"
+      ],
+      "contract_ids": [
+        "contract.product.building.v1",
+        "contract.product.road.v1",
+        "contract.product.water_polygon.v1",
+        "contract.product.waterways.v1",
+        "contract.product.poi.v1"
+      ],
+      "source_ids": [
+        "raw.osm.building",
+        "raw.microsoft.building",
+        "raw.osm.road",
+        "raw.microsoft.road",
+        "raw.osm.water",
+        "raw.hydrolakes.water",
+        "raw.osm.waterways",
+        "raw.hydrorivers.water",
+        "raw.osm.poi",
+        "raw.gns.poi",
+        "raw.google.poi"
+      ],
+      "algorithm_ids": [
+        "algo.fusion.building.v1",
+        "algo.fusion.road.conflation.v7",
+        "algo.fusion.water_polygon.priority_merge.v2",
+        "algo.fusion.waterways.conflation.v7",
+        "algo.fusion.poi.v1"
+      ],
+      "quality_policy_ids": [
+        "quality.default.building.v1",
+        "quality.default.road.v1",
+        "quality.default.water_polygon.v1",
+        "quality.default.waterways.v1",
+        "quality.default.poi.v1",
+        "quality.external_degradation.v1"
+      ],
+      "other_policy_ids": [
+        "artifact.evaluation.v1"
+      ],
+      "oracle_summary": "hard_checks_pass+lineage=evidence-aligned final|provisional; soft single-source adaptation=provisional|degraded; hard reject=degraded|gap",
+      "veto_summary": "hard_geometry_lineage_required_field_failure; missing_quality_report; soft_policy_bypasses_hard_gate",
+      "chain_coverage": [
+        "acquisition",
+        "algorithm",
+        "quality",
+        "delivery",
+        "evidence"
+      ],
+      "required_v2_fields": [],
+      "required_v2_extensions": [
+        "acquisition",
+        "algorithm_grounding",
+        "quality_evidence",
+        "delivery"
+      ],
+      "base_template_binding_required": true,
+      "e2e_eligibility": {
+        "eligible": true,
+        "source_closed_required": true,
+        "truth_or_quality_evaluable_required": true,
+        "selection_independent_of_method_result": true
+      },
+      "historical_exclusion_checked": true
+    },
+    {
+      "template_family_id": "TF-EVIDENCE-COMPLETENESS",
+      "status": "v2_candidate",
+      "product_types": [
+        "building",
+        "road",
+        "water_polygon",
+        "waterways",
+        "poi"
+      ],
+      "complexity_level": "L4",
+      "coverage_tags": [
+        "building",
+        "road",
+        "water_polygon",
+        "waterways",
+        "poi",
+        "execution",
+        "evidence",
+        "L4",
+        "BC-DIAG-05",
+        "veto",
+        "gap"
+      ],
+      "causal_variable_ids": [
+        "VAR-REQUIRED-ARTIFACT-PRESENT"
+      ],
+      "invariant_variable_ids": [
+        "VAR-FROZEN-PLAN",
+        "VAR-INPUT-HASHES",
+        "VAR-CONTRACT"
+      ],
+      "nuisance_variable_ids": [
+        "VAR-EVIDENCE-ORDER"
+      ],
+      "contract_ids": [
+        "contract.product.building.v1",
+        "contract.product.road.v1",
+        "contract.product.water_polygon.v1",
+        "contract.product.waterways.v1",
+        "contract.product.poi.v1"
+      ],
+      "source_ids": [
+        "raw.osm.building",
+        "raw.microsoft.building",
+        "raw.osm.road",
+        "raw.microsoft.road",
+        "raw.osm.water",
+        "raw.hydrolakes.water",
+        "raw.osm.waterways",
+        "raw.hydrorivers.water",
+        "raw.osm.poi",
+        "raw.gns.poi",
+        "raw.google.poi"
+      ],
+      "algorithm_ids": [
+        "algo.fusion.building.v1",
+        "algo.fusion.road.conflation.v7",
+        "algo.fusion.water_polygon.priority_merge.v2",
+        "algo.fusion.waterways.conflation.v7",
+        "algo.fusion.poi.v1"
+      ],
+      "quality_policy_ids": [
+        "quality.default.building.v1",
+        "quality.default.road.v1",
+        "quality.default.water_polygon.v1",
+        "quality.default.waterways.v1",
+        "quality.default.poi.v1"
+      ],
+      "other_policy_ids": [
+        "artifact.evaluation.v1"
+      ],
+      "oracle_summary": "frozen_plan+input_hashes+execution_trace+quality_report+delivery_record+lineage present/matching -> final|provisional; missing/mismatch -> provisional|degraded|gap|manual_review",
+      "veto_summary": "forged_hash; artifact_plan_source_mismatch; judge_as_evidence_substitute",
+      "chain_coverage": [
+        "planning",
+        "region",
+        "acquisition",
+        "algorithm",
+        "execution",
+        "quality",
+        "delivery",
+        "evidence"
+      ],
+      "required_v2_fields": [],
+      "required_v2_extensions": [
+        "aoi",
+        "acquisition",
+        "algorithm_grounding",
+        "quality_evidence",
+        "delivery"
+      ],
+      "base_template_binding_required": true,
+      "e2e_eligibility": {
+        "eligible": true,
+        "source_closed_required": true,
+        "truth_or_quality_evaluable_required": true,
+        "selection_independent_of_method_result": true
+      },
+      "historical_exclusion_checked": true
+    },
+    {
+      "template_family_id": "TF-DELIVERY-STATE-TRACE",
+      "status": "v2_candidate",
+      "product_types": [
+        "water_polygon"
+      ],
+      "complexity_level": "L4",
+      "coverage_tags": [
+        "water_polygon",
+        "delivery",
+        "state_machine",
+        "L4",
+        "supersession_optional",
+        "BC-RECOVERY-03",
+        "veto",
+        "gap"
+      ],
+      "causal_variable_ids": [
+        "VAR-LATEST-DELIVERY-STATE"
+      ],
+      "invariant_variable_ids": [
+        "VAR-CONTRACT",
+        "VAR-SOURCE-STATE",
+        "VAR-FAILURE-HISTORY"
+      ],
+      "nuisance_variable_ids": [
+        "VAR-EVIDENCE-ORDER"
+      ],
+      "contract_ids": [
+        "contract.product.water_polygon.v1"
+      ],
+      "source_ids": [
+        "catalog.flood.water_polygon",
+        "raw.osm.water",
+        "raw.hydrolakes.water"
+      ],
+      "algorithm_ids": [
+        "algo.fusion.water_polygon.priority_merge.v2"
+      ],
+      "quality_policy_ids": [
+        "quality.default.water_polygon.v1",
+        "quality.external_degradation.v1"
+      ],
+      "other_policy_ids": [
+        "artifact.evaluation.v1",
+        "recovery.default.v1"
+      ],
+      "oracle_summary": "planned->provisional|degraded; new source+quality+evidence permits superseded|final; provisional|degraded terminal allowed; failure/no evidence=gap|manual_review",
+      "veto_summary": "gap_to_final_without_evidence; failed_to_final_without_quality_report; silent_final; invalid_transition",
+      "chain_coverage": [
+        "planning",
+        "quality",
+        "delivery",
+        "evidence"
+      ],
+      "required_v2_fields": [],
+      "required_v2_extensions": [
+        "quality_evidence",
+        "delivery"
+      ],
+      "base_template_binding_required": true,
+      "e2e_eligibility": {
+        "eligible": true,
+        "source_closed_required": true,
+        "truth_or_quality_evaluable_required": true,
+        "selection_independent_of_method_result": true
+      },
+      "historical_exclusion_checked": true
+    }
+  ]
+}

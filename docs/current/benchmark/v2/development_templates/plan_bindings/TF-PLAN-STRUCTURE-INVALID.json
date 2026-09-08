@@ -1,0 +1,20 @@
+{
+  "plan_id": "PLAN-AUTHORING-PLAN-STRUCTURE-INVALID",
+  "status": "authoring_fixture_not_executed",
+  "template_family_id": "TF-PLAN-STRUCTURE-INVALID",
+  "task_ids": [
+    "TASK-POI"
+  ],
+  "contract_ids": [
+    "contract.product.poi.v1"
+  ],
+  "source_ids": [
+    "catalog.generic.poi"
+  ],
+  "algorithm_ids": [
+    "algo.fusion.poi.v1"
+  ],
+  "delivery_states": {
+    "TASK-POI": "planned"
+  }
+}

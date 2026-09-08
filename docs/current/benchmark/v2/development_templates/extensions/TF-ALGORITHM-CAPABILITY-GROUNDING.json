@@ -1,0 +1,60 @@
+{
+  "base_template_schema_id": "https://fusionagent.local/schemas/benchmark-template.v1.json",
+  "base_template_id": "TF-ALGORITHM-CAPABILITY-GROUNDING",
+  "base_template_sha256": "sha256:6cd11d9c280a0794dd311cce0c50f4d5cf6893918d095a8d97c041c56c6c0dc6",
+  "frozen_plan_sha256": "sha256:cab74e03290464c347761557c58f5b0dd7940c62b2f7d71ff79725cec6fb2940",
+  "lineage_binding": {
+    "contract_ids": [
+      "contract.product.water_polygon.v1",
+      "contract.product.waterways.v1"
+    ],
+    "source_ids": [
+      "catalog.flood.water_polygon",
+      "catalog.flood.waterways",
+      "raw.hydrolakes.water",
+      "raw.hydrorivers.water",
+      "raw.osm.water",
+      "raw.osm.waterways"
+    ],
+    "algorithm_ids": [
+      "algo.fusion.water_polygon.priority_merge.v2",
+      "algo.fusion.waterways.conflation.v7"
+    ],
+    "artifact_hashes": []
+  },
+  "status": "v2_candidate",
+  "v2_extensions": {
+    "algorithm_grounding": [
+      {
+        "task_id": "TASK-WATER-POLYGON",
+        "selected_algorithm_id": "algo.fusion.water_polygon.priority_merge.v2",
+        "capability_status": "input_missing",
+        "required_input_source_ids": [
+          "raw.osm.water",
+          "raw.hydrolakes.water"
+        ],
+        "materialized_input_source_ids": [
+          "raw.osm.water"
+        ],
+        "missing_required_input_source_ids": [
+          "raw.hydrolakes.water"
+        ]
+      },
+      {
+        "task_id": "TASK-WATERWAYS",
+        "selected_algorithm_id": "algo.fusion.waterways.conflation.v7",
+        "capability_status": "input_missing",
+        "required_input_source_ids": [
+          "raw.osm.waterways",
+          "raw.hydrorivers.water"
+        ],
+        "materialized_input_source_ids": [
+          "raw.osm.waterways"
+        ],
+        "missing_required_input_source_ids": [
+          "raw.hydrorivers.water"
+        ]
+      }
+    ]
+  }
+}

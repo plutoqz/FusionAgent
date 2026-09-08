@@ -36,6 +36,7 @@ from benchmark_platform.generator import (
     generate_development,
     generate_development_unit,
 )
+from benchmark_platform.materializer import MemberMaterializerError, materialize_members, merge_v2_extension
 from benchmark_platform.relations import (
     AssertionResult,
     RelationValidationError,
@@ -52,6 +53,26 @@ from benchmark_platform.views import (
     project_allowlist,
     project_views,
 )
+from benchmark_platform.context import (
+    CanonicalContext,
+    CanonicalContextError,
+    DecisionStatus,
+    build_canonical_context,
+)
+from benchmark_platform.oracle import OracleError, OracleProof, solve_template_oracle
+from benchmark_platform.preflight import BlindReviewItem, PreflightError, PreflightResult, run_development_preflight
+from benchmark_platform.projections import ConditionProjection, ProjectionError, ProjectionTrace, project_condition
+from benchmark_platform.selection import (
+    ConditionObservation,
+    InterfaceCandidate,
+    InterfaceScreenReport,
+    MethodSelectionResult,
+    SelectionError,
+    screen_interface_candidates,
+    select_method,
+)
+from benchmark_platform.template_authoring import TemplateAuthoringAudit, TemplateAuthoringError, TemplateFamilyContract, audit_template_family
+from benchmark_platform.template_v2 import V2ExtensionValidationReport, V2TemplateValidationError, validate_v2_extension_document
 from benchmark_platform.models import (
     BenchmarkPlatformValidationError,
     CanonicalIdentity,
@@ -98,6 +119,9 @@ __all__ = [
     "GeneratorError",
     "generate_development",
     "generate_development_unit",
+    "MemberMaterializerError",
+    "materialize_members",
+    "merge_v2_extension",
     "AssertionResult",
     "RelationValidationError",
     "RelationValidationReport",
@@ -110,4 +134,33 @@ __all__ = [
     "ViewProjectionError",
     "project_allowlist",
     "project_views",
+    "CanonicalContext",
+    "CanonicalContextError",
+    "DecisionStatus",
+    "build_canonical_context",
+    "OracleError",
+    "OracleProof",
+    "solve_template_oracle",
+    "BlindReviewItem",
+    "PreflightError",
+    "PreflightResult",
+    "run_development_preflight",
+    "ConditionProjection",
+    "ProjectionError",
+    "ProjectionTrace",
+    "project_condition",
+    "InterfaceCandidate",
+    "InterfaceScreenReport",
+    "SelectionError",
+    "screen_interface_candidates",
+    "ConditionObservation",
+    "MethodSelectionResult",
+    "select_method",
+    "TemplateAuthoringAudit",
+    "TemplateAuthoringError",
+    "TemplateFamilyContract",
+    "audit_template_family",
+    "V2ExtensionValidationReport",
+    "V2TemplateValidationError",
+    "validate_v2_extension_document",
 ]

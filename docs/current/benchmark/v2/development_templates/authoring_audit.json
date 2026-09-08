@@ -1,0 +1,180 @@
+{
+  "audit_id": "fusionagent.method-selection-development-template-authoring-audit.v2-candidate",
+  "status": "passed_authoring_spec_only",
+  "package_manifest": "docs/current/benchmark/v2/development_templates/authoring_manifest.json",
+  "family_count": 15,
+  "details": [
+    {
+      "template_family_id": "TF-CONTRACT-REQUIREDNESS",
+      "passed": true,
+      "failures": []
+    },
+    {
+      "template_family_id": "TF-WORDING-PARAPHRASE",
+      "passed": true,
+      "failures": []
+    },
+    {
+      "template_family_id": "TF-INPUT-ORDER",
+      "passed": true,
+      "failures": []
+    },
+    {
+      "template_family_id": "TF-IRRELEVANT-NOISE",
+      "passed": true,
+      "failures": []
+    },
+    {
+      "template_family_id": "TF-CROSS-TASK-PRECEDENCE",
+      "passed": true,
+      "failures": []
+    },
+    {
+      "template_family_id": "TF-KG-CROSSWALK-MISSING",
+      "passed": true,
+      "failures": []
+    },
+    {
+      "template_family_id": "TF-PLAN-STRUCTURE-INVALID",
+      "passed": true,
+      "failures": []
+    },
+    {
+      "template_family_id": "TF-VALIDATOR-VETO",
+      "passed": true,
+      "failures": []
+    },
+    {
+      "template_family_id": "TF-ALGORITHM-CAPABILITY-GROUNDING",
+      "passed": true,
+      "failures": []
+    },
+    {
+      "template_family_id": "TF-SOURCE-AVAILABILITY",
+      "passed": true,
+      "failures": []
+    },
+    {
+      "template_family_id": "TF-AOI-RESOLUTION-BOUNDARY",
+      "passed": true,
+      "failures": []
+    },
+    {
+      "template_family_id": "TF-VECTOR-ACQUISITION-FAILURE",
+      "passed": true,
+      "failures": []
+    },
+    {
+      "template_family_id": "TF-QUALITY-GATE-EVIDENCE",
+      "passed": true,
+      "failures": []
+    },
+    {
+      "template_family_id": "TF-EVIDENCE-COMPLETENESS",
+      "passed": true,
+      "failures": []
+    },
+    {
+      "template_family_id": "TF-DELIVERY-STATE-TRACE",
+      "passed": true,
+      "failures": []
+    }
+  ],
+  "registry": {
+    "template_count": 15,
+    "unique_family_ids": 15,
+    "coverage_tags": [
+      "AOI",
+      "BC-CAUSAL-01",
+      "BC-CAUSAL-02",
+      "BC-COMPOSE-03",
+      "BC-DIAG-01",
+      "BC-DIAG-03",
+      "BC-DIAG-04",
+      "BC-DIAG-05",
+      "BC-INVARIANT-01",
+      "BC-INVARIANT-02",
+      "BC-INVARIANT-03",
+      "BC-RECOVERY-03",
+      "L4",
+      "acquisition",
+      "algorithm",
+      "artifact_lineage",
+      "boundary",
+      "building",
+      "composition",
+      "contract_criticality",
+      "contract_veto",
+      "delivery",
+      "evidence",
+      "execution",
+      "external_blocker",
+      "flood",
+      "gap",
+      "grounding",
+      "input_order",
+      "kg",
+      "multi_product",
+      "negative",
+      "noise_robustness",
+      "optional_reference",
+      "planning",
+      "poi",
+      "precedence",
+      "projection",
+      "quality",
+      "quality_gate",
+      "recovery",
+      "region",
+      "road",
+      "source_availability",
+      "state_machine",
+      "supersession_optional",
+      "v2_candidate",
+      "validator",
+      "veto",
+      "water_polygon",
+      "waterways",
+      "wording_invariance"
+    ],
+    "complexity_levels": [
+      "L0",
+      "L1",
+      "L2",
+      "L4"
+    ],
+    "semantic_signatures": [
+      "sha256:eee005dacb54c9f734d772b3f7f9f61f23532a9f23dfef6efd558afba2fe7d30",
+      "sha256:aa5e51ff8a0d92c8cecba018f8c7206b6ad5b0f7ac9578a55703576f406b8b2b",
+      "sha256:902b8b3a03f3fe6436f64638d742ff5b279d295ff14b7cc20de009c4685c4100",
+      "sha256:2649c28ef87cbc50214abc5e2c5273e7fdb0ff9ca2c010678142b0938f66065e",
+      "sha256:37e4cf970cff02820e6e275bd84a2c223555d461b1ed83eabdef75b5341735af",
+      "sha256:62f3f08ef4e281593a7ce7b3d82dd40b09709798b3a19bea1a32449f98f7c7ef",
+      "sha256:78f5f91e2f361b099839be5777d3d5a8ece2c90e03db38bcff17e3303506f346",
+      "sha256:2ac8f0c109a4fbb50a1c4d92ea4222dcedb6cff57189dd801697df982b5e5d1a",
+      "sha256:1a081a81399fc747d16be6acaa73ba4c5305f8459f46d3e052c538641c251977",
+      "sha256:6029dac3fcfc3f6edf51767ca07de74f7c33974ca09d2f252bd2ae0c91538fe8",
+      "sha256:db0a951fca3c09ea579ba88c459ccfe33d978e58b871565a759ace9e37cb1a9e",
+      "sha256:c03115f2d91f86e29f75a8d4cbbc46244d08bc025b71f4269958ad6f6327abca",
+      "sha256:804890f1bf7deffb66b0369cb1527283f07b226bfe8d8bef7b5ab8ea27b5a280",
+      "sha256:0a33a1b86f54c5617e724e98ce9fde507b18313d62e90000b45df23a557690d1",
+      "sha256:1142caf26333d5e827e4bb772780f9fa4666d02371876755ca22de912edf4b8a"
+    ],
+    "duplicate_family_ids": [],
+    "duplicate_semantic_signatures": [],
+    "missing_required_tags": [],
+    "passed": true,
+    "registry_hash": "sha256:263d0dec210febda6cf1ad61ce510652428d2a30f74b35432779874799a4f714"
+  },
+  "provider_calls": 0,
+  "judge_calls": 0,
+  "instances_generated": 0,
+  "formal_result_roots": 0,
+  "generation_ready": false,
+  "known_blocker": {
+    "code": "member_materializer_semantic_blockers",
+    "detail": "The deterministic member materializer is implemented, but six families fail closed until proxy payload fields and overlapping variable-role contracts are resolved.",
+    "affected_claim": "Template documents are authored and auditable; no complete benchmark corpus is generation-ready yet."
+  },
+  "failures": []
+}

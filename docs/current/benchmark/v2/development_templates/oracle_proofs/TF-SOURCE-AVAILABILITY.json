@@ -1,0 +1,52 @@
+{
+  "solver_id": "finite-state-task-contract.v1",
+  "template_family_id": "TF-SOURCE-AVAILABILITY",
+  "allowed_decisions": [
+    "plan"
+  ],
+  "task_plans": [
+    {
+      "task_id": "TASK-POI",
+      "required": true,
+      "legal_source_ids": [
+        "catalog.generic.poi",
+        "raw.gns.poi",
+        "raw.google.poi",
+        "raw.osm.poi"
+      ],
+      "allowed_delivery_states": [
+        "planned"
+      ],
+      "valid_combinations": [
+        {
+          "decision": "plan",
+          "delivery_state": "planned",
+          "source_id": "catalog.generic.poi"
+        },
+        {
+          "decision": "plan",
+          "delivery_state": "planned",
+          "source_id": "raw.gns.poi"
+        },
+        {
+          "decision": "plan",
+          "delivery_state": "planned",
+          "source_id": "raw.google.poi"
+        },
+        {
+          "decision": "plan",
+          "delivery_state": "planned",
+          "source_id": "raw.osm.poi"
+        }
+      ],
+      "must": [
+        "task_present"
+      ],
+      "forbidden": []
+    }
+  ],
+  "veto_ids": [
+    "VETO-SOURCE-AVAILABILITY"
+  ],
+  "proof_hash": "sha256:505422b5cc414889b40f3e9222f003bb1398baa45b37c0a8913cbd0a7dc4c80b"
+}

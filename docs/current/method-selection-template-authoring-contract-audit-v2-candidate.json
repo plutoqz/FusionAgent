@@ -1,0 +1,19 @@
+{
+  "audit_id": "fusionagent.method-selection-template-authoring-contract-audit.v2",
+  "contract_manifest_id": "fusionagent.method-selection-template-authoring-contracts.v2-candidate",
+  "status": "passed_machine_only",
+  "family_count": 15,
+  "v2_matrix_cell_count": 6,
+  "frozen_inputs_valid": true,
+  "schema_probes_passed": true,
+  "registered_runtime_unverified": [
+    "algo.transform.raw_to_building_bundle",
+    "algo.transform.raw_to_road_bundle"
+  ],
+  "failures": [],
+  "independent_semantic_review_required": true,
+  "development_only": true,
+  "provider_calls": 0,
+  "judge_calls": 0,
+  "instances_generated": 0
+}

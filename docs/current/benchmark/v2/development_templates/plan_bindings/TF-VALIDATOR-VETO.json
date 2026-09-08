@@ -1,0 +1,23 @@
+{
+  "plan_id": "PLAN-AUTHORING-VALIDATOR-VETO",
+  "status": "authoring_fixture_not_executed",
+  "template_family_id": "TF-VALIDATOR-VETO",
+  "task_ids": [
+    "TASK-BUILDING"
+  ],
+  "contract_ids": [
+    "contract.product.building.v1"
+  ],
+  "source_ids": [
+    "catalog.earthquake.building",
+    "raw.osm.building",
+    "raw.microsoft.building"
+  ],
+  "algorithm_ids": [
+    "algo.fusion.building.v1",
+    "algo.fusion.building.safe"
+  ],
+  "delivery_states": {
+    "TASK-BUILDING": "planned"
+  }
+}

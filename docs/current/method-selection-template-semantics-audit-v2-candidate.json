@@ -1,0 +1,36 @@
+{
+  "audit_id": "fusionagent.method-selection-template-semantics-audit.v1",
+  "manifest_id": "fusionagent.method-selection-template-families.v2-candidate",
+  "status": "passed",
+  "family_count": 15,
+  "products": [
+    "building",
+    "poi",
+    "road",
+    "water_polygon",
+    "waterways"
+  ],
+  "chain_coverage": [
+    "acquisition",
+    "algorithm",
+    "delivery",
+    "evidence",
+    "execution",
+    "planning",
+    "projection",
+    "quality",
+    "region"
+  ],
+  "registered_id_counts": {
+    "contract": 6,
+    "source": 34,
+    "algorithm": 33,
+    "quality_policy": 5,
+    "policy": 19
+  },
+  "failures": [],
+  "user_template_review_required": true,
+  "provider_calls": 0,
+  "judge_calls": 0,
+  "instances_generated": 0
+}

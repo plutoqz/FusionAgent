@@ -1,0 +1,40 @@
+{
+  "plan_id": "PLAN-AUTHORING-INPUT-ORDER",
+  "status": "authoring_fixture_not_executed",
+  "template_family_id": "TF-INPUT-ORDER",
+  "task_ids": [
+    "TASK-BUILDING",
+    "TASK-ROAD",
+    "TASK-WATER-POLYGON",
+    "TASK-WATERWAYS",
+    "TASK-POI"
+  ],
+  "contract_ids": [
+    "contract.product.building.v1",
+    "contract.product.road.v1",
+    "contract.product.water_polygon.v1",
+    "contract.product.waterways.v1",
+    "contract.product.poi.v1"
+  ],
+  "source_ids": [
+    "catalog.flood.building",
+    "catalog.flood.road",
+    "catalog.flood.water_polygon",
+    "catalog.flood.waterways",
+    "catalog.generic.poi"
+  ],
+  "algorithm_ids": [
+    "algo.fusion.building.v1",
+    "algo.fusion.road.conflation.v7",
+    "algo.fusion.water_polygon.priority_merge.v2",
+    "algo.fusion.waterways.conflation.v7",
+    "algo.fusion.poi.v1"
+  ],
+  "delivery_states": {
+    "TASK-BUILDING": "planned",
+    "TASK-ROAD": "planned",
+    "TASK-WATER-POLYGON": "planned",
+    "TASK-WATERWAYS": "planned",
+    "TASK-POI": "planned"
+  }
+}

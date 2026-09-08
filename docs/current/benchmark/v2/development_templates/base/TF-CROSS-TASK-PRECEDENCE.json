@@ -1,0 +1,777 @@
+{
+  "template_family_id": "TF-CROSS-TASK-PRECEDENCE",
+  "version": "1.0.0",
+  "status": "frozen_template_family",
+  "claim_ids": [
+    "CL-BENCH-COMPOSE"
+  ],
+  "capability_cell_ids": [
+    "BC-COMPOSE-03"
+  ],
+  "mechanism_family": "cross_task_precedence",
+  "complexity_level": "L2",
+  "experiment_unit": {
+    "unit_type": "composition_family",
+    "relation_id": "REL-CROSS-TASK-PRECEDENCE",
+    "minimum_members": 2,
+    "relation_assertions": [
+      {
+        "assertion_id": "ASSERT-CROSS-TASK-PRECEDENCE",
+        "kind": "task_local_composition",
+        "left_path": "$.task_state.tasks",
+        "operator": "equals"
+      }
+    ]
+  },
+  "provenance": {
+    "design_id": "fusionagent.benchmark-design.v1",
+    "charter_id": "fusionagent.benchmark-charter.v1",
+    "matrix_id": "fusionagent.benchmark-capability-matrix.v1",
+    "kg_release_id": "fusionagent-kg-v1.0.0",
+    "kg_semantic_hash": "sha256:50067b9368914c47580707650789c04c78b2e856ccb3ef4d120a31f36c0ad71e",
+    "authoring_basis": [
+      "approved-v2-candidate-semantics",
+      "tf-cross-task-precedence"
+    ],
+    "historical_case_similarity_review": "reviewed against the frozen exclusion registry; no semantic copy admitted"
+  },
+  "task_state": {
+    "disaster_type": "flood",
+    "resource_regime": "bounded_development_authoring",
+    "tasks": [
+      {
+        "task_id": "TASK-BUILDING",
+        "task_kind": "building",
+        "contract_ids": [
+          "contract.product.building.v1"
+        ],
+        "source_states": [
+          {
+            "source_id": "catalog.flood.building",
+            "availability": "available",
+            "semantic_status": "compatible",
+            "legal_for_task": true
+          }
+        ],
+        "observed_failures": [],
+        "delivery_history": [
+          {
+            "step": 1,
+            "state": "planned",
+            "evidence_ref": "authoring://delivery/building"
+          }
+        ],
+        "precedence_after": [
+          "TASK-WATER-POLYGON",
+          "TASK-WATERWAYS",
+          "TASK-ROAD"
+        ]
+      },
+      {
+        "task_id": "TASK-ROAD",
+        "task_kind": "road",
+        "contract_ids": [
+          "contract.product.road.v1"
+        ],
+        "source_states": [
+          {
+            "source_id": "catalog.flood.road",
+            "availability": "available",
+            "semantic_status": "compatible",
+            "legal_for_task": true
+          }
+        ],
+        "observed_failures": [],
+        "delivery_history": [
+          {
+            "step": 1,
+            "state": "planned",
+            "evidence_ref": "authoring://delivery/road"
+          }
+        ],
+        "precedence_after": [
+          "TASK-WATER-POLYGON",
+          "TASK-WATERWAYS"
+        ]
+      },
+      {
+        "task_id": "TASK-WATER-POLYGON",
+        "task_kind": "water_polygon",
+        "contract_ids": [
+          "contract.product.water_polygon.v1"
+        ],
+        "source_states": [
+          {
+            "source_id": "catalog.flood.water_polygon",
+            "availability": "available",
+            "semantic_status": "compatible",
+            "legal_for_task": true
+          }
+        ],
+        "observed_failures": [],
+        "delivery_history": [
+          {
+            "step": 1,
+            "state": "planned",
+            "evidence_ref": "authoring://delivery/water_polygon"
+          }
+        ],
+        "precedence_after": []
+      },
+      {
+        "task_id": "TASK-WATERWAYS",
+        "task_kind": "waterways",
+        "contract_ids": [
+          "contract.product.waterways.v1"
+        ],
+        "source_states": [
+          {
+            "source_id": "catalog.flood.waterways",
+            "availability": "available",
+            "semantic_status": "compatible",
+            "legal_for_task": true
+          }
+        ],
+        "observed_failures": [],
+        "delivery_history": [
+          {
+            "step": 1,
+            "state": "planned",
+            "evidence_ref": "authoring://delivery/waterways"
+          }
+        ],
+        "precedence_after": [
+          "TASK-WATER-POLYGON"
+        ]
+      },
+      {
+        "task_id": "TASK-POI",
+        "task_kind": "poi",
+        "contract_ids": [
+          "contract.product.poi.v1"
+        ],
+        "source_states": [
+          {
+            "source_id": "catalog.generic.poi",
+            "availability": "available",
+            "semantic_status": "compatible",
+            "legal_for_task": true
+          }
+        ],
+        "observed_failures": [],
+        "delivery_history": [
+          {
+            "step": 1,
+            "state": "planned",
+            "evidence_ref": "authoring://delivery/poi"
+          }
+        ],
+        "precedence_after": [
+          "TASK-WATER-POLYGON",
+          "TASK-WATERWAYS",
+          "TASK-ROAD",
+          "TASK-BUILDING"
+        ]
+      }
+    ],
+    "global_observations": {
+      "mission_priority": [
+        "TASK-BUILDING",
+        "TASK-ROAD",
+        "TASK-WATER-POLYGON",
+        "TASK-WATERWAYS",
+        "TASK-POI"
+      ],
+      "time_budget_class": "standard",
+      "network_state": "online"
+    }
+  },
+  "variables": {
+    "causal_variables": [
+      {
+        "variable_id": "VAR-MISSION-PRIORITY",
+        "json_path": "$.task_state.global_observations.mission_priority",
+        "value_type": "array",
+        "allowed_values": [
+          [
+            "TASK-BUILDING",
+            "TASK-ROAD",
+            "TASK-WATER-POLYGON",
+            "TASK-WATERWAYS",
+            "TASK-POI"
+          ]
+        ],
+        "mutation_role": "causal"
+      }
+    ],
+    "invariants": [
+      {
+        "variable_id": "VAR-TASK-SET",
+        "json_path": "$.task_state.tasks",
+        "value_type": "array",
+        "allowed_values": [
+          [
+            {
+              "task_id": "TASK-BUILDING",
+              "task_kind": "building",
+              "contract_ids": [
+                "contract.product.building.v1"
+              ],
+              "source_states": [
+                {
+                  "source_id": "catalog.flood.building",
+                  "availability": "available",
+                  "semantic_status": "compatible",
+                  "legal_for_task": true
+                }
+              ],
+              "observed_failures": [],
+              "delivery_history": [
+                {
+                  "step": 1,
+                  "state": "planned",
+                  "evidence_ref": "authoring://delivery/building"
+                }
+              ],
+              "precedence_after": [
+                "TASK-WATER-POLYGON",
+                "TASK-WATERWAYS",
+                "TASK-ROAD"
+              ]
+            },
+            {
+              "task_id": "TASK-ROAD",
+              "task_kind": "road",
+              "contract_ids": [
+                "contract.product.road.v1"
+              ],
+              "source_states": [
+                {
+                  "source_id": "catalog.flood.road",
+                  "availability": "available",
+                  "semantic_status": "compatible",
+                  "legal_for_task": true
+                }
+              ],
+              "observed_failures": [],
+              "delivery_history": [
+                {
+                  "step": 1,
+                  "state": "planned",
+                  "evidence_ref": "authoring://delivery/road"
+                }
+              ],
+              "precedence_after": [
+                "TASK-WATER-POLYGON",
+                "TASK-WATERWAYS"
+              ]
+            },
+            {
+              "task_id": "TASK-WATER-POLYGON",
+              "task_kind": "water_polygon",
+              "contract_ids": [
+                "contract.product.water_polygon.v1"
+              ],
+              "source_states": [
+                {
+                  "source_id": "catalog.flood.water_polygon",
+                  "availability": "available",
+                  "semantic_status": "compatible",
+                  "legal_for_task": true
+                }
+              ],
+              "observed_failures": [],
+              "delivery_history": [
+                {
+                  "step": 1,
+                  "state": "planned",
+                  "evidence_ref": "authoring://delivery/water_polygon"
+                }
+              ],
+              "precedence_after": []
+            },
+            {
+              "task_id": "TASK-WATERWAYS",
+              "task_kind": "waterways",
+              "contract_ids": [
+                "contract.product.waterways.v1"
+              ],
+              "source_states": [
+                {
+                  "source_id": "catalog.flood.waterways",
+                  "availability": "available",
+                  "semantic_status": "compatible",
+                  "legal_for_task": true
+                }
+              ],
+              "observed_failures": [],
+              "delivery_history": [
+                {
+                  "step": 1,
+                  "state": "planned",
+                  "evidence_ref": "authoring://delivery/waterways"
+                }
+              ],
+              "precedence_after": [
+                "TASK-WATER-POLYGON"
+              ]
+            },
+            {
+              "task_id": "TASK-POI",
+              "task_kind": "poi",
+              "contract_ids": [
+                "contract.product.poi.v1"
+              ],
+              "source_states": [
+                {
+                  "source_id": "catalog.generic.poi",
+                  "availability": "available",
+                  "semantic_status": "compatible",
+                  "legal_for_task": true
+                }
+              ],
+              "observed_failures": [],
+              "delivery_history": [
+                {
+                  "step": 1,
+                  "state": "planned",
+                  "evidence_ref": "authoring://delivery/poi"
+                }
+              ],
+              "precedence_after": [
+                "TASK-WATER-POLYGON",
+                "TASK-WATERWAYS",
+                "TASK-ROAD",
+                "TASK-BUILDING"
+              ]
+            }
+          ]
+        ],
+        "mutation_role": "invariant"
+      },
+      {
+        "variable_id": "VAR-TASK-LOCAL-CONTRACTS",
+        "json_path": "$.task_state.tasks",
+        "value_type": "array",
+        "allowed_values": [
+          [
+            {
+              "task_id": "TASK-BUILDING",
+              "task_kind": "building",
+              "contract_ids": [
+                "contract.product.building.v1"
+              ],
+              "source_states": [
+                {
+                  "source_id": "catalog.flood.building",
+                  "availability": "available",
+                  "semantic_status": "compatible",
+                  "legal_for_task": true
+                }
+              ],
+              "observed_failures": [],
+              "delivery_history": [
+                {
+                  "step": 1,
+                  "state": "planned",
+                  "evidence_ref": "authoring://delivery/building"
+                }
+              ],
+              "precedence_after": [
+                "TASK-WATER-POLYGON",
+                "TASK-WATERWAYS",
+                "TASK-ROAD"
+              ]
+            },
+            {
+              "task_id": "TASK-ROAD",
+              "task_kind": "road",
+              "contract_ids": [
+                "contract.product.road.v1"
+              ],
+              "source_states": [
+                {
+                  "source_id": "catalog.flood.road",
+                  "availability": "available",
+                  "semantic_status": "compatible",
+                  "legal_for_task": true
+                }
+              ],
+              "observed_failures": [],
+              "delivery_history": [
+                {
+                  "step": 1,
+                  "state": "planned",
+                  "evidence_ref": "authoring://delivery/road"
+                }
+              ],
+              "precedence_after": [
+                "TASK-WATER-POLYGON",
+                "TASK-WATERWAYS"
+              ]
+            },
+            {
+              "task_id": "TASK-WATER-POLYGON",
+              "task_kind": "water_polygon",
+              "contract_ids": [
+                "contract.product.water_polygon.v1"
+              ],
+              "source_states": [
+                {
+                  "source_id": "catalog.flood.water_polygon",
+                  "availability": "available",
+                  "semantic_status": "compatible",
+                  "legal_for_task": true
+                }
+              ],
+              "observed_failures": [],
+              "delivery_history": [
+                {
+                  "step": 1,
+                  "state": "planned",
+                  "evidence_ref": "authoring://delivery/water_polygon"
+                }
+              ],
+              "precedence_after": []
+            },
+            {
+              "task_id": "TASK-WATERWAYS",
+              "task_kind": "waterways",
+              "contract_ids": [
+                "contract.product.waterways.v1"
+              ],
+              "source_states": [
+                {
+                  "source_id": "catalog.flood.waterways",
+                  "availability": "available",
+                  "semantic_status": "compatible",
+                  "legal_for_task": true
+                }
+              ],
+              "observed_failures": [],
+              "delivery_history": [
+                {
+                  "step": 1,
+                  "state": "planned",
+                  "evidence_ref": "authoring://delivery/waterways"
+                }
+              ],
+              "precedence_after": [
+                "TASK-WATER-POLYGON"
+              ]
+            },
+            {
+              "task_id": "TASK-POI",
+              "task_kind": "poi",
+              "contract_ids": [
+                "contract.product.poi.v1"
+              ],
+              "source_states": [
+                {
+                  "source_id": "catalog.generic.poi",
+                  "availability": "available",
+                  "semantic_status": "compatible",
+                  "legal_for_task": true
+                }
+              ],
+              "observed_failures": [],
+              "delivery_history": [
+                {
+                  "step": 1,
+                  "state": "planned",
+                  "evidence_ref": "authoring://delivery/poi"
+                }
+              ],
+              "precedence_after": [
+                "TASK-WATER-POLYGON",
+                "TASK-WATERWAYS",
+                "TASK-ROAD",
+                "TASK-BUILDING"
+              ]
+            }
+          ]
+        ],
+        "mutation_role": "invariant"
+      }
+    ],
+    "nuisance_variables": [],
+    "maximum_causal_mutations_per_pair": 1
+  },
+  "oracle": {
+    "allowed_decisions": [
+      "plan"
+    ],
+    "task_constraints": [
+      {
+        "task_id": "TASK-BUILDING",
+        "required": true,
+        "allowed_delivery_states": [
+          "planned"
+        ],
+        "allowed_source_ids": [
+          "catalog.flood.building"
+        ],
+        "forbidden_source_ids": []
+      },
+      {
+        "task_id": "TASK-ROAD",
+        "required": true,
+        "allowed_delivery_states": [
+          "planned"
+        ],
+        "allowed_source_ids": [
+          "catalog.flood.road"
+        ],
+        "forbidden_source_ids": []
+      },
+      {
+        "task_id": "TASK-WATER-POLYGON",
+        "required": true,
+        "allowed_delivery_states": [
+          "planned"
+        ],
+        "allowed_source_ids": [
+          "catalog.flood.water_polygon"
+        ],
+        "forbidden_source_ids": []
+      },
+      {
+        "task_id": "TASK-WATERWAYS",
+        "required": true,
+        "allowed_delivery_states": [
+          "planned"
+        ],
+        "allowed_source_ids": [
+          "catalog.flood.waterways"
+        ],
+        "forbidden_source_ids": []
+      },
+      {
+        "task_id": "TASK-POI",
+        "required": true,
+        "allowed_delivery_states": [
+          "planned"
+        ],
+        "allowed_source_ids": [
+          "catalog.generic.poi"
+        ],
+        "forbidden_source_ids": []
+      }
+    ],
+    "relation_assertion_ids": [
+      "ASSERT-CROSS-TASK-PRECEDENCE"
+    ],
+    "manual_review_item_ids": [
+      "REVIEW-CROSS-TASK-PRECEDENCE-SEMANTICS"
+    ],
+    "allows_multiple_valid_plans": true
+  },
+  "vetoes": [
+    {
+      "veto_id": "VETO-CROSS-TASK-PRECEDENCE",
+      "failure_class": "authoring.cross_task_precedence",
+      "condition": "required_task_drop; precedence_violation; silent_final",
+      "evidence_path": "$.task_state.tasks"
+    }
+  ],
+  "views": {
+    "planner_visible_paths": [
+      "$.task_state"
+    ],
+    "evaluator_only_paths": [
+      "$.oracle"
+    ],
+    "human_blind_paths": [
+      "$.task_state"
+    ],
+    "planner_forbidden_path_prefixes": [
+      "$.oracle",
+      "$.vetoes",
+      "$.experiment_unit.relation_assertions",
+      "$.partition_policy",
+      "$.hashing"
+    ]
+  },
+  "crosswalk": {
+    "kg_release_id": "fusionagent-kg-v1.0.0",
+    "references": [
+      {
+        "reference_id": "contract.product.building.v1",
+        "reference_type": "contract",
+        "used_by_task_ids": [
+          "TASK-BUILDING"
+        ]
+      },
+      {
+        "reference_id": "contract.product.road.v1",
+        "reference_type": "contract",
+        "used_by_task_ids": [
+          "TASK-ROAD"
+        ]
+      },
+      {
+        "reference_id": "contract.product.water_polygon.v1",
+        "reference_type": "contract",
+        "used_by_task_ids": [
+          "TASK-WATER-POLYGON"
+        ]
+      },
+      {
+        "reference_id": "contract.product.waterways.v1",
+        "reference_type": "contract",
+        "used_by_task_ids": [
+          "TASK-WATERWAYS"
+        ]
+      },
+      {
+        "reference_id": "contract.product.poi.v1",
+        "reference_type": "contract",
+        "used_by_task_ids": [
+          "TASK-POI"
+        ]
+      },
+      {
+        "reference_id": "catalog.flood.building",
+        "reference_type": "source",
+        "used_by_task_ids": [
+          "TASK-BUILDING"
+        ]
+      },
+      {
+        "reference_id": "catalog.flood.road",
+        "reference_type": "source",
+        "used_by_task_ids": [
+          "TASK-ROAD"
+        ]
+      },
+      {
+        "reference_id": "catalog.flood.water_polygon",
+        "reference_type": "source",
+        "used_by_task_ids": [
+          "TASK-WATER-POLYGON"
+        ]
+      },
+      {
+        "reference_id": "catalog.flood.waterways",
+        "reference_type": "source",
+        "used_by_task_ids": [
+          "TASK-WATERWAYS"
+        ]
+      },
+      {
+        "reference_id": "catalog.generic.poi",
+        "reference_type": "source",
+        "used_by_task_ids": [
+          "TASK-POI"
+        ]
+      },
+      {
+        "reference_id": "algo.fusion.building.v1",
+        "reference_type": "algorithm",
+        "used_by_task_ids": [
+          "TASK-BUILDING"
+        ]
+      },
+      {
+        "reference_id": "algo.fusion.road.conflation.v7",
+        "reference_type": "algorithm",
+        "used_by_task_ids": [
+          "TASK-ROAD"
+        ]
+      },
+      {
+        "reference_id": "algo.fusion.water_polygon.priority_merge.v2",
+        "reference_type": "algorithm",
+        "used_by_task_ids": [
+          "TASK-WATER-POLYGON"
+        ]
+      },
+      {
+        "reference_id": "algo.fusion.waterways.conflation.v7",
+        "reference_type": "algorithm",
+        "used_by_task_ids": [
+          "TASK-WATERWAYS"
+        ]
+      },
+      {
+        "reference_id": "algo.fusion.poi.v1",
+        "reference_type": "algorithm",
+        "used_by_task_ids": [
+          "TASK-POI"
+        ]
+      },
+      {
+        "reference_id": "quality.default.building.v1",
+        "reference_type": "quality_policy",
+        "used_by_task_ids": [
+          "TASK-BUILDING"
+        ]
+      },
+      {
+        "reference_id": "quality.default.road.v1",
+        "reference_type": "quality_policy",
+        "used_by_task_ids": [
+          "TASK-ROAD"
+        ]
+      },
+      {
+        "reference_id": "quality.default.water_polygon.v1",
+        "reference_type": "quality_policy",
+        "used_by_task_ids": [
+          "TASK-WATER-POLYGON"
+        ]
+      },
+      {
+        "reference_id": "quality.default.waterways.v1",
+        "reference_type": "quality_policy",
+        "used_by_task_ids": [
+          "TASK-WATERWAYS"
+        ]
+      },
+      {
+        "reference_id": "quality.default.poi.v1",
+        "reference_type": "quality_policy",
+        "used_by_task_ids": [
+          "TASK-POI"
+        ]
+      }
+    ],
+    "missing_reference_policy": "fail_closed"
+  },
+  "partition_policy": {
+    "allowed_partitions": [
+      "development"
+    ],
+    "historical_case_ids_forbidden_in_confirmation": [
+      "C01",
+      "C02",
+      "C03",
+      "C04",
+      "C05",
+      "C06",
+      "H01",
+      "H02",
+      "H03",
+      "H04",
+      "H05",
+      "H06",
+      "H07",
+      "H08",
+      "H09"
+    ],
+    "semantic_copy_forbidden": true
+  },
+  "generation": {
+    "generator_id": "generator.method-selection-authoring.v2-candidate",
+    "template_first": true,
+    "seed_namespace": "fusionagent-benchmark-v1-development",
+    "instance_id_pattern": "^BDV1-DEV-BC-[A-Z0-9-]+-[0-9]{3}$",
+    "stopping_rule_id": "stop.pre-registered-development-budget.v1"
+  },
+  "hashing": {
+    "algorithm": "sha256",
+    "canonicalization": "utf8-json-sorted-keys-compact-no-bom",
+    "template_hash_field": "template_sha256",
+    "instance_hash_field": "instance_sha256"
+  }
+}

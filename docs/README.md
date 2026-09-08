@@ -1,9 +1,11 @@
 # FusionAgent 文档入口
 
 > 状态：当前权威入口
-> 更新日期：2026-08-31
+> 更新日期：2026-09-06
 
 本文件是仓库文档的唯一导航入口。项目状态、论文主张、工作优先级或分支角色发生冲突时，先读取 `docs/current/research-governance-index.md`，再按其中的 A0/A1 顺序回到具体规范和证据文件核对。
+
+**下一步直接阅读：[快速方法判别计划](current/research-evidence-next-design.md)。当前只做 Q1 小规模方法比较，不先做 N0/N1 冻结复核。** 本机当前研究文档在 `D:\code\FusionAgent-benchmark-platform-dev`；主工作树仅保留导航指针。
 
 ## 当前权威文档
 
@@ -14,6 +16,9 @@
 | [研究治理入口](current/research-governance-index.md) | 当前阶段、唯一下一验收点、分支和文档职责是什么 | A1-current |
 | [主张-证据账本](current/research-claim-evidence-ledger.md) | 每项主张目前支持到什么程度、允许怎样表述 | A1-current |
 | [实验账本](current/research-experiment-ledger.md) | 每个实验集的角色、版本、状态和复用范围是什么 | A1-current |
+| [方法选择协议（已替代）](current/method-selection-protocol-v1.md) | 原三条件冠军选择方案，仅供追溯 | A3-superseded |
+| [方法选择实施方案（已替代）](current/method-selection-implementation-plan-v1.md) | 原一周平台计划，正文与未提交原稿保留 | A3-superseded |
+| [模板开发协议（已替代）](current/method-selection-development-protocol-v1.md) | 原 P0/template authoring，不再决定下一动作 | A3-superseded |
 | [Benchmark V1 冻结包](current/benchmark/v1/README.md) | 已冻结设计资产、manifest、audit、人工复核和后续边界是什么 | A1-frozen |
 | [Benchmark 平台协议 V1 冻结包](current/benchmark/platform/v1/README.md) | 平台实现边界、组件合同、manifest、audit 和人工复核是什么 | A1-frozen |
 | [Benchmark 平台实施协议](current/benchmark-platform-implementation-protocol.md) | `M-BENCH-PLATFORM-CORE-V1` 的 P0-P7 如何实施、验收、回滚和恢复 | A1-frozen |
@@ -25,7 +30,8 @@
 | [2026-08-04 仓库与 Worktree 快照（归档）](archive/status/repository-worktrees-2026-08-04.md) | 旧 worktree 布局和稳定成果提升原则 | A3 |
 | [证据支持性整理](current/research-evidence-supporting-conclusions.md) | 当前数据分别支撑哪些创新点和研究核心 | A1-current |
 | [非支持性与负结果整理](current/research-evidence-non-supporting.md) | 哪些数据不能支撑主张或提示方向可能无效 | A1-current |
-| [后续设计与补充实验](current/research-evidence-next-design.md) | 完全支撑主张所需的设计优化、实验和表述升级 | A1-current |
+| [快速方法判别计划](current/research-evidence-next-design.md) | Q1 的小规模对照、调用数、指标和采用决策 | A1-current |
+| [2026-09-06 整理前快照](archive/plans/2026-09-06-before-research-replan/index.md) | 本轮前 12 份文档的原样快照，含未提交内容 | A3 |
 | [产品契约规范](thesis/product_contract_spec.md) | 产品契约的工程语义、交付状态和图谱映射 | A1 |
 | [论文材料索引](thesis/README.md) | thesis 目录中规范、机器合同和历史草案的当前分类 | A1-index |
 | [2026-07-10 实验案例矩阵草案](thesis/experiment_case_matrix.md) | 旧五组案例设计，仅用于历史追溯 | A3 |
@@ -76,7 +82,9 @@
 2. 已完成 P1 独立审计、P2 三次稳定性重跑、P3-G 最小治理消融和 P4-G 最小多 AOI 治理外部有效性切片。
 3. 原六组的三类 LLM 条件已完成 90 次冻结调用，但 180-item 双人盲评尚未开始，比较性结论未闭环。
 4. B 只作为 I2/RQ3 接口消融；H01-H06 与 H07-H09 分层保留，不替代原六组。
-5. 参数化 Benchmark V1 与平台实施协议 V1 均已完成零调用冻结；当前等待用户另行明确授权平台实现，授权后的下一验收点是 P0/BP0 实施基线。实例生成、judge、Provider 调用、新正式实验和 E2E 仍未授权。
+5. 平台 core V1 已离线冻结，仅作为基础设施保留；原 P0-P7/template/method-selection 路线不再进入近期关键路径。
+6. 2026-09-04/05 新五方法 adversarial/held-out 已执行：严格 primary 未确认整体优势，post-hoc 与模块消融仅有局部信号；这不等于旧六组或真实 E2E 已完成。
+7. 下一验收点是 Q1：24 输入、4 LLM 条件的一轮探索性对照，直接判断继续、精简或停止；不先进行冻结复核。本轮读取已有结果并调整计划，尚未新增调用。
 
 详细验收条件见[研究治理入口](current/research-governance-index.md)。
 

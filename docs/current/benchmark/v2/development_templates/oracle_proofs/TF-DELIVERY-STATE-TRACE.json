@@ -1,0 +1,46 @@
+{
+  "solver_id": "finite-state-task-contract.v1",
+  "template_family_id": "TF-DELIVERY-STATE-TRACE",
+  "allowed_decisions": [
+    "plan"
+  ],
+  "task_plans": [
+    {
+      "task_id": "TASK-WATER-POLYGON",
+      "required": true,
+      "legal_source_ids": [
+        "catalog.flood.water_polygon",
+        "raw.hydrolakes.water",
+        "raw.osm.water"
+      ],
+      "allowed_delivery_states": [
+        "provisional"
+      ],
+      "valid_combinations": [
+        {
+          "decision": "plan",
+          "delivery_state": "provisional",
+          "source_id": "catalog.flood.water_polygon"
+        },
+        {
+          "decision": "plan",
+          "delivery_state": "provisional",
+          "source_id": "raw.hydrolakes.water"
+        },
+        {
+          "decision": "plan",
+          "delivery_state": "provisional",
+          "source_id": "raw.osm.water"
+        }
+      ],
+      "must": [
+        "task_present"
+      ],
+      "forbidden": []
+    }
+  ],
+  "veto_ids": [
+    "VETO-DELIVERY-STATE-TRACE"
+  ],
+  "proof_hash": "sha256:38b5b42d473f200d56de28416f0d84659858b1f349a798b07f748b99d0e0dde6"
+}

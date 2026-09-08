@@ -1,0 +1,79 @@
+{
+  "solver_id": "finite-state-task-contract.v1",
+  "template_family_id": "TF-ALGORITHM-CAPABILITY-GROUNDING",
+  "allowed_decisions": [
+    "plan"
+  ],
+  "task_plans": [
+    {
+      "task_id": "TASK-WATER-POLYGON",
+      "required": true,
+      "legal_source_ids": [
+        "catalog.flood.water_polygon",
+        "raw.hydrolakes.water",
+        "raw.osm.water"
+      ],
+      "allowed_delivery_states": [
+        "planned"
+      ],
+      "valid_combinations": [
+        {
+          "decision": "plan",
+          "delivery_state": "planned",
+          "source_id": "catalog.flood.water_polygon"
+        },
+        {
+          "decision": "plan",
+          "delivery_state": "planned",
+          "source_id": "raw.hydrolakes.water"
+        },
+        {
+          "decision": "plan",
+          "delivery_state": "planned",
+          "source_id": "raw.osm.water"
+        }
+      ],
+      "must": [
+        "task_present"
+      ],
+      "forbidden": []
+    },
+    {
+      "task_id": "TASK-WATERWAYS",
+      "required": true,
+      "legal_source_ids": [
+        "catalog.flood.waterways",
+        "raw.hydrorivers.water",
+        "raw.osm.waterways"
+      ],
+      "allowed_delivery_states": [
+        "planned"
+      ],
+      "valid_combinations": [
+        {
+          "decision": "plan",
+          "delivery_state": "planned",
+          "source_id": "catalog.flood.waterways"
+        },
+        {
+          "decision": "plan",
+          "delivery_state": "planned",
+          "source_id": "raw.hydrorivers.water"
+        },
+        {
+          "decision": "plan",
+          "delivery_state": "planned",
+          "source_id": "raw.osm.waterways"
+        }
+      ],
+      "must": [
+        "task_present"
+      ],
+      "forbidden": []
+    }
+  ],
+  "veto_ids": [
+    "VETO-ALGORITHM-CAPABILITY-GROUNDING"
+  ],
+  "proof_hash": "sha256:b00ab8727815af563445c2582891fbf536f5723e91e3348b2333202e9a9f57e6"
+}

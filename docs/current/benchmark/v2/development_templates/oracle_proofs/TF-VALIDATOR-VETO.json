@@ -1,0 +1,46 @@
+{
+  "solver_id": "finite-state-task-contract.v1",
+  "template_family_id": "TF-VALIDATOR-VETO",
+  "allowed_decisions": [
+    "plan"
+  ],
+  "task_plans": [
+    {
+      "task_id": "TASK-BUILDING",
+      "required": true,
+      "legal_source_ids": [
+        "catalog.earthquake.building",
+        "raw.microsoft.building",
+        "raw.osm.building"
+      ],
+      "allowed_delivery_states": [
+        "planned"
+      ],
+      "valid_combinations": [
+        {
+          "decision": "plan",
+          "delivery_state": "planned",
+          "source_id": "catalog.earthquake.building"
+        },
+        {
+          "decision": "plan",
+          "delivery_state": "planned",
+          "source_id": "raw.microsoft.building"
+        },
+        {
+          "decision": "plan",
+          "delivery_state": "planned",
+          "source_id": "raw.osm.building"
+        }
+      ],
+      "must": [
+        "task_present"
+      ],
+      "forbidden": []
+    }
+  ],
+  "veto_ids": [
+    "VETO-VALIDATOR-VETO"
+  ],
+  "proof_hash": "sha256:35cfb41b644c8be50723d9acee7bcc9461334d9b9fd074f2bb175493771398b1"
+}

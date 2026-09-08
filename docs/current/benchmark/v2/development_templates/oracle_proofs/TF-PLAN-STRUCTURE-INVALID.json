@@ -1,0 +1,34 @@
+{
+  "solver_id": "finite-state-task-contract.v1",
+  "template_family_id": "TF-PLAN-STRUCTURE-INVALID",
+  "allowed_decisions": [
+    "plan"
+  ],
+  "task_plans": [
+    {
+      "task_id": "TASK-POI",
+      "required": true,
+      "legal_source_ids": [
+        "catalog.generic.poi"
+      ],
+      "allowed_delivery_states": [
+        "planned"
+      ],
+      "valid_combinations": [
+        {
+          "decision": "plan",
+          "delivery_state": "planned",
+          "source_id": "catalog.generic.poi"
+        }
+      ],
+      "must": [
+        "task_present"
+      ],
+      "forbidden": []
+    }
+  ],
+  "veto_ids": [
+    "VETO-PLAN-STRUCTURE-INVALID"
+  ],
+  "proof_hash": "sha256:abaf34b7f5eda3d26bd26fc6ad861f002ac3e073f210838a8aa0e5bb1082c47c"
+}

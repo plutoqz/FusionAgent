@@ -1,0 +1,84 @@
+{
+  "base_template_schema_id": "https://fusionagent.local/schemas/benchmark-template.v1.json",
+  "base_template_id": "TF-DELIVERY-STATE-TRACE",
+  "base_template_sha256": "sha256:0964011b1729c03e14d8dc7e9c2856b7f9ab697f3fe6a79c99cdd2ae0b851fb2",
+  "frozen_plan_sha256": "sha256:7839b93c7f1164de545be86cc32514927c91d18daef0e62923c39b074896b200",
+  "lineage_binding": {
+    "contract_ids": [
+      "contract.product.water_polygon.v1"
+    ],
+    "source_ids": [
+      "catalog.flood.water_polygon",
+      "raw.hydrolakes.water",
+      "raw.osm.water"
+    ],
+    "algorithm_ids": [
+      "algo.fusion.water_polygon.priority_merge.v2"
+    ],
+    "artifact_hashes": []
+  },
+  "status": "v2_candidate",
+  "v2_extensions": {
+    "quality_evidence": [
+      {
+        "task_id": "TASK-WATER-POLYGON",
+        "source_mode": "multi_source",
+        "source_ids": [
+          "raw.osm.water",
+          "raw.hydrolakes.water"
+        ],
+        "quality_gate_result": "provisional",
+        "hard_checks": [
+          {
+            "check_id": "geometry_type",
+            "status": "pass",
+            "relaxed": false
+          },
+          {
+            "check_id": "invalid_geometry_rate",
+            "status": "pass",
+            "relaxed": false
+          },
+          {
+            "check_id": "source_lineage",
+            "status": "pass",
+            "relaxed": false
+          },
+          {
+            "check_id": "required_fields",
+            "status": "pass",
+            "relaxed": false
+          }
+        ],
+        "soft_adaptations": [],
+        "evidence_manifest": "authoring://quality/water_polygon",
+        "artifact_lineage": [
+          "authoring://artifact/water_polygon"
+        ]
+      }
+    ],
+    "delivery": [
+      {
+        "task_id": "TASK-WATER-POLYGON",
+        "from_state": "planned",
+        "to_state": "provisional",
+        "transition_reason": "pre-registered authoring scenario",
+        "evidence_refs": [
+          {
+            "evidence_type": "planning_decision",
+            "ref": "authoring://planning_decision/water_polygon"
+          },
+          {
+            "evidence_type": "quality_report",
+            "ref": "authoring://quality_report/water_polygon"
+          },
+          {
+            "evidence_type": "artifact_lineage",
+            "ref": "authoring://artifact_lineage/water_polygon"
+          }
+        ],
+        "terminal": true
+      }
+    ]
+  }
+}

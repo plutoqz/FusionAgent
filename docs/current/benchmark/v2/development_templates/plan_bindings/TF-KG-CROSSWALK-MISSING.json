@@ -1,0 +1,22 @@
+{
+  "plan_id": "PLAN-AUTHORING-KG-CROSSWALK-MISSING",
+  "status": "authoring_fixture_not_executed",
+  "template_family_id": "TF-KG-CROSSWALK-MISSING",
+  "task_ids": [
+    "TASK-WATERWAYS"
+  ],
+  "contract_ids": [
+    "contract.product.waterways.v1"
+  ],
+  "source_ids": [
+    "catalog.flood.waterways",
+    "raw.osm.waterways",
+    "raw.hydrorivers.water"
+  ],
+  "algorithm_ids": [
+    "algo.fusion.waterways.conflation.v7"
+  ],
+  "delivery_states": {
+    "TASK-WATERWAYS": "planned"
+  }
+}

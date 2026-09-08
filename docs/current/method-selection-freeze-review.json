@@ -1,0 +1,17 @@
+{
+  "review_id": "fusionagent.method-selection-freeze-review.v1",
+  "candidate_id": "fusionagent.method-selection-freeze-candidate.v1",
+  "protocol_id": "method-selection-protocol.v1",
+  "status": "approved",
+  "reviewer": {
+    "name": "用户",
+    "role": "user",
+    "reviewed_at": "2026-09-01T00:00:00+08:00"
+  },
+  "decision": "approved",
+  "approved_scope": "method-selection protocol, P1-P7 offline implementation and freeze candidate",
+  "not_authorized": ["template authoring execution", "provider", "judge", "confirmation", "selective_e2e", "formal_experiment"],
+  "unresolved_disagreements": [],
+  "next_acceptance": "separate template/development protocol P0",
+  "comment": "批准当前方法选择设计和离线实现 freeze candidate；不将离线测试解释为方法效果，不自动解封真实实验。"
+}

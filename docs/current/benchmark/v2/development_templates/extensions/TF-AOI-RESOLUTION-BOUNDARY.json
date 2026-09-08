@@ -1,0 +1,32 @@
+{
+  "base_template_schema_id": "https://fusionagent.local/schemas/benchmark-template.v1.json",
+  "base_template_id": "TF-AOI-RESOLUTION-BOUNDARY",
+  "base_template_sha256": "sha256:316ebaf855c13c5f49986a8d5405384232f4140c3254ebc7c229b76418f42bcf",
+  "frozen_plan_sha256": "sha256:fc5e9da17dc82c25710ee516a895d151b2e1a46d55f02596cb5239541d7c2da0",
+  "lineage_binding": {
+    "contract_ids": [
+      "contract.product.building.v1",
+      "contract.product.poi.v1",
+      "contract.product.road.v1",
+      "contract.product.water_polygon.v1",
+      "contract.product.waterways.v1"
+    ],
+    "source_ids": [],
+    "algorithm_ids": [],
+    "artifact_hashes": []
+  },
+  "status": "v2_candidate",
+  "v2_extensions": {
+    "aoi": {
+      "aoi_candidate_set": [
+        "Abidjan",
+        "Abidjan, Cote d'Ivoire"
+      ],
+      "resolution_status": "ambiguous",
+      "ambiguity_class": "duplicate_place_name",
+      "resolved_geometry_hash": null,
+      "boundary_provenance": "aoi.resolution.v1 authoring scenario",
+      "cross_aoi_isolation": true
+    }
+  }
+}

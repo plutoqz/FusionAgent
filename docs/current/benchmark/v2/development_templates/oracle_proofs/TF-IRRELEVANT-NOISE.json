@@ -1,0 +1,46 @@
+{
+  "solver_id": "finite-state-task-contract.v1",
+  "template_family_id": "TF-IRRELEVANT-NOISE",
+  "allowed_decisions": [
+    "plan"
+  ],
+  "task_plans": [
+    {
+      "task_id": "TASK-WATER-POLYGON",
+      "required": true,
+      "legal_source_ids": [
+        "catalog.flood.water_polygon",
+        "raw.hydrolakes.water",
+        "raw.osm.water"
+      ],
+      "allowed_delivery_states": [
+        "planned"
+      ],
+      "valid_combinations": [
+        {
+          "decision": "plan",
+          "delivery_state": "planned",
+          "source_id": "catalog.flood.water_polygon"
+        },
+        {
+          "decision": "plan",
+          "delivery_state": "planned",
+          "source_id": "raw.hydrolakes.water"
+        },
+        {
+          "decision": "plan",
+          "delivery_state": "planned",
+          "source_id": "raw.osm.water"
+        }
+      ],
+      "must": [
+        "task_present"
+      ],
+      "forbidden": []
+    }
+  ],
+  "veto_ids": [
+    "VETO-IRRELEVANT-NOISE"
+  ],
+  "proof_hash": "sha256:a482e4b648a39914f134fda3a6182b12fa8d94a18f1e23a55e84df75fa8dbb87"
+}

@@ -1,0 +1,289 @@
+{
+  "template_family_id": "TF-IRRELEVANT-NOISE",
+  "version": "1.0.0",
+  "status": "frozen_template_family",
+  "claim_ids": [
+    "CL-BENCH-INVARIANT"
+  ],
+  "capability_cell_ids": [
+    "BC-INVARIANT-03"
+  ],
+  "mechanism_family": "irrelevant_noise",
+  "complexity_level": "L1",
+  "experiment_unit": {
+    "unit_type": "invariant_set",
+    "relation_id": "REL-IRRELEVANT-NOISE",
+    "minimum_members": 3,
+    "relation_assertions": [
+      {
+        "assertion_id": "ASSERT-IRRELEVANT-NOISE",
+        "kind": "semantic_equivalence",
+        "left_path": "$.task_state.disaster_type",
+        "operator": "equals"
+      }
+    ]
+  },
+  "provenance": {
+    "design_id": "fusionagent.benchmark-design.v1",
+    "charter_id": "fusionagent.benchmark-charter.v1",
+    "matrix_id": "fusionagent.benchmark-capability-matrix.v1",
+    "kg_release_id": "fusionagent-kg-v1.0.0",
+    "kg_semantic_hash": "sha256:50067b9368914c47580707650789c04c78b2e856ccb3ef4d120a31f36c0ad71e",
+    "authoring_basis": [
+      "approved-v2-candidate-semantics",
+      "tf-irrelevant-noise"
+    ],
+    "historical_case_similarity_review": "reviewed against the frozen exclusion registry; no semantic copy admitted"
+  },
+  "task_state": {
+    "disaster_type": "flood",
+    "resource_regime": "bounded_development_authoring",
+    "tasks": [
+      {
+        "task_id": "TASK-WATER-POLYGON",
+        "task_kind": "water_polygon",
+        "contract_ids": [
+          "contract.product.water_polygon.v1"
+        ],
+        "source_states": [
+          {
+            "source_id": "catalog.flood.water_polygon",
+            "availability": "available",
+            "semantic_status": "compatible",
+            "legal_for_task": true
+          },
+          {
+            "source_id": "raw.osm.water",
+            "availability": "available",
+            "semantic_status": "compatible",
+            "legal_for_task": true
+          },
+          {
+            "source_id": "raw.hydrolakes.water",
+            "availability": "available",
+            "semantic_status": "compatible",
+            "legal_for_task": true
+          }
+        ],
+        "observed_failures": [],
+        "delivery_history": [
+          {
+            "step": 1,
+            "state": "planned",
+            "evidence_ref": "authoring://delivery/water_polygon"
+          }
+        ],
+        "precedence_after": []
+      }
+    ],
+    "global_observations": {
+      "mission_priority": [
+        "TASK-WATER-POLYGON"
+      ],
+      "time_budget_class": "standard",
+      "network_state": "online"
+    }
+  },
+  "variables": {
+    "causal_variables": [],
+    "invariants": [
+      {
+        "variable_id": "VAR-REQUEST",
+        "json_path": "$.task_state.disaster_type",
+        "value_type": "string",
+        "allowed_values": [
+          "flood"
+        ],
+        "mutation_role": "invariant"
+      },
+      {
+        "variable_id": "VAR-OBSERVABLE-FACTS",
+        "json_path": "$.task_state.tasks[0].source_states",
+        "value_type": "array",
+        "allowed_values": [
+          [
+            {
+              "source_id": "catalog.flood.water_polygon",
+              "availability": "available",
+              "semantic_status": "compatible",
+              "legal_for_task": true
+            },
+            {
+              "source_id": "raw.osm.water",
+              "availability": "available",
+              "semantic_status": "compatible",
+              "legal_for_task": true
+            },
+            {
+              "source_id": "raw.hydrolakes.water",
+              "availability": "available",
+              "semantic_status": "compatible",
+              "legal_for_task": true
+            }
+          ]
+        ],
+        "mutation_role": "invariant"
+      }
+    ],
+    "nuisance_variables": [
+      {
+        "variable_id": "VAR-IRRELEVANT-METADATA",
+        "json_path": "$.task_state.global_observations.time_budget_class",
+        "value_type": "string",
+        "allowed_values": [
+          "standard",
+          "standard_with_rescue_note"
+        ],
+        "mutation_role": "nuisance"
+      },
+      {
+        "variable_id": "VAR-UNRELATED-CATALOG-ENTRY",
+        "json_path": "$.task_state.global_observations.network_state",
+        "value_type": "string",
+        "allowed_values": [
+          "online",
+          "online_with_unrelated_catalog_metadata"
+        ],
+        "mutation_role": "nuisance"
+      }
+    ],
+    "maximum_causal_mutations_per_pair": 1
+  },
+  "oracle": {
+    "allowed_decisions": [
+      "plan"
+    ],
+    "task_constraints": [
+      {
+        "task_id": "TASK-WATER-POLYGON",
+        "required": true,
+        "allowed_delivery_states": [
+          "planned"
+        ],
+        "allowed_source_ids": [
+          "catalog.flood.water_polygon",
+          "raw.osm.water",
+          "raw.hydrolakes.water"
+        ],
+        "forbidden_source_ids": []
+      }
+    ],
+    "relation_assertion_ids": [
+      "ASSERT-IRRELEVANT-NOISE"
+    ],
+    "manual_review_item_ids": [
+      "REVIEW-IRRELEVANT-NOISE-SEMANTICS"
+    ],
+    "allows_multiple_valid_plans": true
+  },
+  "vetoes": [
+    {
+      "veto_id": "VETO-IRRELEVANT-NOISE",
+      "failure_class": "authoring.irrelevant_noise",
+      "condition": "over_retrieval; unknown_task_or_source; rescue_terms_reinterpreted_as_product",
+      "evidence_path": "$.task_state.tasks"
+    }
+  ],
+  "views": {
+    "planner_visible_paths": [
+      "$.task_state"
+    ],
+    "evaluator_only_paths": [
+      "$.oracle"
+    ],
+    "human_blind_paths": [
+      "$.task_state"
+    ],
+    "planner_forbidden_path_prefixes": [
+      "$.oracle",
+      "$.vetoes",
+      "$.experiment_unit.relation_assertions",
+      "$.partition_policy",
+      "$.hashing"
+    ]
+  },
+  "crosswalk": {
+    "kg_release_id": "fusionagent-kg-v1.0.0",
+    "references": [
+      {
+        "reference_id": "contract.product.water_polygon.v1",
+        "reference_type": "contract",
+        "used_by_task_ids": [
+          "TASK-WATER-POLYGON"
+        ]
+      },
+      {
+        "reference_id": "catalog.flood.water_polygon",
+        "reference_type": "source",
+        "used_by_task_ids": [
+          "TASK-WATER-POLYGON"
+        ]
+      },
+      {
+        "reference_id": "raw.osm.water",
+        "reference_type": "source",
+        "used_by_task_ids": [
+          "TASK-WATER-POLYGON"
+        ]
+      },
+      {
+        "reference_id": "raw.hydrolakes.water",
+        "reference_type": "source",
+        "used_by_task_ids": [
+          "TASK-WATER-POLYGON"
+        ]
+      },
+      {
+        "reference_id": "algo.fusion.water_polygon.priority_merge.v2",
+        "reference_type": "algorithm",
+        "used_by_task_ids": [
+          "TASK-WATER-POLYGON"
+        ]
+      },
+      {
+        "reference_id": "quality.default.water_polygon.v1",
+        "reference_type": "quality_policy",
+        "used_by_task_ids": [
+          "TASK-WATER-POLYGON"
+        ]
+      }
+    ],
+    "missing_reference_policy": "fail_closed"
+  },
+  "partition_policy": {
+    "allowed_partitions": [
+      "development"
+    ],
+    "historical_case_ids_forbidden_in_confirmation": [
+      "C01",
+      "C02",
+      "C03",
+      "C04",
+      "C05",
+      "C06",
+      "H01",
+      "H02",
+      "H03",
+      "H04",
+      "H05",
+      "H06",
+      "H07",
+      "H08",
+      "H09"
+    ],
+    "semantic_copy_forbidden": true
+  },
+  "generation": {
+    "generator_id": "generator.method-selection-authoring.v2-candidate",
+    "template_first": true,
+    "seed_namespace": "fusionagent-benchmark-v1-development",
+    "instance_id_pattern": "^BDV1-DEV-BC-[A-Z0-9-]+-[0-9]{3}$",
+    "stopping_rule_id": "stop.pre-registered-development-budget.v1"
+  },
+  "hashing": {
+    "algorithm": "sha256",
+    "canonicalization": "utf8-json-sorted-keys-compact-no-bom",
+    "template_hash_field": "template_sha256",
+    "instance_hash_field": "instance_sha256"
+  }
+}

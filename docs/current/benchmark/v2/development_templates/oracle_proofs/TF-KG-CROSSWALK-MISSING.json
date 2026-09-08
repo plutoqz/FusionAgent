@@ -1,0 +1,46 @@
+{
+  "solver_id": "finite-state-task-contract.v1",
+  "template_family_id": "TF-KG-CROSSWALK-MISSING",
+  "allowed_decisions": [
+    "plan"
+  ],
+  "task_plans": [
+    {
+      "task_id": "TASK-WATERWAYS",
+      "required": true,
+      "legal_source_ids": [
+        "catalog.flood.waterways",
+        "raw.hydrorivers.water",
+        "raw.osm.waterways"
+      ],
+      "allowed_delivery_states": [
+        "planned"
+      ],
+      "valid_combinations": [
+        {
+          "decision": "plan",
+          "delivery_state": "planned",
+          "source_id": "catalog.flood.waterways"
+        },
+        {
+          "decision": "plan",
+          "delivery_state": "planned",
+          "source_id": "raw.hydrorivers.water"
+        },
+        {
+          "decision": "plan",
+          "delivery_state": "planned",
+          "source_id": "raw.osm.waterways"
+        }
+      ],
+      "must": [
+        "task_present"
+      ],
+      "forbidden": []
+    }
+  ],
+  "veto_ids": [
+    "VETO-KG-CROSSWALK-MISSING"
+  ],
+  "proof_hash": "sha256:cd934c71e0c41a85f2d0ef7c8f4f08757ba63cbce8f6cf5482a03e36e0324c66"
+}

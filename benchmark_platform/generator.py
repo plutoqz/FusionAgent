@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import json
 from typing import Any, Mapping, Literal
 
 from pydantic import BaseModel, ConfigDict, Field
@@ -15,6 +14,7 @@ from benchmark_platform.models import (
     SeedDerivationInput,
     validate_template_document,
 )
+from benchmark_platform.materializer import materialize_members
 
 
 MASTER_SEED = 2026081901
@@ -160,8 +160,11 @@ def generate_development(
     seed = derive_seed(SeedDerivationInput(namespace=f"{request.seed_namespace}:{request.capability_cell_id}", master_seed=request.master_seed, unit_index=request.unit_index))
     template_hash = canonical_sha256(template)
     members: list[GeneratedMember] = []
-    for index in range(count):
-        payload = json.loads(json.dumps(template, ensure_ascii=False, sort_keys=True, separators=(",", ":")))
+    try:
+        payloads = materialize_members(template, count, seed)
+    except BenchmarkPlatformValidationError as error:
+        raise _fail("invalid_member", "member materialization failed") from error
+    for index, payload in enumerate(payloads):
         members.append(GeneratedMember(member_index=index, member_payload=payload, member_sha256=canonical_sha256(payload)))
     instance_id = _instance_id(request.capability_cell_id, request.unit_index)
     identity_payload = {

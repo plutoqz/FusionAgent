@@ -104,7 +104,7 @@ FusionAgent 当前定位是“面向灾害应急多源地理空间融合的契�
 - 场景层面的 live event-feed 编排或 full digital twin 模拟
 - 任意数据源自动接入与任意任务族无限扩展
 
-P1 独立审计、P2 三次稳定性重跑、P3-G 最小治理消融、P4-G 最小多 AOI 治理切片以及 Benchmark Platform Core V1 离线实现冻结已经完成。原六组真实 LLM 规划的 90 次调用已冻结，但 180-item 双人盲评尚未闭环；P3-P/P4-P 的比较性效果、真实端到端和正式 benchmark 证据仍未完成。当前唯一下一验收点是用户另行授权后的下一版本 template/development 协议 P0。详见 [`docs/current/research-governance-index.md`](./docs/current/research-governance-index.md)、[`docs/current/research-claim-evidence-ledger.md`](./docs/current/research-claim-evidence-ledger.md) 和 [`docs/current/research-experiment-ledger.md`](./docs/current/research-experiment-ledger.md)。
+P1 独立审计、P2 三次稳定性重跑、P3-G 最小治理消融、P4-G 最小多 AOI 治理切片以及 Benchmark Platform Core V1 离线实现冻结已经完成。原六组真实 LLM 规划的 90 次调用已冻结，但 180-item 双人盲评尚未闭环；P3-P/P4-P 的比较性效果、真实端到端和正式 benchmark 证据仍未完成。当前先审查[`三种 LLM-KG 协作方式的方法选择协议`](./docs/current/method-selection-protocol-v1.md)，再由用户授权下一版本 template/development 协议 P0。三种 LLM 条件不预选冠军，全部运行后按预注册规则选择后续采用方式。详见 [`docs/current/research-governance-index.md`](./docs/current/research-governance-index.md)、[`docs/current/research-claim-evidence-ledger.md`](./docs/current/research-claim-evidence-ledger.md) 和 [`docs/current/research-experiment-ledger.md`](./docs/current/research-experiment-ledger.md)。
 
 ## 系统架构
 

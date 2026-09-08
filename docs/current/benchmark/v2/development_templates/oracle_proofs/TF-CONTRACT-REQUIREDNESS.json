@@ -1,0 +1,46 @@
+{
+  "solver_id": "finite-state-task-contract.v1",
+  "template_family_id": "TF-CONTRACT-REQUIREDNESS",
+  "allowed_decisions": [
+    "plan"
+  ],
+  "task_plans": [
+    {
+      "task_id": "TASK-BUILDING",
+      "required": true,
+      "legal_source_ids": [
+        "catalog.earthquake.building",
+        "raw.microsoft.building",
+        "raw.osm.building"
+      ],
+      "allowed_delivery_states": [
+        "planned"
+      ],
+      "valid_combinations": [
+        {
+          "decision": "plan",
+          "delivery_state": "planned",
+          "source_id": "catalog.earthquake.building"
+        },
+        {
+          "decision": "plan",
+          "delivery_state": "planned",
+          "source_id": "raw.microsoft.building"
+        },
+        {
+          "decision": "plan",
+          "delivery_state": "planned",
+          "source_id": "raw.osm.building"
+        }
+      ],
+      "must": [
+        "task_present"
+      ],
+      "forbidden": []
+    }
+  ],
+  "veto_ids": [
+    "VETO-CONTRACT-REQUIREDNESS"
+  ],
+  "proof_hash": "sha256:273ef17e17252ef5c3ef89de1413f49ef4f707b832f41d70e912275198690a90"
+}

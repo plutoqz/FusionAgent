@@ -1,0 +1,263 @@
+{
+  "template_family_id": "TF-KG-CROSSWALK-MISSING",
+  "version": "1.0.0",
+  "status": "frozen_template_family",
+  "claim_ids": [
+    "CL-BENCH-DIAG"
+  ],
+  "capability_cell_ids": [
+    "BC-DIAG-01"
+  ],
+  "mechanism_family": "kg_crosswalk",
+  "complexity_level": "L0",
+  "experiment_unit": {
+    "unit_type": "single",
+    "relation_id": "REL-KG-CROSSWALK-MISSING",
+    "minimum_members": 1,
+    "relation_assertions": [
+      {
+        "assertion_id": "ASSERT-KG-CROSSWALK-MISSING",
+        "kind": "evidence_presence",
+        "left_path": "$.task_state",
+        "operator": "present"
+      }
+    ]
+  },
+  "provenance": {
+    "design_id": "fusionagent.benchmark-design.v1",
+    "charter_id": "fusionagent.benchmark-charter.v1",
+    "matrix_id": "fusionagent.benchmark-capability-matrix.v1",
+    "kg_release_id": "fusionagent-kg-v1.0.0",
+    "kg_semantic_hash": "sha256:50067b9368914c47580707650789c04c78b2e856ccb3ef4d120a31f36c0ad71e",
+    "authoring_basis": [
+      "approved-v2-candidate-semantics",
+      "tf-kg-crosswalk-missing"
+    ],
+    "historical_case_similarity_review": "reviewed against the frozen exclusion registry; no semantic copy admitted"
+  },
+  "task_state": {
+    "disaster_type": "flood",
+    "resource_regime": "crosswalk_closed",
+    "tasks": [
+      {
+        "task_id": "TASK-WATERWAYS",
+        "task_kind": "waterways",
+        "contract_ids": [
+          "contract.product.waterways.v1"
+        ],
+        "source_states": [
+          {
+            "source_id": "catalog.flood.waterways",
+            "availability": "available",
+            "semantic_status": "compatible",
+            "legal_for_task": true
+          },
+          {
+            "source_id": "raw.osm.waterways",
+            "availability": "available",
+            "semantic_status": "compatible",
+            "legal_for_task": true
+          },
+          {
+            "source_id": "raw.hydrorivers.water",
+            "availability": "available",
+            "semantic_status": "compatible",
+            "legal_for_task": true
+          }
+        ],
+        "observed_failures": [],
+        "delivery_history": [
+          {
+            "step": 1,
+            "state": "planned",
+            "evidence_ref": "authoring://delivery/waterways"
+          }
+        ],
+        "precedence_after": []
+      }
+    ],
+    "global_observations": {
+      "mission_priority": [
+        "TASK-WATERWAYS"
+      ],
+      "time_budget_class": "standard",
+      "network_state": "online"
+    }
+  },
+  "variables": {
+    "causal_variables": [
+      {
+        "variable_id": "VAR-CROSSWALK-REFERENCE-EXISTS",
+        "json_path": "$.task_state.resource_regime",
+        "value_type": "string",
+        "allowed_values": [
+          "crosswalk_closed",
+          "crosswalk_missing",
+          "crosswalk_ambiguous"
+        ],
+        "mutation_role": "causal"
+      }
+    ],
+    "invariants": [
+      {
+        "variable_id": "VAR-REQUEST",
+        "json_path": "$.task_state.disaster_type",
+        "value_type": "string",
+        "allowed_values": [
+          "flood"
+        ],
+        "mutation_role": "invariant"
+      },
+      {
+        "variable_id": "VAR-CONTRACT",
+        "json_path": "$.task_state.tasks[0].contract_ids",
+        "value_type": "array",
+        "allowed_values": [
+          [
+            "contract.product.waterways.v1"
+          ]
+        ],
+        "mutation_role": "invariant"
+      }
+    ],
+    "nuisance_variables": [],
+    "maximum_causal_mutations_per_pair": 1
+  },
+  "oracle": {
+    "allowed_decisions": [
+      "plan"
+    ],
+    "task_constraints": [
+      {
+        "task_id": "TASK-WATERWAYS",
+        "required": true,
+        "allowed_delivery_states": [
+          "planned"
+        ],
+        "allowed_source_ids": [
+          "catalog.flood.waterways",
+          "raw.osm.waterways",
+          "raw.hydrorivers.water"
+        ],
+        "forbidden_source_ids": []
+      }
+    ],
+    "relation_assertion_ids": [
+      "ASSERT-KG-CROSSWALK-MISSING"
+    ],
+    "manual_review_item_ids": [
+      "REVIEW-KG-CROSSWALK-MISSING-SEMANTICS"
+    ],
+    "allows_multiple_valid_plans": false
+  },
+  "vetoes": [
+    {
+      "veto_id": "VETO-KG-CROSSWALK-MISSING",
+      "failure_class": "authoring.kg_crosswalk_missing",
+      "condition": "alias_default_repair; unknown_source_or_algorithm",
+      "evidence_path": "$.task_state.tasks"
+    }
+  ],
+  "views": {
+    "planner_visible_paths": [
+      "$.task_state"
+    ],
+    "evaluator_only_paths": [
+      "$.oracle"
+    ],
+    "human_blind_paths": [
+      "$.task_state"
+    ],
+    "planner_forbidden_path_prefixes": [
+      "$.oracle",
+      "$.vetoes",
+      "$.experiment_unit.relation_assertions",
+      "$.partition_policy",
+      "$.hashing"
+    ]
+  },
+  "crosswalk": {
+    "kg_release_id": "fusionagent-kg-v1.0.0",
+    "references": [
+      {
+        "reference_id": "contract.product.waterways.v1",
+        "reference_type": "contract",
+        "used_by_task_ids": [
+          "TASK-WATERWAYS"
+        ]
+      },
+      {
+        "reference_id": "catalog.flood.waterways",
+        "reference_type": "source",
+        "used_by_task_ids": [
+          "TASK-WATERWAYS"
+        ]
+      },
+      {
+        "reference_id": "raw.osm.waterways",
+        "reference_type": "source",
+        "used_by_task_ids": [
+          "TASK-WATERWAYS"
+        ]
+      },
+      {
+        "reference_id": "raw.hydrorivers.water",
+        "reference_type": "source",
+        "used_by_task_ids": [
+          "TASK-WATERWAYS"
+        ]
+      },
+      {
+        "reference_id": "algo.fusion.waterways.conflation.v7",
+        "reference_type": "algorithm",
+        "used_by_task_ids": [
+          "TASK-WATERWAYS"
+        ]
+      },
+      {
+        "reference_id": "quality.default.waterways.v1",
+        "reference_type": "quality_policy",
+        "used_by_task_ids": [
+          "TASK-WATERWAYS"
+        ]
+      }
+    ],
+    "missing_reference_policy": "fail_closed"
+  },
+  "partition_policy": {
+    "allowed_partitions": [
+      "development"
+    ],
+    "historical_case_ids_forbidden_in_confirmation": [
+      "C01",
+      "C02",
+      "C03",
+      "C04",
+      "C05",
+      "C06",
+      "H01",
+      "H02",
+      "H03",
+      "H04",
+      "H05",
+      "H06",
+      "H07",
+      "H08",
+      "H09"
+    ],
+    "semantic_copy_forbidden": true
+  },
+  "generation": {
+    "generator_id": "generator.method-selection-authoring.v2-candidate",
+    "template_first": true,
+    "seed_namespace": "fusionagent-benchmark-v1-development",
+    "instance_id_pattern": "^BDV1-DEV-BC-[A-Z0-9-]+-[0-9]{3}$",
+    "stopping_rule_id": "stop.pre-registered-development-budget.v1"
+  },
+  "hashing": {
+    "algorithm": "sha256",
+    "canonicalization": "utf8-json-sorted-keys-compact-no-bom",
+    "template_hash_field": "template_sha256",
+    "instance_hash_field": "instance_sha256"
+  }
+}

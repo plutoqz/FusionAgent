@@ -1,0 +1,138 @@
+{
+  "solver_id": "finite-state-task-contract.v1",
+  "template_family_id": "TF-AOI-RESOLUTION-BOUNDARY",
+  "allowed_decisions": [
+    "reject"
+  ],
+  "task_plans": [
+    {
+      "task_id": "TASK-BUILDING",
+      "required": true,
+      "legal_source_ids": [],
+      "allowed_delivery_states": [
+        "planned",
+        "rejected"
+      ],
+      "valid_combinations": [
+        {
+          "decision": "reject",
+          "delivery_state": "planned",
+          "source_id": null
+        },
+        {
+          "decision": "reject",
+          "delivery_state": "rejected",
+          "source_id": null
+        }
+      ],
+      "must": [
+        "task_present"
+      ],
+      "forbidden": []
+    },
+    {
+      "task_id": "TASK-ROAD",
+      "required": true,
+      "legal_source_ids": [],
+      "allowed_delivery_states": [
+        "planned",
+        "rejected"
+      ],
+      "valid_combinations": [
+        {
+          "decision": "reject",
+          "delivery_state": "planned",
+          "source_id": null
+        },
+        {
+          "decision": "reject",
+          "delivery_state": "rejected",
+          "source_id": null
+        }
+      ],
+      "must": [
+        "task_present"
+      ],
+      "forbidden": []
+    },
+    {
+      "task_id": "TASK-WATER-POLYGON",
+      "required": true,
+      "legal_source_ids": [],
+      "allowed_delivery_states": [
+        "planned",
+        "rejected"
+      ],
+      "valid_combinations": [
+        {
+          "decision": "reject",
+          "delivery_state": "planned",
+          "source_id": null
+        },
+        {
+          "decision": "reject",
+          "delivery_state": "rejected",
+          "source_id": null
+        }
+      ],
+      "must": [
+        "task_present"
+      ],
+      "forbidden": []
+    },
+    {
+      "task_id": "TASK-WATERWAYS",
+      "required": true,
+      "legal_source_ids": [],
+      "allowed_delivery_states": [
+        "planned",
+        "rejected"
+      ],
+      "valid_combinations": [
+        {
+          "decision": "reject",
+          "delivery_state": "planned",
+          "source_id": null
+        },
+        {
+          "decision": "reject",
+          "delivery_state": "rejected",
+          "source_id": null
+        }
+      ],
+      "must": [
+        "task_present"
+      ],
+      "forbidden": []
+    },
+    {
+      "task_id": "TASK-POI",
+      "required": true,
+      "legal_source_ids": [],
+      "allowed_delivery_states": [
+        "planned",
+        "rejected"
+      ],
+      "valid_combinations": [
+        {
+          "decision": "reject",
+          "delivery_state": "planned",
+          "source_id": null
+        },
+        {
+          "decision": "reject",
+          "delivery_state": "rejected",
+          "source_id": null
+        }
+      ],
+      "must": [
+        "task_present"
+      ],
+      "forbidden": []
+    }
+  ],
+  "veto_ids": [
+    "VETO-AOI-RESOLUTION-BOUNDARY"
+  ],
+  "proof_hash": "sha256:4678818a5ef4cf9827b5c0e6d4da05ba8379b3c4ccf86de999d2299dc77534aa"
+}

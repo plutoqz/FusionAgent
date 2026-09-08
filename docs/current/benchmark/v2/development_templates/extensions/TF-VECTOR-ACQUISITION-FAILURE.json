@@ -1,0 +1,215 @@
+{
+  "base_template_schema_id": "https://fusionagent.local/schemas/benchmark-template.v1.json",
+  "base_template_id": "TF-VECTOR-ACQUISITION-FAILURE",
+  "base_template_sha256": "sha256:d9a9d0e2e22ddf5fa42f2341d20f7ec0784db7ac090ad2399c26c664e07166e1",
+  "frozen_plan_sha256": "sha256:942a10ccbc0f26976063acd0c12083da647d670d858fdb4fb98907a3bc3d231e",
+  "lineage_binding": {
+    "contract_ids": [
+      "contract.product.building.v1",
+      "contract.product.poi.v1",
+      "contract.product.road.v1",
+      "contract.product.water_polygon.v1",
+      "contract.product.waterways.v1"
+    ],
+    "source_ids": [
+      "raw.gns.poi",
+      "raw.google.poi",
+      "raw.hydrolakes.water",
+      "raw.hydrorivers.water",
+      "raw.microsoft.building",
+      "raw.microsoft.road",
+      "raw.osm.building",
+      "raw.osm.poi",
+      "raw.osm.road",
+      "raw.osm.water",
+      "raw.osm.waterways"
+    ],
+    "algorithm_ids": [
+      "algo.transform.raw_to_building_bundle",
+      "algo.transform.raw_to_road_bundle",
+      "algo.fusion.building.v1",
+      "algo.fusion.road.conflation.v7",
+      "algo.fusion.water_polygon.priority_merge.v2",
+      "algo.fusion.waterways.conflation.v7",
+      "algo.fusion.poi.v1"
+    ],
+    "artifact_hashes": [
+      "sha256:679573ab470b3f7b4a42ee3355fc0fbd07279581c83735237efca90ac963e299",
+      "sha256:748f2e9493df322e5f19327baea880c99329c246d2708d1272d4051f83ca083d",
+      "sha256:80591c7622e7d05ea924c999fde616ae62f5d8f9c55c35af05e4be9266d5c68c",
+      "sha256:b2ff2caf6f4ec7de7020af19b8de450afbd0ac208d26ab813b2c08489144ff0b"
+    ]
+  },
+  "status": "v2_candidate",
+  "v2_extensions": {
+    "acquisition": [
+      {
+        "task_id": "TASK-BUILDING",
+        "attempt_id": "ATTEMPT-BUILDING-01",
+        "source_id": "raw.osm.building",
+        "attempt_status": "succeeded",
+        "materialization_mode": "local_bundle",
+        "remote_success": false,
+        "manual_preload": false,
+        "failure_code": null,
+        "retry_eligible": false,
+        "artifact_hash": "sha256:679573ab470b3f7b4a42ee3355fc0fbd07279581c83735237efca90ac963e299"
+      },
+      {
+        "task_id": "TASK-ROAD",
+        "attempt_id": "ATTEMPT-ROAD-01",
+        "source_id": "raw.osm.road",
+        "attempt_status": "succeeded",
+        "materialization_mode": "local_bundle",
+        "remote_success": false,
+        "manual_preload": false,
+        "failure_code": null,
+        "retry_eligible": false,
+        "artifact_hash": "sha256:748f2e9493df322e5f19327baea880c99329c246d2708d1272d4051f83ca083d"
+      },
+      {
+        "task_id": "TASK-WATER-POLYGON",
+        "attempt_id": "ATTEMPT-WATER-POLYGON-01",
+        "source_id": "raw.osm.water",
+        "attempt_status": "failed",
+        "materialization_mode": "remote",
+        "remote_success": false,
+        "manual_preload": false,
+        "failure_code": "SOURCE_DOWNLOAD_FAILED",
+        "retry_eligible": true,
+        "artifact_hash": null
+      },
+      {
+        "task_id": "TASK-WATERWAYS",
+        "attempt_id": "ATTEMPT-WATERWAYS-01",
+        "source_id": "raw.osm.waterways",
+        "attempt_status": "succeeded",
+        "materialization_mode": "local_bundle",
+        "remote_success": false,
+        "manual_preload": false,
+        "failure_code": null,
+        "retry_eligible": false,
+        "artifact_hash": "sha256:b2ff2caf6f4ec7de7020af19b8de450afbd0ac208d26ab813b2c08489144ff0b"
+      },
+      {
+        "task_id": "TASK-POI",
+        "attempt_id": "ATTEMPT-POI-01",
+        "source_id": "raw.osm.poi",
+        "attempt_status": "succeeded",
+        "materialization_mode": "local_bundle",
+        "remote_success": false,
+        "manual_preload": false,
+        "failure_code": null,
+        "retry_eligible": false,
+        "artifact_hash": "sha256:80591c7622e7d05ea924c999fde616ae62f5d8f9c55c35af05e4be9266d5c68c"
+      }
+    ],
+    "delivery": [
+      {
+        "task_id": "TASK-BUILDING",
+        "from_state": "planned",
+        "to_state": "provisional",
+        "transition_reason": "pre-registered authoring scenario",
+        "evidence_refs": [
+          {
+            "evidence_type": "planning_decision",
+            "ref": "authoring://planning_decision/building"
+          },
+          {
+            "evidence_type": "source_attempt",
+            "ref": "authoring://source_attempt/building"
+          },
+          {
+            "evidence_type": "gap_declaration",
+            "ref": "authoring://gap_declaration/building"
+          }
+        ],
+        "terminal": true
+      },
+      {
+        "task_id": "TASK-ROAD",
+        "from_state": "planned",
+        "to_state": "provisional",
+        "transition_reason": "pre-registered authoring scenario",
+        "evidence_refs": [
+          {
+            "evidence_type": "planning_decision",
+            "ref": "authoring://planning_decision/road"
+          },
+          {
+            "evidence_type": "source_attempt",
+            "ref": "authoring://source_attempt/road"
+          },
+          {
+            "evidence_type": "gap_declaration",
+            "ref": "authoring://gap_declaration/road"
+          }
+        ],
+        "terminal": true
+      },
+      {
+        "task_id": "TASK-WATER-POLYGON",
+        "from_state": "planned",
+        "to_state": "gap",
+        "transition_reason": "pre-registered authoring scenario",
+        "evidence_refs": [
+          {
+            "evidence_type": "planning_decision",
+            "ref": "authoring://planning_decision/water_polygon"
+          },
+          {
+            "evidence_type": "source_attempt",
+            "ref": "authoring://source_attempt/water_polygon"
+          },
+          {
+            "evidence_type": "gap_declaration",
+            "ref": "authoring://gap_declaration/water_polygon"
+          }
+        ],
+        "terminal": true
+      },
+      {
+        "task_id": "TASK-WATERWAYS",
+        "from_state": "planned",
+        "to_state": "provisional",
+        "transition_reason": "pre-registered authoring scenario",
+        "evidence_refs": [
+          {
+            "evidence_type": "planning_decision",
+            "ref": "authoring://planning_decision/waterways"
+          },
+          {
+            "evidence_type": "source_attempt",
+            "ref": "authoring://source_attempt/waterways"
+          },
+          {
+            "evidence_type": "gap_declaration",
+            "ref": "authoring://gap_declaration/waterways"
+          }
+        ],
+        "terminal": true
+      },
+      {
+        "task_id": "TASK-POI",
+        "from_state": "planned",
+        "to_state": "provisional",
+        "transition_reason": "pre-registered authoring scenario",
+        "evidence_refs": [
+          {
+            "evidence_type": "planning_decision",
+            "ref": "authoring://planning_decision/poi"
+          },
+          {
+            "evidence_type": "source_attempt",
+            "ref": "authoring://source_attempt/poi"
+          },
+          {
+            "evidence_type": "gap_declaration",
+            "ref": "authoring://gap_declaration/poi"
+          }
+        ],
+        "terminal": true
+      }
+    ]
+  }
+}

@@ -1,0 +1,154 @@
+{
+  "solver_id": "finite-state-task-contract.v1",
+  "template_family_id": "TF-QUALITY-GATE-EVIDENCE",
+  "allowed_decisions": [
+    "degraded"
+  ],
+  "task_plans": [
+    {
+      "task_id": "TASK-BUILDING",
+      "required": true,
+      "legal_source_ids": [
+        "raw.microsoft.building",
+        "raw.osm.building"
+      ],
+      "allowed_delivery_states": [
+        "provisional"
+      ],
+      "valid_combinations": [
+        {
+          "decision": "degraded",
+          "delivery_state": "provisional",
+          "source_id": "raw.microsoft.building"
+        },
+        {
+          "decision": "degraded",
+          "delivery_state": "provisional",
+          "source_id": "raw.osm.building"
+        }
+      ],
+      "must": [
+        "task_present"
+      ],
+      "forbidden": []
+    },
+    {
+      "task_id": "TASK-ROAD",
+      "required": true,
+      "legal_source_ids": [
+        "raw.microsoft.road",
+        "raw.osm.road"
+      ],
+      "allowed_delivery_states": [
+        "provisional"
+      ],
+      "valid_combinations": [
+        {
+          "decision": "degraded",
+          "delivery_state": "provisional",
+          "source_id": "raw.microsoft.road"
+        },
+        {
+          "decision": "degraded",
+          "delivery_state": "provisional",
+          "source_id": "raw.osm.road"
+        }
+      ],
+      "must": [
+        "task_present"
+      ],
+      "forbidden": []
+    },
+    {
+      "task_id": "TASK-WATER-POLYGON",
+      "required": true,
+      "legal_source_ids": [
+        "raw.hydrolakes.water",
+        "raw.osm.water"
+      ],
+      "allowed_delivery_states": [
+        "degraded"
+      ],
+      "valid_combinations": [
+        {
+          "decision": "degraded",
+          "delivery_state": "degraded",
+          "source_id": "raw.hydrolakes.water"
+        },
+        {
+          "decision": "degraded",
+          "delivery_state": "degraded",
+          "source_id": "raw.osm.water"
+        }
+      ],
+      "must": [
+        "task_present"
+      ],
+      "forbidden": []
+    },
+    {
+      "task_id": "TASK-WATERWAYS",
+      "required": true,
+      "legal_source_ids": [
+        "raw.hydrorivers.water",
+        "raw.osm.waterways"
+      ],
+      "allowed_delivery_states": [
+        "provisional"
+      ],
+      "valid_combinations": [
+        {
+          "decision": "degraded",
+          "delivery_state": "provisional",
+          "source_id": "raw.hydrorivers.water"
+        },
+        {
+          "decision": "degraded",
+          "delivery_state": "provisional",
+          "source_id": "raw.osm.waterways"
+        }
+      ],
+      "must": [
+        "task_present"
+      ],
+      "forbidden": []
+    },
+    {
+      "task_id": "TASK-POI",
+      "required": true,
+      "legal_source_ids": [
+        "raw.gns.poi",
+        "raw.google.poi",
+        "raw.osm.poi"
+      ],
+      "allowed_delivery_states": [
+        "provisional"
+      ],
+      "valid_combinations": [
+        {
+          "decision": "degraded",
+          "delivery_state": "provisional",
+          "source_id": "raw.gns.poi"
+        },
+        {
+          "decision": "degraded",
+          "delivery_state": "provisional",
+          "source_id": "raw.google.poi"
+        },
+        {
+          "decision": "degraded",
+          "delivery_state": "provisional",
+          "source_id": "raw.osm.poi"
+        }
+      ],
+      "must": [
+        "task_present"
+      ],
+      "forbidden": []
+    }
+  ],
+  "veto_ids": [
+    "VETO-QUALITY-GATE-EVIDENCE"
+  ],
+  "proof_hash": "sha256:d5e4b9568eeadd4d88e80e199e70496560033669a9cf2703badcad263cab0674"
+}

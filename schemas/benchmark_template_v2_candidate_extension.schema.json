@@ -1,0 +1,290 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://fusionagent.local/schemas/benchmark-template-v2-candidate-extension.json",
+  "title": "FusionAgent Benchmark Template V2 Candidate Extension",
+  "description": "Candidate-only extension envelope paired with an unchanged Benchmark Template V1 document.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["base_template_schema_id", "base_template_id", "base_template_sha256", "frozen_plan_sha256", "lineage_binding", "status", "v2_extensions"],
+  "properties": {
+    "base_template_schema_id": {
+      "const": "https://fusionagent.local/schemas/benchmark-template.v1.json"
+    },
+    "base_template_id": {
+      "type": "string",
+      "pattern": "^TF-[A-Z0-9-]+$"
+    },
+    "base_template_sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "frozen_plan_sha256": {
+      "type": "string",
+      "pattern": "^sha256:[0-9a-f]{64}$"
+    },
+    "lineage_binding": {
+      "$ref": "#/$defs/lineageBinding"
+    },
+    "status": {
+      "const": "v2_candidate"
+    },
+    "v2_extensions": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "aoi": {"$ref": "#/$defs/aoi"},
+        "acquisition": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/acquisition"}},
+        "algorithm_grounding": {"oneOf": [{"$ref": "#/$defs/algorithmGrounding"}, {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/algorithmGrounding"}}]},
+        "quality_evidence": {"oneOf": [{"$ref": "#/$defs/qualityEvidence"}, {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/qualityEvidence"}}]},
+        "delivery": {"oneOf": [{"$ref": "#/$defs/delivery"}, {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/delivery"}}]}
+      },
+      "minProperties": 1
+    }
+  },
+  "allOf": [
+    {"if": {"properties": {"base_template_id": {"const": "TF-ALGORITHM-CAPABILITY-GROUNDING"}}}, "then": {"properties": {"v2_extensions": {"required": ["algorithm_grounding"]}}}},
+    {"if": {"properties": {"base_template_id": {"const": "TF-AOI-RESOLUTION-BOUNDARY"}}}, "then": {"properties": {"v2_extensions": {"required": ["aoi"]}}}},
+    {"if": {"properties": {"base_template_id": {"const": "TF-VECTOR-ACQUISITION-FAILURE"}}}, "then": {"properties": {"v2_extensions": {"required": ["acquisition", "delivery"]}}}},
+    {"if": {"properties": {"base_template_id": {"const": "TF-QUALITY-GATE-EVIDENCE"}}}, "then": {"properties": {"v2_extensions": {"required": ["acquisition", "algorithm_grounding", "quality_evidence", "delivery"]}}}},
+    {
+      "if": {"properties": {"base_template_id": {"const": "TF-EVIDENCE-COMPLETENESS"}}, "required": ["base_template_id"]},
+      "then": {
+        "properties": {
+          "v2_extensions": {
+            "required": ["aoi", "acquisition", "algorithm_grounding", "quality_evidence", "delivery"],
+            "properties": {
+              "delivery": {
+                "items": {
+                  "properties": {
+                    "evidence_refs": {
+                      "allOf": [
+                        {"contains": {"properties": {"evidence_type": {"const": "source_attempt"}}, "required": ["evidence_type"]}},
+                        {"contains": {"properties": {"evidence_type": {"const": "execution_trace"}}, "required": ["evidence_type"]}},
+                        {"contains": {"properties": {"evidence_type": {"const": "quality_report"}}, "required": ["evidence_type"]}},
+                        {"contains": {"properties": {"evidence_type": {"const": "artifact_lineage"}}, "required": ["evidence_type"]}},
+                        {"contains": {"properties": {"evidence_type": {"const": "delivery_manifest"}}, "required": ["evidence_type"]}}
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    {"if": {"properties": {"base_template_id": {"const": "TF-DELIVERY-STATE-TRACE"}}}, "then": {"properties": {"v2_extensions": {"required": ["quality_evidence", "delivery"]}}}}
+  ],
+  "$defs": {
+    "lineageBinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["contract_ids", "source_ids", "algorithm_ids", "artifact_hashes"],
+      "properties": {
+        "contract_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "source_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "algorithm_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "artifact_hashes": {"type": "array", "uniqueItems": true, "items": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}}
+      }
+    },
+    "aoi": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["aoi_candidate_set", "resolution_status", "ambiguity_class", "resolved_geometry_hash", "boundary_provenance", "cross_aoi_isolation"],
+      "properties": {
+        "aoi_candidate_set": {"type": "array", "minItems": 1, "items": {"type": "string"}},
+        "resolution_status": {"enum": ["resolved", "ambiguous", "out_of_domain", "unresolved"]},
+        "ambiguity_class": {"type": "string", "minLength": 1},
+        "resolved_geometry_hash": {"type": ["string", "null"]},
+        "boundary_provenance": {"type": "string", "minLength": 1},
+        "cross_aoi_isolation": {"const": true}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"resolution_status": {"const": "resolved"}}},
+          "then": {"properties": {"resolved_geometry_hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}, "cross_aoi_isolation": {"const": true}}},
+          "else": {"properties": {"resolved_geometry_hash": {"type": "null"}}}
+        }
+      ]
+    },
+    "acquisition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["attempt_id", "source_id", "attempt_status", "materialization_mode", "remote_success", "manual_preload", "failure_code", "retry_eligible", "artifact_hash"],
+      "properties": {
+        "task_id": {"type": "string", "pattern": "^TASK-[A-Z0-9-]+$"},
+        "attempt_id": {"type": "string", "minLength": 1},
+        "source_id": {"type": "string", "minLength": 1},
+        "attempt_status": {"enum": ["planned", "started", "succeeded", "failed", "skipped", "manual_intervention"]},
+        "materialization_mode": {"enum": ["remote", "local_bundle", "manual_preload", "none"]},
+        "remote_success": {"type": "boolean"},
+        "manual_preload": {"type": "boolean"},
+        "failure_code": {"type": ["string", "null"]},
+        "retry_eligible": {"type": "boolean"},
+        "artifact_hash": {"type": ["string", "null"], "pattern": "^sha256:[0-9a-f]{64}$"}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"manual_preload": {"const": true}}, "required": ["manual_preload"]},
+          "then": {"properties": {"materialization_mode": {"const": "manual_preload"}, "remote_success": {"const": false}}}
+        },
+        {
+          "if": {"properties": {"materialization_mode": {"const": "manual_preload"}}, "required": ["materialization_mode"]},
+          "then": {"properties": {"manual_preload": {"const": true}, "remote_success": {"const": false}}}
+        },
+        {
+          "if": {"properties": {"remote_success": {"const": true}}, "required": ["remote_success"]},
+          "then": {"properties": {"materialization_mode": {"const": "remote"}, "attempt_status": {"const": "succeeded"}, "manual_preload": {"const": false}, "artifact_hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}}}
+        },
+        {
+          "if": {"properties": {"attempt_status": {"const": "succeeded"}}, "required": ["attempt_status"]},
+          "then": {"properties": {"materialization_mode": {"enum": ["remote", "local_bundle", "manual_preload"]}, "failure_code": {"type": "null"}, "artifact_hash": {"type": "string", "pattern": "^sha256:[0-9a-f]{64}$"}}}
+        },
+        {
+          "if": {"properties": {"attempt_status": {"const": "failed"}}, "required": ["attempt_status"]},
+          "then": {"properties": {"remote_success": {"const": false}, "failure_code": {"type": "string", "minLength": 1}, "artifact_hash": {"type": "null"}}}
+        },
+        {
+          "if": {"properties": {"materialization_mode": {"const": "remote"}, "attempt_status": {"const": "succeeded"}}, "required": ["materialization_mode", "attempt_status"]},
+          "then": {"properties": {"remote_success": {"const": true}}}
+        },
+        {
+          "if": {"not": {"properties": {"materialization_mode": {"const": "remote"}, "attempt_status": {"const": "succeeded"}}, "required": ["materialization_mode", "attempt_status"]}},
+          "then": {"properties": {"remote_success": {"const": false}}}
+        }
+      ]
+    },
+    "algorithmGrounding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["task_id", "selected_algorithm_id", "capability_status", "required_input_source_ids", "materialized_input_source_ids", "missing_required_input_source_ids"],
+      "properties": {
+        "task_id": {"type": "string", "pattern": "^TASK-[A-Z0-9-]+$"},
+        "selected_algorithm_id": {"type": "string", "minLength": 1},
+        "capability_status": {"enum": ["compatible", "input_missing", "geometry_mismatch", "unsupported", "reserved", "deprecated"]},
+        "required_input_source_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "materialized_input_source_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "missing_required_input_source_ids": {"type": "array", "uniqueItems": true, "items": {"type": "string", "minLength": 1}}
+      },
+      "allOf": [
+        {
+          "if": {"properties": {"capability_status": {"const": "compatible"}}, "required": ["capability_status"]},
+          "then": {"properties": {"materialized_input_source_ids": {"minItems": 1}, "missing_required_input_source_ids": {"maxItems": 0}}}
+        },
+        {
+          "if": {"properties": {"capability_status": {"const": "input_missing"}}, "required": ["capability_status"]},
+          "then": {"properties": {"missing_required_input_source_ids": {"minItems": 1}}}
+        }
+      ]
+    },
+    "qualityEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["source_mode", "source_ids", "quality_gate_result", "hard_checks", "soft_adaptations", "evidence_manifest", "artifact_lineage"],
+      "properties": {
+        "task_id": {"type": "string", "pattern": "^TASK-[A-Z0-9-]+$"},
+        "source_mode": {"enum": ["single_source", "multi_source"]},
+        "source_ids": {"type": "array", "minItems": 1, "uniqueItems": true, "items": {"type": "string", "minLength": 1}},
+        "quality_gate_result": {"enum": ["pass", "provisional", "degraded", "fail", "missing"]},
+        "hard_checks": {
+          "type": "array",
+          "minItems": 3,
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["check_id", "status", "relaxed"],
+            "properties": {
+              "check_id": {"enum": ["readable", "non_empty", "required_fields", "geometry_type", "aoi_intersection", "source_lineage", "multi_source_lineage", "duplicate_geometry_rate", "invalid_geometry_rate", "source_contribution_balance", "zero_length_geometry_count", "dangle_endpoint_rate_per_100km", "self_intersection_count", "sliver_polygon_count"]},
+              "status": {"enum": ["pass", "fail", "missing"]},
+              "relaxed": {"const": false}
+            }
+          }
+        },
+        "soft_adaptations": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": ["policy_id", "check_id", "applied"],
+            "properties": {
+              "policy_id": {"const": "quality.external_degradation.v1"},
+              "check_id": {"enum": ["multi_source_lineage", "source_contribution_balance", "dangle_endpoint_rate_per_100km"]},
+              "applied": {"type": "boolean"}
+            }
+          }
+        },
+        "evidence_manifest": {"type": "string", "minLength": 1},
+        "artifact_lineage": {"type": "array", "minItems": 1, "items": {"type": "string", "minLength": 1}}
+      },
+      "allOf": [
+        {"properties": {"hard_checks": {"allOf": [
+          {"contains": {"properties": {"check_id": {"const": "geometry_type"}}, "required": ["check_id"]}},
+          {"contains": {"properties": {"check_id": {"const": "invalid_geometry_rate"}}, "required": ["check_id"]}},
+          {"contains": {"properties": {"check_id": {"const": "source_lineage"}}, "required": ["check_id"]}},
+          {"contains": {"properties": {"check_id": {"const": "required_fields"}}, "required": ["check_id"]}}
+        ]}}},
+        {
+          "if": {"properties": {"source_mode": {"const": "single_source"}}, "required": ["source_mode"]},
+          "then": {"properties": {"source_ids": {"maxItems": 1}}},
+          "else": {"properties": {"source_ids": {"minItems": 2}}}
+        },
+        {
+          "if": {"properties": {"quality_gate_result": {"const": "pass"}}, "required": ["quality_gate_result"]},
+          "then": {"properties": {"hard_checks": {"items": {"properties": {"status": {"const": "pass"}}}}}}
+        },
+        {
+          "if": {"properties": {"soft_adaptations": {"contains": {"properties": {"applied": {"const": true}}, "required": ["applied"]}}}},
+          "then": {"properties": {"source_mode": {"const": "single_source"}, "quality_gate_result": {"enum": ["provisional", "degraded"]}}}
+        },
+        {
+          "if": {"properties": {"hard_checks": {"contains": {"properties": {"status": {"enum": ["fail", "missing"]}}, "required": ["status"]}}}},
+          "then": {"properties": {"quality_gate_result": {"enum": ["fail", "missing"]}}}
+        }
+      ]
+    },
+    "delivery": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["from_state", "to_state", "transition_reason", "evidence_refs", "terminal"],
+      "properties": {
+        "task_id": {"type": "string", "pattern": "^TASK-[A-Z0-9-]+$"},
+        "from_state": {"enum": ["planned", "pending", "gap", "provisional", "degraded", "final", "rejected", "superseded"]},
+        "to_state": {"enum": ["planned", "pending", "gap", "provisional", "degraded", "final", "rejected", "superseded"]},
+        "transition_reason": {"type": "string", "minLength": 1},
+        "evidence_refs": {"type": "array", "minItems": 1, "items": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": ["evidence_type", "ref"],
+          "properties": {
+            "evidence_type": {"enum": ["planning_decision", "source_attempt", "execution_trace", "quality_report", "artifact_lineage", "gap_declaration", "delivery_manifest"]},
+            "ref": {"type": "string", "minLength": 1}
+          }
+        }},
+        "terminal": {"type": "boolean"}
+      },
+      "allOf": [
+        {
+          "oneOf": [
+            {"properties": {"from_state": {"const": "planned"}, "to_state": {"enum": ["pending", "gap", "provisional", "degraded", "rejected"]}}},
+            {"properties": {"from_state": {"const": "pending"}, "to_state": {"enum": ["gap", "provisional", "degraded", "final", "rejected"]}}},
+            {"properties": {"from_state": {"const": "gap"}, "to_state": {"enum": ["provisional", "degraded"]}}},
+            {"properties": {"from_state": {"const": "provisional"}, "to_state": {"enum": ["gap", "degraded", "final", "superseded"]}}},
+            {"properties": {"from_state": {"const": "degraded"}, "to_state": {"enum": ["gap", "final", "superseded"]}}},
+            {"properties": {"from_state": {"const": "superseded"}, "to_state": {"const": "final"}}}
+          ]
+        },
+        {
+          "if": {"properties": {"terminal": {"const": true}}, "required": ["terminal"]},
+          "then": {"properties": {"to_state": {"enum": ["gap", "provisional", "degraded", "final", "rejected"]}}}
+        },
+        {
+          "if": {"properties": {"to_state": {"const": "final"}}, "required": ["to_state"]},
+          "then": {"properties": {"terminal": {"const": true}, "evidence_refs": {"allOf": [
+            {"contains": {"properties": {"evidence_type": {"const": "quality_report"}}, "required": ["evidence_type"]}},
+            {"contains": {"properties": {"evidence_type": {"const": "artifact_lineage"}}, "required": ["evidence_type"]}}
+          ]}}}
+        }
+      ]
+    }
+  }
+}

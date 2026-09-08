@@ -1,0 +1,23 @@
+{
+  "baseline_id": "fusionagent.method-selection-development.p0-baseline.v1",
+  "protocol_id": "fusionagent.method-selection-development.v1",
+  "stage": "P0",
+  "gate": "MS-DEV-P0",
+  "status": "captured",
+  "branch": "codex/benchmark-platform-dev-r1",
+  "kg_release_id": "fusionagent-kg-v1.0.0",
+  "development_seed_namespace": "fusionagent-benchmark-v1-development",
+  "development_master_seed": 2026081901,
+  "output_root": "D:\\code\\fusionagent-evidence\\method-selection-development-v1",
+  "output_root_exists_at_capture": false,
+  "accounting": {
+    "provider_calls": 0,
+    "judge_calls": 0,
+    "benchmark_instances_generated": 0,
+    "formal_result_roots_created": 0,
+    "confirmation_unsealed": false,
+    "selective_e2e_selected": false
+  },
+  "next_acceptance": "P1 template authoring contract",
+  "not_authorized": ["provider", "judge", "confirmation", "selective_e2e", "formal_experiment"]
+}

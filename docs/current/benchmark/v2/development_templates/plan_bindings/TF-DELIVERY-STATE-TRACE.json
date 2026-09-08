@@ -1,0 +1,22 @@
+{
+  "plan_id": "PLAN-AUTHORING-DELIVERY-STATE-TRACE",
+  "status": "authoring_fixture_not_executed",
+  "template_family_id": "TF-DELIVERY-STATE-TRACE",
+  "task_ids": [
+    "TASK-WATER-POLYGON"
+  ],
+  "contract_ids": [
+    "contract.product.water_polygon.v1"
+  ],
+  "source_ids": [
+    "catalog.flood.water_polygon",
+    "raw.osm.water",
+    "raw.hydrolakes.water"
+  ],
+  "algorithm_ids": [
+    "algo.fusion.water_polygon.priority_merge.v2"
+  ],
+  "delivery_states": {
+    "TASK-WATER-POLYGON": "provisional"
+  }
+}

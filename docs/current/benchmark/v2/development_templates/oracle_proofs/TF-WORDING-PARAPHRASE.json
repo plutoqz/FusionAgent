@@ -1,0 +1,52 @@
+{
+  "solver_id": "finite-state-task-contract.v1",
+  "template_family_id": "TF-WORDING-PARAPHRASE",
+  "allowed_decisions": [
+    "plan"
+  ],
+  "task_plans": [
+    {
+      "task_id": "TASK-POI",
+      "required": true,
+      "legal_source_ids": [
+        "catalog.generic.poi",
+        "raw.gns.poi",
+        "raw.google.poi",
+        "raw.osm.poi"
+      ],
+      "allowed_delivery_states": [
+        "planned"
+      ],
+      "valid_combinations": [
+        {
+          "decision": "plan",
+          "delivery_state": "planned",
+          "source_id": "catalog.generic.poi"
+        },
+        {
+          "decision": "plan",
+          "delivery_state": "planned",
+          "source_id": "raw.gns.poi"
+        },
+        {
+          "decision": "plan",
+          "delivery_state": "planned",
+          "source_id": "raw.google.poi"
+        },
+        {
+          "decision": "plan",
+          "delivery_state": "planned",
+          "source_id": "raw.osm.poi"
+        }
+      ],
+      "must": [
+        "task_present"
+      ],
+      "forbidden": []
+    }
+  ],
+  "veto_ids": [
+    "VETO-WORDING-PARAPHRASE"
+  ],
+  "proof_hash": "sha256:44dfdcc856dbbbdb5baca2fc169a5a210d74577ad2ae18b41e780963fe11a6bd"
+}

@@ -1,0 +1,89 @@
+{
+  "review_id": "fusionagent.method-selection-development-template-authoring-review.v2-candidate",
+  "status": "user_approved_package_materializer_review_pending",
+  "scope": "15 concrete development template documents and six task-indexed v2 extension envelopes",
+  "package_manifest": "docs/current/benchmark/v2/development_templates/authoring_manifest.json",
+  "audit_report": "docs/current/benchmark/v2/development_templates/authoring_audit.json",
+  "materializer_audit": "docs/current/benchmark/v2/development_templates/materializer_audit.json",
+  "machine_evidence": {
+    "family_count": 15,
+    "base_templates": 15,
+    "v2_extensions": 6,
+    "oracle_proofs": 15,
+    "plan_bindings": 15,
+    "products": ["building", "road", "water_polygon", "waterways", "poi"],
+    "forbidden_domains_present": false,
+    "authoring_audit": "passed_authoring_spec_only",
+    "focused_regression": "35 passed",
+    "compileall": "passed",
+    "provider_calls": 0,
+    "judge_calls": 0,
+    "instances_generated": 0,
+    "formal_result_roots": 0,
+    "frozen_v1_modified": false
+  },
+  "semantic_boundary": {
+    "authoring_fixture_hashes_are_live_gis_artifacts": false,
+    "l4_eligibility_is_protocol_admission_only": true,
+    "raw_to_building_and_raw_to_road_transform_runtime_verified": false,
+    "all_future_instances_require_json_schema_and_platform_semantic_validation": true
+  },
+  "known_blockers": [
+    {
+      "code": "member_materializer_not_implemented",
+      "impact": "Current development generator clones a template and does not apply variable domains, so relational members are not yet generated.",
+      "required_next_action": "Implement and independently review a deterministic member materializer before instance generation."
+    },
+    {
+      "code": "frozen_v1_payload_schema_boundary",
+      "impact": "v1 base payload has no request/raw_plan/candidate_plan fields; wording, noise, plan-structure and validator-veto mutations are recorded as authoring specifications and proxy paths.",
+      "required_next_action": "Approve a candidate member-payload extension or explicit materializer contract before claiming runnable relation coverage."
+    },
+    {
+      "code": "materializer_semantic_blockers",
+      "impact": "The deterministic materializer is implemented, but six families are rejected: three proxy causal fields and three overlapping variable-role contracts.",
+      "required_next_action": "Resolve the explicit v1/v2 payload fields and variable-role contracts, then rerun the materializer audit before any instance generation."
+    }
+  ],
+  "materializer_evidence": {
+    "implementation": "benchmark_platform/materializer.py",
+    "audit_status": "passed_with_semantic_blockers",
+    "family_count": 15,
+    "materializable_family_count": 9,
+    "blocked_family_count": 6,
+    "in_memory_only": true,
+    "instances_generated": 0,
+    "provider_calls": 0,
+    "judge_calls": 0
+  },
+  "user_review_questions": [
+    {
+      "item_id": "DT-V2-01",
+      "question": "是否接受 15 个模板族及其五类矢量产品范围，且确认不包含 InSAR、栅格或遥感影像？",
+      "decision": "approved_by_user"
+    },
+    {
+      "item_id": "DT-V2-02",
+      "question": "是否接受六个 v2 族按 task_id 使用 algorithm_grounding、quality_evidence、delivery 数组，并保留 manual_preload=true 且 remote_success=false 的语义？",
+      "decision": "approved_by_user"
+    },
+    {
+      "item_id": "DT-V2-03",
+      "question": "是否接受当前 authoring-only 边界，并授权下一阶段实现 member materializer？",
+      "decision": "approved_by_user"
+    },
+    {
+      "item_id": "DT-V2-04",
+      "question": "在 member materializer 独立审核前，是否继续禁止 development instance、Provider、judge、confirmation 和 selective E2E？",
+      "decision": "approved_by_user_with_semantic_blockers"
+    }
+  ],
+  "not_authorized": [
+    "development instance generation",
+    "provider",
+    "judge",
+    "confirmation",
+    "selective_e2e",
+    "formal_experiment"
+  ]
+}

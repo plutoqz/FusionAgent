@@ -1,0 +1,29 @@
+{
+  "plan_id": "PLAN-AUTHORING-ALGORITHM-CAPABILITY-GROUNDING",
+  "status": "authoring_fixture_not_executed",
+  "template_family_id": "TF-ALGORITHM-CAPABILITY-GROUNDING",
+  "task_ids": [
+    "TASK-WATER-POLYGON",
+    "TASK-WATERWAYS"
+  ],
+  "contract_ids": [
+    "contract.product.water_polygon.v1",
+    "contract.product.waterways.v1"
+  ],
+  "source_ids": [
+    "catalog.flood.water_polygon",
+    "catalog.flood.waterways",
+    "raw.osm.water",
+    "raw.hydrolakes.water",
+    "raw.osm.waterways",
+    "raw.hydrorivers.water"
+  ],
+  "algorithm_ids": [
+    "algo.fusion.water_polygon.priority_merge.v2",
+    "algo.fusion.waterways.conflation.v7"
+  ],
+  "delivery_states": {
+    "TASK-WATER-POLYGON": "planned",
+    "TASK-WATERWAYS": "planned"
+  }
+}
