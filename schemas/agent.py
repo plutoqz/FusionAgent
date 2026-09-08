@@ -248,6 +248,7 @@ class RunCreateRequest(BaseModel):
     debug: bool = False
     input_strategy: RunInputStrategy = RunInputStrategy.uploaded
     preferred_pattern_id: Optional[str] = None
+    plan_after_acquisition: bool = False
 
 
 class RunCreateResponse(BaseModel):

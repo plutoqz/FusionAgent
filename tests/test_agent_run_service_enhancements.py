@@ -546,9 +546,11 @@ def _wire_real_water_acquisition_chain(
     )
 
 
+@pytest.mark.parametrize("post_acquisition", [False, True])
 def test_agent_run_service_allows_water_task_driven_auto_and_records_task_inputs_resolved(
     tmp_path: Path,
     monkeypatch,
+    post_acquisition,
 ) -> None:
     service = AgentRunService(base_dir=tmp_path / "runs")
     osm_shp = tmp_path / "resolved_osm_water.shp"
@@ -578,6 +580,15 @@ def test_agent_run_service_allows_water_task_driven_auto_and_records_task_inputs
 
     monkeypatch.setattr(service.aoi_resolution_service, "resolve", lambda query: _resolved_nairobi_aoi())
     monkeypatch.setattr(service.planner, "create_plan", lambda **_kwargs: plan.model_copy(deep=True))
+    def after_acquisition(**kwargs):
+        observation = kwargs["acquisition_observation"]
+        assert observation["source_id"] == resolved.source_id
+        assert observation["version_token"] == "water-v1"
+        candidate = kwargs["previous_plan"].model_copy(deep=True)
+        candidate.context["plan_revision"] = 2
+        return candidate
+
+    monkeypatch.setattr(service.planner, "plan_after_acquisition", after_acquisition)
     monkeypatch.setattr(service.validator, "validate_and_repair", lambda input_plan: input_plan)
     monkeypatch.setattr(service, "_should_use_large_area_runtime", lambda **_kwargs: False)
     monkeypatch.setattr(service.input_acquisition_service, "resolve_task_driven_inputs", lambda **_kwargs: resolved)
@@ -593,7 +604,7 @@ def test_agent_run_service_allows_water_task_driven_auto_and_records_task_inputs
             spatial_extent=None,
             job_type=JobType.water,
             content="need water polygons for Nairobi, Kenya",
-        ),
+        ).model_copy(update={"plan_after_acquisition": post_acquisition}),
         osm_zip_name=None,
         osm_zip_bytes=None,
         ref_zip_name=None,
@@ -605,6 +616,50 @@ def test_agent_run_service_allows_water_task_driven_auto_and_records_task_inputs
     assert latest.phase == RunPhase.succeeded
     resolved_event = next(event for event in service.get_audit_events(status.run_id) if event.kind == "task_inputs_resolved")
     assert resolved_event.details["source_materialization_manifest_path"] == str(resolved.manifest_path)
+    events = [event.kind for event in service.get_audit_events(status.run_id)]
+    if post_acquisition:
+        assert latest.plan_revision == 2
+        assert events.index("task_inputs_resolved") < events.index("post_acquisition_plan_created")
+        assert events.index("post_acquisition_plan_created") < events.index("execution_completed")
+    else:
+        assert "post_acquisition_plan_created" not in events
+
+
+@pytest.mark.parametrize("fault", ["unchanged", "changed_source", "changed_type", "validator_changed_source"])
+def test_post_acquisition_plan_rejects_unmaterialized_inputs(tmp_path, monkeypatch, fault):
+    monkeypatch.setenv("GEOFUSION_LLM_PROVIDER", "mock")
+    service = AgentRunService(base_dir=tmp_path / "runs", kg_repo=InMemoryKGRepository())
+    request = _build_auto_request()
+    plan = _build_plan(workflow_id="acquisition", revision=1)
+    _seed_run_status(service, "acquisition", request)
+    candidate = plan.model_copy(deep=True)
+    candidate.context["plan_revision"] = 1 if fault == "unchanged" else 2
+    if fault == "changed_source":
+        candidate.tasks[0].input.data_source_id = "unmaterialized.source"
+    if fault == "changed_type":
+        candidate.tasks[0].input.data_type_id = "unmaterialized.type"
+    monkeypatch.setattr(service.planner, "plan_after_acquisition", lambda **kw: candidate)
+
+    def validate(**kw):
+        if fault == "validator_changed_source":
+            kw["plan"].tasks[0].input.data_source_id = "unmaterialized.source"
+        return kw["plan"]
+
+    monkeypatch.setattr(service, "run_validation_stage", validate)
+    resolved = ResolvedRunInputs(
+        osm_zip_path=tmp_path / "osm.zip", ref_zip_path=tmp_path / "ref.zip",
+        source_mode="test_fixture", source_id="upload.bundle", cache_hit=True, version_token="fixture-v1",
+    )
+    try:
+        with pytest.raises(RuntimeError, match="plan revision|materialized input bundle"):
+            service.run_post_acquisition_planning_stage(
+                run_id="acquisition", request=request, plan=plan, resolved_inputs=resolved,
+                runtime_dependencies=service._bound_default_runtime(),
+            )
+        assert (service.base_dir / "acquisition" / "post-acquisition-candidate-1.json").is_file()
+        assert not any(e.kind == "post_acquisition_plan_created" for e in service.get_audit_events("acquisition"))
+    finally:
+        service.shutdown()
 
 
 def test_agent_run_service_writes_data_requirements_before_materialization(tmp_path: Path, monkeypatch) -> None:
@@ -3741,6 +3796,93 @@ def test_agent_run_service_replans_after_execution_failure(tmp_path: Path, monke
     ]
     assert audit_events[-1].kind == "run_succeeded"
     assert audit_events[-1].plan_revision == 2
+
+
+@pytest.mark.parametrize("outcome", ["recovered", "exhausted", "unchanged", "same_actions", "storage_error"])
+@pytest.mark.parametrize("artifact_location", ["output_dir", "intermediate_dir"])
+def test_quality_feedback_replanning_preserves_failed_revision(tmp_path, monkeypatch, outcome, artifact_location):
+    from types import SimpleNamespace
+
+    monkeypatch.setenv("GEOFUSION_LLM_PROVIDER", "mock")
+    monkeypatch.setenv("GEOFUSION_DISABLE_ARTIFACT_REUSE", "1")
+    service = AgentRunService(base_dir=tmp_path / "runs", kg_repo=InMemoryKGRepository())
+    service.dispatch_eager = True
+    service.max_plan_revisions = 2
+    initial = _build_plan(workflow_id="quality_initial", revision=1)
+    monkeypatch.setattr(service.planner, "create_plan", lambda **kw: initial.model_copy(deep=True))
+    monkeypatch.setattr(service.validator, "validate_and_repair", lambda plan: plan)
+    monkeypatch.setattr(service, "_validate_output_artifact_against_schema_policy", lambda **kw: None)
+    executions = []
+    replans = []
+
+    def execute(**kw):
+        revision = kw["plan"].context["plan_revision"]
+        executions.append(revision)
+        path = kw[artifact_location] / "fused.shp"
+        _write_minimal_polygon_shapefile(path)
+        (kw["output_dir"] / "revision.txt").write_text(str(revision))
+        return path, kw["repair_records"]
+
+    def evaluate(**kw):
+        if outcome == "storage_error":
+            raise OSError("test storage unavailable")
+        return QualityGateReport(
+            accepted=outcome == "recovered" and executions[-1] == 2,
+            task_kind=TaskKind.building,
+            artifact_path=str(kw["artifact_path"]),
+            failure_reasons=[] if executions[-1] == 2 and outcome == "recovered" else ["test_quality_rejected"],
+        )
+
+    def replan(**kw):
+        replans.append(kw)
+        assert kw["previous_plan"].context["observed_failure"]["quality_report"]["accepted"] is False
+        assert kw["previous_plan"].context["observed_failure"]["root_cause"] == "undetermined"
+        return _build_plan(
+            workflow_id="quality_replanned",
+            revision=1 if outcome == "unchanged" else 2,
+            algorithm_id="algo.fusion.building.v1" if outcome == "same_actions" else "algo.fusion.building.safe",
+        )
+
+    monkeypatch.setattr(service.run_execution_router, "run_selected_execution_stage", execute)
+    monkeypatch.setattr(service.quality_gate_service, "evaluate", evaluate)
+    monkeypatch.setattr(service.planner, "replan_from_error", replan)
+    monkeypatch.setattr(
+        service.artifact_repair_service, "repair",
+        lambda **kw: SimpleNamespace(
+            changed=False, output_path=kw["artifact_path"], repair_records=[],
+            report={"changed": False}, applied_strategies=[],
+        ),
+    )
+    try:
+        status = service.create_run(
+            request=RunCreateRequest(
+                job_type=JobType.building,
+                trigger=RunTrigger(type=RunTriggerType.user_query, content="building"),
+                target_crs="EPSG:32643",
+            ),
+            osm_zip_name="osm.zip", osm_zip_bytes=b"unused by test executor",
+            ref_zip_name="ref.zip", ref_zip_bytes=b"unused by test executor",
+        )
+        assert status.phase == (RunPhase.succeeded if outcome == "recovered" else RunPhase.failed)
+        assert executions == ([1] if outcome in {"unchanged", "same_actions", "storage_error"} else [1, 2])
+        assert len(replans) == (0 if outcome == "storage_error" else 1)
+        run_dir = service.base_dir / status.run_id
+        if outcome != "storage_error":
+            archive = run_dir / "quality-failures" / "revision-1"
+            assert (archive / "revision.txt").read_text() == "1"
+            assert (archive / "rejected-artifact" / "fused.shp").is_file()
+            assert (archive / "rejected-artifact" / "fused.dbf").is_file()
+            assert json.loads((archive / "quality_report.json").read_text())["accepted"] is False
+            assert (archive / "quality_report.before_repair.json").is_file()
+        if outcome == "exhausted":
+            assert (run_dir / "quality-failures" / "revision-2" / "quality_report.json").is_file()
+        if outcome == "same_actions":
+            assert (run_dir / "rejected-quality-replan-2.json").is_file()
+            assert "Unchanged quality recovery plan" in status.error
+        if outcome != "recovered":
+            assert status.artifact is None
+    finally:
+        service.shutdown()
 
 
 def test_replan_result_is_rejected_when_grounding_enforcement_fails(tmp_path: Path, monkeypatch) -> None:

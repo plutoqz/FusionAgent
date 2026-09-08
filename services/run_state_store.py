@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import json
+import time
 import uuid
 from pathlib import Path
 
@@ -71,7 +72,14 @@ def _atomic_write_text(path: Path, payload: str) -> None:
     tmp_path = path.with_name(f".{path.name}.{uuid.uuid4().hex}.tmp")
     try:
         tmp_path.write_text(payload, encoding="utf-8")
-        tmp_path.replace(path)
+        for attempt in range(4):
+            try:
+                tmp_path.replace(path)
+                break
+            except PermissionError as exc:
+                if getattr(exc, "winerror", None) not in {5, 32, 33} or attempt == 3:
+                    raise
+                time.sleep(0.05 * (2 ** attempt))
     finally:
         if tmp_path.exists():
             tmp_path.unlink()

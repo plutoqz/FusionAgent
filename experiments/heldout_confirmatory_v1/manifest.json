@@ -1,0 +1,26 @@
+{
+  "authoring_date": "2026-09-05",
+  "authoring_method": "independent_declarative_fixture",
+  "case_count": 240,
+  "case_file_sha256": "ae5be68c3d0027c6ff5f0e4ebb0fdd2e0831eaac18cb1f2f75afc0706d06b801",
+  "constraint_count_distribution": {
+    "1": 40,
+    "2": 40,
+    "3": 40
+  },
+  "dataset_id": "fusionagent.heldout-confirmatory.v1",
+  "evaluation_profile": "heldout_confirmatory_v1",
+  "fault_labels_excluded_from_planning_input": true,
+  "instances_per_scenario_product": 2,
+  "oracle_frozen_before_live_run": true,
+  "pair_count": 120,
+  "products": [
+    "building",
+    "road",
+    "water_polygon",
+    "waterways",
+    "poi"
+  ],
+  "runner_oracle_generation_reused": false,
+  "scenario_count": 12
+}

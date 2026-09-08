@@ -37,6 +37,7 @@ Rules:
 3) Prefer high success-rate patterns.
 4) When resolved_aoi and source_coverage_hints are present, use them to choose executable source-aware tasks.
 5) Return valid JSON only.
+6) The top-level object must conform to output_schema; do not wrap it in another object.
 """
 
 
@@ -45,6 +46,26 @@ class _ProviderPlanningCallError(RuntimeError):
         super().__init__(str(cause))
         self.telemetry = telemetry
         self.__cause__ = cause
+
+
+def planning_action_snapshot(plan: WorkflowPlan) -> Dict[str, Any]:
+    """Keep executable history; full retrieval and provider evidence stay on disk."""
+    intent = plan.context.get("intent") or {}
+    return {
+        "workflow_id": plan.workflow_id,
+        "trigger": plan.trigger.model_dump(mode="json"),
+        "tasks": [task.model_dump(mode="json") for task in plan.tasks],
+        "expected_output": plan.expected_output,
+        "context": {
+            "plan_revision": plan.context.get("plan_revision"),
+            "selected_pattern_id": plan.context.get("selected_pattern_id"),
+            "intent": {
+                key: intent[key]
+                for key in ("request_input_strategy", "resolved_aoi")
+                if key in intent
+            },
+        },
+    }
 
 
 class WorkflowPlanner:
@@ -268,10 +289,39 @@ class WorkflowPlanner:
         failed_step: int,
         error_message: str,
     ) -> WorkflowPlan:
+        return self._revise_plan(
+            run_id=run_id, job_type=job_type, trigger=trigger, previous_plan=previous_plan,
+            failed_step=failed_step, error_message=error_message,
+        )
+
+    def plan_after_acquisition(
+        self, *, run_id: str, job_type: JobType, trigger: RunTrigger,
+        previous_plan: WorkflowPlan, acquisition_observation: Dict[str, Any],
+    ) -> WorkflowPlan:
+        return self._revise_plan(
+            run_id=run_id, job_type=job_type, trigger=trigger, previous_plan=previous_plan,
+            failed_step=None, error_message=None, acquisition_observation=acquisition_observation,
+        )
+
+    def _revise_plan(
+        self, *, run_id: str, job_type: JobType, trigger: RunTrigger,
+        previous_plan: WorkflowPlan, failed_step: Optional[int], error_message: Optional[str],
+        acquisition_observation: Optional[Dict[str, Any]] = None,
+    ) -> WorkflowPlan:
         planning_context, _ = self.context_builder.build(job_type=job_type, trigger=trigger)
-        planning_context["execution_hints"]["previous_plan"] = previous_plan.model_dump(mode="json")
-        planning_context["execution_hints"]["failed_step"] = failed_step
-        planning_context["execution_hints"]["error"] = error_message
+        planning_context["execution_hints"]["previous_plan"] = planning_action_snapshot(previous_plan)
+        if acquisition_observation is not None:
+            planning_context["execution_hints"]["planning_stage"] = "post_acquisition"
+            planning_context["execution_hints"]["acquisition_observation"] = acquisition_observation
+            planning_context["execution_hints"]["input_constraint"] = (
+                "Plan fusion using the materialized input bundle and its observed coverage. "
+                "Do not select a different source bundle or input type."
+            )
+        else:
+            planning_context["execution_hints"]["failed_step"] = failed_step
+            planning_context["execution_hints"]["error"] = error_message
+        if previous_plan.context.get("observed_failure") is not None:
+            planning_context["execution_hints"]["observed_failure"] = previous_plan.context["observed_failure"]
         planning_telemetry: Dict[str, Any] | None = None
         try:
             payload, planning_telemetry = self._generate_plan_payload(planning_context)
@@ -284,7 +334,7 @@ class WorkflowPlanner:
             revision = int(previous_plan.context.get("plan_revision", 1)) + 1
             plan.context = self._normalize_plan_context(
                 planning_context=planning_context,
-                selection_reason="replanned_after_failure",
+                selection_reason="planned_after_acquisition" if acquisition_observation is not None else "replanned_after_failure",
                 revision=revision,
                 planning_telemetry=planning_telemetry,
                 planning_source="llm",
@@ -485,6 +535,7 @@ class WorkflowPlanner:
         self.llm_provider.last_attempt = None
 
     def _generate_plan_payload(self, planning_context: Dict[str, Any]) -> tuple[Dict[str, Any], Dict[str, Any]]:
+        planning_context = {**planning_context, "output_schema": WorkflowPlan.model_json_schema()}
         with self._provider_call_lock:
             self._reset_provider_telemetry()
             started_at = time.perf_counter()

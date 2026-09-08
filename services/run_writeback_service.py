@@ -12,6 +12,15 @@ from schemas.task_kind import TaskKind
 from services.task_kind_resolution_service import resolve_task_kind
 
 
+class QualityGateRejectedError(RuntimeError):
+    """A completed quality evaluation rejected the artifact after local repair."""
+
+    def __init__(self, *, report: dict[str, Any], report_path: Path) -> None:
+        super().__init__("Quality gate rejected fusion output")
+        self.report = report
+        self.report_path = report_path
+
+
 class RunWritebackService:
     def __init__(self, coordinator: Any) -> None:
         self.coordinator = coordinator
@@ -271,7 +280,10 @@ class RunWritebackService:
             encoding="utf-8",
         )
         if not quality_report.accepted:
-            raise RuntimeError("Quality gate rejected fusion output")
+            raise QualityGateRejectedError(
+                report=quality_report.model_dump(mode="json"),
+                report_path=quality_report_path,
+            )
         return fused_shp
 
 

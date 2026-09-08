@@ -3,7 +3,7 @@ from concurrent.futures import ThreadPoolExecutor
 from threading import Lock
 from typing import Any, Dict
 
-from agent.planner import WorkflowPlanner
+from agent.planner import WorkflowPlanner, planning_action_snapshot
 from kg.inmemory_repository import InMemoryKGRepository
 from kg.models import DurableLearningRecord
 from llm.providers.base import LLMProvider
@@ -52,6 +52,75 @@ class CapturingProvider(LLMProvider):
             "expected_output": "building fused shapefile",
             "estimated_time": "5m",
         }
+
+
+def test_replan_receives_observed_quality_report():
+    provider = CapturingProvider()
+    planner = WorkflowPlanner(InMemoryKGRepository(), provider)
+    trigger = RunTrigger(type=RunTriggerType.user_query, content="building")
+    plan = planner.create_plan(run_id="quality-context", job_type=JobType.building, trigger=trigger)
+    observed = {
+        "stage": "quality",
+        "quality_report": {"accepted": False, "failure_reasons": ["geometry_invalid"]},
+        "root_cause": "undetermined",
+    }
+    plan.context["observed_failure"] = observed
+    replanned = planner.replan_from_error(
+        run_id="quality-context", job_type=JobType.building, trigger=trigger,
+        previous_plan=plan, failed_step=1, error_message="Quality gate rejected fusion output",
+    )
+    assert provider.last_context["execution_hints"]["observed_failure"] == observed
+    assert replanned.context["plan_revision"] == 2
+
+
+def test_post_acquisition_planning_uses_observations_without_inventing_failure():
+    provider = CapturingProvider()
+    planner = WorkflowPlanner(InMemoryKGRepository(), provider)
+    trigger = RunTrigger(type=RunTriggerType.user_query, content="building")
+    plan = planner.create_plan(run_id="acquisition-context", job_type=JobType.building, trigger=trigger)
+    observation = {"source_id": "observed-source", "cache_hit": True, "component_coverage": {}}
+    updated = planner.plan_after_acquisition(
+        run_id="acquisition-context", job_type=JobType.building, trigger=trigger,
+        previous_plan=plan, acquisition_observation=observation,
+    )
+    hints = provider.last_context["execution_hints"]
+    assert hints["acquisition_observation"] == observation
+    assert hints["planning_stage"] == "post_acquisition"
+    assert "error" not in hints
+    assert "failed_step" not in hints
+    assert updated.context["plan_revision"] == 2
+    assert updated.context["selection_reason"] == "planned_after_acquisition"
+
+
+def test_provider_receives_actual_workflow_output_schema():
+    provider = CapturingProvider()
+    planner = WorkflowPlanner(InMemoryKGRepository(), provider)
+    planner.create_plan(
+        run_id="schema-contract", job_type=JobType.building,
+        trigger=RunTrigger(type=RunTriggerType.user_query, content="building"),
+    )
+    assert provider.last_context["output_schema"] == WorkflowPlan.model_json_schema()
+    assert {"workflow_id", "trigger", "expected_output"} <= set(
+        provider.last_context["output_schema"]["required"]
+    )
+
+
+def test_action_snapshot_excludes_nested_evidence_without_mutating_plan():
+    provider = CapturingProvider()
+    planner = WorkflowPlanner(InMemoryKGRepository(), provider)
+    plan = planner.create_plan(
+        run_id="compact", job_type=JobType.building,
+        trigger=RunTrigger(type=RunTriggerType.user_query, content="building"),
+    )
+    plan.context["planning_telemetry"] = {"raw_response": "historical-response-sentinel"}
+    plan.context["execution_hints"] = {"previous_plan": {"nested": "historical-response-sentinel"}}
+    before = plan.model_dump(mode="json")
+    snapshot = planning_action_snapshot(plan)
+    assert snapshot["tasks"] == before["tasks"]
+    assert snapshot["context"]["plan_revision"] == plan.context["plan_revision"]
+    assert "historical-response-sentinel" not in str(snapshot)
+    assert "retrieval" not in snapshot["context"]
+    assert plan.model_dump(mode="json") == before
 
 
 class StubGeocoder:
@@ -147,6 +216,7 @@ def test_planner_builds_stable_context_fields() -> None:
         "retrieval",
         "constraints",
         "execution_hints",
+        "output_schema",
     }
     assert set(plan.context.keys()) >= {
         "knowledge_identity",

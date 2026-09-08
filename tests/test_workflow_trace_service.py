@@ -1,5 +1,41 @@
 from schemas.agent import RunEvent, RunPhase
 from services.workflow_trace_service import build_workflow_trace
+import pytest
+
+
+@pytest.mark.parametrize(
+    ("kind", "details", "expected"),
+    [
+        ("source_acquisition_started", {}, "started"),
+        ("source_acquisition_heartbeat", {}, "running"),
+        ("source_acquisition_failed", {"error": "timeout"}, "failed"),
+        ("source_materialized", {}, "succeeded"),
+        ("quality_gate_evaluated", {"accepted": False}, "rejected"),
+        ("quality_gate_evaluated", {"accepted": True}, "accepted"),
+        ("quality_gate_evaluated", {}, "unknown"),
+        ("quality_gate_disabled_for_ablation", {}, "disabled"),
+        ("artifact_repair_exhausted", {}, "exhausted"),
+        ("replan_requested", {}, "requested"),
+        ("replan_rejected", {}, "rejected"),
+        ("replan_applied", {}, "succeeded"),
+    ],
+)
+def test_closed_loop_events_preserve_outcome_and_revision(kind, details, expected):
+    event = RunEvent(
+        timestamp="2026-09-07T00:00:00+00:00",
+        kind=kind,
+        phase=RunPhase.running,
+        message="observed event",
+        plan_revision=2,
+        attempt_no=1,
+        details=details,
+    )
+    step = build_workflow_trace([event])["steps"][0]
+    assert step["event_kind"] == kind
+    assert step["status"] == expected
+    assert step["plan_revision"] == 2
+    assert step["attempt_no"] == 1
+    assert step["details"] == details
 
 
 def test_build_workflow_trace_normalizes_runtime_events() -> None:

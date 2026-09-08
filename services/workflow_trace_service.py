@@ -6,10 +6,18 @@ from schemas.agent import RunEvent
 
 
 EVENT_TO_STEP = {
+    "run_started": "run_started",
     "aoi_resolved": "aoi_resolved",
     "target_crs_resolved": "target_crs_resolved",
     "plan_created": "kg_path_selected",
     "plan_validated": "plan_validated",
+    "post_acquisition_planning_started": "post_acquisition_planning_started",
+    "post_acquisition_plan_created": "post_acquisition_plan_created",
+    "data_requirements_resolved": "data_requirements_resolved",
+    "source_acquisition_started": "source_acquisition_started",
+    "source_acquisition_heartbeat": "source_acquisition_heartbeat",
+    "source_acquisition_failed": "source_acquisition_failed",
+    "source_materialized": "source_materialized",
     "source_coverage_checked": "source_coverage_checked",
     "source_fallback_selected": "source_fallback_selected",
     "source_clipped": "source_clipped",
@@ -19,11 +27,31 @@ EVENT_TO_STEP = {
     "step_succeeded": "step_succeeded",
     "step_failed": "step_failed",
     "execution_completed": "fusion_executed",
+    "execution_started": "execution_started",
+    "quality_gate_evaluated": "quality_gate_evaluated",
+    "quality_gate_disabled_for_ablation": "quality_gate_disabled_for_ablation",
+    "artifact_repair_started": "artifact_repair_started",
+    "artifact_repair_applied": "artifact_repair_applied",
+    "artifact_repair_exhausted": "artifact_repair_exhausted",
+    "replan_requested": "replan_requested",
+    "replan_applied": "replan_applied",
+    "replan_rejected": "replan_rejected",
     "run_succeeded": "artifact_written",
     "run_failed": "failure_recorded",
 }
 
 STEP_EVENT_STATUS = {
+    "run_started": "started",
+    "post_acquisition_planning_started": "started",
+    "source_acquisition_started": "started",
+    "source_acquisition_heartbeat": "running",
+    "source_acquisition_failed": "failed",
+    "execution_started": "started",
+    "artifact_repair_started": "started",
+    "artifact_repair_exhausted": "exhausted",
+    "replan_requested": "requested",
+    "replan_rejected": "rejected",
+    "quality_gate_disabled_for_ablation": "disabled",
     "step_started": "started",
     "step_succeeded": "succeeded",
     "step_failed": "failed",
@@ -40,9 +68,12 @@ def build_workflow_trace(events: list[RunEvent]) -> dict[str, Any]:
             {
                 "step_name": step_name,
                 "actor": _actor_for_event(event.kind),
-                "status": _status_for_event(event.kind),
+                "status": _status_for_event(event),
                 "phase": event.phase.value,
                 "timestamp": event.timestamp,
+                "event_kind": event.kind,
+                "plan_revision": event.plan_revision,
+                "attempt_no": event.attempt_no,
                 "input": _event_input(event),
                 "output": _event_output(event),
                 "details": event.details,
@@ -52,12 +83,21 @@ def build_workflow_trace(events: list[RunEvent]) -> dict[str, Any]:
 
 
 def _actor_for_event(kind: str) -> str:
-    if kind in {"source_coverage_checked", "source_fallback_selected", "source_clipped", "input_bundle_created"}:
+    if kind.startswith(("source_", "quality_gate_", "artifact_repair_")) or kind == "input_bundle_created":
         return "runtime"
     return "agent"
 
 
-def _status_for_event(kind: str) -> str:
+def _status_for_event(event: RunEvent) -> str:
+    kind = event.kind
+    # An evaluation can complete successfully while rejecting the artifact.
+    if kind == "quality_gate_evaluated":
+        accepted = (event.details or {}).get("accepted")
+        if accepted is True:
+            return "accepted"
+        if accepted is False:
+            return "rejected"
+        return "unknown"
     if kind in STEP_EVENT_STATUS:
         return STEP_EVENT_STATUS[kind]
     return "failed" if kind == "run_failed" else "succeeded"

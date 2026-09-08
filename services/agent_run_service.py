@@ -76,7 +76,7 @@ from services.runtime_contract_service import RuntimeContractService
 from services.run_report_service import build_run_report_summary, render_run_reports
 from services.run_execution_router import RunExecutionRouter
 from services.run_state_store import RunStateStore
-from services.run_writeback_service import RunWritebackService
+from services.run_writeback_service import QualityGateRejectedError, RunWritebackService
 from services.source_acquisition_policy import classify_component_degradation, source_fallback_candidates
 from services.source_semantic_contract_service import SourceSemanticContractService
 from services.tile_partition_service import TilePartitionService
@@ -90,6 +90,19 @@ from utils.vector_clip import BBox, clip_zip_to_request_bbox
 
 def _utc_now() -> str:
     return datetime.now(timezone.utc).isoformat()
+
+
+def _execution_action_signature(plan: WorkflowPlan) -> str:
+    return json.dumps([
+        {
+            "step": task.step, "algorithm_id": task.algorithm_id,
+            "input": task.input.model_dump(mode="json"),
+            "output_type": task.output.data_type_id,
+            "depends_on": task.depends_on, "is_transform": task.is_transform,
+            "alternatives": task.alternatives,
+        }
+        for task in plan.tasks
+    ], sort_keys=True)
 
 
 DEFAULT_INPUT_ACQUISITION_TIMEOUT_SECONDS = 600.0
@@ -439,6 +452,11 @@ class AgentRunService:
         issues = classify_unsupported_intent(request.trigger.content, job_type=request.job_type)
         if issues:
             raise ValueError(f"Unsupported intent: {json.dumps(issues, ensure_ascii=False)}")
+        if request.plan_after_acquisition:
+            if request.input_strategy != RunInputStrategy.task_driven_auto:
+                raise ValueError("plan_after_acquisition requires task_driven_auto")
+            if self.max_plan_revisions < 2:
+                raise ValueError("plan_after_acquisition requires at least two plan revisions")
 
         run_id = uuid.uuid4().hex
         run_dir = self.base_dir / run_id
@@ -615,7 +633,7 @@ class AgentRunService:
             logger.info("Validation stage completed; valid=%s", getattr(plan.validation, "valid", None))
             runtime_request = self._request_with_effective_target_crs(run_id, request)
 
-            reuse_result = self._attempt_artifact_reuse(
+            reuse_result = None if request.plan_after_acquisition else self._attempt_artifact_reuse(
                 run_id=run_id,
                 request=runtime_request,
                 plan=plan,
@@ -689,6 +707,8 @@ class AgentRunService:
                 ref_zip_path=ref_zip_path,
                 resolved_aoi=resolved_aoi,
             )
+            if request.plan_after_acquisition and resolved_inputs is None:
+                raise RuntimeError("Post-acquisition planning requires resolved source observations")
             if resolved_inputs is not None:
                 self._record_task_inputs_resolved(
                     run_id,
@@ -713,6 +733,16 @@ class AgentRunService:
                 )
                 if source_semantic_contract is not None:
                     multisource_building_sources = self._building_sources_from_semantic_contract(source_semantic_contract)
+                if request.plan_after_acquisition:
+                    plan = self.run_post_acquisition_planning_stage(
+                        run_id=run_id, request=runtime_request, plan=plan,
+                        resolved_inputs=resolved_inputs, runtime_dependencies=runtime_dependencies,
+                    )
+                    plan, source_semantic_contract = self._bind_source_semantics_for_resolved_inputs(
+                        run_id=run_id, request=runtime_request, plan=plan, resolved_inputs=resolved_inputs,
+                    )
+                    if source_semantic_contract is not None:
+                        multisource_building_sources = self._building_sources_from_semantic_contract(source_semantic_contract)
             should_tile = self._should_use_tiled_building_runtime(
                 request=runtime_request,
                 plan=plan,
@@ -727,6 +757,7 @@ class AgentRunService:
             )
 
             while True:
+                failure_stage = "execution"
                 try:
                     fused_shp, repair_records = self.run_execution_router.run_selected_execution_stage(
                         run_id=run_id,
@@ -744,10 +775,51 @@ class AgentRunService:
                         should_tile=should_tile,
                         should_use_large_area_runtime=should_use_large_area_runtime,
                     )
+                    failure_stage = "writeback"
+                    artifact = self.run_writeback_stage(
+                        run_id=run_id,
+                        request=runtime_request,
+                        plan=plan,
+                        fused_shp=fused_shp,
+                        repair_records=repair_records,
+                        output_dir=output_dir,
+                    )
                     break
                 except Exception as exec_error:  # noqa: BLE001
+                    # Storage/reporting errors are not evidence of fusion quality failure.
+                    if failure_stage == "writeback" and not isinstance(exec_error, QualityGateRejectedError):
+                        raise
                     failed_step = self._infer_failed_step(repair_records)
                     current_revision = self._extract_plan_revision(plan)
+                    if isinstance(exec_error, QualityGateRejectedError):
+                        failure_stage = "quality"
+                        evidence_dir = output_dir.parent / "quality-failures" / f"revision-{current_revision}"
+                        shutil.copytree(output_dir, evidence_dir)
+                        rejected_artifact = Path(exec_error.report.get("artifact_path") or fused_shp)
+                        artifact_snapshot = evidence_dir / "rejected-artifact"
+                        artifact_snapshot.mkdir()
+                        if rejected_artifact.suffix.lower() == ".shp":
+                            artifact_files = [
+                                path for path in rejected_artifact.parent.glob(f"{rejected_artifact.stem}.*")
+                                if path.is_file()
+                            ]
+                        else:
+                            artifact_files = [rejected_artifact]
+                        for path in artifact_files:
+                            shutil.copy2(path, artifact_snapshot / path.name)
+                        failed_step = max(
+                            (task.step for task in plan.tasks if not task.is_transform),
+                            default=None,
+                        )
+                        plan.context["observed_failure"] = {
+                            "stage": "quality",
+                            "quality_report": exec_error.report,
+                            "quality_report_path": str(evidence_dir / exec_error.report_path.name),
+                            "evidence_dir": str(evidence_dir),
+                            "artifact_path": str(artifact_snapshot / rejected_artifact.name),
+                            "root_cause": "undetermined",
+                        }
+                        self._persist_plan(self._plan_path(run_id), plan)
                     failure_message = f"{type(exec_error).__name__}: {exec_error}"
                     can_replan = failed_step is not None and current_revision < self.max_plan_revisions
                     replan_decision = self._build_replan_decision(
@@ -781,6 +853,7 @@ class AgentRunService:
                                 "selected_action": replan_decision.selected_id,
                                 "failed_step": failed_step,
                                 "error": failure_message,
+                                "failure_stage": failure_stage,
                             },
                         )
                         if failed_step is None:
@@ -814,6 +887,8 @@ class AgentRunService:
                             "selected_action": replan_decision.selected_id,
                             "failed_step": failed_step,
                             "error": failure_message,
+                            "failure_stage": failure_stage,
+                            "observed_failure": plan.context.get("observed_failure"),
                         },
                     )
                     logger.warning(
@@ -832,7 +907,40 @@ class AgentRunService:
                         error_message=failure_message,
                     )
                     replanned_revision = self._extract_plan_revision(replanned)
+                    if (
+                        failure_stage == "quality"
+                        and replanned_revision > current_revision
+                        and _execution_action_signature(replanned) == _execution_action_signature(plan)
+                    ):
+                        candidate_path = self.base_dir / run_id / f"rejected-quality-replan-{replanned_revision}.json"
+                        candidate_path.write_text(replanned.model_dump_json(indent=2), encoding="utf-8")
+                        self._update_status(
+                            run_id, RunPhase.healing, progress=60,
+                            event_kind="replan_rejected",
+                            event_message="Quality recovery proposed unchanged executable actions.",
+                            event_details={
+                                "failure_stage": "quality",
+                                "reason": "unchanged_quality_recovery_plan",
+                                "candidate_path": str(candidate_path),
+                            },
+                        )
+                        raise RuntimeError("Unchanged quality recovery plan; duplicate fusion was not executed")
                     if replanned_revision <= current_revision:
+                        if replanned.context.get("failed_replan_telemetry") is not None:
+                            plan.context["failed_replan_telemetry"] = replanned.context["failed_replan_telemetry"]
+                            self._persist_plan(self._plan_path(run_id), plan)
+                        self._update_status(
+                            run_id,
+                            RunPhase.healing,
+                            progress=60,
+                            event_kind="replan_rejected",
+                            event_message="Planner did not produce a newer plan revision.",
+                            event_details={
+                                "failure_stage": failure_stage,
+                                "previous_revision": current_revision,
+                                "returned_revision": replanned_revision,
+                            },
+                        )
                         raise RuntimeError(
                             "Replan did not produce a newer plan revision after execution failure."
                         ) from exec_error
@@ -924,14 +1032,6 @@ class AgentRunService:
                     logger.info("Healing replan completed with revision=%s", self._extract_plan_revision(plan))
             logger.info("Execution stage completed: %s", fused_shp)
 
-            artifact = self.run_writeback_stage(
-                run_id=run_id,
-                request=runtime_request,
-                plan=plan,
-                fused_shp=fused_shp,
-                repair_records=repair_records,
-                output_dir=output_dir,
-            )
             document_paths = self._generate_run_reports(
                 run_id=run_id,
                 status_artifact=artifact,
@@ -1009,6 +1109,79 @@ class AgentRunService:
             for handler in list(logger.handlers):
                 logger.removeHandler(handler)
                 handler.close()
+
+    def run_post_acquisition_planning_stage(
+        self, *, run_id: str, request: RunCreateRequest, plan: WorkflowPlan,
+        resolved_inputs: ResolvedRunInputs, runtime_dependencies: RuntimeDependencies,
+    ) -> WorkflowPlan:
+        revision = self._extract_plan_revision(plan)
+        if revision >= self.max_plan_revisions:
+            raise RuntimeError("No plan revision budget remains for post-acquisition planning")
+        observation = {
+            "source_id": resolved_inputs.source_id,
+            "selected_source_id": resolved_inputs.selected_source_id or resolved_inputs.source_id,
+            "source_mode": resolved_inputs.source_mode,
+            "cache_hit": resolved_inputs.cache_hit,
+            "version_token": resolved_inputs.version_token,
+            "component_coverage": resolved_inputs.component_coverage,
+            "manifest_path": str(resolved_inputs.manifest_path) if resolved_inputs.manifest_path else None,
+            "source_attempts": read_source_attempts(
+                resolved_inputs.manifest_path.parent / "source_attempts.json"
+                if resolved_inputs.manifest_path else None
+            ),
+        }
+        observation_path = self.base_dir / run_id / f"acquisition-observation-revision-{revision}.json"
+        observation_path.write_text(json.dumps(observation, ensure_ascii=False, indent=2), encoding="utf-8")
+        self._update_status(
+            run_id, RunPhase.planning, progress=51,
+            event_kind="post_acquisition_planning_started",
+            event_message="Planning fusion from materialized source observations.",
+            event_details={"observation_path": str(observation_path), "previous_revision": revision},
+        )
+        candidate = runtime_dependencies.planner.plan_after_acquisition(
+            run_id=run_id, job_type=request.job_type, trigger=request.trigger,
+            previous_plan=plan, acquisition_observation=observation,
+        )
+        candidate_path = self.base_dir / run_id / f"post-acquisition-candidate-{revision}.json"
+        candidate_path.write_text(candidate.model_dump_json(indent=2), encoding="utf-8")
+        if self._extract_plan_revision(candidate) != revision + 1:
+            raise RuntimeError("Post-acquisition planner did not produce the next plan revision")
+        if self._task_driven_input_signature(candidate) != self._task_driven_input_signature(plan):
+            raise RuntimeError("Post-acquisition plan changed the materialized input bundle")
+        # Preserve runtime facts, not a model's replacement for the acquired AOI/input mode.
+        candidate.context["intent"] = {
+            **candidate.context.get("intent", {}),
+            "request_input_strategy": request.input_strategy.value,
+        }
+        if plan.context.get("intent", {}).get("resolved_aoi") is not None:
+            candidate.context["intent"]["resolved_aoi"] = plan.context["intent"]["resolved_aoi"]
+        candidate.context["acquisition_observation"] = observation
+        _, gate = self._apply_plan_grounding_gate(run_id, candidate, stage="post_acquisition")
+        if not gate.allowed:
+            self._reject_ungrounded_plan(
+                run_id=run_id, plan=candidate, decision=gate,
+                stage="post_acquisition", plan_path=candidate_path,
+            )
+        candidate = self.run_validation_stage(run_id=run_id, plan=candidate)
+        if self._task_driven_input_signature(candidate) != self._task_driven_input_signature(plan):
+            raise RuntimeError("Post-acquisition validation changed the materialized input bundle")
+        self._persist_plan(self._plan_path(run_id), candidate)
+        self._update_status(
+            run_id, RunPhase.running, progress=55,
+            plan_revision=self._extract_plan_revision(candidate),
+            planning_telemetry={
+                **dict(candidate.context.get("planning_telemetry") or {}),
+                "component_coverage": dict(resolved_inputs.component_coverage),
+            },
+            event_kind="post_acquisition_plan_created",
+            event_message="Fusion plan validated against the materialized input bundle.",
+            event_details={
+                "observation_path": str(observation_path),
+                "planning_source": candidate.context.get("planning_source"),
+                "previous_revision": revision,
+            },
+        )
+        return candidate
 
     def run_planning_stage(
         self,

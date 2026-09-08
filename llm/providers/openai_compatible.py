@@ -37,6 +37,7 @@ class OpenAICompatibleProvider(LLMProvider):
         timeout_sec: int = 60,
         allow_json_salvage: bool = True,
         max_output_tokens: int | None = None,
+        temperature: float = 0.1,
     ) -> None:
         self.api_key = api_key
         self.model = model
@@ -44,6 +45,7 @@ class OpenAICompatibleProvider(LLMProvider):
         self.timeout_sec = timeout_sec
         self.allow_json_salvage = allow_json_salvage
         self.max_output_tokens = max_output_tokens
+        self.temperature = temperature
 
     def probe_connection(self) -> None:
         parsed_url = urlsplit(self.base_url)
@@ -83,7 +85,8 @@ class OpenAICompatibleProvider(LLMProvider):
         model = os.getenv("GEOFUSION_LLM_MODEL", "gpt-5.4-mini")
         base_url = os.getenv("GEOFUSION_LLM_BASE_URL", "https://api.openai.com/v1")
         timeout_sec = int(os.getenv("GEOFUSION_LLM_TIMEOUT_SEC", "60"))
-        return cls(api_key=api_key, model=model, base_url=base_url, timeout_sec=timeout_sec)
+        temperature = float(os.getenv("GEOFUSION_LLM_TEMPERATURE", "0.1"))
+        return cls(api_key=api_key, model=model, base_url=base_url, timeout_sec=timeout_sec, temperature=temperature)
 
     def generate_workflow_plan(self, system_prompt: str, context: Dict[str, Any]) -> Dict[str, Any]:
         self.last_usage = None
@@ -92,7 +95,7 @@ class OpenAICompatibleProvider(LLMProvider):
         endpoint = f"{self.base_url}/chat/completions"
         payload = {
             "model": self.model,
-            "temperature": 0.1,
+            "temperature": self.temperature,
             "response_format": {"type": "json_object"},
             "messages": [
                 {"role": "system", "content": system_prompt},
